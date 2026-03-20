@@ -25,6 +25,14 @@
 - `Code/stock_models.py`
   - CLI entrypoint and export/readback enforcement.
 
+## Continuity Rule
+- Treat **git + docs + saved workbooks** as the durable project memory.
+- Do not assume Codex/Chat thread history will be available or identical on another machine.
+- For machine changes or fresh restarts, begin with:
+  - [SETUP_ON_NEW_MACHINE.md](/c:/Users/Jibbe/Aktier/Code/docs/SETUP_ON_NEW_MACHINE.md)
+  - [BASELINE_FREEZE_2026-03-20.md](/c:/Users/Jibbe/Aktier/Code/docs/BASELINE_FREEZE_2026-03-20.md)
+  - [CURRENT_PASS.md](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md)
+
 ## Active Workbook Dataflow
 1. Pipeline artifacts are built from filings, structured facts, and narrative evidence.
 2. `summary_overview.build_company_overview()` resolves topic-aware `SUMMARY` rows.
