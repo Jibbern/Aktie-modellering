@@ -1,0 +1,94 @@
+# Known Failures And Regressions
+
+## Previously Hit And Now Guarded By Regressions / Audit
+- `SUMMARY` using the latest `10-K*` as a single canonical source for all rows
+  - Why it matters: company description, current context, risk framing, and revenue-stream sourcing need different document priorities.
+- Administrative `10-K/A` filings outranking the original `10-K`
+  - Why it matters: a clerical amendment should not replace the real business / competition / risk source.
+- `SUMMARY` current-focus rows collapsing into timeless business-description text
+  - Why it matters: investor context for the next 1-4 quarters gets lost if the latest earnings framing is not surfaced separately.
+- `SUMMARY` revenue-stream rows using stale or weak fallback period text
+  - Why it matters: latest-period labels should match the actual source period, and `N/A` is safer than pretending stale data is current.
+- Preview vs saved workbook mismatch
+  - Why it matters: internal improvements are meaningless if the delivered workbook differs.
+- Invalid XML in comment export
+  - Why it matters: Excel can remove comment parts or open the workbook with errors.
+- PBI Q3 duplicate buyback row
+  - Why it matters: duplicate capital-allocation notes waste limited note slots.
+- PBI Q1 duplicate revenue-guidance rows in `bn` and `m` formats
+  - Why it matters: same target should not consume two visible rows.
+- Missing PBI dividend / auth note despite explicit source support
+  - Why it matters: high-value policy notes were falling out before saved workbook rendering.
+- PBI Q2 EPS guidance rendered as `Cost savings target`
+  - Why it matters: correct guidance content can survive while the visible row is mislabeled.
+- GPRE missing `45Z contributed $23.4m` in saved workbook
+  - Why it matters: a key monetization note can exist in preview but still disappear in export.
+- GPRE missing `Actively marketing 2026 45Z ...` in saved workbook
+  - Why it matters: narrative commercialization notes were collapsing into other 45Z rows.
+- GPRE static buyback-program / note-exchange text promoted as share repurchase execution
+  - Why it matters: generic capital-allocation parsing can over-interpret financing text if it is not execution-specific.
+- Generic `PaymentsOfDividends` / `dividends and distributions` facts contaminating common-dividend logic
+  - Why it matters: distribution/disbursement facts should not create common-shareholder dividend rows, yields, or notes.
+- Valuation capital-return buyback rows lagging `Quarter_Notes_UI` despite explicit SEC repurchase tables / narrative
+  - Why it matters: users should not have to reconcile two different buyback truths across the same workbook.
+- Stage-cache keys masking behavior changes after source-selection / overview patches
+  - Why it matters: a real fix can appear to fail if stale cached bundle payloads survive a code change.
+- PBI Q4 duplicate buyback execution rows in the delivered workbook
+  - Why it matters: near-identical execution rows should collapse to one visible note.
+- PBI Q3 / Q4 duplicate use-of-proceeds rows
+  - Why it matters: origin-quarter-only event notes should not repeat without a true update.
+- PBI Q4 dividend row marked `NEW` instead of `CONTINUED`
+  - Why it matters: badge semantics should reflect carried-forward policy state.
+- PBI Q2 / Q1 later-quarter buyback leakage
+  - Why it matters: quarter-safe capital-allocation rows lose value if they land in the wrong block.
+- GPRE Q4 duplicated 45Z contribution idea as both guidance-style and realized-style rows
+  - Why it matters: realized monetization should not consume two visible rows under different categories.
+- GPRE Q3 weak `Issued $30.0m of 2030 Notes.` row
+  - Why it matters: financing actions should carry the right quarter and instrument context.
+- GPRE October 2025 convertible exchange / subscription rows leaking into Q3
+  - Why it matters: origin-quarter-only event notes lose context if they follow filing quarter instead of event quarter.
+- PBI `Adj EBITDA == Adj EBIT` collapse in workbook output
+  - Why it matters: silent fallback from adjusted EBITDA to adjusted EBIT is a real mapping / bridge bug when D&A exists.
+- PBI capped-call note leaking into later quarters
+  - Why it matters: one-time capital-markets events should stay tied to the event quarter.
+
+## Still Relevant / Watchlist
+- PBI `Valuation` historical / TTM buyback-cash series is still not fully trusted
+  - Why it matters: latest-quarter execution truth is now clean on visible surfaces, but `Buybacks (TTM, cash)` still shows `524.91407196` for `2025-Q4` in the current delivered workbook.
+- PBI `SUMMARY` revenue streams currently show `N/A`
+  - Why it matters: this is safer than stale data, but a better latest-period segment-table extractor would improve completeness.
+- PBI `SUMMARY` still does not explicitly name the PB Bank role in `What the company does`
+  - Why it matters: the broader financing role is present, but the company description could still become slightly more complete without losing readability.
+- GPRE `SUMMARY` business/segment wording is semantically right but still a bit rough in capitalization/polish
+  - Why it matters: source selection is now good, but the visible summary can still feel slightly raw in a few labels.
+- GPRE `SUMMARY` revenue-streams label is still stale
+  - Why it matters: the current delivered workbook still shows `Business model / revenue streams (% of total revenue) (Quarter end 2025-09-30)` instead of a cleaner FY-2025-aligned label.
+- PBI historical 2024 blocks are still thin
+  - Why it matters: explanatory and policy continuity drops off materially in older quarters, partly because phrase coverage / explicit recall is weaker there.
+- Near-duplicate driver rows surviving together
+  - Why it matters: two similar explanatory rows can still crowd out better variety in some quarters.
+- Same-family management notes collapsing when they should coexist
+  - Why it matters: distinct ideas like outlook vs liquidity can be lost if the collapse is too aggressive.
+- Category / metric labeling can still look slightly odd in some rows
+  - Why it matters: note content may be right while visible category/metric is still imperfect.
+- GPRE Q1 / Q2 management-note metric labels still need cleanup
+  - Why it matters: content is strong, but labels like `Crush margin` or noisy management tags can still look wrong.
+- GPRE Q4 45Z contributed row still omits an explicit `in Q4` suffix
+  - Why it matters: the row is now correctly categorized as a realized result, but quarter wording could still be slightly clearer if source support is tightened further.
+- PBI latest-quarter buyback authorization context still comes from the February 2026 `8-K`
+  - Why it matters: the execution truth is now filing-table-correct, but the context line still intentionally carries the later authorization update rather than quarter-end-only wording.
+- Older 2024 GPRE blocks remain thin
+  - Why it matters: current logic is strongest in 2025 and still leaves historical explanatory coverage on the table, partly because older wording is less covered by current phrase families.
+- Net income / EBITDA / Adjusted EBITDA provenance review is still only partial
+  - Why it matters: these rows are more trustworthy when the workbook makes it easier to tell whether the number came from structured GAAP facts, mapped non-GAAP facts, or weaker narrative support.
+- Latest-quarter `QA_Checks` text parsing is still noisy for some metrics
+  - Why it matters: the QA surface is now working and is useful, but current PASS/WARN rows for Revenue / EBITDA / Net income can still reflect text-parsing ambiguity rather than a real model bug.
+- Delivered `.xlsx` files now include visible `Quarter_Notes_Audit` by default in current CLI exports
+  - Why it matters: docs and pass summaries should treat the audit sheet as available unless an export explicitly disables it.
+- `Quarter_Notes_Audit` still has `saved_workbook_missing` noise
+  - Why it matters: the current audit sheet still shows duplicate rescue rows and noisy XBRL/blob-like excerpts even when the visible workbook output is right.
+  - This is a watchlist item for audit cleanliness, not automatic evidence of visible-surface failure.
+
+## Uncertain / Needs Recheck
+- Some `Tone / expectations` vs `Strategy / segment` placements
+  - Uncertain whether these are acceptable taxonomy outcomes or still worth relabeling.

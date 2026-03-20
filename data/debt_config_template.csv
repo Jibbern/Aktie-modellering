@@ -1,0 +1,2 @@
+name,balance,rate_type,coupon,spread,floor,maturity,amort_per_q,priority,source,confidence
+Debt_total_effective,0.0,effective,0.0,0.0,0.0,,0.0,1,effective_fallback,no_rate

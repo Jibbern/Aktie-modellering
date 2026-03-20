@@ -1,0 +1,53 @@
+﻿Repo restructuring dry-run manifest
+Generated: 2026-03-09
+Root: C:\Users\Jibbe\Aktier
+
+[move_to_code]
+PBI\stock_models.py -> Code\stock_models.py
+PBI\pbi_xbrl\ -> Code\pbi_xbrl\
+PBI\tests\ -> Code\tests\
+PBI\data\debt_config_template.csv -> Code\data\debt_config_template.csv
+
+[keep_in_ticker]
+PBI\CEO letters\
+PBI\earnings_release\
+PBI\slides\
+PBI\segment_financials\
+PBI\sec_cache\
+PBI\PBI_model_History_Q.*
+GPRE\annual_reports\
+GPRE\financial_statement\
+GPRE\earnings_presentation\
+GPRE\earnings_transcripts\
+GPRE\press_release\
+GPRE\sec_cache\
+GPRE\data\
+
+[move_final_workbook]
+PBI\PBI_model.xlsx -> Excel stock models\PBI_model.xlsx
+PBI\PBI modell excel\PBI_model.xlsm -> Excel stock models\PBI_model.xlsm
+GPRE\GPRE model excel\GPRE_model.xlsx -> Excel stock models\GPRE_model.xlsx
+
+[archive_legacy]
+GPRE\ams_3617_esmis.py -> GPRE\_archive\legacy\
+GPRE\crush_pipeline.py -> GPRE\_archive\legacy\
+GPRE\crush_pipeline.py.bak -> GPRE\_archive\legacy\
+GPRE\gpre_10k_consolidated_extract.py -> GPRE\_archive\legacy\
+GPRE\gpre_10k_rename.py -> GPRE\_archive\legacy\
+GPRE\gpre_10k_shares_extract.py -> GPRE\_archive\legacy\
+GPRE\gpre_consolidated_quarterly_extract.py -> GPRE\_archive\legacy\
+GPRE\gpre_diluted_shares_fetch.py -> GPRE\_archive\legacy\
+GPRE\task.py -> GPRE\_archive\legacy\
+GPRE\test2.py -> GPRE\_archive\legacy\
+GPRE\ui_test.xlsx -> GPRE\_archive\legacy\
+GPRE\ui_test_History_Q.csv -> GPRE\_archive\legacy\
+GPRE\ui_test_History_Q.parquet -> GPRE\_archive\legacy\
+
+[delete_safe_temp]
+PBI\__pycache__\
+GPRE\__pycache__\
+
+[cache_merge]
+sec_cache\GPRE\ -> GPRE\sec_cache\
+sec_cache loose non-shared files -> PBI\sec_cache\
+shared root cache retained under sec_cache\market_data, sec_cache\pipeline_stage_cache, sec_cache\tmp_pdf_cache
