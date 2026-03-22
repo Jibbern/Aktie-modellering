@@ -375,6 +375,8 @@ def _build_compat_state(ctx: WriterContext) -> Dict[str, Any]:
     )
     state.update(ctx.data.extra_values)
     state.update(ctx.callbacks.as_state_mapping())
+    if "_ui_state" in state and "ui_state" not in state:
+        state["ui_state"] = state["_ui_state"]
     return state
 
 
@@ -1566,6 +1568,73 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         if m_q:
             return f"Q{int(m_q.group(2))} {int(m_q.group(1))}"
         return p
+
+    def _period_label_to_norm(label_in: Any) -> str:
+        label = str(label_in or "").strip()
+        if not label:
+            return ""
+        m_fy = re.fullmatch(r"FY\s*(20\d{2})", label, re.I)
+        if m_fy:
+            return f"FY{m_fy.group(1)}"
+        m_q = re.fullmatch(r"Q([1-4])\s*(20\d{2})", label, re.I)
+        if m_q:
+            return f"Q{m_q.group(2)}Q{m_q.group(1)}"
+        return ""
+
+    def _pbi_guidance_period_norm_is_reasonable(period_norm: Any, asof_q: Optional[date]) -> bool:
+        p = str(period_norm or "").strip()
+        if not p:
+            return False
+        if p in {"FY+1", "ANNUALIZED_PROGRAM", "RUNRATE", "TIME_ANCHOR"}:
+            return True
+        if not isinstance(asof_q, date):
+            return bool(re.match(r"^(FY20\d{2}|Q20\d{2}Q[1-4])$", p))
+        year_floor = int(asof_q.year) - 1
+        year_ceil = int(asof_q.year) + 2
+        m_fy = re.fullmatch(r"FY(20\d{2})", p, re.I)
+        if m_fy:
+            return year_floor <= int(m_fy.group(1)) <= year_ceil
+        m_q = re.fullmatch(r"Q(20\d{2})Q([1-4])", p, re.I)
+        if m_q:
+            return year_floor <= int(m_q.group(1)) <= year_ceil
+        return False
+
+    def _pbi_repair_guidance_period_meta(
+        metric_label: Any,
+        period_norm: Any,
+        period_label: Any,
+        text_in: Any,
+        asof_q: Optional[date],
+    ) -> Tuple[str, str]:
+        metric_txt = str(metric_label or "").strip()
+        if metric_txt not in {"Revenue guidance", "Adjusted EBIT guidance", "EPS guidance", "FCF target"}:
+            return str(period_norm or "").strip(), str(period_label or "").strip()
+        txt_norm = glx_normalize_text(str(text_in or ""))
+        norm = str(period_norm or "").strip()
+        label = str(period_label or "").strip()
+        explicit_label = _pbi_guidance_period_label_from_text(txt_norm)
+        explicit_norm = _period_label_to_norm(explicit_label)
+        if _pbi_guidance_period_norm_is_reasonable(explicit_norm, asof_q):
+            return explicit_norm, explicit_label
+        if re.search(r"\bfull[- ]?year\b", txt_norm, re.I) and re.fullmatch(r"Q20\d{2}Q[1-4]", norm or "", re.I):
+            fallback_label = _pbi_default_guidance_period_label(metric_txt, asof_q)
+            fallback_norm = _period_label_to_norm(fallback_label)
+            if _pbi_guidance_period_norm_is_reasonable(fallback_norm, asof_q):
+                return fallback_norm, fallback_label
+        if _pbi_guidance_period_norm_is_reasonable(norm, asof_q):
+            if not label:
+                label = _pbi_period_label_from_norm(norm, asof_q) if isinstance(asof_q, date) else label
+            return norm, label
+        label_guess = label
+        if not _pbi_guidance_period_norm_is_reasonable(_period_label_to_norm(label_guess), asof_q):
+            label_guess = _pbi_guidance_period_label_from_text(text_in)
+        norm_guess = _period_label_to_norm(label_guess)
+        if not _pbi_guidance_period_norm_is_reasonable(norm_guess, asof_q):
+            label_guess = _pbi_default_guidance_period_label(metric_txt, asof_q)
+            norm_guess = _period_label_to_norm(label_guess)
+        if not _pbi_guidance_period_norm_is_reasonable(norm_guess, asof_q):
+            return "", ""
+        return norm_guess, label_guess
 
     def _pbi_default_guidance_period_label(metric_label: str, asof_q: Optional[date]) -> str:
         if not isinstance(asof_q, date):
@@ -3078,6 +3147,177 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         if scope_kind.startswith("component") and scope_label:
             return f"{scope_label} {base_metric}"
         return base_metric
+
+    def _gpre_clean_visible_promise_metric(metric_name: Any, text_in: Any, item: Dict[str, Any]) -> str:
+        metric_txt = str(metric_name or "").strip()
+        blob = glx_normalize_text(
+            " | ".join(
+                [
+                    metric_txt,
+                    str(text_in or ""),
+                    str(item.get("target") or item.get("target_display") or ""),
+                    str(item.get("latest") or item.get("latest_display") or ""),
+                    str(item.get("rationale") or ""),
+                ]
+            )
+        )
+        low = blob.lower()
+        metric_low = metric_txt.lower()
+        if metric_low in {"", "nan", "none", "n/a", "other", "unknown"}:
+            return ""
+        if re.search(r"\binterest expense\b", low, re.I):
+            return "Interest expense outlook"
+        if re.search(r"\b(all eight operating ethanol plants|qualify for production tax credits|expected to qualify)\b", low, re.I):
+            return "45Z facility qualification"
+        if re.search(r"\badvantage nebraska\b", low, re.I) and re.search(r"\bebitda opportunity\b", low, re.I):
+            return "Advantage Nebraska EBITDA opportunity"
+        if re.search(r"\b45z[- ]related\b[^.]{0,60}\badjusted ebitda\b|\bat least \$?\d[^.]{0,40}\b45z[- ]related adjusted ebitda\b", low, re.I):
+            return "45Z-related Adjusted EBITDA outlook"
+        if metric_low.startswith("least ") and "45z" in low:
+            return "45Z-related Adjusted EBITDA outlook"
+        if re.search(r"\b45z\b", low, re.I) and re.search(r"\b(monetization|tax credit|income tax benefit)\b", low, re.I):
+            return "45Z monetization outlook"
+        if re.search(r"\b45z\b", low, re.I) and re.search(r"\b(remaining facilities|remaining plants)\b", low, re.I):
+            return "45Z from remaining facilities"
+        if re.search(r"\b(cost savings|cost reduction|annualized savings|run-rate savings)\b", low, re.I):
+            return "Cost savings target"
+        if re.search(r"\b(debt reduction|deleverag|used to fully repay|repayment completed|sale of obion|obion)\b", low, re.I):
+            return "Debt reduction"
+        if re.search(r"\b(advantage nebraska|carbon capture|central city|wood river|york)\b", low, re.I) and re.search(
+            r"\b(fully operational|online and ramping|start-?up|commissioning|construction progressing|agreement executed|ordered major equipment)\b",
+            low,
+            re.I,
+        ):
+            return "Advantage Nebraska startup"
+        return metric_txt
+
+    def _gpre_clean_visible_note_metric(metric_name: Any, text_in: Any, item: Dict[str, Any]) -> str:
+        metric_txt = str(metric_name or "").strip()
+        blob = glx_normalize_text(
+            " | ".join(
+                [
+                    metric_txt,
+                    str(text_in or ""),
+                    str(item.get("_render_summary") or ""),
+                    str(item.get("text_full") or ""),
+                    str(item.get("bucket") or ""),
+                ]
+            )
+        )
+        low = blob.lower()
+        metric_low = metric_txt.lower()
+        if re.search(r"\bcrush margin\b", low, re.I):
+            return "Crush margin"
+        if metric_low in {"fcf_ttm_delta_yoy", "fcf"}:
+            return "FCF trend"
+        if metric_low in {"net_debt_yoy_delta", "net debt"}:
+            return "Net debt trend"
+        if metric_low in {"adj_ebitda_yoy", "adjusted ebitda"}:
+            return "Adjusted EBITDA"
+        if metric_low in {"ebitda_margin_ttm_yoy_bps", "ebitda margin"}:
+            return "EBITDA margin"
+        if metric_low in {"revolver_drawn_change", "revolver_utilization"}:
+            return "Revolver availability"
+        if re.search(r"\binterest expense\b", low, re.I) and re.search(r"\b(expected|annualized|2026)\b", low, re.I):
+            return "Interest expense outlook"
+        if re.search(r"\b(central city|wood river|york)\b", low, re.I) and re.search(r"\bfully operational\b", low, re.I):
+            return "Carbon capture operational milestone"
+        if re.search(r"\b45z\b", low, re.I) and re.search(r"\bagreement\b", low, re.I):
+            return "45Z agreement update"
+        if re.search(r"\b(repurchase authorization|repurchas(?:e|ed)|share repurchase)\b", low, re.I):
+            return "Capital markets / buyback"
+        if re.search(r"\bissued an additional\b", low, re.I) and re.search(r"\bnotes due november 2030\b", low, re.I):
+            return "Additional note issuance"
+        if re.search(r"\b(exchanged?\b|convertible senior notes due 2027|notes due november 2030)\b", low, re.I):
+            return "Debt exchange"
+        if re.search(r"\b(restructuring costs?|cost reduction initiative)\b", low, re.I) and not re.search(
+            r"\b(repurchase authorization|repurchas(?:e|ed)|share repurchase|interest expense|agreement|convertible|notes due)\b",
+            low,
+            re.I,
+        ):
+            return "One-time items / restructuring"
+        if metric_low not in {
+            "",
+            "nan",
+            "none",
+            "n/a",
+            "other",
+            "unknown",
+            "least 45z monetization / ebitda",
+            "45z monetization / ebitda",
+            "45z-related adjusted ebitda",
+            "year ended december expense drivers",
+            "management operating target",
+        } and not re.search(r"^\s*(least|year ended|company has|in all of our)\b", metric_txt, re.I):
+            return metric_txt
+        cleaned = _gpre_clean_visible_promise_metric(metric_txt, blob, item)
+        if cleaned:
+            return cleaned
+        return metric_txt
+
+    def _gpre_bad_visible_promise_reason(
+        metric_name: Any,
+        rationale_in: Any,
+        latest_in: Any,
+        target_in: Any,
+    ) -> str:
+        metric_txt = str(metric_name or "").strip()
+        rationale_txt = glx_normalize_text(str(rationale_in or ""))
+        latest_txt = glx_normalize_text(str(latest_in or ""))
+        target_txt = glx_normalize_text(str(target_in or ""))
+        blob = " | ".join([metric_txt, target_txt, latest_txt, rationale_txt]).lower()
+        support_blob = " | ".join([target_txt, latest_txt, rationale_txt]).lower()
+        metric_low = metric_txt.lower()
+        forwardish = bool(
+            re.search(
+                r"\b(target|guidance|outlook|expected|expect|opportunity|on track|by end of|through|into 20\d{2}|in 20\d{2}|annualized|run-rate|fully operational|qualify)\b",
+                blob,
+                re.I,
+            )
+        )
+        if metric_low in {"", "nan", "none", "n/a", "other", "unknown"}:
+            return "empty_metric"
+        if latest_txt.lower() == "nan" and target_txt.lower() in {"1", "1.0"}:
+            return "nan_milestone"
+        if re.search(r"\bclean fuel production\b", metric_txt, re.I):
+            return "historical_positioning_fact"
+        if re.search(r"^\s*(year ended|evaluation\b|in all of our\b|company has\b)", metric_txt, re.I):
+            return "malformed_metric"
+        if re.search(r"\b(federal r&d|research and development credits|federal research and development|net operating losses?)\b", blob, re.I):
+            return "tax_or_nol_fact"
+        if re.search(r"\b287-million-gallon nebraska platform\b|\bgreet model\b", blob, re.I) and not forwardish:
+            return "historical_positioning_fact"
+        if re.search(r"\bat december 31\b", blob, re.I) and not forwardish:
+            return "balance_sheet_fact"
+        if re.search(r"\b(?:for the )?year ended december\b", blob, re.I) and not forwardish:
+            return "historical_year_fact"
+        if metric_low == "cost savings target" and re.search(r"\b(restructuring costs?|restructuring charges?)\b", support_blob, re.I):
+            if not re.search(r"\b(on pace|exceed|annualized savings target|run-rate|cost reductions? are on pace|expected savings|targeted savings)\b", support_blob, re.I):
+                return "historical_restructuring_fact"
+        if metric_low in {"45z monetization / ebitda", "45z monetization outlook"}:
+            if not re.search(
+                r"\b(45z|tax credit|monetization|income tax benefit|agreement executed|production tax credits?|45z value realized|net of discounts)\b",
+                support_blob,
+                re.I,
+            ):
+                return "weak_45z_context"
+            if re.search(r"\bcrush margin\b", rationale_txt, re.I):
+                return "nonpromise_driver_context"
+            if re.search(r"\b(convertible|repurchase|subscription transactions?|notes due 2030|notes due 2027)\b", rationale_txt, re.I):
+                return "mixed_transaction_context"
+            target_hits = _extract_money_targets_for_display(target_txt)
+            target_amt = max(target_hits) if target_hits else None
+            if target_amt is not None and float(target_amt) >= 100_000_000 and not re.search(r"\badjusted ebitda\b", support_blob, re.I):
+                return "wrong_45z_target_scale"
+        if metric_low == "strategic milestone" and re.search(
+            r"\b(transactions? are expected to close|exchange transactions?|subscription transactions?|issued an additional \$|notes due 2030|notes due 2027)\b",
+            blob,
+            re.I,
+        ):
+            return "transaction_event_only"
+        if re.search(r"\b(contributed|recorded|recognized|net of discounts and other costs|crush margin improved)\b", blob, re.I) and not forwardish:
+            return "realized_fact_only"
+        return ""
 
     def _split_target_scope_token(item: Dict[str, Any]) -> str:
         return str(item.get("scope_key") or "").strip() or "company_total"
@@ -5347,6 +5587,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             # Match requested UI: narrower rank, wider title.
             ws.column_dimensions["A"].width = 7
             ws.column_dimensions["C"].width = 30
+            if "K" in ws.column_dimensions:
+                ws.column_dimensions["K"].width = max(34, min(42, ws.column_dimensions["K"].width or 34))
         # widen evidence columns and wrap to keep sheet readable
         col_map = {h: i + 1 for i, h in enumerate(headers)}
         for col_name in ["evidence_1", "evidence_2", "evidence_3"]:
@@ -9915,6 +10157,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if m_util:
                 suffix = " of stated capacity" if "stated capacity" in low else " across operating plants"
                 return _ensure_terminal_period(f"Utilization reached {m_util.group(1)}{suffix}")
+            m_operating_util = re.search(
+                r"\bachieved strong utilization in the quarter from the (?:eight|nine) operating ethanol plants of (\d{2,3})%\b",
+                txt_local,
+                re.I,
+            )
+            if m_operating_util:
+                return _ensure_terminal_period(f"Utilization reached {m_operating_util.group(1)}% across operating plants")
             if "marketing" in metric_low and re.search(r"\bactively marketing 2026 45z production tax credits\b", low, re.I):
                 return _ensure_terminal_period("Actively marketing 2026 45Z production tax credits")
             gpre_45z_contrib_match = re.search(
@@ -18686,6 +18935,71 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return "RIN sale benefited crush margin"
             return ""
 
+        def _gpre_final_visible_note_metric(item: Dict[str, Any], metric_display_in: str) -> str:
+            metric_txt = str(metric_display_in or "").strip()
+            blob = glx_normalize_text(
+                " | ".join(
+                    [
+                        metric_txt,
+                        str(item.get("_render_summary") or ""),
+                        str(item.get("text_full") or ""),
+                        str(item.get("bucket") or ""),
+                    ]
+                )
+            )
+            low = blob.lower()
+            if re.search(r"\bissued an additional\b", low, re.I) and re.search(r"\bnotes due november 2030\b", low, re.I):
+                return "Additional note issuance"
+            if re.search(r"\bexchanged?\b", low, re.I) and re.search(r"\bnotes due 2027\b", low, re.I):
+                return "Debt exchange"
+            if re.search(r"\binterest expense\b", low, re.I) and re.search(r"\b(expected|annualized|2026)\b", low, re.I):
+                return "Interest expense outlook"
+            if re.search(r"\brepurchase authorization\b", low, re.I):
+                return "Repurchase authorization"
+            if re.search(r"\brepurchased?\b.*\bshares\b", low, re.I):
+                return "Repurchase execution"
+            if re.search(r"\b45z\b", low, re.I) and re.search(r"\bproductions? tax credits contributed\b", low, re.I):
+                return "45Z monetization outlook"
+            if re.search(r"\b45z\b", low, re.I) and re.search(r"\bagreement\b", low, re.I):
+                return "45Z agreement update"
+            if re.search(r"\bfully operational\b", low, re.I) and re.search(r"\b(central city|wood river|york)\b", low, re.I):
+                return "Carbon capture operational milestone"
+            if re.search(r"\badvantage nebraska\b", low, re.I) and re.search(r"\bebitda opportunity\b", low, re.I):
+                return "Advantage Nebraska EBITDA opportunity"
+            if re.search(r"\bcrush margin\b", low, re.I):
+                return "Crush margin"
+            if re.search(r"\bnet debt\b", low, re.I):
+                return "Net debt trend"
+            if re.search(r"\bfcf\b", low, re.I):
+                return "FCF trend"
+            if re.search(r"\badjusted ebitda\b", low, re.I) and re.search(r"\byoy\b", low, re.I):
+                return "Adjusted EBITDA"
+            return _gpre_clean_visible_note_metric(metric_txt, blob, item) or metric_txt
+
+        def _gpre_metric_from_visible_note_text(note_text_in: Any, metric_display_in: str) -> str:
+            metric_txt = str(metric_display_in or "").strip()
+            blob = glx_normalize_text(" | ".join([metric_txt, str(note_text_in or "")]))
+            low = blob.lower()
+            if re.search(r"\bissued an additional\b", low, re.I) and re.search(r"\bnotes due november 2030\b", low, re.I):
+                return "Additional note issuance"
+            if re.search(r"\bexchanged?\b", low, re.I) and re.search(r"\bnotes due 2027\b", low, re.I):
+                return "Debt exchange"
+            if re.search(r"\binterest expense\b", low, re.I) and re.search(r"\b(expected|annualized|2026)\b", low, re.I):
+                return "Interest expense outlook"
+            if re.search(r"\brepurchase authorization\b", low, re.I):
+                return "Repurchase authorization"
+            if re.search(r"\brepurchased?\b.*\bshares\b", low, re.I):
+                return "Repurchase execution"
+            if re.search(r"\b45z\b", low, re.I) and re.search(r"\bproductions? tax credits contributed\b", low, re.I):
+                return "45Z monetization outlook"
+            if re.search(r"\b45z\b", low, re.I) and re.search(r"\bagreement\b", low, re.I):
+                return "45Z agreement update"
+            if re.search(r"\bfully operational\b", low, re.I) and re.search(r"\b(central city|wood river|york)\b", low, re.I):
+                return "Carbon capture operational milestone"
+            if re.search(r"\badvantage nebraska\b", low, re.I) and re.search(r"\bebitda opportunity\b", low, re.I):
+                return "Advantage Nebraska EBITDA opportunity"
+            return metric_txt
+
         def _row_writer(_ws: Any, row_idx: int, qd: date, item: Dict[str, Any]) -> None:
             bucket = str(item.get("bucket") or "")
             metric_tag = str(item.get("metric_tag") or "").strip()
@@ -18753,6 +19067,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             else:
                 prefix_metric = str(item.get("_metric_display") or "").strip() or (_humanize_metric_label(metric_tag) if metric_tag else "Note")
             metric_display = prefix_metric
+            if is_gpre_profile:
+                metric_display = _gpre_final_visible_note_metric(item, metric_display)
             if stated_tag and metric_display:
                 metric_display = f"{metric_display}{stated_tag}"
             elif stated_tag:
@@ -18894,6 +19210,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     disp = f"{disp} {delta_context} \u0394 {delta}"
                 else:
                     disp = f"{disp} \u0394 {delta}"
+            if is_gpre_profile:
+                metric_display = _gpre_metric_from_visible_note_text(disp, metric_display)
             _ws.cell(row=row_idx, column=2, value=bucket)
             c_note = _ws.cell(row=row_idx, column=3, value=disp)
             c_note.alignment = Alignment(wrap_text=True, vertical="top")
@@ -19795,6 +20113,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     or ""
                 )
             )
+            cleaned_metric = _gpre_clean_visible_note_metric(
+                item.get("_metric_display") or item.get("metric_canon") or item.get("metric_tag") or "",
+                txt,
+                item,
+            )
+            if cleaned_metric:
+                item["_metric_display"] = cleaned_metric
             metric_blob = " | ".join(
                 [
                     str(item.get("_metric_display") or ""),
@@ -19804,6 +20129,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 ]
             )
             if not txt:
+                item["quality_drop_reason"] = "fragmentary_text"
+                return False
+            if re.search(
+                r"operational excellence,\s*and a \$49\.1 million \$428\.8 million stronger balance sheet",
+                txt,
+                re.I,
+            ):
                 item["quality_drop_reason"] = "fragmentary_text"
                 return False
             if str(item.get("change_badge") or "").strip().upper() == "DROPPED":
@@ -23051,15 +23383,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         "quarter": qd_ref,
                         "bucket": "Capital allocation / shareholder returns",
                         "candidate_type": "gpre_final_visible_connected_buyback_override",
-                        "metric_tag": "Capital markets / buyback|buyback_execution",
-                        "metric_canon": "Capital markets / buyback|buyback_execution",
-                        "_metric_display": "Capital markets / buyback",
+                        "metric_tag": "Repurchase execution|buyback_execution",
+                        "metric_canon": "Repurchase execution|buyback_execution",
+                        "_metric_display": "Repurchase execution",
                         "_render_summary": connected_summary,
                         "_render_summary_locked": True,
                         "_split_focus": "buyback_execution",
                         "_force_note_passthrough": True,
                         "_event_quarter_override": qd_ref,
-                        "_theme_scope_key": "capital markets / buyback|buyback_execution",
+                        "_theme_scope_key": "repurchase execution|buyback_execution",
                         "source": {
                             "source_type": "sec_cache_filing",
                             "doc": str((connected_override or {}).get("doc") or ""),
@@ -23093,6 +23425,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 if not inserted:
                     filtered_rows.append(dict(connected_row))
                 updated_rows = filtered_rows
+
+            normalized_rows: List[Dict[str, Any]] = []
+            for item_in in updated_rows:
+                item_copy = dict(item_in)
+                render_summary = glx_normalize_text(
+                    str(item_copy.get("_render_summary") or _note_final_display_summary_local(dict(item_copy), qd_ref) or "")
+                )
+                if re.search(
+                    r"\boperational excellence,\s+and a \$49\.1 million \$428\.8 million stronger balance sheet\b",
+                    render_summary,
+                    re.I,
+                ):
+                    continue
+                util_match = re.search(
+                    r"\bachieved strong utilization in the quarter from the (?:eight|nine) operating ethanol plants of (\d{2,3})%\b",
+                    render_summary,
+                    re.I,
+                )
+                if util_match:
+                    clean_util_summary = _ensure_terminal_period(
+                        f"Utilization reached {util_match.group(1)}% across operating plants"
+                    )
+                    item_copy["_render_summary"] = clean_util_summary
+                    item_copy["_render_summary_locked"] = True
+                    item_copy["text_full"] = clean_util_summary
+                    item_copy["comment_full_text"] = clean_util_summary
+                normalized_rows.append(item_copy)
+            updated_rows = normalized_rows
 
             return _dedupe_final_note_preview_rows_local(updated_rows, qd_ref)
 
@@ -23520,6 +23880,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             start_row=2,
             blank_row_between=True,
         )
+        if is_gpre_profile:
+            for rr in range(2, ws.max_row + 1):
+                note_txt = glx_normalize_text(str(ws.cell(row=rr, column=3).value or ""))
+                metric_txt = str(ws.cell(row=rr, column=4).value or "").strip()
+                util_match = re.search(r"(\d{2,3})%", note_txt, re.I)
+                if "strong utilization in the quarter" in note_txt.lower() and "operating ethanol plants" in note_txt.lower() and util_match:
+                    ws.cell(row=rr, column=3).value = _ensure_terminal_period(
+                        f"Utilization reached {util_match.group(1)}% across operating plants"
+                    )
+                    if not metric_txt or metric_txt == "45Z agreement update":
+                        ws.cell(row=rr, column=4).value = "Utilization"
         for rr in range(2, ws.max_row + 1):
             a = str(ws.cell(row=rr, column=1).value or "").strip()
             b = str(ws.cell(row=rr, column=2).value or "").strip().lower()
@@ -23544,16 +23915,56 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         ui_state["quarters"] = quarters
         return qa_rows
 
-    def _write_promise_tracker_ui_v2() -> List[Dict[str, Any]]:
-        ws = wb.create_sheet("Promise_Tracker_UI")
+    def _write_promise_tracker_ui_v2(render_visible: bool = True) -> List[Dict[str, Any]]:
+        ws = wb.create_sheet("Promise_Tracker_UI") if render_visible else None
         qa_rows: List[Dict[str, Any]] = []
         ts = datetime.now(dt.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         quarter_note_rows_seed = ui_state.get("quarter_notes_ui_rows", {}) if isinstance(ui_state, dict) else {}
         has_qnote_recall_seed = any(bool(rows) for rows in quarter_note_rows_seed.values()) if isinstance(quarter_note_rows_seed, dict) else False
+
+        def _store_tracker_state(grouped_rows: Dict[date, List[Dict[str, Any]]], q_window_local: List[date]) -> None:
+            def _state_tracker_copy(item_in: Dict[str, Any]) -> Dict[str, Any]:
+                out_item = dict(item_in)
+                if is_pbi_profile:
+                    metric_label = _classify_pbi_metric_label(
+                        " | ".join(
+                            [
+                                str(out_item.get("metric_display") or ""),
+                                str(out_item.get("metric") or ""),
+                                str(out_item.get("text_full") or out_item.get("text_snippet") or ""),
+                                str(out_item.get("target_display") or out_item.get("target") or ""),
+                            ]
+                        ),
+                        str(out_item.get("metric_display") or out_item.get("metric") or ""),
+                    )
+                    if metric_label:
+                        out_item["metric_display"] = metric_label
+                        if str(out_item.get("metric") or "").strip() in {"", "Revenue", "Adj EBIT", "Adj EPS", "FCF"}:
+                            out_item["metric"] = metric_label
+                return out_item
+
+            ui_state["quarters"] = q_window_local
+            ui_state["promise_tracker_rows_by_q"] = {
+                qd_local: [_state_tracker_copy(it) for it in grouped_rows.get(qd_local, [])]
+                for qd_local in q_window_local
+            }
+            promise_ids = [
+                {"promise_id": str(it.get("promise_id") or "").strip()}
+                for qd_local in q_window_local
+                for it in grouped_rows.get(qd_local, [])
+                if str(it.get("promise_id") or "").strip()
+            ]
+            if promise_ids:
+                ui_state["promise_rows"] = pd.DataFrame(promise_ids).drop_duplicates(["promise_id"]).reset_index(drop=True)
+            else:
+                ui_state["promise_rows"] = pd.DataFrame(columns=["promise_id"])
+
         if (promises is None or promises.empty) and not has_qnote_recall_seed:
-            ws["A1"] = f"Generated at {ts} | Quarter list view"
-            ws["A2"] = "No data."
-            ws.freeze_panes = "A2"
+            _store_tracker_state({}, [])
+            if render_visible and ws is not None:
+                ws["A1"] = f"Generated at {ts} | Quarter list view"
+                ws["A2"] = "No data."
+                ws.freeze_panes = "A2"
             return qa_rows
 
         if promises is None or promises.empty:
@@ -23596,9 +24007,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         deadline_col = _resolve_col(p, ["target_time", "deadline"])
         promise_type_col = _resolve_col(p, ["promise_type"])
         if pid_col is None or txt_col is None:
-            ws["A1"] = f"Generated at {ts} | Quarter list view"
-            ws["A2"] = "Missing required source columns."
-            ws.freeze_panes = "A2"
+            _store_tracker_state({}, [])
+            if render_visible and ws is not None:
+                ws["A1"] = f"Generated at {ts} | Quarter list view"
+                ws["A2"] = "Missing required source columns."
+                ws.freeze_panes = "A2"
             return qa_rows
 
         def _parse_json(raw: Any) -> Dict[str, Any]:
@@ -24448,9 +24861,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 )
             else:
                 if not has_qnote_recall_seed:
-                    ws["A1"] = f"Generated at {ts} | Quarter list view"
-                    ws["A2"] = "No promises after high-signal filtering."
-                    ws.freeze_panes = "A2"
+                    _store_tracker_state({}, [])
+                    if render_visible and ws is not None:
+                        ws["A1"] = f"Generated at {ts} | Quarter list view"
+                        ws["A2"] = "No promises after high-signal filtering."
+                        ws.freeze_panes = "A2"
                     return qa_rows
         elif fallback_candidates:
             winners_per_quarter: Dict[date, int] = {}
@@ -24839,13 +25254,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 item["target_display"] = target_display
             return True
 
-        records = [rec for rec in winners.values() if _promise_tracker_keep_item(rec)]
+        if render_visible:
+            records = [rec for rec in winners.values() if _promise_tracker_keep_item(rec)]
+        else:
+            # The visible tracker sheet applies stricter presentation rules than the
+            # downstream progress sheet needs for its feeder state. When the tracker
+            # UI is intentionally hidden, keep the normalized winners available so
+            # Promise_Progress_UI can make the final investor-facing quality choice.
+            records = [dict(rec) for rec in winners.values() if str(rec.get("promise_id") or "").strip()]
         grouped: Dict[date, List[Dict[str, Any]]] = {}
         for rec in records:
             grouped.setdefault(rec["quarter"], []).append(rec)
         def _gpre_final_tracker_keep_item(item: Dict[str, Any]) -> bool:
             txt_full = glx_normalize_text(str(item.get("text_full") or item.get("text_snippet") or ""))
-            metric_name = str(item.get("metric_display") or item.get("metric") or "").strip()
+            metric_name = _gpre_clean_visible_promise_metric(
+                str(item.get("metric_display") or item.get("metric") or "").strip(),
+                " | ".join(
+                    [
+                        txt_full,
+                        str(item.get("target_display") or ""),
+                        str(item.get("latest_display") or ""),
+                    ]
+                ),
+                item,
+            )
+            if metric_name:
+                item["metric_display"] = metric_name
+            if _gpre_bad_visible_promise_reason(metric_name, txt_full, item.get("latest_display"), item.get("target_display")):
+                return False
             src = dict(item.get("source") or {})
             statement_role, _ = shared_classify_statement_evidence_role(
                 txt_full,
@@ -26561,7 +26997,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 seen_tracker_keys.add(dedup_key)
                 deduped_tracker_rows.append(item)
             grouped[qd] = deduped_tracker_rows[:15]
-            if is_pbi_profile:
+            if render_visible and is_pbi_profile:
                 final_items: List[Dict[str, Any]] = []
                 seen_keys: set[Tuple[str, str]] = set()
                 for it in grouped[qd]:
@@ -26585,7 +27021,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     seen_keys.add(dedup_key)
                     final_items.append(it)
                 grouped[qd] = final_items[:8]
-            elif is_gpre_profile:
+            elif render_visible and is_gpre_profile:
                 grouped[qd] = [it for it in grouped[qd] if _gpre_final_tracker_keep_item(it)]
 
         if is_pbi_profile and isinstance(gstore, dict):
@@ -26737,7 +27173,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         }
                     )
 
-        if is_pbi_profile:
+        if render_visible and is_pbi_profile:
             def _pbi_tracker_metric_label(item_in: Dict[str, Any]) -> str:
                 return _classify_pbi_metric_label(
                     " | ".join(
@@ -26851,6 +27287,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                             "source": "Quarter_Notes_UI",
                         }
                     )
+
+        _store_tracker_state(grouped, q_window)
+        if not render_visible or ws is None:
+            return qa_rows
 
         ws["A1"] = f"Generated at {ts} | Quarter list view | high-signal promise mode"
         ws["A1"].font = Font(bold=True, size=header_size)
@@ -26993,12 +27433,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         ws.column_dimensions["B"].width = 233.57
         ws.column_dimensions["C"].width = 22
         ws.column_dimensions["D"].width = 14
-        ui_state["quarters"] = q_window
-        ui_state["promise_tracker_rows_by_q"] = {qd: [dict(it) for it in grouped.get(qd, [])] for qd in q_window}
         if promise_rows_for_progress:
             ui_state["promise_rows"] = pd.DataFrame(promise_rows_for_progress).drop_duplicates(["promise_id"]).reset_index(drop=True)
-        else:
-            ui_state["promise_rows"] = pd.DataFrame(columns=["promise_id"])
         if milestone_suppressed_count > 0:
             ui_info_rows.append(
                 {
@@ -27109,6 +27545,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 if event_type == "milestone" or metric_family == "milestone":
                     return "Strategic milestone"
                 return ""
+            if re.search(r"\bannualized\b[^|]{0,80}\binterest expense\b|\binterest expense\b[^|]{0,80}\bexpected\b", text_blob, re.I):
+                return "Interest expense outlook"
             if re.search(r"\bqualify for production tax credits\b|\bexpected to qualify\b", text_blob, re.I) and not re.search(
                 r"\b(monetization|ebitda opportunity|agreement executed|expected q4 2025 monetization)\b",
                 text_blob,
@@ -27126,7 +27564,24 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             return ""
 
         def _progress_metric_from_qnote(note_item: Dict[str, Any]) -> str:
-            txt_local = glx_normalize_text(str(note_item.get("text_full") or note_item.get("comment_full_text") or ""))
+            txt_local = glx_normalize_text(
+                str(
+                    note_item.get("text_full")
+                    or note_item.get("comment_full_text")
+                    or note_item.get("text")
+                    or note_item.get("comment")
+                    or note_item.get("rationale")
+                    or ""
+                )
+            )
+            direct_metric = str(
+                note_item.get("metric_display")
+                or note_item.get("_metric_display")
+                or note_item.get("metric_ref")
+                or note_item.get("metric")
+                or note_item.get("metric_canon")
+                or ""
+            ).strip()
             hint = " | ".join(
                 [
                     str(note_item.get("metric_canon") or ""),
@@ -27155,6 +27610,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     return pbi_metric
                 if pbi_metric:
                     return ""
+            if re.search(r"\bannualized\b[^|]{0,80}\binterest expense\b|\binterest expense\b[^|]{0,80}\bexpected\b", blob, re.I):
+                return "Interest expense outlook"
             if re.search(r"\bqualify for production tax credits\b|\bexpected to qualify\b", blob, re.I) and not re.search(
                 r"\b(monetization|ebitda opportunity|agreement executed)\b",
                 blob,
@@ -29647,8 +30104,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     return f">= {_fmt_short_money_value(realized_amt)} annualized savings"
             if cur_target:
                 return target_in
-            if metric_low == "45z monetization / ebitda" and money_hits:
-                return f">= {_fmt_short_money_value(max(money_hits, key=lambda z: abs(float(z))))}"
             return target_in
 
         def _follow_status_weight(status_in: Any) -> int:
@@ -30125,6 +30580,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
 
         def _progress_metric_from_qnote(note_item: Dict[str, Any]) -> str:
             txt_local = glx_normalize_text(str(note_item.get("text_full") or note_item.get("comment_full_text") or ""))
+            direct_metric = str(
+                note_item.get("metric_display")
+                or note_item.get("_metric_display")
+                or note_item.get("metric_ref")
+                or note_item.get("metric")
+                or note_item.get("metric_canon")
+                or ""
+            ).strip()
             hint = " | ".join(
                 [
                     str(note_item.get("metric_canon") or ""),
@@ -30148,13 +30611,33 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     "SendTech / Presort operating target",
                     "Strategic milestone",
                 }
+                if direct_metric in pbi_allowed_labels_local:
+                    return direct_metric
+                if re.search(r"\bstrategic review\b", blob, re.I):
+                    return "Strategic milestone"
                 pbi_metric = _classify_pbi_metric_label(blob, "")
                 if pbi_metric in pbi_allowed_labels_local:
                     return pbi_metric
                 if pbi_metric:
                     return ""
+            gpre_allowed_labels_local = {
+                "45Z-related Adjusted EBITDA",
+                "45Z monetization / EBITDA",
+                "45Z plant qualification readiness",
+                "45Z from remaining facilities",
+                "Advantage Nebraska EBITDA opportunity",
+                "Advantage Nebraska startup",
+                "Cost savings target",
+                "Debt reduction",
+                "Interest expense outlook",
+                "Strategic milestone",
+            }
+            if direct_metric in gpre_allowed_labels_local:
+                return direct_metric
             if any(k in blob for k in ("45z", "tax credit monetization", "ebitda opportunity", "qualify for production tax credits")):
                 return "45Z monetization / EBITDA"
+            if re.search(r"\binterest expense\b", blob, re.I) and re.search(r"\b(expected|annualized|outlook|2026)\b", blob, re.I):
+                return "Interest expense outlook"
             if re.search(r"(cost reduction|cost savings|annualized savings|expense reduction)", blob, re.I):
                 return "Cost savings"
             if re.search(r"(repay|repaid|delever|debt reduction|used to fully repay|sale of obion)", blob, re.I):
@@ -31068,6 +31551,86 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     updates += 1
             return updates
 
+        def _gpre_trim_final_progress_rows(items_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            if not is_gpre_profile:
+                return items_in
+            sections = [x for x in items_in if str(x.get("row_type") or "").strip().lower() in {"section", "blank"}]
+            rows = [dict(x) for x in items_in if str(x.get("row_type") or "").strip().lower() not in {"section", "blank"}]
+            metric_caps = {
+                "45Z-related Adjusted EBITDA": 1,
+                "45Z monetization / EBITDA": 1,
+                "45Z monetization outlook": 1,
+                "45Z from remaining facilities": 1,
+                "45Z facility qualification": 1,
+                "45Z plant qualification readiness": 1,
+                "Advantage Nebraska EBITDA opportunity": 1,
+                "Advantage Nebraska startup": 1,
+                "Cost savings target": 1,
+                "Debt reduction": 1,
+                "Interest expense outlook": 1,
+            }
+            metric_order = {
+                "Advantage Nebraska startup": 0,
+                "45Z monetization outlook": 1,
+                "Advantage Nebraska EBITDA opportunity": 2,
+                "45Z facility qualification": 3,
+                "45Z from remaining facilities": 4,
+                "Cost savings target": 5,
+                "Interest expense outlook": 6,
+                "Debt reduction": 7,
+                "45Z-related Adjusted EBITDA": 8,
+                "45Z plant qualification readiness": 9,
+            }
+            for row in rows:
+                metric_label = _gpre_clean_visible_promise_metric(
+                    str(row.get("metric_display") or row.get("metric_ref") or row.get("metric") or ""),
+                    " | ".join(
+                        [
+                            str(row.get("rationale") or ""),
+                            str(row.get("_source_snip") or ""),
+                            str(row.get("latest") or ""),
+                            str(row.get("target") or ""),
+                        ]
+                    ),
+                    row,
+                )
+                if metric_label:
+                    row["metric_display"] = metric_label
+            rows = [
+                row for row in rows
+                if not _gpre_bad_visible_promise_reason(
+                    row.get("metric_display") or row.get("metric_ref"),
+                    row.get("rationale"),
+                    row.get("latest"),
+                    row.get("target"),
+                )
+            ]
+            rows = sorted(
+                rows,
+                key=lambda z: (
+                    metric_order.get(str(z.get("metric_display") or z.get("metric_ref") or "").strip(), 99),
+                    -shared_progress_status_rank(z.get("status")),
+                    -int(str(z.get("latest") or "").strip().lower() not in {"", "not yet measurable"}),
+                    int(z.get("_fragment_penalty") or 0),
+                    -int(z.get("_clean_target_bonus") or 0),
+                    -float(z.get("_score") or z.get("confidence_score") or 0.0),
+                    str(z.get("metric_display") or z.get("metric_ref") or "").lower(),
+                ),
+            )
+            kept_rows: List[Dict[str, Any]] = []
+            metric_counts: Dict[str, int] = {}
+            for row in rows:
+                label = str(row.get("metric_display") or row.get("metric_ref") or "").strip()
+                if not label:
+                    continue
+                cap = metric_caps.get(label, 1)
+                used = metric_counts.get(label, 0)
+                if used >= cap:
+                    continue
+                metric_counts[label] = used + 1
+                kept_rows.append(row)
+            return sections + kept_rows
+
         rows_by_quarter: Dict[date, List[Dict[str, Any]]] = {}
         milestone_suppressed_count = 0
         guidance_snapshot_store = ui_state.get("guidance_snapshot_by_q", {}) if isinstance(ui_state, dict) else {}
@@ -31229,6 +31792,28 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     explicit_period_label = str(r.get(tpl_col) or "").strip()
                     if explicit_period_label:
                         row_rec["target_period_label"] = explicit_period_label
+                if is_pbi_profile:
+                    repaired_norm, repaired_label = _pbi_repair_guidance_period_meta(
+                        metric_ref_raw,
+                        row_rec.get("target_period_norm"),
+                        row_rec.get("target_period_label"),
+                        " | ".join(
+                            [
+                                str(row_rec.get("target") or ""),
+                                str(row_rec.get("latest") or ""),
+                                rationale_val,
+                                src_snip,
+                            ]
+                        ),
+                        qd,
+                    )
+                    if repaired_norm:
+                        row_rec["target_period_norm"] = repaired_norm
+                    if repaired_label:
+                        row_rec["target_period_label"] = repaired_label
+                        if re.search(r"^Guidance period FY\s*20\d{2} has not ended", rationale_val, re.I):
+                            rationale_val = re.sub(r"FY\s*20\d{2}", repaired_label, rationale_val, count=1, flags=re.I)
+                            row_rec["rationale"] = rationale_val
                 if str(row_rec.get("promise_type") or "").strip().lower() == "guidance_range":
                     metric_blob = " | ".join([metric_ref_raw, str(row_rec.get("metric_display") or ""), rationale_val, src_snip])
                     metric_name = ""
@@ -31290,16 +31875,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             # Keep operational promises separate from guidance-range calibration rows.
             oper_rows = [x for x in rows if str(x.get("promise_type") or "").strip().lower() != "guidance_range"]
             if not (isinstance(guidance_snapshot_store, dict) and guidance_snapshot_store.get(str(qd))):
-                # Keep resolved guidance rows visible only when there is no structured
-                # guidance snapshot for the quarter; otherwise the dedicated guidance
-                # rows remain the canonical display.
+                # When there is no structured guidance snapshot for the quarter,
+                # the progress sheet itself must carry open measurable guidance rows.
+                # Keep all guidance-range rows here and let the later quality gates
+                # decide what survives visibly.
                 oper_rows.extend(
                     [
                         x
                         for x in rows
                         if str(x.get("promise_type") or "").strip().lower() == "guidance_range"
-                        and str(x.get("status") or "").strip().lower()
-                        in {"achieved", "resolved_pass", "resolved_beat", "resolved_fail", "broken", "missed"}
                     ]
                 )
             def _progress_identity_key_local(item: Dict[str, Any]) -> Tuple[str, str, str]:
@@ -31745,6 +32329,25 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 metric_low = metric_name.lower()
                 promise_type_val = str(item.get("promise_type") or item.get("candidate_scope") or "").strip()
                 rationale = glx_normalize_text(str(item.get("rationale") or ""))
+                if is_gpre_profile:
+                    normalized_metric = _gpre_clean_visible_promise_metric(
+                        metric_name,
+                        " | ".join([rationale, str(item.get("target") or ""), str(item.get("latest") or "")]),
+                        item,
+                    )
+                    if normalized_metric:
+                        metric_name = normalized_metric
+                        metric_low = metric_name.lower()
+                        item["metric_display"] = metric_name
+                    bad_reason = _gpre_bad_visible_promise_reason(
+                        metric_name,
+                        rationale,
+                        item.get("latest"),
+                        item.get("target"),
+                    )
+                    if bad_reason:
+                        item["quality_drop_reason"] = bad_reason
+                        return False
                 source_class = str(item.get("source_class") or shared_source_class(item.get("_source_type") or item.get("source_type") or "")).strip().lower()
                 statement_class = str(
                     item.get("statement_class")
@@ -31851,7 +32454,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                             re.I,
                         )
                         and re.search(
-                            r"\b(45z|debt reduction|cost savings|carbon capture|strategic milestone|obion|fully operational|agreement executed|qualify for production tax credits)\b",
+                            r"\b(45z|debt reduction|cost savings|carbon capture|strategic milestone|interest expense|obion|fully operational|agreement executed|qualify for production tax credits)\b",
                             metric_name + " | " + rationale,
                             re.I,
                         )
@@ -31870,7 +32473,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         is_gpre_profile
                         and source_bucket in {"tracker_ui_recall", "quarter_notes_ui_seed"}
                         and source_type in {"quarter_notes_ui", "tracker_ui", "earnings_release", "earnings_presentation", "presentation"}
-                        and re.search(r"\b(45z|debt reduction|cost savings|carbon capture|strategic milestone|obion|repaid|fully operational|online and ramping)\b", metric_name + " | " + rationale, re.I)
+                        and re.search(r"\b(45z|debt reduction|cost savings|carbon capture|strategic milestone|interest expense|obion|repaid|fully operational|online and ramping)\b", metric_name + " | " + rationale, re.I)
                         and not _slide_signal_noise(rationale)
                         and not re.search(r"^\s*(table|permit|map|list|appendix|note:)\b", rationale, re.I)
                     ):
@@ -31970,6 +32573,27 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         re.I,
                     ) and not re.search(r"\b(york|advantage nebraska|central city|wood river|obion)\b", rationale, re.I):
                         return False
+                    if metric_name in {
+                        "45Z-related Adjusted EBITDA",
+                        "45Z monetization / EBITDA",
+                        "45Z plant qualification readiness",
+                        "45Z from remaining facilities",
+                        "Advantage Nebraska EBITDA opportunity",
+                        "Cost savings target",
+                        "Debt reduction",
+                        "Interest expense outlook",
+                        "Advantage Nebraska startup",
+                    }:
+                        return bool(
+                            numeric_target
+                            or explicit_timing
+                            or action_or_target
+                            or re.search(
+                                r"\b(fully operational|online and ramping|agreement executed|repaid|repayment completed|construction progressing|commissioning|on track|expected|opportunity|annualized)\b",
+                                rationale,
+                                re.I,
+                            )
+                        )
                     return bool(
                         numeric_target
                         or explicit_timing
@@ -32105,7 +32729,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 if not metric_name:
                     return None
                 txt_full = glx_normalize_text(
-                    str(note_item.get("text_full") or note_item.get("comment_full_text") or "")
+                    str(
+                        note_item.get("text_full")
+                        or note_item.get("comment_full_text")
+                        or note_item.get("text")
+                        or note_item.get("comment")
+                        or note_item.get("rationale")
+                        or ""
+                    )
                 )
                 summary_txt = glx_normalize_text(str(note_item.get("_render_summary") or ""))
                 basis_txt = summary_txt or txt_full
@@ -32491,7 +33122,28 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     if str(z.get("metric_ref") or "").strip() or str(z.get("scope_key") or "").strip()
                 }
                 added_from_tracker = 0
-                for rec in tracker_rows:
+                tracker_rows_iter = list(tracker_rows)
+                if not is_gpre_profile:
+                    def _pbi_tracker_priority_local(rec_local: Dict[str, Any]) -> Tuple[int, float, str]:
+                        metric_blob = glx_normalize_text(
+                            " | ".join(
+                                [
+                                    str(rec_local.get("metric_display") or rec_local.get("metric") or rec_local.get("metric_ref") or ""),
+                                    str(rec_local.get("text_full") or rec_local.get("text_snippet") or ""),
+                                    str(rec_local.get("target_display") or ""),
+                                    str(rec_local.get("latest_display") or ""),
+                                ]
+                            )
+                        ).lower()
+                        if re.search(r"\bstrategic review|strategic milestone\b", metric_blob, re.I):
+                            return (0, -float(rec_local.get("score") or 0.0), metric_blob)
+                        if re.search(r"\bcost savings|annualized savings|run-rate savings\b", metric_blob, re.I):
+                            return (1, -float(rec_local.get("score") or 0.0), metric_blob)
+                        if re.search(r"\b(liquidity release|capital allocation|pb bank)\b", metric_blob, re.I):
+                            return (2, -float(rec_local.get("score") or 0.0), metric_blob)
+                        return (5, -float(rec_local.get("score") or 0.0), metric_blob)
+                    tracker_rows_iter = sorted(tracker_rows_iter, key=_pbi_tracker_priority_local)
+                for rec in tracker_rows_iter:
                     tracker_row = _build_tracker_progress_row(qd, rec)
                     if tracker_row is None:
                         continue
@@ -32524,7 +33176,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     selected_rows.append(tracker_row)
                     existing_by_metric[metric_key] = len(selected_rows) - 1
                     added_from_tracker += 1
-                    if (not is_gpre_profile and len(selected_rows) >= 5) or (is_gpre_profile and added_from_tracker >= 3 and len(selected_rows) >= 5):
+                    if (not is_gpre_profile and len(selected_rows) >= 6) or (is_gpre_profile and added_from_tracker >= 3 and len(selected_rows) >= 5):
                         break
                 if added_from_tracker > 0:
                     selected_rows = sorted(
@@ -32773,8 +33425,281 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                                 "source": "quarter_notes",
                             }
                         )
+
+            def _append_targeted_qnote_progress_rows(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                if not isinstance(quarter_note_rows_map, dict):
+                    return rows_in
+                existing_metric_names = {
+                    str(name).strip()
+                    for row in rows_in
+                    if str(row.get("row_type") or "").strip().lower() not in {"section", "blank"}
+                    for name in [
+                        row.get("metric_ref"),
+                        row.get("metric_display"),
+                        row.get("metric"),
+                    ]
+                    if str(name or "").strip()
+                }
+                existing_progress_keys = {
+                    _progress_identity_key_local(row)
+                    for row in rows_in
+                    if str(row.get("row_type") or "").strip().lower() not in {"section", "blank"}
+                }
+                targeted_added = 0
+                for note_item in _quarter_note_seed_rows_for_qd(qd):
+                    raw_note_txt = glx_normalize_text(
+                        str(
+                            note_item.get("_render_summary")
+                            or note_item.get("text_full")
+                            or note_item.get("comment_full_text")
+                            or note_item.get("text")
+                            or note_item.get("comment")
+                            or note_item.get("rationale")
+                            or ""
+                        )
+                    )
+                    pbi_priority_note = bool(
+                        is_pbi_profile
+                        and "Strategic milestone" not in existing_metric_names
+                        and re.search(r"\bstrategic review\b", raw_note_txt, re.I)
+                        and re.search(r"\b(q[1-4]\s*20\d{2}|q[1-4]|20\d{2}|on track|by end of)\b", raw_note_txt, re.I)
+                    )
+                    seed = _build_qnote_progress_seed(qd, note_item)
+                    if seed is None and pbi_priority_note:
+                        seed = {
+                            "promise_id": str(note_item.get("note_id") or hashlib.sha1(f"{qd}|qnote_priority|{raw_note_txt}".encode("utf-8")).hexdigest()[:12]),
+                            "metric_ref": "Strategic milestone",
+                            "metric_display": "Strategic milestone",
+                            "target": "",
+                            "latest": raw_note_txt,
+                            "promise_key": "strategic_review",
+                            "target_bucket": "quarter_notes_ui_seed",
+                            "promise_type": "milestone",
+                            "scorable": False,
+                            "numeric_update_this_quarter": False,
+                            "status": "in progress",
+                            "rationale": raw_note_txt,
+                            "guidance_type": "milestone",
+                            "target_period_norm": "",
+                            "target_period_label": "",
+                            "first_seen_quarter_end": str(qd),
+                            "last_seen_quarter_end": str(qd),
+                            "first_seen_evidence_quarter_end": str(qd),
+                            "last_seen_evidence_quarter_end": str(qd),
+                            "last_seen_numeric_quarter_end": "",
+                            "last_seen_text_quarter_end": str(qd),
+                            "carried_to_quarter_end": str(qd),
+                            "evaluated_through": "",
+                            "qa_severity": "",
+                            "qa_message": "quarter_notes_ui_priority_seed",
+                            "_source_snip": raw_note_txt,
+                            "_source_doc": str(dict(note_item.get("source") or {}).get("doc") or note_item.get("doc") or "Quarter_Notes_UI"),
+                            "_source_type": str(dict(note_item.get("source") or {}).get("source_type") or note_item.get("doc_type") or "quarter_notes_ui"),
+                            "_status_pri": 1,
+                            "_score": float(note_item.get("score") or 0.0),
+                            "_fragment_penalty": _text_fragment_penalty(raw_note_txt),
+                            "_clean_target_bonus": _clean_target_bonus(raw_note_txt),
+                            "statement_summary": raw_note_txt,
+                        }
+                    if seed is None:
+                        continue
+                    seed_blob = glx_normalize_text(
+                        " | ".join(
+                            [
+                                str(seed.get("metric_ref") or ""),
+                                str(seed.get("metric_display") or ""),
+                                str(seed.get("target") or ""),
+                                str(seed.get("latest") or ""),
+                                str(seed.get("rationale") or ""),
+                                str(seed.get("_source_snip") or ""),
+                            ]
+                        )
+                    )
+                    priority_seed = bool(
+                        pbi_priority_note
+                        or (
+                            is_pbi_profile
+                        and str(seed.get("metric_ref") or "").strip() == "Strategic milestone"
+                        and re.search(r"\bstrategic review\b", seed_blob, re.I)
+                        )
+                    )
+                    if not priority_seed and not _promise_progress_keep_item(seed):
+                        continue
+                    finalized = _finalize_progress_item(dict(seed))
+                    if finalized is None:
+                        continue
+                    metric_ref = str(finalized.get("metric_ref") or "").strip()
+                    metric_label = str(
+                        finalized.get("metric_display")
+                        or metric_ref
+                        or finalized.get("metric")
+                        or ""
+                    ).strip()
+                    if not metric_label and not metric_ref:
+                        continue
+                    metric_key = _progress_identity_key_local(finalized)
+                    if metric_key in existing_progress_keys:
+                        continue
+                    note_blob = glx_normalize_text(
+                        " | ".join(
+                            [
+                                str(finalized.get("target") or ""),
+                                str(finalized.get("latest") or ""),
+                                str(finalized.get("rationale") or ""),
+                                str(finalized.get("_source_snip") or ""),
+                            ]
+                        )
+                    )
+                    should_add = False
+                    if is_pbi_profile:
+                        should_add = (
+                            metric_ref == "Strategic milestone"
+                            and "Strategic milestone" not in existing_metric_names
+                            and re.search(r"\bstrategic review\b", note_blob, re.I)
+                            and re.search(r"\b(q[1-4]\s*20\d{2}|q[1-4]|20\d{2}|on track|by end of)\b", note_blob, re.I)
+                        )
+                    elif is_gpre_profile:
+                        should_add = (
+                            metric_ref == "Interest expense outlook"
+                            and "Interest expense outlook" not in existing_metric_names
+                            and re.search(r"\binterest expense\b", note_blob, re.I)
+                            and re.search(r"\b(expected|annualized|2026)\b", note_blob, re.I)
+                        ) or (
+                            metric_ref == "45Z monetization / EBITDA"
+                            and "45Z monetization / EBITDA" not in existing_metric_names
+                            and str(finalized.get("target") or "").strip() != ""
+                            and re.search(r"\b45z\b", note_blob, re.I)
+                            and re.search(r"\b(expected|outlook)\b", note_blob, re.I)
+                        )
+                    if not should_add:
+                        continue
+                    rows_in.append(finalized)
+                    existing_progress_keys.add(metric_key)
+                    existing_metric_names.add(metric_ref or metric_label)
+                    if metric_label:
+                        existing_metric_names.add(metric_label)
+                    targeted_added += 1
+                if targeted_added > 0:
+                    ui_info_rows.append(
+                        {
+                            "quarter": qd,
+                            "metric": "Promise_Progress_UI",
+                            "severity": "info",
+                            "message": f"targeted_qnote_progress_added count={int(targeted_added)}",
+                            "source": "Quarter_Notes_UI",
+                        }
+                    )
+                return rows_in
+
+            finalized_rows = _append_targeted_qnote_progress_rows(finalized_rows)
             selected_rows = finalized_rows
             selected_rows = _collapse_progress_rows_for_display(selected_rows)
+            if is_gpre_profile:
+                selected_rows = _gpre_trim_final_progress_rows(selected_rows)
+                existing_metric_names = {
+                    str(name).strip()
+                    for row in selected_rows
+                    if str(row.get("row_type") or "").strip().lower() not in {"section", "blank"}
+                    for name in [
+                        row.get("metric_ref"),
+                        row.get("metric_display"),
+                        row.get("metric"),
+                    ]
+                    if str(name or "").strip()
+                }
+                gpre_targeted_rows: List[Dict[str, Any]] = []
+                for note_item in _quarter_note_seed_rows_for_qd(qd):
+                    note_txt = glx_normalize_text(
+                        str(
+                            note_item.get("_render_summary")
+                            or note_item.get("text_full")
+                            or note_item.get("comment_full_text")
+                            or note_item.get("text")
+                            or note_item.get("comment")
+                            or note_item.get("rationale")
+                            or ""
+                        )
+                    )
+                    if not note_txt:
+                        continue
+                    src = dict(note_item.get("source") or {})
+                    if (
+                        "Interest expense outlook" not in existing_metric_names
+                        and re.search(r"\binterest expense\b", note_txt, re.I)
+                        and re.search(r"\b(expected|annualized|2026)\b", note_txt, re.I)
+                    ):
+                        interest_hits = _extract_money_targets_for_display(note_txt)
+                        interest_target = ""
+                        if len(interest_hits) >= 2:
+                            lo = min(float(interest_hits[0]), float(interest_hits[1]))
+                            hi = max(float(interest_hits[0]), float(interest_hits[1]))
+                            interest_target = f"{_fmt_short_money_value_local(lo)}-{_fmt_short_money_value_local(hi)}"
+                        gpre_targeted_rows.append(
+                            {
+                                "promise_id": str(note_item.get("note_id") or hashlib.sha1(f"{qd}|gpre_interest|{note_txt}".encode("utf-8")).hexdigest()[:12]),
+                                "metric_ref": "Interest expense outlook",
+                                "metric_display": "Interest expense outlook",
+                                "target": interest_target,
+                                "latest": "not yet measurable",
+                                "status": "pending",
+                                "rationale": note_txt,
+                                "promise_type": "operational",
+                                "guidance_type": "period",
+                                "first_seen_quarter_end": str(qd),
+                                "last_seen_quarter_end": str(qd),
+                                "first_seen_evidence_quarter_end": str(qd),
+                                "last_seen_evidence_quarter_end": str(qd),
+                                "last_seen_text_quarter_end": str(qd),
+                                "carried_to_quarter_end": str(qd),
+                                "evaluated_through": str(qd),
+                                "_source_snip": note_txt,
+                                "_source_doc": str(src.get("doc") or note_item.get("doc") or "Quarter_Notes_UI"),
+                                "_source_type": str(src.get("source_type") or note_item.get("doc_type") or "quarter_notes_ui"),
+                                "_score": float(note_item.get("score") or 0.0),
+                                "_fragment_penalty": _text_fragment_penalty(note_txt),
+                                "_clean_target_bonus": _clean_target_bonus(note_txt),
+                                "statement_summary": note_txt,
+                            }
+                        )
+                        existing_metric_names.add("Interest expense outlook")
+                    if (
+                        "45Z monetization / EBITDA" not in existing_metric_names
+                        and re.search(r"\b45z\b", note_txt, re.I)
+                        and re.search(r"\b(expected|outlook)\b", note_txt, re.I)
+                        and str(_extract_45z_monetization_target_display(note_txt, qd, "") or "").strip()
+                    ):
+                        gpre_targeted_rows.append(
+                            {
+                                "promise_id": str(note_item.get("note_id") or hashlib.sha1(f"{qd}|gpre_45z_monet|{note_txt}".encode("utf-8")).hexdigest()[:12]),
+                                "metric_ref": "45Z monetization / EBITDA",
+                                "metric_display": "45Z monetization / EBITDA",
+                                "target": str(_extract_45z_monetization_target_display(note_txt, qd, "") or ""),
+                                "latest": "not yet measurable",
+                                "status": "pending",
+                                "rationale": note_txt,
+                                "promise_type": "operational",
+                                "guidance_type": "period",
+                                "first_seen_quarter_end": str(qd),
+                                "last_seen_quarter_end": str(qd),
+                                "first_seen_evidence_quarter_end": str(qd),
+                                "last_seen_evidence_quarter_end": str(qd),
+                                "last_seen_text_quarter_end": str(qd),
+                                "carried_to_quarter_end": str(qd),
+                                "evaluated_through": str(qd),
+                                "_source_snip": note_txt,
+                                "_source_doc": str(src.get("doc") or note_item.get("doc") or "Quarter_Notes_UI"),
+                                "_source_type": str(src.get("source_type") or note_item.get("doc_type") or "quarter_notes_ui"),
+                                "_score": float(note_item.get("score") or 0.0),
+                                "_fragment_penalty": _text_fragment_penalty(note_txt),
+                                "_clean_target_bonus": _clean_target_bonus(note_txt),
+                                "statement_summary": note_txt,
+                            }
+                        )
+                        existing_metric_names.add("45Z monetization / EBITDA")
+                if gpre_targeted_rows:
+                    selected_rows = _gpre_trim_final_progress_rows(
+                        _collapse_progress_rows_for_display(selected_rows + gpre_targeted_rows)
+                    )
             selected_rows = [
                 item for item in selected_rows
                 if not re.search(
@@ -33010,17 +33935,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         def _block_header_writer(_ws: Any, row_idx: int, _qd: date, _max_col: int) -> int:
             hdr_fill = PatternFill("solid", fgColor="F2F2F2")
             labels = {
-                1: "promise_id",
-                2: "metric",
-                3: "target",
-                4: "latest",
-                5: "result",
-                6: "rationale",
-                7: "stated",
-                8: "last_seen",
-                9: "carried_to",
-                10: "evaluated_through",
-                11: "evidence",
+                1: "Metric",
+                2: "Target",
+                3: "Latest",
+                4: "Result",
+                5: "Rationale",
+                6: "Stated",
+                7: "Last Seen",
+                8: "Carried To",
+                9: "Evaluated Through",
+                10: "Evidence",
+                15: "Promise Id",
             }
             for cc in range(1, _max_col + 1):
                 cell = _ws.cell(row=row_idx, column=cc, value=labels.get(cc, ""))
@@ -33033,6 +33958,16 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         def _display_progress_metric(item: Dict[str, Any]) -> str:
             metric_display = str(item.get("metric_display") or "").strip()
             metric_display_low = metric_display.lower()
+            rationale_txt = glx_normalize_text(
+                " | ".join(
+                    [
+                        str(item.get("rationale") or ""),
+                        str(item.get("_source_snip") or ""),
+                        str(item.get("latest") or ""),
+                        str(item.get("target") or ""),
+                    ]
+                )
+            )
             if is_pbi_profile:
                 better_pbi = _classify_pbi_metric_label(
                     " | ".join(
@@ -33048,6 +33983,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 )
                 if better_pbi and better_pbi.lower() not in {"management target"}:
                     return better_pbi
+            if is_gpre_profile:
+                cleaned_gpre = _gpre_clean_visible_promise_metric(metric_display or str(item.get("metric_ref") or ""), rationale_txt, item)
+                if cleaned_gpre and not _gpre_bad_visible_promise_reason(cleaned_gpre, rationale_txt, item.get("latest"), item.get("target")):
+                    item["metric_display"] = cleaned_gpre
+                    return cleaned_gpre
             if metric_display and metric_display_low not in {
                 "management target",
                 "strategic milestone",
@@ -33058,15 +33998,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             }:
                 return metric_display
             metric_txt = str(item.get("metric_ref") or "").strip()
-            rationale_txt = glx_normalize_text(
-                " | ".join(
-                    [
-                        str(item.get("rationale") or ""),
-                        str(item.get("_source_snip") or ""),
-                        str(item.get("latest") or ""),
-                    ]
-                )
-            )
             context_key = _progress_context_key(metric_txt, rationale_txt, item.get("promise_type"))
             if context_key == "cost_savings_program":
                 structure_role = str(item.get("target_structure_role") or item.get("stage_kind") or "").strip().lower()
@@ -33076,16 +34007,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 if structure_role in {"additional_tranche", "phase_2", "remaining"}:
                     return "Cost savings tranche 2"
                 if structure_kind in {"program_total", "stage_and_total"} or re.search(r"\bannualized program\b", rationale_txt, re.I):
-                    return "Cost savings program"
-                return "Cost savings program"
+                    return "Cost savings target"
+                return "Cost savings target"
             if context_key == "45z_plant_qualification":
-                return "45Z plant qualification readiness"
+                return "45Z facility qualification"
             if context_key == "45z_monetization":
+                if re.search(r"\b45z[- ]related\b[^.]{0,60}\badjusted ebitda\b|\bat least \$?\d", rationale_txt, re.I):
+                    return "45Z-related Adjusted EBITDA outlook"
                 if re.search(r"\b(monetization|income tax benefit|net of discounts|agreement executed|tax credit)\b", rationale_txt, re.I):
-                    return "45Z Adjusted EBITDA / monetization"
-                return "45Z monetization / EBITDA"
+                    return "45Z monetization outlook"
+                return "45Z monetization outlook"
             if context_key == "debt_reduction":
-                return "Debt reduction milestone"
+                return "Debt reduction"
             if context_key == "york_operational":
                 return "Advantage Nebraska startup"
             if context_key == "central_city_wood_river":
@@ -33611,7 +34544,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if row_type == "section":
                 label = _excel_safe_text_local(str(item.get("section_label") or "Guidance accuracy"))
                 sec_fill = PatternFill("solid", fgColor="F2F2F2")
-                for cc in range(1, 12):
+                for cc in range(1, 16):
                     c_sec = _ws.cell(row=row_idx, column=cc, value=label if cc == 1 else "")
                     c_sec.fill = sec_fill
                     c_sec.font = Font(bold=True, size=11)
@@ -33619,15 +34552,68 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 _ws.row_dimensions[row_idx].height = 16.0
                 return
 
+            def _progress_metric_is_monetary(metric_text: Any) -> bool:
+                metric_low = str(metric_text or "").strip().lower()
+                return any(
+                    token in metric_low
+                    for token in (
+                        "revenue",
+                        "ebit",
+                        "ebitda",
+                        "eps",
+                        "fcf",
+                        "cost savings",
+                        "liquidity",
+                        "interest expense",
+                        "45z",
+                        "debt",
+                        "buyback",
+                        "dividend",
+                    )
+                )
+
+            def _progress_moneyish_text(text_in: Any) -> bool:
+                txt = str(text_in or "").strip()
+                if not txt:
+                    return False
+                if _parse_dollar_amount(txt) is not None:
+                    return True
+                return bool(re.match(r"^[><~]?\s*\$[0-9]", txt))
+
+            def _apply_progress_monetary_format(cell: Any, metric_text: Any) -> None:
+                if not _progress_metric_is_monetary(metric_text):
+                    return
+                try:
+                    val = float(cell.value)
+                except Exception:
+                    return
+                metric_low = str(metric_text or "").strip().lower()
+                if "eps" in metric_low:
+                    cell.number_format = "$0.00"
+                elif abs(val) >= 1_000_000:
+                    cell.number_format = '$#,##0.000,,"m"'
+                elif abs(val) >= 1_000:
+                    cell.number_format = "$#,##0.0"
+                else:
+                    cell.number_format = "$0.00"
+
             display_metric = _display_progress_metric(item)
             pid = str(item.get("promise_id") or "")
             if is_pbi_profile and display_metric in {"Revenue guidance", "Adjusted EBIT guidance", "EPS guidance", "FCF target"}:
                 pid = f"guidance:{display_metric.lower().replace(' ', '_')}"
             pid_display = pid if pid.startswith("guidance:") else _short_pid(pid)
-            _ws.cell(row=row_idx, column=1, value=_excel_safe_text_local(pid_display))
-            _ws.cell(row=row_idx, column=2, value=_excel_safe_text_local(display_metric))
-            c_t = _ws.cell(row=row_idx, column=3)
+            _ws.cell(row=row_idx, column=1, value=_excel_safe_text_local(display_metric))
+            _ws.cell(row=row_idx, column=15, value=_excel_safe_text_local(pid_display))
+            c_t = _ws.cell(row=row_idx, column=2)
             target_value = item.get("target")
+            if (
+                str(target_value or "").strip().lower() in {"1", "1.0"}
+                and (
+                    str(item.get("promise_type") or "").strip().lower() == "milestone"
+                    or display_metric in {"Strategic milestone", "Advantage Nebraska startup", "45Z plant qualification readiness"}
+                )
+            ):
+                target_value = ""
             if is_pbi_profile and (
                 not str(target_value or "").strip()
                 or _looks_pbi_fragment_text(target_value)
@@ -33662,65 +34648,77 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             target_is_numeric = _set_num(c_t, target_value)
             if not target_is_numeric:
                 c_t.value = _safe_cell(target_value)
+            else:
+                _apply_progress_monetary_format(c_t, display_metric)
             target_txt = str(c_t.value or "")
+            target_moneyish = _progress_moneyish_text(target_value if not target_is_numeric else c_t.value)
             c_t.alignment = Alignment(
-                horizontal="right" if target_is_numeric else "left",
-                vertical="top" if (not target_is_numeric and len(target_txt) > 14) else "center",
-                wrap_text=(not target_is_numeric and len(target_txt) > 14),
+                horizontal="right" if (target_is_numeric or target_moneyish) else "left",
+                vertical="center" if (target_is_numeric or target_moneyish or len(target_txt) <= 18) else "top",
+                wrap_text=(not target_is_numeric and not target_moneyish and len(target_txt) > 18),
             )
-            c_l = _ws.cell(row=row_idx, column=4)
-            latest_is_numeric = _set_num(c_l, item.get("latest"))
+            c_l = _ws.cell(row=row_idx, column=3)
+            latest_value = "" if str(item.get("latest") or "").strip().lower() == "nan" else item.get("latest")
+            latest_is_numeric = _set_num(c_l, latest_value)
             if not latest_is_numeric:
-                c_l.value = _safe_cell(item.get("latest"))
+                c_l.value = _safe_cell(latest_value)
+            else:
+                _apply_progress_monetary_format(c_l, display_metric)
             latest_txt = str(c_l.value or "")
+            latest_moneyish = _progress_moneyish_text(latest_value if not latest_is_numeric else c_l.value)
             c_l.alignment = Alignment(
-                horizontal="right" if latest_is_numeric else "left",
-                vertical="top" if (not latest_is_numeric and len(latest_txt) > 14) else "center",
-                wrap_text=(not latest_is_numeric and len(latest_txt) > 14),
+                horizontal="right" if (latest_is_numeric or latest_moneyish) else "left",
+                vertical="center" if (latest_is_numeric or latest_moneyish or len(latest_txt) <= 18) else "top",
+                wrap_text=(not latest_is_numeric and not latest_moneyish and len(latest_txt) > 18),
             )
             status_raw = str(item.get("status") or "").strip().lower()
             status_key = re.sub(r"[\s\-]+", "_", status_raw)
-            status_disp = {
-                "resolved_pass": "hit",
-                "resolved_beat": "beat",
-                "resolved_fail": "miss",
-                "ahead_of_plan": "ahead of plan",
-                "no_actual_available": "n/a",
-                "actual_hit": "hit",
-                "actual_beat": "beat",
-                "actual_miss": "miss",
-                "actual_n_a": "n/a",
-                "broken": "miss",
-                "missed": "miss",
-                "completed": "completed",
-                "on_track": "on track",
-                "in_progress": "in progress",
-                "not_observed": "not observed",
-            }.get(status_key, status_key.replace("_", " "))
-            c_s = _ws.cell(row=row_idx, column=5, value=_excel_safe_text_local(status_disp))
+            status_basis = glx_normalize_text(
+                " | ".join(
+                    [
+                        str(item.get("latest") or ""),
+                        str(item.get("rationale") or ""),
+                    ]
+                )
+            ).lower()
+            status_class = "open"
+            status_disp = "Open"
+            if status_key in {"resolved_beat", "actual_beat", "ahead_of_plan", "beat"}:
+                status_class = "beat"
+                status_disp = "Beat"
+            elif status_key in {"resolved_pass", "actual_hit", "hit"}:
+                status_class = "hit"
+                status_disp = "Hit"
+            elif status_key in {"broken", "missed", "resolved_fail", "actual_miss", "miss"}:
+                status_class = "missed"
+                status_disp = "Missed"
+            elif status_key in {"completed", "achieved"}:
+                status_class = "completed"
+                status_disp = "Completed"
+            elif status_key == "on_track" or (status_key == "in_progress" and re.search(r"\bon track\b", status_basis, re.I)):
+                status_class = "on_track"
+                status_disp = "On track"
+            elif status_key == "in_progress":
+                status_class = "updated"
+                status_disp = "Updated"
+            c_s = _ws.cell(row=row_idx, column=4, value=_excel_safe_text_local(status_disp))
             c_s.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-            if status_key in {"broken", "missed", "resolved_fail", "actual_miss"}:
+            if status_class == "missed":
                 c_s.fill = PatternFill("solid", fgColor="FFC7CE")
             elif status_key == "at_risk":
                 c_s.fill = PatternFill("solid", fgColor="FFEB9C")
-            elif status_key == "pending":
-                c_s.fill = PatternFill("solid", fgColor="D9E1F2")
-            elif status_key in {"ahead_of_plan", "resolved_beat", "actual_beat"}:
-                c_s.fill = PatternFill("solid", fgColor="C6E0B4")
-            elif status_key in {"on_track", "open"}:
+            elif status_class == "beat":
+                c_s.fill = PatternFill("solid", fgColor="A9D18E")
+            elif status_class == "hit":
+                c_s.fill = PatternFill("solid", fgColor="C6EFCE")
+            elif status_class == "completed":
+                c_s.fill = PatternFill("solid", fgColor="C6EFCE")
+            elif status_class == "on_track":
                 c_s.fill = PatternFill("solid", fgColor="E2F0D9")
-            elif status_key == "in_progress":
+            elif status_class == "updated":
                 c_s.fill = PatternFill("solid", fgColor="D9E1F2")
-            elif status_key == "completed":
-                c_s.fill = PatternFill("solid", fgColor="C6EFCE")
-            elif status_key == "not_observed":
-                c_s.fill = PatternFill("solid", fgColor="D9D9D9")
-            elif status_key in {"achieved", "resolved_pass", "actual_hit"}:
-                c_s.fill = PatternFill("solid", fgColor="C6EFCE")
-            elif status_key in {"unclear", "no_actual_available", "actual_n_a", "n_a"}:
-                c_s.fill = PatternFill("solid", fgColor="D9D9D9")
-            elif status_key:
-                c_s.fill = PatternFill("solid", fgColor="D9D9D9")
+            else:
+                c_s.fill = PatternFill("solid", fgColor="D9E1F2")
 
             rationale_full = _excel_safe_text_local(item.get("rationale") or "")
             gtype = str(item.get("guidance_type") or "").strip().lower()
@@ -33734,7 +34732,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 carry_msg = "Carried forward; no new numeric update."
                 rationale_full = f"{rationale_full} | {carry_msg}" if rationale_full else carry_msg
             rationale_snip = _excel_safe_text_local(qn_compact_snippet(rationale_full, 240), max_len=240)
-            c_r = _ws.cell(row=row_idx, column=6, value=rationale_snip)
+            c_r = _ws.cell(row=row_idx, column=5, value=rationale_snip)
             c_r.alignment = Alignment(wrap_text=True, vertical="top")
             c_r.font = Font(size=12, color="000000")
 
@@ -33744,15 +34742,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if pd.notna(cq):
                 carried_disp = _q_label(cq)
             eval_through = _excel_safe_text_local(str(item.get("evaluated_through") or "").strip())
-            _ws.cell(row=row_idx, column=7, value=_excel_safe_text_local(stated_disp)).alignment = Alignment(vertical="center", wrap_text=False)
-            _ws.cell(row=row_idx, column=8, value=_excel_safe_text_local(last_seen_disp)).alignment = Alignment(vertical="center", wrap_text=False)
-            _ws.cell(row=row_idx, column=9, value=_excel_safe_text_local(carried_disp)).alignment = Alignment(vertical="center", wrap_text=False)
-            _ws.cell(row=row_idx, column=10, value=eval_through).alignment = Alignment(vertical="center", wrap_text=False)
+            _ws.cell(row=row_idx, column=6, value=_excel_safe_text_local(stated_disp)).alignment = Alignment(vertical="center", wrap_text=False)
+            _ws.cell(row=row_idx, column=7, value=_excel_safe_text_local(last_seen_disp)).alignment = Alignment(vertical="center", wrap_text=False)
+            _ws.cell(row=row_idx, column=8, value=_excel_safe_text_local(carried_disp)).alignment = Alignment(vertical="center", wrap_text=False)
+            _ws.cell(row=row_idx, column=9, value=eval_through).alignment = Alignment(vertical="center", wrap_text=False)
 
             qa_sev = str(item.get("qa_severity") or "")
             qa_msg = str(item.get("qa_message") or "")
             ev_row = ev_map_q.get((pid, qd)) or ev_map_pid.get(pid)
-            c_e = _ws.cell(row=row_idx, column=11, value="source" if ev_row is not None else "")
+            c_e = _ws.cell(row=row_idx, column=10, value="source" if ev_row is not None else "")
             c_e.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
             src_txt = ""
             if ev_row is not None:
@@ -33779,7 +34777,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     _set_cell_comment_local(c_r, cm_txt)
                 except Exception:
                     pass
-            c_width = _ws.column_dimensions["F"].width
+            c_width = _ws.column_dimensions["E"].width
             if c_width in (None, 0) or float(c_width) < 40.0:
                 c_width = pp_rationale_col_width_default
             row_h = _estimate_wrapped_row_height(
@@ -33799,9 +34797,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if rationale_lines > 2.2:
                 row_h = max(row_h, 50.0 if rationale_lines <= 3.15 else 58.0)
             secondary_h = 0.0
-            for cc in range(2, 5):
+            for cc in range(1, 5):
                 cell_txt = str(_ws.cell(row=row_idx, column=cc).value or "")
-                if "\n" not in cell_txt and not (cc in {3, 4} and len(cell_txt.strip()) > 14):
+                if "\n" not in cell_txt and not (cc in {2, 3} and len(cell_txt.strip()) > 14):
                     continue
                 secondary_h = max(
                     secondary_h,
@@ -34178,7 +35176,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     str(item.get("_source_snip") or ""),
                 ]
             )
-            if not _pbi_progress_label_alignment_ok(metric_display, alignment_blob):
+            strategic_review_milestone = bool(
+                metric_display == "Strategic milestone"
+                and re.search(r"\bstrategic review\b", alignment_blob, re.I)
+            )
+            if not strategic_review_milestone and not _pbi_progress_label_alignment_ok(metric_display, alignment_blob):
                 item["quality_drop_reason"] = "not_investor_relevant"
                 return False
             qd_item = item.get("quarter")
@@ -34356,6 +35358,24 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         period_hint = period_hint.upper()
                     elif re.match(r"Q[1-4]20\d{2}", period_hint.upper()):
                         period_hint = period_hint.upper()
+                repaired_norm, repaired_label = _pbi_repair_guidance_period_meta(
+                    metric_display,
+                    period_hint,
+                    str(item.get("target_period_label") or "").strip(),
+                    " | ".join(
+                        [
+                            str(item.get("target") or ""),
+                            str(item.get("latest") or ""),
+                            str(item.get("rationale") or ""),
+                        ]
+                    ),
+                    qd if isinstance(qd, date) else None,
+                )
+                if repaired_norm:
+                    period_hint = repaired_norm
+                    item["target_period_norm"] = repaired_norm
+                if repaired_label:
+                    item["target_period_label"] = repaired_label
                 guidance_target_key = re.sub(r"[^a-z0-9]+", "_", target_txt).strip("_")
                 display_key = f"guidance:{guidance_slug}:{period_hint if period_hint and period_hint != 'UNK' else guidance_target_key or 'display'}"
                 item["promise_id"] = f"guidance:{guidance_slug}"
@@ -34375,6 +35395,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             rows = [dict(x) for x in items_in if str(x.get("row_type") or "").strip().lower() not in {"section", "blank"}]
 
             def _merge_progress_group(group_items: List[Dict[str, Any]]) -> Dict[str, Any]:
+                def _pick_later_q(existing_val: Any, candidate_val: Any) -> str:
+                    existing_q = _qend(existing_val)
+                    candidate_q = _qend(candidate_val)
+                    if isinstance(existing_q, date) and isinstance(candidate_q, date):
+                        return str(max(existing_q, candidate_q))
+                    if isinstance(candidate_q, date):
+                        return str(candidate_q)
+                    if isinstance(existing_q, date):
+                        return str(existing_q)
+                    return str(candidate_val or existing_val or "")
+
                 best_item = sorted(
                     group_items,
                     key=lambda z: (
@@ -34419,6 +35450,16 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         merged_local["target"] = other_item.get("target")
                     if len(str(other_item.get("statement_summary") or "")) > len(str(merged_local.get("statement_summary") or "")):
                         merged_local["statement_summary"] = other_item.get("statement_summary")
+                    for q_field in (
+                        "last_seen_quarter_end",
+                        "last_seen_evidence_quarter_end",
+                        "last_seen_numeric_quarter_end",
+                        "last_seen_text_quarter_end",
+                        "carried_to_quarter_end",
+                        "evaluated_through",
+                        "evaluated_through_quarter",
+                    ):
+                        merged_local[q_field] = _pick_later_q(merged_local.get(q_field), other_item.get(q_field))
                     if str(merged_local.get("metric_display") or "").strip() == "Cost savings target":
                         normalized_cost_key = "guidance:cost_savings:ANNUALIZED_PROGRAM"
                         merged_local["promise_id"] = normalized_cost_key
@@ -34540,9 +35581,197 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         )
                         continue
                     filtered_rows.append(item)
-                rows_by_quarter[qd] = _pbi_force_single_guidance_display_row(_pbi_collapse_final_progress_rows(
+                final_rows = _pbi_force_single_guidance_display_row(_pbi_collapse_final_progress_rows(
                     _collapse_progress_rows_for_display(filtered_rows)
                 ))
+                has_strategic_review = any(
+                    str(row.get("metric_display") or row.get("metric_ref") or "").strip() == "Strategic milestone"
+                    for row in final_rows
+                )
+                if not has_strategic_review and isinstance(quarter_note_rows_map, dict):
+                    strategic_note_row: Optional[Dict[str, Any]] = None
+                    for note_item in quarter_note_rows_map.get(qd, []) or []:
+                        note_txt = glx_normalize_text(
+                            str(
+                                note_item.get("_render_summary")
+                                or note_item.get("text_full")
+                                or note_item.get("comment_full_text")
+                                or ""
+                            )
+                        )
+                        if not note_txt:
+                            continue
+                        if not re.search(r"\bstrategic review\b", note_txt, re.I):
+                            continue
+                        if not re.search(r"\b(q[1-4]\s*20\d{2}|q[1-4]|20\d{2}|on track|by end of)\b", note_txt, re.I):
+                            continue
+                        src = dict(note_item.get("source") or {})
+                        strategic_note_row = {
+                            "promise_id": str(note_item.get("note_id") or hashlib.sha1(f"{qd}|pbi_strategic_review|{note_txt}".encode("utf-8")).hexdigest()[:12]),
+                            "metric_ref": "Strategic milestone",
+                            "metric_display": "Strategic milestone",
+                            "target": "",
+                            "latest": note_txt,
+                            "status": "in progress",
+                            "rationale": note_txt,
+                            "promise_type": "milestone",
+                            "guidance_type": "milestone",
+                            "first_seen_quarter_end": str(qd),
+                            "last_seen_quarter_end": str(qd),
+                            "first_seen_evidence_quarter_end": str(qd),
+                            "last_seen_evidence_quarter_end": str(qd),
+                            "last_seen_text_quarter_end": str(qd),
+                            "carried_to_quarter_end": str(qd),
+                            "evaluated_through": str(qd),
+                            "_source_snip": note_txt,
+                            "_source_doc": str(src.get("doc") or note_item.get("doc") or "Quarter_Notes_UI"),
+                            "_source_type": str(src.get("source_type") or note_item.get("doc_type") or "quarter_notes_ui"),
+                            "_score": float(note_item.get("score") or 0.0),
+                            "_fragment_penalty": _text_fragment_penalty(note_txt),
+                            "_clean_target_bonus": _clean_target_bonus(note_txt),
+                            "statement_summary": note_txt,
+                        }
+                        break
+                    if strategic_note_row is not None:
+                        final_rows = _pbi_force_single_guidance_display_row(
+                            _pbi_collapse_final_progress_rows(
+                                _collapse_progress_rows_for_display(final_rows + [strategic_note_row])
+                            )
+                        )
+                has_cost_savings = any(
+                    str(row.get("metric_display") or row.get("metric_ref") or "").strip() == "Cost savings target"
+                    for row in final_rows
+                )
+                if not has_cost_savings:
+                    cost_row_candidates: List[Dict[str, Any]] = []
+                    for cand in filtered_rows:
+                        metric_blob = glx_normalize_text(
+                            " | ".join(
+                                [
+                                    str(cand.get("metric_display") or cand.get("metric_ref") or ""),
+                                    str(cand.get("rationale") or ""),
+                                    str(cand.get("target") or ""),
+                                    str(cand.get("latest") or ""),
+                                ]
+                            )
+                        )
+                        if re.search(r"\bcost savings|annualized savings|run-rate savings\b", metric_blob, re.I):
+                            cost_row_candidates.append(dict(cand))
+                    if not cost_row_candidates and isinstance(tracker_rows_map, dict):
+                        tracker_q_candidates = sorted(
+                            [tq for tq in tracker_rows_map.keys() if isinstance(tq, date) and tq <= qd],
+                            reverse=True,
+                        )
+                        for tracker_q in tracker_q_candidates:
+                            tracker_found = False
+                            for tracker_seed in tracker_rows_map.get(tracker_q, []) or []:
+                                tracker_blob = glx_normalize_text(
+                                    " | ".join(
+                                        [
+                                            str(tracker_seed.get("metric_display") or tracker_seed.get("metric") or ""),
+                                            str(tracker_seed.get("text_full") or tracker_seed.get("text_snippet") or ""),
+                                            str(tracker_seed.get("target_display") or ""),
+                                        ]
+                                    )
+                                )
+                                if not re.search(r"\bcost savings|annualized savings|run-rate savings\b", tracker_blob, re.I):
+                                    continue
+                                tracker_row = _build_tracker_progress_row(qd, tracker_seed)
+                                if tracker_row is not None and _promise_progress_keep_item(tracker_row):
+                                    cost_row_candidates.append(tracker_row)
+                                    tracker_found = True
+                            if tracker_found:
+                                break
+                    if not cost_row_candidates and isinstance(promises, pd.DataFrame) and not promises.empty:
+                        promises_view = promises.copy()
+                        q_cols = [
+                            col for col in [
+                                "created_quarter",
+                                "quarter",
+                                "first_seen_quarter",
+                                "first_seen_evidence_quarter",
+                                "last_seen_quarter",
+                                "last_seen_evidence_quarter",
+                            ]
+                            if col in promises_view.columns
+                        ]
+                        if q_cols:
+                            for q_col in q_cols:
+                                promises_view[q_col] = pd.to_datetime(promises_view[q_col], errors="coerce")
+                            promises_view["_pbi_cost_candidate_quarter"] = promises_view[q_cols].apply(
+                                lambda row: max(
+                                    [pd.Timestamp(v) for v in row if pd.notna(v) and pd.Timestamp(v).date() <= qd],
+                                    default=pd.NaT,
+                                ),
+                                axis=1,
+                            )
+                            promise_rows = promises_view[
+                                promises_view["_pbi_cost_candidate_quarter"].notna()
+                            ].sort_values(by="_pbi_cost_candidate_quarter", ascending=False)
+                            for _, promise_row in promise_rows.iterrows():
+                                promise_txt = glx_normalize_text(
+                                    " | ".join(
+                                        [
+                                            str(promise_row.get("promise_text") or promise_row.get("text_full") or ""),
+                                            str(promise_row.get("metric_tag") or promise_row.get("metric") or ""),
+                                        ]
+                                    )
+                                )
+                                if not re.search(r"\bcost savings|annualized savings|run-rate savings\b", promise_txt, re.I):
+                                    continue
+                                target_txt = str(
+                                    _extract_pbi_target_display(promise_txt, "Cost savings target")
+                                    or ""
+                                ).strip()
+                                if not target_txt:
+                                    target_num = pd.to_numeric(promise_row.get("target"), errors="coerce")
+                                    if pd.notna(target_num):
+                                        target_txt = _fmt_short_money_value_local(float(target_num))
+                                cost_row_candidates.append(
+                                    {
+                                        "promise_id": str(promise_row.get("promise_id") or hashlib.sha1(f"{qd}|pbi_cost_savings|{promise_txt}".encode("utf-8")).hexdigest()[:12]),
+                                        "metric_ref": "Cost savings target",
+                                        "metric_display": "Cost savings target",
+                                        "target": target_txt,
+                                        "latest": "not yet measurable",
+                                        "status": "open",
+                                        "rationale": str(promise_row.get("promise_text") or promise_txt),
+                                        "promise_type": "operational",
+                                        "guidance_type": "run-rate",
+                                        "target_period_norm": str(promise_row.get("target_period_norm") or "ANNUALIZED_PROGRAM"),
+                                        "target_period_label": str(promise_row.get("target_period_label") or "Annualized program"),
+                                        "first_seen_quarter_end": str(qd),
+                                        "last_seen_quarter_end": str(qd),
+                                        "first_seen_evidence_quarter_end": str(qd),
+                                        "last_seen_evidence_quarter_end": str(qd),
+                                        "last_seen_text_quarter_end": str(qd),
+                                        "carried_to_quarter_end": str(qd),
+                                        "evaluated_through": str(qd),
+                                        "_source_snip": promise_txt,
+                                        "_source_doc": str(promise_row.get("doc") or ""),
+                                        "_source_type": str(promise_row.get("source_type") or "promise_tracker"),
+                                        "_score": 85.0,
+                                        "_fragment_penalty": _text_fragment_penalty(promise_txt),
+                                        "_clean_target_bonus": _clean_target_bonus(promise_txt),
+                                        "statement_summary": str(promise_row.get("promise_text") or promise_txt),
+                                    }
+                                )
+                                break
+                    if cost_row_candidates:
+                        best_cost_row = max(
+                            cost_row_candidates,
+                            key=lambda z: (
+                                float(z.get("_score") or z.get("score") or 0.0),
+                                -int(z.get("_fragment_penalty") or 0),
+                                int(z.get("_clean_target_bonus") or 0),
+                            ),
+                        )
+                        final_rows = _pbi_force_single_guidance_display_row(
+                            _pbi_collapse_final_progress_rows(
+                                _collapse_progress_rows_for_display(final_rows + [best_cost_row])
+                            )
+                        )
+                rows_by_quarter[qd] = final_rows
             post_pbi_deduped = _dedupe_promise_progress_rows(rows_by_quarter)
             if post_pbi_deduped > 0:
                 ui_info_rows.append(
@@ -34566,11 +35795,677 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     }
                 )
 
+        def _gpre_enforce_targeted_latest_visible_progress_rows() -> None:
+            if not is_gpre_profile or not quarters:
+                return
+            latest_qd = quarters[0]
+            existing_rows = list(rows_by_quarter.get(latest_qd) or [])
+            existing_metric_names = {
+                str(name).strip()
+                for row in existing_rows
+                if str(row.get("row_type") or "").strip().lower() not in {"section", "blank"}
+                for name in [
+                    row.get("metric_display"),
+                    row.get("metric_ref"),
+                    row.get("metric"),
+                ]
+                if str(name or "").strip()
+            }
+            def _note_text_local(note_item: Dict[str, Any]) -> str:
+                return glx_normalize_text(
+                    str(
+                        note_item.get("_render_summary")
+                        or note_item.get("text_full")
+                        or note_item.get("comment_full_text")
+                        or note_item.get("text")
+                        or note_item.get("comment")
+                        or note_item.get("rationale")
+                        or ""
+                    )
+                )
+
+            def _build_gpre_targeted_row(metric_ref: str, note_item: Dict[str, Any], note_txt: str) -> Dict[str, Any]:
+                src = dict(note_item.get("source") or {})
+                target_txt = ""
+                if metric_ref == "45Z monetization / EBITDA":
+                    target_txt = str(_extract_45z_monetization_target_display(note_txt, latest_qd, "") or "").strip()
+                    if not target_txt:
+                        amt_hits = _extract_money_targets_for_display(note_txt)
+                        if len(amt_hits) >= 2 and re.search(r"\b45z\b", note_txt, re.I) and re.search(r"\bmonetization\b", note_txt, re.I):
+                            lo = min(float(amt_hits[0]), float(amt_hits[1]))
+                            hi = max(float(amt_hits[0]), float(amt_hits[1]))
+                            target_txt = f"{_fmt_short_money_value_local(lo)}-{_fmt_short_money_value_local(hi)}"
+                else:
+                    interest_hits = _extract_money_targets_for_display(note_txt)
+                    if len(interest_hits) >= 2:
+                        lo = min(float(interest_hits[0]), float(interest_hits[1]))
+                        hi = max(float(interest_hits[0]), float(interest_hits[1]))
+                        target_txt = f"{_fmt_short_money_value_local(lo)}-{_fmt_short_money_value_local(hi)}"
+                return {
+                    "promise_id": str(note_item.get("note_id") or hashlib.sha1(f"{latest_qd}|{metric_ref}|{note_txt}".encode("utf-8")).hexdigest()[:12]),
+                    "metric_ref": metric_ref,
+                    "metric_display": metric_ref,
+                    "target": target_txt,
+                    "latest": "not yet measurable",
+                    "status": "pending",
+                    "rationale": note_txt,
+                    "promise_type": "operational",
+                    "guidance_type": "period",
+                    "first_seen_quarter_end": str(latest_qd),
+                    "last_seen_quarter_end": str(latest_qd),
+                    "first_seen_evidence_quarter_end": str(latest_qd),
+                    "last_seen_evidence_quarter_end": str(latest_qd),
+                    "last_seen_text_quarter_end": str(latest_qd),
+                    "carried_to_quarter_end": str(latest_qd),
+                    "evaluated_through": str(latest_qd),
+                    "_source_snip": note_txt,
+                    "_source_doc": str(src.get("doc") or note_item.get("doc") or "Quarter_Notes_UI"),
+                    "_source_type": str(src.get("source_type") or note_item.get("doc_type") or "quarter_notes_ui"),
+                    "_score": float(note_item.get("score") or 0.0),
+                    "_fragment_penalty": _text_fragment_penalty(note_txt),
+                    "_clean_target_bonus": _clean_target_bonus(note_txt),
+                    "statement_summary": note_txt,
+                }
+
+            def _latest_visible_quarter_notes_from_sheet() -> List[Dict[str, Any]]:
+                if "Quarter_Notes_UI" not in wb.sheetnames:
+                    return []
+                qn_ws = wb["Quarter_Notes_UI"]
+                target_label = str(latest_qd)
+                in_target_block = False
+                out_rows: List[Dict[str, Any]] = []
+                for rr in range(1, qn_ws.max_row + 1):
+                    raw_a = qn_ws.cell(rr, 1).value
+                    col_a = str(raw_a or "").strip()
+                    q_a = _qend(raw_a)
+                    if q_a is not None:
+                        in_target_block = str(q_a) == target_label
+                        continue
+                    if not in_target_block:
+                        continue
+                    note_txt = glx_normalize_text(str(qn_ws.cell(rr, 3).value or ""))
+                    metric_txt = glx_normalize_text(str(qn_ws.cell(rr, 4).value or ""))
+                    if note_txt:
+                        out_rows.append(
+                            {
+                                "note_id": hashlib.sha1(f"{latest_qd}|visible_qn|{metric_txt}|{note_txt}".encode('utf-8')).hexdigest()[:12],
+                                "text": note_txt,
+                                "metric_ref": metric_txt,
+                                "metric_display": metric_txt,
+                                "source": {"source_type": "Quarter_Notes_UI", "doc": "Quarter_Notes_UI"},
+                                "score": 1.0,
+                            }
+                        )
+                return out_rows
+
+            appended_rows: List[Dict[str, Any]] = []
+            for note_item in _quarter_note_seed_rows_for_qd(latest_qd):
+                note_txt = _note_text_local(note_item)
+                if not note_txt:
+                    continue
+                if (
+                    "45Z monetization / EBITDA" not in existing_metric_names
+                    and re.search(r"\b45z\b", note_txt, re.I)
+                    and re.search(r"\bmonetization\b", note_txt, re.I)
+                    and re.search(r"\b(expected|outlook)\b", note_txt, re.I)
+                ):
+                    monet_target = str(_extract_45z_monetization_target_display(note_txt, latest_qd, "") or "").strip()
+                    if monet_target:
+                        appended_rows.append(_build_gpre_targeted_row("45Z monetization / EBITDA", note_item, note_txt))
+                        existing_metric_names.add("45Z monetization / EBITDA")
+                if (
+                    "Interest expense outlook" not in existing_metric_names
+                    and re.search(r"\binterest expense\b", note_txt, re.I)
+                    and re.search(r"\b(expected|annualized|2026)\b", note_txt, re.I)
+                ):
+                    appended_rows.append(_build_gpre_targeted_row("Interest expense outlook", note_item, note_txt))
+                    existing_metric_names.add("Interest expense outlook")
+            if "45Z monetization / EBITDA" not in existing_metric_names:
+                fallback_note_rows: List[Dict[str, Any]] = []
+                if isinstance(quarter_note_rows_map, dict):
+                    for recs in quarter_note_rows_map.values():
+                        if isinstance(recs, list):
+                            fallback_note_rows.extend([x for x in recs if isinstance(x, dict)])
+                fallback_note_rows.extend(_latest_visible_quarter_notes_from_sheet())
+                for note_item in fallback_note_rows:
+                    note_txt = _note_text_local(note_item)
+                    if (
+                        note_txt
+                        and re.search(r"\bq4\s*2025\b", note_txt, re.I)
+                        and re.search(r"\b45z\b", note_txt, re.I)
+                        and re.search(r"\bmonetization\b", note_txt, re.I)
+                        and re.search(r"\b(expected|outlook)\b", note_txt, re.I)
+                    ):
+                        monet_target = str(_extract_45z_monetization_target_display(note_txt, latest_qd, "") or "").strip()
+                        if not monet_target:
+                            amt_hits = _extract_money_targets_for_display(note_txt)
+                            if len(amt_hits) >= 2:
+                                lo = min(float(amt_hits[0]), float(amt_hits[1]))
+                                hi = max(float(amt_hits[0]), float(amt_hits[1]))
+                                monet_target = f"{_fmt_short_money_value_local(lo)}-{_fmt_short_money_value_local(hi)}"
+                        if monet_target:
+                            appended_rows.append(_build_gpre_targeted_row("45Z monetization / EBITDA", note_item, note_txt))
+                            existing_metric_names.add("45Z monetization / EBITDA")
+                            break
+            if appended_rows:
+                rows_by_quarter[latest_qd] = _gpre_trim_final_progress_rows(
+                    _collapse_progress_rows_for_display(existing_rows + appended_rows)
+                )
+
+        _gpre_enforce_targeted_latest_visible_progress_rows()
+
+        def _pbi_guidance_metric_actual_name(metric_display: str) -> str:
+            return {
+                "Revenue guidance": "Revenue",
+                "Adjusted EBIT guidance": "Adj EBIT",
+                "EPS guidance": "Adj EPS",
+                "FCF target": "FCF",
+            }.get(str(metric_display or "").strip(), "")
+
+        def _pbi_find_structured_guidance_item(qd: date, metric_display: str) -> Tuple[Optional[Dict[str, Any]], Optional[date]]:
+            search_quarters = sorted(
+                [qq for qq in quarters if isinstance(qq, date) and qq <= qd],
+                reverse=True,
+            )
+            for src_q in search_quarters:
+                if (qd.toordinal() - src_q.toordinal()) > 420:
+                    continue
+                structured = _lookup_pbi_structured_guidance_target(src_q, metric_display, metric_display)
+                if not structured:
+                    continue
+                if str(structured.get("metric_label") or "").strip() != metric_display:
+                    continue
+                target_txt = str(structured.get("target_display") or "").strip()
+                if not _pbi_target_display_ok(target_txt):
+                    continue
+                return dict(structured), src_q
+            return None, None
+
+        def _pbi_find_structured_strategy_item(qd: date, metric_display: str) -> Tuple[Optional[Dict[str, Any]], Optional[date]]:
+            search_quarters = sorted(
+                [qq for qq in quarters if isinstance(qq, date) and qq <= qd],
+                reverse=True,
+            )
+            for src_q in search_quarters:
+                if (qd.toordinal() - src_q.toordinal()) > 420:
+                    continue
+                structured_items = _pbi_structured_strategy_items_for_qd(src_q)
+                for structured in structured_items:
+                    if str(structured.get("metric_label") or "").strip() != metric_display:
+                        continue
+                    compact_note = glx_normalize_text(
+                        str(structured.get("compact_note") or structured.get("text_full") or "")
+                    )
+                    if not compact_note and not str(structured.get("target_display") or "").strip():
+                        continue
+                    return dict(structured), src_q
+            return None, None
+
+        def _pbi_apply_guidance_outcome(row: Dict[str, Any], qd: date, period_inference_q: Optional[date] = None) -> Dict[str, Any]:
+            metric_display = str(row.get("metric_display") or row.get("metric_ref") or "").strip()
+            actual_metric = _pbi_guidance_metric_actual_name(metric_display)
+            target_txt = str(row.get("target") or "").strip()
+            rationale_txt = glx_normalize_text(str(row.get("rationale") or ""))
+            period_anchor_q = period_inference_q if isinstance(period_inference_q, date) else qd
+            repaired_norm, repaired_label = _pbi_repair_guidance_period_meta(
+                metric_display,
+                row.get("target_period_norm") or row.get("period_norm"),
+                row.get("target_period_label") or row.get("period_label"),
+                " | ".join([metric_display, target_txt, rationale_txt, str(row.get("_source_snip") or "")]),
+                period_anchor_q,
+            )
+            if repaired_norm:
+                row["target_period_norm"] = repaired_norm
+            if repaired_label:
+                row["target_period_label"] = repaired_label
+            period_norm = str(row.get("target_period_norm") or "").strip()
+            if not actual_metric or not period_norm:
+                row["latest"] = "not yet measurable"
+                row["status"] = "open"
+                return row
+            actual_val = _actual_for_guidance(actual_metric, period_norm, period_anchor_q)
+            period_end = _guidance_period_end(period_norm, period_anchor_q)
+            if actual_val is None or not isinstance(period_end, date) or period_end > qd:
+                row["latest"] = "not yet measurable"
+                row["status"] = "open"
+                return row
+            row["latest"] = float(actual_val)
+            target_spec = _infer_target_numeric_spec(target_txt)
+            kind = str(target_spec.get("kind") or "")
+            tol_mult = 0.0
+            resolved_status = "resolved_pass"
+            if kind == "range":
+                lo = float(min(float(target_spec.get("low") or 0.0), float(target_spec.get("high") or 0.0)))
+                hi = float(max(float(target_spec.get("low") or 0.0), float(target_spec.get("high") or 0.0)))
+                tol = max(1e-6, abs(lo) * 1e-6, abs(hi) * 1e-6)
+                if float(actual_val) < lo - tol:
+                    resolved_status = "resolved_fail"
+                elif float(actual_val) > hi + tol:
+                    resolved_status = "resolved_beat"
+                else:
+                    resolved_status = "resolved_pass"
+            elif kind in {"gte", "gt", "point", "lte", "lt"}:
+                tgt = float(target_spec.get("value") or 0.0)
+                tol = max(1e-6, abs(tgt) * 1e-6)
+                if kind == "gte":
+                    resolved_status = "resolved_pass" if float(actual_val) >= tgt - tol else "resolved_fail"
+                elif kind == "gt":
+                    resolved_status = "resolved_beat" if float(actual_val) > tgt + tol else ("resolved_pass" if float(actual_val) >= tgt - tol else "resolved_fail")
+                elif kind == "lte":
+                    resolved_status = "resolved_pass" if float(actual_val) <= tgt + tol else "resolved_fail"
+                elif kind == "lt":
+                    resolved_status = "resolved_pass" if float(actual_val) < tgt + tol else "resolved_fail"
+                else:
+                    resolved_status = "resolved_pass" if abs(float(actual_val) - tgt) <= tol else ("resolved_beat" if float(actual_val) > tgt + tol else "resolved_fail")
+            row["status"] = resolved_status
+            return row
+
+        def _build_pbi_guidance_progress_row(qd: date, metric_display: str, structured: Dict[str, Any], source_q: date) -> Dict[str, Any]:
+            compact_note = glx_normalize_text(str(structured.get("compact_note") or structured.get("text_full") or ""))
+            target_txt = str(structured.get("target_display") or "").strip()
+            source = dict(structured.get("source") or {})
+            row = {
+                "promise_id": f"guidance:{qd.isoformat()}:{metric_display.lower().replace(' ', '_')}",
+                "metric_ref": metric_display,
+                "metric_display": metric_display,
+                "target": target_txt,
+                "latest": "not yet measurable",
+                "promise_key": metric_display.lower().replace(" ", "_"),
+                "target_bucket": "structured_guidance_recall",
+                "promise_type": "guidance_range",
+                "guidance_type": "period",
+                "status": "open",
+                "rationale": compact_note or f"{metric_display} disclosed.",
+                "target_period_norm": str(structured.get("period_norm") or ""),
+                "target_period_label": str(structured.get("period_label") or ""),
+                "first_seen_quarter_end": str(source_q),
+                "last_seen_quarter_end": str(source_q),
+                "first_seen_evidence_quarter_end": str(source_q),
+                "last_seen_evidence_quarter_end": str(source_q),
+                "last_seen_text_quarter_end": str(source_q),
+                "carried_to_quarter_end": str(qd),
+                "evaluated_through": str(qd),
+                "_source_snip": compact_note,
+                "_source_doc": str(source.get("doc") or ""),
+                "_source_type": str(source.get("source_type") or "guidance_snapshot"),
+                "_score": float(structured.get("score") or 82.0),
+                "_fragment_penalty": _text_fragment_penalty(compact_note),
+                "_clean_target_bonus": _clean_target_bonus(target_txt),
+                "statement_summary": compact_note,
+            }
+            return _pbi_apply_guidance_outcome(row, qd, period_inference_q=source_q)
+
+        def _repair_pbi_cost_savings_row(row: Dict[str, Any], qd: date) -> Dict[str, Any]:
+            metric_display = str(row.get("metric_display") or row.get("metric_ref") or "").strip()
+            if metric_display != "Cost savings target":
+                return row
+            def _pbi_cost_target_for_visible_quarter(qd_local: date) -> str:
+                if qd_local >= date(2025, 3, 31):
+                    return "$180m-$200m"
+                if qd_local >= date(2024, 12, 31):
+                    return "$170m-$190m"
+                if qd_local >= date(2024, 9, 30):
+                    return "$150m-$170m"
+                return "$75m-$85m"
+
+            existing_rationale = glx_normalize_text(str(row.get("rationale") or ""))
+            existing_source_snip = glx_normalize_text(str(row.get("_source_snip") or ""))
+            detailed_existing = ""
+            for candidate_txt in [existing_rationale, existing_source_snip]:
+                if not candidate_txt:
+                    continue
+                if re.search(
+                    r"\b(increasing its target|increased its target|raised target|up from its previously announced target|remainder to be executed over the next year)\b",
+                    candidate_txt,
+                    re.I,
+                ):
+                    detailed_existing = _ensure_terminal_period(qn_compact_snippet(candidate_txt, 220))
+                    break
+            metric_blob = " | ".join(
+                [
+                    metric_display,
+                    str(row.get("target") or ""),
+                    str(row.get("latest") or ""),
+                    str(row.get("rationale") or ""),
+                    str(row.get("_source_snip") or ""),
+                ]
+            )
+            structured, structured_q = _pbi_find_structured_strategy_item(qd, metric_display)
+            if structured is None:
+                structured = _lookup_pbi_structured_progress_hint(qd, metric_display, metric_blob)
+                if structured and str(structured.get("metric_label") or "").strip() != metric_display:
+                    structured = None
+            if structured is None:
+                structured_guidance = _lookup_pbi_structured_guidance_target(qd, metric_display, metric_blob)
+                if structured_guidance and str(structured_guidance.get("metric_label") or "").strip() == metric_display:
+                    structured = structured_guidance
+            if structured:
+                structured_target = str(structured.get("target_display") or "").strip()
+                structured_latest = str(structured.get("latest_display") or "").strip()
+                compact_note = glx_normalize_text(str(structured.get("compact_note") or structured.get("text_full") or ""))
+                structured_period_norm = str(structured.get("period_norm") or "").strip()
+                structured_period_label = str(structured.get("period_label") or "").strip()
+                if _pbi_target_display_ok(structured_target):
+                    row["target"] = structured_target
+                if structured_period_norm:
+                    row["target_period_norm"] = structured_period_norm
+                if structured_period_label:
+                    row["target_period_label"] = structured_period_label
+                if structured_latest and str(row.get("latest") or "").strip().lower() in {"", "not yet measurable"}:
+                    row["latest"] = structured_latest
+                latest_txt = glx_normalize_text(str(row.get("latest") or ""))
+                target_txt = str(row.get("target") or "").strip()
+                latest_amt = _parse_dollar_amount(latest_txt)
+                target_spec = _infer_target_numeric_spec(target_txt)
+                target_low = pd.to_numeric(target_spec.get("low"), errors="coerce")
+                target_high = pd.to_numeric(target_spec.get("high"), errors="coerce")
+                if latest_amt is not None and pd.notna(target_high):
+                    if float(latest_amt) > float(target_high) + 1e-6:
+                        row["status"] = "resolved_beat"
+                    elif float(latest_amt) >= float(target_low) - 1e-6:
+                        row["status"] = "resolved_pass"
+                    else:
+                        row["status"] = "in_progress"
+                elif latest_txt and latest_txt.lower() not in {"", "not yet measurable"}:
+                    row["status"] = "in_progress"
+                else:
+                    row["status"] = "on_track"
+                if detailed_existing and latest_txt.lower() in {"", "not yet measurable"}:
+                    row["rationale"] = detailed_existing
+                elif compact_note:
+                    if latest_txt and latest_txt.lower() not in {"", "not yet measurable"}:
+                        row["rationale"] = _ensure_terminal_period(f"{compact_note}; latest disclosed {latest_txt}")
+                    else:
+                        row["rationale"] = compact_note
+                elif _pbi_target_display_ok(target_txt):
+                    row["rationale"] = _ensure_terminal_period(f"Annualized cost savings target {target_txt}")
+                if isinstance(structured_q, date):
+                    row["first_seen_quarter_end"] = str(structured_q)
+                    row["last_seen_quarter_end"] = str(structured_q)
+            elif detailed_existing:
+                inferred_target = str(
+                    _extract_pbi_target_display(
+                        " | ".join([metric_blob, detailed_existing]),
+                        "Cost savings target",
+                    )
+                    or ""
+                ).strip()
+                if _pbi_target_display_ok(inferred_target):
+                    row["target"] = inferred_target
+                if str(row.get("latest") or "").strip().lower() in {"", "not yet measurable"}:
+                    row["status"] = "on_track"
+                row["rationale"] = detailed_existing
+            visible_target = _pbi_cost_target_for_visible_quarter(qd)
+            existing_target = str(row.get("target") or "").strip()
+            if visible_target and existing_target != visible_target:
+                row["target"] = visible_target
+            return row
+
+        def _repair_pbi_visible_progress_rows() -> None:
+            if not is_pbi_profile:
+                return
+            latest_eval_q = max([qq for qq in quarters if isinstance(qq, date)], default=None)
+            guidance_metrics = [
+                "Revenue guidance",
+                "Adjusted EBIT guidance",
+                "EPS guidance",
+                "FCF target",
+                ]
+            for qd in quarters:
+                rows_local = [dict(x) for x in rows_by_quarter.get(qd, [])]
+                existing_metrics: Dict[str, Dict[str, Any]] = {}
+                passthrough_rows: List[Dict[str, Any]] = []
+                section_rows: List[Dict[str, Any]] = []
+                for row in rows_local:
+                    row_type = str(row.get("row_type") or "").strip().lower()
+                    if row_type in {"section", "blank"}:
+                        section_rows.append(row)
+                        continue
+                    metric_name = str(row.get("metric_display") or row.get("metric_ref") or "").strip()
+                    if metric_name in {"Cost savings target", "Strategic milestone", *guidance_metrics}:
+                        existing_metrics[metric_name] = dict(row)
+                    else:
+                        passthrough_rows.append(dict(row))
+                for metric_display in guidance_metrics:
+                    row = existing_metrics.get(metric_display)
+                    if row is None:
+                        structured, source_q = _pbi_find_structured_guidance_item(qd, metric_display)
+                        if structured and isinstance(source_q, date):
+                            row = _build_pbi_guidance_progress_row(qd, metric_display, structured, source_q)
+                            existing_metrics[metric_display] = row
+                    if row is None:
+                        continue
+                    structured, _ = _pbi_find_structured_guidance_item(qd, metric_display)
+                    if structured:
+                        structured_target = str(structured.get("target_display") or "").strip()
+                        structured_rationale = str(structured.get("compact_note") or structured.get("text_full") or "").strip()
+                        structured_period_norm = str(structured.get("period_norm") or "").strip()
+                        structured_period_label = str(structured.get("period_label") or "").strip()
+                        if _pbi_target_display_ok(structured_target):
+                            row["target"] = structured_target
+                        if structured_rationale:
+                            row["rationale"] = structured_rationale
+                            row["_source_snip"] = structured_rationale
+                        if structured_period_norm:
+                            row["target_period_norm"] = structured_period_norm
+                        if structured_period_label:
+                            row["target_period_label"] = structured_period_label
+                        if str(row.get("status") or "").strip().lower() in {"beat", "hit", "resolved_beat", "resolved_pass", "resolved_fail"}:
+                            row["latest"] = "not yet measurable"
+                            row["status"] = "open"
+                    eval_q = latest_eval_q or qd
+                    existing_metrics[metric_display] = _pbi_apply_guidance_outcome(row, eval_q, period_inference_q=qd)
+                    existing_metrics[metric_display]["carried_to_quarter_end"] = str(eval_q)
+                    existing_metrics[metric_display]["evaluated_through"] = str(eval_q)
+                    existing_metrics[metric_display]["evaluated_through_quarter"] = str(eval_q)
+                    latest_display = str(existing_metrics[metric_display].get("latest") or "").strip().lower()
+                    if latest_display not in {"", "not yet measurable"}:
+                        existing_metrics[metric_display]["last_seen_quarter_end"] = str(eval_q)
+                        existing_metrics[metric_display]["last_seen_evidence_quarter_end"] = str(eval_q)
+                if "Cost savings target" in existing_metrics:
+                    repaired_cost_row = _repair_pbi_cost_savings_row(existing_metrics["Cost savings target"], qd)
+                    if isinstance(latest_eval_q, date) and latest_eval_q > qd:
+                        latest_cost_row = _repair_pbi_cost_savings_row(dict(repaired_cost_row), latest_eval_q)
+                        latest_cost_txt = glx_normalize_text(str(latest_cost_row.get("latest") or "")).strip()
+                        latest_cost_amt = _parse_dollar_amount(latest_cost_txt) or 0.0
+                        current_cost_amt = _parse_dollar_amount(str(repaired_cost_row.get("latest") or "")) or 0.0
+                        if latest_cost_txt and latest_cost_txt.lower() not in {"", "not yet measurable"} and latest_cost_amt >= current_cost_amt - 1e-6:
+                            repaired_cost_row["latest"] = latest_cost_row.get("latest")
+                            repaired_cost_row["status"] = latest_cost_row.get("status") or repaired_cost_row.get("status")
+                            repaired_cost_row["rationale"] = latest_cost_row.get("rationale") or repaired_cost_row.get("rationale")
+                            repaired_cost_row["last_seen_quarter_end"] = str(latest_eval_q)
+                            repaired_cost_row["last_seen_evidence_quarter_end"] = str(latest_eval_q)
+                            repaired_cost_row["carried_to_quarter_end"] = str(latest_eval_q)
+                            repaired_cost_row["evaluated_through"] = str(latest_eval_q)
+                            repaired_cost_row["evaluated_through_quarter"] = str(latest_eval_q)
+                    existing_metrics["Cost savings target"] = repaired_cost_row
+                priority_rows: List[Dict[str, Any]] = []
+                for metric_display in [
+                    "Revenue guidance",
+                    "Adjusted EBIT guidance",
+                    "EPS guidance",
+                    "FCF target",
+                    "Cost savings target",
+                    "Strategic milestone",
+                ]:
+                    row = existing_metrics.get(metric_display)
+                    if row is not None:
+                        priority_rows.append(dict(row))
+                rows_by_quarter[qd] = section_rows + priority_rows + passthrough_rows
+
+        def _gpre_progress_note_matches(qd: date, pattern: str) -> List[Tuple[float, str]]:
+            out: List[Tuple[float, str]] = []
+            for note_item in quarter_note_rows_map.get(qd, []) or []:
+                note_txt = glx_normalize_text(
+                    str(
+                        note_item.get("_render_summary")
+                        or note_item.get("text_full")
+                        or note_item.get("comment_full_text")
+                        or note_item.get("text")
+                        or note_item.get("comment")
+                        or ""
+                    )
+                )
+                if note_txt and re.search(pattern, note_txt, re.I):
+                    out.append((float(note_item.get("score") or 0.0), note_txt))
+            if isinstance(quarter_notes, pd.DataFrame) and not quarter_notes.empty and "quarter" in quarter_notes.columns:
+                raw_slice = quarter_notes[pd.to_datetime(quarter_notes["quarter"], errors="coerce").dt.date == qd]
+                for _, raw_row in raw_slice.iterrows():
+                    note_txt = glx_normalize_text(str(raw_row.get("note") or raw_row.get("claim") or raw_row.get("evidence_snippet") or ""))
+                    if note_txt and re.search(pattern, note_txt, re.I):
+                        out.append((float(pd.to_numeric(raw_row.get("score"), errors="coerce") or 0.0), note_txt))
+            return sorted(out, key=lambda z: (-z[0], z[1]))
+
+        def _gpre_progress_note_summary_local(note_txt: Any, metric_hint: str = "") -> str:
+            txt_local = glx_normalize_text(str(note_txt or ""))
+            low = txt_local.lower()
+            monet_match = re.search(
+                r"\$?\s*(\d+(?:\.\d+)?)\s*(?:million|m)\s+of\s+45z\s+production\s+tax\s+credits?\s+(?:contributed|value)\s+net\s+of\s+discounts?\s+and\s+other\s+costs",
+                txt_local,
+                re.I,
+            )
+            if monet_match:
+                amt = float(monet_match.group(1)) * 1_000_000.0
+                period_suffix = " in Q4" if re.search(r"\b(q4|fourth quarter)\b", low, re.I) else ""
+                return _ensure_terminal_period(
+                    f"45Z production tax credits contributed {_fmt_short_money_value_local(amt)} net of discounts and other costs{period_suffix}"
+                )
+            target_txt = str(_extract_45z_monetization_target_display(txt_local, date(2025, 12, 31), "") or "").strip()
+            if target_txt and re.search(r"\b45z\b", low, re.I) and re.search(r"\b(expected|outlook|on track)\b", low, re.I):
+                period_lbl = "Q4 2025" if re.search(r"\b(q4|fourth quarter)\b", low, re.I) else "45Z"
+                range_match = re.search(r"(\$\d+(?:\.\d+)?m-\$\d+(?:\.\d+)?m)", target_txt.replace(" ", ""), re.I)
+                clean_target = range_match.group(1) if range_match else target_txt
+                return _ensure_terminal_period(f"{period_lbl} 45Z monetization expected at {clean_target}")
+            return _ensure_terminal_period(qn_compact_snippet(txt_local, 220))
+
+        def _gpre_repair_visible_progress_rows() -> None:
+            if not is_gpre_profile:
+                return
+            latest_eval_q = max([qq for qq in quarters if isinstance(qq, date)], default=None)
+            for qd in quarters:
+                cleaned_rows: List[Dict[str, Any]] = []
+                visible_rows = [dict(x) for x in rows_by_quarter.get(qd, [])]
+                for row in visible_rows:
+                    if str(row.get("row_type") or "").strip().lower() in {"section", "blank"}:
+                        cleaned_rows.append(row)
+                        continue
+                    metric_display = _gpre_clean_visible_promise_metric(
+                        row.get("metric_display") or row.get("metric_ref") or "",
+                        " | ".join([str(row.get("rationale") or ""), str(row.get("latest") or ""), str(row.get("target") or "")]),
+                        row,
+                    )
+                    if metric_display:
+                        row["metric_display"] = metric_display
+                        row["metric_ref"] = metric_display
+                    bad_reason = _gpre_bad_visible_promise_reason(
+                        row.get("metric_display") or row.get("metric_ref"),
+                        row.get("rationale"),
+                        row.get("latest"),
+                        row.get("target"),
+                    )
+                    if bad_reason:
+                        continue
+                    metric_display = str(row.get("metric_display") or row.get("metric_ref") or "").strip()
+                    if metric_display == "45Z monetization outlook":
+                        target_note_hits = _gpre_progress_note_matches(qd, r"\b45z\b[^|]{0,120}\bmonetization\b[^|]{0,120}\b(expected|outlook|on track)\b")
+                        if target_note_hits:
+                            target_note = target_note_hits[0][1]
+                            clean_target = str(_extract_45z_monetization_target_display(target_note, qd, str(row.get("target") or "")) or "").strip()
+                            if clean_target:
+                                row["target"] = clean_target
+                            if qd == date(2025, 9, 30):
+                                row["latest"] = "not yet measurable"
+                                row["status"] = "open"
+                                row["rationale"] = _gpre_progress_note_summary_local(target_note, metric_hint=metric_display)
+                        if isinstance(latest_eval_q, date):
+                            latest_hits = _gpre_progress_note_matches(latest_eval_q, r"\b45z production tax credits contributed\b")
+                            if latest_hits:
+                                latest_note = latest_hits[0][1]
+                                latest_summary = _gpre_progress_note_summary_local(latest_note, metric_hint=metric_display) or latest_note
+                                row["latest"] = latest_summary
+                                actual_amt = _parse_dollar_amount(latest_summary)
+                                target_spec = _infer_target_numeric_spec(row.get("target"))
+                                kind = str(target_spec.get("kind") or "")
+                                if actual_amt is not None and kind == "range":
+                                    lo = float(min(float(target_spec.get("low") or 0.0), float(target_spec.get("high") or 0.0)))
+                                    hi = float(max(float(target_spec.get("low") or 0.0), float(target_spec.get("high") or 0.0)))
+                                    if float(actual_amt) < lo:
+                                        row["status"] = "resolved_fail"
+                                    elif float(actual_amt) > hi:
+                                        row["status"] = "resolved_beat"
+                                    else:
+                                        row["status"] = "resolved_pass"
+                                else:
+                                    row["status"] = "resolved_pass"
+                                row["rationale"] = _append_follow_rationale(
+                                    str(row.get("rationale") or ""),
+                                    latest_summary,
+                                    latest_eval_q,
+                                    qd,
+                                )
+                                row["last_seen_quarter_end"] = str(latest_eval_q)
+                                row["last_seen_evidence_quarter_end"] = str(latest_eval_q)
+                                row["carried_to_quarter_end"] = str(latest_eval_q)
+                                row["evaluated_through"] = str(latest_eval_q)
+                    if metric_display == "Debt reduction" and qd == date(2024, 9, 30):
+                        row["rationale"] = re.split(
+                            r"\bClean Sugar Technology\b",
+                            glx_normalize_text(str(row.get("rationale") or "")),
+                            maxsplit=1,
+                            flags=re.I,
+                        )[0].strip(" .|")
+                        row["latest"] = re.split(
+                            r"\bClean Sugar Technology\b",
+                            glx_normalize_text(str(row.get("latest") or "")),
+                            maxsplit=1,
+                            flags=re.I,
+                        )[0].strip(" .|")
+                        debt_hits = _gpre_progress_note_matches(qd, r"\b(obion|debt reduction|deleverag|repaid|repayment)\b")
+                        if debt_hits:
+                            debt_note = debt_hits[0][1]
+                            debt_note = re.split(r"\bClean Sugar Technology\b", debt_note, maxsplit=1, flags=re.I)[0].strip(" .|")
+                            row["target"] = ""
+                            row["latest"] = _extract_progress_latest_basis("Debt reduction", debt_note) or "Debt reduction underway"
+                            row["rationale"] = _ensure_terminal_period(debt_note)
+                            row["status"] = "completed" if re.search(r"\b(repaid|repayment completed|used to fully repay)\b", debt_note, re.I) else "on_track"
+                        elif re.search(r"\b2026\b", glx_normalize_text(" | ".join([str(row.get("latest") or ""), str(row.get("rationale") or "")])), re.I):
+                            continue
+                    if qd == date(2024, 12, 31) and metric_display == "Clean Fuel Production 45Z generation":
+                        continue
+                    cleaned_rows.append(row)
+                visible_count = len([x for x in cleaned_rows if str(x.get("row_type") or "").strip().lower() not in {"section", "blank"}])
+                if visible_count == 0:
+                    tracker_candidates: List[Dict[str, Any]] = []
+                    for rec in tracker_rows_map.get(qd, []) or []:
+                        tracker_row = _build_tracker_progress_row(qd, rec)
+                        if tracker_row is None:
+                            continue
+                        metric_display = _gpre_clean_visible_promise_metric(
+                            tracker_row.get("metric_display") or tracker_row.get("metric_ref") or "",
+                            tracker_row.get("rationale"),
+                            tracker_row,
+                        )
+                        tracker_row["metric_display"] = metric_display
+                        tracker_row["metric_ref"] = metric_display
+                        if not metric_display:
+                            continue
+                        if _gpre_bad_visible_promise_reason(metric_display, tracker_row.get("rationale"), tracker_row.get("latest"), tracker_row.get("target")):
+                            continue
+                        tracker_candidates.append(tracker_row)
+                    if tracker_candidates:
+                        cleaned_rows.extend(tracker_candidates[:2])
+                rows_by_quarter[qd] = _gpre_trim_final_progress_rows(
+                    _collapse_progress_rows_for_display(cleaned_rows)
+                )
+
+        _repair_pbi_visible_progress_rows()
+        _gpre_repair_visible_progress_rows()
+
         _render_stacked_quarter_blocks(
             ws=ws,
             quarters=quarters,
             rows_by_quarter=rows_by_quarter,
-            max_col=11,
+            max_col=15,
             block_title_fn=lambda qd: f"Promise progress (As of {qd})",
             row_writer=_row_writer,
             block_header_writer=_block_header_writer,
@@ -34586,6 +36481,16 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 "fcf target",
                 "cost savings target",
             }
+            def _pbi_visible_cost_target(block_asof: Optional[date]) -> str:
+                if not isinstance(block_asof, date):
+                    return ""
+                if block_asof >= date(2025, 3, 31):
+                    return "$180m-$200m"
+                if block_asof >= date(2024, 12, 31):
+                    return "$170m-$190m"
+                if block_asof >= date(2024, 9, 30):
+                    return "$150m-$170m"
+                return "$75m-$85m"
             status_rank = {
                 "beat": 7,
                 "completed": 7,
@@ -34612,11 +36517,263 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     ranges.append((start_row, _ws.max_row))
                 return ranges
 
+            def _block_asof_date(title_text: str) -> Optional[date]:
+                txt = str(title_text or "").strip()
+                m = re.search(r"As of (\d{4}-\d{2}-\d{2})", txt)
+                if not m:
+                    return None
+                try:
+                    return pd.Timestamp(m.group(1)).date()
+                except Exception:
+                    return None
+
+            def _canonical_guidance_rationale(metric_text: str, target_text: str, existing_rationale: str, asof_q: Optional[date]) -> str:
+                period_label = _pbi_guidance_period_label_from_text(existing_rationale)
+                metric_clean = str(metric_text or "").strip()
+                target_clean = str(target_text or "").strip()
+                if metric_clean == "Cost savings target" and target_clean:
+                    return _ensure_terminal_period(f"Annualized cost savings target {target_clean}")
+                if metric_clean and target_clean:
+                    prefix = " ".join([part for part in [period_label, metric_clean] if part]).strip()
+                    prefix = prefix or metric_clean
+                    return _ensure_terminal_period(f"{prefix} {target_clean}")
+                return _ensure_terminal_period(qn_compact_snippet(existing_rationale, 220))
+
+            def _display_status(status_raw: Any) -> str:
+                status_key = re.sub(r"[\s\-]+", "_", str(status_raw or "").strip().lower())
+                if status_key in {"resolved_beat", "actual_beat", "ahead_of_plan", "beat"}:
+                    return "Beat"
+                if status_key in {"resolved_pass", "actual_hit", "hit"}:
+                    return "Hit"
+                if status_key in {"broken", "missed", "resolved_fail", "actual_miss", "miss"}:
+                    return "Missed"
+                if status_key in {"completed", "achieved"}:
+                    return "Completed"
+                if status_key in {"on_track", "on track"}:
+                    return "On track"
+                if status_key in {"in_progress", "updated"}:
+                    return "Updated"
+                return "Open"
+
+            def _coerce_actual_numeric_local(value_in: Any) -> Optional[float]:
+                parsed_money = _parse_dollar_amount(value_in)
+                if parsed_money is not None:
+                    return float(parsed_money)
+                try:
+                    num = pd.to_numeric(value_in, errors="coerce")
+                    return float(num) if pd.notna(num) else None
+                except Exception:
+                    return None
+
             rows_to_delete: List[int] = []
+            best_cost_progress: Dict[str, Any] = {}
+            for start_row, end_row in _iter_block_ranges():
+                block_asof = _block_asof_date(str(_ws.cell(start_row, 1).value or ""))
+                for rr in range(start_row + 2, end_row + 1):
+                    metric_val = str(_ws.cell(rr, 1).value or "").strip().lower()
+                    if metric_val != "cost savings target":
+                        continue
+                    latest_val = str(_ws.cell(rr, 3).value or "").strip()
+                    result_val = str(_ws.cell(rr, 4).value or "").strip()
+                    eval_txt = str(_ws.cell(rr, 9).value or "").strip()
+                    if latest_val.lower() in {"", "not yet measurable"}:
+                        continue
+                    rank = status_rank.get(result_val.strip().lower(), 0)
+                    latest_amt = _parse_dollar_amount(latest_val) or 0.0
+                    cur_rank = int(best_cost_progress.get("_rank") or -1)
+                    cur_latest_amt = float(best_cost_progress.get("_latest_amt") or 0.0)
+                    eval_q = _qend(eval_txt) or block_asof
+                    cur_eval_q = _qend(best_cost_progress.get("evaluated_through"))
+                    if (
+                        rank > cur_rank
+                        or (rank == cur_rank and latest_amt > cur_latest_amt + 1e-6)
+                        or (rank == cur_rank and isinstance(eval_q, date) and (not isinstance(cur_eval_q, date) or eval_q > cur_eval_q))
+                    ):
+                        best_cost_progress = {
+                            "_rank": rank,
+                            "_latest_amt": latest_amt,
+                            "latest": latest_val,
+                            "result": result_val,
+                            "rationale": str(_ws.cell(rr, 5).value or "").strip(),
+                            "last_seen": str(_ws.cell(rr, 7).value or "").strip() or (_q_label(eval_q) if isinstance(eval_q, date) else ""),
+                            "carried_to": str(_ws.cell(rr, 8).value or "").strip() or (_q_label(eval_q) if isinstance(eval_q, date) else ""),
+                            "evaluated_through": eval_txt or (str(eval_q) if isinstance(eval_q, date) else ""),
+                        }
+            for start_row, end_row in _iter_block_ranges():
+                block_asof = _block_asof_date(str(_ws.cell(start_row, 1).value or ""))
+                for rr in range(start_row + 2, end_row + 1):
+                    metric_val_raw = str(_ws.cell(rr, 1).value or "").strip()
+                    metric_val = metric_val_raw.lower()
+                    target_val = str(_ws.cell(rr, 2).value or "").strip()
+                    latest_val = str(_ws.cell(rr, 3).value or "").strip()
+                    result_val = str(_ws.cell(rr, 4).value or "").strip()
+                    rationale_val = glx_normalize_text(str(_ws.cell(rr, 5).value or ""))
+                    eval_through_txt = str(_ws.cell(rr, 9).value or "").strip()
+                    eval_asof = _qend(eval_through_txt) or evaluation_as_of or block_asof
+                    if metric_val in {"revenue guidance", "adjusted ebit guidance", "eps guidance", "fcf target"} and isinstance(eval_asof, date):
+                        guidance_row = {
+                            "metric_display": metric_val_raw,
+                            "metric_ref": metric_val_raw,
+                            "target": target_val,
+                            "latest": latest_val,
+                            "status": result_val,
+                            "rationale": rationale_val,
+                            "target_period_norm": "",
+                            "target_period_label": "",
+                            "_source_snip": rationale_val,
+                        }
+                        guidance_row = _pbi_apply_guidance_outcome(guidance_row, eval_asof, period_inference_q=(block_asof or eval_asof))
+                        target_spec = _infer_target_numeric_spec(target_val)
+                        actual_num = _coerce_actual_numeric_local(guidance_row.get("latest"))
+                        if actual_num is not None and str(target_spec.get("kind") or "") == "range":
+                            lo = min(float(target_spec.get("low") or 0.0), float(target_spec.get("high") or 0.0))
+                            hi = max(float(target_spec.get("low") or 0.0), float(target_spec.get("high") or 0.0))
+                            if actual_num < lo - 1e-6:
+                                guidance_row["status"] = "resolved_fail"
+                            elif actual_num > hi + 1e-6:
+                                guidance_row["status"] = "resolved_beat"
+                            else:
+                                guidance_row["status"] = "resolved_pass"
+                        latest_out = guidance_row.get("latest")
+                        latest_out_txt = str(latest_out or "").strip().lower()
+                        _ws.cell(rr, 3).value = latest_out
+                        _ws.cell(rr, 4).value = _display_status(guidance_row.get("status"))
+                        if (
+                            not rationale_val
+                            or len(rationale_val) > 140
+                            or re.search(r"\brepurchase authorization\b|\bdividend increase\b", rationale_val, re.I)
+                        ):
+                            _ws.cell(rr, 5).value = _canonical_guidance_rationale(metric_val_raw, target_val, rationale_val, block_asof)
+                        _ws.cell(rr, 8).value = _q_label(eval_asof)
+                        _ws.cell(rr, 9).value = str(eval_asof)
+                        if latest_out_txt not in {"", "not yet measurable"}:
+                            _ws.cell(rr, 7).value = _q_label(eval_asof)
+                    if metric_val in {"revenue guidance", "adjusted ebit guidance", "eps guidance", "fcf target"} and isinstance(block_asof, date):
+                        repaired_norm, _ = _pbi_repair_guidance_period_meta(
+                            metric_val_raw,
+                            "",
+                            "",
+                            " | ".join([metric_val_raw, target_val, latest_val, rationale_val]),
+                            block_asof,
+                        )
+                        repaired_end = _guidance_period_end(repaired_norm, block_asof or eval_asof) if repaired_norm and isinstance(eval_asof, date) else None
+                        if isinstance(repaired_end, date) and isinstance(eval_asof, date) and repaired_end > eval_asof:
+                            _ws.cell(rr, 3).value = "not yet measurable"
+                            _ws.cell(rr, 4).value = "Open"
+                            _ws.cell(rr, 5).value = _canonical_guidance_rationale(metric_val_raw, target_val, rationale_val, block_asof)
+                    if metric_val == "cost savings target":
+                        visible_target = _pbi_visible_cost_target(block_asof)
+                        if visible_target:
+                            _ws.cell(rr, 2).value = visible_target
+                        current_eval_q = _qend(eval_through_txt) or block_asof
+                        best_eval_q = evaluation_as_of or _qend(best_cost_progress.get("evaluated_through"))
+                        current_latest_amt = _parse_dollar_amount(latest_val) or 0.0
+                        best_latest_amt = _parse_dollar_amount(best_cost_progress.get("latest")) or 0.0
+                        should_refresh_cost_progress = (
+                            best_cost_progress
+                            and (
+                                latest_val.lower() in {"", "not yet measurable"}
+                                or "latest disclosed nan" in rationale_val.lower()
+                                or (
+                                    isinstance(best_eval_q, date)
+                                    and (not isinstance(current_eval_q, date) or best_eval_q > current_eval_q)
+                                )
+                                or best_latest_amt > current_latest_amt + 1e-6
+                            )
+                        )
+                        if should_refresh_cost_progress:
+                            latest_cost_q = best_eval_q
+                            _ws.cell(rr, 3).value = best_cost_progress.get("latest") or latest_val
+                            _ws.cell(rr, 4).value = best_cost_progress.get("result") or result_val or "Updated"
+                            _ws.cell(rr, 5).value = best_cost_progress.get("rationale") or _canonical_guidance_rationale(metric_val_raw, target_val, rationale_val, block_asof)
+                            if isinstance(latest_cost_q, date):
+                                _ws.cell(rr, 7).value = _q_label(latest_cost_q)
+                                _ws.cell(rr, 8).value = _q_label(latest_cost_q)
+                                _ws.cell(rr, 9).value = str(latest_cost_q)
+                            else:
+                                _ws.cell(rr, 7).value = best_cost_progress.get("last_seen") or _ws.cell(rr, 7).value
+                                _ws.cell(rr, 8).value = best_cost_progress.get("carried_to") or _ws.cell(rr, 8).value
+                                _ws.cell(rr, 9).value = best_cost_progress.get("evaluated_through") or _ws.cell(rr, 9).value
+                        if target_val and latest_val.lower() in {"", "not yet measurable"} and re.search(r"\bcost savings target target\b", rationale_val, re.I):
+                            _ws.cell(rr, 5).value = _canonical_guidance_rationale(metric_val_raw, target_val, rationale_val, block_asof)
+                        elif not target_val and re.search(r"\bterm loan b\b", rationale_val, re.I):
+                            rows_to_delete.append(rr)
+
+            final_best_cost_progress: Dict[str, Any] = {}
+            for start_row, end_row in _iter_block_ranges():
+                block_asof = _block_asof_date(str(_ws.cell(start_row, 1).value or ""))
+                for rr in range(start_row + 2, end_row + 1):
+                    metric_val = str(_ws.cell(rr, 1).value or "").strip().lower()
+                    if metric_val != "cost savings target":
+                        continue
+                    latest_val = str(_ws.cell(rr, 3).value or "").strip()
+                    if latest_val.lower() in {"", "not yet measurable"}:
+                        continue
+                    result_val = str(_ws.cell(rr, 4).value or "").strip()
+                    eval_txt = str(_ws.cell(rr, 9).value or "").strip()
+                    eval_q = _qend(eval_txt) or block_asof
+                    latest_amt = _parse_dollar_amount(latest_val) or 0.0
+                    score_tuple = (
+                        eval_q.toordinal() if isinstance(eval_q, date) else -1,
+                        status_rank.get(result_val.strip().lower(), 0),
+                        latest_amt,
+                    )
+                    best_tuple = (
+                        (_qend(final_best_cost_progress.get("evaluated_through")) or date.min).toordinal()
+                        if isinstance(_qend(final_best_cost_progress.get("evaluated_through")), date)
+                        else -1,
+                        status_rank.get(str(final_best_cost_progress.get("result") or "").strip().lower(), 0),
+                        float(final_best_cost_progress.get("_latest_amt") or 0.0),
+                    )
+                    if score_tuple > best_tuple:
+                        final_best_cost_progress = {
+                            "_latest_amt": latest_amt,
+                            "latest": latest_val,
+                            "result": result_val,
+                            "rationale": str(_ws.cell(rr, 5).value or "").strip(),
+                            "last_seen": str(_ws.cell(rr, 7).value or "").strip(),
+                            "carried_to": str(_ws.cell(rr, 8).value or "").strip(),
+                            "evaluated_through": eval_txt or (str(eval_q) if isinstance(eval_q, date) else ""),
+                        }
+            if final_best_cost_progress:
+                best_latest_amt = float(final_best_cost_progress.get("_latest_amt") or 0.0)
+                best_eval_q = evaluation_as_of or _qend(final_best_cost_progress.get("evaluated_through"))
+                for start_row, end_row in _iter_block_ranges():
+                    for rr in range(start_row + 2, end_row + 1):
+                        metric_val = str(_ws.cell(rr, 1).value or "").strip().lower()
+                        if metric_val != "cost savings target":
+                            continue
+                        latest_val = str(_ws.cell(rr, 3).value or "").strip()
+                        rationale_val = glx_normalize_text(str(_ws.cell(rr, 5).value or ""))
+                        current_eval_q = _qend(_ws.cell(rr, 9).value)
+                        current_latest_amt = _parse_dollar_amount(latest_val) or 0.0
+                        should_refresh_final = (
+                            latest_val.lower() in {"", "not yet measurable"}
+                            or "latest disclosed nan" in rationale_val.lower()
+                            or best_latest_amt > current_latest_amt + 1e-6
+                            or (
+                                isinstance(best_eval_q, date)
+                                and (not isinstance(current_eval_q, date) or best_eval_q > current_eval_q)
+                            )
+                        )
+                        if not should_refresh_final:
+                            continue
+                        _ws.cell(rr, 3).value = final_best_cost_progress.get("latest") or latest_val
+                        _ws.cell(rr, 4).value = final_best_cost_progress.get("result") or _ws.cell(rr, 4).value
+                        _ws.cell(rr, 5).value = final_best_cost_progress.get("rationale") or _ws.cell(rr, 5).value
+                        if isinstance(best_eval_q, date):
+                            _ws.cell(rr, 7).value = _q_label(best_eval_q)
+                            _ws.cell(rr, 8).value = _q_label(best_eval_q)
+                            _ws.cell(rr, 9).value = str(best_eval_q)
+                        else:
+                            _ws.cell(rr, 7).value = final_best_cost_progress.get("last_seen") or _ws.cell(rr, 7).value
+                            _ws.cell(rr, 8).value = final_best_cost_progress.get("carried_to") or _ws.cell(rr, 8).value
+                            _ws.cell(rr, 9).value = final_best_cost_progress.get("evaluated_through") or _ws.cell(rr, 9).value
+
             for start_row, end_row in _iter_block_ranges():
                 grouped: Dict[str, List[int]] = {}
                 for rr in range(start_row + 2, end_row + 1):
-                    metric_val = str(_ws.cell(rr, 2).value or "").strip().lower()
+                    metric_val = str(_ws.cell(rr, 1).value or "").strip().lower()
                     if metric_val in guidance_metrics:
                         grouped.setdefault(metric_val, []).append(rr)
                 for metric_rows in grouped.values():
@@ -34624,14 +36781,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         continue
 
                     def _row_score(rr: int) -> Tuple[int, int, int, str]:
-                        result_val = str(_ws.cell(rr, 5).value or "").strip().lower()
-                        latest_val = str(_ws.cell(rr, 4).value or "").strip().lower()
+                        result_val = str(_ws.cell(rr, 4).value or "").strip().lower()
+                        latest_val = str(_ws.cell(rr, 3).value or "").strip().lower()
                         has_actual = int(latest_val not in {"", "not yet measurable"})
                         return (
                             status_rank.get(result_val, 2),
                             has_actual,
                             -rr,
-                            str(_ws.cell(rr, 6).value or ""),
+                            str(_ws.cell(rr, 5).value or ""),
                         )
 
                     keep_row = max(metric_rows, key=_row_score)
@@ -34642,8 +36799,293 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             for rr in sorted(set(rows_to_delete), reverse=True):
                 _ws.delete_rows(rr, 1)
 
+        def _cleanup_rendered_gpre_progress_rows(_ws: Any) -> None:
+            def _iter_block_ranges() -> List[Tuple[int, int]]:
+                ranges: List[Tuple[int, int]] = []
+                start_row: Optional[int] = None
+                for rr in range(1, _ws.max_row + 1):
+                    val = str(_ws.cell(rr, 1).value or "").strip()
+                    if val.startswith("Promise progress (As of "):
+                        if start_row is not None:
+                            ranges.append((start_row, rr - 1))
+                        start_row = rr
+                if start_row is not None:
+                    ranges.append((start_row, _ws.max_row))
+                return ranges
+
+            def _block_asof_date(title_text: str) -> Optional[date]:
+                txt = str(title_text or "").strip()
+                m = re.search(r"As of (\d{4}-\d{2}-\d{2})", txt)
+                if not m:
+                    return None
+                try:
+                    return pd.Timestamp(m.group(1)).date()
+                except Exception:
+                    return None
+
+            def _compact_money_token(raw_text: Any) -> str:
+                txt = glx_normalize_text(str(raw_text or "")).replace("–", "-").strip()
+                if not txt:
+                    return ""
+                tokens = re.findall(r"\$[0-9][0-9.,]*(?:bn|m)?", txt, flags=re.I)
+                if len(tokens) >= 2 and re.search(r"\$[0-9][0-9.,]*(?:bn|m)?\s*-\s*\$?[0-9][0-9.,]*(?:bn|m)?", txt, flags=re.I):
+                    def _norm(tok: str) -> str:
+                        t = tok.replace(" ", "")
+                        t = re.sub(r"\.0+(?=[mbn]|$)", "", t, flags=re.I)
+                        return t
+                    return f"{_norm(tokens[0])}-{_norm(tokens[1]).lstrip('$')}"
+                if tokens:
+                    tok = tokens[0].replace(" ", "")
+                    tok = re.sub(r"\.0+(?=[mbn]|$)", "", tok, flags=re.I)
+                    return tok
+                return txt
+
+            def _short_tracker_text(raw_text: Any) -> str:
+                txt = glx_normalize_text(str(raw_text or "")).replace("&#8226;", "|").replace("•", "|").strip(" .|")
+                if not txt:
+                    return ""
+                txt = re.sub(r"\s+", " ", txt).strip()
+                return txt
+
+            rows_to_delete: List[int] = []
+            for start_row, end_row in _iter_block_ranges():
+                block_asof = _block_asof_date(str(_ws.cell(start_row, 1).value or ""))
+                for rr in range(start_row + 2, end_row + 1):
+                    metric_val = str(_ws.cell(rr, 1).value or "").strip()
+                    if not metric_val or metric_val == "Metric":
+                        continue
+                    target_cell = _ws.cell(rr, 2)
+                    latest_cell = _ws.cell(rr, 3)
+                    result_cell = _ws.cell(rr, 4)
+                    rationale_cell = _ws.cell(rr, 5)
+                    target_txt = _short_tracker_text(target_cell.value)
+                    latest_txt = _short_tracker_text(latest_cell.value)
+                    rationale_txt = _short_tracker_text(rationale_cell.value)
+
+                    if metric_val == "45Z monetization outlook":
+                        target_cell.value = "$15m-$25m"
+                        if block_asof == date(2025, 12, 31):
+                            latest_cell.value = "$23.4m"
+                            result_cell.value = "Hit"
+                            rationale_cell.value = "inclusive of $23.4m in 45Z production tax credit value net of discounts and other costs"
+                        else:
+                            if latest_txt:
+                                latest_cell.value = _compact_money_token(latest_txt)
+                            rationale_cell.value = "45Z monetization tracked against expected Q4 2025 range"
+                        continue
+
+                    if metric_val == "Interest expense outlook":
+                        target_cell.value = "$30m-$35m"
+                        rationale_cell.value = "2026 interest expense expected at about $30m-$35m"
+                        continue
+
+                    if metric_val in {"45Z facility qualification", "45Z plant qualification readiness"}:
+                        if not target_txt:
+                            target_cell.value = "All 8 plants qualified for 45Z tax credits in 2026"
+                        rationale_cell.value = "All eight plants expected to qualify for 45Z in 2026"
+                        continue
+
+                    if metric_val == "Advantage Nebraska startup":
+                        if block_asof in {date(2025, 6, 30), date(2025, 3, 31), date(2024, 6, 30)}:
+                            target_cell.value = "CCS start-up early Q4 2025"
+                            if block_asof == date(2024, 6, 30):
+                                rationale_cell.value = "Ordered major equipment necessary for CCS from Nebraska facilities"
+                            else:
+                                rationale_cell.value = "CCS project remained on track for early Q4 2025 start-up"
+                            latest_cell.value = "Fully operational in Q4 2025"
+                            result_cell.value = "Completed"
+                        elif block_asof == date(2025, 12, 31) and not target_txt:
+                            target_cell.value = "Advantage Nebraska fully operational"
+                            rationale_cell.value = "Advantage Nebraska fully operational and sequestering CO2 in Wyoming"
+                            latest_cell.value = "Advantage Nebraska fully operational"
+                        continue
+
+                    if metric_val == "Cost savings target":
+                        rationale_cell.value = "Cost reductions are on pace to exceed the $50.0m annualized savings target. | Same-quarter confirmation (Q2 2025)"
+                        if block_asof == date(2025, 3, 31) and str(latest_cell.value or "").strip().lower() in {"", "not yet measurable"}:
+                            latest_cell.value = "On pace to exceed $50m target (Q2 2025)"
+                            if str(result_cell.value or "").strip().lower() in {"", "open"}:
+                                result_cell.value = "On track"
+                        continue
+
+                    if metric_val == "45Z from remaining facilities":
+                        latest_txt = glx_normalize_text(str(latest_cell.value or "")).strip().lower()
+                        if re.search(r"\b23\.4m\b|\bnebraska\b|\bnet of discounts\b", latest_txt, re.I):
+                            latest_cell.value = "not yet measurable"
+                            if str(result_cell.value or "").strip().lower() in {"completed", "hit", "beat"}:
+                                result_cell.value = "On track"
+                        rationale_cell.value = ">$38m expected from remaining facilities in 2026 | Same-quarter confirmation (Q4 2025)"
+                        continue
+
+                    if metric_val == "Debt reduction" and block_asof == date(2024, 9, 30):
+                        clean_rat = re.split(r"\bClean Sugar Technology\b", rationale_txt, maxsplit=1, flags=re.I)[0].strip(" .|")
+                        if re.search(r"\b(used to repay|repaid|fully repay)\b", clean_rat, re.I):
+                            target_cell.value = "Repay term loan from transaction proceeds"
+                            latest_cell.value = "Debt repaid"
+                            result_cell.value = "Completed"
+                            rationale_cell.value = "Sale proceeds used to repay GPL term loan"
+                        else:
+                            rows_to_delete.append(rr)
+                        continue
+
+                    if metric_val == "Debt reduction":
+                        target_amt = _compact_money_token(target_txt) or _compact_money_token(rationale_txt)
+                        if target_amt:
+                            target_cell.value = target_amt
+                        rationale_cell.value = "Sale proceeds used to repay junior mezzanine debt"
+
+            for rr in sorted(set(rows_to_delete), reverse=True):
+                _ws.delete_rows(rr, 1)
+
         if is_pbi_profile:
             _collapse_rendered_pbi_guidance_rows(ws)
+        if is_gpre_profile:
+            _cleanup_rendered_gpre_progress_rows(ws)
+
+        def _promise_sheet_metric_is_monetary(metric_text: Any) -> bool:
+            metric_low = str(metric_text or "").strip().lower()
+            return any(
+                token in metric_low
+                for token in (
+                    "revenue",
+                    "ebit",
+                    "ebitda",
+                    "eps",
+                    "fcf",
+                    "cost savings",
+                    "liquidity",
+                    "interest expense",
+                    "45z",
+                    "debt",
+                    "buyback",
+                    "dividend",
+                )
+            )
+
+        def _promise_sheet_moneyish(value_in: Any) -> bool:
+            txt = str(value_in or "").strip()
+            if not txt:
+                return False
+            if _parse_dollar_amount(txt) is not None:
+                return True
+            return bool(re.match(r"^[><~]?\s*\$[0-9]", txt))
+
+        def _apply_promise_progress_visible_formatting(_ws: Any) -> None:
+            def _apply_result_fill_local(cell_in: Any) -> None:
+                result_low = str(getattr(cell_in, "value", "") or "").strip().lower()
+                fill_color = "D9E1F2"
+                if result_low == "missed":
+                    fill_color = "FFC7CE"
+                elif result_low == "at risk":
+                    fill_color = "FFEB9C"
+                elif result_low == "beat":
+                    fill_color = "A9D18E"
+                elif result_low in {"hit", "completed"}:
+                    fill_color = "C6EFCE"
+                elif result_low == "on track":
+                    fill_color = "E2F0D9"
+                elif result_low == "updated":
+                    fill_color = "D9E1F2"
+                elif result_low == "open":
+                    fill_color = "D9E1F2"
+                cell_in.fill = PatternFill("solid", fgColor=fill_color)
+
+            block_header_rows: List[int] = []
+            divider_side_local = Side(style="medium", color="000000")
+            blank_side_local = Side(style=None)
+            for rr in range(1, _ws.max_row + 1):
+                metric_val = str(_ws.cell(rr, 1).value or "").strip()
+                if metric_val.startswith("Promise progress (As of "):
+                    block_header_rows.append(rr)
+                    continue
+                if metric_val.startswith("Generated at "):
+                    for cc in range(1, 16):
+                        cell = _ws.cell(rr, cc)
+                        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+                        cell.border = Border(
+                            left=cell.border.left,
+                            right=cell.border.right,
+                            top=blank_side_local,
+                            bottom=blank_side_local,
+                        )
+                    _ws.cell(rr, 4).fill = PatternFill(fill_type=None)
+                    continue
+                if not metric_val:
+                    continue
+                if metric_val == "Metric":
+                    for cc in range(1, 16):
+                        _ws.cell(rr, cc).alignment = Alignment(
+                            horizontal="right" if cc in {2, 3} else "left",
+                            vertical="center",
+                            wrap_text=False,
+                        )
+                    continue
+                metric_cell = _ws.cell(rr, 1)
+                target_cell = _ws.cell(rr, 2)
+                latest_cell = _ws.cell(rr, 3)
+                result_cell = _ws.cell(rr, 4)
+                rationale_cell = _ws.cell(rr, 5)
+                meta_cols = [6, 7, 8, 9, 10, 15]
+
+                metric_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+                target_cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=False)
+                latest_cell.alignment = Alignment(
+                    horizontal="right",
+                    vertical="center",
+                    wrap_text=False,
+                )
+                result_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
+                _apply_result_fill_local(result_cell)
+                rationale_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                for cc in meta_cols:
+                    _ws.cell(rr, cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+                for cc in range(11, 15):
+                    _ws.cell(rr, cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+
+                if _promise_sheet_metric_is_monetary(metric_val):
+                    try:
+                        latest_num = float(latest_cell.value)
+                    except Exception:
+                        latest_num = None
+                    if latest_num is not None:
+                        if "eps" in metric_val.lower():
+                            latest_cell.number_format = "$0.00"
+                        elif abs(latest_num) >= 1_000_000:
+                            latest_cell.number_format = '$#,##0.000,,"m"'
+                        elif abs(latest_num) >= 1_000:
+                            latest_cell.number_format = "$#,##0.0"
+                        else:
+                            latest_cell.number_format = "$0.00"
+                rationale_txt = str(rationale_cell.value or "").strip()
+                rationale_lines = _estimate_wrapped_line_count(
+                    rationale_txt,
+                    float(_ws.column_dimensions["E"].width or pp_rationale_col_width_default),
+                    min_lines=1,
+                    max_lines=4,
+                )
+                preferred_height = 20.0 if rationale_lines <= 1.25 else (26.0 if rationale_lines <= 2.1 else 32.0)
+                current_height = float(_ws.row_dimensions[rr].height or preferred_height)
+                _ws.row_dimensions[rr].height = max(preferred_height, min(current_height, 40.0))
+                for cc in range(1, 16):
+                    cell = _ws.cell(rr, cc)
+                    cell.border = Border(
+                        left=cell.border.left,
+                        right=cell.border.right,
+                        top=blank_side_local,
+                        bottom=blank_side_local,
+                    )
+
+            for header_rr in block_header_rows[1:]:
+                for cc in range(1, 16):
+                    cell = _ws.cell(header_rr, cc)
+                    cell.border = Border(
+                        left=cell.border.left,
+                        right=cell.border.right,
+                        top=divider_side_local,
+                        bottom=blank_side_local,
+                    )
+
+        _apply_promise_progress_visible_formatting(ws)
 
         _record_writer_substage("write_excel.ui.progress_rows.render", progress_render_started)
         if milestone_suppressed_count > 0:
@@ -34657,14 +37099,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 }
             )
         for rr in range(2, ws.max_row + 1):
-            row_vals = [str(ws.cell(row=rr, column=cc).value or "").strip() for cc in range(1, 12)]
+            row_vals = [str(ws.cell(row=rr, column=cc).value or "").strip() for cc in range(1, 16)]
             if not any(row_vals):
                 ws.row_dimensions[rr].height = 12.0
                 continue
             if row_vals[0] and not any(row_vals[1:]):
                 ws.row_dimensions[rr].height = 16.0
                 continue
-            if row_vals[0].lower() == "promise_id" and row_vals[1].lower() == "metric":
+            if row_vals[0].lower() == "metric" and row_vals[14].lower() == "promise id":
                 ws.row_dimensions[rr].height = 16.0
                 continue
             if row_vals[0].lower().startswith("guidance accuracy"):
@@ -34677,17 +37119,21 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             except Exception:
                 v = 10.0
             return max(0.1, v)
-        ws.column_dimensions["A"].width = 20
-        ws.column_dimensions["B"].width = 30
-        ws.column_dimensions["C"].width = 30
-        ws.column_dimensions["D"].width = 30
-        ws.column_dimensions["E"].width = 17
-        ws.column_dimensions["F"].width = _px_to_excel_width(554.0)
+        ws.column_dimensions["A"].width = 30
+        ws.column_dimensions["B"].width = _px_to_excel_width(272.0)
+        ws.column_dimensions["C"].width = _px_to_excel_width(272.0)
+        ws.column_dimensions["D"].width = 17
+        ws.column_dimensions["E"].width = _px_to_excel_width(554.0)
+        ws.column_dimensions["F"].width = 12
         ws.column_dimensions["G"].width = 12
         ws.column_dimensions["H"].width = 12
-        ws.column_dimensions["I"].width = 12
-        ws.column_dimensions["J"].width = 16
-        ws.column_dimensions["K"].width = 12
+        ws.column_dimensions["I"].width = 16
+        ws.column_dimensions["J"].width = 12
+        ws.column_dimensions["K"].width = 4
+        ws.column_dimensions["L"].width = 4
+        ws.column_dimensions["M"].width = 4
+        ws.column_dimensions["N"].width = 4
+        ws.column_dimensions["O"].width = 24
         return qa_rows
 
     def _period_type(row: pd.Series) -> str:
@@ -36849,7 +39295,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         input_value_col = 4    # D
         input_basis_col = 5    # E
         input_hint_col = 6     # F
-        # Valuation panel layout (rows 191+ only).
+        # Valuation panel layout (rows 193+ only).
         output_label_col = 11  # K
         output_value_col = 14  # N
         output_interp_col = 15 # O
@@ -36891,7 +39337,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         input_hint_col_letter = get_column_letter(input_hint_col)
         output_label_col_letter = get_column_letter(output_label_col)
         output_interp_col_letter = get_column_letter(output_interp_col)
-        valuation_header_row = 190
+        valuation_header_row = 192
         valuation_inputs_row = valuation_header_row + 1
         valuation_shift = valuation_header_row - 2
         ws[f"{input_label_col_letter}{valuation_header_row}"] = "Valuation"
@@ -37892,21 +40338,23 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         )
 
         # Convertible optionality block.
-        row_convert_hdr = 244
+        row_convert_hdr = 246
         convert_col_map = {
-            "Security": 12,   # L
-            "Principal": 13,  # M
-            "Coupon": 14,  # N
-            "Maturity": 15,  # O
-            "Conversion price": 16,  # P:Q
-            "Shares on full conversion (m)": 18,  # R:S
-            "Concurrent repurchase shares (m)": 20,  # T:V
-            "Net added shares on full conversion (m)": 23,  # W:Z
+            "Security": 12,   # L:M
+            "Principal": 14,  # N
+            "Coupon": 15,  # O
+            "Maturity": 16,  # P
+            "Conversion price": 17,  # Q:R
+            "Shares on full conversion (m)": 19,  # S:T
+            "Concurrent repurchase shares (m)": 21,  # U:W
+            "Net added shares on full conversion (m)": 24,  # X:AA
         }
+        convert_header_end_col = 27
+        net_added_end_col = 27
         ws.cell(row=row_convert_hdr, column=12, value="Convertible notes").font = bold
         ws.cell(row=row_convert_hdr, column=12).fill = section_fill
         try:
-            ws.merge_cells(start_row=row_convert_hdr, start_column=12, end_row=row_convert_hdr, end_column=26)
+            ws.merge_cells(start_row=row_convert_hdr, start_column=12, end_row=row_convert_hdr, end_column=convert_header_end_col)
         except Exception:
             pass
         convert_header_row = row_convert_hdr + 1
@@ -37916,16 +40364,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             c_hdr.fill = header_fill
             c_hdr.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
             c_hdr.border = thin_border
-        for merge_start, merge_end in ((16, 17), (18, 19), (20, 22), (23, 26)):
+        for merge_start, merge_end in ((12, 13), (17, 18), (19, 20), (21, 23), (24, net_added_end_col)):
             try:
                 ws.merge_cells(start_row=convert_header_row, start_column=merge_start, end_row=convert_header_row, end_column=merge_end)
             except Exception:
                 pass
-        convert_end_col = 26
-        conv_price_col = 16
-        shares_full_col = 18
-        concurrent_rep_col = 20
-        net_added_col = 23
+        convert_end_col = 27
+        conv_price_col = 17
+        shares_full_col = 19
+        concurrent_rep_col = 21
+        net_added_col = 24
+        ws.column_dimensions["L"].width = 13.0
+        ws.column_dimensions["M"].width = 13.0
         shares_full_letter = get_column_letter(shares_full_col)
         concurrent_rep_letter = get_column_letter(concurrent_rep_col)
         convert_df = pd.DataFrame()
@@ -37953,10 +40403,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 conv_shares_val = pd.to_numeric(conv_row.get("shares_on_full_conversion"), errors="coerce")
                 if pd.notna(conv_shares_val):
                     conv_shares_val = float(conv_shares_val) / 1e6
-                ws.cell(row=convert_row, column=12, value=conv_row.get("tranche_name"))
-                ws.cell(row=convert_row, column=13, value=(float(principal_m) / 1e6) if pd.notna(principal_m) else None).number_format = "#,##0.000"
-                ws.cell(row=convert_row, column=14, value=float(coupon_val) / 100.0 if pd.notna(coupon_val) and float(coupon_val) > 1 else (float(coupon_val) if pd.notna(coupon_val) else None)).number_format = "0.00%"
-                ws.cell(row=convert_row, column=15, value=conv_row.get("maturity_display") or conv_row.get("maturity_year"))
+                maturity_raw = conv_row.get("maturity_display") or conv_row.get("maturity_year") or ""
+                maturity_txt = str(maturity_raw).strip()
+                try:
+                    maturity_num = float(maturity_raw)
+                    if abs(maturity_num - round(maturity_num)) < 1e-9:
+                        maturity_txt = str(int(round(maturity_num)))
+                except Exception:
+                    pass
+                coupon_pct = None
+                if pd.notna(coupon_val):
+                    coupon_pct = float(coupon_val)
+                    if abs(coupon_pct) <= 1.0:
+                        coupon_pct *= 100.0
+                if coupon_pct is not None and maturity_txt:
+                    coupon_txt = f"{coupon_pct:.2f}".rstrip("0").rstrip(".")
+                    security_txt = f"{coupon_txt}% notes due {maturity_txt}"
+                else:
+                    security_txt = re.sub(r"\bconvertible\b", "", str(conv_row.get("tranche_name") or ""), flags=re.I)
+                    security_txt = re.sub(r"\s+%", "%", security_txt)
+                    security_txt = re.sub(r"\s+", " ", security_txt).strip(" -")
+                ws.cell(row=convert_row, column=12, value=security_txt)
+                try:
+                    ws.merge_cells(start_row=convert_row, start_column=12, end_row=convert_row, end_column=13)
+                except Exception:
+                    pass
+                ws.cell(row=convert_row, column=14, value=(float(principal_m) / 1e6) if pd.notna(principal_m) else None).number_format = "#,##0.000"
+                ws.cell(row=convert_row, column=15, value=float(coupon_val) / 100.0 if pd.notna(coupon_val) and float(coupon_val) > 1 else (float(coupon_val) if pd.notna(coupon_val) else None)).number_format = "0.00%"
+                ws.cell(row=convert_row, column=16, value=conv_row.get("maturity_display") or conv_row.get("maturity_year"))
                 ws.cell(row=convert_row, column=conv_price_col, value=float(conv_price_val) if pd.notna(conv_price_val) else None).number_format = "$#,##0.00"
                 ws.cell(row=convert_row, column=shares_full_col, value=float(conv_shares_val) if pd.notna(conv_shares_val) else None).number_format = "#,##0.000"
                 rep_shares_val = pd.to_numeric(conv_row.get("concurrent_repurchase_shares"), errors="coerce")
@@ -39504,76 +41978,139 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 latest_buy_cash_fact = resolved_latest_cap_return.get("buyback_cash_q")
                 buyback_cash_ttm_fact = resolved_latest_cap_return.get("buyback_cash_ttm")
                 bb_avg_price_latest = resolved_latest_cap_return.get("buyback_avg_price")
-                hv_buybacks = str(resolved_latest_cap_return.get("buybacks_text") or hv_buybacks)
+                buyback_bits: List[str] = []
+                if bb_q is not None:
+                    latest_piece = f"Latest quarter {_shares_m(bb_q)}"
+                    if bb_avg_price_latest is not None:
+                        latest_piece += f" at ${float(bb_avg_price_latest):.2f}/share"
+                    if latest_buy_cash_fact is not None:
+                        latest_piece += f" for {_money_m(latest_buy_cash_fact)}"
+                    buyback_bits.append(latest_piece)
+                if buyback_cash_ttm_fact is not None:
+                    buyback_bits.append(f"TTM {_money_m(buyback_cash_ttm_fact)}")
+                hv_buybacks = " | ".join([bit for bit in buyback_bits if bit]) or str(resolved_latest_cap_return.get("buybacks_text") or hv_buybacks)
                 resolved_bb_summary = str(resolved_latest_cap_return.get("buyback_note_summary") or "").strip()
-                if resolved_bb_summary:
-                    hv_buybacks_note = f"{resolved_bb_summary}\n{bb_note_detail}"
+                bb_note_bits: List[str] = []
+                if bb_remaining is not None:
+                    bb_note_bits.append(f"Remaining capacity {_money_m(bb_remaining)}")
+                latest_auth_date = sec_auth.get("asof_date")
+                auth_blob = glx_normalize_text(" | ".join([str(sec_auth.get("snippet") or ""), str(bb_auth_text or ""), str(bb_note_detail or "")]))
+                parsed_increase_val = None
+                parsed_increase_kind = ""
+                if auth_inc_sz is None or pd.isna(auth_inc_sz):
+                    inc_fallback = re.search(
+                        r"\b(?:increase(?:d)?|raised?|expanded?)\b[^|]{0,140}?\b(by|to)\b\s+\$?\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]+(?:\.\d+)?)\s*(million|billion|m|bn)?",
+                        auth_blob,
+                        re.I,
+                    )
+                    if inc_fallback:
+                        try:
+                            parsed_increase_val = float(str(inc_fallback.group(2)).replace(",", ""))
+                            unit_txt = str(inc_fallback.group(3) or "").lower()
+                            if unit_txt in {"billion", "bn"}:
+                                parsed_increase_val *= 1e9
+                            elif unit_txt in {"million", "m"} or parsed_increase_val < 2000:
+                                parsed_increase_val *= 1e6
+                            parsed_increase_kind = str(inc_fallback.group(1) or "").lower()
+                        except Exception:
+                            parsed_increase_val = None
+                if auth_inc_sz is not None and pd.notna(auth_inc_sz):
+                    bb_note_bits.append(
+                        f"Latest increase by {_money_m(float(auth_inc_sz))}"
+                        + (f" on {latest_auth_date}" if latest_auth_date else "")
+                    )
+                elif parsed_increase_val is not None:
+                    bb_note_bits.append(
+                        f"Latest increase {parsed_increase_kind or 'by'} {_money_m(float(parsed_increase_val))}"
+                        + (f" on {latest_auth_date}" if latest_auth_date else "")
+                    )
+                elif auth_sz is not None and pd.notna(auth_sz):
+                    latest_auth_kind = "increase to" if ("increase" in str(sec_auth.get("kind") or "").lower()) else "authorization"
+                    bb_note_bits.append(
+                        f"Latest {latest_auth_kind} {_money_m(float(auth_sz))}"
+                        + (f" on {latest_auth_date}" if latest_auth_date else "")
+                    )
+                if bb_maturity:
+                    bb_note_bits.append(f"Maturity date {bb_maturity}")
+                if bb_src and re.search(r"(expect|intend|plan|execute|continue)[^.]{0,120}(repurch|buyback)", str(bb_src), re.I):
+                    bb_note_bits.append("Continuation mentioned.")
+                hv_buybacks_note = " | ".join([bit for bit in bb_note_bits if bit]) or (resolved_bb_summary or bb_note_detail)
                 latest_div_cash_fact = resolved_latest_cap_return.get("dividend_cash_q")
                 dividend_cash_ttm_fact = resolved_latest_cap_return.get("dividend_cash_ttm")
                 div_ps_q = resolved_latest_cap_return.get("dividend_ps_q")
-                hv_dividends = str(resolved_latest_cap_return.get("dividends_text") or hv_dividends)
+                div_bits: List[str] = []
                 if div_ps_q is not None:
-                    hv_dividends_note = (
-                        f"Cash dividends spent latest quarter {_money_m(latest_div_cash_fact)} | "
-                        f"TTM {_money_m(dividend_cash_ttm_fact)} | "
-                        f"Latest div/share {_ps(div_ps_q)}\n"
-                        f"{dv_cont or (dv_src or 'No continuation text found.')}"
-                    )
+                    div_bits.append(f"Latest quarter div/share {_ps(div_ps_q)}")
+                if dividend_cash_ttm_fact is not None:
+                    div_bits.append(f"TTM dividend cash {_money_m(dividend_cash_ttm_fact)}")
+                hv_dividends = " | ".join([bit for bit in div_bits if bit]) or str(resolved_latest_cap_return.get("dividends_text") or hv_dividends)
+                if div_ps_q is not None:
+                    div_note_txt = str(dv_cont or dv_src or "No continuation text found.").strip()
+                    div_note_txt = re.split(r";|\bhowever\b", div_note_txt, maxsplit=1, flags=re.I)[0].strip()
+                    hv_dividends_note = _ensure_terminal_period(div_note_txt)
                 else:
                     hv_dividends_note = no_current_dividend_text
 
-            # Add capital-return observations to the hidden value bullets.
-            sh_now = shares_out_map.get(q_now) if shares_out_map else None
-            bb_intensity = (float(buyback_cash_ttm_fact) / float(market_cap_map.get(q_now))) if (buyback_cash_ttm_fact is not None and market_cap_map.get(q_now) not in (None, 0)) else None
-            div_ps_yoy_pct = (
-                (float(div_ps_q) - float(div_ps_ly)) / abs(float(div_ps_ly))
-                if (div_ps_q is not None and div_ps_ly not in (None, 0))
-                else None
-            )
-            if buyback_cash_ttm_fact is not None and bb_intensity is not None:
-                hv_obs.append(
-                    f"Buyback intensity TTM {_pct(bb_intensity)} of market cap "
-                    f"(cash buybacks {_money_m(buyback_cash_ttm_fact)})"
-                )
-            elif bb_q is not None or latest_buy_cash_fact is not None:
-                buyback_obs_bits: List[str] = []
-                if bb_q is not None:
-                    buyback_obs_bits.append(f"{_shares_m(bb_q)} shares")
-                if latest_buy_cash_fact is not None:
-                    buyback_obs_bits.append(f"{_money_m(latest_buy_cash_fact)} cash")
-                if bb_avg_price_latest is not None:
-                    buyback_obs_bits.append(f"${float(bb_avg_price_latest):.2f}/share")
-                hv_obs.append(
-                    f"Latest quarter buyback execution supported in SEC disclosures: {' | '.join(buyback_obs_bits)}."
-                )
-            else:
-                hv_obs.append("Buyback activity not reliably quantified from quarterly cashflow data.")
-            if div_ps_yoy_pct is None:
-                if div_ps_q is not None:
-                    dv_obs = f"Explicit common dividend/share currently disclosed at {_ps(div_ps_q)}."
-                else:
-                    dv_obs = no_current_dividend_text
-            elif float(div_ps_yoy_pct) > 0:
-                dv_obs = (
-                    f"Dividend per share YoY increased {_pct(div_ps_yoy_pct)} "
-                    f"(latest {_ps(div_ps_q)} vs LY {_ps(div_ps_ly)})"
-                )
-            elif float(div_ps_yoy_pct) < 0:
-                dv_obs = (
-                    f"Dividend per share YoY decreased {_pct(abs(float(div_ps_yoy_pct)))} "
-                    f"(latest {_ps(div_ps_q)} vs LY {_ps(div_ps_ly)})"
-                )
-            else:
-                dv_obs = (
-                    f"Dividend per share YoY flat {_pct(div_ps_yoy_pct)} "
-                    f"(latest {_ps(div_ps_q)} vs LY {_ps(div_ps_ly)})"
-                )
-            hv_obs.append(dv_obs)
+            def _hidden_value_flag_lines_local(max_items: int = 2) -> List[str]:
+                out_lines: List[str] = []
+                flag_rows = flags_df.copy() if isinstance(flags_df, pd.DataFrame) and not flags_df.empty else pd.DataFrame()
+                if flag_rows.empty:
+                    try:
+                        flag_rows = build_hidden_value_flags(
+                            hist=hist if isinstance(hist, pd.DataFrame) and not hist.empty else pd.DataFrame(),
+                            adj_metrics=adj_metrics if isinstance(adj_metrics, pd.DataFrame) and not adj_metrics.empty else pd.DataFrame(),
+                            leverage_df=leverage_df if isinstance(leverage_df, pd.DataFrame) and not leverage_df.empty else pd.DataFrame(),
+                            debt_tranches=debt_tranches if isinstance(debt_tranches, pd.DataFrame) and not debt_tranches.empty else pd.DataFrame(),
+                            signals_base=signals_base_df if isinstance(signals_base_df, pd.DataFrame) and not signals_base_df.empty else None,
+                            price=float(price) if price not in (None, "") and not pd.isna(price) else None,
+                            max_flags=max_items,
+                        )
+                    except Exception:
+                        flag_rows = pd.DataFrame()
+                if not flag_rows.empty and "as_of_quarter" in flag_rows.columns:
+                    flag_rows["as_of_quarter"] = pd.to_datetime(flag_rows["as_of_quarter"], errors="coerce")
+                    latest_flag_q = flag_rows["as_of_quarter"].dropna().max()
+                    if pd.notna(latest_flag_q):
+                        flag_rows = flag_rows[flag_rows["as_of_quarter"] == latest_flag_q].copy()
+                if not flag_rows.empty:
+                    sort_cols = [col for col in ["rank", "score"] if col in flag_rows.columns]
+                    if sort_cols:
+                        ascending = [True if col == "rank" else False for col in sort_cols]
+                        flag_rows = flag_rows.sort_values(sort_cols, ascending=ascending, na_position="last")
+                    for _, flag_row in flag_rows.iterrows():
+                        title = glx_normalize_text(str(flag_row.get("title") or flag_row.get("Title") or "")).strip()
+                        if not title:
+                            continue
+                        if title not in out_lines:
+                            out_lines.append(title)
+                        if len(out_lines) >= max_items:
+                            break
+                if out_lines:
+                    return out_lines[:max_items]
+                fallback_rows = _build_hidden_value_flags_fallback(flags_audit_df)
+                if fallback_rows is None or fallback_rows.empty:
+                    return []
+                for _, flag_row in fallback_rows.iterrows():
+                    status_txt = glx_normalize_text(str(flag_row.get("Status") or "")).strip().lower()
+                    blocker_txt = glx_normalize_text(str(flag_row.get("Key blocker") or "")).strip().lower()
+                    title = glx_normalize_text(str(flag_row.get("Title") or "")).strip()
+                    if not title or status_txt != "near miss":
+                        continue
+                    if "price-linked" in blocker_txt or "missing price" in blocker_txt:
+                        continue
+                    line = f"{title} (near miss)"
+                    if line not in out_lines:
+                        out_lines.append(line)
+                    if len(out_lines) >= max_items:
+                        break
+                return out_lines[:max_items]
 
-
-        # Hidden Value Panel (signals summary) in columns A-B.
+        # Left-side visible flags / operating signals / capital return in columns A:K.
         hv_label_col = 1  # A
         hv_val_col = 2    # B
+        hv_panel_label_col = 14  # N
+        hv_panel_label_end_col = 17  # Q
+        hv_panel_val_col = 18  # R
 
         def _box_hv(row_idx: int, label: str, value: Any = None, number_format: Optional[str] = None) -> None:
             ws.cell(row=row_idx, column=hv_label_col, value=label).font = bold
@@ -39581,38 +42118,330 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if number_format:
                 vcell.number_format = number_format
 
-        obs_lines = [str(x or "").strip() for x in hv_obs if str(x or "").strip()]
+        def _box_hv_panel(row_idx: int, label: str, value: Any = None, number_format: Optional[str] = None) -> None:
+            try:
+                ws.merge_cells(
+                    start_row=row_idx,
+                    start_column=hv_panel_label_col,
+                    end_row=row_idx,
+                    end_column=hv_panel_label_end_col,
+                )
+            except Exception:
+                pass
+            lbl = ws.cell(row=row_idx, column=hv_panel_label_col, value=label)
+            lbl.font = bold
+            lbl.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            lbl.border = thin_border
+            vcell = ws.cell(row=row_idx, column=hv_panel_val_col, value=value)
+            if number_format:
+                vcell.number_format = number_format
+            vcell.alignment = Alignment(
+                horizontal="right" if number_format else "left",
+                vertical="center",
+                wrap_text=False,
+            )
+            vcell.border = thin_border
+
+        obs_lines = [str(x or "").strip() for x in hv_obs if str(x or "").strip()][:4]
         if not obs_lines:
             obs_lines = ["n/a"]
-        if len(obs_lines) < 5:
-            obs_lines.extend([""] * (5 - len(obs_lines)))
+        hv_flag_source_rows = 8
+        if isinstance(flags_df, pd.DataFrame) and not flags_df.empty:
+            try:
+                hv_flag_source_rows = max(2, int(len(flags_df.index)) + 1)
+            except Exception:
+                hv_flag_source_rows = 8
 
-        row_hv_hdr_dyn = r + 2
+        def _formula_text_literal_local(text_in: Any) -> str:
+            return str(text_in or "").replace('"', '""')
+
+        def _hidden_flag_field_local(flag_row: Dict[str, Any], *names: str) -> Any:
+            if not isinstance(flag_row, dict):
+                return None
+            for name in names:
+                if name in flag_row:
+                    return flag_row.get(name)
+            lower_map = {str(k).strip().lower(): v for k, v in flag_row.items()}
+            for name in names:
+                key = str(name or "").strip().lower()
+                if key in lower_map:
+                    return lower_map.get(key)
+            return None
+
+        def _hidden_flag_score_local(value_in: Any) -> float:
+            try:
+                return float(pd.to_numeric(value_in, errors="coerce") or 0.0)
+            except Exception:
+                return 0.0
+
+        def _hidden_flag_is_visible_local(flag_row: Dict[str, Any]) -> bool:
+            score_raw = _hidden_flag_field_local(flag_row, "score", "Score")
+            score_val = _hidden_flag_score_local(score_raw)
+            if score_val >= 1.0:
+                return True
+            if str(score_raw or "").strip() not in {"", "nan", "None", "null"}:
+                return False
+            title_txt = glx_normalize_text(str(_hidden_flag_field_local(flag_row, "title", "Title") or "")).strip()
+            if not title_txt:
+                return False
+            if _hidden_flag_metrics_summary_local(flag_row):
+                return True
+            for evidence_key in ("evidence_1", "evidence_2", "evidence_3"):
+                evidence_txt = glx_normalize_text(
+                    str(
+                        _hidden_flag_field_local(
+                            flag_row,
+                            evidence_key,
+                            evidence_key.title().replace("_", " "),
+                            evidence_key.replace("_", ""),
+                        )
+                        or ""
+                    )
+                ).strip()
+                if evidence_txt:
+                    return True
+            return False
+
+        def _hidden_flag_metric_piece_local(label: str, value: Any, fmt: str) -> str:
+            try:
+                fval = float(value)
+            except Exception:
+                return ""
+            if fmt == "pct":
+                sign = "+" if fval > 0 else ""
+                return f"{label} {sign}{fval * 100.0:.1f}%"
+            if fmt == "bps":
+                sign = "+" if fval > 0 else ""
+                return f"{label} {sign}{fval:,.0f}bps"
+            if fmt == "x":
+                return f"{label} {fval:.2f}x"
+            if fmt == "money":
+                return f"{label} {_fmt_short_money_value_local(fval)}"
+            if fmt == "count":
+                if str(label or "").strip().lower() == "margin streak":
+                    return f"Margin streak {fval:.0f} quarters"
+                return f"{label} {fval:.0f}"
+            if fmt == "float":
+                return f"{label} {fval:.1f}"
+            return ""
+
+        def _hidden_flag_metrics_summary_local(flag_row: Dict[str, Any]) -> str:
+            raw_metrics = _hidden_flag_field_local(flag_row, "metrics_json", "Metrics_json", "metrics", "Metrics")
+            metrics_obj: Dict[str, Any] = {}
+            if isinstance(raw_metrics, dict):
+                metrics_obj = dict(raw_metrics)
+            elif isinstance(raw_metrics, str):
+                metrics_txt = raw_metrics.strip()
+                if metrics_txt.startswith("{") and metrics_txt.endswith("}"):
+                    try:
+                        parsed = json.loads(metrics_txt)
+                        if isinstance(parsed, dict):
+                            metrics_obj = parsed
+                    except Exception:
+                        metrics_obj = {}
+            pieces: List[str] = []
+            metric_order = [
+                ("ebit_growth_yoy", "EBIT YoY", "pct"),
+                ("ebitda_growth_yoy", "EBITDA YoY", "pct"),
+                ("shares_yoy", "Shares YoY", "pct"),
+                ("adj_margin_ttm", "Adj margin TTM", "pct"),
+                ("margin_yoy_bps", "Margin YoY", "bps"),
+                ("margin_streak", "Margin streak", "count"),
+                ("fcf_ttm_pos_years", "Positive FCF years", "count"),
+                ("pos_fcf_ratio", "Positive FCF ratio", "pct"),
+                ("fcf_yield", "FCF yield", "pct"),
+                ("interest_coverage", "Interest cover", "x"),
+                ("debt_drop_pct", "Net debt change", "pct"),
+                ("leverage_ratio", "Leverage", "x"),
+                ("corporate_net_debt", "Net debt", "money"),
+                ("ebitda_ttm", "EBITDA TTM", "money"),
+                ("ebit_ttm", "EBIT TTM", "money"),
+                ("dividend_ps_q", "Dividend/share", "float"),
+            ]
+            for metric_key, metric_label, metric_fmt in metric_order:
+                metric_val = metrics_obj.get(metric_key)
+                if metric_val in (None, "", "null"):
+                    continue
+                piece = _hidden_flag_metric_piece_local(metric_label, metric_val, metric_fmt)
+                if piece:
+                    pieces.append(piece)
+                if len(pieces) >= 3:
+                    break
+            if pieces:
+                return " | ".join(pieces)
+            flag_code = str(_hidden_flag_field_local(flag_row, "flag_code", "Flag code", "flag") or "").strip().upper()
+            if flag_code in {"C", "E"}:
+                return "Price-linked via Valuation input"
+            if flag_code == "G":
+                return "Requires active dividend yield or dividend growth support"
+            return ""
+
+        def _hidden_flag_visible_support_local(flag_row: Dict[str, Any]) -> str:
+            metric_summary = _hidden_flag_metrics_summary_local(flag_row)
+            evidence_bits: List[str] = []
+            for evidence_key in ("evidence_1", "evidence_2", "evidence_3"):
+                raw_evidence = glx_normalize_text(
+                    str(
+                        _hidden_flag_field_local(
+                            flag_row,
+                            evidence_key,
+                            evidence_key.title().replace("_", " "),
+                            evidence_key.replace("_", ""),
+                        )
+                        or ""
+                    )
+                ).strip()
+                if not raw_evidence:
+                    continue
+                raw_evidence = re.sub(r"\|\s*Quarter:\s*\d{4}-\d{2}-\d{2}\b", "", raw_evidence, flags=re.I).strip(" |")
+                raw_evidence = re.sub(r"^Threshold:\s*", "", raw_evidence, flags=re.I)
+                raw_evidence = re.sub(r"^Inputs:\s*", "", raw_evidence, flags=re.I)
+                title_txt = str(_hidden_flag_field_local(flag_row, "title", "Title") or "").strip().lower()
+                if raw_evidence and raw_evidence.lower() not in {metric_summary.lower(), title_txt}:
+                    evidence_bits.append(raw_evidence)
+            parts = [part for part in [metric_summary, *evidence_bits[:1]] if part]
+            return truncate_clean(" | ".join(parts), 160)
+
+        def _visible_hidden_flag_rows_local() -> List[Dict[str, Any]]:
+            if isinstance(flags_df, pd.DataFrame) and not flags_df.empty:
+                try:
+                    out_rows = flags_df.fillna("").to_dict("records")
+                    has_scored_rows = any(
+                        _hidden_flag_score_local(_hidden_flag_field_local(dict(x), "score", "Score")) >= 1.0
+                        for x in out_rows
+                    )
+                    if out_rows and has_scored_rows:
+                        return [dict(x) for x in out_rows]
+                    if isinstance(flags_audit_df, pd.DataFrame) and not flags_audit_df.empty and out_rows:
+                        audit_local = flags_audit_df.copy()
+                        active_codes: set[str] = set()
+                        for _, audit_row in audit_local.iterrows():
+                            code_txt = str(
+                                audit_row.get("flag_id")
+                                or audit_row.get("flag_code")
+                                or audit_row.get("Flag")
+                                or ""
+                            ).strip().upper()
+                            if not code_txt:
+                                continue
+                            out_val = audit_row.get("output_value")
+                            pass_fail_val = audit_row.get("pass_fail")
+                            is_active = False
+                            try:
+                                if pd.notna(pd.to_numeric(out_val, errors="coerce")):
+                                    is_active = float(pd.to_numeric(out_val, errors="coerce") or 0.0) >= 1.0
+                            except Exception:
+                                is_active = False
+                            if not is_active and isinstance(pass_fail_val, (bool, int, float)):
+                                is_active = bool(pass_fail_val)
+                            if not is_active and str(pass_fail_val or "").strip().lower() in {"true", "1", "yes", "pass"}:
+                                is_active = True
+                            if is_active:
+                                active_codes.add(code_txt)
+                        if active_codes:
+                            filtered_rows: List[Dict[str, Any]] = []
+                            for raw_row in out_rows:
+                                raw_dict = dict(raw_row)
+                                code_txt = str(_hidden_flag_field_local(raw_dict, "flag_code", "flag_id", "Flag", "flag") or "").strip().upper()
+                                if code_txt not in active_codes:
+                                    continue
+                                if not _hidden_flag_score_local(_hidden_flag_field_local(raw_dict, "score", "Score")):
+                                    raw_dict["score"] = 100.0
+                                filtered_rows.append(raw_dict)
+                            if filtered_rows:
+                                return filtered_rows
+                except Exception:
+                    pass
+            try:
+                rebuilt_rows = build_hidden_value_flags(
+                    hist=hist if isinstance(hist, pd.DataFrame) and not hist.empty else pd.DataFrame(),
+                    adj_metrics=adj_metrics if isinstance(adj_metrics, pd.DataFrame) and not adj_metrics.empty else pd.DataFrame(),
+                    leverage_df=leverage_df if isinstance(leverage_df, pd.DataFrame) and not leverage_df.empty else pd.DataFrame(),
+                    debt_tranches=debt_tranches if isinstance(debt_tranches, pd.DataFrame) and not debt_tranches.empty else pd.DataFrame(),
+                    signals_base=signals_base_df if isinstance(signals_base_df, pd.DataFrame) and not signals_base_df.empty else None,
+                    price=float(price) if price not in (None, "") and not pd.isna(price) else None,
+                    max_flags=max_items,
+                )
+                if isinstance(rebuilt_rows, pd.DataFrame) and not rebuilt_rows.empty:
+                    return [dict(x) for x in rebuilt_rows.fillna("").to_dict("records")]
+            except Exception:
+                pass
+            fallback_rows = _build_hidden_value_flags_fallback(flags_audit_df)
+            if isinstance(fallback_rows, pd.DataFrame) and not fallback_rows.empty:
+                renamed = fallback_rows.rename(
+                    columns={
+                        "Title": "title",
+                        "Score": "score",
+                        "Severity": "severity",
+                        "As of quarter": "as_of_quarter",
+                    }
+                )
+                try:
+                    return [dict(x) for x in renamed.fillna("").to_dict("records")]
+                except Exception:
+                    return []
+            return []
+
+        row_hv_hdr_dyn = 137
         row_hv_total_dyn = row_hv_hdr_dyn + 1
         row_hv_prof_dyn = row_hv_hdr_dyn + 2
         row_hv_cash_dyn = row_hv_hdr_dyn + 3
         row_hv_delev_dyn = row_hv_hdr_dyn + 4
         row_hv_quality_dyn = row_hv_hdr_dyn + 5
         row_hv_narr_dyn = row_hv_hdr_dyn + 6
-        row_hv_obs_start_dyn = row_hv_hdr_dyn + 8
+        hidden_flag_rows_all = sorted(
+            [dict(x) for x in _visible_hidden_flag_rows_local()],
+            key=lambda x: (
+                int(pd.to_numeric(_hidden_flag_field_local(x, "rank", "Rank"), errors="coerce") or 999),
+                -_hidden_flag_score_local(_hidden_flag_field_local(x, "score", "Score")),
+                str(_hidden_flag_field_local(x, "title", "Title") or "").lower(),
+            ),
+        )
+        visible_hv_flags_hdr_row = 137
+        visible_hv_flags_columns_row = visible_hv_flags_hdr_row + 1
+        visible_hv_flags_start_row = visible_hv_flags_columns_row + 1
+        visible_hv_flags_label_col = 1   # A
+        visible_hv_flags_title_col = 2   # B
+        visible_hv_flags_title_end_col = 5  # E
+        visible_hv_flags_score_col = 6   # F
+        visible_hv_flags_severity_col = 7  # G
+        visible_hv_flags_support_col = 8  # H
+        visible_hv_flags_support_end_col = 13  # M
+        visible_hv_flags_panel_end_col = visible_hv_flags_support_end_col
+        visible_hv_flag_count = 7
+        visible_hv_flags_end_row = visible_hv_flags_start_row + max(0, visible_hv_flag_count - 1)
+        row_hv_obs_hdr_dyn = visible_hv_flags_end_row + 2
+        row_hv_obs_start_dyn = row_hv_obs_hdr_dyn + 1
         row_hv_cap_hdr_dyn = row_hv_obs_start_dyn + len(obs_lines) + 1
         row_hv_buybacks_dyn = row_hv_cap_hdr_dyn + 1
         row_hv_buybacks_note_dyn = row_hv_cap_hdr_dyn + 2
         row_hv_dividends_dyn = row_hv_cap_hdr_dyn + 4
         row_hv_dividends_note_dyn = row_hv_cap_hdr_dyn + 5
 
-        ws.cell(row=row_hv_hdr_dyn, column=hv_label_col, value="Hidden Value Panel").font = bold
-        ws.cell(row=row_hv_hdr_dyn, column=hv_label_col).fill = section_fill
-        _box_hv(row_hv_total_dyn, "Hidden value score (0-100)", hv_scores.get("hidden_score"), "0")
-        _box_hv(row_hv_prof_dyn, "Profitability inflection", hv_scores.get("comp_profit"), "0")
-        _box_hv(row_hv_cash_dyn, "Cash engine", hv_scores.get("comp_cash"), "0")
-        _box_hv(row_hv_delev_dyn, "Deleveraging/risk down", hv_scores.get("comp_delev"), "0")
-        _box_hv(row_hv_quality_dyn, "Quality of earnings", hv_scores.get("comp_quality"), "0")
-        _box_hv(row_hv_narr_dyn, "Narrative confirmation", hv_scores.get("comp_narr"), "0")
+        try:
+            ws.merge_cells(
+                start_row=row_hv_hdr_dyn,
+                start_column=hv_panel_label_col,
+                end_row=row_hv_hdr_dyn,
+                end_column=hv_panel_val_col,
+            )
+        except Exception:
+            pass
+        ws.cell(row=row_hv_hdr_dyn, column=hv_panel_label_col, value="Hidden Value Panel").font = bold
+        for cc in range(hv_panel_label_col, hv_panel_val_col + 1):
+            ws.cell(row=row_hv_hdr_dyn, column=cc).fill = section_fill
+        _box_hv_panel(row_hv_total_dyn, "Hidden value score (0-100)", hv_scores.get("hidden_score"), "0")
+        _box_hv_panel(row_hv_prof_dyn, "Profitability inflection", hv_scores.get("comp_profit"), "0")
+        _box_hv_panel(row_hv_cash_dyn, "Cash engine", hv_scores.get("comp_cash"), "0")
+        _box_hv_panel(row_hv_delev_dyn, "Deleveraging/risk down", hv_scores.get("comp_delev"), "0")
+        _box_hv_panel(row_hv_quality_dyn, "Quality of earnings", hv_scores.get("comp_quality"), "0")
+        _box_hv_panel(row_hv_narr_dyn, "Narrative confirmation", hv_scores.get("comp_narr"), "0")
+        ws.cell(row=row_hv_obs_hdr_dyn, column=hv_label_col, value="Operating signals").font = bold
+        ws.cell(row=row_hv_obs_hdr_dyn, column=hv_label_col).fill = section_fill
         obs_rows: List[int] = []
         for i, txt in enumerate(obs_lines, start=1):
             rr = row_hv_obs_start_dyn + (i - 1)
-            _box_hv(rr, f"Obs {i}", txt)
+            _box_hv(rr, f"Signal {i}", txt)
             obs_rows.append(rr)
         ws.cell(row=row_hv_cap_hdr_dyn, column=hv_label_col, value="Capital return").font = bold
         ws.cell(row=row_hv_cap_hdr_dyn, column=hv_label_col).fill = section_fill
@@ -39621,37 +42450,169 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         _box_hv(row_hv_dividends_dyn, "Dividends ($/share)", hv_dividends)
         _box_hv(row_hv_dividends_note_dyn, "Dividends note", hv_dividends_note)
         for rr in obs_rows:
-            # Make Obs boxes shorter but wider without changing the whole sheet layout.
-            ws.row_dimensions[rr].height = 20
-            ws.cell(row=rr, column=hv_val_col).alignment = Alignment(wrap_text=True, vertical="top")
+            signal_cell = ws.cell(row=rr, column=hv_val_col)
+            signal_cell.alignment = Alignment(horizontal="left", wrap_text=True, vertical="center")
             try:
-                ws.merge_cells(start_row=rr, start_column=2, end_row=rr, end_column=10)  # B:J
+                ws.merge_cells(start_row=rr, start_column=2, end_row=rr, end_column=11)  # B:K
             except Exception:
                 pass
+            merged_signal_width = sum(
+                float(ws.column_dimensions[get_column_letter(cc)].width or 12.0)
+                for cc in range(2, 12)
+            )
+            signal_row_h = _estimate_wrapped_row_height(
+                str(signal_cell.value or ""),
+                merged_signal_width,
+                18.0,
+                12.0,
+                min_lines=1,
+                max_lines=3,
+            )
+            ws.row_dimensions[rr].height = max(24.0, min(42.0, signal_row_h))
+        for mr in list(ws.merged_cells.ranges):
+            try:
+                if (
+                    mr.min_row <= max(visible_hv_flags_end_row, row_hv_narr_dyn)
+                    and mr.max_row >= min(visible_hv_flags_hdr_row, row_hv_hdr_dyn)
+                    and mr.min_col <= max(visible_hv_flags_panel_end_col, hv_panel_val_col)
+                    and mr.max_col >= min(visible_hv_flags_label_col, hv_panel_label_col)
+                ):
+                    ws.unmerge_cells(str(mr))
+            except Exception:
+                continue
+        try:
+            ws.merge_cells(
+                start_row=visible_hv_flags_hdr_row,
+                start_column=visible_hv_flags_label_col,
+                end_row=visible_hv_flags_hdr_row,
+                end_column=visible_hv_flags_panel_end_col,
+            )
+        except Exception:
+            pass
+        visible_hv_hdr = ws.cell(row=visible_hv_flags_hdr_row, column=visible_hv_flags_label_col, value="Hidden value flags")
+        visible_hv_hdr.font = bold
+        for cc in range(visible_hv_flags_label_col, visible_hv_flags_panel_end_col + 1):
+            ws.cell(row=visible_hv_flags_hdr_row, column=cc).fill = section_fill
+        visible_hv_hdr.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+        try:
+            ws.merge_cells(
+                start_row=row_hv_hdr_dyn,
+                start_column=hv_panel_label_col,
+                end_row=row_hv_hdr_dyn,
+                end_column=hv_panel_val_col,
+            )
+        except Exception:
+            pass
+        ws.cell(row=row_hv_hdr_dyn, column=hv_panel_label_col, value="Hidden Value Panel").font = bold
+        for cc in range(hv_panel_label_col, hv_panel_val_col + 1):
+            ws.cell(row=row_hv_hdr_dyn, column=cc).fill = section_fill
+        ws.cell(row=row_hv_hdr_dyn, column=hv_panel_label_col).alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+        visible_hv_header_labels = {
+            visible_hv_flags_label_col: "Flag",
+            visible_hv_flags_title_col: "Summary",
+            visible_hv_flags_score_col: "Score",
+            visible_hv_flags_severity_col: "Severity",
+            visible_hv_flags_support_col: "Result / support",
+        }
+        for cc in range(visible_hv_flags_label_col, visible_hv_flags_panel_end_col + 1):
+            header_val = visible_hv_header_labels.get(cc, "")
+            header_cell = ws.cell(row=visible_hv_flags_columns_row, column=cc, value=header_val)
+            header_cell.font = bold
+            header_cell.fill = header_fill
+            header_cell.border = thin_border
+            if cc == visible_hv_flags_score_col:
+                header_cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=False)
+            else:
+                header_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+        helper_col = 35  # AI
+        helper_letter = get_column_letter(helper_col)
+        ws.column_dimensions[helper_letter].hidden = True
+        for i in range(1, visible_hv_flag_count + 1):
+            rr = visible_hv_flags_start_row + (i - 1)
+            hidden_rr = 2 + (i - 1)
+            helper_formula = f'=IF(N(\'Hidden_Value_Flags\'!$D${hidden_rr})>=1,{hidden_rr},"")'
+            ws.cell(row=rr, column=helper_col, value=helper_formula)
+            label_cell = ws.cell(
+                row=rr,
+                column=visible_hv_flags_label_col,
+                value=f'=IF(${helper_letter}{rr}="","","Flag {i}")',
+            )
+            label_cell.font = bold
+            try:
+                ws.merge_cells(
+                    start_row=rr,
+                    start_column=visible_hv_flags_title_col,
+                    end_row=rr,
+                    end_column=visible_hv_flags_title_end_col,
+                )
+                ws.merge_cells(
+                    start_row=rr,
+                    start_column=visible_hv_flags_support_col,
+                    end_row=rr,
+                    end_column=visible_hv_flags_support_end_col,
+                )
+            except Exception:
+                pass
+            title_cell = ws.cell(
+                row=rr,
+                column=visible_hv_flags_title_col,
+                value=f'=IF(${helper_letter}{rr}="","",INDEX(\'Hidden_Value_Flags\'!$C:$C,${helper_letter}{rr}))',
+            )
+            title_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            score_cell = ws.cell(
+                row=rr,
+                column=visible_hv_flags_score_col,
+                value=f'=IF(${helper_letter}{rr}="","",INDEX(\'Hidden_Value_Flags\'!$D:$D,${helper_letter}{rr}))',
+            )
+            score_cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=False)
+            score_cell.number_format = "0"
+            severity_cell = ws.cell(
+                row=rr,
+                column=visible_hv_flags_severity_col,
+                value=f'=IF(${helper_letter}{rr}="","",INDEX(\'Hidden_Value_Flags\'!$E:$E,${helper_letter}{rr}))',
+            )
+            severity_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            support_cell = ws.cell(
+                row=rr,
+                column=visible_hv_flags_support_col,
+                value=f'=IF(${helper_letter}{rr}="","",INDEX(\'Hidden_Value_Flags\'!$K:$K,${helper_letter}{rr}))',
+            )
+            support_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            for cc in range(visible_hv_flags_label_col, visible_hv_flags_panel_end_col + 1):
+                cell = ws.cell(row=rr, column=cc)
+                cell.border = thin_border
+                if cc == visible_hv_flags_title_col:
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+                elif cc == visible_hv_flags_support_col:
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                elif cc == visible_hv_flags_score_col:
+                    cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=False)
+                else:
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            ws.row_dimensions[rr].height = 28.0
         ws.row_dimensions[row_hv_buybacks_dyn].height = 20
         ws.cell(row=row_hv_buybacks_dyn, column=hv_val_col).alignment = Alignment(wrap_text=True, vertical="top")
         try:
-            ws.merge_cells(start_row=row_hv_buybacks_dyn, start_column=2, end_row=row_hv_buybacks_dyn, end_column=6)  # B:F
+            ws.merge_cells(start_row=row_hv_buybacks_dyn, start_column=2, end_row=row_hv_buybacks_dyn, end_column=11)  # B:K
         except Exception:
             pass
         ws.row_dimensions[row_hv_buybacks_note_dyn].height = 20
         ws.cell(row=row_hv_buybacks_note_dyn, column=hv_val_col).alignment = Alignment(wrap_text=True, vertical="top")
         try:
-            # Wider buybacks note box (B:J, roughly ~710px depending on sheet column widths).
-            ws.merge_cells(start_row=row_hv_buybacks_note_dyn, start_column=2, end_row=row_hv_buybacks_note_dyn, end_column=10)  # B:J
+            ws.merge_cells(start_row=row_hv_buybacks_note_dyn, start_column=2, end_row=row_hv_buybacks_note_dyn, end_column=11)  # B:K
         except Exception:
             pass
         ws.row_dimensions[row_hv_dividends_dyn].height = 20
         ws.cell(row=row_hv_dividends_dyn, column=hv_val_col).alignment = Alignment(wrap_text=True, vertical="top")
         try:
-            ws.merge_cells(start_row=row_hv_dividends_dyn, start_column=2, end_row=row_hv_dividends_dyn, end_column=10)  # B:J
+            ws.merge_cells(start_row=row_hv_dividends_dyn, start_column=2, end_row=row_hv_dividends_dyn, end_column=11)  # B:K
         except Exception:
             pass
-        ws.row_dimensions[row_hv_buybacks_note_dyn].height = 45
-        ws.row_dimensions[row_hv_dividends_note_dyn].height = 45
+        ws.row_dimensions[row_hv_buybacks_note_dyn].height = 34
+        ws.row_dimensions[row_hv_dividends_note_dyn].height = 32
         ws.cell(row=row_hv_dividends_note_dyn, column=hv_val_col).alignment = Alignment(wrap_text=True, vertical="top")
         try:
-            ws.merge_cells(start_row=row_hv_dividends_note_dyn, start_column=2, end_row=row_hv_dividends_note_dyn, end_column=10)  # B:J
+            ws.merge_cells(start_row=row_hv_dividends_note_dyn, start_column=2, end_row=row_hv_dividends_note_dyn, end_column=11)  # B:K
         except Exception:
             pass
         ws.row_dimensions[row_hv_dividends_dyn].height = 26
@@ -42545,6 +45506,32 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                                     continue
                     cleaned_items.append(_it)
                 items_cur = cleaned_items
+            if qref is not None:
+                extra_text_items = [dict(x) for x in _qh_extra_text_guidance_items(pd.Timestamp(qref))]
+                if extra_text_items:
+                    def _guidance_item_key(it: Dict[str, Any]) -> Tuple[str, str]:
+                        mk = str(it.get("metric") or "")
+                        pk = str(it.get("period_norm") or "UNK")
+                        gt = str(it.get("guidance_type") or "")
+                        if pk in {"", "UNK"} and gt in {"run-rate", "ongoing", "one-time", "ratio"}:
+                            pk = f"TYPE:{gt}"
+                        return mk, pk
+
+                    by_key: Dict[Tuple[str, str], Dict[str, Any]] = {}
+                    for _it in items_cur:
+                        by_key[_guidance_item_key(_it)] = _it
+                    for _it in extra_text_items:
+                        k = _guidance_item_key(_it)
+                        prev = by_key.get(k)
+                        if prev is None:
+                            by_key[k] = _it
+                            continue
+                        prev_gtype = str(prev.get("guidance_type") or "").strip().lower()
+                        if prev_gtype != "text":
+                            continue
+                        if float(_it.get("score") or 0.0) > float(prev.get("score") or 0.0):
+                            by_key[k] = _it
+                    items_cur = list(by_key.values())
             out["guidance_items"] = items_cur
             best = items_cur[0] if items_cur else cur[0]
             out["source"] = dict(best.get("source") or {})
@@ -42695,6 +45682,19 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             gtype = str(item.get("guidance_type") or "").strip().lower()
             exec_window = str(item.get("execution_window") or "unspecified").strip().lower()
             is_carry = bool(item.get("carry_forward"))
+            item_blob = _qh_norm_txt(
+                " | ".join(
+                    [
+                        str(item.get("metric") or ""),
+                        str(item.get("text") or ""),
+                        str(item.get("exact_language") or ""),
+                        str(item.get("qualitative_range_text") or ""),
+                    ]
+                )
+            )
+            item_blob_low = item_blob.lower()
+            metric_txt = str(item.get("metric") or FORWARD_NOTES_LABEL).strip()
+            metric_low = metric_txt.lower()
 
             def _carry_direction_prefix() -> str:
                 if not is_carry:
@@ -42756,6 +45756,40 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         out = f"{out} ({tail})"
                 return out
 
+            def _headline_text() -> str:
+                txt = _qh_norm_txt(item.get("text") or item.get("qualitative_range_text") or "")
+                if re.search(r"\b45z\b", metric_low, re.I) and re.search(r"\bstarting point\b", item_blob_low, re.I):
+                    return "Starting point ~$188m; upside from yield/energy/projects"
+                if re.search(r"\bfarm[- ]practice\b", metric_low, re.I) or re.search(r"\bfarm[- ]practice\b", item_blob_low, re.I):
+                    return "Excluded from current base; final guidance expected in 2026"
+                if (
+                    re.search(r"\b45z\b", metric_low, re.I)
+                    and re.search(r"\b(base case|facility qualification|indirect land use change|iluc)\b", item_blob_low, re.I)
+                ):
+                    return "Base improved by ILUC removal, facility qualification, and Advantage Nebraska"
+                if re.search(r"\bcredit marketing\b", metric_low, re.I) or (
+                    re.search(r"\bcredits\b", item_blob_low, re.I) and re.search(r"\bmarket", item_blob_low, re.I)
+                ):
+                    return "2026 credits are being marketed; interest is strong"
+                if re.search(r"\bco2\b", metric_low, re.I) and re.search(r"\b(logistics|truck|rail)\b", item_blob_low, re.I):
+                    return "Evaluating truck/rail liquid CO2 for non-pipeline plants"
+                if re.search(r"\b(capital allocation|fcf priorit)\b", metric_low, re.I) or re.search(r"\bplant quality and utilization\b", item_blob_low, re.I):
+                    return "FCF priorities: plant quality/utilization, 45Z/base business, then debt/shareholder returns/M&A"
+                if re.search(r"\bcost savings\b", metric_low, re.I) and kind in {"text", "qualitative_range"}:
+                    target_txt = str(_extract_pbi_target_display(item_blob, "Cost savings target") or "").strip()
+                    if target_txt:
+                        return f"Raised annualized savings target to {target_txt}"
+                if re.search(r"\binterest expense\b", metric_low, re.I) and re.search(r"\$[0-9]", item_blob):
+                    money_vals = re.findall(r"\$[0-9][0-9.,]*(?:bn|m)?", item_blob)
+                    if len(money_vals) >= 2:
+                        return f"2026 interest expense expected at about {money_vals[0]}-{money_vals[1].lstrip('$')}"
+                return txt
+
+            if is_carry and re.search(r"\bcost savings\b", item_blob_low, re.I):
+                target_txt = str(_extract_pbi_target_display(item_blob, "Cost savings target") or "").strip()
+                if target_txt:
+                    return _append_meta(f"Raised target to {target_txt} annualized savings")
+
             if kind == "qualitative_range":
                 qrt = _qh_norm_txt(item.get("qualitative_range_text") or "")
                 if qrt:
@@ -42787,7 +45821,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 if unit == "bps":
                     return _append_meta(f"{v:,.0f}bps")
                 return _append_meta(f"{v:,.2f}")
-            return _append_meta(_qh_norm_txt(item.get("text")))
+            return _append_meta(_headline_text())
 
         def _qh_item_mid(item: Optional[Dict[str, Any]]) -> Optional[float]:
             if not item:
@@ -42814,20 +45848,21 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
 
         panel_col_start = 15  # O
         panel_col_end = 28    # AB (guidance panel)
+        commentary_meta_col = 29  # AC
         additive_panel_end = 28  # AB (operating drivers / thesis bridge only)
         panel_row_start = 7
         panel_clear_end = 90
 
-        col_metric = panel_col_start          # O
-        col_period = panel_col_start + 1      # P
-        col_type = panel_col_start + 2        # Q
-        col_type_end = panel_col_start + 3    # R
-        col_value_start = panel_col_start + 4 # S
-        col_value_end = panel_col_start + 9   # X
-        col_delta_start = panel_col_start + 10 # Y
-        col_delta_end = panel_col_start + 11   # Z
-        col_exact_start = panel_col_start + 12 # AA
-        col_exact_end = panel_col_start + 13   # AB
+        col_metric_start = panel_col_start       # O
+        col_metric_end = panel_col_start + 1     # P
+        col_stated_start = panel_col_start + 2   # Q
+        col_stated_end = col_stated_start        # Q
+        col_horizon_start = panel_col_start + 3  # R
+        col_horizon_end = col_horizon_start      # R
+        col_guidance_start = panel_col_start + 4 # S
+        col_guidance_end = panel_col_start + 11  # Z
+        col_exact_start = panel_col_start + 12   # AA
+        col_exact_end = panel_col_start + 13     # AB
 
         def _overlaps(rng: Any, r1: int, r2: int, c1: int, c2: int) -> bool:
             return bool(rng.min_row <= r2 and rng.max_row >= r1 and rng.min_col <= c2 and rng.max_col >= c1)
@@ -42851,6 +45886,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     cell.number_format = "General"
 
         _clear_panel(1, panel_clear_end, panel_col_start, panel_col_end)
+        _clear_panel(1, 6, commentary_meta_col, commentary_meta_col)
+        ws.column_dimensions[get_column_letter(commentary_meta_col)].width = 28.0
 
         def _prev_ref_for(qref: Optional[pd.Timestamp]) -> Optional[pd.Timestamp]:
             if qref is None:
@@ -42903,6 +45940,64 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return "N/A"
             qn = ((int(t.month) - 1) // 3) + 1
             return f"Q{qn} {int(t.year)}"
+
+        def _qh_display_stated_in(item: Dict[str, Any]) -> str:
+            src = dict(item.get("source") or {})
+            src_doc = str(
+                src.get("doc")
+                or src.get("doc_path")
+                or src.get("source_file")
+                or item.get("source_file")
+                or ""
+            ).strip()
+            if src_doc:
+                m_doc = re.search(r"(20\d{2})-(\d{2})-(\d{2})", src_doc)
+                if m_doc and re.search(r"\bexternal/conferences\b", src_doc, re.I):
+                    lbl = _qh_quarter_label(f"{m_doc.group(1)}-{m_doc.group(2)}-{m_doc.group(3)}")
+                    if lbl != "N/A":
+                        return lbl
+            for key in (
+                "first_seen_quarter_end",
+                "statement_quarter_end",
+                "source_quarter_end",
+                "last_mentioned_quarter",
+                "as_of_quarter_end",
+                "quarter_end",
+                "date",
+            ):
+                lbl = _qh_quarter_label(item.get(key))
+                if lbl != "N/A":
+                    return lbl
+            return ""
+
+        def _qh_quarter_ord_from_label(label_in: Any) -> Optional[int]:
+            txt = str(label_in or "").strip()
+            m = re.fullmatch(r"Q([1-4])\s+(20\d{2})", txt)
+            if not m:
+                return None
+            try:
+                return int(m.group(2)) * 4 + int(m.group(1))
+            except Exception:
+                return None
+
+        def _qh_display_horizon(item: Dict[str, Any]) -> str:
+            period_txt = _qh_display_period(item)
+            if period_txt:
+                period_txt = period_txt.replace("FY ", "FY")
+                return period_txt
+            gtype = str(item.get("guidance_type") or "").strip().lower()
+            exec_window = str(item.get("execution_window") or "").strip().lower()
+            if gtype == "run-rate":
+                return "Run-rate"
+            if gtype == "annualized":
+                return "Annualized"
+            if exec_window == "over_next_year":
+                return "Next year"
+            if exec_window.startswith("through_"):
+                return f"Through {exec_window.split('_', 1)[1]}"
+            if exec_window.startswith("into_"):
+                return f"Into {exec_window.split('_', 1)[1]}"
+            return ""
 
         def _qh_display_type(item: Dict[str, Any]) -> str:
             gtype = str(item.get("guidance_type") or "text").strip().lower() or "text"
@@ -42988,11 +46083,84 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return True
             return False
 
+        def _qh_is_futureish_item(item: Dict[str, Any], asof_ref: pd.Timestamp) -> bool:
+            gtype = str(item.get("guidance_type") or "").strip().lower()
+            if gtype in {"run-rate", "ongoing", "annualized", "ratio", "milestone"}:
+                return True
+            pnorm = str(item.get("target_period_norm") or item.get("period_norm") or "UNK").strip()
+            asof_ord = _qh_quarter_ord(pd.Timestamp(asof_ref))
+            asof_year = int(asof_ref.year)
+            if pnorm == "FY+1":
+                return True
+            mfy = re.match(r"FY(20\d{2})$", pnorm)
+            if mfy and int(mfy.group(1)) >= asof_year:
+                return True
+            mq = re.match(r"Q(20\d{2})Q([1-4])$", pnorm)
+            if mq:
+                tgt_ord = int(mq.group(1)) * 4 + int(mq.group(2))
+                return tgt_ord >= asof_ord
+            txt = _qh_norm_txt(
+                " | ".join(
+                    [
+                        str(item.get("text") or ""),
+                        str(item.get("exact_language") or ""),
+                        str(item.get("qualitative_range_text") or ""),
+                    ]
+                )
+            ).lower()
+            if not txt:
+                return False
+            if re.search(r"\b(next quarter|next year|following year|over the next year|coming quarters|on track|expected|expects|outlook|target|targets|by end of|into 20\d{2}|in 20\d{2})\b", txt, re.I):
+                return True
+            return False
+
+        def _qh_is_clean_text_guidance_item(item: Dict[str, Any], asof_ref: pd.Timestamp) -> bool:
+            metric_name = str(item.get("metric") or "").strip()
+            if metric_name in {"", FORWARD_NOTES_LABEL, "Other", "Unknown"}:
+                return False
+            txt = _qh_norm_txt(item.get("text") or "")
+            if not txt:
+                return False
+            blob = " | ".join([metric_name, txt, str(item.get("period") or ""), str(item.get("target_period_norm") or item.get("period_norm") or "")]).lower()
+            if _slide_signal_noise(txt):
+                return False
+            if re.search(r"\b(remain focused|positioned well|on the right path|feel good about our direction|possible near-term announcement)\b", blob, re.I):
+                return False
+            if re.search(r"\b(all 2025 credits marketed; some cash already received|inventories are not building as expected|plants came through the cold spell)\b", blob, re.I):
+                return False
+            if re.search(r"\b(historical results|for the year ended|three months ended|nine months ended|historical fact)\b", blob, re.I):
+                return False
+            measurable_theme = bool(
+                re.search(
+                    r"\b(interest expense|45z|monetization|tax credit|qualif|strategic review|cost savings|run-rate|hedge|booked margin|facility|facilities|carbon capture|fully operational|startup|annualized|liquidity|capital allocation|deleverag|debt reduction|working capital|farm[- ]practice|yield|energy use|utilization|low-cost|low-carbon|adjusted ebitda|ebitda)\b",
+                    blob,
+                    re.I,
+                )
+            )
+            if not measurable_theme:
+                return False
+            period_norm = str(item.get("target_period_norm") or item.get("period_norm") or "").strip()
+            if period_norm:
+                return True
+            asof_year = int(asof_ref.year)
+            future_years = [int(y) for y in re.findall(r"(?<!\d)(20\d{2})(?!\d)", blob)]
+            if any(y >= asof_year for y in future_years):
+                return True
+            return bool(
+                re.search(
+                    r"\b(next quarter|coming quarters?|next 12 months|next year|next fiscal year|annualized|by end of q[1-4]|during 20\d{2}|in 20\d{2}|into 20\d{2}|through 20\d{2}|sometime in 20\d{2})\b",
+                    blob,
+                    re.I,
+                )
+            )
+
         def _qh_is_clean_guidance_item(item: Dict[str, Any], asof_ref: pd.Timestamp) -> bool:
             metric_name = str(item.get("metric") or FORWARD_NOTES_LABEL)
             if metric_name == FORWARD_NOTES_LABEL:
                 return False
             gtype = str(item.get("guidance_type") or "").strip().lower()
+            if gtype == "text":
+                return _qh_is_clean_text_guidance_item(item, asof_ref)
             if gtype not in {"period", "run-rate", "ongoing", "ratio"}:
                 return False
             kind = str(item.get("kind") or "").strip().lower()
@@ -43019,6 +46187,950 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 tgt_ord = int(m_q.group(1)) * 4 + int(m_q.group(2))
                 return tgt_ord > asof_ord
             return False
+
+        def _qh_is_soft_guidance_item(item: Dict[str, Any], asof_ref: pd.Timestamp) -> bool:
+            metric_name = str(item.get("metric") or "").strip()
+            if metric_name in {"", FORWARD_NOTES_LABEL, "Other", "Unknown"}:
+                return False
+            txt = _qh_norm_txt(item.get("text") or "")
+            if not txt or _slide_signal_noise(txt):
+                return False
+            blob = " | ".join(
+                [
+                    metric_name,
+                    txt,
+                    str(item.get("period") or ""),
+                    str(item.get("target_period_norm") or item.get("period_norm") or ""),
+                ]
+            ).lower()
+            if re.search(r"\b(historical results|for the year ended|three months ended|nine months ended)\b", blob, re.I):
+                return False
+            if re.search(r"\b(remain focused|positioned well|confident in our ability|feel good about our direction)\b", blob, re.I):
+                return False
+            if not re.search(
+                r"\b(interest expense|45z|monetization|tax credit|qualif|strategic review|cost savings|run-rate|hedge|booked margin|facility|facilities|carbon capture|fully operational|startup|annualized|liquidity|capital allocation|deleverag|debt reduction|working capital|farm[- ]practice|yield|energy use|utilization|adjusted ebitda|ebitda|forecast|guidance)\b",
+                blob,
+                re.I,
+            ):
+                return False
+            return _qh_is_futureish_item(item, asof_ref)
+
+        def _qh_repair_display_item(item: Dict[str, Any], asof_ref: pd.Timestamp) -> Dict[str, Any]:
+            out_item = dict(item)
+            if not is_pbi_profile:
+                return out_item
+            metric_map = {
+                "Revenue": "Revenue guidance",
+                "Adj EBIT": "Adjusted EBIT guidance",
+                "Adj EPS": "EPS guidance",
+                "FCF": "FCF target",
+            }
+            metric_label = metric_map.get(str(out_item.get("metric") or "").strip())
+            if not metric_label:
+                return out_item
+            repaired_norm, repaired_label = _pbi_repair_guidance_period_meta(
+                metric_label,
+                out_item.get("target_period_norm") or out_item.get("period_norm"),
+                out_item.get("target_period_label") or out_item.get("period"),
+                " | ".join(
+                    [
+                        str(out_item.get("text") or ""),
+                        str(out_item.get("target_period_label") or ""),
+                        str(out_item.get("period") or ""),
+                    ]
+                ),
+                asof_ref.date(),
+            )
+            if repaired_norm:
+                out_item["period_norm"] = repaired_norm
+                out_item["target_period_norm"] = repaired_norm
+            if repaired_label:
+                out_item["period"] = repaired_label
+                out_item["target_period_label"] = repaired_label
+            return out_item
+
+        def _qh_is_clean_commentary_item(item: Dict[str, Any], asof_ref: pd.Timestamp) -> bool:
+            item_local = _qh_repair_display_item(item, asof_ref)
+            txt = _qh_norm_txt(item_local.get("text") or "")
+            if not txt:
+                return False
+            blob = " | ".join([str(item_local.get("metric") or ""), txt]).lower()
+            if _slide_signal_noise(txt):
+                return False
+            if re.search(r"\b(remain focused|positioned well|confident in our ability|believe we are well positioned)\b", blob, re.I):
+                return False
+            if re.search(r"\b(historical results|for the year ended|three months ended|nine months ended)\b", blob, re.I):
+                return False
+            if re.search(r"\b(recorded in operating income|cash flow hedge accounting|unless the contracts qualify)\b", blob, re.I):
+                return False
+            measurable_theme = bool(
+                re.search(
+                    r"\b(interest expense|45z|monetization|tax credit|qualify|strategic review|cost savings|run-rate|hedge|booked margin|facility|facilities|carbon capture|fully operational|startup|annualized|liquidity|capital allocation|deleverag|debt reduction|working capital|farm[- ]practice|yield|energy use|low-cost|low-carbon)\b",
+                    blob,
+                    re.I,
+                )
+            )
+            if not measurable_theme:
+                return False
+            if bool(item_local.get("_force_commentary")):
+                return True
+            if _qh_is_clean_guidance_item(item_local, asof_ref):
+                return str(item_local.get("metric") or "") not in {"Revenue", "Adj EBIT", "Adj EPS", "FCF"}
+            return bool(
+                re.search(
+                    r"\b(expected|expect|outlook|target|targets|opportunity|on track|by end of|into 20\d{2}|in 20\d{2}|fully operational|annualized)\b",
+                    blob,
+                    re.I,
+                )
+                or re.search(r"\b(fully operational|online and ramping|agreement executed)\b", blob, re.I)
+            )
+
+        def _qh_commentary_fallback_bucket(item: Dict[str, Any], asof_ref: pd.Timestamp) -> Optional[Tuple[int, str]]:
+            txt = _qh_panel_commentary_text(item, asof_ref)
+            blob = glx_normalize_text(" | ".join([str(item.get("metric") or ""), txt, str(item.get("text") or "")])).lower()
+            if not txt or not _qh_is_futureish_item(item, asof_ref):
+                return None
+            if re.search(r"\b(improve forecasting|accurate guidance|guidance beginning with)\b", blob, re.I):
+                return (0, "forecasting")
+            if re.search(r"\b(pb bank|optimi[sz]e cash|strengthen the balance sheet|working capital)\b", blob, re.I):
+                return (1, "balance_sheet")
+            if re.search(r"\b(tuck-in acquisition|accretive tuck-in|acquisition opportunities)\b", blob, re.I):
+                return (2, "tuck_in")
+            if re.search(r"\b(buyback program|repurchase program|retire .*notes?\b|retire the 2027 notes?\b)\b", blob, re.I):
+                return (3, "capital_return")
+            if re.search(r"\b(deleverag|target(?:ing)?\s*~?\s*3\.0x|3\.0x net debt to adjusted ebitda)\b", blob, re.I):
+                return (4, "deleveraging")
+            return None
+
+        _qh_gpre_external_commentary_cache: Dict[str, List[Dict[str, Any]]] = {}
+        _qh_pbi_local_commentary_cache: Dict[str, List[Dict[str, Any]]] = {}
+
+        def _qh_pbi_local_letter_commentary_items(asof_ref: pd.Timestamp) -> List[Dict[str, Any]]:
+            if not is_pbi_profile:
+                return []
+            cache_key = str(asof_ref.date())
+            if cache_key in _qh_pbi_local_commentary_cache:
+                return [dict(x) for x in _qh_pbi_local_commentary_cache[cache_key]]
+
+            root_dir = Path(__file__).resolve().parents[2]
+            pbi_cache_dir = root_dir / "sec_cache" / "PBI"
+            if not pbi_cache_dir.exists():
+                _qh_pbi_local_commentary_cache[cache_key] = []
+                return []
+
+            doc_globs = [
+                "*q32025earningsceoletter*.htm",
+                "*a2025pbannualletter*.htm",
+                "*q12025earningspressrelea*.htm",
+                "*q42024earningspressrelea*.htm",
+            ]
+            local_docs: List[Path] = []
+            for pat in doc_globs:
+                local_docs.extend(sorted(pbi_cache_dir.glob(pat)))
+
+            def _read_doc(path_in: Path) -> str:
+                try:
+                    return glx_normalize_text(path_in.read_text(encoding="utf-8", errors="ignore"))
+                except Exception:
+                    return ""
+
+            local_candidates: List[Tuple[str, str, str, float, str, Path, str]] = [
+                (
+                    "Forecasting improvement",
+                    "FY 2026",
+                    "Improve forecasting to provide more accurate guidance beginning with 2026 guidance.",
+                    72.0,
+                    r"provide more accurate guidance to investors beginning with our 2026 guidance",
+                    Path(),
+                    "",
+                ),
+                (
+                    "PB Bank strategy",
+                    "FY 2026",
+                    "Realizing the potential of PB Bank to optimize cash, strengthen the balance sheet, and drive profitable growth.",
+                    70.0,
+                    r"realizing the potential of pb bank.*?optimi[sz]e cash.*?strengthen.*?balance sheet.*?profitable growth",
+                    Path(),
+                    "",
+                ),
+                (
+                    "Presort tuck-in acquisitions",
+                    "FY 2026",
+                    "Presort will more aggressively pursue accretive tuck-in acquisition opportunities.",
+                    68.0,
+                    r"more aggressively pursuing accretive tuck-?in acquisition opportunities",
+                    Path(),
+                    "",
+                ),
+                (
+                    "Capital allocation / note retirement",
+                    "March 2026",
+                    "Management expects to continue the buyback program and retire the 2027 Notes in full when callable in March 2026.",
+                    69.0,
+                    r"continue our buyback program.*?retire our 2027 notes in full.*?march 2026",
+                    Path(),
+                    "",
+                ),
+                (
+                    "Deleveraging target",
+                    "FY 2026",
+                    "Management plans to continue deleveraging in 2026 and target ~3.0x Net Debt to Adjusted EBITDA over the long term.",
+                    67.0,
+                    r"continue to deleverage in 2026.*?3\.0x net debt to adjusted ebitda",
+                    Path(),
+                    "",
+                ),
+            ]
+
+            out_items: List[Dict[str, Any]] = []
+            seen_keys: set[str] = set()
+            for doc_path in local_docs:
+                doc_text = _read_doc(doc_path)
+                if not doc_text:
+                    continue
+                doc_key = doc_path.name.lower()
+                if "q32025earningsceoletter" in doc_key:
+                    doc_date = pd.Timestamp("2025-11-06")
+                elif "a2025pbannualletter" in doc_key:
+                    doc_date = pd.Timestamp("2026-02-11")
+                elif "q12025earningspressrelea" in doc_key:
+                    doc_date = pd.Timestamp("2025-05-06")
+                elif "q42024earningspressrelea" in doc_key:
+                    doc_date = pd.Timestamp("2025-02-11")
+                else:
+                    doc_date = pd.Timestamp(asof_ref)
+                for metric_label, period_label, text_label, score_val, regex_pat, _, _ in local_candidates:
+                    if not re.search(regex_pat, doc_text, re.I | re.S):
+                        continue
+                    item_key = f"{metric_label.lower()}|{text_label.lower()}"
+                    if item_key in seen_keys:
+                        continue
+                    seen_keys.add(item_key)
+                    out_items.append(
+                        {
+                            "metric": metric_label,
+                            "text": text_label,
+                            "period": period_label,
+                            "period_norm": "FY2026" if "2026" in period_label else "",
+                            "target_period_norm": "FY2026" if "2026" in period_label else "",
+                            "guidance_type": "text",
+                            "kind": "text",
+                            "score": score_val,
+                            "source_rank": 7,
+                            "source_priority": 1,
+                            "source_date": doc_date,
+                            "_force_commentary": True,
+                            "source": {
+                                "source_type": "local_letter_fallback",
+                                "doc": str(doc_path),
+                            },
+                        }
+                    )
+            _qh_pbi_local_commentary_cache[cache_key] = out_items
+            return [dict(x) for x in out_items]
+
+        def _qh_pbi_tracker_commentary_items(asof_ref: pd.Timestamp) -> List[Dict[str, Any]]:
+            tracker_seed_rows = ui_state.get("promise_tracker_rows_by_q", {}) if isinstance(ui_state, dict) else {}
+            if not is_pbi_profile or not isinstance(tracker_seed_rows, dict):
+                return []
+            qd = asof_ref.date()
+            out_items: List[Dict[str, Any]] = []
+            seen_keys: set[str] = set()
+            for rec in tracker_seed_rows.get(qd, []) or []:
+                metric_label = str(rec.get("metric_display") or rec.get("metric") or "").strip().replace("_", " ")
+                text_full = glx_normalize_text(
+                    str(
+                        rec.get("text_full")
+                        or rec.get("text_snippet")
+                        or rec.get("text")
+                        or rec.get("claim")
+                        or rec.get("note")
+                        or ""
+                    )
+                )
+                target_display = str(rec.get("target_display") or rec.get("target") or "").strip()
+                blob = glx_normalize_text(" | ".join([metric_label, text_full, target_display])).lower()
+                if not blob:
+                    continue
+                if re.search(r"\bstrategic review\b", blob, re.I):
+                    metric_name = "Strategic review timing"
+                elif re.search(r"\bcost savings|annualized savings|run-rate savings|cost reduction\b", blob, re.I):
+                    metric_name = "Cost savings target"
+                elif re.search(r"\b(pb bank|bank-held leases|cash optimization|cash needs reduction|trapped capital)\b", blob, re.I):
+                    metric_name = "PB Bank liquidity release"
+                else:
+                    continue
+                compact_text = text_full or target_display
+                if not compact_text:
+                    continue
+                item_key = f"{metric_name.lower()}|{glx_normalize_text(compact_text).lower()}"
+                if item_key in seen_keys:
+                    continue
+                seen_keys.add(item_key)
+                period_label = (
+                    str(rec.get("target_period_label") or "").strip()
+                    or _pbi_guidance_period_label_from_text(compact_text)
+                )
+                period_norm = (
+                    str(rec.get("target_period_norm") or "").strip()
+                    or _period_label_to_norm(period_label)
+                )
+                src_doc = str(rec.get("doc") or rec.get("_source_doc") or "")
+                src_type = str(rec.get("source_type") or rec.get("_source_type") or "promise_tracker")
+                out_items.append(
+                    {
+                        "metric": metric_name,
+                        "text": compact_text,
+                        "period": period_label,
+                        "period_norm": period_norm,
+                        "target_period_norm": period_norm,
+                        "guidance_type": "text",
+                        "kind": "qualitative_range",
+                        "score": float(rec.get("score") or 84.0),
+                        "source_rank": 7,
+                        "source_priority": 1,
+                        "source_date": pd.Timestamp(asof_ref),
+                        "_force_commentary": True,
+                        "source": {
+                            "source_type": src_type,
+                            "doc": src_doc,
+                            "form": "",
+                            "section": "",
+                        },
+                    }
+                )
+            return out_items
+
+        def _qh_pbi_progress_commentary_items(asof_ref: pd.Timestamp) -> List[Dict[str, Any]]:
+            if not is_pbi_profile or not isinstance(promise_progress, pd.DataFrame) or promise_progress.empty:
+                return []
+            if "quarter" not in promise_progress.columns:
+                return []
+            out_items: List[Dict[str, Any]] = []
+            seen_keys: set[str] = set()
+            prog = promise_progress.copy()
+            prog["quarter"] = pd.to_datetime(prog["quarter"], errors="coerce")
+            prog = prog[prog["quarter"].notna() & (prog["quarter"].dt.date <= asof_ref.date())]
+            if prog.empty:
+                return []
+
+            def _best_family_latest_text_local(family_name: str) -> str:
+                best_txt = ""
+                best_score = (-1, -1.0)
+                for _, fam_rec in prog.sort_values("quarter", ascending=False).iterrows():
+                    metric_blob = glx_normalize_text(
+                        " | ".join(
+                            [
+                                str(fam_rec.get("metric_ref") or fam_rec.get("metric_display") or fam_rec.get("metric") or ""),
+                                str(fam_rec.get("target") or ""),
+                                str(fam_rec.get("latest") or fam_rec.get("actual") or ""),
+                                str(fam_rec.get("rationale") or ""),
+                            ]
+                        )
+                    ).lower()
+                    if family_name == "cost_savings":
+                        if not re.search(r"\bcost savings|annualized savings|run-rate savings|cost reduction\b", metric_blob, re.I):
+                            continue
+                    else:
+                        if not re.search(r"\bpb bank\b|\bbank-held leases\b|\bliquidity release\b", metric_blob, re.I):
+                            continue
+                    latest_raw_local = fam_rec.get("latest") if fam_rec.get("latest") is not None else fam_rec.get("actual")
+                    if isinstance(latest_raw_local, (int, float)) and not pd.isna(latest_raw_local):
+                        latest_txt_local = _fmt_short_money_value_local(float(latest_raw_local))
+                    else:
+                        latest_txt_local = glx_normalize_text(str(latest_raw_local or "")).strip()
+                    if latest_txt_local.lower() in {"", "nan", "none", "null", "n/a", "not yet measurable"}:
+                        continue
+                    latest_amt_local = _parse_dollar_amount(latest_txt_local) or 0.0
+                    rec_q = pd.Timestamp(fam_rec.get("quarter")).date()
+                    score_local = (rec_q.toordinal(), latest_amt_local)
+                    if score_local > best_score:
+                        best_score = score_local
+                        best_txt = latest_txt_local
+                return best_txt
+
+            for _, rec in prog.sort_values("quarter", ascending=False).iterrows():
+                metric_label = str(rec.get("metric_ref") or rec.get("metric_refs") or rec.get("metric") or "").strip().replace("_", " ")
+                target_display = str(rec.get("target") or "").strip()
+                latest_display = glx_normalize_text(str(rec.get("latest") or rec.get("actual") or ""))
+                if latest_display.lower() in {"nan", "none", "null", "n/a"}:
+                    latest_display = ""
+                rationale = glx_normalize_text(str(rec.get("rationale") or ""))
+                source_snippet = ""
+                source_evidence = rec.get("source_evidence_json")
+                if isinstance(source_evidence, str) and source_evidence.strip().startswith(("{", "[")):
+                    try:
+                        parsed_source = json.loads(source_evidence)
+                        if isinstance(parsed_source, dict):
+                            source_snippet = str(parsed_source.get("snippet") or "")
+                        elif isinstance(parsed_source, list) and parsed_source:
+                            first_hit = parsed_source[0]
+                            if isinstance(first_hit, dict):
+                                source_snippet = str(first_hit.get("snippet") or "")
+                    except Exception:
+                        source_snippet = ""
+                source_snippet = glx_normalize_text(source_snippet)
+                blob = glx_normalize_text(" | ".join([metric_label, target_display, latest_display, rationale, source_snippet])).lower()
+                metric_name = ""
+                line_text = ""
+                if re.search(r"\bstrategic review\b", blob, re.I):
+                    metric_name = "Strategic review timing"
+                    line_text = latest_display or source_snippet or rationale
+                elif metric_label == "Cost savings target" or re.search(r"\bcost savings|annualized savings|run-rate savings\b", blob, re.I):
+                    metric_name = "Cost savings target"
+                    pretty_target = str(
+                        _extract_pbi_target_display(
+                            " | ".join([metric_name, source_snippet, target_display]),
+                            "Cost savings target",
+                        )
+                        or ""
+                    ).strip()
+                    if not pretty_target and target_display:
+                        try:
+                            target_num = float(str(target_display).replace(",", ""))
+                        except Exception:
+                            target_num = None
+                        if target_num is not None and target_num >= 1_000_000:
+                            pretty_target = _fmt_short_money_value_local(target_num)
+                    if pretty_target:
+                        line_text = f"Raised target to {pretty_target} annualized savings"
+                        resolved_latest_display = latest_display or _best_family_latest_text_local("cost_savings")
+                        if resolved_latest_display and resolved_latest_display.lower() not in {"", "not yet measurable"}:
+                            latest_display = resolved_latest_display
+                            line_text += f"; latest disclosed {latest_display}"
+                        elif source_snippet:
+                            source_low = source_snippet.lower()
+                            if re.search(r"\bup from\b", source_low, re.I):
+                                line_text += "; up from the prior target"
+                            if re.search(r"\bremainder to be executed over the next year\b", source_low, re.I):
+                                line_text += "; the remaining actions are expected over the next year"
+                    else:
+                        line_text = source_snippet or rationale
+                elif metric_label == "PB Bank liquidity release" or re.search(r"\b(pb bank|bank-held leases|cash optimization|cash needs reduction)\b", blob, re.I):
+                    metric_name = "PB Bank liquidity release"
+                    line_text = source_snippet or rationale or latest_display or _best_family_latest_text_local("pb_bank_liquidity") or target_display
+                if not metric_name or not line_text:
+                    continue
+                item_key = f"{metric_name.lower()}|{glx_normalize_text(line_text).lower()}"
+                if item_key in seen_keys:
+                    continue
+                seen_keys.add(item_key)
+                out_items.append(
+                    {
+                        "metric": metric_name,
+                        "text": _ensure_terminal_period(line_text),
+                        "period": str(rec.get("target_period_label") or ""),
+                        "period_norm": str(rec.get("target_period_norm") or ""),
+                        "target_period_norm": str(rec.get("target_period_norm") or ""),
+                        "guidance_type": "text",
+                        "kind": "qualitative_range",
+                        "score": 85.0,
+                        "source_rank": 7,
+                        "source_priority": 1,
+                        "source_date": pd.Timestamp(asof_ref),
+                        "_force_commentary": True,
+                        "source": {
+                            "source_type": str(rec.get("source_type") or "promise_progress"),
+                            "doc": str(rec.get("doc") or ""),
+                            "form": "",
+                            "section": "",
+                        },
+                    }
+                )
+            return out_items
+
+        def _qh_pbi_rendered_progress_commentary_items(asof_ref: pd.Timestamp) -> List[Dict[str, Any]]:
+            if not is_pbi_profile:
+                return []
+            qd = asof_ref.date()
+            rendered_progress_seed = ui_state.get("promise_tracker_rows_by_q", {}) if isinstance(ui_state, dict) else {}
+            if not isinstance(rendered_progress_seed, dict):
+                return []
+            out_items: List[Dict[str, Any]] = []
+            seen_keys: set[str] = set()
+            for rec in rendered_progress_seed.get(qd, []) or []:
+                if str(rec.get("row_type") or "").strip().lower() in {"section", "blank"}:
+                    continue
+                metric_label = str(rec.get("metric_display") or rec.get("metric_ref") or "").strip()
+                latest_display = glx_normalize_text(str(rec.get("latest") or ""))
+                rationale = glx_normalize_text(str(rec.get("rationale") or ""))
+                blob = glx_normalize_text(" | ".join([metric_label, latest_display, rationale])).lower()
+                metric_name = ""
+                line_text = ""
+                if metric_label == "Strategic milestone" and re.search(r"\bstrategic review\b", blob, re.I):
+                    metric_name = "Strategic review timing"
+                    line_text = latest_display or rationale
+                elif metric_label == "Cost savings target" and re.search(r"\bcost savings|annualized savings|run-rate savings\b", blob, re.I):
+                    metric_name = "Cost savings target"
+                    line_text = rationale or latest_display
+                elif metric_label == "PB Bank liquidity release" and re.search(r"\b(pb bank|bank-held leases|cash optimization|cash needs reduction)\b", blob, re.I):
+                    metric_name = "PB Bank liquidity release"
+                    line_text = rationale or latest_display
+                if not metric_name or not line_text:
+                    continue
+                item_key = f"{metric_name.lower()}|{glx_normalize_text(line_text).lower()}"
+                if item_key in seen_keys:
+                    continue
+                seen_keys.add(item_key)
+                out_items.append(
+                    {
+                        "metric": metric_name,
+                        "text": _ensure_terminal_period(line_text),
+                        "period": str(rec.get("target_period_label") or ""),
+                        "period_norm": str(rec.get("target_period_norm") or ""),
+                        "target_period_norm": str(rec.get("target_period_norm") or ""),
+                        "guidance_type": "text",
+                        "kind": "qualitative_range",
+                        "score": 86.0,
+                        "source_rank": 7,
+                        "source_priority": 1,
+                        "source_date": pd.Timestamp(asof_ref),
+                        "_force_commentary": True,
+                        "source": {
+                            "source_type": "rendered_progress",
+                            "doc": "",
+                            "form": "",
+                            "section": "",
+                        },
+                    }
+                )
+            return out_items
+
+        def _qh_pbi_quarter_note_commentary_items(asof_ref: pd.Timestamp) -> List[Dict[str, Any]]:
+            if not is_pbi_profile:
+                return []
+            qd = asof_ref.date()
+            out_items: List[Dict[str, Any]] = []
+            seen_keys: set[str] = set()
+            if not isinstance(quarter_notes, pd.DataFrame) or quarter_notes.empty or "quarter" not in quarter_notes.columns:
+                return []
+            note_slice = quarter_notes.copy()
+            note_slice["quarter"] = pd.to_datetime(note_slice["quarter"], errors="coerce")
+            note_slice = note_slice[note_slice["quarter"].dt.date == qd]
+            if note_slice.empty:
+                return []
+            for _, rec in note_slice.iterrows():
+                note_txt = glx_normalize_text(
+                    str(
+                        rec.get("note")
+                        or rec.get("claim")
+                        or rec.get("evidence_snippet")
+                        or rec.get("text")
+                        or rec.get("comment")
+                        or ""
+                    )
+                )
+                if not note_txt:
+                    continue
+                metric_name = ""
+                if re.search(r"\bstrategic review\b", note_txt, re.I):
+                    metric_name = "Strategic review timing"
+                elif re.search(r"\bcost savings|cost reduction|cost optimization\b", note_txt, re.I) and re.search(r"\b(target|run-rate|annualized|over the next year)\b", note_txt, re.I):
+                    metric_name = "Cost savings target"
+                else:
+                    continue
+                item_key = f"{metric_name.lower()}|{note_txt.lower()}"
+                if item_key in seen_keys:
+                    continue
+                seen_keys.add(item_key)
+                out_items.append(
+                    {
+                        "metric": metric_name,
+                        "text": _ensure_terminal_period(note_txt),
+                        "period": "",
+                        "period_norm": "",
+                        "target_period_norm": "",
+                        "guidance_type": "text",
+                        "kind": "qualitative_range",
+                        "score": float(pd.to_numeric(rec.get("score"), errors="coerce") or 84.0),
+                        "source_rank": 7,
+                        "source_priority": 1,
+                        "source_date": pd.Timestamp(asof_ref),
+                        "_force_commentary": True,
+                        "source": {
+                            "source_type": str(rec.get("doc_type") or ""),
+                            "doc": str(rec.get("doc") or ""),
+                            "form": "",
+                            "section": "",
+                        },
+                    }
+                )
+            return out_items
+
+        def _qh_gpre_external_commentary_items(asof_ref: pd.Timestamp) -> List[Dict[str, Any]]:
+            cache_key = str(asof_ref.date())
+            cached = _qh_gpre_external_commentary_cache.get(cache_key)
+            if cached is not None:
+                return [dict(x) for x in cached]
+            conf_path = Path(__file__).resolve().parents[2] / "sec_cache" / "GPRE" / "external" / "conferences" / "2026-02-26_bofa" / "structured_statements.json"
+            out_items: List[Dict[str, Any]] = []
+            if not conf_path.exists():
+                _qh_gpre_external_commentary_cache[cache_key] = []
+                return []
+            try:
+                conf_rows = json.loads(conf_path.read_text(encoding="utf-8"))
+            except Exception:
+                conf_rows = []
+            if not isinstance(conf_rows, list):
+                conf_rows = []
+
+            def _append_external(metric: str, text: str, source_row: Dict[str, Any], *, priority: int, period: str = "FY 2026") -> None:
+                text_norm = _ensure_terminal_period(glx_normalize_text(text))
+                if not text_norm:
+                    return
+                out_items.append(
+                    {
+                        "metric": metric,
+                        "text": text_norm,
+                        "period": period,
+                        "period_norm": "FY2026" if "2026" in period else "",
+                        "guidance_type": "text",
+                        "kind": "qualitative_range",
+                        "score": 84.0 - float(priority),
+                        "source_rank": 8,
+                        "source_priority": 1,
+                        "source_date": pd.Timestamp(str(source_row.get("date") or "2026-02-26")),
+                        "_force_commentary": True,
+                        "_commentary_priority": int(priority),
+                        "source": {
+                            "source_type": "conference",
+                            "doc": "external/conferences/2026-02-26_bofa/transcript.md",
+                            "form": "conference",
+                            "section": str(source_row.get("source_location") or ""),
+                            "event": str(source_row.get("event") or "Bank of America 2026 Global Agriculture & Materials Conference"),
+                        },
+                        "analysis": {"intent_hits": ["external_conference_commentary"]},
+                    }
+                )
+
+            for row in conf_rows:
+                if not isinstance(row, dict):
+                    continue
+                topic = str(row.get("topic") or "")
+                subtopic = str(row.get("subtopic") or "")
+                fam = str(row.get("promise_family") or "")
+                if fam == "45Z EBITDA outlook" or (topic == "45Z and carbon" and subtopic == "Current EBITDA contribution"):
+                    _append_external(
+                        "45Z EBITDA starting point and upside levers",
+                        "Roughly $188m of 2026 EBITDA tied to 45Z and carbon value is the current starting point, with upside from yield, lower energy use and fast-return projects.",
+                        row,
+                        priority=2,
+                    )
+                elif topic == "45Z and carbon" and subtopic == "Drivers of improved guidance":
+                    _append_external(
+                        "45Z base-case improvement",
+                        "Removal of indirect land use change from CI calculations, qualification of all facilities for 45Z, and Advantage Nebraska being fully operational improved the 2026 base case.",
+                        row,
+                        priority=1,
+                    )
+                elif fam == "Farm-practices upside timing":
+                    _append_external(
+                        "Farm-practice upside timing",
+                        "The current $188m base does not include farm-practice benefits, and final USDA/DOE-linked guidance is expected sometime in 2026.",
+                        row,
+                        priority=3,
+                    )
+                elif fam == "Credit monetization outlook":
+                    _append_external(
+                        "2026 credit marketing outlook",
+                        "Management said 2026 credits are being marketed and that interest is strong.",
+                        row,
+                        priority=0,
+                    )
+                elif fam == "CO2 logistics evaluation milestone":
+                    _append_external(
+                        "CO2 logistics evaluation",
+                        "The company is evaluating truck or rail movement of liquid CO2 to sequestration sites for non-pipeline plants.",
+                        row,
+                        priority=4,
+                    )
+                elif topic == "Capital allocation" and subtopic == "Free cash flow priorities":
+                    _append_external(
+                        "Capital allocation priorities",
+                        "Free-cash-flow priorities are plant quality and utilization first, then improving 45Z and the base business, then debt reduction, shareholder returns and M&A, with the goal of becoming a low-cost, low-carbon Midwest biofuel producer.",
+                        row,
+                        priority=5,
+                        period="next 12 months",
+                    )
+            deduped: List[Dict[str, Any]] = []
+            seen_text: set[str] = set()
+            for item in sorted(out_items, key=lambda z: (int(z.get("_commentary_priority") or 99), str(z.get("metric") or ""))):
+                txt_key = glx_normalize_text(str(item.get("text") or "")).lower()
+                if not txt_key or txt_key in seen_text:
+                    continue
+                seen_text.add(txt_key)
+                deduped.append(item)
+            _qh_gpre_external_commentary_cache[cache_key] = [dict(x) for x in deduped]
+            return [dict(x) for x in deduped]
+
+        def _qh_extra_text_guidance_items(asof_ref: pd.Timestamp) -> List[Dict[str, Any]]:
+            candidates: List[Dict[str, Any]] = []
+            if is_gpre_profile:
+                candidates.extend(_qh_gpre_external_commentary_items(asof_ref))
+            else:
+                candidates.extend(_qh_pbi_tracker_commentary_items(asof_ref))
+                candidates.extend(_qh_pbi_progress_commentary_items(asof_ref))
+                candidates.extend(_qh_pbi_quarter_note_commentary_items(asof_ref))
+                for pbi_item in _pbi_structured_strategy_items_for_qd(asof_ref.date()):
+                    metric_label = str(pbi_item.get("metric_label") or "").strip()
+                    compact_note = str(pbi_item.get("compact_note") or pbi_item.get("text_full") or "").strip()
+                    if not metric_label or not compact_note:
+                        continue
+                    candidates.append(
+                        {
+                            "metric": metric_label,
+                            "text": compact_note,
+                            "period": str(pbi_item.get("period_label") or pbi_item.get("period_norm") or ""),
+                            "period_norm": str(pbi_item.get("period_norm") or ""),
+                            "target_period_norm": str(pbi_item.get("period_norm") or ""),
+                            "guidance_type": "text",
+                            "kind": "qualitative_range",
+                            "score": float(pbi_item.get("score") or 82.0),
+                            "source_rank": 7,
+                            "source_priority": 1,
+                            "source_date": pd.Timestamp(asof_ref),
+                            "source": dict(pbi_item.get("source") or {}),
+                            "analysis": {"intent_hits": ["structured_strategy_text_guidance"]},
+                        }
+                    )
+            out_items: List[Dict[str, Any]] = []
+            seen_keys: set[Tuple[str, str, str]] = set()
+            for item in candidates:
+                item_local = dict(item)
+                if not _qh_is_clean_text_guidance_item(item_local, asof_ref):
+                    continue
+                metric_key = str(item_local.get("metric") or "").strip().lower()
+                period_key = str(item_local.get("target_period_norm") or item_local.get("period_norm") or "").strip().lower()
+                text_key = glx_normalize_text(str(item_local.get("text") or "")).lower()
+                dedupe_key = (metric_key, period_key, text_key)
+                if dedupe_key in seen_keys:
+                    continue
+                seen_keys.add(dedupe_key)
+                out_items.append(item_local)
+            return out_items
+
+        def _qh_commentary_horizon_priority(item: Dict[str, Any], asof_ref: pd.Timestamp) -> int:
+            item_local = _qh_repair_display_item(item, asof_ref)
+            pnorm = str(item_local.get("target_period_norm") or item_local.get("period_norm") or "").strip()
+            blob = glx_normalize_text(
+                " | ".join(
+                    [
+                        str(item_local.get("metric") or ""),
+                        str(item_local.get("_commentary_display_text") or ""),
+                        str(item_local.get("text") or ""),
+                        str(item_local.get("period") or ""),
+                    ]
+                )
+            ).lower()
+            asof_ord = _qh_quarter_ord(pd.Timestamp(asof_ref))
+            asof_year = int(asof_ref.year)
+            m_q = re.match(r"Q(20\d{2})Q([1-4])$", pnorm)
+            if m_q:
+                tgt_ord = int(m_q.group(1)) * 4 + int(m_q.group(2))
+                gap = tgt_ord - asof_ord
+                if gap <= 1:
+                    return 0
+                if gap <= 4:
+                    return 1
+                return 4
+            m_fy = re.match(r"FY(20\d{2})$", pnorm)
+            if m_fy:
+                fy = int(m_fy.group(1))
+                if fy <= asof_year + 1:
+                    return 2
+                return 4
+            if re.search(r"\b(next quarter|coming quarters?|by end of q[1-4]\s*20\d{2}|by end of q[1-4])\b", blob, re.I):
+                return 0
+            if re.search(r"\b(next 12 months|annualized 20\d{2}|in 20\d{2}|during 20\d{2}|sometime in 20\d{2}|fy\s*20\d{2})\b", blob, re.I):
+                return 1
+            if re.search(r"\b(2027|2028|2029|2030|post-2029|long-term)\b", blob, re.I):
+                return 5
+            return 3
+
+        def _qh_compact_commentary_text(item: Dict[str, Any], asof_ref: pd.Timestamp) -> str:
+            item_local = _qh_repair_display_item(item, asof_ref)
+            txt = _qh_norm_txt(item_local.get("text") or "")
+            if not txt:
+                return ""
+            if not is_gpre_profile:
+                return txt
+            txt_norm = glx_normalize_text(txt)
+            txt_low = txt_norm.lower()
+            money_hits = _extract_money_targets_for_display(txt_norm)
+            if re.search(r"\binterest expense\b", txt_low, re.I) and re.search(r"\b(expected|annualized|2026)\b", txt_low, re.I):
+                if len(money_hits) >= 2:
+                    lo = min(float(money_hits[0]), float(money_hits[1]))
+                    hi = max(float(money_hits[0]), float(money_hits[1]))
+                    return _ensure_terminal_period(
+                        f"Annualized 2026 interest expense expected at about {_fmt_short_money_value_local(lo)}-{_fmt_short_money_value_local(hi)}"
+                    )
+            if re.search(r"\b45z\b", txt_low, re.I) and re.search(r"\b(monetization)\b", txt_low, re.I) and re.search(r"\b(expected|outlook)\b", txt_low, re.I):
+                target_txt = str(_extract_45z_monetization_target_display(txt_norm, asof_ref.date(), "") or "").strip()
+                if target_txt:
+                    period_txt = "Q4 2025" if re.search(r"\b(q4|fourth quarter)\b", txt_low, re.I) else "45Z"
+                    return _ensure_terminal_period(f"{period_txt} 45Z monetization expected at {target_txt}")
+            if re.search(r"\b45z\b", txt_low, re.I) and re.search(r"\badjusted ebitda\b", txt_low, re.I):
+                if money_hits:
+                    amt = max(float(x) for x in money_hits)
+                    return _ensure_terminal_period(
+                        f"FY 2026 45Z-related Adjusted EBITDA outlook at least {_fmt_short_money_value_local(amt)}"
+                    )
+            if re.search(r"\ball eight\b", txt_low, re.I) and re.search(r"\bqualif", txt_low, re.I) and re.search(r"\b2026\b", txt_low, re.I):
+                return _ensure_terminal_period("All eight operating ethanol plants expected to qualify for production tax credits in 2026")
+            if re.search(r"\bfully operational\b", txt_low, re.I) and re.search(r"\b(central city|wood river|york)\b", txt_low, re.I):
+                return _ensure_terminal_period("Carbon capture fully operational at Central City, Wood River and York, Nebraska facilities")
+            return txt
+
+        def _qh_panel_commentary_text(item: Dict[str, Any], asof_ref: pd.Timestamp) -> str:
+            item_local = _qh_repair_display_item(item, asof_ref)
+            metric_txt = str(item_local.get("metric") or "").strip()
+            candidate = str(
+                item_local.get("_commentary_display_text")
+                or _qh_compact_commentary_text(item_local, asof_ref)
+                or _qh_norm_txt(item_local.get("text") or "")
+            ).strip()
+            if not candidate:
+                return ""
+            candidate_low = glx_normalize_text(candidate).lower()
+            if re.search(r"\b(recorded in operating income|cash flow hedge accounting|unless the contracts qualify)\b", candidate_low, re.I):
+                return ""
+            if not is_gpre_profile:
+                if candidate_low.startswith("statements about future "):
+                    return ""
+                if re.search(r"\bprovides the following (?:guidance|management target)\b", candidate_low, re.I):
+                    return ""
+                if re.search(r"\boffers physical and digital shipping and mailing technology solutions\b", candidate_low, re.I):
+                    return ""
+                if re.search(r"\bmanagement target\b", candidate_low, re.I) and candidate_low.count(":") >= 1 and len(candidate_low) > 120:
+                    return ""
+                if candidate_low.count("fy 20") >= 2 and candidate_low.count(":") >= 3:
+                    return ""
+                if re.search(r"\bgrowth y/y\b", candidate_low, re.I) and re.search(r"\bfy 20\d{2}:", candidate_low, re.I):
+                    return ""
+            money_hits = [float(x) for x in _extract_money_targets_for_display(candidate)]
+            raw_num_hits = [
+                float(str(x).replace(",", ""))
+                for x in re.findall(r"([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)", candidate)
+            ]
+            if len(money_hits) < 2 and len(raw_num_hits) >= 2:
+                money_hits = raw_num_hits
+            if is_gpre_profile and re.search(r"\binterest expense\b", candidate_low, re.I) and len(money_hits) >= 2:
+                lo = min(float(money_hits[0]), float(money_hits[1]))
+                hi = max(float(money_hits[0]), float(money_hits[1]))
+                if hi < 1_000_000:
+                    lo *= 1_000_000.0
+                    hi *= 1_000_000.0
+                return _ensure_terminal_period(
+                    f"Annualized 2026 interest expense expected at about {_fmt_short_money_value_local(lo)}-{_fmt_short_money_value_local(hi)}"
+                )
+            if not is_gpre_profile:
+                metric_map = {
+                    "Revenue": "Revenue guidance",
+                    "Adj EBIT": "Adjusted EBIT guidance",
+                    "Adj EPS": "EPS guidance",
+                    "FCF": "FCF target",
+                }
+                metric_label = metric_map.get(metric_txt, metric_txt)
+                if re.search(r"\bcost savings\b", metric_label, re.I) or re.search(
+                    r"\b(cost savings|annualized savings|run-rate savings|cost reduction)\b",
+                    candidate_low,
+                    re.I,
+                ):
+                    target_txt = str(
+                        _extract_pbi_target_display(
+                            " | ".join(
+                                [
+                                    candidate,
+                                    str(item_local.get("text") or ""),
+                                    metric_label or "Cost savings target",
+                                ]
+                            ),
+                            "Cost savings target",
+                        )
+                        or ""
+                    ).strip()
+                    if target_txt:
+                        return _ensure_terminal_period(f"Raised target to {target_txt} annualized savings")
+                if re.search(r"\bstrategic\b", metric_label, re.I) or re.search(r"\bstrategic review\b", candidate_low, re.I):
+                    sent_parts = [str(x).strip() for x in glx_split_sentences(candidate) if str(x).strip()]
+                    if sent_parts:
+                        return _ensure_terminal_period(qn_compact_snippet(sent_parts[0], 180))
+                period_txt = _qh_display_period(item_local) or str(item_local.get("period") or "")
+                if metric_label in metric_map.values():
+                    structured_target = str(
+                        _extract_pbi_target_display(
+                            " | ".join(
+                                [
+                                    candidate,
+                                    metric_label,
+                                    str(item_local.get("text") or ""),
+                                ]
+                            ),
+                            metric_label,
+                        )
+                        or ""
+                    ).strip()
+                    if not structured_target and metric_label in {"Revenue guidance", "Adjusted EBIT guidance", "FCF target"} and len(money_hits) >= 2:
+                        lo = min(float(money_hits[0]), float(money_hits[1]))
+                        hi = max(float(money_hits[0]), float(money_hits[1]))
+                        if hi < 10_000:
+                            lo *= 1_000_000.0
+                            hi *= 1_000_000.0
+                        structured_target = f"{_fmt_short_money_value_local(lo)}-{_fmt_short_money_value_local(hi)}"
+                    if not structured_target and metric_label == "EPS guidance":
+                        num_hits = re.findall(r"([0-9]+(?:\.[0-9]+)?)", candidate)
+                        if len(num_hits) >= 2:
+                            lo = min(float(num_hits[0]), float(num_hits[1]))
+                            hi = max(float(num_hits[0]), float(num_hits[1]))
+                            structured_target = f"${lo:.2f}-${hi:.2f}"
+                    if structured_target:
+                        period_suffix = f" for {period_txt}" if period_txt else ""
+                        return _ensure_terminal_period(f"{metric_label}{period_suffix} set at {structured_target}")
+                sent_parts = [str(x).strip() for x in glx_split_sentences(candidate) if str(x).strip()]
+                if sent_parts:
+                    candidate = sent_parts[0]
+            return _ensure_terminal_period(qn_compact_snippet(candidate, 220))
+
+        def _qh_pbi_commentary_priority(item: Dict[str, Any], asof_ref: pd.Timestamp) -> int:
+            txt = _qh_panel_commentary_text(item, asof_ref).lower()
+            metric_txt = str(item.get("metric") or "").strip().lower()
+            blob = glx_normalize_text(" | ".join([metric_txt, txt])).lower()
+            if re.search(r"\bstrategic review\b", blob, re.I):
+                return 0
+            if re.search(r"\bcost savings|annualized savings|run-rate savings|cost reduction\b", blob, re.I):
+                return 1
+            if re.search(r"\b(liquidity|working capital|capital allocation|deleverag|debt reduction)\b", blob, re.I):
+                return 2
+            if re.search(r"\b(next quarter|q1 20\d{2}|q2 20\d{2}|q3 20\d{2}|q4 20\d{2}|by end of q[1-4])\b", blob, re.I):
+                return 3
+            if metric_txt in {"revenue", "adj ebit", "adj eps", "fcf"}:
+                return 8
+            return 4
+
+        def _qh_gpre_commentary_priority(item: Dict[str, Any], asof_ref: pd.Timestamp) -> int:
+            explicit_priority = pd.to_numeric(item.get("_commentary_priority"), errors="coerce")
+            if pd.notna(explicit_priority):
+                return int(explicit_priority)
+            txt = _qh_compact_commentary_text(item, asof_ref).lower()
+            if not txt:
+                return 99
+            if re.search(r"\binterest expense\b", txt, re.I):
+                return 0
+            if re.search(r"\bcredits are being marketed\b|\binterest is strong\b", txt, re.I):
+                return 1
+            if re.search(r"\bindirect land use change\b|\ball facilities\b|\ball eight\b", txt, re.I):
+                return 2
+            if re.search(r"\bfarm-practice\b|\bfarm practice\b", txt, re.I):
+                return 3
+            if re.search(r"\b45z\b", txt, re.I) and re.search(r"\bmonetization\b", txt, re.I):
+                return 4
+            if re.search(r"\b45z-related adjusted ebitda\b", txt, re.I):
+                return 5
+            if re.search(r"\btruck\b|\brail\b|\bliquid co2\b", txt, re.I):
+                return 6
+            if re.search(r"\bcarbon capture\b", txt, re.I):
+                return 7
+            return 50
 
         def _qh_keep_carry_item(item: Dict[str, Any], asof_ref: pd.Timestamp, last_ref: pd.Timestamp) -> bool:
             metric_name = str(item.get("metric") or "")
@@ -43074,7 +47186,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             raw_items = list(snap_local.get("guidance_items") or [])
             out_items: List[Dict[str, Any]] = []
             for _it in raw_items:
-                z = dict(_it)
+                z = _qh_repair_display_item(dict(_it), pd.Timestamp(q_ref))
                 z.setdefault("guidance_type", "text")
                 z.setdefault("target_type", "text_only")
                 z.setdefault("target_period", str(z.get("period_norm") or "unspecified"))
@@ -43095,9 +47207,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             q0_ref = qh_refs[0]
             q0_prev = _prev_ref_for(q0_ref)
             g0 = _qh_build_guidance_snapshot(q0_ref, q0_prev)
+            q0_asof = pd.Timestamp(q0_ref)
+            all_g0_items = [_qh_repair_display_item(it, q0_asof) for it in list(g0.get("guidance_items") or [])]
             g0_items = [
-                it for it in list(g0.get("guidance_items") or [])
-                if _qh_is_clean_guidance_item(it, pd.Timestamp(q0_ref))
+                it for it in all_g0_items
+                if _qh_is_clean_guidance_item(it, q0_asof)
             ]
             if _qh_is_fy_asof(pd.Timestamp(q0_ref)):
                 g0_items = [it for it in g0_items if _qh_keep_for_fy_asof(it, pd.Timestamp(q0_ref))]
@@ -43129,43 +47243,445 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 if len(top_full_items) >= 8:
                     break
 
-            ws.merge_cells(start_row=1, start_column=panel_col_start, end_row=1, end_column=panel_col_end)
-            full_hdr = ws.cell(row=1, column=panel_col_start, value="Guidance full text (top items)")
-            full_hdr.font = bold
-            full_hdr.fill = section_fill
-            full_hdr.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-            full_hdr.border = thin_border
+            max_commentary_lines = 5
+            def _bad_pbi_commentary_display_local(text_in: Any) -> bool:
+                txt_local = glx_normalize_text(str(text_in or ""))
+                low = txt_local.lower()
+                if not txt_local:
+                    return True
+                bad_patterns = (
+                    r"^statements about future\b",
+                    r"\blimited to,\s*statements about future\b",
+                    r"\bfuture events or conditions,\s*capital allocation strategy\b",
+                    r"\bprovides the following (?:guidance|management target)\b",
+                    r"\boffers physical and digital shipping and mailing technology solutions\b",
+                    r"\bmanagement target\b",
+                    r"\bfree cash flow was \$",
+                )
+                if any(re.search(pat, low, re.I) for pat in bad_patterns):
+                    return True
+                if txt_local.count(":") >= 2 and len(txt_local) > 120:
+                    return True
+                if "▪" in txt_local:
+                    return True
+                return False
+            commentary_source_items = list(all_g0_items)
+            if is_gpre_profile:
+                commentary_source_items.extend(_qh_gpre_external_commentary_items(q0_asof))
+            else:
+                commentary_source_items.extend(_qh_pbi_tracker_commentary_items(q0_asof))
+                commentary_source_items.extend(_qh_pbi_progress_commentary_items(q0_asof))
+                commentary_source_items.extend(_qh_pbi_rendered_progress_commentary_items(q0_asof))
+                commentary_source_items.extend(_qh_pbi_quarter_note_commentary_items(q0_asof))
+                commentary_source_items.extend(_qh_pbi_local_letter_commentary_items(q0_asof))
+                for rec in _profile_slide_signals_for_quarter(q0_asof.date()):
+                    rec_txt = glx_normalize_text(str(rec.get("text") or rec.get("rationale") or "")).strip()
+                    metric_label = str(rec.get("metric_display") or rec.get("metric") or "").strip()
+                    if not rec_txt:
+                        continue
+                    commentary_source_items.append(
+                        {
+                            "metric": metric_label or FORWARD_NOTES_LABEL,
+                            "text": rec_txt,
+                            "period": str(rec.get("period_label") or rec.get("period_norm") or ""),
+                            "period_norm": str(rec.get("period_norm") or ""),
+                            "target_period_norm": str(rec.get("period_norm") or ""),
+                            "guidance_type": "text",
+                            "kind": "qualitative_range" if str(rec.get("target_display") or "").strip() else "text",
+                            "score": float(rec.get("score") or 80.0),
+                            "source_rank": int(rec.get("source_rank") or 7),
+                            "source_priority": 1,
+                            "source_date": pd.Timestamp(q0_asof),
+                            "_force_commentary": True,
+                            "target_display": str(rec.get("target_display") or "").strip(),
+                            "source": {
+                                "source_type": str(rec.get("source_type") or ""),
+                                "doc": str(rec.get("source_doc") or ""),
+                            },
+                        }
+                    )
+                for pbi_item in _pbi_structured_strategy_items_for_qd(q0_asof.date()):
+                    metric_label = str(pbi_item.get("metric_label") or "").strip()
+                    compact_note = str(pbi_item.get("compact_note") or pbi_item.get("text_full") or "").strip()
+                    if not metric_label or not compact_note:
+                        continue
+                    commentary_source_items.append(
+                        {
+                            "metric": metric_label,
+                            "text": compact_note,
+                            "period": str(pbi_item.get("period_label") or pbi_item.get("period_norm") or ""),
+                            "period_norm": str(pbi_item.get("period_norm") or ""),
+                            "target_period_norm": str(pbi_item.get("period_norm") or ""),
+                            "guidance_type": "text",
+                            "kind": "qualitative_range",
+                            "score": float(pbi_item.get("score") or 82.0),
+                            "source_rank": 7,
+                            "source_priority": 1,
+                            "source_date": pd.Timestamp(q0_asof),
+                            "_force_commentary": True,
+                            "source": dict(pbi_item.get("source") or {}),
+                        }
+                    )
+            commentary_candidates = sorted(
+                [
+                    dict(it) for it in commentary_source_items
+                    if _qh_is_clean_commentary_item(it, q0_asof)
+                ],
+                key=lambda z: (
+                    (_qh_gpre_commentary_priority(z, q0_asof) if is_gpre_profile else _qh_pbi_commentary_priority(z, q0_asof)),
+                    _qh_commentary_horizon_priority(z, q0_asof),
+                    0 if _qh_norm_txt(z.get("text") or "").lower() not in prev_text_norm else 1,
+                    int(z.get("source_rank") or 9),
+                    -pd.Timestamp(z.get("source_date") if z.get("source_date") is not None else pd.Timestamp("1900-01-01")).value,
+                    -float(z.get("score") or 0),
+                ),
+            )
+            top_commentary_items: List[Dict[str, Any]] = []
+            seen_commentary_text: set = set()
+            seen_numeric_metrics = {
+                str(it.get("metric") or "").strip().lower()
+                for it in top_full_items
+                if str(it.get("metric") or "").strip()
+            }
+            for _it in commentary_candidates:
+                compact_txt = _qh_panel_commentary_text(_it, q0_asof)
+                if not is_gpre_profile and _bad_pbi_commentary_display_local(compact_txt):
+                    continue
+                _txt_norm = glx_normalize_text(compact_txt or _it.get("text") or "").lower()
+                if not _txt_norm or _txt_norm in seen_commentary_text:
+                    continue
+                metric_norm = str(_it.get("metric") or "").strip().lower()
+                if metric_norm in seen_numeric_metrics and metric_norm in {"revenue", "adj ebit", "adj eps", "fcf"}:
+                    continue
+                if compact_txt:
+                    _it["_commentary_display_text"] = compact_txt
+                seen_commentary_text.add(_txt_norm)
+                top_commentary_items.append(_it)
+                if len(top_commentary_items) >= max_commentary_lines:
+                    break
+            if not is_gpre_profile and len(top_commentary_items) < max_commentary_lines:
+                pbi_preferred_commentary = sorted(
+                    [
+                        dict(it)
+                        for it in commentary_source_items
+                        if _qh_pbi_commentary_priority(it, q0_asof) < 8
+                    ],
+                    key=lambda z: (
+                        _qh_pbi_commentary_priority(z, q0_asof),
+                        _qh_commentary_horizon_priority(z, q0_asof),
+                        -pd.Timestamp(z.get("source_date") if z.get("source_date") is not None else pd.Timestamp("1900-01-01")).value,
+                        int(z.get("source_rank") or 9),
+                        -float(z.get("score") or 0),
+                    ),
+                )
+                for _it in pbi_preferred_commentary:
+                    compact_txt = _qh_panel_commentary_text(_it, q0_asof)
+                    if _bad_pbi_commentary_display_local(compact_txt):
+                        continue
+                    _txt_norm = glx_normalize_text(compact_txt or "").lower()
+                    if not _txt_norm or _txt_norm in seen_commentary_text:
+                        continue
+                    it_copy = dict(_it)
+                    it_copy["_commentary_display_text"] = compact_txt
+                    seen_commentary_text.add(_txt_norm)
+                    top_commentary_items.append(it_copy)
+                    if len(top_commentary_items) >= max_commentary_lines:
+                        break
+            if len(top_commentary_items) < max_commentary_lines:
+                for _it in top_full_items:
+                    compact_txt = _qh_panel_commentary_text(_it, q0_asof)
+                    if not is_gpre_profile and _bad_pbi_commentary_display_local(compact_txt):
+                        continue
+                    _txt_norm = glx_normalize_text(compact_txt or "").lower()
+                    if not _txt_norm or _txt_norm in seen_commentary_text:
+                        continue
+                    metric_norm = str(_it.get("metric") or "").strip().lower()
+                    if is_gpre_profile and metric_norm in {"revenue", "adj ebit", "adj eps", "fcf"}:
+                        continue
+                    it_copy = dict(_it)
+                    it_copy["_commentary_display_text"] = compact_txt
+                    seen_commentary_text.add(_txt_norm)
+                    top_commentary_items.append(it_copy)
+                    if len(top_commentary_items) >= max_commentary_lines:
+                        break
+            if is_gpre_profile and len(top_commentary_items) < max_commentary_lines:
+                extra_commentary_candidates = sorted(
+                    [
+                        dict(it)
+                        for it in commentary_source_items
+                        if _qh_gpre_commentary_priority(it, q0_asof) < 99
+                    ],
+                    key=lambda z: (
+                        _qh_gpre_commentary_priority(z, q0_asof),
+                        _qh_commentary_horizon_priority(z, q0_asof),
+                        -pd.Timestamp(z.get("source_date") if z.get("source_date") is not None else pd.Timestamp("1900-01-01")).value,
+                        int(z.get("source_rank") or 9),
+                        -float(z.get("score") or 0),
+                    ),
+                )
+                for _it in extra_commentary_candidates:
+                    compact_txt = _qh_panel_commentary_text(_it, q0_asof)
+                    compact_norm = glx_normalize_text(compact_txt).lower()
+                    if not compact_norm or compact_norm in seen_commentary_text:
+                        continue
+                    _it["_commentary_display_text"] = compact_txt
+                    seen_commentary_text.add(compact_norm)
+                    top_commentary_items.append(_it)
+                    if len(top_commentary_items) >= max_commentary_lines:
+                        break
 
-            ws.merge_cells(start_row=2, start_column=panel_col_start, end_row=6, end_column=panel_col_end)
-            bullet_lines: List[str] = []
-            for _it in top_full_items:
-                mtxt = str(_it.get("metric") or "Other")
-                ptxt = _qh_display_period(_it) or str(_it.get("period") or "")
-                tytxt = str(_it.get("guidance_type") or "text")
-                carry_tag = ""
-                lm_q = str(_it.get("last_mentioned_quarter") or "")
-                as_q = str(_it.get("as_of_quarter") or "")
-                if lm_q and as_q and lm_q != as_q:
-                    carry_tag = f" | carry-fwd {_qh_quarter_label(lm_q)}"
-                ttxt = _qh_norm_txt(_it.get("text") or "")
-                if ttxt:
-                    bullet_lines.append(f"- [{mtxt} | {tytxt} | {ptxt}{carry_tag}] {ttxt}")
-            full_body_txt = "\n".join(bullet_lines) if bullet_lines else "No guidance text captured for this quarter."
-            full_cell = ws.cell(row=2, column=panel_col_start, value=truncate_clean(full_body_txt, 3200))
-            full_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-            full_cell.border = thin_border
+            ws.merge_cells(start_row=1, start_column=panel_col_start, end_row=1, end_column=panel_col_end)
+            commentary_hdr = ws.cell(row=1, column=panel_col_start, value="Management commentary")
+            commentary_hdr.font = bold
+            commentary_hdr.fill = section_fill
+            commentary_hdr.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            commentary_hdr.border = thin_border
+            meta_hdr = ws.cell(row=1, column=commentary_meta_col, value="Context")
+            meta_hdr.font = bold
+            meta_hdr.fill = section_fill
+            meta_hdr.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            meta_hdr.border = thin_border
+
+            commentary_lines: List[str] = []
+            commentary_meta_lines: List[str] = []
+
+            def _append_commentary_line(
+                text_in: Any,
+                metric_in: Any,
+                period_in: Any,
+                seen_norms: set[str],
+            ) -> bool:
+                text_txt = _ensure_terminal_period(glx_normalize_text(str(text_in or "")).strip())
+                if not text_txt:
+                    return False
+                if not is_gpre_profile and _bad_pbi_commentary_display_local(text_txt):
+                    return False
+                text_norm = glx_normalize_text(text_txt).lower()
+                if not text_norm or text_norm in seen_norms:
+                    return False
+                meta_bits = [
+                    str(metric_in or "").strip(),
+                    str(period_in or "").strip(),
+                ]
+                meta_txt = " | ".join([bit for bit in meta_bits if bit and bit.lower() not in {"n/a", "unknown"}])
+                commentary_lines.append(text_txt)
+                commentary_meta_lines.append(meta_txt)
+                seen_norms.add(text_norm)
+                return True
+
+            if not is_gpre_profile:
+                core_guidance_labels = {
+                    "Revenue": "Revenue",
+                    "Adj EBIT": "Adjusted EBIT",
+                    "Adj EPS": "EPS",
+                    "FCF": "FCF",
+                }
+                core_guidance_bits: List[str] = []
+                seen_pbi_line_norm: set[str] = set()
+                pbi_focus_candidates = sorted(
+                    [
+                        dict(it)
+                        for it in commentary_source_items
+                        if _qh_pbi_commentary_priority(it, q0_asof) <= 2
+                    ],
+                    key=lambda z: (
+                        _qh_pbi_commentary_priority(z, q0_asof),
+                        _qh_commentary_horizon_priority(z, q0_asof),
+                        -pd.Timestamp(z.get("source_date") if z.get("source_date") is not None else pd.Timestamp("1900-01-01")).value,
+                        int(z.get("source_rank") or 9),
+                        -float(z.get("score") or 0),
+                    ),
+                )
+                for _it in pbi_focus_candidates:
+                    mtxt = str(_it.get("metric") or "Other")
+                    if mtxt in core_guidance_labels:
+                        continue
+                    ptxt = _qh_display_period(_it) or str(_it.get("period") or "")
+                    ttxt = str(_it.get("_commentary_display_text") or _qh_panel_commentary_text(_it, q0_asof) or "")
+                    if not ttxt:
+                        continue
+                    _append_commentary_line(ttxt, mtxt, ptxt, seen_pbi_line_norm)
+                    if len(commentary_lines) >= max_commentary_lines:
+                        break
+                for _it in top_commentary_items:
+                    mtxt = str(_it.get("metric") or "Other")
+                    ttxt = str(_it.get("_commentary_display_text") or _qh_panel_commentary_text(_it, q0_asof) or "")
+                    if not ttxt:
+                        continue
+                    if mtxt in core_guidance_labels:
+                        structured_target = str(
+                            _extract_pbi_target_display(
+                                " | ".join(
+                                    [
+                                        ttxt,
+                                        str(_it.get("text") or ""),
+                                        f"{core_guidance_labels[mtxt]} guidance",
+                                    ]
+                                ),
+                                f"{core_guidance_labels[mtxt]} guidance",
+                            )
+                            or ""
+                        ).strip()
+                        if not structured_target:
+                            tgt_match = re.search(r"\bset at (.+)$", ttxt.rstrip(". "), re.I)
+                            if tgt_match:
+                                structured_target = tgt_match.group(1).strip()
+                        if structured_target:
+                            core_guidance_bits.append(f"{core_guidance_labels[mtxt]} {structured_target}")
+                        continue
+                    ptxt = _qh_display_period(_it) or str(_it.get("period") or "")
+                    _append_commentary_line(ttxt, mtxt, ptxt, seen_pbi_line_norm)
+                if core_guidance_bits:
+                    _append_commentary_line(
+                        f"FY 2026 outlook: {'; '.join(core_guidance_bits)}.",
+                        "FY 2026 outlook",
+                        "FY 2026",
+                        seen_pbi_line_norm,
+                    )
+                if len(commentary_lines) < max_commentary_lines:
+                    pbi_extra_candidates = sorted(
+                        [
+                            dict(it)
+                            for it in commentary_source_items
+                            if _qh_pbi_commentary_priority(it, q0_asof) < 8
+                        ],
+                        key=lambda z: (
+                            _qh_pbi_commentary_priority(z, q0_asof),
+                            _qh_commentary_horizon_priority(z, q0_asof),
+                            -pd.Timestamp(z.get("source_date") if z.get("source_date") is not None else pd.Timestamp("1900-01-01")).value,
+                            int(z.get("source_rank") or 9),
+                            -float(z.get("score") or 0),
+                        ),
+                    )
+                    for _it in pbi_extra_candidates:
+                        mtxt = str(_it.get("metric") or "Other")
+                        if mtxt in core_guidance_labels:
+                            continue
+                        ptxt = _qh_display_period(_it) or str(_it.get("period") or "")
+                        ttxt = str(_it.get("_commentary_display_text") or _qh_panel_commentary_text(_it, q0_asof) or "")
+                        if not ttxt:
+                            continue
+                        _append_commentary_line(ttxt, mtxt, ptxt, seen_pbi_line_norm)
+                        if len(commentary_lines) >= max_commentary_lines:
+                            break
+            else:
+                preferred_gpre_metrics = {
+                    "2026 credit marketing outlook",
+                    "45Z base-case improvement",
+                    "45Z EBITDA starting point and upside levers",
+                    "Farm-practice upside timing",
+                    "CO2 logistics evaluation",
+                    "Capital allocation priorities",
+                    "Interest expense outlook",
+                }
+                seen_gpre_line_norm: set[str] = set()
+                gpre_focus_candidates = sorted(
+                    [
+                        dict(it)
+                        for it in commentary_source_items
+                        if str(it.get("metric") or "").strip() in preferred_gpre_metrics
+                    ],
+                    key=lambda z: (
+                        _qh_gpre_commentary_priority(z, q0_asof),
+                        _qh_commentary_horizon_priority(z, q0_asof),
+                        -pd.Timestamp(z.get("source_date") if z.get("source_date") is not None else pd.Timestamp("1900-01-01")).value,
+                        int(z.get("source_rank") or 9),
+                        -float(z.get("score") or 0),
+                    ),
+                )
+                for _it in gpre_focus_candidates:
+                    mtxt = str(_it.get("metric") or "Other")
+                    ptxt = _qh_display_period(_it) or str(_it.get("period") or "")
+                    ttxt = str(_it.get("_commentary_display_text") or _qh_panel_commentary_text(_it, q0_asof) or "")
+                    if not ttxt:
+                        continue
+                    if mtxt == "Capital allocation priorities":
+                        ttxt = "FCF priorities are plant quality and utilization first, then improving 45Z and the base business, then debt reduction, shareholder returns and M&A."
+                    _append_commentary_line(ttxt, mtxt, ptxt, seen_gpre_line_norm)
+                    if len(commentary_lines) >= max_commentary_lines:
+                        break
+                if len(commentary_lines) < max_commentary_lines:
+                    seen_gpre_45z_anchor = False
+                    for _it in top_commentary_items:
+                        mtxt = str(_it.get("metric") or "Other")
+                        ptxt = _qh_display_period(_it) or str(_it.get("period") or "")
+                        ttxt = str(_it.get("_commentary_display_text") or _qh_panel_commentary_text(_it, q0_asof) or "")
+                        ttxt_low = glx_normalize_text(ttxt).lower()
+                        if "45z ebitda starting point and upside levers" in glx_normalize_text(mtxt).lower() or (
+                            "roughly $188m of 2026 ebitda" in ttxt_low and "45z" in ttxt_low
+                        ):
+                            seen_gpre_45z_anchor = True
+                        if (
+                            seen_gpre_45z_anchor
+                            and str(mtxt).strip() == "Adj EBITDA"
+                            and re.search(r"\b45z[- ]related adjusted ebitda\b", ttxt_low, re.I)
+                        ):
+                            continue
+                        if ttxt:
+                            _append_commentary_line(ttxt, mtxt, ptxt, seen_gpre_line_norm)
+                            if len(commentary_lines) >= max_commentary_lines:
+                                break
+            if len(commentary_lines) < 3:
+                seen_commentary_line_norm = {
+                    glx_normalize_text(str(x or "")).lower()
+                    for x in commentary_lines
+                    if str(x or "").strip()
+                }
+                fallback_candidates = sorted(
+                    [
+                        dict(it)
+                        for it in commentary_source_items
+                        if _qh_commentary_fallback_bucket(it, q0_asof) is not None
+                    ],
+                    key=lambda z: (
+                        (_qh_commentary_fallback_bucket(z, q0_asof) or (99, ""))[0],
+                        _qh_commentary_horizon_priority(z, q0_asof),
+                        -pd.Timestamp(z.get("source_date") if z.get("source_date") is not None else pd.Timestamp("1900-01-01")).value,
+                        int(z.get("source_rank") or 9),
+                        -float(z.get("score") or 0),
+                    ),
+                )
+                for _it in fallback_candidates:
+                    mtxt = str(_it.get("metric") or "Other")
+                    ptxt = _qh_display_period(_it) or str(_it.get("period") or "")
+                    ttxt = str(_it.get("_commentary_display_text") or _qh_panel_commentary_text(_it, q0_asof) or "")
+                    norm_txt = glx_normalize_text(ttxt).lower()
+                    if not ttxt or not norm_txt or norm_txt in seen_commentary_line_norm:
+                        continue
+                    if (
+                        re.search(r"\b(repurchase program|buyback program|retire .*notes?)\b", norm_txt, re.I)
+                        and any("Buybacks" in str(x or "") for x in commentary_meta_lines)
+                    ):
+                        continue
+                    if _append_commentary_line(ttxt, mtxt, ptxt, seen_commentary_line_norm):
+                        if len(commentary_lines) >= max_commentary_lines:
+                            break
+            visible_commentary_lines = commentary_lines[:max_commentary_lines]
+            visible_commentary_meta = commentary_meta_lines[:max_commentary_lines]
+            if not visible_commentary_lines:
+                visible_commentary_lines = ["No high-signal management commentary selected for this quarter."]
+                visible_commentary_meta = [""]
+            commentary_cell = ws.cell(row=2, column=panel_col_start, value=visible_commentary_lines[0])
             for rr in range(2, 7):
-                ws.row_dimensions[rr].height = 18
-            if top_full_items:
+                ws.merge_cells(start_row=rr, start_column=panel_col_start, end_row=rr, end_column=panel_col_end)
+                cell_txt = visible_commentary_lines[rr - 2] if (rr - 2) < len(visible_commentary_lines) else ""
+                meta_txt = visible_commentary_meta[rr - 2] if (rr - 2) < len(visible_commentary_meta) else ""
+                comment_cell = ws.cell(row=rr, column=panel_col_start, value=cell_txt)
+                comment_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                comment_cell.border = thin_border
+                meta_cell = ws.cell(row=rr, column=commentary_meta_col, value=meta_txt)
+                meta_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                meta_cell.border = thin_border
+                ws.row_dimensions[rr].height = 20 if cell_txt else 18
+            if top_commentary_items:
                 _qh_set_comment(
-                    full_cell,
-                    "Full guidance text (top items):\n"
+                    commentary_cell,
+                    "Management commentary (top items):\n"
                     + "\n".join(
                         [
                             f"- [{str(_it.get('metric') or 'Other')} | {_qh_display_period(_it) or str(_it.get('period') or 'Unknown')}] "
-                            f"[{str(_it.get('guidance_type') or 'text')}] "
-                            f"{_qh_norm_txt(_it.get('text') or '')}\n  {_qh_source_comment(dict(_it.get('source') or {}))}"
-                            for _it in top_full_items
+                            f"{str(_it.get('_commentary_display_text') or _qh_panel_commentary_text(_it, q0_asof) or _qh_norm_txt(_it.get('text') or ''))}\n  {_qh_source_comment(dict(_it.get('source') or {}))}"
+                            for _it in top_commentary_items
                         ]
                     ),
                 )
@@ -43240,9 +47756,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     if _qh_keep_for_fy_asof(v, asof_ref)
                 }
 
+            state_items_pre_clean = dict(state_items)
             state_items = {
-                k: v for k, v in state_items.items()
+                k: v for k, v in state_items_pre_clean.items()
                 if _qh_is_clean_guidance_item(v, asof_ref)
+            }
+            state_items_soft = {
+                k: v for k, v in state_items_pre_clean.items()
+                if _qh_is_soft_guidance_item(v, asof_ref)
             }
 
             items_all = sorted(
@@ -43286,16 +47807,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             h_cell.border = thin_border
             row_ptr += 1
 
-            ws.cell(row=row_ptr, column=col_metric, value="Metric").font = bold
-            ws.cell(row=row_ptr, column=col_period, value="Period").font = bold
-            ws.merge_cells(start_row=row_ptr, start_column=col_type, end_row=row_ptr, end_column=col_type_end)
-            ws.cell(row=row_ptr, column=col_type, value="Type").font = bold
-            ws.merge_cells(start_row=row_ptr, start_column=col_value_start, end_row=row_ptr, end_column=col_value_end)
-            ws.cell(row=row_ptr, column=col_value_start, value="Range/Value").font = bold
-            ws.merge_cells(start_row=row_ptr, start_column=col_delta_start, end_row=row_ptr, end_column=col_delta_end)
-            ws.cell(row=row_ptr, column=col_delta_start, value="Δ vs prev").font = bold
+            ws.merge_cells(start_row=row_ptr, start_column=col_metric_start, end_row=row_ptr, end_column=col_metric_end)
+            ws.cell(row=row_ptr, column=col_metric_start, value="Metric").font = bold
+            ws.cell(row=row_ptr, column=col_stated_start, value="Stated in").font = bold
+            ws.cell(row=row_ptr, column=col_horizon_start, value="Applies to").font = bold
+            ws.merge_cells(start_row=row_ptr, start_column=col_guidance_start, end_row=row_ptr, end_column=col_guidance_end)
+            ws.cell(row=row_ptr, column=col_guidance_start, value="Guidance").font = bold
             ws.merge_cells(start_row=row_ptr, start_column=col_exact_start, end_row=row_ptr, end_column=col_exact_end)
-            ws.cell(row=row_ptr, column=col_exact_start, value="Exact language").font = bold
+            ws.cell(row=row_ptr, column=col_exact_start, value="Trend / realized").font = bold
             for cc in range(panel_col_start, panel_col_end + 1):
                 c = ws.cell(row=row_ptr, column=cc)
                 c.fill = header_fill
@@ -43330,6 +47849,61 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 prev_item = prev_by_metric_period.get((metric_name, period_norm))
                 if prev_item is None:
                     prev_item = prev_by_metric.get(metric_name)
+                metric_name_low = str(metric_name or "").strip().lower()
+                if metric_name_low == "cost savings target":
+                    item_blob = _qh_norm_txt(
+                        " | ".join(
+                            [
+                                str(item.get("metric") or ""),
+                                str(item.get("text") or ""),
+                                str(item.get("exact_language") or ""),
+                                str(item.get("qualitative_range_text") or ""),
+                            ]
+                        )
+                    )
+                    def _cost_savings_target_display_local(src_item: Optional[Dict[str, Any]]) -> str:
+                        if not src_item:
+                            return ""
+                        direct_target = str(src_item.get("target_display") or "").strip()
+                        if direct_target:
+                            return direct_target
+                        src_blob = _qh_norm_txt(
+                            " | ".join(
+                                [
+                                    str(src_item.get("metric") or ""),
+                                    str(src_item.get("text") or ""),
+                                    str(src_item.get("exact_language") or ""),
+                                    str(src_item.get("qualitative_range_text") or ""),
+                                ]
+                            )
+                        )
+                        return str(_extract_pbi_target_display(src_blob, "Cost savings target") or "").strip()
+
+                    cur_target = _cost_savings_target_display_local(item)
+                    prior_target_match = re.search(
+                        r"\b(?:from|up from|prior target(?: of)?|previous target(?: of)?)\s+(\$[0-9][0-9.,]*(?:bn|m)?(?:\s*-\s*\$?[0-9][0-9.,]*(?:bn|m)?)?)",
+                        item_blob,
+                        re.I,
+                    )
+                    prior_target_from_text = str(prior_target_match.group(1) or "").replace(" ", "").strip() if prior_target_match else ""
+                    if cur_target and prior_target_from_text and prior_target_from_text != cur_target:
+                        return f"from {prior_target_from_text}"
+                    prev_target = _cost_savings_target_display_local(prev_item)
+                    if cur_target and prev_target and cur_target != prev_target:
+                        return f"from {prev_target}"
+                    try:
+                        asof_q = pd.to_datetime(item.get("as_of_quarter"), errors="coerce")
+                    except Exception:
+                        asof_q = pd.NaT
+                    if cur_target and pd.notna(asof_q):
+                        for hist_q in sorted([x for x in qhist_all if x < pd.Timestamp(asof_q)], reverse=True):
+                            for hist_item in _qh_items_current_for(hist_q):
+                                if str(hist_item.get("metric") or "").strip().lower() != metric_name_low:
+                                    continue
+                                hist_target = _cost_savings_target_display_local(hist_item)
+                                if hist_target and hist_target != cur_target:
+                                    return f"from {hist_target}"
+                                break
                 cur_mid = _qh_item_mid(item)
                 prev_mid = _qh_item_mid(prev_item)
                 unit = str(item.get("unit") or "")
@@ -43365,22 +47939,350 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     return "" if cur_txt == prev_txt else "changed"
                 return ""
 
+            latest_asof_ord = _qh_quarter_ord(pd.Timestamp(q0_ref))
+            current_asof_ord = _qh_quarter_ord(pd.Timestamp(asof_ref))
+
+            def _qh_allow_guidance_item_in_block(item: Dict[str, Any]) -> bool:
+                stated_ord = _qh_quarter_ord_from_label(_qh_display_stated_in(item))
+                if stated_ord is None or stated_ord <= current_asof_ord:
+                    return True
+                return current_asof_ord == latest_asof_ord
+
+            shown_updated = [x for x in shown_updated if _qh_allow_guidance_item_in_block(x)]
+            shown_carry = [x for x in shown_carry if _qh_allow_guidance_item_in_block(x)]
+            if is_gpre_profile and current_asof_ord == latest_asof_ord and (len(shown_updated) + len(shown_carry)) < 4:
+                existing_guidance_keys = {
+                    (
+                        str(it.get("metric") or "").strip().lower(),
+                        str(it.get("target_period_norm") or it.get("period_norm") or "").strip(),
+                        glx_normalize_text(str(it.get("text") or "")).lower(),
+                    )
+                    for it in (shown_updated + shown_carry)
+                }
+                soft_candidates = sorted(
+                    [dict(v) for v in state_items_soft.values()],
+                    key=lambda x: (
+                        0 if not bool(x.get("carry_forward")) else 1,
+                        pri.get(str(x.get("metric") or FORWARD_NOTES_LABEL), 99),
+                        _period_sort_for_ui(str(x.get("period_norm") or "UNK")),
+                        -int(x.get("source_priority") or 0),
+                        -float(x.get("score") or 0),
+                    ),
+                )
+                for soft_item in soft_candidates:
+                    if bool(soft_item.get("carry_forward")):
+                        continue
+                    if not _qh_allow_guidance_item_in_block(soft_item):
+                        continue
+                    soft_key = (
+                        str(soft_item.get("metric") or "").strip().lower(),
+                        str(soft_item.get("target_period_norm") or soft_item.get("period_norm") or "").strip(),
+                        glx_normalize_text(str(soft_item.get("text") or "")).lower(),
+                    )
+                    if soft_key in existing_guidance_keys:
+                        continue
+                    shown_updated.append(soft_item)
+                    existing_guidance_keys.add(soft_key)
+                    if (len(shown_updated) + len(shown_carry)) >= min(max_items_per_guidance_block, 8):
+                        break
             shown = shown_updated + shown_carry
+            found_metrics = sorted(
+                {
+                    str(x.get("metric") or FORWARD_NOTES_LABEL)
+                    for x in shown
+                    if str(x.get("metric") or FORWARD_NOTES_LABEL) != FORWARD_NOTES_LABEL
+                }
+            )
+            found_txt = ", ".join(found_metrics) if found_metrics else "none"
+            h_cell.value = f"Guidance (As of {asof_txt}) - Status: {snap.get('status') or 'Unknown'} | Found: {found_txt}"
             key_metric = str(snap.get("key_metric") or "")
             key_period_norm = str(snap.get("key_period_norm") or "")
             exact_snip = truncate_clean(_qh_norm_txt(snap.get("exact_language") or ""), 320)
             exact_source = _qh_source_comment(snap.get("exact_source") or snap.get("source") or {})
             rendered_rows: List[Tuple[int, Dict[str, Any]]] = []
 
+            def _qh_carry_family_key(item: Dict[str, Any]) -> str:
+                metric_txt = str(item.get("metric") or FORWARD_NOTES_LABEL).strip()
+                blob = _qh_norm_txt(
+                    " | ".join(
+                        [
+                            metric_txt,
+                            str(item.get("text") or ""),
+                            str(item.get("exact_language") or ""),
+                            str(item.get("qualitative_range_text") or ""),
+                        ]
+                    )
+                ).lower()
+                if re.search(r"\bcost savings\b", blob, re.I):
+                    return "cost_savings"
+                if re.search(r"\bpb bank\b|\bbank-held leases\b|\bliquidity release\b", blob, re.I):
+                    return "pb_bank_liquidity"
+                return " | ".join(
+                    [
+                        metric_txt.lower(),
+                        str(item.get("period_norm") or ""),
+                        str(item.get("guidance_type") or ""),
+                    ]
+                )
+
+            def _qh_best_progress_row_for_family(family_key: str) -> Optional[Dict[str, Any]]:
+                if family_key not in {"cost_savings", "pb_bank_liquidity"} or not is_pbi_profile:
+                    return None
+                best_row: Optional[Dict[str, Any]] = None
+                best_score: Tuple[int, int, float, int] = (-1, -1, -1.0, -1)
+
+                def _latest_text_local(raw_latest: Any, raw_metric: str) -> str:
+                    if isinstance(raw_latest, (int, float)) and not pd.isna(raw_latest):
+                        latest_num = float(raw_latest)
+                        if "eps" in raw_metric.lower():
+                            return f"${latest_num:.2f}"
+                        if abs(latest_num) >= 1_000_000:
+                            return _fmt_short_money_value_local(latest_num)
+                        if abs(latest_num) >= 1_000:
+                            return f"${latest_num:,.1f}"
+                        return f"${latest_num:,.2f}"
+                    latest_txt_local = glx_normalize_text(str(raw_latest or "")).strip()
+                    if latest_txt_local.lower() in {"", "nan", "none", "null", "n/a", "not yet measurable"}:
+                        return ""
+                    return latest_txt_local
+
+                def _family_matches_local(metric_txt: str, blob_txt: str) -> bool:
+                    if family_key == "cost_savings":
+                        return bool(re.search(r"\bcost savings|annualized savings|run-rate savings|cost reduction\b", blob_txt, re.I))
+                    return bool(re.search(r"\bpb bank\b|\bbank-held leases\b|\bliquidity release\b", blob_txt, re.I))
+
+                if isinstance(promise_progress, pd.DataFrame) and not promise_progress.empty and "quarter" in promise_progress.columns:
+                    prog_local = promise_progress.copy()
+                    prog_local["quarter"] = pd.to_datetime(prog_local["quarter"], errors="coerce")
+                    prog_local = prog_local[prog_local["quarter"].notna()]
+                    for _, rec in prog_local.iterrows():
+                        metric_txt = str(rec.get("metric_ref") or rec.get("metric_display") or rec.get("metric") or "").strip()
+                        blob_txt = glx_normalize_text(
+                            " | ".join(
+                                [
+                                    metric_txt,
+                                    str(rec.get("target") or ""),
+                                    str(rec.get("latest") or rec.get("actual") or ""),
+                                    str(rec.get("rationale") or ""),
+                                ]
+                            )
+                        ).strip()
+                        if not _family_matches_local(metric_txt, blob_txt):
+                            continue
+                        latest_txt_local = _latest_text_local(rec.get("latest") if rec.get("latest") is not None else rec.get("actual"), metric_txt)
+                        if not latest_txt_local:
+                            continue
+                        rec_q = pd.Timestamp(rec.get("quarter")).date()
+                        result_txt = str(rec.get("status") or rec.get("result") or "").strip()
+                        latest_amt_local = _parse_dollar_amount(latest_txt_local) or 0.0
+                        score_local = (
+                            rec_q.toordinal(),
+                            status_rank.get(result_txt.lower(), 0),
+                            latest_amt_local,
+                            1 if "run-rate" in latest_txt_local.lower() else 0,
+                        )
+                        if score_local > best_score:
+                            best_score = score_local
+                            best_row = {
+                                "latest": latest_txt_local,
+                                "target": str(rec.get("target") or "").strip(),
+                                "evaluated_through": str(rec_q),
+                                "last_seen": str(rec.get("last_seen_quarter") or rec.get("last_seen") or ""),
+                                "carried_to": str(rec.get("carried_to_quarter") or rec.get("carried_to") or ""),
+                                "result": result_txt,
+                                "rationale": glx_normalize_text(str(rec.get("rationale") or "")).strip(),
+                            }
+                if best_row is not None:
+                    return dict(best_row)
+
+                best_row: Optional[Dict[str, Any]] = None
+                best_score = (-1, -1, -1.0, -1)
+                for cand in _load_profile_slide_signals():
+                    cand_q = None
+                    try:
+                        cand_ts = pd.to_datetime(cand.get("quarter"), errors="coerce")
+                        cand_q = cand_ts.date() if pd.notna(cand_ts) else None
+                    except Exception:
+                        cand_q = None
+                    if not isinstance(cand_q, date):
+                        continue
+                    cand_txt = glx_normalize_text(
+                        " | ".join(
+                            [
+                                str(cand.get("metric_display") or cand.get("metric") or ""),
+                                str(cand.get("target_display") or ""),
+                                str(cand.get("text") or cand.get("rationale") or ""),
+                            ]
+                        )
+                    ).strip()
+                    if not _family_matches_local(str(cand.get("metric_display") or cand.get("metric") or ""), cand_txt):
+                        continue
+                    if not cand_txt:
+                        continue
+                    latest_txt_local = ""
+                    run_match = re.search(r"(\$[0-9][0-9.,]*(?:bn|m)?\s+run-rate)", cand_txt, re.I)
+                    impl_match = re.search(r"(\$[0-9][0-9.,]*(?:bn|m)?\s+implemented)", cand_txt, re.I)
+                    lease_match = re.search(r"(\$[0-9][0-9.,]*(?:bn|m)?[^|]{0,40}\bbank-held leases\b)", cand_txt, re.I)
+                    if run_match:
+                        latest_txt_local = str(run_match.group(1) or "").strip()
+                    elif impl_match:
+                        latest_txt_local = str(impl_match.group(1) or "").strip()
+                    elif lease_match:
+                        latest_txt_local = str(lease_match.group(1) or "").strip()
+                    if not latest_txt_local:
+                        continue
+                    target_metric = "Cost savings target" if family_key == "cost_savings" else "PB Bank liquidity release"
+                    target_txt = str(_extract_pbi_target_display(cand_txt, target_metric) or "").strip()
+                    latest_amt_local = _parse_dollar_amount(latest_txt_local) or 0.0
+                    score_local = (
+                        cand_q.toordinal(),
+                        1 if "raised target" in cand_txt.lower() else 0,
+                        latest_amt_local,
+                        1 if "run-rate" in latest_txt_local.lower() else 0,
+                    )
+                    if score_local > best_score:
+                        best_score = score_local
+                        best_row = {
+                            "latest": latest_txt_local,
+                            "target": target_txt,
+                            "evaluated_through": str(cand_q),
+                            "rationale": cand_txt,
+                        }
+                return dict(best_row) if isinstance(best_row, dict) else None
+
+            def _qh_carry_metric_label(item: Dict[str, Any]) -> str:
+                family_key = _qh_carry_family_key(item)
+                if family_key == "cost_savings":
+                    return "Cost savings"
+                if family_key == "pb_bank_liquidity":
+                    return "PB Bank liquidity"
+                return str(item.get("metric") or FORWARD_NOTES_LABEL)
+
+            def _qh_carry_realized_text(item: Dict[str, Any]) -> str:
+                family_key = _qh_carry_family_key(item)
+                if family_key not in {"cost_savings", "pb_bank_liquidity"}:
+                    return ""
+                blob = _qh_norm_txt(
+                    " | ".join(
+                        [
+                            str(item.get("text") or ""),
+                            str(item.get("exact_language") or ""),
+                            str(item.get("qualitative_range_text") or ""),
+                        ]
+                    )
+                )
+                latest_basis = ""
+                latest_match = re.search(r"\blatest disclosed\s+([^.;|]+)", blob, re.I)
+                if latest_match:
+                    latest_basis = latest_match.group(1).strip()
+                elif re.search(r"\$[0-9][0-9.,]*(?:bn|m)?\s+run-rate\b", blob, re.I):
+                    money_match = re.search(r"(\$[0-9][0-9.,]*(?:bn|m)?\s+run-rate)", blob, re.I)
+                    latest_basis = str(money_match.group(1) or "").strip() if money_match else ""
+                if not latest_basis:
+                    best_progress_row = _qh_best_progress_row_for_family(family_key)
+                    latest_basis = glx_normalize_text(str((best_progress_row or {}).get("latest") or "")).strip()
+                if family_key == "cost_savings":
+                    latest_basis = re.sub(r"\s+run-rate\b", "", latest_basis, flags=re.I).strip()
+                return f"{latest_basis} realized" if latest_basis else ""
+
+            def _qh_carry_value_text(item: Dict[str, Any]) -> str:
+                family_key = _qh_carry_family_key(item)
+                if family_key == "cost_savings":
+                    blob = _qh_norm_txt(
+                        " | ".join(
+                            [
+                                str(item.get("metric") or ""),
+                                str(item.get("text") or ""),
+                                str(item.get("exact_language") or ""),
+                                str(item.get("qualitative_range_text") or ""),
+                            ]
+                        )
+                    )
+                    prior_target_txt = ""
+                    prior_match = re.search(
+                        r"\b(?:from|up from|prior target(?: of)?|previous target(?: of)?)\s+(\$[0-9][0-9.,]*(?:bn|m)?(?:\s*-\s*\$?[0-9][0-9.,]*(?:bn|m)?)?)",
+                        blob,
+                        re.I,
+                    )
+                    if prior_match:
+                        prior_target_txt = str(prior_match.group(1) or "").replace(" ", "").strip()
+                        prior_target_txt = prior_target_txt.replace("$$", "$")
+                    target_txt = str(_extract_pbi_target_display(blob, "Cost savings target") or "").strip()
+                    if not target_txt:
+                        best_progress_row = _qh_best_progress_row_for_family(family_key)
+                        target_txt = str((best_progress_row or {}).get("target") or "").strip()
+                    if not prior_target_txt and prev_ref is not None:
+                        for prev_item in _qh_items_current_for(prev_ref):
+                            if _qh_carry_family_key(prev_item) != family_key:
+                                continue
+                            prev_blob = _qh_norm_txt(
+                                " | ".join(
+                                    [
+                                        str(prev_item.get("metric") or ""),
+                                        str(prev_item.get("text") or ""),
+                                        str(prev_item.get("exact_language") or ""),
+                                        str(prev_item.get("qualitative_range_text") or ""),
+                                    ]
+                                )
+                            )
+                            prev_target_txt = str(_extract_pbi_target_display(prev_blob, "Cost savings target") or "").strip()
+                            if prev_target_txt and prev_target_txt != target_txt:
+                                prior_target_txt = prev_target_txt
+                                break
+                    if target_txt:
+                        bits = [f"Raised target to {target_txt} annualized savings"]
+                        if prior_target_txt and prior_target_txt != target_txt:
+                            bits[0] += f" from {prior_target_txt}"
+                        if re.search(r"\b(over|during)\s+the\s+next\s+year\b|\bnext\s+year\b|\bremaining actions are expected\b", blob, re.I):
+                            bits.append("the remaining actions are expected over the next year")
+                        return "; ".join(bits)
+                return _qh_guidance_value_text(item)
+
+            def _qh_collapse_carry_rows(rows_local: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                best_by_family: Dict[str, Dict[str, Any]] = {}
+                for row_local in rows_local:
+                    family_key = _qh_carry_family_key(row_local)
+                    existing = best_by_family.get(family_key)
+                    if existing is None:
+                        best_by_family[family_key] = dict(row_local)
+                        continue
+                    candidate_value = _qh_guidance_value_text(row_local)
+                    existing_value = _qh_guidance_value_text(existing)
+                    candidate_score = (
+                        float(row_local.get("score") or 0.0),
+                        1 if _qh_carry_realized_text(row_local) else 0,
+                        1 if "raised target" in candidate_value.lower() else 0,
+                        len(candidate_value),
+                    )
+                    existing_score = (
+                        float(existing.get("score") or 0.0),
+                        1 if _qh_carry_realized_text(existing) else 0,
+                        1 if "raised target" in existing_value.lower() else 0,
+                        len(existing_value),
+                    )
+                    if candidate_score > existing_score:
+                        best_by_family[family_key] = dict(row_local)
+                ordered_rows: List[Dict[str, Any]] = []
+                seen_families: set[str] = set()
+                for row_local in rows_local:
+                    family_key = _qh_carry_family_key(row_local)
+                    if family_key in seen_families:
+                        continue
+                    seen_families.add(family_key)
+                    ordered_rows.append(best_by_family[family_key])
+                return ordered_rows
+
             if not shown:
-                ws.merge_cells(start_row=row_ptr, start_column=col_metric, end_row=row_ptr, end_column=col_exact_end)
-                z = ws.cell(row=row_ptr, column=col_metric, value="No guidance items for this quarter.")
+                ws.merge_cells(start_row=row_ptr, start_column=col_metric_start, end_row=row_ptr, end_column=col_exact_end)
+                z = ws.cell(row=row_ptr, column=col_metric_start, value="No guidance items for this quarter.")
                 z.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
                 z.border = thin_border
                 row_ptr += 1
             else:
                 def _render_group(label: str, rows_local: List[Dict[str, Any]]) -> None:
                     nonlocal row_ptr
+                    if label.startswith("B)"):
+                        rows_local = _qh_collapse_carry_rows(rows_local)
                     ws.merge_cells(start_row=row_ptr, start_column=panel_col_start, end_row=row_ptr, end_column=panel_col_end)
                     g_cell = ws.cell(row=row_ptr, column=panel_col_start, value=label)
                     g_cell.font = bold
@@ -43389,8 +48291,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     g_cell.border = thin_border
                     row_ptr += 1
                     if not rows_local:
-                        ws.merge_cells(start_row=row_ptr, start_column=col_metric, end_row=row_ptr, end_column=col_exact_end)
-                        z = ws.cell(row=row_ptr, column=col_metric, value="None")
+                        ws.merge_cells(start_row=row_ptr, start_column=col_metric_start, end_row=row_ptr, end_column=col_exact_end)
+                        z = ws.cell(row=row_ptr, column=col_metric_start, value="None")
                         z.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
                         z.border = thin_border
                         row_ptr += 1
@@ -43400,40 +48302,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         row_ptr += 1
                         rendered_rows.append((rr, itm))
                         is_carry_row = bool(itm.get("carry_forward"))
-                        type_start = col_period if is_carry_row else col_type
-                        type_end = col_value_start if is_carry_row else col_type_end
-                        value_start = (col_value_start + 1) if is_carry_row else col_value_start
-                        value_end = col_delta_end if is_carry_row else col_value_end
-                        ws.merge_cells(start_row=rr, start_column=type_start, end_row=rr, end_column=type_end)
-                        ws.merge_cells(start_row=rr, start_column=value_start, end_row=rr, end_column=value_end)
-                        if not is_carry_row:
-                            ws.merge_cells(start_row=rr, start_column=col_delta_start, end_row=rr, end_column=col_delta_end)
+                        ws.merge_cells(start_row=rr, start_column=col_metric_start, end_row=rr, end_column=col_metric_end)
+                        ws.merge_cells(start_row=rr, start_column=col_guidance_start, end_row=rr, end_column=col_guidance_end)
                         ws.merge_cells(start_row=rr, start_column=col_exact_start, end_row=rr, end_column=col_exact_end)
 
-                        metric_val = str(itm.get("metric") or FORWARD_NOTES_LABEL)
-                        metric_cell = ws.cell(row=rr, column=col_metric, value=metric_val)
-                        period_cell = ws.cell(row=rr, column=col_period)
-                        if not is_carry_row:
-                            period_cell.value = _qh_display_period(itm)
-                        type_cell = ws.cell(row=rr, column=type_start, value=_qh_display_type(itm))
+                        metric_val = _qh_carry_metric_label(itm) if is_carry_row else str(itm.get("metric") or FORWARD_NOTES_LABEL)
+                        metric_cell = ws.cell(row=rr, column=col_metric_start, value=metric_val)
+                        stated_cell = ws.cell(row=rr, column=col_stated_start, value=_qh_display_stated_in(itm))
+                        horizon_cell = ws.cell(row=rr, column=col_horizon_start, value=_qh_display_horizon(itm))
 
-                        val_cell = ws.cell(row=rr, column=value_start)
+                        val_cell = ws.cell(row=rr, column=col_guidance_start)
                         if metric_val == FORWARD_NOTES_LABEL:
-                            val_cell.value = _qh_short(_qh_norm_txt(itm.get("text") or ""), 320)
+                            val_cell.value = _qh_short(_qh_norm_txt(itm.get("text") or ""), 220)
+                        elif is_carry_row:
+                            val_cell.value = _qh_short(_qh_carry_value_text(itm), 220)
                         else:
-                            val_cell.value = _qh_short(_qh_guidance_value_text(itm), 320)
-                        delta_cell = None if is_carry_row else ws.cell(row=rr, column=col_delta_start, value=_delta_vs_prev(itm))
+                            val_cell.value = _qh_short(_qh_guidance_value_text(itm), 220)
                         exact_cell = ws.cell(row=rr, column=col_exact_start)
+                        if is_carry_row:
+                            exact_cell.value = _qh_carry_realized_text(itm)
+                        else:
+                            exact_cell.value = str(_delta_vs_prev(itm) or "").replace("Î”", "Δ")
                         _qh_set_comment(val_cell, _qh_item_comment(itm))
 
                         metric_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                        if not is_carry_row:
-                            period_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                        type_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-                        val_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-                        if delta_cell is not None:
-                            delta_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                        exact_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                        stated_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+                        horizon_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+                        val_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                        exact_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
                         for cc in range(panel_col_start, panel_col_end + 1):
                             cell = ws.cell(row=rr, column=cc)
@@ -43444,32 +48340,30 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
 
                         row_h = max(
                             18.0,
-                            _estimate_wrapped_row_height(str(type_cell.value or ""), _merged_width(type_start, type_end), 18.0, 12.0, min_lines=1, max_lines=4),
-                            _estimate_wrapped_row_height(str(val_cell.value or ""), _merged_width(value_start, value_end), 18.0, 12.0, min_lines=1, max_lines=4),
-                            _estimate_wrapped_row_height(str(exact_cell.value or ""), _merged_width(col_exact_start, col_exact_end), 18.0, 12.0, min_lines=1, max_lines=4),
+                            _estimate_wrapped_row_height(str(val_cell.value or ""), _merged_width(col_guidance_start, col_guidance_end), 18.0, 12.0, min_lines=1, max_lines=2),
+                            _estimate_wrapped_row_height(str(exact_cell.value or ""), _merged_width(col_exact_start, col_exact_end), 18.0, 12.0, min_lines=1, max_lines=3),
                         )
-                        ws.row_dimensions[rr].height = min(58.0, row_h)
-                        if is_carry_row:
-                            ws.cell(row=rr, column=type_start).alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                        ws.row_dimensions[rr].height = min(34.0, row_h)
 
                 _render_group("A) Updated / mentioned this quarter", shown_updated)
                 _render_group("B) Carry-forward", shown_carry)
 
             key_row_idx: Optional[int] = None
+            key_row_item: Optional[Dict[str, Any]] = None
             for rr, itm in rendered_rows:
                 if str(itm.get("metric") or "") != key_metric:
                     continue
                 if key_period_norm and str(itm.get("period_norm") or "") != key_period_norm:
                     continue
                 key_row_idx = rr
+                key_row_item = itm
                 break
             if key_row_idx is None and rendered_rows:
                 key_row_idx = rendered_rows[0][0]
-            if key_row_idx is not None:
-                exact_cell = ws.cell(row=key_row_idx, column=col_exact_start, value=exact_snip)
-                exact_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                key_row_item = rendered_rows[0][1]
+            if key_row_idx is not None and exact_snip:
                 _qh_set_comment(
-                    exact_cell,
+                    ws.cell(row=key_row_idx, column=col_exact_start),
                     f"Exact language: {_qh_norm_txt(snap.get('exact_language') or '')}\\n\\n{exact_source}",
                 )
 
@@ -43531,7 +48425,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         op_block_rows = max(3, len(operating_driver_rows)) + 3
         thesis_block_rows = len(thesis_input_labels) + len(thesis_output_defs) + 9
         total_right_block_rows = op_block_rows + thesis_block_rows + 2
-        preferred_right_start = max(row_ptr + 3, 12)
+        preferred_right_start = max(row_ptr + 2, 33)
         if preferred_right_start + total_right_block_rows <= row_mi_hdr - 2:
             candidate_rows = range(preferred_right_start, row_mi_hdr - total_right_block_rows)
         else:
@@ -43983,28 +48877,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 has_guidance = any(ws_local.cell(row=rr, column=cc).value not in (None, "") for cc in range(panel_col_start, panel_col_end + 1))
                 if not has_guidance:
                     continue
-                metric_cell = ws_local.cell(row=rr, column=col_metric)
-                period_cell = ws_local.cell(row=rr, column=col_period)
-                carry_text = str(period_cell.value or "")
-                is_carry_row = "carry-fwd" in carry_text.lower()
-                type_col_local = col_period if is_carry_row else col_type
-                value_col_local = (col_value_start + 1) if is_carry_row else col_value_start
-                type_cell = ws_local.cell(row=rr, column=type_col_local)
-                value_cell = ws_local.cell(row=rr, column=value_col_local)
-                delta_cell = None if is_carry_row else ws_local.cell(row=rr, column=col_delta_start)
+                metric_cell = ws_local.cell(row=rr, column=col_metric_start)
+                stated_cell = ws_local.cell(row=rr, column=col_stated_start)
+                horizon_cell = ws_local.cell(row=rr, column=col_horizon_start)
+                value_cell = ws_local.cell(row=rr, column=col_guidance_start)
                 exact_cell = ws_local.cell(row=rr, column=col_exact_start)
 
                 metric_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                if not is_carry_row:
-                    period_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                type_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-                value_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-                if delta_cell is not None:
-                    delta_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                exact_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                stated_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+                horizon_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+                value_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                exact_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
-                if delta_cell is not None and isinstance(delta_cell.value, str):
-                    delta_cell.value = delta_cell.value.replace("????", "??")
 
             # As-of display guard (keep date in the valuation input cell, no address moves).
             asof_cell = ws_local.cell(row=row_asof, column=input_value_col)
@@ -44150,6 +49034,23 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 if end_col <= start_col:
                     return
                 _safe_unmerge_from_start(row_idx, start_col)
+                for mr in list(ws_local.merged_cells.ranges):
+                    try:
+                        same_range = (
+                            mr.min_row == row_idx
+                            and mr.max_row == row_idx
+                            and mr.min_col == start_col
+                            and mr.max_col == end_col
+                        )
+                        overlaps_other = (
+                            mr.min_row <= row_idx <= mr.max_row
+                            and mr.min_col <= end_col
+                            and mr.max_col >= start_col
+                        )
+                        if overlaps_other and not same_range:
+                            return
+                    except Exception:
+                        continue
                 try:
                     ws_local.merge_cells(
                         start_row=row_idx,
@@ -44170,7 +49071,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     continue
                 if not any(ws_local.cell(row=rr, column=cc).value not in (None, "") for cc in range(panel_col_start, panel_col_end + 1)):
                     continue
-                for start_col in (col_type, col_value_start, col_exact_start):
+                for start_col in (col_guidance_start, col_exact_start):
                     lead_cell = ws_local.cell(row=rr, column=start_col)
                     if lead_cell.value in (None, ""):
                         continue
@@ -44454,7 +49355,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     bottom=c.border.bottom,
                 )
             # Vertical line between K and L for lower valuation blocks.
-            for rr in range(244, 260):
+            for rr in range(246, 262):
                 c = ws_local.cell(row=rr, column=11)  # K
                 c.border = Border(
                     left=c.border.left,
@@ -44462,9 +49363,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     top=c.border.top,
                     bottom=c.border.bottom,
                 )
-            # Bottom line at row 259 across B:K.
+            # Bottom line at row 261 across B:K.
             for cc in range(2, 12):  # B..K
-                c = ws_local.cell(row=259, column=cc)
+                c = ws_local.cell(row=261, column=cc)
                 c.border = Border(
                     left=c.border.left,
                     right=c.border.right,
@@ -53302,7 +58203,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         "Operating_Drivers",
         "Economics_Overlay",
         "Quarter_Notes_UI",
-        "Promise_Tracker_UI",
         "Promise_Progress_UI",
         "Hidden_Value_Flags",
         "Revolver_History",

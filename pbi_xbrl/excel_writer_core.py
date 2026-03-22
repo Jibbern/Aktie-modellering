@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 import time
 from bisect import bisect_right
@@ -8,8 +9,9 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import pandas as pd
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
-from openpyxl.styles import PatternFill
+from openpyxl.styles import Alignment, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.workbook.defined_name import DefinedName
 
 from .excel_writer_context import WriterContext
 from .signals import build_hidden_value_outputs, build_signals_base
@@ -612,15 +614,152 @@ def ensure_hidden_value_inputs(ctx: WriterContext) -> None:
             price=ctx.inputs.price,
             max_flags=10,
         )
-        try:
-            if flags_df is not None and not flags_df.empty and "flag_code" in flags_df.columns:
-                price_linked = flags_df["flag_code"].astype(str).str.upper().isin(["C", "E"])
-                if price_linked.any():
-                    flags_df = flags_df.loc[~price_linked].copy()
-                    if "rank" in flags_df.columns:
-                        flags_df["rank"] = range(1, len(flags_df) + 1)
-        except Exception:
-            pass
+
+        def _ordered_hidden_value_flags_frame(
+            current_flags: Optional[pd.DataFrame],
+            audit_flags: Optional[pd.DataFrame],
+        ) -> pd.DataFrame:
+            def _metric_piece_for_visible_support(metric_key: str, value_in: Any) -> str:
+                try:
+                    fval = float(value_in)
+                except Exception:
+                    return ""
+                if metric_key in {"ebit_growth_yoy", "ebitda_growth_yoy", "shares_yoy", "pos_fcf_ratio", "fcf_yield"}:
+                    sign = "+" if fval > 0 else ""
+                    label_map = {
+                        "ebit_growth_yoy": "EBIT YoY",
+                        "ebitda_growth_yoy": "EBITDA YoY",
+                        "shares_yoy": "Shares YoY",
+                        "pos_fcf_ratio": "Positive FCF ratio",
+                        "fcf_yield": "FCF yield",
+                    }
+                    return f"{label_map.get(metric_key, metric_key)} {sign}{fval * 100.0:.1f}%"
+                if metric_key == "debt_drop_pct":
+                    return f"Net debt drop {fval * 100.0:.1f}%"
+                if metric_key in {"adj_margin_ttm"}:
+                    return f"Adj margin TTM {fval * 100.0:.1f}%"
+                if metric_key == "margin_yoy_bps":
+                    sign = "+" if fval > 0 else ""
+                    return f"Margin YoY {sign}{fval:,.0f}bps"
+                if metric_key == "margin_streak":
+                    return f"Margin streak {fval:.0f} quarters"
+                if metric_key == "interest_coverage":
+                    return f"Interest cover {fval:.2f}x"
+                if metric_key == "leverage_ratio":
+                    return f"Leverage {fval:.2f}x"
+                if metric_key == "corporate_net_debt":
+                    return f"Net debt ${fval / 1_000_000.0:,.1f}m"
+                if metric_key in {"ebitda_ttm", "ebit_ttm"}:
+                    label = "EBITDA TTM" if metric_key == "ebitda_ttm" else "EBIT TTM"
+                    return f"{label} ${fval / 1_000_000.0:,.1f}m"
+                if metric_key == "fcf_ttm_pos_years":
+                    return f"Positive FCF years {fval:.0f}"
+                return ""
+
+            def _visible_support_from_metrics(metrics_json_in: Any) -> str:
+                raw_txt = str(metrics_json_in or "").strip()
+                if not raw_txt.startswith("{"):
+                    return ""
+                try:
+                    metrics_obj = json.loads(raw_txt)
+                except Exception:
+                    metrics_obj = {}
+                if not isinstance(metrics_obj, dict):
+                    return ""
+                metric_order = [
+                    "ebit_growth_yoy",
+                    "ebitda_growth_yoy",
+                    "shares_yoy",
+                    "adj_margin_ttm",
+                    "margin_yoy_bps",
+                    "margin_streak",
+                    "fcf_ttm_pos_years",
+                    "pos_fcf_ratio",
+                    "fcf_yield",
+                    "interest_coverage",
+                    "debt_drop_pct",
+                    "leverage_ratio",
+                    "corporate_net_debt",
+                    "ebitda_ttm",
+                    "ebit_ttm",
+                ]
+                parts: List[str] = []
+                for metric_key in metric_order:
+                    metric_val = metrics_obj.get(metric_key)
+                    if metric_val in (None, "", "null"):
+                        continue
+                    piece = _metric_piece_for_visible_support(metric_key, metric_val)
+                    if piece:
+                        parts.append(piece)
+                    if len(parts) >= 3:
+                        break
+                if not parts:
+                    return ""
+                return ", ".join(parts)
+
+            active_df = current_flags.copy() if isinstance(current_flags, pd.DataFrame) and not current_flags.empty else pd.DataFrame()
+            audit_df = audit_flags.copy() if isinstance(audit_flags, pd.DataFrame) and not audit_flags.empty else pd.DataFrame()
+            if audit_df.empty:
+                return active_df
+            if "quarter" in audit_df.columns:
+                audit_df["quarter"] = pd.to_datetime(audit_df["quarter"], errors="coerce")
+                latest_q = audit_df["quarter"].dropna().max()
+                if pd.notna(latest_q):
+                    audit_df = audit_df[audit_df["quarter"] == latest_q].copy()
+            preferred_order = {
+                "A": 1,
+                "C": 2,
+                "E": 3,
+                "F": 4,
+                "B": 5,
+                "D": 6,
+                "G": 7,
+            }
+            active_by_code: Dict[str, Dict[str, Any]] = {}
+            if not active_df.empty and "flag_code" in active_df.columns:
+                for _, rec in active_df.iterrows():
+                    code = str(rec.get("flag_code") or "").strip().upper()
+                    if code:
+                        active_by_code[code] = rec.to_dict()
+            rows: List[Dict[str, Any]] = []
+            for _, rec in audit_df.iterrows():
+                code = str(rec.get("flag_id") or "").strip().upper()
+                if not code:
+                    continue
+                active = active_by_code.get(code, {})
+                title = str(
+                    active.get("title")
+                    or active.get("Title")
+                    or rec.get("flag_name")
+                    or f"Flag {code}"
+                ).strip()
+                quarter_val = rec.get("quarter")
+                quarter_txt = ""
+                if quarter_val not in (None, ""):
+                    q_ts = pd.to_datetime(quarter_val, errors="coerce")
+                    quarter_txt = q_ts.strftime("%Y-%m-%d") if pd.notna(q_ts) else str(quarter_val)
+                rows.append(
+                    {
+                        "rank": preferred_order.get(code, 90 + len(rows)),
+                        "flag_code": code,
+                        "title": title,
+                        "score": active.get("score", 0),
+                        "severity": active.get("severity") or "Info",
+                        "as_of_quarter": active.get("as_of_quarter") or quarter_txt,
+                        "evidence_1": active.get("evidence_1") or "",
+                        "evidence_2": active.get("evidence_2") or "",
+                        "evidence_3": active.get("evidence_3") or "",
+                        "metrics_json": active.get("metrics_json") or rec.get("inputs_json") or "",
+                        "visible_support": _visible_support_from_metrics(active.get("metrics_json") or rec.get("inputs_json") or ""),
+                    }
+                )
+            if not rows:
+                return active_df
+            ordered_df = pd.DataFrame(rows).sort_values(["rank", "flag_code"], ascending=[True, True], na_position="last").reset_index(drop=True)
+            ordered_df["rank"] = range(1, len(ordered_df) + 1)
+            return ordered_df
+
+        flags_df = _ordered_hidden_value_flags_frame(flags_df, flags_audit_df)
         if flags_df is None or flags_df.empty:
             flags_df = callbacks.build_hidden_value_flags_fallback(flags_audit_df)
 
@@ -966,6 +1105,23 @@ def finalize_workbook(ctx: WriterContext) -> None:
     state = ctx.state
     wb = ctx.wb
 
+    def _set_defined_name(name: str, attr_text: str) -> None:
+        txt = str(attr_text or "").strip()
+        if not name or not txt:
+            return
+        try:
+            if name in wb.defined_names:
+                del wb.defined_names[name]
+        except Exception:
+            pass
+        try:
+            wb.defined_names.add(DefinedName(name=name, attr_text=txt))
+        except Exception:
+            try:
+                wb.defined_names.append(DefinedName(name=name, attr_text=txt))
+            except Exception:
+                pass
+
     try:
         signals_base_df = ctx.derived.signals_base_df if ctx.derived.signals_base_df is not None else state["signals_base_df"]
         if "Hidden_Value_Audit" in wb.sheetnames and signals_base_df is not None and not signals_base_df.empty:
@@ -1076,6 +1232,7 @@ def finalize_workbook(ctx: WriterContext) -> None:
                 f_e1 = hdr_f.get("evidence_1")
                 f_e2 = hdr_f.get("evidence_2")
                 f_e3 = hdr_f.get("evidence_3")
+                f_visible_support = hdr_f.get("visible_support")
                 audit_row_by_flag = {}
                 if c_flag:
                     for rr in range(2, ws_hva.max_row + 1):
@@ -1116,6 +1273,24 @@ def finalize_workbook(ctx: WriterContext) -> None:
                         ws_hvf.cell(row=rr, column=f_e1).value = e1_formula
                         ws_hvf.cell(row=rr, column=f_e2).value = e2_formula
                         ws_hvf.cell(row=rr, column=f_e3).value = e3_formula
+                        if f_visible_support:
+                            if fid == "C":
+                                ws_hvf.cell(row=rr, column=f_visible_support).value = (
+                                    "=IF(OR(FCF_TTM_Pos_Years=\"\",Pos_FCF_Ratio=\"\",FCF_Yield=\"\"),"
+                                    "\"(price-linked)\","
+                                    "\"Positive FCF years \"&TEXT(FCF_TTM_Pos_Years,\"0\")&"
+                                    "\", Positive FCF ratio \"&TEXT(Pos_FCF_Ratio,\"0%\")&"
+                                    "\", FCF yield \"&TEXT(FCF_Yield,\"0.0%\")&"
+                                    "\" (price-linked)\")"
+                                )
+                            elif fid == "E":
+                                ws_hvf.cell(row=rr, column=f_visible_support).value = (
+                                    "=IF(OR(Interest_Coverage=\"\",FCF_Yield=\"\"),"
+                                    "\"(price-linked)\","
+                                    "\"Interest cover \"&TEXT(Interest_Coverage,\"0.00x\")&"
+                                    "\", FCF yield \"&TEXT(FCF_Yield,\"0.0%\")&"
+                                    "\" (price-linked)\")"
+                                )
 
                     row_end_col = get_column_letter(ws_hvf.max_column)
                     ws_hvf.conditional_formatting.add(
@@ -1140,6 +1315,95 @@ def finalize_workbook(ctx: WriterContext) -> None:
                     for rr in range(2, ws_hvf.max_row + 1):
                         if str(ws_hvf.cell(row=rr, column=f_code).value or "").strip() != "":
                             ws_hvf.row_dimensions[rr].height = 32
+
+        if "Valuation" in wb.sheetnames and "Hidden_Value_Audit" in wb.sheetnames and "Hidden_Value_Flags" in wb.sheetnames:
+            ws_val = wb["Valuation"]
+            if "Promise_Progress_UI" in wb.sheetnames:
+                ws_pp = wb["Promise_Progress_UI"]
+
+                def _best_progress_latest_local(metric_name: str) -> str:
+                    best_txt = ""
+                    best_score: Tuple[int, int] = (-1, -1)
+                    current_block_ord = -1
+                    for rr in range(1, ws_pp.max_row + 1):
+                        header_txt = str(ws_pp.cell(row=rr, column=1).value or "").strip()
+                        m_header = re.match(r"Promise progress \(As of (\d{4}-\d{2}-\d{2})\)$", header_txt)
+                        if m_header:
+                            try:
+                                q_ts = pd.Timestamp(m_header.group(1))
+                                current_block_ord = int(q_ts.year) * 4 + (((int(q_ts.month) - 1) // 3) + 1)
+                            except Exception:
+                                current_block_ord = -1
+                            continue
+                        metric_txt = str(ws_pp.cell(row=rr, column=1).value or "").strip()
+                        if metric_txt != metric_name:
+                            continue
+                        latest_txt = str(ws_pp.cell(row=rr, column=3).value or "").strip()
+                        if latest_txt.lower() in {"", "not yet measurable", "nan", "none", "null"}:
+                            continue
+                        score_tuple = (current_block_ord, len(latest_txt))
+                        if score_tuple > best_score:
+                            best_score = score_tuple
+                            best_txt = latest_txt
+                    return best_txt
+
+                valuation_row = 1
+                while valuation_row <= min(ws_val.max_row, 120):
+                    metric_txt = str(ws_val.cell(row=valuation_row, column=15).value or "").strip()
+                    stated_txt = str(ws_val.cell(row=valuation_row, column=17).value or "").strip().lower()
+                    applies_txt = str(ws_val.cell(row=valuation_row, column=18).value or "").strip().lower()
+                    guidance_txt = str(ws_val.cell(row=valuation_row, column=19).value or "").strip().lower()
+                    if metric_txt == "Cost savings" and (
+                        "raised target" in guidance_txt
+                        or "annualized savings" in guidance_txt
+                        or applies_txt in {"run-rate", "annualized"}
+                        or "carry-fwd" in stated_txt
+                    ):
+                        best_latest = _best_progress_latest_local("Cost savings target")
+                        if best_latest:
+                            best_latest = re.sub(r"\s+run-rate\b", "", best_latest, flags=re.I).strip()
+                            ws_val.cell(row=valuation_row, column=27, value=f"{best_latest} realized").alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                    elif metric_txt == "PB Bank liquidity" and (
+                        "bank-held leases" in guidance_txt
+                        or "liquidity release" in guidance_txt
+                        or "carry-fwd" in stated_txt
+                    ):
+                        best_latest = _best_progress_latest_local("PB Bank liquidity release")
+                        if best_latest:
+                            ws_val.cell(row=valuation_row, column=27, value=f"{best_latest} realized").alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                    valuation_row += 1
+        if "Hidden_Value_Base" in wb.sheetnames:
+            ws_hvb = wb["Hidden_Value_Base"]
+            if ws_hvb.max_row >= 2:
+                hdr_b = {
+                    str(c.value): i
+                    for i, c in enumerate(ws_hvb[1], start=1)
+                    if c.value is not None and str(c.value).strip() != ""
+                }
+                latest_row = 0
+                for rr in range(ws_hvb.max_row, 1, -1):
+                    if any(ws_hvb.cell(row=rr, column=cc).value not in (None, "") for cc in hdr_b.values()):
+                        latest_row = rr
+                        break
+                if latest_row >= 2:
+                    def _base_ref(header_name: str) -> str:
+                        col_idx = hdr_b.get(header_name)
+                        if not col_idx:
+                            return ""
+                        return f"'Hidden_Value_Base'!${get_column_letter(col_idx)}${latest_row}"
+
+                    hv_fcf_formula = "Equity_FCF_Yield" if "Equity_FCF_Yield" in wb.defined_names else _base_ref("fcf_yield")
+                    if hv_fcf_formula:
+                        _set_defined_name("FCF_Yield", hv_fcf_formula)
+                    hv_ttm_pos_ref = _base_ref("fcf_ttm_pos_years")
+                    if hv_ttm_pos_ref:
+                        _set_defined_name("FCF_TTM_Pos_Years", hv_ttm_pos_ref)
+                    hv_pos_ratio_ref = _base_ref("pos_fcf_ratio")
+                    if hv_pos_ratio_ref:
+                        _set_defined_name("Pos_FCF_Ratio", hv_pos_ratio_ref)
+                    hv_interest_ref = _base_ref("interest_coverage") or _base_ref("interest_coverage_cash") or _base_ref("interest_coverage_pnl")
+                    if hv_interest_ref:
+                        _set_defined_name("Interest_Coverage", hv_interest_ref)
     except Exception:
         try:
             import traceback
