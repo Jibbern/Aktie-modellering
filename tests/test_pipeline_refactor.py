@@ -416,6 +416,76 @@ def test_build_company_overview_revenue_streams_prefers_segment_named_table_over
     assert "Revenue" not in stream_names
 
 
+def test_build_company_overview_revenue_streams_parses_actual_pbi_style_annual_table_layout() -> None:
+    sec = _FakeEx99Sec()
+    tenk_accn = "0000123456-26-000041"
+    submissions = _submission_recent(
+        [
+            {"form": "10-K", "accn": tenk_accn, "report_date": "2025-12-31", "filing_date": "2026-02-19", "primary_doc": "orig10k.htm"},
+        ]
+    )
+    sec.doc_map[(pipeline.normalize_accession(tenk_accn), "orig10k.htm")] = (
+        b"""<html><body>
+        <table>
+          <tr><td>Revenue</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>Years Ended December 31,</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>2025</td><td>2024</td><td>2023</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>SendTech Solutions</td><td>$</td><td>1,256,001</td><td>$</td><td>1,354,032</td><td>$</td><td>1,405,864</td></tr>
+          <tr><td>Presort Services</td><td>636,628</td><td>662,587</td><td>617,599</td><td></td><td></td><td></td></tr>
+          <tr><td>Total segment revenue</td><td>1,892,629</td><td>2,016,619</td><td>2,023,463</td><td></td><td></td><td></td></tr>
+          <tr><td>Other operations</td><td>&mdash;</td><td>9,979</td><td>55,462</td><td></td><td></td><td></td></tr>
+          <tr><td>Total revenue</td><td>$</td><td>1,892,629</td><td>$</td><td>2,026,598</td><td>$</td><td>2,078,925</td></tr>
+        </table>
+        </body></html>"""
+    )
+
+    overview = pipeline.build_company_overview(sec, 123456, submissions, ticker="PBI")
+    stream_names = [str(row.get("name") or "") for row in overview["revenue_streams"]]
+
+    assert overview["revenue_streams_period"] == dt.date(2025, 12, 31)
+    assert stream_names[:2] == ["SendTech Solutions", "Presort Services"]
+    assert float(overview["revenue_streams"][0]["amount"]) == 1256001.0
+    assert tenk_accn in overview["revenue_streams_source"]
+
+
+def test_build_company_overview_revenue_streams_parses_hierarchical_segment_revenue_table_and_uses_fy_period() -> None:
+    sec = _FakeEx99Sec()
+    tenk_accn = "0000123456-26-000042"
+    submissions = _submission_recent(
+        [
+            {"form": "10-K", "accn": tenk_accn, "report_date": "2025-12-31", "filing_date": "2026-02-19", "primary_doc": "orig10k.htm"},
+        ]
+    )
+    sec.doc_map[(pipeline.normalize_accession(tenk_accn), "orig10k.htm")] = (
+        b"""<html><body>
+        <table>
+          <tr><td>Year Ended December 31,</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>2025</td><td>2024</td><td>2023</td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>Revenues</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>Ethanol production</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>Revenues from external customers</td><td>$</td><td>1,900,999</td><td>$</td><td>2,063,382</td><td>$</td><td>2,819,986</td></tr>
+          <tr><td>Intersegment revenues</td><td>859</td><td>3,707</td><td>4,555</td><td></td><td></td><td></td></tr>
+          <tr><td>Total segment revenues</td><td>1,901,858</td><td>2,067,089</td><td>2,824,541</td><td></td><td></td><td></td></tr>
+          <tr><td>Agribusiness and energy services</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td>Revenues from external customers</td><td>190,681</td><td>395,414</td><td>475,757</td><td></td><td></td><td></td></tr>
+          <tr><td>Intersegment revenues</td><td>22,662</td><td>25,693</td><td>25,146</td><td></td><td></td><td></td></tr>
+          <tr><td>Total segment revenues</td><td>213,343</td><td>421,107</td><td>500,903</td><td></td><td></td><td></td></tr>
+          <tr><td>Revenues including intersegment activity</td><td>2,115,201</td><td>2,488,196</td><td>3,325,444</td><td></td><td></td><td></td></tr>
+          <tr><td>Intersegment eliminations</td><td>(23,521)</td><td>(29,400)</td><td>(29,701)</td><td></td><td></td><td></td></tr>
+          <tr><td>$</td><td>2,091,680</td><td>$</td><td>2,458,796</td><td>$</td><td>3,295,743</td><td></td></tr>
+        </table>
+        </body></html>"""
+    )
+
+    overview = pipeline.build_company_overview(sec, 123456, submissions, ticker="GPRE")
+    stream_names = [str(row.get("name") or "") for row in overview["revenue_streams"]]
+
+    assert overview["revenue_streams_period"] == dt.date(2025, 12, 31)
+    assert stream_names[:2] == ["Ethanol production", "Agribusiness and energy services"]
+    assert float(overview["revenue_streams"][0]["amount"]) == 1900999.0
+    assert tenk_accn in overview["revenue_streams_source"]
+
+
 def test_ex99_inventory_filters_8k_rows_and_target_years(monkeypatch) -> None:
     sec = _FakeEx99Sec()
     accn_a = "0000123456-25-000001"

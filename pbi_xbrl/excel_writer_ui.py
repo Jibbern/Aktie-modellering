@@ -46,7 +46,7 @@ def write_ui_sheets(ctx: WriterContext) -> List[Dict[str, Any]]:
             "write_excel.ui.render.promise_tracker",
             enabled=bool(ctx.inputs.profile_timings),
         ):
-            ui_qa_rows.extend(ctx.callbacks.write_promise_tracker_ui_v2())
+            ui_qa_rows.extend(ctx.callbacks.write_promise_tracker_ui_v2(render_visible=False))
         with timed_writer_stage(
             ctx.writer_timings,
             "write_excel.ui.render.promise_progress",

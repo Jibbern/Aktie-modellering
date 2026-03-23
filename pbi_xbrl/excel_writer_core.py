@@ -1362,7 +1362,7 @@ def finalize_workbook(ctx: WriterContext) -> None:
                         best_latest = _best_progress_latest_local("Cost savings target")
                         if best_latest:
                             best_latest = re.sub(r"\s+run-rate\b", "", best_latest, flags=re.I).strip()
-                            ws_val.cell(row=valuation_row, column=27, value=f"{best_latest} realized").alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                            ws_val.cell(row=valuation_row, column=26, value=f"{best_latest} realized").alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
                     elif metric_txt == "PB Bank liquidity" and (
                         "bank-held leases" in guidance_txt
                         or "liquidity release" in guidance_txt
@@ -1370,7 +1370,7 @@ def finalize_workbook(ctx: WriterContext) -> None:
                     ):
                         best_latest = _best_progress_latest_local("PB Bank liquidity release")
                         if best_latest:
-                            ws_val.cell(row=valuation_row, column=27, value=f"{best_latest} realized").alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                            ws_val.cell(row=valuation_row, column=26, value=f"{best_latest} realized").alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
                     valuation_row += 1
         if "Hidden_Value_Base" in wb.sheetnames:
             ws_hvb = wb["Hidden_Value_Base"]

@@ -205,6 +205,15 @@ def _find_row_with_value(ws, text: str, *, column: int | None = 1) -> int | None
     return None
 
 
+def _find_row_containing(ws, text: str, *, column: int = 1) -> int | None:
+    needle = str(text)
+    for rr in range(1, ws.max_row + 1):
+        cell_value = ws.cell(row=rr, column=column).value
+        if needle in str(cell_value or ""):
+            return rr
+    return None
+
+
 def _sheet_metric_rows(path: Path, sheet_name: str, metric: str, *, quarters: list[str] | None = None) -> list[dict[str, str]]:
     wb = load_workbook(path, data_only=False, read_only=True)
     try:
@@ -2203,43 +2212,179 @@ def test_valuation_guidance_layout_uses_new_column_spans_and_preserves_type_word
         ws = ctx.wb["Valuation"]
         merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
 
-        guidance_header_row = _find_row_with_value(ws, "Range/Value", column=19)
+        guidance_header_row = _find_row_with_value(ws, "Trend / realized", column=26)
         assert guidance_header_row is not None
-        assert f"Q{guidance_header_row}:R{guidance_header_row}" in merged_ranges
-        assert f"S{guidance_header_row}:X{guidance_header_row}" in merged_ranges
-        assert f"Y{guidance_header_row}:Z{guidance_header_row}" in merged_ranges
-        assert f"AA{guidance_header_row}:AB{guidance_header_row}" in merged_ranges
-        assert ws.cell(row=guidance_header_row, column=25).value == "Δ vs prev"
+        assert f"O{guidance_header_row}:P{guidance_header_row}" in merged_ranges
+        assert f"S{guidance_header_row}:Y{guidance_header_row}" in merged_ranges
+        assert f"Z{guidance_header_row}:AC{guidance_header_row}" in merged_ranges
+        assert ws.cell(row=guidance_header_row, column=15).value == "Metric"
+        assert ws.cell(row=guidance_header_row, column=17).value == "Stated in"
+        assert ws.cell(row=guidance_header_row, column=18).value == "Applies to"
+        assert ws.cell(row=guidance_header_row, column=19).value == "Guidance"
 
-        stated_row = None
-        carry_row = None
-        for rr in range(1, ws.max_row + 1):
-            stated_type_value = str(ws.cell(row=rr, column=17).value or "")
-            carry_type_value = str(ws.cell(row=rr, column=16).value or "")
-            if "stated Q1 2025" in stated_type_value and stated_row is None:
-                stated_row = rr
-            if "carry-fwd Q1 2025" in carry_type_value and carry_row is None:
-                carry_row = rr
-        assert stated_row is not None
-        assert carry_row is not None
-        assert f"Q{stated_row}:R{stated_row}" in merged_ranges
-        assert f"S{stated_row}:X{stated_row}" in merged_ranges
-        assert f"Y{stated_row}:Z{stated_row}" in merged_ranges
-        assert f"AA{stated_row}:AB{stated_row}" in merged_ranges
-        assert ws.cell(row=stated_row, column=17).alignment.wrap_text is True
+        stated_row = next(
+            rr for rr in range(guidance_header_row + 1, ws.max_row + 1)
+            if str(ws.cell(row=rr, column=15).value or "").strip() == "Revenue"
+        )
+        assert f"O{stated_row}:P{stated_row}" in merged_ranges
+        assert f"S{stated_row}:Y{stated_row}" in merged_ranges
+        assert f"Z{stated_row}:AC{stated_row}" in merged_ranges
+        assert str(ws.cell(row=stated_row, column=17).alignment.horizontal or "") == "left"
         assert ws.cell(row=stated_row, column=19).alignment.wrap_text is True
-        assert ws.cell(row=stated_row, column=27).alignment.wrap_text is True
-        assert f"P{carry_row}:S{carry_row}" in merged_ranges
-        assert f"T{carry_row}:Z{carry_row}" in merged_ranges
-        assert f"AA{carry_row}:AB{carry_row}" in merged_ranges
-        assert f"Y{carry_row}:Z{carry_row}" not in merged_ranges
-        assert ws.cell(row=carry_row, column=16).alignment.wrap_text is True
-        assert ws.cell(row=carry_row, column=20).alignment.wrap_text is True
-        assert ws.cell(row=carry_row, column=27).alignment.wrap_text is True
-        carry_value = str(ws.cell(row=carry_row, column=20).value or "")
-        assert carry_value.startswith("updated target to ")
-        assert float(ws.row_dimensions[carry_row].height or 0.0) <= 58.0
+        assert ws.cell(row=stated_row, column=26).alignment.wrap_text is True
+        assert "(+0.5%)" in str(ws.cell(row=stated_row, column=26).value or "")
+        carry_rows = [
+            rr for rr in range(guidance_header_row + 1, ws.max_row + 1)
+            if str(ws.cell(row=rr, column=15).value or "").strip() == "Cost savings"
+        ]
+        if carry_rows:
+            carry_row = carry_rows[0]
+            assert f"O{carry_row}:P{carry_row}" in merged_ranges
+            assert f"S{carry_row}:Y{carry_row}" in merged_ranges
+            assert f"Z{carry_row}:AC{carry_row}" in merged_ranges
+            assert str(ws.cell(row=carry_row, column=17).alignment.horizontal or "") == "left"
+            assert ws.cell(row=carry_row, column=19).alignment.wrap_text is True
+            assert ws.cell(row=carry_row, column=26).alignment.wrap_text is True
+            carry_value = str(ws.cell(row=carry_row, column=19).value or "")
+            assert "target" in carry_value.lower()
+            assert float(ws.row_dimensions[carry_row].height or 0.0) <= 58.0
         assert str(ws.freeze_panes) == "B7"
+
+
+def test_valuation_normalizes_negative_capex_and_marks_adj_fcf_company_defined() -> None:
+    with _case_dir() as case_dir:
+        out_path = _make_model_out_path(case_dir, "valuation_capex_normalization.xlsx")
+        hist = pd.DataFrame(
+            {
+                "quarter": pd.to_datetime(["2023-03-31", "2023-06-30", "2023-09-30", "2023-12-31"]),
+                "revenue": [120_000_000.0, 125_000_000.0, 130_000_000.0, 135_000_000.0],
+                "cfo": [15_000_000.0, 16_000_000.0, 20_000_000.0, 18_000_000.0],
+                "capex": [2_000_000.0, 3_000_000.0, -4_420_000.0, 5_000_000.0],
+                "ebitda": [20_000_000.0, 21_000_000.0, 22_000_000.0, 23_000_000.0],
+                "ebit": [11_000_000.0, 12_000_000.0, 13_000_000.0, 14_000_000.0],
+                "cash": [30_000_000.0, 31_000_000.0, 32_000_000.0, 33_000_000.0],
+                "debt_core": [60_000_000.0, 59_000_000.0, 58_000_000.0, 57_000_000.0],
+                "shares_outstanding": [10_000_000.0, 10_000_000.0, 10_000_000.0, 10_000_000.0],
+                "shares_diluted": [10_000_000.0, 10_000_000.0, 10_000_000.0, 10_000_000.0],
+                "market_cap": [100_000_000.0, 101_000_000.0, 102_000_000.0, 103_000_000.0],
+                "interest_expense_net": [1_000_000.0, 1_000_000.0, 1_000_000.0, 1_000_000.0],
+            }
+        )
+        ctx = build_writer_context(_make_inputs(out_path, hist=hist))
+        ensure_valuation_inputs(ctx)
+        ctx.callbacks.write_valuation_sheet()
+        ws = ctx.wb["Valuation"]
+
+        q3_col = next(
+            cc for cc in range(2, ws.max_column + 1)
+            if str(ws.cell(row=6, column=cc).value or "").strip() == "2023-Q3"
+        )
+        capex_row = _find_row_with_value(ws, "Capex")
+        fcf_row = _find_row_with_value(ws, "FCF (CFO-Capex)")
+        adj_fcf_row = _find_row_with_value(ws, "Adj FCF (TTM)")
+
+        assert capex_row is not None
+        assert fcf_row is not None
+        assert adj_fcf_row is not None
+        assert float(pd.to_numeric(ws.cell(row=capex_row, column=q3_col).value, errors="coerce")) == pytest.approx(4.42, abs=0.001)
+        assert float(pd.to_numeric(ws.cell(row=fcf_row, column=q3_col).value, errors="coerce")) == pytest.approx(15.58, abs=0.001)
+        assert str((ws.cell(row=adj_fcf_row, column=1).comment.text if ws.cell(row=adj_fcf_row, column=1).comment else "") or "") == "company-defined"
+
+
+def test_valuation_adds_ratio_notes_and_convertible_dilution_structure_comments_conservatively(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_ticker_model_out_path(case_dir, "PBI", "valuation_ratio_and_convertible_notes.xlsx")
+            sec_cache_dir = case_dir / "PBI" / "sec_cache"
+            sec_cache_dir.mkdir(parents=True, exist_ok=True)
+            (sec_cache_dir / "doc_000119312525177477_pbi-capped-call.htm").write_text(
+                "Pitney Bowes Inc. completed an offering of $230.0 million aggregate principal amount of 1.50% convertible senior notes due August 2032. "
+                "The initial conversion rate is 70.1533 shares per $1,000 principal amount. "
+                "On August 5, 2025, the company entered into capped call transactions expected generally to reduce the potential dilution to the common stock upon conversion.",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_generic-2031-convertible.htm").write_text(
+                "Test issuer completed an offering of $150.0 million aggregate principal amount of 3.00% convertible senior notes due 2031. "
+                "The initial conversion rate is 40.0000 shares per $1,000 principal amount. "
+                "Net proceeds will be used for general corporate purposes.",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_buyback-only-2033-convertible.htm").write_text(
+                "Test issuer completed an offering of $100.0 million aggregate principal amount of 4.00% convertible senior notes due 2033. "
+                "The initial conversion rate is 50.0000 shares per $1,000 principal amount. "
+                "The company used approximately $20.0 million of the proceeds to repurchase approximately 2.0 million shares.",
+                encoding="utf-8",
+            )
+            debt_tranches_latest = pd.DataFrame(
+                [
+                    {
+                        "tranche_name": "1.5% convertible senior notes due August 2032",
+                        "instrument_type": "convertible",
+                        "amount_principal": 230_000_000.0,
+                        "coupon_pct": 1.5,
+                        "maturity_display": "August 2032",
+                        "maturity_year": 2032,
+                    },
+                    {
+                        "tranche_name": "3.0% convertible senior notes due 2031",
+                        "instrument_type": "convertible",
+                        "amount_principal": 150_000_000.0,
+                        "coupon_pct": 3.0,
+                        "maturity_display": "2031",
+                        "maturity_year": 2031,
+                    },
+                    {
+                        "tranche_name": "4.0% convertible senior notes due 2033",
+                        "instrument_type": "convertible",
+                        "amount_principal": 100_000_000.0,
+                        "coupon_pct": 4.0,
+                        "maturity_display": "2033",
+                        "maturity_year": 2033,
+                    },
+                ]
+            )
+            base_inputs = _make_inputs(out_path, ticker="PBI")
+            inputs = base_inputs.__class__(
+                **{
+                    **vars(base_inputs),
+                    "cache_dir": sec_cache_dir,
+                    "debt_tranches_latest": debt_tranches_latest,
+                }
+            )
+            ctx = build_writer_context(inputs)
+            ensure_valuation_inputs(ctx)
+            ctx.callbacks.write_valuation_sheet()
+            ws = ctx.wb["Valuation"]
+
+            current_ratio_row = _find_row_with_value(ws, "Current ratio")
+            quick_ratio_row = _find_row_with_value(ws, "Quick ratio")
+            assert current_ratio_row is not None
+            assert quick_ratio_row is not None
+            assert str((ws.cell(row=current_ratio_row, column=1).comment.text if ws.cell(row=current_ratio_row, column=1).comment else "") or "") == (
+                "Current assets / current liabilities. Short-term liquidity measure; around 1.0+ is often healthier."
+            )
+            assert str((ws.cell(row=quick_ratio_row, column=1).comment.text if ws.cell(row=quick_ratio_row, column=1).comment else "") or "") == (
+                "Near-cash current assets / current liabilities. Stricter liquidity measure; around 1.0+ is often stronger."
+            )
+
+            pbi_row = _find_row_with_value(ws, "1.5% notes due August 2032", column=12)
+            generic_row = _find_row_with_value(ws, "3% notes due 2031", column=12)
+            buyback_only_row = _find_row_with_value(ws, "4% notes due 2033", column=12)
+            pbi_debt_detail_row = _find_row_containing(ws, "August 2032", column=1)
+            assert pbi_row is not None
+            assert generic_row is not None
+            assert buyback_only_row is not None
+            assert pbi_debt_detail_row is not None
+            assert str((ws.cell(row=pbi_row, column=19).comment.text if ws.cell(row=pbi_row, column=19).comment else "") or "") == (
+                "Capped call may reduce dilution."
+            )
+            assert str((ws.cell(row=pbi_debt_detail_row, column=9).comment.text if ws.cell(row=pbi_debt_detail_row, column=9).comment else "") or "") == (
+                "Capped call may reduce dilution."
+            )
+            assert ws.cell(row=generic_row, column=19).comment is None
+            assert ws.cell(row=buyback_only_row, column=19).comment is None
 
 
 def test_valuation_thesis_bridge_adds_note_keeps_label_and_formulas() -> None:
@@ -7049,9 +7194,17 @@ def test_gpre_quarter_notes_add_q4_45z_contribution_and_crush_margin_notes(
             q4_rows = _quarter_block_notes(ws, "2025-12-31")
 
             assert len(q4_rows) >= 7
-            assert any("45Z production tax credits contributed $23.4m net of discounts and other costs in Q4." in note for note in q4_rows)
+            assert any("45Z production tax credits contributed $23.4m net of discounts and other costs." in note for note in q4_rows)
             assert any("Consolidated ethanol crush margin improved to $44.4m" in note for note in q4_rows)
             assert any("FCF TTM improved by $198.7m YoY." in note for note in q4_rows)
+            realized_row = next(
+                rr
+                for rr in range(1, ws.max_row + 1)
+                if "45Z production tax credits contributed $23.4m net of discounts and other costs."
+                in str(ws.cell(row=rr, column=3).value or "")
+            )
+            assert str(ws.cell(row=realized_row, column=2).value or "").strip() == "Results / drivers"
+            assert str(ws.cell(row=realized_row, column=4).value or "").strip() == "45Z value realized"
 
 
 def test_gpre_quarter_notes_add_2024_q1_margin_driver_from_press_release(
@@ -8227,6 +8380,49 @@ def test_pbi_valuation_prefers_q4_issuer_purchases_table_over_other_repurchase_n
             assert "$127.0m" not in buyback_note
 
 
+def test_pbi_buyback_ttm_cash_uses_quarter_safe_cashflow_deltas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_model_out_path(case_dir, "pbi_buyback_ttm_cash_quarter_safe.xlsx")
+            sec_cache_dir = case_dir / "PBI" / "sec_cache"
+            sec_cache_dir.mkdir(parents=True, exist_ok=True)
+            (sec_cache_dir / "doc_000162828025023713_pbi-20250331.htm").write_text(
+                "Condensed Consolidated Statements of Cash Flows Common stock repurchases ( 15,000 )",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_000162828025036856_pbi-20250630.htm").write_text(
+                "Condensed Consolidated Statements of Cash Flows Common stock repurchases ( 90,274 )",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_000162828025047360_pbi-20250930.htm").write_text(
+                "Condensed Consolidated Statements of Cash Flows Common stock repurchases ( 251,774 )",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_000162828026009650_pbi-20251231.htm").write_text(
+                "Consolidated Statements of Cash Flows Common stock repurchases ( 378,361 )",
+                encoding="utf-8",
+            )
+
+            base_inputs = _make_inputs(out_path, ticker="PBI")
+            inputs = base_inputs.__class__(**{**vars(base_inputs), "cache_dir": sec_cache_dir})
+            result = write_excel_from_inputs(inputs)
+
+            validate_valuation_export(out_path, result.valuation_export_expectation)
+
+            valuation_snapshot = result.saved_workbook_provenance.get("valuation_snapshot") or {}
+            quarter_headers = list(valuation_snapshot.get("quarter_headers") or [])
+            buyback_ttm_vals = list((valuation_snapshot.get("grid_rows") or {}).get("Buybacks (TTM, cash)") or [])
+            ttm_by_q = dict(zip(quarter_headers, buyback_ttm_vals))
+
+            assert ttm_by_q.get("2025-Q1") in (None, "")
+            assert ttm_by_q.get("2025-Q2") in (None, "")
+            assert ttm_by_q.get("2025-Q3") in (None, "")
+            assert ttm_by_q.get("2025-Q4") == pytest.approx(378.361)
+            assert ttm_by_q.get("2025-Q4") != pytest.approx(524.91407196)
+
+
 def test_pbi_capped_call_note_stays_in_origin_quarter_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -8716,7 +8912,7 @@ def test_current_delivered_workbooks_match_visible_quarter_notes_ui_snapshots() 
         "GPRE": {
             "2025-09-30": [
                 ("Guidance / outlook", "Q4 2025 45Z monetization expected at $15m-$25m."),
-                ("Guidance / outlook", "45Z production tax credits contributed $25.0m net of discounts and other costs."),
+                    ("Results / drivers", "45Z production tax credits contributed $25.0m net of discounts and other costs."),
                 ("Guidance / outlook", "All eight operating ethanol plants expected to qualify for production tax credits in 2026"),
                 ("Capital allocation / shareholder returns", "Repurchase authorization increased to $200.0m."),
                 ("Debt / liquidity / balance sheet", "Junior mezzanine debt of $130.7m was repaid from Obion sale proceeds."),
@@ -8726,25 +8922,25 @@ def test_current_delivered_workbooks_match_visible_quarter_notes_ui_snapshots() 
                 ("Operations / commercialization / milestones", "York carbon capture was fully operational; Central City and Wood River were online and ramping."),
                 ("Operations / commercialization / milestones", "45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025."),
             ],
-            "2025-12-31": [
-                ("Guidance / outlook", "FY 2026 45Z-related Adjusted EBITDA outlook is at least $188.0m."),
-                ("Guidance / outlook", "45Z production tax credits contributed $23.4m net of discounts and other costs in Q4."),
-                ("Capital allocation / shareholder returns", "Repurchase authorization increased to $200.0m."),
-                ("Capital allocation / shareholder returns", "Repurchased approximately 2.9m shares for approximately $30.0m in connection with the October 27, 2025 exchange and subscription transactions."),
-                ("Capital allocation / shareholder returns", "Issued an additional $30.0m of 5.25% convertible senior notes due November 2030; proceeds funded the repurchase of approximately 2.9m shares for approximately $30.0m."),
-                ("Cash flow / FCF / working capital", "FCF TTM improved by $198.7m YoY."),
-                ("Debt / liquidity / balance sheet", "Net debt declined by $77.9m YoY."),
-                ("Debt / liquidity / balance sheet", "Exchanged $170.0m of 2.25% convertible senior notes due 2027 for $170.0m of 5.25% convertible senior notes due November 2030 (conversion price $15.72/share)."),
-                ("Debt / liquidity / balance sheet", "Annualized 2026 interest expense is expected at about $30.0m-$35.0m, reflecting the 2030 convertible notes, Junior Note extinguishment and carbon equipment financing."),
-                ("Results / drivers / better vs prior", "Adjusted EBITDA improved 369.8% YoY."),
-                ("Results / drivers / better vs prior", "Consolidated ethanol crush margin improved to $44.4m from $15.5m YoY."),
-                ("Operations / commercialization / milestones", "Advantage Nebraska 2026 Adjusted >$150M EBITDA opportunity."),
-                ("Operations / commercialization / milestones", "Carbon capture was fully operational at Central City, Wood River and York, Nebraska facilities."),
-                ("Operations / commercialization / milestones", "45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025 and amended on December 10, 2025 to add credits from three additional facilities."),
-                ("One-time items / restructuring", "Corporate activities included $16.1m of restructuring costs from the cost reduction initiative."),
-            ],
-        },
-    }
+                "2025-12-31": [
+                    ("Guidance / outlook", "FY 2026 45Z-related Adjusted EBITDA outlook is at least $188.0m."),
+                        ("Results / drivers", "45Z production tax credits contributed $23.4m net of discounts and other costs in Q4."),
+                    ("Guidance / outlook", "Corporate activities included $16.1m of restructuring costs from the cost reduction initiative."),
+                    ("Capital allocation / shareholder returns", "Repurchase authorization increased to $200.0m."),
+                    ("Capital allocation / shareholder returns", "Repurchased approximately 2.9m shares for approximately $30.0m in connection with the October 27, 2025 exchange and subscription transactions."),
+                    ("Capital allocation / shareholder returns", "Issued an additional $30.0m of 5.25% convertible senior notes due November 2030; proceeds funded the repurchase of approximately 2.9m shares for approximately $30.0m."),
+                    ("Cash flow / FCF / working capital", "FCF TTM improved by $198.7m YoY."),
+                    ("Debt / liquidity / balance sheet", "Net debt declined by $77.9m YoY."),
+                    ("Debt / liquidity / balance sheet", "Exchanged $170.0m of 2.25% convertible senior notes due 2027 for $170.0m of 5.25% convertible senior notes due November 2030 (conversion price $15.72/share)."),
+                    ("Debt / liquidity / balance sheet", "Annualized 2026 interest expense is expected at about $30.0m-$35.0m, reflecting the 2030 convertible notes, Junior Note extinguishment and carbon equipment financing."),
+                    ("Results / drivers / better vs prior", "Adjusted EBITDA improved 369.8% YoY."),
+                    ("Results / drivers / better vs prior", "Consolidated ethanol crush margin improved to $44.4m from $15.5m YoY."),
+                    ("Operations / commercialization / milestones", "Advantage Nebraska 2026 Adjusted >$150M EBITDA opportunity."),
+                    ("Operations / commercialization / milestones", "Carbon capture was fully operational at Central City, Wood River and York, Nebraska facilities."),
+                    ("Operations / commercialization / milestones", "45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025 and amended on December 10, 2025 to add credits from three additional facilities."),
+                ],
+            },
+        }
 
     for ticker, expected_snapshot in expected_snapshots.items():
         workbook_path = _current_delivered_model_path(ticker)
@@ -8803,11 +8999,37 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
     def _panel_text(ws) -> str:
         chunks: list[str] = []
         for rr in range(1, 28):
-            for cc in range(15, 29):
+            for cc in range(15, 31):
                 val = ws.cell(row=rr, column=cc).value
                 if val not in (None, ""):
                     chunks.append(str(val))
         return " | ".join(chunks)
+
+    def _guidance_block_rows(ws, asof_text: str) -> list[tuple[str, str, str, str, str]]:
+        out: list[tuple[str, str, str, str, str]] = []
+        in_block = False
+        for rr in range(1, ws.max_row + 1):
+            marker = str(ws.cell(row=rr, column=15).value or "").strip()
+            if marker.startswith(f"Guidance (As of {asof_text})"):
+                in_block = True
+                continue
+            if in_block and marker.startswith("Guidance (As of "):
+                break
+            if not in_block:
+                continue
+            metric = str(ws.cell(row=rr, column=15).value or "").strip()
+            if metric in {"", "Metric", "A) Updated / mentioned this quarter", "B) Carry-forward", "No guidance items for this quarter."}:
+                continue
+            out.append(
+                (
+                    metric,
+                    str(ws.cell(row=rr, column=17).value or "").strip(),
+                    str(ws.cell(row=rr, column=18).value or "").strip(),
+                    str(ws.cell(row=rr, column=19).value or "").strip(),
+                    str(ws.cell(row=rr, column=26).value or "").strip(),
+                )
+            )
+        return out
 
     def _quarter_note_metrics(ws) -> list[str]:
         out: list[str] = []
@@ -8858,7 +9080,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                     str(wb["Valuation"].cell(row=5, column=15).value or ""),
                     str(wb["Valuation"].cell(row=6, column=15).value or ""),
                 ])
-                assert str(wb["Valuation"].cell(row=1, column=29).value or "").strip() == "Context"
+                assert str(wb["Valuation"].cell(row=1, column=30).value or "").strip() == "Context"
                 assert any(metric == "FCF target" for metric, _, _, _, _, _ in progress_rows)
                 assert any(
                     metric == "Cost savings target"
@@ -8911,10 +9133,16 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert "(price-linked)" in str(wb["Hidden_Value_Flags"]["K4"].value or "")
                 assert "Current:" not in str(wb["Hidden_Value_Flags"]["K3"].value or "")
                 assert "Current:" not in str(wb["Hidden_Value_Flags"]["K4"].value or "")
-                assert str(wb["Valuation"].cell(row=245, column=2).border.bottom.style or "") == "thick"
-                assert str(wb["Valuation"].cell(row=261, column=2).border.bottom.style or "") == "thick"
+                assert not bool(wb["Valuation"].row_dimensions[245].hidden)
+                assert float(wb["Valuation"].row_dimensions[245].height or 0.0) == pytest.approx(18.0, rel=1e-9)
+                assert (
+                    str(wb["Valuation"].cell(row=245, column=2).border.bottom.style or "") == "thick"
+                    or str(wb["Valuation"].cell(row=246, column=2).border.top.style or "") == "thick"
+                )
                 assert _find_row_with_value(wb["Valuation"], "Operating Drivers", column=15) == 33
-                assert [str(wb["Valuation"].cell(row=8, column=cc).value or "").strip() for cc in (15, 17, 18, 19, 27)] == [
+                assert str(wb["Valuation"].cell(row=216, column=2).value or "").strip() != "Valuation Sensitivity Grid"
+                assert str(wb["Valuation"].cell(row=217, column=2).value or "").strip() == "Valuation Sensitivity Grid"
+                assert [str(wb["Valuation"].cell(row=8, column=cc).value or "").strip() for cc in (15, 17, 18, 19, 26)] == [
                     "Metric",
                     "Stated in",
                     "Applies to",
@@ -8933,13 +9161,33 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert str(wb["Valuation"].cell(row=buybacks_note_row, column=2).value or "").strip() == "Remaining capacity $359.0m | Latest increase by $250.0m on 2026-02-13 | Maturity date 2025 | Continuation mentioned."
                 assert str(wb["Valuation"].cell(row=dividends_row, column=2).value or "").strip() == "Latest quarter div/share $0.090 | TTM dividend cash $148.5m"
                 assert str(wb["Valuation"].cell(row=dividends_note_row, column=2).value or "").strip() == "We expect to continue to pay a quarterly dividend."
-                assert str(wb["Valuation"].cell(row=248, column=12).value or "").strip() == "1.5% notes due August 2032"
-                assert any(m.min_row == 247 and m.min_col == 24 and m.max_col == 27 for m in wb["Valuation"].merged_cells.ranges)
-                assert str(wb["Valuation"].cell(row=16, column=27).value or "").strip() == "$157m realized"
-                assert str(wb["Valuation"].cell(row=21, column=27).value or "").strip() == "Δ +$0.0m (0.0%)"
-                assert str(wb["Valuation"].cell(row=22, column=27).value or "").strip() == "Δ +$0.0m (0.0%)"
-                assert str(wb["Valuation"].cell(row=23, column=27).value or "").strip() == "Δ +$0.00 (0.0%)"
-                assert str(wb["Valuation"].cell(row=25, column=27).value or "").strip() == "from $170m-$190m"
+                convertible_row = _find_row_with_value(wb["Valuation"], "Convertible notes", column=12)
+                assert convertible_row is not None
+                assert str(wb["Valuation"].cell(row=convertible_row + 2, column=12).value or "").strip() == "1.5% notes due August 2032"
+                assert any(
+                    m.min_row == convertible_row + 1 and m.min_col == 24 and m.max_col == 27
+                    for m in wb["Valuation"].merged_cells.ranges
+                )
+                q4_guidance = {(metric, applies): (stated, guidance, trend) for metric, stated, applies, guidance, trend in _guidance_block_rows(wb["Valuation"], "2025-12-31")}
+                q3_guidance = {(metric, applies): (stated, guidance, trend) for metric, stated, applies, guidance, trend in _guidance_block_rows(wb["Valuation"], "2025-09-30")}
+                assert q4_guidance[("Cost savings", "Run-rate")][2] == "$157m realized"
+                assert q3_guidance[("Adj EBIT", "FY2025")][2] == "Δ +$0.0m (0.0%)"
+                assert q3_guidance[("Adj EPS", "FY2025")][2] == "Δ +$0.00 (0.0%)"
+                assert q3_guidance[("FCF", "FY2025")][2] == "Δ +$0.0m (0.0%)"
+                assert q4_guidance[("Cost savings target", "")][2] == "from $170m-$190m"
+                assert q4_guidance[("Adj EBIT", "FY2026")][2] == "Δ -$22.5m (-4.9%) | L -$40.0m | H -$5.0m"
+                assert q4_guidance[("Adj EPS", "FY2026")][2] == "Δ +$0.20 (+15.4%) | L +$0.20 | H +$0.20"
+                assert q4_guidance[("FCF", "FY2026")][2] == "Δ +$5.0m (+1.4%) | L +$10.0m | H +$0.0m"
+                assert float(pd.to_numeric(wb["Valuation"].cell(row=convertible_row + 2, column=17).value, errors="coerce")) == pytest.approx(14.25, abs=0.01)
+                assert float(pd.to_numeric(wb["Valuation"].cell(row=convertible_row + 2, column=19).value, errors="coerce")) == pytest.approx(16.135259, abs=0.001)
+                assert float(pd.to_numeric(wb["Valuation"].cell(row=convertible_row + 2, column=21).value, errors="coerce")) == pytest.approx(5.535928, abs=0.001)
+                buyback_ttm_row = _find_row_with_value(wb["Valuation"], "Buybacks (TTM, cash)")
+                q4_col = next(
+                    cc for cc in range(2, wb["Valuation"].max_column + 1)
+                    if str(wb["Valuation"].cell(row=6, column=cc).value or "").strip() == "2025-Q4"
+                )
+                assert buyback_ttm_row is not None
+                assert float(wb["Valuation"].cell(row=buyback_ttm_row, column=q4_col).value or 0.0) == pytest.approx(378.361, rel=1e-9)
                 rows_2024_q4 = _block_rows(wb["Promise_Progress_UI"], "2024-12-31")
                 revenue_row = next(row for row in rows_2024_q4 if row[0] == "Revenue guidance")
                 assert revenue_row[3] == "Missed"
@@ -8948,20 +9196,21 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert revenue_row[8] == "2025-12-31"
                 pp_hdr_row = _find_row_with_value(wb["Promise_Progress_UI"], "Promise progress (As of 2025-09-30)")
                 assert pp_hdr_row is not None
-                assert str(wb["Promise_Progress_UI"].cell(row=pp_hdr_row, column=1).border.top.style or "") == "medium"
-                assert str(wb["Promise_Progress_UI"].cell(row=pp_hdr_row - 2, column=1).border.bottom.style or "") == ""
+                assert str(wb["Promise_Progress_UI"].cell(row=pp_hdr_row, column=1).border.top.style or "") != "medium"
                 assert abs(float(wb["Promise_Progress_UI"].column_dimensions["B"].width or 0.0) - 38.142857) < 0.1
                 assert abs(float(wb["Promise_Progress_UI"].column_dimensions["C"].width or 0.0) - 38.142857) < 0.1
-                assert str(wb["Promise_Progress_UI"].cell(row=4, column=2).alignment.horizontal or "") == "right"
-                assert str(wb["Promise_Progress_UI"].cell(row=4, column=3).alignment.horizontal or "") == "right"
-                assert str(wb["Promise_Progress_UI"].cell(row=4, column=5).alignment.vertical or "") == "center"
-                assert str(wb["Promise_Progress_UI"].cell(row=1, column=4).fill.fill_type or "") == ""
+                first_data_row = pp_hdr_row + 2
+                assert str(wb["Promise_Progress_UI"].cell(row=first_data_row, column=2).alignment.horizontal or "") == "right"
+                assert str(wb["Promise_Progress_UI"].cell(row=first_data_row, column=3).alignment.horizontal or "") == "right"
+                assert str(wb["Promise_Progress_UI"].cell(row=first_data_row, column=5).alignment.vertical or "") == "center"
+                assert str(wb["Promise_Progress_UI"].cell(row=1, column=1).value or "").strip() == "Promise Progress"
+                assert str(wb["Promise_Progress_UI"].cell(row=2, column=1).value or "").strip().startswith("Generated at ")
                 updated_fills = {
                     str(wb["Promise_Progress_UI"].cell(row=rr, column=4).fill.fgColor.rgb or "")
                     for rr in range(1, wb["Promise_Progress_UI"].max_row + 1)
                     if str(wb["Promise_Progress_UI"].cell(row=rr, column=4).value or "").strip() == "Updated"
                 }
-                assert updated_fills == {"00D9E1F2"}
+                assert updated_fills == {"00D9EAF7"}
             else:
                 junk_metrics = {
                     "year ended December cost savings",
@@ -9012,15 +9261,196 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert "(price-linked)" in str(wb["Hidden_Value_Flags"]["K4"].value or "")
                 assert "Current:" not in str(wb["Hidden_Value_Flags"]["K3"].value or "")
                 assert "Current:" not in str(wb["Hidden_Value_Flags"]["K4"].value or "")
-                assert str(wb["Valuation"].cell(row=245, column=2).border.bottom.style or "") == "thick"
-                assert str(wb["Valuation"].cell(row=261, column=2).border.bottom.style or "") == "thick"
+                red_green_row = _find_row_with_value(wb["Valuation"], "Red/Green Flags", column=1)
+                assert red_green_row is not None
+                assert any(m.min_row == red_green_row and m.min_col == 1 and m.max_col == 9 for m in wb["Valuation"].merged_cells.ranges)
+                assert str(wb["Valuation"].cell(row=1, column=30).value or "").strip() == "Context"
+                assert not bool(wb["Valuation"].row_dimensions[245].hidden)
+                assert float(wb["Valuation"].row_dimensions[245].height or 0.0) == pytest.approx(18.0, rel=1e-9)
+                assert (
+                    str(wb["Valuation"].cell(row=245, column=2).border.bottom.style or "") == "thick"
+                    or str(wb["Valuation"].cell(row=246, column=2).border.top.style or "") == "thick"
+                )
                 assert _find_row_with_value(wb["Valuation"], "Operating Drivers", column=15) == 33
-                assert str(wb["Valuation"].cell(row=248, column=12).value or "").strip() == "2.25% notes due 2027"
-                assert str(wb["Valuation"].cell(row=249, column=12).value or "").strip() == "5.25% notes due 2030"
-                assert any(m.min_row == 247 and m.min_col == 24 and m.max_col == 27 for m in wb["Valuation"].merged_cells.ranges)
+                convertible_row = _find_row_with_value(wb["Valuation"], "Convertible notes", column=12)
+                assert convertible_row is not None
+                assert str(wb["Valuation"].cell(row=convertible_row + 2, column=12).value or "").strip() == "2.25% notes due 2027"
+                assert str(wb["Valuation"].cell(row=convertible_row + 3, column=12).value or "").strip() == "5.25% notes due 2030"
+                assert any(
+                    m.min_row == convertible_row + 1 and m.min_col == 24 and m.max_col == 27
+                    for m in wb["Valuation"].merged_cells.ranges
+                )
+                assert str(wb["Valuation"].cell(row=216, column=2).value or "").strip() != "Valuation Sensitivity Grid"
+                assert str(wb["Valuation"].cell(row=217, column=2).value or "").strip() == "Valuation Sensitivity Grid"
                 assert str(wb["Valuation"].cell(row=10, column=17).value or "").strip() == "Q1 2026"
                 assert str(wb["Valuation"].cell(row=10, column=19).value or "").strip() == "Base improved by ILUC removal, facility qualification, and Advantage Nebraska"
-                assert str(wb["Valuation"].cell(row=18, column=15).value or "").strip() == "No guidance items for this quarter."
+                assert str(wb["Valuation"].cell(row=13, column=15).value or "").strip() == "Commercial positioning"
+                assert str(wb["Valuation"].cell(row=13, column=19).value or "").strip() == "Q1 consolidated crush margins were better year over year."
+                assert panel_blob.count("Q1 consolidated crush margins were better year over year.") == 1
+                q3_guidance = _guidance_block_rows(wb["Valuation"], "2025-09-30")
+                assert ("Coverage / openness", "Q2 2025", "Q3 2025", "Q3 was about 65% crushed, moving closer to 70%.", "") in q3_guidance
+                overlay_row = _find_row_with_value(wb["Economics_Overlay"], "Commercial / hedge setup", column=1)
+                assert overlay_row is not None
+                assert _find_row_with_value(wb["Economics_Overlay"], "Hedge / position overlay", column=1) is None
+                assert str(wb["Economics_Overlay"]["A1"].value or "").strip() == "Economics Overlay"
+                assert str(wb["Economics_Overlay"].cell(row=overlay_row + 1, column=1).value or "").strip() == "Horizon"
+                assert str(wb["Economics_Overlay"].cell(row=overlay_row + 1, column=2).value or "").strip() == "Stated in"
+                assert str(wb["Economics_Overlay"].cell(row=overlay_row + 1, column=3).value or "").strip() == "Setup"
+                assert str(wb["Economics_Overlay"].cell(row=overlay_row + 1, column=5).value or "").strip() == "Coverage / openness"
+                assert str(wb["Economics_Overlay"].cell(row=overlay_row + 1, column=8).value or "").strip() == "Locked margin / legs"
+                assert str(wb["Economics_Overlay"].cell(row=overlay_row + 1, column=12).value or "").strip() == "Effect on results"
+                assert str(wb["Economics_Overlay"].cell(row=overlay_row + 1, column=15).value or "").strip() == "Takeaway"
+                assert any(m.min_row == overlay_row + 1 and m.min_col == 3 and m.max_col == 4 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == overlay_row + 1 and m.min_col == 5 and m.max_col == 7 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == overlay_row + 1 and m.min_col == 8 and m.max_col == 11 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == overlay_row + 1 and m.min_col == 12 and m.max_col == 14 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == overlay_row + 1 and m.min_col == 15 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert str(wb["Economics_Overlay"].cell(row=3, column=1).value or "").strip() == ""
+                assert str(wb["Economics_Overlay"]["A1"].fill.fgColor.rgb or "") == "006FA8DC"
+                assert str(wb["Economics_Overlay"]["A3"].fill.fgColor.rgb or "") == "00EDF4FA"
+                assert str(wb["Economics_Overlay"][f"A{overlay_row}"].fill.fgColor.rgb or "") == "006FA8DC"
+                assert str(wb["Economics_Overlay"].cell(row=overlay_row + 1, column=1).fill.fgColor.rgb or "") == "00EAF3FB"
+                bridge_row = _find_row_with_value(wb["Economics_Overlay"], "Bridge to reported", column=1)
+                base_row = _find_row_with_value(wb["Economics_Overlay"], "Base operating coefficients", column=1)
+                market_row = _find_row_with_value(wb["Economics_Overlay"], "Market inputs", column=1)
+                process_row = _find_row_with_value(wb["Economics_Overlay"], "Unhedged process economics", column=1)
+                assert bridge_row is not None and base_row is not None and market_row is not None and process_row is not None
+                assert overlay_row < bridge_row < base_row < market_row < process_row
+                assert float(wb["Economics_Overlay"].column_dimensions["A"].width or 0.0) == pytest.approx((315.0 - 5.0) / 7.0, abs=0.05)
+                for letter in tuple("BCDEFGHIJKLMNOPQ"):
+                    assert float(wb["Economics_Overlay"].column_dimensions[letter].width or 0.0) == pytest.approx((102.0 - 5.0) / 7.0, abs=0.05)
+                for rr in (overlay_row, bridge_row, base_row, market_row, process_row):
+                    assert str(wb["Economics_Overlay"].cell(row=rr, column=1).fill.fgColor.rgb or "") == "006FA8DC"
+                    assert float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                    assert bool(wb["Economics_Overlay"].cell(row=rr, column=1).font.bold)
+                    assert float(wb["Economics_Overlay"].cell(row=rr, column=1).font.size or 0.0) == pytest.approx(13.0, abs=0.1)
+                    assert str(wb["Economics_Overlay"].cell(row=rr, column=1).alignment.horizontal or "") == "center"
+                assert float(wb["Economics_Overlay"].row_dimensions[3].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[4].height or 0.0) == pytest.approx(15.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[bridge_row + 1].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[bridge_row + 2].height or 0.0) == pytest.approx(15.0, abs=0.1)
+                assert str(wb["Economics_Overlay"].cell(row=bridge_row + 1, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
+                assert any(m.min_row == base_row + 3 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == base_row + 3 and m.min_col == 6 and m.max_col == 8 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 1 and m.min_col == 7 and m.max_col == 13 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                year_band_rows = {
+                    str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip(): rr
+                    for rr in range(overlay_row + 2, bridge_row)
+                    if str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip() in {"2023", "2024", "2025", "2026 / current"}
+                }
+                assert set(year_band_rows) == {"2023", "2024", "2025", "2026 / current"}
+                for label, rr in year_band_rows.items():
+                    assert any(m.min_row == rr and m.min_col == 1 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                    assert str(wb["Economics_Overlay"].cell(row=rr, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
+                    assert float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                overlay_blob = " | ".join(
+                    str(wb["Economics_Overlay"].cell(row=rr, column=cc).value or "").strip()
+                    for rr in range(overlay_row, bridge_row)
+                    for cc in range(1, 18)
+                    if str(wb["Economics_Overlay"].cell(row=rr, column=cc).value or "").strip()
+                )
+                assert "Q4 paper margin about $0.22-$0.25/gal" in overlay_blob
+                assert "Q3 all-in margins roughly $0.20-$0.30+ per gallon" in overlay_blob
+                assert "All-in margins, not just simple crush" in overlay_blob
+                assert "Q1 consolidated crush margins were better year over year" in overlay_blob
+                overlay_visible_blob = " | ".join(
+                    str(wb["Economics_Overlay"].cell(row=rr, column=cc).value or "").strip()
+                    for rr in range(1, min(70, wb["Economics_Overlay"].max_row + 1))
+                    for cc in range(1, 18)
+                    if str(wb["Economics_Overlay"].cell(row=rr, column=cc).value or "").strip()
+                )
+                assert "#VALUE!" not in overlay_visible_blob
+                assert "#VÄRDEFEL!" not in overlay_visible_blob
+                assert "Source / confidence" not in overlay_visible_blob
+                assert "Transcript | High" not in overlay_visible_blob
+                assert "Conference | High" not in overlay_visible_blob
+                assert "#VALUE!" not in overlay_visible_blob
+                assert "#VÃ„RDEFEL!" not in overlay_visible_blob
+                assert "#VÄRDEFEL!" not in overlay_visible_blob
+                first_setup_comment = None
+                for rr in range(overlay_row + 2, bridge_row):
+                    setup_comment = wb["Economics_Overlay"].cell(row=rr, column=3).comment
+                    if setup_comment is not None:
+                        first_setup_comment = setup_comment
+                        break
+                assert first_setup_comment is not None
+                assert "Source:" in str(first_setup_comment.text or "")
+                assert "Confidence:" in str(first_setup_comment.text or "")
+                first_data_row = next(
+                    rr
+                    for rr in range(overlay_row + 2, bridge_row)
+                    if str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip() not in {"", "2023", "2024", "2025", "2026 / current"}
+                )
+                assert str(wb["Economics_Overlay"].cell(row=first_data_row, column=1).value or "").strip() == "Q1 2026"
+                assert bool(wb["Economics_Overlay"].cell(row=first_data_row, column=1).font.bold)
+                assert bool(wb["Economics_Overlay"].cell(row=first_data_row, column=3).font.bold)
+                assert str(wb["Economics_Overlay"].cell(row=first_data_row, column=1).fill.fgColor.rgb or "") in {"00FFFFFF", "00F7F9FC"}
+                assert str(wb["Economics_Overlay"].cell(row=first_data_row, column=1).border.bottom.style or "") == "thin"
+                for rr in range(overlay_row + 2, bridge_row):
+                    row_label = str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip()
+                    if row_label and row_label not in {"2023", "2024", "2025", "2026 / current"}:
+                        assert 24.0 <= float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) <= 56.0
+                bridge_labels = [
+                    str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip()
+                    for rr in range(bridge_row + 4, base_row)
+                    if str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip()
+                ]
+                assert bridge_labels == [
+                    "Reported consolidated crush margin",
+                    "45Z impact",
+                    "RIN impact",
+                    "Inventory NRV / lower-of-cost",
+                    "Intercompany / nonethanol operating activities",
+                    "Impairment / held-for-sale",
+                    "Other explicit bridge items",
+                    "Underlying crush margin",
+                ]
+                assert float(wb["Economics_Overlay"].row_dimensions[bridge_row + 3].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                bridge_data_rows = [
+                    rr
+                    for rr in range(bridge_row + 4, base_row)
+                    if str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip()
+                ]
+                assert all(float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) == pytest.approx(24.0, abs=0.1) for rr in bridge_data_rows)
+                first_bridge_value_row = bridge_data_rows[0]
+                assert float(wb["Economics_Overlay"].cell(row=first_bridge_value_row, column=1).font.size or 0.0) == pytest.approx(12.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].cell(row=first_bridge_value_row, column=2).font.size or 0.0) == pytest.approx(12.0, abs=0.1)
+                assert str(wb["Economics_Overlay"].cell(row=base_row + 1, column=1).value or "").strip().startswith("Use platform/process coefficients")
+                assert str(wb["Economics_Overlay"].cell(row=base_row + 1, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
+                assert float(wb["Economics_Overlay"].row_dimensions[base_row + 1].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[base_row + 2].height or 0.0) == pytest.approx(15.0, abs=0.1)
+                assert any(m.min_row == base_row + 3 and m.min_col == 6 and m.max_col == 8 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == base_row + 4 and m.min_col == 6 and m.max_col == 8 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert float(wb["Economics_Overlay"].row_dimensions[base_row + 4].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert any(m.min_row == market_row + 1 and m.min_col == 2 and m.max_col == 3 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 1 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 1 and m.min_col == 7 and m.max_col == 13 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 2 and m.min_col == 2 and m.max_col == 3 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 2 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 2 and m.min_col == 7 and m.max_col == 13 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert float(wb["Economics_Overlay"].row_dimensions[market_row + 2].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert str(wb["Economics_Overlay"].cell(row=process_row + 1, column=1).value or "").strip().startswith("Approximate pre-hedge")
+                assert str(wb["Economics_Overlay"].cell(row=process_row + 1, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
+                assert float(wb["Economics_Overlay"].row_dimensions[process_row + 1].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[process_row + 2].height or 0.0) == pytest.approx(15.0, abs=0.1)
+                assert any(m.min_row == process_row + 3 and m.min_col == 2 and m.max_col == 3 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == process_row + 3 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == process_row + 3 and m.min_col == 7 and m.max_col == 9 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == process_row + 4 and m.min_col == 2 and m.max_col == 3 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == process_row + 4 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == process_row + 4 and m.min_col == 7 and m.max_col == 9 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                process_margin_row = next(
+                    rr for rr in range(process_row + 3, wb["Economics_Overlay"].max_row + 1)
+                    if str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip() == "Approximate process margin"
+                )
+                assert str(wb["Economics_Overlay"].cell(row=process_margin_row, column=7).value or "").strip() == "Approximate pre-hedge"
+                assert float(wb["Economics_Overlay"].row_dimensions[process_margin_row].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert str(wb["Operating_Drivers"]["A2"].fill.fgColor.rgb or "") == "006FA8DC"
+                assert str(wb["Operating_Drivers"]["A5"].fill.fgColor.rgb or "") == "00EAF3FB"
+                assert str(wb["Operating_Drivers"]["B5"].fill.fgColor.rgb or "") == "00EAF3FB"
+                assert str(wb["Operating_Drivers"]["A6"].fill.fgColor.rgb or "") == "00EDF4FA"
+                assert float(wb["Operating_Drivers"]["A7"].font.size or 0.0) == pytest.approx(12.0, abs=0.1)
+                assert float(wb["Operating_Drivers"]["B7"].font.size or 0.0) == pytest.approx(12.0, abs=0.1)
                 rows_2025_q3 = _block_rows(wb["Promise_Progress_UI"], "2025-09-30")
                 monet_row = next(row for row in rows_2025_q3 if row[0] == "45Z monetization outlook")
                 assert monet_row[3] == "Hit"
@@ -9028,19 +9458,542 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert monet_row[8] == "2025-12-31"
                 assert "Debt exchange" in quarter_note_metrics
                 assert "Interest expense outlook" in quarter_note_metrics
+                cost_note_row = next(
+                    rr for rr in range(1, wb["Quarter_Notes_UI"].max_row + 1)
+                    if "Cost reductions are on pace to exceed the $50.0m annualized savings target." in str(wb["Quarter_Notes_UI"].cell(row=rr, column=3).value or "")
+                )
+                carbon_note_row = next(
+                    rr for rr in range(1, wb["Quarter_Notes_UI"].max_row + 1)
+                    if "York carbon capture was fully operational; Central City and Wood River were online and ramping." in str(wb["Quarter_Notes_UI"].cell(row=rr, column=3).value or "")
+                )
+                assert str(wb["Quarter_Notes_UI"].cell(row=cost_note_row, column=4).value or "").strip() == "Cost savings target"
+                assert str(wb["Quarter_Notes_UI"].cell(row=carbon_note_row, column=4).value or "").strip() == "Carbon capture operational milestone"
                 assert "least 45Z monetization / EBITDA" not in quarter_note_metrics
                 assert "year ended December Expense drivers" not in quarter_note_metrics
                 assert all("[REPEAT]" not in str(wb["Quarter_Notes_UI"].cell(row=rr, column=3).value or "") for rr in range(1, wb["Quarter_Notes_UI"].max_row + 1))
                 pp_hdr_row = _find_row_with_value(wb["Promise_Progress_UI"], "Promise progress (As of 2025-09-30)")
                 assert pp_hdr_row is not None
-                assert str(wb["Promise_Progress_UI"].cell(row=pp_hdr_row, column=1).border.top.style or "") == "medium"
-                assert str(wb["Promise_Progress_UI"].cell(row=pp_hdr_row - 2, column=1).border.bottom.style or "") == ""
+                assert str(wb["Promise_Progress_UI"].cell(row=pp_hdr_row, column=1).border.top.style or "") != "medium"
                 assert abs(float(wb["Promise_Progress_UI"].column_dimensions["B"].width or 0.0) - 38.142857) < 0.1
                 assert abs(float(wb["Promise_Progress_UI"].column_dimensions["C"].width or 0.0) - 38.142857) < 0.1
-                assert str(wb["Promise_Progress_UI"].cell(row=4, column=2).alignment.horizontal or "") == "right"
-                assert str(wb["Promise_Progress_UI"].cell(row=4, column=3).alignment.horizontal or "") == "right"
-                assert str(wb["Promise_Progress_UI"].cell(row=4, column=5).alignment.vertical or "") == "center"
-                assert str(wb["Promise_Progress_UI"].cell(row=1, column=4).fill.fill_type or "") == ""
+                first_data_row = pp_hdr_row + 2
+                assert str(wb["Promise_Progress_UI"].cell(row=first_data_row, column=2).alignment.horizontal or "") == "right"
+                assert str(wb["Promise_Progress_UI"].cell(row=first_data_row, column=3).alignment.horizontal or "") == "right"
+                assert str(wb["Promise_Progress_UI"].cell(row=first_data_row, column=5).alignment.vertical or "") == "center"
+                assert str(wb["Promise_Progress_UI"].cell(row=1, column=1).value or "").strip() == "Promise Progress"
+                assert str(wb["Promise_Progress_UI"].cell(row=2, column=1).value or "").strip().startswith("Generated at ")
+        finally:
+            wb.close()
+
+
+def test_current_delivered_workbooks_analysis_sheets_share_blue_theme() -> None:
+    theme_title = "006FA8DC"
+    theme_section = "00EDF4FA"
+    theme_soft_section = "00D9E7F3"
+    theme_header = "00EAF3FB"
+    theme_neutral = "00F7F9FC"
+    theme_alt = "00FFFFFF"
+
+    def _fill_rgb(cell) -> str:
+        return str(cell.fill.fgColor.rgb or "")
+
+    def _font_rgb(cell) -> str:
+        return str(getattr(cell.font.color, "rgb", "") or "")
+
+    def _first_iso_date_row(ws) -> int:
+        for rr in range(1, ws.max_row + 1):
+            val = str(ws.cell(row=rr, column=1).value or "").strip()
+            if re.fullmatch(r"20\d{2}-\d{2}-\d{2}", val):
+                return rr
+        raise AssertionError("No quarter block row found")
+
+    def _first_promise_block_row(ws) -> int:
+        for rr in range(1, ws.max_row + 1):
+            val = str(ws.cell(row=rr, column=1).value or "").strip()
+            if val.startswith("Promise progress (As of "):
+                return rr
+        raise AssertionError("No promise progress block row found")
+
+    def _find_row_starting_with(ws, prefix: str, column: int | None = None) -> int:
+        for rr in range(1, ws.max_row + 1):
+            if column is not None:
+                val = str(ws.cell(row=rr, column=column).value or "").strip()
+                if val.startswith(prefix):
+                    return rr
+                continue
+            for cc in range(1, ws.max_column + 1):
+                val = str(ws.cell(row=rr, column=cc).value or "").strip()
+                if val.startswith(prefix):
+                    return rr
+        raise AssertionError(f"No row starting with {prefix!r} found")
+
+    for ticker in ["PBI", "GPRE"]:
+        workbook_path = _current_delivered_model_path(ticker)
+        if not workbook_path.exists():
+            pytest.skip(f"Current delivered workbook missing for style snapshot test: {workbook_path}")
+        wb = load_workbook(workbook_path, data_only=False, read_only=False)
+        try:
+            ws_summary = wb["SUMMARY"]
+            assert _fill_rgb(ws_summary["A1"]) in {"005B9BD5", theme_title}
+            assert float(ws_summary["A1"].font.size or 0.0) == pytest.approx(15.0, abs=0.1)
+            assert str(ws_summary["A1"].border.top.style or "") == "thick"
+            assert str(getattr(ws_summary["A1"].border.top.color, "rgb", "") or "").endswith("5E6F82")
+
+            ws_val = wb["Valuation"]
+            assert str(ws_val["A3"].value or "").strip() == "Valuation"
+            assert _fill_rgb(ws_val["A3"]) == theme_title
+            assert _font_rgb(ws_val["A3"]) == "00FFFFFF"
+            assert any(m.min_row == 3 and m.min_col == 1 and m.max_col == 13 for m in ws_val.merged_cells.ranges)
+            assert float(ws_val.row_dimensions[3].height or 0.0) == pytest.approx(20.0, abs=0.1)
+            assert float(ws_val.row_dimensions[1].height or 0.0) == pytest.approx(18.0, abs=0.1)
+            assert all(float(ws_val.row_dimensions[rr].height or 0.0) == pytest.approx(18.0, abs=0.1) for rr in range(7, 118))
+            assert _fill_rgb(ws_val["A6"]) == theme_header
+            assert _fill_rgb(ws_val["A7"]) == theme_soft_section
+            assert _fill_rgb(ws_val["A137"]) == theme_title
+            assert _fill_rgb(ws_val["A138"]) == theme_header
+            assert _fill_rgb(ws_val["A147"]) == theme_title
+            assert _fill_rgb(ws_val["O1"]) == theme_title
+            assert _fill_rgb(ws_val["O8"]) == theme_header
+            guidance_2025q4_row = _find_row_starting_with(ws_val, "Guidance (As of 2025-12-31)", column=15)
+            assert _fill_rgb(ws_val.cell(row=guidance_2025q4_row, column=15)) == theme_title
+            assert _font_rgb(ws_val.cell(row=guidance_2025q4_row, column=15)) == "00FFFFFF"
+            guidance_2025q3_row = _find_row_starting_with(ws_val, "Guidance (As of 2025-09-30)", column=15)
+            assert _fill_rgb(ws_val.cell(row=guidance_2025q3_row, column=15)) == theme_title
+            assert _fill_rgb(ws_val["S8"]) == theme_header
+            assert _fill_rgb(ws_val["Z8"]) == theme_header
+            assert _fill_rgb(ws_val["AD1"]) == theme_section
+            assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Operating Drivers", column=15), column=15)) == theme_title
+            assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Thesis Bridge", column=15), column=15)) == theme_title
+            assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Debt Detail (latest)", column=1), column=1)) == theme_title
+            assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Capital return", column=1), column=1)) == theme_title
+            assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Convertible notes", column=12), column=12)) == theme_title
+            assert _fill_rgb(ws_val["B192"]) == theme_title
+            assert _fill_rgb(ws_val["N137"]) == theme_title
+            trend_row = _find_row_starting_with(ws_val, "Trend/")
+            assert _fill_rgb(ws_val.cell(row=trend_row, column=1)) == theme_title
+            flags_row = _find_row_starting_with(ws_val, "Red/Green")
+            assert _fill_rgb(ws_val.cell(row=flags_row, column=1)) == theme_title
+            assert any(m.min_row == flags_row and m.min_col == 1 and m.max_col == 9 for m in ws_val.merged_cells.ranges)
+            assert _find_row_with_value(ws_val, "DCF (optional module)", column=None) == 217
+            assert _find_row_with_value(ws_val, "DCF Sensitivity ($/share)", column=None) == 225
+            assert _find_row_with_value(ws_val, "Market-implied terminal g (solve gT so DCF EV = Market EV)", column=None) == 217
+            assert _find_row_with_value(ws_val, "Scenario drivers (internal)", column=2) == 246
+            assert str(ws_val.cell(row=245, column=2).value or "").strip() == ""
+            assert not bool(ws_val.row_dimensions[245].hidden)
+            assert float(ws_val.row_dimensions[245].height or 0.0) == pytest.approx(18.0, rel=1e-9)
+            for label in ("Signal 1", "Signal 2", "Signal 3", "Signal 4", "Buybacks (shares)", "Buybacks note", "Dividends ($/share)", "Dividends note"):
+                label_row = _find_row_with_value(ws_val, label, column=1)
+                assert label_row is not None
+                assert str(ws_val.cell(row=label_row, column=1).alignment.horizontal or "") == "left"
+                assert str(ws_val.cell(row=label_row, column=1).alignment.vertical or "") == "center"
+            for label in ("Signal 1", "Signal 2", "Signal 3", "Signal 4"):
+                label_row = _find_row_with_value(ws_val, label, column=1)
+                assert label_row is not None
+                assert str(ws_val.cell(row=label_row, column=2).alignment.horizontal or "") == "left"
+            for label in ("Buybacks (shares)", "Buybacks note", "Dividends ($/share)", "Dividends note"):
+                label_row = _find_row_with_value(ws_val, label, column=1)
+                assert label_row is not None
+                assert str(ws_val.cell(row=label_row, column=2).alignment.horizontal or "") == "left"
+            assert str(ws_val.cell(row=_find_row_with_value(ws_val, "Operating signals", column=1), column=1).alignment.horizontal or "") == "left"
+            assert str(ws_val.cell(row=_find_row_with_value(ws_val, "Capital return", column=1), column=1).alignment.horizontal or "") == "left"
+            adj_fcf_row = _find_row_with_value(ws_val, "Adj FCF (TTM)")
+            assert adj_fcf_row is not None
+            assert str((ws_val.cell(row=adj_fcf_row, column=1).comment.text if ws_val.cell(row=adj_fcf_row, column=1).comment else "") or "") == "company-defined"
+            assert _find_row_with_value(ws_val, "Debt repaid (TTM)") is None
+            assert _find_row_with_value(ws_val, "Debt issued (TTM)") is None
+            assert _find_row_with_value(ws_val, "Total assets ($m)") is None
+            assert _find_row_with_value(ws_val, "Total liabilities ($m)") is None
+            assert _find_row_with_value(ws_val, "Goodwill % of assets") is None
+
+            ws_bs = wb["BS_Segments"]
+            assert _fill_rgb(ws_bs["A8"]) == theme_title
+            assert _font_rgb(ws_bs["A8"]) == "00FFFFFF"
+            assert _fill_rgb(ws_bs["B10"]) == theme_header
+            assert _fill_rgb(ws_bs["A11"]) == theme_header
+            quarterly_segments_row = _find_row_with_value(ws_bs, "Quarterly segments")
+            if quarterly_segments_row is not None:
+                assert _fill_rgb(ws_bs.cell(row=quarterly_segments_row, column=1)) == theme_title
+                assert float(ws_bs.row_dimensions[quarterly_segments_row].height or 0.0) == pytest.approx(24.0, abs=0.1)
+            annual_segments_row = _find_row_with_value(ws_bs, "Annual segments")
+            assert annual_segments_row is not None
+            assert _fill_rgb(ws_bs.cell(row=annual_segments_row, column=1)) == theme_title
+            assert float(ws_bs.row_dimensions[annual_segments_row].height or 0.0) == pytest.approx(24.0, abs=0.1)
+            assert float(ws_bs.row_dimensions[10].height or 0.0) == pytest.approx(19.5, abs=0.1)
+            assert float(ws_bs.row_dimensions[11].height or 0.0) == pytest.approx(19.5, abs=0.1)
+            assert float(ws_bs.row_dimensions[_find_row_with_value(ws_bs, "Liquidity / Assets")].height or 0.0) == pytest.approx(18.0, abs=0.1)
+            inventory_row = _find_row_with_value(ws_bs, "Inventory")
+            if inventory_row is not None:
+                assert float(ws_bs.row_dimensions[inventory_row].height or 0.0) == pytest.approx(18.0, abs=0.1)
+            total_assets_row = _find_row_with_value(ws_bs, "Total assets")
+            assert total_assets_row is not None
+            assert str(ws_bs.cell(row=total_assets_row + 1, column=1).value or "").strip() == "Goodwill % of assets"
+            annual_year_row = next(
+                rr
+                for rr in range(annual_segments_row + 1, min(ws_bs.max_row, annual_segments_row + 6) + 1)
+                if str(ws_bs.cell(row=rr, column=1).value or "").strip() == "Year"
+            )
+            assert str(ws_bs.cell(row=annual_year_row, column=1).alignment.horizontal or "") == "right"
+            assert float(ws_bs.row_dimensions[annual_year_row].height or 0.0) == pytest.approx(19.5, abs=0.1)
+
+            ws_qn = wb["Quarter_Notes_UI"]
+            assert str(ws_qn["A1"].value or "").strip() == "Quarter Notes"
+            assert _fill_rgb(ws_qn["A1"]) == theme_title
+            assert _font_rgb(ws_qn["A1"]) == "00FFFFFF"
+            assert float(ws_qn.row_dimensions[1].height or 0.0) == pytest.approx(27.0, abs=0.1)
+            assert str(ws_qn["A2"].value or "").strip().startswith("Generated at ")
+            assert _fill_rgb(ws_qn["A2"]) == theme_section
+            assert float(ws_qn.row_dimensions[2].height or 0.0) == pytest.approx(19.5, abs=0.1)
+            qn_block_row = _first_iso_date_row(ws_qn)
+            assert _fill_rgb(ws_qn.cell(row=qn_block_row, column=1)) == theme_title
+            assert _fill_rgb(ws_qn.cell(row=qn_block_row + 1, column=2)) == theme_header
+            assert _fill_rgb(ws_qn.cell(row=qn_block_row + 2, column=2)) in {theme_alt, theme_neutral}
+            assert float(ws_qn.row_dimensions[qn_block_row].height or 0.0) == pytest.approx(19.5, abs=0.1)
+            assert float(ws_qn.row_dimensions[qn_block_row + 1].height or 0.0) == pytest.approx(19.5, abs=0.1)
+            assert float(ws_qn.row_dimensions[qn_block_row + 2].height or 0.0) >= 19.5
+            assert [str(ws_qn.cell(row=qn_block_row + 1, column=cc).value or "").strip() for cc in range(1, 5)] == ["", "Category", "Note", "Metric"]
+            assert str(ws_qn.cell(row=qn_block_row + 1, column=5).value or "").strip() == ""
+            assert bool(ws_qn.column_dimensions["E"].hidden)
+            qn_blank_rows = [
+                rr
+                for rr in range(2, ws_qn.max_row + 1)
+                if not any(str(ws_qn.cell(row=rr, column=cc).value or "").strip() for cc in range(1, 5))
+            ]
+            assert not qn_blank_rows
+
+            if ticker == "GPRE":
+                q4_col = next(
+                    cc for cc in range(2, ws_val.max_column + 1)
+                    if str(ws_val.cell(row=6, column=cc).value or "").strip() == "2025-Q4"
+                )
+                q3_col = next(
+                    cc for cc in range(2, ws_val.max_column + 1)
+                    if str(ws_val.cell(row=6, column=cc).value or "").strip() == "2025-Q3"
+                )
+                adj_ebit_row = _find_row_with_value(ws_val, "Adj EBIT (TTM)")
+                adj_eps_row = _find_row_with_value(ws_val, "Adj EPS (TTM)")
+                debt_repaid_row = _find_row_with_value(ws_val, "Debt repaid (gross, TTM)")
+                debt_issued_row = _find_row_with_value(ws_val, "Debt issued (gross, TTM)")
+                assert adj_fcf_row is not None
+                assert adj_ebit_row is not None
+                assert adj_eps_row is not None
+                assert debt_repaid_row is not None
+                assert debt_issued_row is not None
+                assert ws_val.cell(row=adj_ebit_row, column=q4_col).value in (None, "")
+                assert ws_val.cell(row=adj_eps_row, column=q4_col).value in (None, "")
+                assert float(ws_val.cell(row=debt_repaid_row, column=q3_col).value or 0.0) == pytest.approx(130.7, abs=0.01)
+                assert float(ws_val.cell(row=debt_repaid_row, column=q4_col).value or 0.0) == pytest.approx(130.7, abs=0.01)
+                assert float(ws_val.cell(row=debt_issued_row, column=q4_col).value or 0.0) == pytest.approx(30.0, abs=0.01)
+
+            ws_pp = wb["Promise_Progress_UI"]
+            assert str(ws_pp["A1"].value or "").strip() == "Promise Progress"
+            assert _fill_rgb(ws_pp["A1"]) == theme_title
+            assert _font_rgb(ws_pp["A1"]) == "00FFFFFF"
+            assert float(ws_pp.row_dimensions[1].height or 0.0) == pytest.approx(27.0, abs=0.1)
+            assert str(ws_pp["A2"].value or "").strip().startswith("Generated at ")
+            assert _fill_rgb(ws_pp["A2"]) == theme_section
+            pp_block_row = _first_promise_block_row(ws_pp)
+            assert _fill_rgb(ws_pp.cell(row=pp_block_row, column=1)) == theme_title
+            assert _fill_rgb(ws_pp.cell(row=pp_block_row + 1, column=1)) == theme_header
+            assert _fill_rgb(ws_pp.cell(row=pp_block_row + 2, column=1)) in {theme_alt, theme_neutral}
+            assert _fill_rgb(ws_pp.cell(row=pp_block_row + 2, column=5)) in {theme_alt, theme_neutral}
+            assert float(ws_pp.row_dimensions[pp_block_row].height or 0.0) == pytest.approx(19.5, abs=0.1)
+            assert float(ws_pp.row_dimensions[pp_block_row + 1].height or 0.0) == pytest.approx(19.5, abs=0.1)
+            assert str(ws_pp.cell(row=pp_block_row, column=1).border.top.style or "") != "medium"
+            pp_blank_rows = [
+                rr
+                for rr in range(2, ws_pp.max_row + 1)
+                if not any(str(ws_pp.cell(row=rr, column=cc).value or "").strip() for cc in range(1, 16))
+            ]
+            assert not pp_blank_rows
+            first_status_fill = next(
+                _fill_rgb(ws_pp.cell(row=rr, column=4))
+                for rr in range(pp_block_row + 2, ws_pp.max_row + 1)
+                if str(ws_pp.cell(row=rr, column=4).value or "").strip() not in {"", "Result"}
+            )
+            assert first_status_fill not in {theme_title, theme_section, theme_header}
+            status_fill_expectations = {
+                "Updated": "00D9EAF7",
+                "Open": "00E7EDF3",
+                "On track": "00D9EAD3",
+                "Missed": "00F4CCCC",
+                "Hit": "00C6EFCE",
+                "Beat": "00A9D18E",
+                "Completed": "0070AD47",
+            }
+            for status_label, expected_fill in status_fill_expectations.items():
+                status_rows = [
+                    rr
+                    for rr in range(1, ws_pp.max_row + 1)
+                    if str(ws_pp.cell(row=rr, column=4).value or "").strip() == status_label
+                ]
+                if status_rows:
+                    assert {_fill_rgb(ws_pp.cell(row=rr, column=4)) for rr in status_rows} == {expected_fill}
+
+            if "Economics_Overlay" in wb.sheetnames:
+                ws_overlay = wb["Economics_Overlay"]
+                assert _fill_rgb(ws_overlay["A1"]) == theme_title
+                assert _fill_rgb(ws_overlay["A3"]) == theme_section
+                overlay_hdr_row = _find_row_with_value(ws_overlay, "Commercial / hedge setup", column=1)
+                assert overlay_hdr_row is not None
+                assert _fill_rgb(ws_overlay.cell(row=overlay_hdr_row, column=1)) == theme_title
+                assert _fill_rgb(ws_overlay.cell(row=overlay_hdr_row + 1, column=1)) == theme_header
+                commercial_data_rows = [
+                    rr
+                    for rr in range(overlay_hdr_row + 2, ws_overlay.max_row + 1)
+                    if str(ws_overlay.cell(row=rr, column=1).value or "").strip()
+                    and str(ws_overlay.cell(row=rr, column=1).value or "").strip()
+                    not in {"2023", "2024", "2025", "2026 / current", "Bridge to reported"}
+                ]
+                if len(commercial_data_rows) >= 2:
+                    assert {
+                        _fill_rgb(ws_overlay.cell(row=rr, column=1))
+                        for rr in commercial_data_rows[:2]
+                    } == {theme_alt}
+                assert any(m.min_row == _find_row_with_value(ws_overlay, "Base operating coefficients", column=1) + 3 and m.min_col == 4 and m.max_col == 5 for m in ws_overlay.merged_cells.ranges)
+                assert any(m.min_row == _find_row_with_value(ws_overlay, "Base operating coefficients", column=1) + 3 and m.min_col == 6 and m.max_col == 8 for m in ws_overlay.merged_cells.ranges)
+                assert any(m.min_row == _find_row_with_value(ws_overlay, "Market inputs", column=1) + 1 and m.min_col == 7 and m.max_col == 13 for m in ws_overlay.merged_cells.ranges)
+
+            if "Operating_Drivers" in wb.sheetnames:
+                ws_drivers = wb["Operating_Drivers"]
+                assert _fill_rgb(ws_drivers["A2"]) == theme_title
+                assert _fill_rgb(ws_drivers["B4"]) == theme_header
+                assert _fill_rgb(ws_drivers["A5"]) == theme_header
+                assert _fill_rgb(ws_drivers["A6"]) == theme_section
+
+            for untouched_name in ["Hidden_Value_Flags", "QA_Checks", "Needs_Review", "Promise_Evidence", "Promise_Progress"]:
+                if untouched_name in wb.sheetnames:
+                    untouched_fill = _fill_rgb(wb[untouched_name]["A1"])
+                    assert untouched_fill not in {theme_title, theme_section, theme_header}
+        finally:
+            wb.close()
+
+
+def test_workbook_acceptance_docs_define_analysis_sheet_style_system() -> None:
+    doc_path = Path(r"c:\Users\Jibbe\Aktier\Code\docs\WORKBOOK_ACCEPTANCE.md")
+    text = doc_path.read_text(encoding="utf-8")
+    for required in [
+        "Analysis-Sheet Style System",
+        "Primary Section Blue",
+        "Secondary Header Blue",
+        "Panel Mist Blue",
+        "Neutral Surface",
+        "Grid Blue-Gray",
+        "Body Text Charcoal",
+    ]:
+        assert required in text
+
+
+def test_current_delivered_workbooks_valuation_row_order_and_semantic_fixes() -> None:
+    def _assert_increasing(ws, labels: list[str]) -> None:
+        rows = []
+        for label in labels:
+            row_idx = _find_row_with_value(ws, label, column=1)
+            assert row_idx is not None, f"Missing valuation row {label!r}"
+            rows.append(row_idx)
+        assert rows == sorted(rows), f"Rows out of order for {labels!r}: {rows!r}"
+
+    for ticker in ["PBI", "GPRE"]:
+        workbook_path = _current_delivered_model_path(ticker)
+        if not workbook_path.exists():
+            pytest.skip(f"Current delivered workbook missing for valuation-order test: {workbook_path}")
+        wb = load_workbook(workbook_path, data_only=False, read_only=False)
+        try:
+            ws = wb["Valuation"]
+            _assert_increasing(ws, ["Operating", "Cash Flow", "Leverage & Liquidity", "Equity / Per-share"])
+            for section_label in ["Operating", "Cash Flow", "Leverage & Liquidity", "Equity / Per-share"]:
+                section_row = _find_row_with_value(ws, section_label, column=1)
+                assert section_row is not None
+                assert str(ws.cell(row=section_row, column=1).fill.fgColor.rgb or "") == "00D9E7F3"
+            _assert_increasing(
+                ws,
+                [
+                    "Top line",
+                    "Revenue",
+                    "Revenue (TTM)",
+                    "Revenue YoY %",
+                    "Margins",
+                    "Gross margin %",
+                    "Operating margin %",
+                    "R&D % of revenue",
+                    "Core operating",
+                    "EBITDA",
+                    "EBITDA margin %",
+                    "EBITDA YoY %",
+                    "EBITDA (TTM)",
+                    "EBITDA margin (TTM)",
+                    "Adjusted operating",
+                    "Adj EBITDA",
+                    "Adj EBITDA - EBITDA",
+                    "Adj EBITDA margin %",
+                    "Adj EBITDA YoY %",
+                    "Adj EBITDA (TTM)",
+                    "Adj EBITDA margin (TTM)",
+                    "Adj EBIT (TTM)",
+                    "GAAP earnings",
+                    "EBIT",
+                    "EBIT margin %",
+                    "EBIT (TTM)",
+                    "EBIT margin (TTM)",
+                    "Net income",
+                    "Net income margin %",
+                    "Net income YoY %",
+                    "Net income (TTM)",
+                    "Net income margin (TTM)",
+                ],
+            )
+            _assert_increasing(
+                ws,
+                [
+                    "Core cash flow",
+                    "CFO",
+                    "Capex",
+                    "Capex % of revenue",
+                    "Capex % of revenue (TTM)",
+                    "FCF (CFO-Capex)",
+                    "FCF YoY Δ ($m)",
+                    "FCF (TTM)",
+                    "Adjusted / derived",
+                    "Adj FCF (TTM)",
+                    "Adj FCF - FCF",
+                    "Owner earnings (proxy)",
+                    "Cash-flow quality",
+                    "FCF margin %",
+                    "FCF margin (TTM)",
+                    "Interest paid",
+                    "Tax paid",
+                    "Capital return / financing",
+                    "Buybacks (TTM, cash)",
+                    "Dividends (TTM, cash)",
+                    "Acquisitions (TTM, cash)",
+                    "Debt repaid (gross, TTM)",
+                    "Debt issued (gross, TTM)",
+                ],
+            )
+            _assert_increasing(
+                ws,
+                [
+                    "Net debt position",
+                    "Cash",
+                    "Debt (core)",
+                    "Net debt (core)",
+                    "Net debt QoQ Δ ($m)",
+                    "Net debt YoY Δ ($m)",
+                    "Coverage / leverage",
+                    "EBITDA TTM",
+                    "Net leverage",
+                    "Cash interest coverage (TTM)",
+                    "FCF conversion (TTM)",
+                    "Revolver / liquidity",
+                    "Revolver facility size",
+                    "Revolver drawn",
+                    "Revolver letters of credit",
+                    "Revolver availability",
+                    "Liquidity (cash+availability)",
+                    "Short-term liquidity",
+                    "Current ratio",
+                    "Quick ratio",
+                ],
+            )
+            _assert_increasing(
+                ws,
+                [
+                    "Share count",
+                    "Diluted shares (m)",
+                    "Shares outstanding (m)",
+                    "Shares QoQ Δ (m) [out]",
+                    "Shares YoY Δ (m) [out]",
+                    "Per-share earnings",
+                    "EPS (GAAP)",
+                    "EPS YoY Δ ($)",
+                    "EPS (TTM)",
+                    "Adj EPS",
+                    "Adj EPS (TTM)",
+                    "Per-share value",
+                    "BV/share",
+                    "TBV/share",
+                    "FCF/share (TTM)",
+                    "Market-linked",
+                    "EV ($m)",
+                    "EV/EBITDA (TTM)",
+                    "EV/Adj EBITDA (TTM)",
+                    "FCF yield (TTM, equity)",
+                    "FCF yield (TTM, EV)",
+                ],
+            )
+            assert _find_row_with_value(ws, "Debt repaid (TTM)") is None
+            assert _find_row_with_value(ws, "Debt issued (TTM)") is None
+            assert _find_row_with_value(ws, "Total assets ($m)") is None
+            assert _find_row_with_value(ws, "Total liabilities ($m)") is None
+            assert _find_row_with_value(ws, "Goodwill % of assets") is None
+            current_ratio_row = _find_row_with_value(ws, "Current ratio")
+            quick_ratio_row = _find_row_with_value(ws, "Quick ratio")
+            assert current_ratio_row is not None
+            assert quick_ratio_row is not None
+            assert str((ws.cell(row=current_ratio_row, column=1).comment.text if ws.cell(row=current_ratio_row, column=1).comment else "") or "") == (
+                "Current assets / current liabilities. Short-term liquidity measure; around 1.0+ is often healthier."
+            )
+            assert str((ws.cell(row=quick_ratio_row, column=1).comment.text if ws.cell(row=quick_ratio_row, column=1).comment else "") or "") == (
+                "Near-cash current assets / current liabilities. Stricter liquidity measure; around 1.0+ is often stronger."
+            )
+
+            if ticker == "PBI":
+                q3_col = next(
+                    cc for cc in range(2, ws.max_column + 1)
+                    if str(ws.cell(row=6, column=cc).value or "").strip() == "2023-Q3"
+                )
+                capex_row = _find_row_with_value(ws, "Capex")
+                fcf_row = _find_row_with_value(ws, "FCF (CFO-Capex)")
+                assert capex_row is not None
+                assert fcf_row is not None
+                assert float(pd.to_numeric(ws.cell(row=capex_row, column=q3_col).value, errors="coerce")) == pytest.approx(4.42, abs=0.01)
+                assert float(pd.to_numeric(ws.cell(row=fcf_row, column=q3_col).value, errors="coerce")) == pytest.approx(21.428, abs=0.01)
+                convertible_row = _find_row_with_value(ws, "Convertible notes", column=12)
+                debt_detail_row = _find_row_containing(ws, "August 2032", column=1)
+                assert convertible_row is not None
+                assert debt_detail_row is not None
+                assert float(pd.to_numeric(ws.cell(row=convertible_row + 2, column=17).value, errors="coerce")) == pytest.approx(14.25, abs=0.01)
+                assert float(pd.to_numeric(ws.cell(row=convertible_row + 2, column=19).value, errors="coerce")) == pytest.approx(16.135259, abs=0.001)
+                assert float(pd.to_numeric(ws.cell(row=convertible_row + 2, column=21).value, errors="coerce")) == pytest.approx(5.535928, abs=0.001)
+                assert str((ws.cell(row=convertible_row + 2, column=19).comment.text if ws.cell(row=convertible_row + 2, column=19).comment else "") or "") == (
+                    "Capped call may reduce dilution."
+                )
+                assert str((ws.cell(row=debt_detail_row, column=9).comment.text if ws.cell(row=debt_detail_row, column=9).comment else "") or "") == (
+                    "Capped call may reduce dilution."
+                )
+
+            if ticker == "GPRE":
+                convertible_row = _find_row_with_value(ws, "Convertible notes", column=12)
+                debt_detail_2027_row = _find_row_containing(ws, "2027", column=1)
+                debt_detail_2030_row = _find_row_containing(ws, "2030", column=1)
+                assert convertible_row is not None
+                assert debt_detail_2027_row is not None
+                assert debt_detail_2030_row is not None
+                assert str((ws.cell(row=convertible_row + 2, column=19).comment.text if ws.cell(row=convertible_row + 2, column=19).comment else "") or "") == (
+                    "Related hedge / settlement structure may reduce dilution."
+                )
+                assert str((ws.cell(row=convertible_row + 3, column=19).comment.text if ws.cell(row=convertible_row + 3, column=19).comment else "") or "") == (
+                    "Related hedge / settlement structure may reduce dilution."
+                )
+                assert pd.isna(pd.to_numeric(ws.cell(row=convertible_row + 2, column=21).value, errors="coerce"))
+                assert float(pd.to_numeric(ws.cell(row=convertible_row + 3, column=19).value, errors="coerce")) == pytest.approx(12.72264, abs=0.001)
+                assert float(pd.to_numeric(ws.cell(row=convertible_row + 3, column=21).value, errors="coerce")) == pytest.approx(2.9, abs=0.001)
+                assert pd.isna(pd.to_numeric(ws.cell(row=debt_detail_2027_row, column=12).value, errors="coerce"))
+                assert float(pd.to_numeric(ws.cell(row=debt_detail_2030_row, column=9).value, errors="coerce")) == pytest.approx(12.72264, abs=0.001)
+                assert str((ws.cell(row=debt_detail_2027_row, column=9).comment.text if ws.cell(row=debt_detail_2027_row, column=9).comment else "") or "") == (
+                    "Related hedge / settlement structure may reduce dilution."
+                )
+                assert str((ws.cell(row=debt_detail_2030_row, column=9).comment.text if ws.cell(row=debt_detail_2030_row, column=9).comment else "") or "") == (
+                    "Related hedge / settlement structure may reduce dilution."
+                )
+                ws_qn = wb["Quarter_Notes_UI"]
+                realized_row = next(
+                    rr
+                    for rr in range(1, ws_qn.max_row + 1)
+                    if "45Z production tax credits contributed $23.4m net of discounts and other costs in Q4."
+                    in str(ws_qn.cell(row=rr, column=3).value or "")
+                )
+                assert str(ws_qn.cell(row=realized_row, column=2).value or "").strip() == "Results / drivers"
+                assert str(ws_qn.cell(row=realized_row, column=4).value or "").strip() == "45Z value realized"
         finally:
             wb.close()
 

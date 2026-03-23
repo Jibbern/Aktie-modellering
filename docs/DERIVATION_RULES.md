@@ -59,9 +59,42 @@ Example:
 - Preferred valuation-aligned wording when explicit: `Repurchased 2.9m shares for $30.0m with an average price of $10.34/share in Q4.`
 - Unsafe without explicit support: buyback share count when the source only discloses dollar spend
 
+## Convertible / Dilution Defaults
+- Treat convertible math as instrument-specific, not just document-specific.
+- Safe automatic defaults for new tickers:
+  - populate `conversion_price` and `shares_on_full_conversion` only from explicit instrument terms
+  - if explicit conversion price and explicit conversion-rate fact disagree by an exact factor of `1000`, normalize the rate only in the valuation/debt render path so the visible workbook shows the right share count
+  - prefer the instrument row’s own conversion terms over looser paragraph-level fallback
+- `Concurrent repurchased shares` rules:
+  - fill only when the repurchase support is tied to the same visible instrument row
+  - a paragraph that mentions multiple convertible instruments must not leak repurchase shares from one row into another
+  - document-level fallback is acceptable only when the context is effectively single-instrument and row-safe
+- Short dilution-structure comments are allowed when source-backed:
+  - `Capped call may reduce dilution.`
+  - `Capped call or related hedge structure may reduce dilution.`
+  - `Related hedge / settlement structure may reduce dilution.`
+- These short dilution notes belong on the visible full-conversion-share cells:
+  - `Convertible notes` `Shares on full conversion (m)`
+  - matching `Debt Detail (latest)` `Added shares on full conversion (m)`
+- Buybacks / share repurchases alone do not trigger the dilution-structure note.
+
 ## Partial Support Rule
 - When support is partial, use the safer weaker wording rather than more specific inferred wording.
 
 ## Short Decision Rule
 - Structured data can support metric notes.
 - Narrative text must support policy, capital-allocation, dividend, authorization, management-tone, and causal notes.
+
+## Guidance Trend Rule
+- `Valuation` guidance trend is compared against the previous visible guidance block, not a looser raw-guidance fallback.
+- Matching uses the visible metric plus visible `Applies to` period when present.
+- Text carry-forward rows stay textual in `Trend / realized`.
+  - Example: `from $170m-$190m`
+- Exact-value guidance uses a single compact delta:
+  - Example: `Δ +$10.0m (+3.1%)`
+- Floor-only guidance uses the floor delta only:
+  - Example: `Δ floor +$15.0m (+8.1%)`
+- Range guidance leads with midpoint delta, then appends low/high endpoint changes:
+  - Example: `Δ -$22.5m (-4.9%) | L -$40.0m | H -$5.0m`
+- If a range is truly unchanged, only the compact midpoint zero is shown.
+- Saved workbook visible truth is the authority for what counts as the prior comparison row.

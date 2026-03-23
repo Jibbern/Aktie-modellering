@@ -1122,11 +1122,250 @@ def build_company_overview(
         tables = read_html_tables_any(html_bytes)
         segment_patterns: List[Tuple[str, re.Pattern[str]]] = list(getattr(profile, "segment_patterns", tuple()) or tuple())
         alias_patterns = list(annual_segment_alias_patterns) or []
+        annual_segment_label_set = set(annual_segment_labels)
         report_year = row.get("report").year if isinstance(row.get("report"), date) else None
         best_streams: List[Dict[str, Any]] = []
         best_score = -1
         best_idx: Optional[int] = None
         quarterly_fallback = str(row.get("base_form") or "") == "10-Q"
+
+        def _row_tokens(raw_values: Sequence[Any], *, include_first: bool = True) -> List[str]:
+            vals = list(raw_values if include_first else raw_values[1:])
+            out_tokens: List[str] = []
+            for item in vals:
+                txt = _norm_text(item)
+                if not txt or txt == "$":
+                    continue
+                out_tokens.append(txt)
+            return out_tokens
+
+        def _detect_year_sequence(df_in: pd.DataFrame) -> List[int]:
+            best_years: List[int] = []
+            for ridx in range(min(len(df_in.index), 6)):
+                tokens = _row_tokens(df_in.iloc[ridx].tolist(), include_first=True)
+                years = [int(tok) for tok in tokens if re.fullmatch(r"(?:19|20)\d{2}", tok)]
+                if len(years) >= 2:
+                    if report_year is not None and int(report_year) in years:
+                        return years
+                    if len(years) > len(best_years):
+                        best_years = years
+            return best_years
+
+        def _row_amount_for_report_year(raw_values: Sequence[Any], year_sequence: Sequence[int]) -> Optional[float]:
+            nums: List[float] = []
+            for tok in _row_tokens(raw_values, include_first=False):
+                vv = coerce_number(tok)
+                if vv is None or pd.isna(vv):
+                    continue
+                nums.append(float(vv))
+            if not nums:
+                return None
+            if report_year is not None and year_sequence:
+                for idx, yr in enumerate(year_sequence):
+                    if int(yr) == int(report_year) and idx < len(nums):
+                        return float(nums[idx])
+            return float(nums[0])
+
+        def _revenue_metric_priority(label_low: str) -> int:
+            if re.search(r"\brevenues? from external customers\b", label_low):
+                return 8
+            if re.fullmatch(r"revenue|revenues", label_low):
+                return 7
+            if re.search(r"\btotal segment revenues?\b", label_low):
+                return 6
+            if re.search(r"\btotal revenue\b", label_low):
+                return 5
+            return 0
+
+        def _extract_revenue_streams_v2() -> Tuple[List[Dict[str, Any]], Optional[date], str]:
+            resolved_streams: List[Dict[str, Any]] = []
+            resolved_score = -1
+            resolved_idx: Optional[int] = None
+            for tidx, tdf in enumerate(tables):
+                if tdf is None or tdf.empty:
+                    continue
+                df = tdf.copy().dropna(axis=0, how="all").dropna(axis=1, how="all")
+                if df.shape[0] < 3 or df.shape[1] < 2:
+                    continue
+                table_text = re.sub(
+                    r"\s+",
+                    " ",
+                    " ".join(str(x) for x in list(df.columns) + list(df.fillna("").astype(str).values.flatten())),
+                ).lower()
+                if quarterly_fallback:
+                    if not ("segment revenue" in table_text or "segment results" in table_text or any(seg_re.search(table_text) for _seg, seg_re in segment_patterns)):
+                        continue
+                else:
+                    if not any(k in table_text for k in ("revenue", "net sales", "disaggregation")):
+                        continue
+                labels = df[df.columns[0]].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+                year_sequence = _detect_year_sequence(df)
+                cand_rows_by_segment: Dict[str, Dict[str, Any]] = {}
+                bad_labels = 0
+                matched_segments: set[str] = set()
+                current_segment = ""
+                for row_idx, lbl in enumerate(labels.tolist()):
+                    lbl_s = str(lbl).strip()
+                    lbl_l = lbl_s.lower()
+                    if not lbl_s or lbl_s == "$":
+                        continue
+                    canonical_name = ""
+                    for pat, label in alias_patterns:
+                        try:
+                            if pat.search(lbl_s):
+                                canonical_name = str(label)
+                                break
+                        except Exception:
+                            continue
+                    if not canonical_name:
+                        canonical_name = canonical_segment_display_name(lbl_s)
+                    if annual_segment_labels:
+                        is_segment_named = canonical_name in annual_segment_label_set
+                    else:
+                        is_segment_named = any(seg_re.search(lbl_s) for _seg, seg_re in segment_patterns)
+                    row_amount = _row_amount_for_report_year(df.iloc[row_idx].tolist(), year_sequence)
+                    if is_segment_named and (row_amount is None or row_amount <= 0):
+                        current_segment = canonical_name
+                        continue
+                    if any(
+                        x in lbl_l
+                        for x in (
+                            "interest",
+                            "tax",
+                            "income",
+                            "expense",
+                            "depreciation",
+                            "amortization",
+                            "gain",
+                            "loss",
+                            "assets",
+                            "liabil",
+                            "adjusted segment ebit",
+                            "adjusted ebit",
+                            "segment ebit",
+                            "segment profit",
+                        )
+                    ):
+                        bad_labels += 1
+                        continue
+                    chosen_name = ""
+                    metric_priority = 0
+                    if is_segment_named and row_amount is not None and row_amount > 0:
+                        chosen_name = canonical_name or lbl_s
+                        metric_priority = 9
+                        current_segment = canonical_name or current_segment
+                    elif current_segment and row_amount is not None and row_amount > 0:
+                        metric_priority = _revenue_metric_priority(lbl_l)
+                        if metric_priority > 0:
+                            chosen_name = current_segment
+                    if not chosen_name:
+                        if annual_segment_labels and not is_segment_named:
+                            bad_labels += 1
+                        continue
+                    amt = float(row_amount)
+                    if amt <= 0:
+                        continue
+                    cur = cand_rows_by_segment.get(chosen_name)
+                    if cur is None or metric_priority > int(cur.get("_priority") or 0):
+                        cand_rows_by_segment[chosen_name] = {
+                            "name": chosen_name,
+                            "amount": amt,
+                            "pct": 0.0,
+                            "_priority": metric_priority,
+                        }
+                    matched_segments.add(chosen_name)
+                cand_rows = list(cand_rows_by_segment.values())
+                if len(cand_rows) < 2:
+                    continue
+                if annual_segment_labels and len(matched_segments) < 2:
+                    continue
+                total_val = float(sum(float(cand.get("amount") or 0.0) for cand in cand_rows))
+                if total_val in (None, 0):
+                    continue
+                for entry in cand_rows:
+                    entry["pct"] = float(entry.get("amount") or 0.0) / float(total_val)
+                pct_sum = float(sum(entry["pct"] for entry in cand_rows))
+                if pct_sum < 0.70 or pct_sum > 1.25:
+                    continue
+                score = 0
+                score += 3 if any(k in table_text for k in ("revenue", "net sales", "disaggregation", "segment")) else 0
+                score += 2 if 0.80 <= pct_sum <= 1.20 else 0
+                score += 1 if any(seg_re.search(table_text) for _seg, seg_re in segment_patterns) else 0
+                score += 5 if len(matched_segments) >= 2 else 0
+                if bad_labels > 0:
+                    score -= 2
+                if score > resolved_score:
+                    resolved_score = score
+                    resolved_streams = cand_rows
+                    resolved_idx = tidx
+            if not resolved_streams and annual_segment_labels:
+                for tidx, tdf in enumerate(tables):
+                    if tdf is None or tdf.empty:
+                        continue
+                    df = tdf.copy().dropna(axis=0, how="all").dropna(axis=1, how="all")
+                    if df.shape[0] < 3 or df.shape[1] < 2:
+                        continue
+                    table_text = re.sub(
+                        r"\s+",
+                        " ",
+                        " ".join(str(x) for x in list(df.columns) + list(df.fillna("").astype(str).values.flatten())),
+                    ).lower()
+                    if not any(k in table_text for k in ("revenue", "net sales", "segment revenue", "total revenue")):
+                        continue
+                    labels = df[df.columns[0]].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+                    year_sequence = _detect_year_sequence(df)
+                    rescue_rows: List[Dict[str, Any]] = []
+                    matched_segments = set()
+                    current_segment = ""
+                    for row_idx, lbl in enumerate(labels.tolist()):
+                        canonical_name = canonical_segment_display_name(lbl)
+                        row_amount = _row_amount_for_report_year(df.iloc[row_idx].tolist(), year_sequence)
+                        if canonical_name in annual_segment_label_set and (row_amount is None or row_amount <= 0):
+                            current_segment = canonical_name
+                            continue
+                        if canonical_name not in annual_segment_label_set and current_segment:
+                            if _revenue_metric_priority(str(lbl).strip().lower()) <= 0:
+                                continue
+                            canonical_name = current_segment
+                        if canonical_name not in annual_segment_label_set:
+                            continue
+                        if row_amount is None or pd.isna(row_amount):
+                            continue
+                        amt = float(row_amount)
+                        if amt <= 0:
+                            continue
+                        matched_segments.add(canonical_name)
+                        rescue_rows.append({"name": canonical_name, "amount": amt, "pct": 0.0})
+                    if len(matched_segments) < 2 or len(rescue_rows) < 2:
+                        continue
+                    total_val = float(sum(float(rescue_row.get("amount") or 0.0) for rescue_row in rescue_rows))
+                    if total_val in (None, 0):
+                        continue
+                    for entry in rescue_rows:
+                        entry["pct"] = float(entry.get("amount") or 0.0) / float(total_val)
+                    resolved_streams = rescue_rows
+                    resolved_idx = tidx
+                    break
+            if not resolved_streams:
+                return [], None, "Source: N/A (revenue stream table not parsed)"
+            for entry in resolved_streams:
+                entry.pop("_priority", None)
+            resolved_streams = sorted(resolved_streams, key=lambda item: float(item.get("pct") or 0.0), reverse=True)
+            if len(resolved_streams) > 6:
+                head = resolved_streams[:5]
+                tail = resolved_streams[5:]
+                head.append(
+                    {
+                        "name": "Other",
+                        "amount": float(sum(float(t.get("amount") or 0.0) for t in tail)),
+                        "pct": float(sum(float(t.get("pct") or 0.0) for t in tail)),
+                    }
+                )
+                resolved_streams = head
+            detail = f"{str(row.get('base_form') or row.get('form') or 'doc')} revenue/segment table #{int(resolved_idx or 0) + 1}"
+            return resolved_streams, row.get("report"), _clean_source_note_rows([row], detail)
+
+        return _extract_revenue_streams_v2()
         for tidx, tdf in enumerate(tables):
             if tdf is None or tdf.empty:
                 continue

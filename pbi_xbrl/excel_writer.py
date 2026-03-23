@@ -87,6 +87,13 @@ def _quarter_notes_ui_snapshot_rows_from_ws(ws: Any) -> Dict[str, List[Tuple[str
 
 
 def _quarter_notes_ui_header_from_ws(ws: Any) -> str:
+    for coord in ("A2", "A1", "A3"):
+        try:
+            txt = _normalize_qnote_cell(ws[coord].value)
+        except Exception:
+            txt = ""
+        if txt and "Generated at" in txt:
+            return txt
     return _normalize_qnote_cell(ws["A1"].value)
 
 

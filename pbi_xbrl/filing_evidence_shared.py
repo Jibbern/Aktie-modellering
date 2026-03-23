@@ -754,6 +754,14 @@ def promise_candidate_drop_reason(
     has_milestone = bool(MILESTONE_ACTION_RE.search(txt) and has_time)
     has_bridge_amount = bool(re.search(r"\$\s*\d|\b\d+(?:\.\d+)?\s*(?:million|billion|m|bn|%|x|bps)\b", txt, re.I))
     short_phrase_milestone = bool((has_metric or "strategic milestone" in metric_hint_low) and _is_short_investor_phrase(txt) and MILESTONE_ACTION_RE.search(txt))
+    blob_low = blob.lower()
+    if re.search(r"^\s*(year ended|evaluation\b|in all of our\b|company has\b)", metric_hint_low, re.I):
+        return normalize_quality_drop_reason("not_investor_relevant")
+    if re.search(r"\b(federal r&d|research and development credits|federal research and development|net operating losses?)\b", blob_low, re.I):
+        if not re.search(r"\b(target|guidance|outlook|expected|qualify|opportunity|monetization)\b", blob_low, re.I):
+            return normalize_quality_drop_reason("not_investor_relevant")
+    if re.search(r"\bat december 31\b", blob_low, re.I) and not re.search(r"\b(target|guidance|outlook|expected|qualify|opportunity)\b", blob_low, re.I):
+        return normalize_quality_drop_reason("not_investor_relevant")
     if stmt_class in {"boilerplate", "scaffolding", "fragmentary_text", "weak_forward_looking"}:
         return normalize_quality_drop_reason("too_vague_for_tracker")
     if src_class in {"weak_support", "support"} and not _is_clean_numeric_bridge(txt):
