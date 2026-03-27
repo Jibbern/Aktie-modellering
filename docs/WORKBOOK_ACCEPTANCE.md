@@ -101,6 +101,13 @@
 - Source notes should match the actual chosen document family.
 - Conservative `N/A` is acceptable for revenue-stream rows when the latest reliable segment source is missing or too noisy.
 
+## QA Surface Acceptance
+- `Needs_Review` is the curated working queue; treat counts as data rows and exclude the header row.
+- `QA_Log` remains the raw history surface even when a related issue is coalesced or displayed more readably in `Needs_Review`.
+- `quarter_text_no_explicit_support` should remain visible, but metrics often absent from quarter release text may sort below stronger expected-support gaps inside the same queue bucket.
+- Visible QA `source` cells should show the 1-2 most relevant selected quarter-scoped documents, not long concatenated bundle strings.
+- Readable queue labels are preferred in curated views when they improve clarity without changing the underlying canonical issue key.
+
 ## What Counts As A Successful Pass
 - A targeted quarter block is visibly better in the saved workbook.
 - A stronger note survives all the way to `readback_verified`.

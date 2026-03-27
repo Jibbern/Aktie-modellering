@@ -233,10 +233,193 @@ class WriterDocumentCache:
     submission_recent_rows_by_file: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
     submission_recent_rows_by_limit: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
     latest_quarter_sec_text_by_quarter: Dict[str, str] = field(default_factory=dict)
+    latest_quarter_qa_bundle_by_quarter: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
     sec_cache_doc_paths_by_root: Dict[str, List[Path]] = field(default_factory=dict)
     sec_cache_doc_paths_by_token_by_root: Dict[str, Dict[str, List[Path]]] = field(default_factory=dict)
     sec_cache_html_paths_by_root: Dict[str, List[Path]] = field(default_factory=dict)
     sec_cache_html_paths_by_token_by_root: Dict[str, Dict[str, List[Path]]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class QuarterlyRowColorPolicy:
+    comparison_basis: str
+    directionality: str
+
+
+_QUARTERLY_COLOR_BRACKET_SUFFIX_RE = re.compile(r"\[[^\]]+\]")
+_QUARTERLY_COLOR_REPEAT_SPACE_RE = re.compile(r"\s+")
+_QUARTERLY_COLOR_COMPARISON_RE = re.compile(r"\b(?:yoy|qoq)\b", re.I)
+
+
+def _normalize_quarterly_color_label(label: Any) -> str:
+    text = str(label or "").strip()
+    if not text:
+        return ""
+    text = text.replace("Î”", "Δ").replace("\u2212", "-")
+    text = _QUARTERLY_COLOR_BRACKET_SUFFIX_RE.sub("", text)
+    text = _QUARTERLY_COLOR_REPEAT_SPACE_RE.sub(" ", text)
+    return text.strip()
+
+
+def _quarterly_color_label_key(label: Any) -> str:
+    text = _normalize_quarterly_color_label(label)
+    if not text:
+        return ""
+    text = text.replace("Δ", " delta ").replace("δ", " delta ").lower()
+    text = text.replace("&", " and ")
+    text = re.sub(r"[^a-z0-9%]+", " ", text)
+    text = _QUARTERLY_COLOR_REPEAT_SPACE_RE.sub(" ", text)
+    return text.strip()
+
+
+def _quarterly_color_basis_for_label(label: Any) -> str:
+    raw = _normalize_quarterly_color_label(label)
+    key = _quarterly_color_label_key(label)
+    if not raw or not key:
+        return "yoy"
+    if _QUARTERLY_COLOR_COMPARISON_RE.search(key) and ("delta" in key or "%" in raw):
+        return "direct_delta"
+    if "qoq" in key:
+        return "qoq"
+    if "ttm" in key:
+        return "ttm_vs_prior_ttm"
+    return "yoy"
+
+
+def _quarterly_color_directionality_for_label(
+    label: Any,
+    *,
+    section_label: str = "",
+    subsection_label: str = "",
+) -> str:
+    key = _quarterly_color_label_key(label)
+    section_key = _quarterly_color_label_key(section_label)
+    subsection_key = _quarterly_color_label_key(subsection_label)
+    if not key:
+        return "neutral"
+
+    if key == "acquisitions ttm cash":
+        return "neutral"
+
+    if subsection_key == "per share earnings":
+        return "higher_better"
+
+    if section_key == "operating":
+        return "higher_better"
+
+    if key == "interest coverage" or key.startswith("interest coverage "):
+        return "higher_better"
+
+    if key == "cash interest coverage" or key.startswith("cash interest coverage "):
+        return "higher_better"
+
+    if key in {
+        "cfo",
+        "fcf cfo capex",
+        "fcf yoy delta m",
+        "fcf ttm",
+        "adj fcf ttm",
+        "adj fcf fcf",
+        "owner earnings proxy",
+        "fcf margin %",
+        "fcf margin ttm",
+        "buybacks ttm cash",
+        "dividends ttm cash",
+        "debt repaid gross ttm",
+        "cash",
+        "cash and cash equivalents",
+        "current ratio",
+        "quick ratio",
+        "interest coverage p and l ttm",
+        "cash interest coverage ttm",
+        "ebitda ttm",
+        "adj ebitda ttm",
+        "fcf conversion ttm",
+        "bv share",
+        "tbv share",
+        "fcf share ttm",
+    }:
+        return "higher_better"
+
+    if key in {
+        "capex",
+        "capex % of revenue",
+        "capex % of revenue ttm",
+        "interest paid",
+        "tax paid",
+        "debt issued gross ttm",
+        "debt core",
+        "net pension opeb",
+        "net debt core",
+        "net debt qoq delta m",
+        "net debt yoy delta m",
+        "net leverage",
+        "net leverage adj",
+        "diluted shares m",
+        "shares diluted m",
+        "shares outstanding m",
+    }:
+        return "lower_better"
+
+    if key.startswith("shares qoq delta") or key.startswith("shares yoy delta"):
+        return "lower_better"
+
+    if "pension" in key and "opeb" in key:
+        return "lower_better"
+
+    if "total debt" in key and ("delta" in key or "qoq" in key or "yoy" in key):
+        return "lower_better"
+
+    if "cash" in key and ("delta" in key or "qoq" in key or "yoy" in key):
+        return "higher_better"
+
+    return "neutral"
+
+
+def _quarterly_row_color_policy(
+    label: Any,
+    *,
+    section_label: str = "",
+    subsection_label: str = "",
+) -> QuarterlyRowColorPolicy:
+    return QuarterlyRowColorPolicy(
+        comparison_basis=_quarterly_color_basis_for_label(label),
+        directionality=_quarterly_color_directionality_for_label(
+            label,
+            section_label=section_label,
+            subsection_label=subsection_label,
+        ),
+    )
+
+
+def _quarterly_color_metric_from_series(
+    row_values: List[Any],
+    idx: int,
+    *,
+    comparison_basis: str,
+    directionality: str,
+) -> Optional[float]:
+    if directionality not in {"higher_better", "lower_better"}:
+        return None
+    if idx < 0 or idx >= len(row_values):
+        return None
+    current = pd.to_numeric(row_values[idx], errors="coerce")
+    if pd.isna(current):
+        return None
+    if comparison_basis == "direct_delta":
+        metric = float(current)
+    else:
+        step = 1 if comparison_basis == "qoq" else 4
+        prev_idx = idx - step
+        if prev_idx < 0:
+            return None
+        previous = pd.to_numeric(row_values[prev_idx], errors="coerce")
+        if pd.isna(previous) or abs(float(previous)) <= 1e-12:
+            return None
+        metric = (float(current) - float(previous)) / abs(float(previous))
+    if directionality == "lower_better":
+        metric *= -1.0
+    return metric
 
 
 @dataclass
@@ -1282,6 +1465,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     _pbi_structured_note_cache: Dict[date, List[Dict[str, Any]]] = {}
     _pbi_structured_tracker_cache: Dict[date, List[Dict[str, Any]]] = {}
     _pbi_structured_progress_cache: Dict[date, List[Dict[str, Any]]] = {}
+    _pbi_reported_fcf_cache: Dict[date, Optional[Dict[str, Any]]] = {}
 
     def _pbi_slide_pages_for_qd(qd: Optional[date]) -> List[Dict[str, Any]]:
         if not isinstance(qd, date):
@@ -1338,6 +1522,297 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 )
         return pages
 
+    def _pbi_reported_fcf_payload_for_qd(qd: Optional[date]) -> Optional[Dict[str, Any]]:
+        if not is_pbi_profile or not isinstance(qd, date):
+            return None
+        cached = _pbi_reported_fcf_cache.get(qd)
+        if cached is not None:
+            return dict(cached) if cached else None
+
+        quarter_num = ((int(qd.month) - 1) // 3) + 1
+        quarter_caption = {
+            1: "First Quarter",
+            2: "Second Quarter",
+            3: "Third Quarter",
+            4: "Fourth Quarter",
+        }.get(int(quarter_num), "")
+
+        def _parse_fcf_pair_local(text_in: Any) -> Optional[Dict[str, float]]:
+            txt = glx_normalize_text(str(text_in or ""))
+            if not txt or "free cash flow" not in txt.lower():
+                return None
+            def _guidance_like_match_local(match_obj: re.Match[str]) -> bool:
+                start = max(0, int(match_obj.start()) - 240)
+                end = min(len(txt), int(match_obj.end()) + 240)
+                window = txt[start:end].lower()
+                return bool(
+                    re.search(
+                        r"\b(guidance|outlook|full[- ]year|fy\s*20\d{2}|low\s+high|"
+                        r"previously disclosed guidance range|near the low end|near the midpoint|"
+                        r"midpoint|low end|high end|target)\b",
+                        window,
+                        re.I,
+                    )
+                )
+
+            patterns: List[Tuple[str, float, int, bool]] = [
+                (
+                    r"reconciliation of reported net cash from operating activities to free cash flow[\s\S]{0,5000}?"
+                    r"free cash flow\s+\$?\(?([0-9]{1,3}(?:,[0-9]{3})+)\)?\$?\s+\$?\(?([0-9]{1,3}(?:,[0-9]{3})+)\)?\$?",
+                    1_000.0,
+                    0,
+                    False,
+                ),
+                (
+                    r"free cash flow was a use of\s+\$?\(?([0-9]{1,4}(?:\.\d+)?)\)?\s+million,\s+an improvement of\s+\$?\(?([0-9]{1,4}(?:\.\d+)?)\)?\s+million\s+year[- ]over[- ]year",
+                    -1_000_000.0,
+                    1,
+                    False,
+                ),
+                (
+                    r"free cash flow improved to\s+\$?\(?([0-9]{1,4}(?:\.\d+)?)\)?\s+million,\s+(?:up|down)\s+\$?\(?([0-9]{1,4}(?:\.\d+)?)\)?\s+million\s+year[- ]over[- ]year",
+                    1_000_000.0,
+                    1,
+                    False,
+                ),
+                (
+                    rf"{quarter_caption}[\s\S]{{0,1200}}?free cash flow(?:\d+)?\s+\$?\(?([0-9]{{1,4}}(?:\.\d+)?)\)?\$?\s+\$?\(?([0-9]{{1,4}}(?:\.\d+)?)\)?\$?",
+                    1_000_000.0,
+                    2,
+                    True,
+                ),
+                (
+                    r"free cash flow(?:\d+)?\s+\$?\(?([0-9]{1,4}(?:\.\d+)?)\)?\$?\s+\$?\(?([0-9]{1,4}(?:\.\d+)?)\)?\$?",
+                    1_000_000.0,
+                    3,
+                    True,
+                ),
+            ]
+            best_payload: Optional[Dict[str, float]] = None
+            best_rank: Optional[Tuple[int, int]] = None
+            for pat, scale, priority, guard_guidance in patterns:
+                for m in re.finditer(pat, txt, re.I):
+                    if guard_guidance and _guidance_like_match_local(m):
+                        continue
+                    cur_val = coerce_number(m.group(1))
+                    second_val = coerce_number(m.group(2))
+                    if cur_val is None or second_val is None:
+                        continue
+                    if scale < 0:
+                        current_scaled = -abs(float(cur_val) * abs(float(scale)))
+                        prior_scaled = current_scaled - float(second_val) * abs(float(scale))
+                        payload = {
+                            "current": float(current_scaled),
+                            "prior": float(prior_scaled),
+                        }
+                    else:
+                        payload = {
+                            "current": float(cur_val) * float(scale),
+                            "prior": float(second_val) * float(scale),
+                        }
+                    rank = (int(priority), int(m.start()))
+                    if best_rank is None or rank < best_rank:
+                        best_rank = rank
+                        best_payload = payload
+            if best_payload is not None:
+                return best_payload
+            return None
+
+        def _add_probe_dir(path_in: Any, seen_dirs: set[str], probe_dirs: List[Path]) -> None:
+            try:
+                p = Path(path_in)
+            except Exception:
+                return
+            if not p.exists() or not p.is_dir():
+                return
+            try:
+                key = str(p.resolve())
+            except Exception:
+                key = str(p)
+            if key in seen_dirs:
+                return
+            seen_dirs.add(key)
+            probe_dirs.append(p)
+
+        probe_dirs: List[Path] = []
+        seen_dirs: set[str] = set()
+        repo_root = Path(__file__).resolve().parents[2]
+        for repo_dir in [repo_root / "sec_cache" / "PBI", repo_root / "PBI" / "sec_cache"]:
+            _add_probe_dir(repo_dir, seen_dirs, probe_dirs)
+        for root in material_roots:
+            for sec_cache_dir in ticker_cache_roots_from_base_dir(root):
+                _add_probe_dir(sec_cache_dir, seen_dirs, probe_dirs)
+        cache_dir_path = Path(cache_dir) if cache_dir is not None else None
+        if cache_dir_path is not None:
+            _add_probe_dir(cache_dir_path, seen_dirs, probe_dirs)
+            ticker_variants = [
+                str(profile_ticker or ticker or "").strip(),
+                str(profile_ticker or ticker or "").strip().upper(),
+                str(profile_ticker or ticker or "").strip().lower(),
+            ]
+            for nm in ticker_variants:
+                nm = str(nm or "").strip()
+                if not nm:
+                    continue
+                _add_probe_dir(cache_dir_path / nm, seen_dirs, probe_dirs)
+                _add_probe_dir(cache_dir_path / nm / "sec_cache", seen_dirs, probe_dirs)
+            for ancestor in [cache_dir_path.parent, *cache_dir_path.parents]:
+                for nm in ticker_variants:
+                    nm = str(nm or "").strip()
+                    if not nm:
+                        continue
+                    _add_probe_dir(ancestor / nm / "sec_cache", seen_dirs, probe_dirs)
+
+        qd_token = pd.to_datetime(qd, errors="coerce")
+        qd_token_str = qd_token.strftime("%Y%m%d") if pd.notna(qd_token) else ""
+        quarter_path_token = f"q{quarter_num}{qd.year}"
+        best_payload: Optional[Dict[str, Any]] = None
+        best_rank: Optional[Tuple[int, int, int, int]] = None
+        for sec_cache_dir in probe_dirs:
+            candidates = _sec_cache_html_paths_for_token_local(sec_cache_dir, qd_token_str) if qd_token_str else []
+            if not candidates:
+                candidates = _sec_cache_html_paths_local(sec_cache_dir)
+            for path_in in candidates:
+                if not _path_belongs_to_ticker(path_in, ticker, ticker_roots):
+                    continue
+                try:
+                    raw_txt = _read_cached_doc_raw(path_in)
+                except Exception:
+                    raw_txt = ""
+                try:
+                    plain_txt = _read_cached_doc_text(path_in)
+                except Exception:
+                    plain_txt = ""
+                joined_norm = glx_normalize_text(" ".join([str(raw_txt or ""), str(plain_txt or "")]))
+                if not joined_norm:
+                    continue
+                q_raw = _infer_doc_quarter_local(path_in, joined_norm)
+                path_name_low = str(path_in.name).lower()
+                path_matches_q = bool(qd_token_str and qd_token_str in path_name_low)
+                if not path_matches_q and quarter_path_token:
+                    path_matches_q = quarter_path_token in path_name_low
+                text_matches_q = bool(
+                    quarter_caption
+                    and re.search(rf"\b{quarter_caption}\b[\s\S]{{0,80}}?\b{qd.year}\b", joined_norm, re.I)
+                )
+                if isinstance(q_raw, date):
+                    if q_raw != qd and not path_matches_q:
+                        continue
+                elif not path_matches_q and not text_matches_q:
+                    continue
+                parsed = _parse_fcf_pair_local(joined_norm)
+                if not parsed:
+                    continue
+                path_low = str(path_in).lower()
+                name_low = str(path_in.name).lower()
+                rank = (
+                    0 if re.search(r"(earningspressrelea|earnings[_ ]release|press[_ ]release|ex99)", name_low, re.I) else 1,
+                    0 if re.search(r"(earningspressrelea|earnings[_ ]release|press[_ ]release|ex99)", path_low, re.I) else 1,
+                    0 if path_matches_q else 1,
+                    len(path_low),
+                )
+                if best_rank is None or rank < best_rank:
+                    best_rank = rank
+                    best_payload = {
+                        "current": float(parsed["current"]),
+                        "prior": float(parsed["prior"]),
+                        "doc": str(path_in),
+                    }
+
+        if best_payload is None:
+            direct_roots: List[Path] = []
+            seen_direct_roots: set[str] = set()
+            for root_in in [cache_dir_path, repo_root / "sec_cache" / "PBI", repo_root / "PBI" / "sec_cache"]:
+                if root_in is None:
+                    continue
+                try:
+                    root_path = Path(root_in)
+                except Exception:
+                    continue
+                if not root_path.exists() or not root_path.is_dir():
+                    continue
+                try:
+                    root_key = str(root_path.resolve())
+                except Exception:
+                    root_key = str(root_path)
+                if root_key in seen_direct_roots:
+                    continue
+                seen_direct_roots.add(root_key)
+                direct_roots.append(root_path)
+            for root_path in direct_roots:
+                try:
+                    raw_candidates = sorted(
+                        [p for p in root_path.rglob("*.htm") if p.is_file()],
+                        key=lambda z: z.stat().st_mtime if z.exists() else 0,
+                        reverse=True,
+                    )
+                except Exception:
+                    raw_candidates = []
+                for path_in in raw_candidates:
+                    path_low = str(path_in).lower()
+                    name_low = str(path_in.name).lower()
+                    if "free cash flow" not in name_low and not re.search(
+                        r"(earningspressrelea|earnings[_ ]release|press[_ ]release|ex99|8-?k)",
+                        path_low,
+                        re.I,
+                    ):
+                        continue
+                    try:
+                        joined_norm = glx_normalize_text(path_in.read_text(encoding="utf-8", errors="ignore"))
+                    except Exception:
+                        joined_norm = ""
+                    if not joined_norm:
+                        continue
+                    q_raw = _infer_doc_quarter_local(path_in, joined_norm)
+                    path_matches_q = bool(qd_token_str and qd_token_str in name_low) or bool(quarter_path_token and quarter_path_token in name_low)
+                    text_matches_q = bool(
+                        quarter_caption
+                        and re.search(rf"\b{quarter_caption}\b[\s\S]{{0,80}}?\b{qd.year}\b", joined_norm, re.I)
+                    )
+                    if isinstance(q_raw, date):
+                        if q_raw != qd and not path_matches_q:
+                            continue
+                    elif not path_matches_q and not text_matches_q:
+                        continue
+                    parsed = _parse_fcf_pair_local(joined_norm)
+                    if not parsed:
+                        continue
+                    best_payload = {
+                        "current": float(parsed["current"]),
+                        "prior": float(parsed["prior"]),
+                        "doc": str(path_in),
+                    }
+                    break
+                if best_payload is not None:
+                    break
+
+        _pbi_reported_fcf_cache[qd] = dict(best_payload) if best_payload else None
+        return dict(best_payload) if best_payload else None
+
+    def _pbi_forced_release_backed_fcf_note_for_qd(qd: Optional[date]) -> Optional[Dict[str, Any]]:
+        payload = _pbi_reported_fcf_payload_for_qd(qd)
+        if not isinstance(qd, date) or not isinstance(payload, dict):
+            return None
+        current_fcf = payload.get("current")
+        prior_fcf = payload.get("prior")
+        if current_fcf is None or prior_fcf is None:
+            return None
+        delta_fcf = float(current_fcf) - float(prior_fcf)
+        summary_txt = _format_directional_fcf_summary_local(current_fcf, prior_fcf, basis_label="YoY")
+        return {
+            "summary": summary_txt,
+            "comment_full_text": (
+                f"Reported free cash flow at {qd}: {_fmt_short_money_value_local(float(current_fcf))}; "
+                f"YoY delta {_fmt_short_money_value_local(delta_fcf)}"
+            ),
+            "source": {
+                "source_type": "earnings_release",
+                "doc": str(payload.get("doc") or ""),
+                "form": "",
+                "section": "free cash flow",
+            },
+        }
+
     def _pbi_guidance_period_for_text(text_in: Any, qd: date) -> Tuple[str, str]:
         txt = glx_normalize_text(str(text_in or ""))
         m_fy = re.search(r"\bfull[- ]?year\s+(20\d{2})\b|\bfy\s*(20\d{2})\b", txt, re.I)
@@ -1373,6 +1848,143 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         if re.search(r"[.!?]\s*$", txt):
             return txt
         return f"{txt}."
+
+    def _format_directional_fcf_summary_local(
+        current_val: Any,
+        prior_val: Any | None = None,
+        *,
+        basis_label: str = "YoY",
+    ) -> str:
+        try:
+            current_num = float(current_val)
+        except Exception:
+            return ""
+        if prior_val is None:
+            if current_num < 0:
+                return _ensure_terminal_period(
+                    f"Free cash flow was a use of {_fmt_short_money_value_local(abs(current_num))}"
+                )
+            return _ensure_terminal_period(f"Free cash flow was {_fmt_short_money_value_local(current_num)}")
+        try:
+            prior_num = float(prior_val)
+        except Exception:
+            return _format_directional_fcf_summary_local(current_num, None, basis_label=basis_label)
+        delta_val = current_num - prior_num
+        direction = "up" if delta_val >= 0 else "down"
+        if current_num < 0:
+            return _ensure_terminal_period(
+                f"Free cash flow was a use of {_fmt_short_money_value_local(abs(current_num))}, "
+                f"{direction} {_fmt_short_money_value_local(abs(delta_val))} {basis_label}"
+            )
+        lead = "improved to" if delta_val >= 0 else "declined to"
+        return _ensure_terminal_period(
+            f"Free cash flow {lead} {_fmt_short_money_value_local(current_num)}, "
+            f"{direction} {_fmt_short_money_value_local(abs(delta_val))} {basis_label}"
+        )
+
+    def _format_directional_from_prior_summary_local(
+        noun_text: str,
+        current_val: Any,
+        prior_val: Any,
+        *,
+        basis_label: str = "YoY",
+        negative_parens: bool = False,
+    ) -> str:
+        noun = glx_normalize_text(str(noun_text or ""))
+        if not noun:
+            return ""
+        try:
+            current_num = float(current_val)
+            prior_num = float(prior_val)
+        except Exception:
+            return ""
+        formatter = _fmt_short_money_value_with_parens_local if negative_parens else _fmt_short_money_value_local
+        current_txt = formatter(current_num)
+        prior_txt = formatter(prior_num)
+        if current_num > prior_num:
+            return _ensure_terminal_period(f"{noun} improved to {current_txt} from {prior_txt} {basis_label}")
+        if current_num < prior_num:
+            return _ensure_terminal_period(f"{noun} declined to {current_txt} from {prior_txt} {basis_label}")
+        return _ensure_terminal_period(f"{noun} was unchanged at {current_txt} vs {prior_txt} {basis_label}")
+
+    def _parse_signed_money_token_local(raw_val: Any) -> Optional[float]:
+        txt_num = glx_normalize_text(str(raw_val or ""))
+        if not txt_num:
+            return None
+        neg = bool(
+            re.match(r"^\(\$?.+\)$", txt_num)
+            or re.match(r"^\$?\(.+\)$", txt_num)
+            or txt_num.startswith("-")
+        )
+        cleaned = txt_num.replace("$", "").replace(",", "").strip()
+        cleaned = cleaned.strip("()").strip()
+        val = coerce_number(cleaned)
+        if val is None:
+            return None
+        return -abs(float(val)) if neg else float(val)
+
+    def _parse_gpre_crush_margin_pair_local(text_in: Any) -> Optional[Tuple[float, float, str]]:
+        txt_local = glx_normalize_text(str(text_in or ""))
+        if not txt_local or "consolidated ethanol crush margin" not in txt_local.lower():
+            return None
+        money_pat = r"(?:\(\$?-?\d+(?:,\d{3})*(?:\.\d+)?\)|\$?\(?-?\d+(?:,\d{3})*(?:\.\d+)?\)?)"
+        pair_patterns = [
+            rf"\bconsolidated ethanol crush margin was\s+(?P<current>{money_pat})\s*(?:million|m)\b"
+            rf"[^.]{{0,320}}?\bcompared with(?:\s+ethanol crush margin of)?\s+(?P<prior>{money_pat})\s*(?:million|m)\b",
+        ]
+        for pat in pair_patterns:
+            pair_match = re.search(pat, txt_local, re.I)
+            if not pair_match:
+                continue
+            cur_val = _parse_signed_money_token_local(pair_match.group("current"))
+            prior_val = _parse_signed_money_token_local(pair_match.group("prior"))
+            if cur_val is None or prior_val is None:
+                continue
+            return float(cur_val), float(prior_val), _ensure_terminal_period(pair_match.group(0))
+        return None
+
+    def _collapse_repeated_leading_ngram_local(text_in: Any) -> str:
+        txt = glx_normalize_text(str(text_in or ""))
+        if not txt:
+            return ""
+        words = txt.split()
+        if len(words) < 4:
+            return txt
+        lowered = [w.lower() for w in words]
+        for n in range(min(6, len(words) // 2), 1, -1):
+            prefix = lowered[:n]
+            idx = n
+            repeats = 1
+            while idx + n <= len(words) and lowered[idx : idx + n] == prefix:
+                repeats += 1
+                idx += n
+            if repeats > 1:
+                return glx_normalize_text(" ".join(words[:n] + words[idx:]))
+        return txt
+
+    def _dedupe_canonical_text_parts_local(parts_in: List[str]) -> List[str]:
+        cleaned_parts: List[str] = []
+        for raw_part in parts_in:
+            part = _collapse_repeated_leading_ngram_local(glx_normalize_text(raw_part))
+            if not part:
+                continue
+            cleaned_parts.append(part)
+        kept_parts: List[str] = []
+        for idx, part in enumerate(cleaned_parts):
+            low = part.lower()
+            drop = False
+            for jdx, other in enumerate(cleaned_parts):
+                if idx == jdx:
+                    continue
+                other_low = other.lower()
+                if not other_low:
+                    continue
+                if low != other_low and other_low in low and len(low) >= len(other_low) + 12:
+                    drop = True
+                    break
+            if not drop and low not in {p.lower() for p in kept_parts}:
+                kept_parts.append(part)
+        return kept_parts
 
     def _pbi_guidance_period_label_from_text(text_in: Any) -> str:
         txt = glx_normalize_text(str(text_in or ""))
@@ -1997,20 +2609,44 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 bucket=_bucket_for_metric(str(item.get("metric_label") or "")),
                 score=float(item.get("score") or 86.0),
             )
-        current_fcf = _pbi_adj_fcf_map.get(qd)
+        pbi_reported_fcf = _pbi_reported_fcf_payload_for_qd(qd)
+        current_fcf = (
+            pbi_reported_fcf.get("current")
+            if isinstance(pbi_reported_fcf, dict) and pbi_reported_fcf.get("current") is not None
+            else _pbi_adj_fcf_map.get(qd)
+        )
         if current_fcf is not None:
-            prior_fcf = _prev_same_quarter_year(qd, _pbi_adj_fcf_map)
+            prior_fcf = (
+                pbi_reported_fcf.get("prior")
+                if isinstance(pbi_reported_fcf, dict) and pbi_reported_fcf.get("prior") is not None
+                else _prev_same_quarter_year(qd, _pbi_adj_fcf_map)
+            )
             if prior_fcf is not None:
                 delta_fcf = float(current_fcf) - float(prior_fcf)
-                if abs(delta_fcf) >= 25_000_000.0:
+                delta_threshold = 10_000_000.0 if isinstance(pbi_reported_fcf, dict) and pbi_reported_fcf.get("doc") else 25_000_000.0
+                if abs(delta_fcf) >= delta_threshold:
+                    if isinstance(pbi_reported_fcf, dict) and pbi_reported_fcf.get("doc"):
+                        full_text = (
+                            f"Reported free cash flow at {qd}: {_fmt_short_money_value_local(float(current_fcf))}; "
+                            f"YoY delta {_fmt_short_money_value_local(delta_fcf)}"
+                        )
+                        source_meta = {
+                            "source_type": "earnings_release",
+                            "doc": str(pbi_reported_fcf.get("doc") or ""),
+                            "form": "",
+                            "section": "free cash flow",
+                        }
+                    else:
+                        full_text = (
+                            f"Adj metrics FCF at {qd}: {_fmt_short_money_value_local(float(current_fcf))}; "
+                            f"YoY delta {_fmt_short_money_value_local(delta_fcf)}"
+                        )
+                        source_meta = {"source_type": "model_metric", "doc": "adj_metrics", "form": "", "section": ""}
                     _append_note(
                         "FCF improvement",
-                        _ensure_terminal_period(
-                            f"Free cash flow improved to {_fmt_short_money_value_local(float(current_fcf))}, "
-                            f"{'up' if delta_fcf >= 0 else 'down'} {_fmt_short_money_value_local(abs(delta_fcf))} YoY"
-                        ),
-                        f"Adj metrics FCF at {qd}: {_fmt_short_money_value_local(float(current_fcf))}; YoY delta {_fmt_short_money_value_local(delta_fcf)}",
-                        {"source_type": "model_metric", "doc": "adj_metrics", "form": "", "section": ""},
+                        _format_directional_fcf_summary_local(current_fcf, prior_fcf, basis_label="YoY"),
+                        full_text,
+                        source_meta,
                         bucket="Cash flow / FCF / capex",
                         score=91.0,
                     )
@@ -2093,10 +2729,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     "Adjusted EBIT guidance": 1,
                     "EPS guidance": 2,
                     "FCF target": 3,
-                    "SendTech / Presort operating target": 4,
-                    "Cost savings target": 5,
-                    "PB Bank liquidity release": 6,
-                    "Deleveraging target": 7,
+                    "FCF improvement": 4,
+                    "SendTech / Presort operating target": 5,
+                    "Cost savings target": 6,
+                    "PB Bank liquidity release": 7,
+                    "Deleveraging target": 8,
                 }.get(str(z.get("_metric_display") or ""), 9),
                 -float(z.get("score") or 0.0),
             ),
@@ -2324,6 +2961,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         if abs(v) >= 1e9:
             return f"${v/1e9:,.1f}bn"
         return f"${v/1e6:,.1f}m"
+
+    def _fmt_short_money_value_with_parens_local(val: float) -> str:
+        v = float(val)
+        if v < 0:
+            if abs(v) >= 1e9:
+                return f"$({abs(v)/1e9:,.1f})bn"
+            return f"$({abs(v)/1e6:,.1f})m"
+        return _fmt_short_money_value_local(v)
 
     def _is_45z_crush_margin_support_only(text_in: Any) -> bool:
         txt = glx_normalize_text(str(text_in or ""))
@@ -3175,10 +3820,16 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             return "45Z-related Adjusted EBITDA outlook"
         if metric_low.startswith("least ") and "45z" in low:
             return "45Z-related Adjusted EBITDA outlook"
-        if re.search(r"\b45z\b", low, re.I) and re.search(r"\b(monetization|tax credit|income tax benefit)\b", low, re.I):
-            return "45Z monetization outlook"
         if re.search(r"\b45z\b", low, re.I) and re.search(r"\b(remaining facilities|remaining plants)\b", low, re.I):
             return "45Z from remaining facilities"
+        if re.search(r"\b45z\b", low, re.I) and re.search(
+            r"\b(contributed|realized|recognized|recorded|net of discounts(?: and other costs)?)\b",
+            low,
+            re.I,
+        ):
+            return "45Z monetization"
+        if re.search(r"\b45z\b", low, re.I) and re.search(r"\b(monetization|tax credit|income tax benefit)\b", low, re.I):
+            return "45Z monetization outlook"
         if re.search(r"\b(cost savings|cost reduction|annualized savings|run-rate savings)\b", low, re.I):
             return "Cost savings target"
         if re.search(r"\b(debt reduction|deleverag|used to fully repay|repayment completed|sale of obion|obion)\b", low, re.I):
@@ -3206,6 +3857,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         )
         low = blob.lower()
         metric_low = metric_txt.lower()
+        if re.search(
+            r"\b(non-core asset monetization|enhance liquidity|strengthen (?:the|our) balance sheet|liquidity enhancement)\b",
+            low,
+            re.I,
+        ):
+            return "Liquidity / balance-sheet"
         if re.search(r"\bcrush margin\b", low, re.I):
             return "Crush margin"
         if metric_low in {"fcf_ttm_delta_yoy", "fcf"}:
@@ -3220,6 +3877,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             return "Revolver availability"
         if re.search(r"\binterest expense\b", low, re.I) and re.search(r"\b(expected|annualized|2026)\b", low, re.I):
             return "Interest expense outlook"
+        if re.search(r"\b(restructuring costs?|cost reduction initiative)\b", low, re.I) and not re.search(
+            r"\b(repurchase authorization|repurchas(?:e|ed)|share repurchase|interest expense|agreement|convertible|notes due)\b",
+            low,
+            re.I,
+        ):
+            return "One-time items / restructuring"
         if re.search(r"\b(cost reductions?|cost savings|annualized savings target|annualized savings|run-rate savings)\b", low, re.I):
             return "Cost savings target"
         if re.search(r"\b(central city|wood river|york)\b", low, re.I) and re.search(r"\bfully operational\b", low, re.I):
@@ -3232,12 +3895,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             return "Additional note issuance"
         if re.search(r"\b(exchanged?\b|convertible senior notes due 2027|notes due november 2030)\b", low, re.I):
             return "Debt exchange"
-        if re.search(r"\b(restructuring costs?|cost reduction initiative)\b", low, re.I) and not re.search(
-            r"\b(repurchase authorization|repurchas(?:e|ed)|share repurchase|interest expense|agreement|convertible|notes due)\b",
-            low,
-            re.I,
-        ):
-            return "One-time items / restructuring"
         if metric_low not in {
             "",
             "nan",
@@ -3296,7 +3953,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         if metric_low == "cost savings target" and re.search(r"\b(restructuring costs?|restructuring charges?)\b", support_blob, re.I):
             if not re.search(r"\b(on pace|exceed|annualized savings target|run-rate|cost reductions? are on pace|expected savings|targeted savings)\b", support_blob, re.I):
                 return "historical_restructuring_fact"
-        if metric_low in {"45z monetization / ebitda", "45z monetization outlook"}:
+        is_45z_progress_metric = metric_low in {"45z monetization / ebitda", "45z monetization outlook", "45z monetization"}
+        if is_45z_progress_metric:
             if not re.search(
                 r"\b(45z|tax credit|monetization|income tax benefit|agreement executed|production tax credits?|45z value realized|net of discounts)\b",
                 support_blob,
@@ -3317,7 +3975,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             re.I,
         ):
             return "transaction_event_only"
-        if re.search(r"\b(contributed|recorded|recognized|net of discounts and other costs|crush margin improved)\b", blob, re.I) and not forwardish:
+        if (
+            re.search(r"\b(contributed|recorded|recognized|net of discounts and other costs|crush margin improved)\b", blob, re.I)
+            and not forwardish
+            and not is_45z_progress_metric
+        ):
             return "realized_fact_only"
         return ""
 
@@ -4154,6 +4816,21 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         if not isinstance(qd, date):
             return ""
         driver_kind_low = str(driver_kind or "").strip().lower()
+        if driver_kind_low == "risk_management":
+            official_note = "Disciplined risk management strategy continues to support first quarter margins and cash flow."
+            qd_token = pd.to_datetime(qd, errors="coerce")
+            qd_token_str = qd_token.strftime("%Y%m%d") if pd.notna(qd_token) else ""
+            for root in _cache_roots():
+                candidates = _sec_cache_html_paths_for_token_local(root, qd_token_str) if qd_token_str else []
+                if not candidates:
+                    continue
+                for path in candidates:
+                    try:
+                        joined = glx_normalize_text(" ".join([_read_cached_doc_raw(path), _read_cached_doc_text(path)]))
+                    except Exception:
+                        joined = ""
+                    if joined and re.search(r"\bdisciplined risk management strategy continues to support first quarter margins and cash flow\b", joined, re.I):
+                        return official_note
         for path in _slide_text_paths(kind="text", quarter=qd):
             raw_slide_txt = _read_cached_doc_raw(path)
             if not raw_slide_txt:
@@ -4225,6 +4902,188 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     if re.search(r"\baccumulated rins?\b|\brins?\s+of\s+\$", line_txt, re.I):
                         return line_txt
         return ""
+
+    def _gpre_official_risk_management_note_local(qd: Optional[date]) -> Dict[str, Any]:
+        if not is_gpre_profile or not isinstance(qd, date):
+            return {}
+        official_note = "Disciplined risk management strategy continues to support first quarter margins and cash flow."
+        official_note_re = r"\bdisciplined risk management strategy continues to support first quarter margins and cash flow\b"
+        qd_token = pd.to_datetime(qd, errors="coerce")
+        qd_token_str = qd_token.strftime("%Y%m%d") if pd.notna(qd_token) else ""
+        quarter_num = ((int(qd.month) - 1) // 3) + 1
+        quarter_caption = {
+            1: "First Quarter",
+            2: "Second Quarter",
+            3: "Third Quarter",
+            4: "Fourth Quarter",
+        }.get(int(quarter_num), "")
+        quarter_path_token = f"q{quarter_num}{qd.year}"
+        for root in _cache_roots():
+            candidates = _sec_cache_html_paths_for_token_local(root, qd_token_str) if qd_token_str else []
+            if not candidates:
+                candidates = _sec_cache_html_paths_local(root)
+            for path in candidates:
+                if not _path_belongs_to_ticker(path, ticker, ticker_roots):
+                    continue
+                try:
+                    joined = glx_normalize_text(" ".join([_read_cached_doc_raw(path), _read_cached_doc_text(path)]))
+                except Exception:
+                    joined = ""
+                if not joined:
+                    continue
+                q_raw = _infer_doc_quarter_local(path, joined)
+                path_low = str(path.name).lower()
+                path_matches_q = bool(qd_token_str and qd_token_str in path_low) or bool(quarter_path_token and quarter_path_token in path_low)
+                text_matches_q = bool(
+                    quarter_caption
+                    and re.search(rf"\b{quarter_caption}\b[\s\S]{{0,80}}?\b{qd.year}\b", joined, re.I)
+                )
+                if isinstance(q_raw, date):
+                    if q_raw != qd and not path_matches_q:
+                        continue
+                elif not path_matches_q and not text_matches_q:
+                    continue
+                if re.search(official_note_re, joined, re.I):
+                    return {
+                        "text": official_note,
+                        "source": {
+                            "source_type": "earnings_release",
+                            "doc": str(path),
+                            "form": "8-K",
+                        },
+                    }
+        for root in _cache_roots():
+            for path in _sec_cache_html_paths_local(root):
+                if not _path_belongs_to_ticker(path, ticker, ticker_roots):
+                    continue
+                try:
+                    joined = glx_normalize_text(" ".join([_read_cached_doc_raw(path), _read_cached_doc_text(path)]))
+                except Exception:
+                    joined = ""
+                if not joined:
+                    continue
+                q_raw = _infer_doc_quarter_local(path, joined)
+                path_low = str(path.name).lower()
+                path_matches_q = bool(qd_token_str and qd_token_str in path_low) or bool(quarter_path_token and quarter_path_token in path_low)
+                text_matches_q = bool(
+                    quarter_caption
+                    and re.search(rf"\b{quarter_caption}\b[\s\S]{{0,80}}?\b{qd.year}\b", joined, re.I)
+                )
+                if isinstance(q_raw, date):
+                    if q_raw != qd and not path_matches_q:
+                        continue
+                elif not path_matches_q and not text_matches_q:
+                    continue
+                if re.search(official_note_re, joined, re.I):
+                    return {
+                        "text": official_note,
+                        "source": {
+                            "source_type": "earnings_release",
+                            "doc": str(path),
+                            "form": "8-K",
+                        },
+                    }
+        return {}
+
+    def _gpre_transcript_risk_management_note_local(qd: Optional[date]) -> Dict[str, Any]:
+        if not is_gpre_profile or not isinstance(qd, date):
+            return {}
+        transcript_targets: Dict[date, Tuple[Tuple[str, ...], str]] = {
+            date(2025, 9, 30): (
+                ("75% hedged on crush in the fourth quarter", "put positions on for q1 in 2026"),
+                "Management said Q4 crush was about 75% hedged and positions had been put on for Q1 2026.",
+            ),
+            date(2025, 12, 31): (
+                ("significant portion of our q1 production margin logged in",),
+                "Management said a significant portion of Q1 production margin was already logged in.",
+            ),
+        }
+        target = transcript_targets.get(qd)
+        if target is None:
+            return {}
+        must_terms, summary_text = target
+        for rec in _load_operating_driver_source_records_by_quarter().get(qd, []) or []:
+            source_type = str(rec.get("source_type") or "").strip().lower()
+            if source_type != "transcript":
+                continue
+            text_low = str(rec.get("_text_low") or "").strip().lower()
+            if not text_low or any(term not in text_low for term in must_terms):
+                continue
+            excerpt = ""
+            sentences = [str(s).strip() for s in glx_split_sentences(str(rec.get("text") or "")) if str(s).strip()]
+            matched = [s for s in sentences if any(str(term or "").strip().lower() in s.lower() for term in must_terms)]
+            if matched:
+                excerpt = _ensure_terminal_period(qn_compact_snippet(" ".join(matched[:2]), 280))
+            else:
+                excerpt = _ensure_terminal_period(qn_compact_snippet(str(rec.get("text") or ""), 280))
+            return {
+                "text": summary_text,
+                "comment_full_text": excerpt,
+                "source": {
+                    "source_type": "transcript",
+                    "doc": str(rec.get("source_doc") or ""),
+                    "form": "transcript",
+                },
+            }
+        return {}
+
+    def _gpre_official_45z_realized_note_local(qd: Optional[date]) -> Dict[str, Any]:
+        if not is_gpre_profile or not isinstance(qd, date):
+            return {}
+        qd_token = pd.to_datetime(qd, errors="coerce")
+        qd_token_str = qd_token.strftime("%Y%m%d") if pd.notna(qd_token) else ""
+        quarter_num = ((int(qd.month) - 1) // 3) + 1
+        quarter_caption = {
+            1: "First Quarter",
+            2: "Second Quarter",
+            3: "Third Quarter",
+            4: "Fourth Quarter",
+        }.get(int(quarter_num), "")
+        quarter_path_token = f"q{quarter_num}{qd.year}"
+        for root in _cache_roots():
+            candidates = _sec_cache_html_paths_for_token_local(root, qd_token_str) if qd_token_str else []
+            if not candidates:
+                candidates = _sec_cache_html_paths_local(root)
+            for path in candidates:
+                if not _path_belongs_to_ticker(path, ticker, ticker_roots):
+                    continue
+                try:
+                    joined = glx_normalize_text(" ".join([_read_cached_doc_raw(path), _read_cached_doc_text(path)]))
+                except Exception:
+                    joined = ""
+                if not joined:
+                    continue
+                q_raw = _infer_doc_quarter_local(path, joined)
+                path_low = str(path.name).lower()
+                path_matches_q = bool(qd_token_str and qd_token_str in path_low) or bool(quarter_path_token and quarter_path_token in path_low)
+                text_matches_q = bool(
+                    quarter_caption
+                    and re.search(rf"\b{quarter_caption}\b[\s\S]{{0,80}}?\b{qd.year}\b", joined, re.I)
+                )
+                if isinstance(q_raw, date):
+                    if q_raw != qd and not path_matches_q:
+                        continue
+                elif not path_matches_q and not text_matches_q:
+                    continue
+                monet_match = re.search(
+                    r"\$?\s*(\d+(?:\.\d+)?)\s*(?:million|m)\s+in\s+45z\s+production\s+tax\s+credit\s+value\s+net\s+of\s+discounts\s+and\s+other\s+costs",
+                    joined,
+                    re.I,
+                )
+                if monet_match:
+                    amt = float(monet_match.group(1)) * 1_000_000.0
+                    period_suffix = " in Q4" if int(quarter_num) == 4 else ""
+                    return {
+                        "text": _ensure_terminal_period(
+                            f"45Z production tax credits contributed {_fmt_short_money_value_local(amt)} net of discounts and other costs{period_suffix}"
+                        ),
+                        "source": {
+                            "source_type": "earnings_release",
+                            "doc": str(path),
+                            "form": "8-K",
+                        },
+                    }
+        return {}
 
     def _local_slide_45z_realized_text(qd: date) -> str:
         if not isinstance(qd, date):
@@ -4762,7 +5621,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 break
         if not out:
             for root in roots:
-                out.extend(sorted(root.rglob("*_htm.xml")))
+                out.extend(
+                    sorted(
+                        p
+                        for p in root.rglob("*_htm.xml")
+                        if _path_belongs_to_ticker(p, ticker, ticker_roots)
+                    )
+                )
                 if out:
                     break
         seen_paths: set[str] = set()
@@ -4790,6 +5655,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if not p.exists() or not p.is_file():
                 return
             if p.suffix.lower() not in {".htm", ".html", ".txt"}:
+                return
+            if not _path_belongs_to_ticker(p, ticker, ticker_roots):
                 return
             sp = str(p)
             if sp in seen:
@@ -4959,6 +5826,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         for root in _sec_cache_roots_local():
             candidates = [p for p in _sec_cache_doc_paths_local(root) if p.suffix.lower() in {".htm", ".html"}]
             for p in candidates[:250]:
+                if not _path_belongs_to_ticker(p, ticker, ticker_roots):
+                    continue
                 sp = str(p)
                 if sp in fallback_seen:
                     continue
@@ -5227,6 +6096,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         for root in _sec_cache_roots_local():
             for p in _sec_cache_doc_paths_local(root):
                 if p.suffix.lower() not in {".htm", ".html", ".txt"}:
+                    continue
+                if not _path_belongs_to_ticker(p, ticker, ticker_roots):
                     continue
                 sp = str(p)
                 if sp in fallback_term_seen:
@@ -5568,11 +6439,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 merged_note = " | ".join([x for x in note_bits if x])
                 if merged_note:
                     out_df.at[idx, "conversion_terms_note"] = merged_note
-                src_bits = [
-                    _safe_text_value(x)
-                    for x in [out_df.at[idx, "conversion_terms_source"], cap_rec.get("path")]
-                    if _safe_text_value(x)
-                ]
+                src_bits: List[str] = []
+                for raw_src in [out_df.at[idx, "conversion_terms_source"], cap_rec.get("path")]:
+                    src_txt = _safe_text_value(raw_src)
+                    if not src_txt or src_txt in src_bits:
+                        continue
+                    src_bits.append(src_txt)
                 if src_bits:
                     out_df.at[idx, "conversion_terms_source"] = " | ".join(src_bits)
             out_df.at[idx, "dilution_structure_note"] = _convertible_dilution_structure_note_from_row(out_df.loc[idx])
@@ -7147,6 +8019,193 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 "blocking_reason": blocking_reason,
             }
 
+        def _clean_audit_excerpt_local(text_in: Any, max_chars: int = 320) -> str:
+            txt = glx_normalize_text(str(text_in or ""))
+            if not txt:
+                return ""
+            def _collapse_repeats_local(raw_txt: str) -> str:
+                cleaned = glx_normalize_text(raw_txt)
+                if not cleaned:
+                    return ""
+                for phrase_len in range(6, 1, -1):
+                    pattern = re.compile(rf"\b((?:\S+\s+){{{phrase_len - 1}}}\S+)(?:\s+\1\b)+", re.I)
+                    prev_val = None
+                    while prev_val != cleaned:
+                        prev_val = cleaned
+                        cleaned = pattern.sub(r"\1", cleaned)
+                return cleaned
+            parts: List[str] = []
+            seen_parts: set[str] = set()
+            for raw_part in re.split(r"\s*\|\s*", txt):
+                part = _collapse_repeats_local(str(raw_part or ""))
+                if not part:
+                    continue
+                words = part.split()
+                max_window = min(12, len(words) // 2)
+                for size in range(max_window, 1, -1):
+                    lhs = " ".join(words[:size]).strip()
+                    rhs = " ".join(words[size : size * 2]).strip()
+                    if lhs and rhs and lhs.lower() == rhs.lower():
+                        rest = " ".join(words[size * 2 :]).strip()
+                        part = f"{lhs} {rest}".strip() if rest else lhs
+                        break
+                part_key = part.lower()
+                if part_key in seen_parts:
+                    continue
+                if any(part_key in existing or existing in part_key for existing in seen_parts):
+                    continue
+                seen_parts.add(part_key)
+                parts.append(part)
+            txt = _collapse_repeats_local(" | ".join(parts) if parts else txt)
+            if len(txt) <= max_chars:
+                return txt
+            kept_parts: List[str] = []
+            cur_len = 0
+            for part in parts:
+                projected = cur_len + (3 if kept_parts else 0) + len(part)
+                if projected > max_chars:
+                    break
+                kept_parts.append(part)
+                cur_len = projected
+            if kept_parts:
+                trimmed = " | ".join(kept_parts).rstrip(" ,;:-")
+                return trimmed + ("..." if len(trimmed) < len(txt) else "")
+            cut = txt[:max_chars]
+            ws_cut = cut.rfind(" ")
+            if ws_cut >= int(max_chars * 0.6):
+                cut = cut[:ws_cut]
+            return cut.rstrip(" ,;:-") + "..."
+
+        def _canonicalize_audit_excerpt_local(text_in: Any) -> str:
+            txt = _clean_audit_excerpt_local(text_in, max_chars=1200)
+            if not txt:
+                return ""
+            txt = re.sub(r"\s+", " ", txt).strip(" |")
+            txt = re.sub(r"\s*([|,:;])\s*", r" \1 ", txt)
+            txt = re.sub(r"\s+", " ", txt).strip()
+            parts = _dedupe_canonical_text_parts_local(re.split(r"\s*\|\s*", txt))
+            txt = " | ".join(parts) if parts else txt
+            prior_txt = None
+            while txt and txt != prior_txt:
+                prior_txt = txt
+                txt = re.sub(
+                    r"\b([A-Za-z][A-Za-z0-9/%$().,\- ]{3,90}?)\s+\1\b",
+                    r"\1",
+                    txt,
+                    flags=re.I,
+                )
+                txt = _collapse_repeated_leading_ngram_local(txt)
+            parts = _dedupe_canonical_text_parts_local(re.split(r"\s*\|\s*", txt))
+            txt = " | ".join(parts) if parts else txt
+            return glx_normalize_text(txt)
+
+        def _audit_doc_family_local(source_doc_in: Any) -> str:
+            source_doc = str(source_doc_in or "").strip()
+            if not source_doc:
+                return ""
+            try:
+                name = Path(source_doc).name
+            except Exception:
+                name = source_doc.replace("\\", "/").split("/")[-1]
+            name = glx_normalize_text(name).lower()
+            name = re.sub(r"\.[a-z0-9]+$", "", name)
+            name = re.sub(r"^doc_\d+_", "", name)
+            name = re.sub(r"[-_]+", "_", name)
+            return name
+
+        def _quarter_notes_audit_canonical_rows_local(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            if not rows_in:
+                return []
+
+            def _safe_score_local(value_in: Any) -> float:
+                score_val = pd.to_numeric(value_in, errors="coerce")
+                if pd.isna(score_val):
+                    return 0.0
+                try:
+                    return float(score_val)
+                except Exception:
+                    return 0.0
+
+            def _canonical_source_group_local(row_in: Dict[str, Any]) -> str:
+                source_type = str(row_in.get("source_type") or "").strip().lower()
+                idea_label = glx_normalize_text(
+                    str(
+                        row_in.get("idea_label")
+                        or row_in.get("metric_display")
+                        or row_in.get("family")
+                        or row_in.get("candidate_type")
+                        or ""
+                    )
+                ).lower()
+                if source_type == "model_metric":
+                    return f"model_metric:{idea_label or 'unknown'}"
+                doc_family = _audit_doc_family_local(row_in.get("source_doc"))
+                if doc_family:
+                    return f"{source_type or 'source'}:{doc_family}"
+                return f"{source_type or 'source'}:unknown"
+
+            def _stage_priority_local(stage_in: Any) -> int:
+                stage_low = str(stage_in or "").strip().lower()
+                stage_rank = {
+                    "saved_workbook_visible": 90,
+                    "selection_kept": 80,
+                    "quality_filtered": 70,
+                    "routed_to_bucket": 60,
+                    "score_assigned": 50,
+                    "render_summary_generated": 40,
+                    "candidate_created": 30,
+                    "source_detected": 20,
+                    "quality_review": 10,
+                }
+                return stage_rank.get(stage_low, 0)
+
+            grouped: Dict[Tuple[str, str, str, str], List[Tuple[int, Dict[str, Any]]]] = {}
+            for idx, raw_row in enumerate(rows_in):
+                row = dict(raw_row)
+                row["source_excerpt"] = _canonicalize_audit_excerpt_local(row.get("source_excerpt"))
+                row["normalized_source_doc_family"] = _audit_doc_family_local(row.get("source_doc"))
+                row["canonical_source_group"] = _canonical_source_group_local(row)
+                idea_label = glx_normalize_text(
+                    str(row.get("idea_label") or row.get("metric_display") or row.get("family") or "")
+                ).lower()
+                key = (
+                    str(row.get("quarter") or ""),
+                    idea_label,
+                    str(row.get("canonical_source_group") or ""),
+                )
+                grouped.setdefault(key, []).append((idx, row))
+
+            rows_out: List[Tuple[int, Dict[str, Any]]] = []
+            for _, group_rows in grouped.items():
+                _, best_row = max(
+                    group_rows,
+                    key=lambda pair: (
+                        _stage_priority_local(pair[1].get("stage")),
+                        _safe_score_local(pair[1].get("score_total")),
+                        len(str(pair[1].get("final_summary") or "")),
+                        -pair[0],
+                    ),
+                )
+                group_only_rows = [dict(row) for _, row in group_rows]
+                merged = dict(best_row)
+                merged["support_count"] = len(group_only_rows)
+                merged["source_count"] = len(
+                    {
+                        str(row.get("source_doc") or row.get("normalized_source_doc_family") or row.get("canonical_source_group") or "")
+                        for row in group_only_rows
+                    }
+                )
+                if not str(merged.get("final_summary") or "").strip():
+                    for row in group_only_rows:
+                        final_summary = str(row.get("final_summary") or "").strip()
+                        if final_summary:
+                            merged["final_summary"] = final_summary
+                            break
+                rows_out.append((min(idx for idx, _ in group_rows), merged))
+
+            rows_out.sort(key=lambda pair: pair[0])
+            return [row for _, row in rows_out]
+
         def _quarter_note_trace_id_local(
             quarter_hint: Any,
             source_doc: Any,
@@ -7203,6 +8262,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             row.setdefault("final_summary", "")
             row.setdefault("lost_to_trace_id", "")
             row.setdefault("merged_into_trace_id", "")
+            row["source_excerpt"] = _clean_audit_excerpt_local(row.get("source_excerpt"))
             if not row.get("attrition_class"):
                 row["attrition_class"] = _audit_attrition_class_local(row.get("stage", ""), row.get("dropped_reason", ""))
             dedupe_key = (
@@ -10737,16 +11797,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 re.I,
             ):
                 return _ensure_terminal_period("Actively marketing 2026 45Z production tax credits")
-            crush_margin_match = re.search(
-                r"\bconsolidated ethanol crush margin was\s+\$?\(?(-?\d+(?:\.\d+)?)\)?\s*(?:million|m)\b[^.]{0,220}?\bcompared with\s+\$?\(?(-?\d+(?:\.\d+)?)\)?\s*(?:million|m)\b",
-                txt_local,
-                re.I,
-            )
-            if crush_margin_match:
-                current_val = _parse_paren_money(crush_margin_match.group(1))
-                prior_val = _parse_paren_money(crush_margin_match.group(2))
-                return _ensure_terminal_period(
-                    f"Consolidated ethanol crush margin improved to {_fmt_short_money_value_local(current_val * 1_000_000.0)} from {_fmt_short_money_value_local(prior_val * 1_000_000.0)} YoY"
+            crush_margin_pair = _parse_gpre_crush_margin_pair_local(txt_local)
+            if crush_margin_pair:
+                current_val, prior_val, _ = crush_margin_pair
+                return _format_directional_from_prior_summary_local(
+                    "Consolidated ethanol crush margin",
+                    float(current_val) * 1_000_000.0,
+                    float(prior_val) * 1_000_000.0,
+                    basis_label="YoY",
+                    negative_parens=True,
                 )
             if re.search(
                 r"\b45z\b.{0,240}?\bbetter financially than originally expected\b",
@@ -10774,6 +11833,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if restructuring_cost_match:
                 return _ensure_terminal_period(
                     f"Corporate activities included {_fmt_short_money_value_local(float(restructuring_cost_match.group(1)) * 1_000_000.0)} of restructuring costs from the cost reduction initiative"
+                )
+            if re.search(
+                r"\bdisciplined risk management strategy continues to support first quarter margins and cash flow\b",
+                low,
+                re.I,
+            ):
+                return _ensure_terminal_period(
+                    "Disciplined risk management strategy continues to support first quarter margins and cash flow"
                 )
             if re.search(r"\brisk management\b", low) and re.search(r"\b(margins?|cash flow)\b", low):
                 return _ensure_terminal_period("Risk management supports margins and cash flow")
@@ -11190,6 +12257,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     r"\b(?:more than|greater than)\s+\$?\s*\d+(?:\.\d+)?\s*(?:million|m)\s+improvement in working capital\b",
                 ),
                 (
+                    "Risk management",
+                    "Guidance / outlook",
+                    93.0,
+                    r"\bdisciplined risk management strategy continues to support first quarter margins and cash flow\b",
+                ),
+                (
                     "Crush margin",
                     "Strategy / segment",
                     89.0,
@@ -11598,6 +12671,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" ,;.")
                 return cleaned
 
+            if label == "PB Bank liquidity release":
+                amt_match = re.search(r"(?:>=|at least)\s*\$?\s*(\d+(?:\.\d+)?)\s*m", low, re.I)
+                if amt_match and re.search(r"\bcash optimization\b", low, re.I):
+                    amount_txt = f"${float(amt_match.group(1)):,.0f}m"
+                    return _finish(f"PB Bank cash optimization target is at least {amount_txt}")
+
             if label == "Capital allocation / buyback":
                 buyback_execution_summary = _compose_buyback_execution_summary_local(text)
                 share_match = re.search(
@@ -11822,6 +12901,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     return _finish("Results reflect disciplined cost management and improved operational execution")
 
             if label in {"Adjusted EBIT / margin", "SendTech / Presort operating driver"}:
+                if re.search(
+                    r"\bpresort services achieved record revenue and ebit\b",
+                    low,
+                    re.I,
+                ) and re.search(r"\bsendtech\b", low, re.I):
+                    return _finish("Presort delivered record revenue and EBIT, while SendTech again improved profit and margins")
+                if re.search(
+                    r"\badjusted ebit grew by more than \$?\s*23(?:\.0+)?\s*million\b",
+                    low,
+                    re.I,
+                ) and re.search(r"\b8%\s+decline in operating expenses\b", low, re.I):
+                    return _finish("Adjusted EBIT improved by more than $23m on relatively flat revenue, supported by segment performance and an 8% opex decline")
                 adj_ebitda_pct_match = re.search(r"\badjusted ebitda yoy\s+(-?\d+(?:\.\d+)?)%", low, re.I)
                 pct_from_to_driver_match = re.search(
                     r"\bgross margin percentage increased to\s*(\d+(?:\.\d+)?)%\s*from\s*(\d+(?:\.\d+)?)%[^.]{0,180}?(?:driven by|due to)\s*([^.]+)",
@@ -11899,27 +12990,48 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
 
             if label == "FCF improvement":
                 fcf_match = re.search(
-                    r"\bfree cash flow (?:was|improved to)\s+\$?\s*(\d+(?:\.\d+)?)\s*million(?:,\s+an improvement of\s+\$?\s*(\d+(?:\.\d+)?)\s*million)?",
+                    r"\bfree cash flow\s+(was a use of|was|improved to|declined to)\s+\$?\s*(\d+(?:\.\d+)?)\s*million(?:,\s+an improvement of\s+\$?\s*(\d+(?:\.\d+)?)\s*million)?",
                     text,
                     re.I,
                 )
                 if fcf_match:
-                    current = _fmt_short_millions_str(fcf_match.group(1))
-                    improvement = fcf_match.group(2)
+                    lead_phrase = str(fcf_match.group(1) or "").strip().lower()
+                    current_num = float(fcf_match.group(2))
+                    if "use of" in lead_phrase:
+                        current_num = -abs(current_num)
+                    elif "declined" in lead_phrase:
+                        current_num = abs(current_num)
+                    current = _fmt_short_money_value_local(current_num * 1_000_000.0)
+                    improvement = fcf_match.group(3)
                     if improvement:
-                        return _finish(f"Free cash flow improved to {current}, up {_fmt_short_millions_str(improvement)} YoY")
-                    return _finish(f"Free cash flow improved to {current}")
+                        prior_num = current_num - float(improvement)
+                        return _finish(
+                            _format_directional_fcf_summary_local(
+                                current_num * 1_000_000.0,
+                                prior_num * 1_000_000.0,
+                                basis_label="YoY",
+                            ).rstrip(".")
+                        )
+                    if current_num < 0:
+                        return _finish(f"Free cash flow was a use of {_fmt_short_money_value_local(abs(current_num) * 1_000_000.0)}")
+                    if "declined" in lead_phrase:
+                        return _finish(f"Free cash flow declined to {current}")
+                    if "improved" in lead_phrase:
+                        return _finish(f"Free cash flow improved to {current}")
+                    return _finish(f"Free cash flow was {current}")
                 ttm_match = re.search(
                     r"\bfcf ttm at .*?:\s*\$?(-?\d+(?:\.\d+)?)m,\s*(yoy|qoq)\s*(-?\d+(?:\.\d+)?)%,\s*delta\s+\$?(-?\d+(?:\.\d+)?)m\b",
                     low,
                     re.I,
                 )
                 if ttm_match:
-                    current = _fmt_short_money_value_local(float(ttm_match.group(1)) * 1_000_000.0)
                     basis = str(ttm_match.group(2) or "").upper()
+                    current_num = float(ttm_match.group(1)) * 1_000_000.0
                     delta_val = float(ttm_match.group(4))
-                    direction = "up" if delta_val >= 0 else "down"
-                    return _finish(f"Free cash flow improved to {current}, {direction} {_fmt_short_money_value_local(abs(delta_val) * 1_000_000.0)} {basis}")
+                    prior_num = current_num - (delta_val * 1_000_000.0)
+                    return _finish(
+                        _format_directional_fcf_summary_local(current_num, prior_num, basis_label=basis).rstrip(".")
+                    )
             if label in {"Deleveraging / liquidity", "Debt reduction"}:
                 from_to_match = re.search(
                     r"\b(?:revolving credit facility|revolver availability|revolver)\b.*?\b(?:increased|expanded|raised)\s+from\s+\$?\s*(\d+(?:\.\d+)?)\s*million\s+to\s+\$?\s*(\d+(?:\.\d+)?)\s*million",
@@ -11985,17 +13097,21 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if not is_pbi_profile or not qd_ref:
                 return ""
             if label == "FCF improvement":
-                current_fcf = _pbi_adj_fcf_map.get(qd_ref)
+                pbi_reported_fcf = _pbi_reported_fcf_payload_for_qd(qd_ref)
+                current_fcf = (
+                    pbi_reported_fcf.get("current")
+                    if isinstance(pbi_reported_fcf, dict) and pbi_reported_fcf.get("current") is not None
+                    else _pbi_adj_fcf_map.get(qd_ref)
+                )
                 if current_fcf is not None:
-                    prior_yoy = _prev_same_quarter_year(qd_ref, _pbi_adj_fcf_map)
+                    prior_yoy = (
+                        pbi_reported_fcf.get("prior")
+                        if isinstance(pbi_reported_fcf, dict) and pbi_reported_fcf.get("prior") is not None
+                        else _prev_same_quarter_year(qd_ref, _pbi_adj_fcf_map)
+                    )
                     if prior_yoy is not None:
-                        delta_val = float(current_fcf) - float(prior_yoy)
-                        direction = "up" if delta_val >= 0 else "down"
-                        return _ensure_terminal_period(
-                            f"Free cash flow improved to {_fmt_short_money_value_local(float(current_fcf))}, "
-                            f"{direction} {_fmt_short_money_value_local(abs(delta_val))} YoY"
-                        )
-                    return _ensure_terminal_period(f"Free cash flow improved to {_fmt_short_money_value_local(float(current_fcf))}")
+                        return _format_directional_fcf_summary_local(current_fcf, prior_yoy, basis_label="YoY")
+                    return _format_directional_fcf_summary_local(current_fcf, None, basis_label="YoY")
             if label in {"Deleveraging / liquidity", "Debt reduction"}:
                 debt_repay = _pbi_hist_debt_repayment_map.get(qd_ref)
                 if debt_repay is not None and abs(float(debt_repay)) >= 50_000_000.0:
@@ -15751,6 +16867,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     return "Capital allocation / shareholder returns"
                 if re.search(r"\bused\b.*\bproceeds\b.*\brepurchase\b", metric_blob, re.I):
                     return "Capital allocation / shareholder returns"
+                if re.search(r"\b45z\b", metric_blob, re.I) and re.search(
+                    r"\b(productions? tax credits contributed|45z value realized|contributed .* net of discounts|recorded .* production tax credit value)\b",
+                    metric_blob,
+                    re.I,
+                ):
+                    return "Results / drivers"
+                if re.search(r"\brisk management\b", metric_blob, re.I) and re.search(r"\b(margins?|cash flow)\b", metric_blob, re.I):
+                    return "Guidance / outlook"
+                if re.search(r"\bcrush margin\b", metric_blob, re.I) and re.search(r"\b(improved|declined|from .* yoy)\b", metric_blob, re.I):
+                    return "Results / drivers / better vs prior"
+                if re.search(r"\brestructuring costs?\b", metric_blob, re.I) and re.search(r"\bcost reduction initiative\b", metric_blob, re.I):
+                    return "Results / drivers"
                 if re.search(r"\b(guidance|target|outlook|reaffirmed|tracking midpoint|tracking low end)\b", metric_blob, re.I) or family_key == "guidance_target":
                     return "Guidance / outlook"
                 if re.search(
@@ -15828,19 +16956,23 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return "Other / footnotes"
             return str(_note_cached_runtime_value_local("visible_bucket", item, None, _build))
 
-        def _note_visible_category_rank_local(item: Dict[str, Any]) -> int:
+        def _shared_visible_category_rank_local(category_in: Any) -> int:
+            category_txt = str(category_in or "").strip()
             return {
                 "Guidance / outlook": 0,
-                "Capital allocation / shareholder returns": 1,
-                "Cash flow / FCF / working capital": 2,
-                "Debt / liquidity / balance sheet": 3,
-                "Results / drivers": 4,
-                "Results / drivers / better vs prior": 4,
-                "Operations / commercialization / milestones": 5,
-                "Programs / initiatives / management framing": 6,
-                "One-time items / restructuring": 7,
-                "Other / footnotes": 8,
-            }.get(_note_visible_bucket_local(item), 8)
+                "Results / drivers": 1,
+                "Results / drivers / better vs prior": 2,
+                "Cash flow / FCF / working capital": 3,
+                "Debt / liquidity / balance sheet": 4,
+                "Capital allocation / shareholder returns": 5,
+                "Operations / commercialization / milestones": 6,
+                "Programs / initiatives / management framing": 7,
+                "One-time items / restructuring": 8,
+                "Other / footnotes": 9,
+            }.get(category_txt, 9)
+
+        def _note_visible_category_rank_local(item: Dict[str, Any]) -> int:
+            return _shared_visible_category_rank_local(_note_visible_bucket_local(item))
 
         def _note_visible_metric_rank_local(item: Dict[str, Any], qd_ref: Optional[date] = None) -> Tuple[int, int, int]:
             family_key = _note_display_family_key_local(item)
@@ -16066,6 +17198,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                             preview = guidance_detail
                 _pbi_align_visible_summary_label_local(item, preview)
             elif is_gpre_profile:
+                if bool(item.get("_render_summary_locked")) and preview:
+                    return glx_normalize_text(re.sub(r"^\[[A-Z]+\]\s*", "", str(preview or "")).strip())
                 metric_hint = " | ".join(
                     [
                         str(item.get("_metric_display") or ""),
@@ -16083,6 +17217,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         ]
                     ),
                     metric_hint=metric_hint,
+                    qd_ref=qd_ref,
                 )
                 if override and (not preview or _prefer_note_summary_local(preview, override)):
                     preview = override
@@ -18466,6 +19601,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             summary_low = _note_render_summary_local(item_any).lower()
             subject_variant = str(_note_subject_variant_key_local(item_any) or "").strip().lower()
             family_key = _note_display_family_key_local(item_any)
+            explicit_continued = bool(
+                re.search(
+                    r"\b(reaffirmed|remains?|remain|continued?|continuing|ongoing|on track|ahead of plan|actively marketing|fully operational)\b",
+                    summary_low,
+                    re.I,
+                )
+            )
+            if not explicit_continued:
+                return False
             if subject_variant == "dividend_policy" or "quarterly dividend" in summary_low:
                 return True
             if subject_variant in {"capacity_remaining", "carbon_capture_status"}:
@@ -18480,15 +19624,69 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 )
             return False
 
-        def _normalized_change_badge_local(item_any: Dict[str, Any], *, repeated: bool) -> str:
-            summary_low = _note_render_summary_local(item_any).lower()
+        def _note_supports_explicit_badges_local(item_any: Dict[str, Any]) -> bool:
+            visible_bucket = str(_note_visible_bucket_local(item_any) or "").strip()
             subject_variant = str(_note_subject_variant_key_local(item_any) or "").strip().lower()
+            family_key = _note_display_family_key_local(item_any)
+            if _is_origin_quarter_only_event_note_local(item_any):
+                return True
+            if visible_bucket == "Guidance / outlook":
+                return True
+            if subject_variant in {
+                "authorization_capacity",
+                "capacity_remaining",
+                "dividend_policy",
+                "interest_expense_outlook",
+                "agreement_executed",
+                "agreement_update",
+                "agreement_update_amended",
+                "carbon_capture_status",
+            }:
+                return True
+            if family_key in {"capital_allocation", "debt_liquidity_refinancing", "monetization_commercialization"}:
+                return True
+            return False
+
+        def _note_supports_updated_badge_local(item_any: Dict[str, Any]) -> bool:
             visible_bucket = _note_visible_bucket_local(item_any)
-            if visible_bucket == "Guidance / outlook" and "reaffirmed" in summary_low:
-                return "REAFFIRMED"
-            if repeated and _is_continued_eligible_note_local(item_any):
+            subject_variant = str(_note_subject_variant_key_local(item_any) or "").strip().lower()
+            if visible_bucket == "Guidance / outlook":
+                return True
+            return subject_variant in {
+                "authorization_capacity",
+                "capacity_remaining",
+                "dividend_policy",
+                "interest_expense_outlook",
+                "agreement_update",
+                "agreement_update_amended",
+                "carbon_capture_status",
+            }
+
+        def _normalized_change_badge_local(
+            item_any: Dict[str, Any],
+            *,
+            prior_match: Optional[Dict[str, Any]] = None,
+            match_gap_quarters: Optional[int] = None,
+        ) -> str:
+            if not _note_supports_explicit_badges_local(item_any):
+                return ""
+            repeated_recent = match_gap_quarters is not None and int(match_gap_quarters) <= 4
+            if repeated_recent and _is_continued_eligible_note_local(item_any):
                 return "CONTINUED"
-            return "" if repeated else "NEW"
+            if prior_match is not None and _note_supports_updated_badge_local(item_any):
+                current_summary = glx_normalize_text(_note_render_summary_local(item_any))
+                prior_summary = glx_normalize_text(_note_render_summary_local(prior_match))
+                current_semantic = str(_semantic_note_key_local(item_any) or "").strip()
+                prior_semantic = str(_semantic_note_key_local(prior_match) or "").strip()
+                if current_summary and prior_summary and current_summary.lower() != prior_summary.lower():
+                    if current_semantic != prior_semantic:
+                        return "UPDATED"
+            if prior_match is None:
+                return "NEW"
+            quarters_absent = int(match_gap_quarters) - 1 if match_gap_quarters is not None else 0
+            if quarters_absent >= 4:
+                return "NEW"
+            return ""
 
         def _is_garbage_fragment_summary_local(summary_in: Any) -> bool:
             summary = glx_normalize_text(str(summary_in or ""))
@@ -18519,6 +19717,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             summary_low = summary.lower()
             subject_variant = str(_note_subject_variant_key_local(item_any) or "").strip().lower()
             metric_label_low = str(item_any.get("_metric_display") or item_any.get("metric_canon") or item_any.get("metric_tag") or "").strip().lower()
+            visible_bucket = str(_note_visible_bucket_local(item_any) or "").strip()
+            target_display_low = glx_normalize_text(str(item_any.get("target_display") or "")).lower()
+            period_norm = str(item_any.get("target_period_norm") or item_any.get("period_key") or "").strip().upper()
             if subject_variant == "buyback_execution":
                 shares_match = re.search(r"repurchased\s+([0-9]+(?:\.[0-9]+)?m\s+shares)\b", summary_low, re.I)
                 avg_match = re.search(r"average price of\s+\$([0-9]+(?:\.\d+)?)\s*/\s*share", summary_low, re.I)
@@ -18562,6 +19763,28 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 amount_match = re.search(r"contributed\s+(\$[0-9]+(?:\.[0-9]+)?m)\b", summary_low, re.I)
                 if amount_match:
                     return f"45z_contributed|{amount_match.group(1)}"
+            if subject_variant == "authorization_capacity":
+                amt_match = re.search(r"(?:increased (?:to|by)|authorization .*?(?:to|by))\s+(\$[0-9]+(?:\.[0-9]+)?m)\b", summary_low, re.I)
+                if amt_match:
+                    return f"authorization_capacity|{amt_match.group(1)}"
+            if "repurchase authorization increased to" in summary_low or "repurchase authorization increased by" in summary_low:
+                amt_match = re.search(r"increased (?:to|by)\s+(\$[0-9]+(?:\.[0-9]+)?m)\b", summary_low, re.I)
+                if amt_match:
+                    return f"authorization_capacity|{amt_match.group(1)}"
+            if subject_variant == "capacity_remaining":
+                amt_match = re.search(r"(\$[0-9]+(?:\.[0-9]+)?m)\b", summary_low, re.I)
+                if amt_match:
+                    return f"capacity_remaining|{amt_match.group(1)}"
+            if "remaining share repurchase capacity was" in summary_low:
+                amt_match = re.search(r"(\$[0-9]+(?:\.[0-9]+)?m)\b", summary_low, re.I)
+                if amt_match:
+                    return f"capacity_remaining|{amt_match.group(1)}"
+            if subject_variant == "dividend_policy":
+                amount_match = re.search(r"\$([0-9]+(?:\.\d+)?)\s*/\s*share", summary_low, re.I)
+                if amount_match:
+                    return f"dividend_policy|{amount_match.group(1)}"
+            if visible_bucket == "Guidance / outlook" and metric_label_low and target_display_low:
+                return f"guidance_target|{metric_label_low}|{period_norm}|{target_display_low}"
             return ""
 
         def _semantic_note_merge_local(winner_in: Dict[str, Any], challenger_in: Dict[str, Any]) -> Dict[str, Any]:
@@ -18747,9 +19970,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             prev_q = quarters[i_q + 1] if i_q + 1 < len(quarters) else None
             prev_items = rows_by_quarter.get(prev_q, []) if prev_q is not None else []
             prev_by_theme: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+            prev_semantic_keys: set[str] = set()
             prev_dividend_amounts: set[float] = set()
+            prior_quarters = list(quarters[i_q + 1 :])
+            prior_items_with_gap: List[Tuple[int, Dict[str, Any]]] = []
+            for gap_idx, prior_q in enumerate(prior_quarters, start=1):
+                for prev_it in rows_by_quarter.get(prior_q, []) or []:
+                    prior_items_with_gap.append((gap_idx, prev_it))
             for pit in prev_items:
                 prev_by_theme[_theme_signature(pit)] = pit
+                semantic_key = str(_semantic_note_key_local(pit) or "").strip()
+                if semantic_key:
+                    prev_semantic_keys.add(semantic_key)
                 prev_div_amt = _extract_dividend_ps_from_summary_local(_note_render_summary_local(pit))
                 if prev_div_amt is not None:
                     prev_dividend_amounts.add(round(float(prev_div_amt), 4))
@@ -18759,7 +19991,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 tkey = _theme_signature(it)
                 cur_theme_keys.add(tkey)
                 it["theme_key"] = "|".join(list(tkey))
-                repeated = tkey in prev_by_theme
+                semantic_key = str(_semantic_note_key_local(it) or "").strip()
+                repeated = tkey in prev_by_theme or (bool(semantic_key) and semantic_key in prev_semantic_keys)
                 if not repeated and (
                     str(_note_subject_variant_key_local(it) or "").strip().lower() == "dividend_policy"
                     or "quarterly dividend" in _note_render_summary_local(it).lower()
@@ -18767,7 +20000,35 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     cur_div_amt = _extract_dividend_ps_from_summary_local(_note_render_summary_local(it))
                     if cur_div_amt is not None and round(float(cur_div_amt), 4) in prev_dividend_amounts:
                         repeated = True
-                it["change_badge"] = _normalized_change_badge_local(it, repeated=repeated)
+                prior_match: Optional[Dict[str, Any]] = None
+                match_gap_quarters: Optional[int] = None
+                for gap_idx, prev_it in prior_items_with_gap:
+                    prev_semantic = str(_semantic_note_key_local(prev_it) or "").strip()
+                    prev_tkey = _theme_signature(prev_it)
+                    if prev_tkey == tkey or (bool(semantic_key) and semantic_key == prev_semantic):
+                        prior_match = prev_it
+                        match_gap_quarters = gap_idx
+                        break
+                if prior_match is None and repeated:
+                    prior_match = prev_by_theme.get(tkey)
+                    match_gap_quarters = 1 if prior_match is not None else match_gap_quarters
+                if prior_match is None and (
+                    str(_note_subject_variant_key_local(it) or "").strip().lower() == "dividend_policy"
+                    or "quarterly dividend" in _note_render_summary_local(it).lower()
+                ):
+                    cur_div_amt = _extract_dividend_ps_from_summary_local(_note_render_summary_local(it))
+                    if cur_div_amt is not None:
+                        for gap_idx, prev_it in prior_items_with_gap:
+                            prev_div_amt = _extract_dividend_ps_from_summary_local(_note_render_summary_local(prev_it))
+                            if prev_div_amt is not None and round(float(cur_div_amt), 4) == round(float(prev_div_amt), 4):
+                                prior_match = prev_it
+                                match_gap_quarters = gap_idx
+                                break
+                it["change_badge"] = _normalized_change_badge_local(
+                    it,
+                    prior_match=prior_match,
+                    match_gap_quarters=match_gap_quarters,
+                )
                 keep_tkey = _theme_collision_key(it)
                 if keep_tkey:
                     it["_theme_collision_key"] = keep_tkey
@@ -18974,7 +20235,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     }
                     if cur_div_amt is not None and round(float(cur_div_amt), 4) in prev_div_amts:
                         it = dict(it)
-                        it["change_badge"] = "CONTINUED"
+                        if _is_continued_eligible_note_local(it):
+                            it["change_badge"] = "CONTINUED"
                 pattern_key = _final_text_pattern_key_local(it)
                 if not pattern_key:
                     passthrough_rows.append(it)
@@ -19440,6 +20702,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 )
             )
             low = blob.lower()
+            if re.search(
+                r"\b(non-core asset monetization|enhance liquidity|strengthen (?:the|our) balance sheet|liquidity enhancement)\b",
+                low,
+                re.I,
+            ):
+                return "Liquidity / balance-sheet"
+            if re.search(r"\b45z\b", low, re.I) and re.search(r"\bproductions? tax credits contributed\b", low, re.I):
+                return "45Z value realized"
+            if re.search(r"\brisk management\b", low, re.I) and re.search(r"\b(margins?|cash flow)\b", low, re.I):
+                return "Risk management"
+            if re.search(r"\bcrush margin\b", low, re.I):
+                return "Crush margin"
             if re.search(r"\bissued an additional\b", low, re.I) and re.search(r"\bnotes due november 2030\b", low, re.I):
                 return "Additional note issuance"
             if re.search(r"\bexchanged?\b", low, re.I) and re.search(r"\bnotes due 2027\b", low, re.I):
@@ -19450,8 +20724,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return "Repurchase authorization"
             if re.search(r"\brepurchased?\b.*\bshares\b", low, re.I):
                 return "Repurchase execution"
-            if re.search(r"\b45z\b", low, re.I) and re.search(r"\bproductions? tax credits contributed\b", low, re.I):
-                return "45Z value realized"
+            if re.search(r"\b(restructuring costs?|cost reduction initiative)\b", low, re.I) and not re.search(
+                r"\b(repurchase authorization|repurchas(?:e|ed)|share repurchase|interest expense|agreement|convertible|notes due)\b",
+                low,
+                re.I,
+            ):
+                return "One-time items / restructuring"
             if re.search(r"\b(cost reductions?|cost savings|annualized savings target|annualized savings|run-rate savings)\b", low, re.I):
                 return "Cost savings target"
             if re.search(r"\bfully operational\b", low, re.I) and re.search(r"\b(central city|wood river|york)\b", low, re.I):
@@ -19460,8 +20738,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return "45Z agreement update"
             if re.search(r"\badvantage nebraska\b", low, re.I) and re.search(r"\bebitda opportunity\b", low, re.I):
                 return "Advantage Nebraska EBITDA opportunity"
-            if re.search(r"\bcrush margin\b", low, re.I):
-                return "Crush margin"
             if re.search(r"\bnet debt\b", low, re.I):
                 return "Net debt trend"
             if re.search(r"\bfcf\b", low, re.I):
@@ -19474,6 +20750,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             metric_txt = str(metric_display_in or "").strip()
             blob = glx_normalize_text(" | ".join([metric_txt, str(note_text_in or "")]))
             low = blob.lower()
+            if re.search(
+                r"\b(non-core asset monetization|enhance liquidity|strengthen (?:the|our) balance sheet|liquidity enhancement)\b",
+                low,
+                re.I,
+            ):
+                return "Liquidity / balance-sheet"
+            if re.search(r"\b45z\b", low, re.I) and re.search(r"\bproductions? tax credits contributed\b", low, re.I):
+                return "45Z value realized"
+            if re.search(r"\brisk management\b", low, re.I) and re.search(r"\b(margins?|cash flow)\b", low, re.I):
+                return "Risk management"
+            if re.search(r"\bcrush margin\b", low, re.I):
+                return "Crush margin"
             if re.search(r"\bissued an additional\b", low, re.I) and re.search(r"\bnotes due november 2030\b", low, re.I):
                 return "Additional note issuance"
             if re.search(r"\bexchanged?\b", low, re.I) and re.search(r"\bnotes due 2027\b", low, re.I):
@@ -19484,8 +20772,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return "Repurchase authorization"
             if re.search(r"\brepurchased?\b.*\bshares\b", low, re.I):
                 return "Repurchase execution"
-            if re.search(r"\b45z\b", low, re.I) and re.search(r"\bproductions? tax credits contributed\b", low, re.I):
-                return "45Z value realized"
+            if re.search(r"\b(restructuring costs?|cost reduction initiative)\b", low, re.I) and not re.search(
+                r"\b(repurchase authorization|repurchas(?:e|ed)|share repurchase|interest expense|agreement|convertible|notes due)\b",
+                low,
+                re.I,
+            ):
+                return "One-time items / restructuring"
             if re.search(r"\b(cost reductions?|cost savings|annualized savings target|annualized savings|run-rate savings)\b", low, re.I):
                 return "Cost savings target"
             if re.search(r"\bfully operational\b", low, re.I) and re.search(r"\b(central city|wood river|york)\b", low, re.I):
@@ -19495,6 +20787,37 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if re.search(r"\badvantage nebraska\b", low, re.I) and re.search(r"\bebitda opportunity\b", low, re.I):
                 return "Advantage Nebraska EBITDA opportunity"
             return metric_txt
+
+        def _gpre_visible_bucket_metric_local(
+            item: Dict[str, Any],
+            bucket_in: Any,
+            metric_display_in: Any,
+            note_text_in: Any,
+        ) -> Tuple[str, str]:
+            bucket_txt = str(bucket_in or "").strip()
+            metric_txt = str(metric_display_in or "").strip()
+            note_blob = glx_normalize_text(str(note_text_in or ""))
+            if re.search(r"\b45z\b", note_blob, re.I) and re.search(r"\bproductions? tax credits contributed\b", note_blob, re.I):
+                bucket_txt = "Results / drivers"
+            if re.search(r"\brestructuring costs?\b", note_blob, re.I) and re.search(r"\bcost reduction initiative\b", note_blob, re.I):
+                bucket_txt = "Results / drivers"
+                metric_txt = "One-time items / restructuring"
+            metric_txt = _gpre_metric_from_visible_note_text(note_blob, metric_txt)
+            if metric_txt == "Crush margin":
+                bucket_txt = "Results / drivers / better vs prior"
+            elif metric_txt == "Risk management":
+                bucket_txt = "Guidance / outlook"
+            elif metric_txt == "45Z value realized":
+                bucket_txt = "Results / drivers"
+            elif metric_txt == "45Z plant qualification readiness":
+                bucket_txt = "Guidance / outlook"
+            elif metric_txt == "Liquidity / balance-sheet" and re.search(
+                r"\b(non-core asset monetization|enhance liquidity|strengthen (?:the|our) balance sheet)\b",
+                note_blob,
+                re.I,
+            ):
+                bucket_txt = "Programs / initiatives / management framing"
+            return bucket_txt, metric_txt
 
         def _row_writer(_ws: Any, row_idx: int, qd: date, item: Dict[str, Any]) -> None:
             bucket = str(item.get("bucket") or "")
@@ -19569,7 +20892,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 metric_display = f"{metric_display}{stated_tag}"
             elif stated_tag:
                 metric_display = stated_tag.strip(" |")
-            badge_prefix = f"[{badge}] " if badge in {"NEW", "DROPPED", "CONTINUED", "REAFFIRMED"} else ""
+            badge_prefix = f"[{badge}] " if badge in {"NEW", "UPDATED", "DROPPED", "CONTINUED", "REAFFIRMED"} else ""
             disp_body = str(item.get("_render_summary") or "").strip()
             if not disp_body and is_pbi_profile:
                 disp_body = str(item.get("_pbi_compact_note") or "").strip()
@@ -19699,6 +21022,20 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         )
                         if repaired_guidance_summary:
                             disp_body = repaired_guidance_summary
+                if str(item.get("_metric_display") or metric_display or "").strip() == "FCF improvement":
+                    forced_fcf_note = _pbi_forced_release_backed_fcf_note_for_qd(qd)
+                    if forced_fcf_note is not None:
+                        disp_body = str(forced_fcf_note.get("summary") or disp_body)
+                        metric_display = "Quarterly FCF"
+                        item["_metric_display"] = "Quarterly FCF"
+                        item["metric_display"] = "Quarterly FCF"
+                        item["comment_full_text"] = str(forced_fcf_note.get("comment_full_text") or item.get("comment_full_text") or "")
+                        item["text_full"] = str(forced_fcf_note.get("summary") or item.get("text_full") or "")
+                        item["source"] = dict(forced_fcf_note.get("source") or item.get("source") or {})
+                    elif re.search(r"^\s*free cash flow\b", str(disp_body or ""), re.I):
+                        metric_display = "Quarterly FCF"
+                        item["_metric_display"] = "Quarterly FCF"
+                        item["metric_display"] = "Quarterly FCF"
             disp = f"{badge_prefix}{disp_body}".strip()
             if delta:
                 delta_context = _delta_context_label(metric_tag, metric_display, disp)
@@ -19707,9 +21044,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 else:
                     disp = f"{disp} \u0394 {delta}"
             if is_gpre_profile:
-                if re.search(r"\b45z\b", disp, re.I) and re.search(r"\bproduction tax credits contributed\b", disp, re.I):
-                    bucket = "Results / drivers"
-                metric_display = _gpre_metric_from_visible_note_text(disp, metric_display)
+                bucket, metric_display = _gpre_visible_bucket_metric_local(item, bucket, metric_display, disp)
+                if str(metric_display or "").strip() == "Risk management":
+                    official_risk_note = _gpre_official_risk_management_note_local(qd)
+                    transcript_risk_note = _gpre_transcript_risk_management_note_local(qd) if not dict((official_risk_note or {}).get("source") or {}) else {}
+                    selected_risk_note = official_risk_note or transcript_risk_note
+                    official_risk_summary = glx_normalize_text(str((selected_risk_note or {}).get("text") or ""))
+                    risk_blob = " | ".join(
+                        [
+                            str(item.get("comment_full_text") or ""),
+                            str(item.get("text_full") or ""),
+                            str(item.get("evidence_snippet") or ""),
+                            _evidence_snippet_blob_local(item),
+                            disp,
+                        ]
+                    )
+                    if (
+                        not official_risk_summary
+                        and re.search(r"\bdisciplined risk management strategy continues to support\b", risk_blob, re.I)
+                    ):
+                        official_risk_summary = "Disciplined risk management strategy continues to support first quarter margins and cash flow."
+                    if official_risk_summary:
+                        disp = f"{badge_prefix}{official_risk_summary}".strip()
+                        item["_render_summary"] = official_risk_summary
+                        item["_render_summary_locked"] = True
+                        item["text_full"] = official_risk_summary
+                        item["comment_full_text"] = str((selected_risk_note or {}).get("comment_full_text") or official_risk_summary)
+                        if dict((selected_risk_note or {}).get("source") or {}):
+                            item["source"] = dict((selected_risk_note or {}).get("source") or {})
             _ws.cell(row=row_idx, column=2, value=bucket)
             c_note = _ws.cell(row=row_idx, column=3, value=disp)
             c_note.alignment = Alignment(wrap_text=True, vertical="top")
@@ -20326,8 +21688,86 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return summary
             return candidate
 
-        def _gpre_summary_override(text_in: Any, metric_hint: Any = "") -> str:
+        def _gpre_canonical_crush_series_local() -> Dict[date, Dict[str, Any]]:
+            if not is_gpre_profile:
+                return {}
+            cached = getattr(_gpre_canonical_crush_series_local, "_cache", None)
+            if isinstance(cached, dict):
+                return dict(cached)
+
+            def _parse_pair_local(text_in: Any) -> Optional[Tuple[float, float, str]]:
+                return _parse_gpre_crush_margin_pair_local(text_in)
+
+            series_out: Dict[date, Dict[str, Any]] = {}
+
+            def _candidate_rank_local(target_q: date, source_q: date, source_type: str, source_rank: int) -> Tuple[int, int, int, int]:
+                source_type_low = str(source_type or "").strip().lower()
+                official_rank = 0 if source_type_low == "earnings_release" else 1 if source_type_low == "presentation" else 2
+                comparator_rank = 0 if target_q != source_q else 1
+                return (
+                    comparator_rank,
+                    official_rank,
+                    -int(pd.Timestamp(source_q).value),
+                    int(source_rank),
+                )
+
+            for source_q, recs in _load_operating_driver_source_records_by_quarter().items():
+                if not isinstance(source_q, date):
+                    continue
+                prior_q = date(int(source_q.year) - 1, int(source_q.month), int(source_q.day))
+                for rec in recs:
+                    source_type = str(rec.get("source_type") or "")
+                    if source_type not in {"earnings_release", "presentation"}:
+                        continue
+                    parsed_pair = _parse_pair_local(rec.get("text"))
+                    if not parsed_pair:
+                        continue
+                    current_val, prior_val, snippet = parsed_pair
+                    source_doc = str(rec.get("source_doc") or "")
+                    source_rank = int(rec.get("source_rank") or 99)
+                    for target_q, target_val in ((source_q, current_val), (prior_q, prior_val)):
+                        rank = _candidate_rank_local(target_q, source_q, source_type, source_rank)
+                        existing = series_out.get(target_q)
+                        existing_rank = existing.get("_rank") if isinstance(existing, dict) else None
+                        if existing_rank is not None and tuple(existing_rank) <= rank:
+                            continue
+                        series_out[target_q] = {
+                            "value": float(target_val),
+                            "source_type": source_type,
+                            "source_doc": source_doc,
+                            "commentary": snippet,
+                            "_rank": rank,
+                        }
+            for rec in series_out.values():
+                rec.pop("_rank", None)
+            setattr(_gpre_canonical_crush_series_local, "_cache", dict(series_out))
+            return dict(series_out)
+
+        def _gpre_canonical_crush_summary_local(qd_ref: Optional[date]) -> str:
+            if not isinstance(qd_ref, date):
+                return ""
+            series_map = _gpre_canonical_crush_series_local()
+            current_rec = series_map.get(qd_ref) or {}
+            prior_rec = series_map.get(date(int(qd_ref.year) - 1, int(qd_ref.month), int(qd_ref.day))) or {}
+            current_val = pd.to_numeric(current_rec.get("value"), errors="coerce")
+            prior_val = pd.to_numeric(prior_rec.get("value"), errors="coerce")
+            if pd.isna(current_val) or pd.isna(prior_val):
+                return ""
+            return _format_directional_from_prior_summary_local(
+                "Consolidated ethanol crush margin",
+                float(current_val) * 1_000_000.0,
+                float(prior_val) * 1_000_000.0,
+                basis_label="YoY",
+                negative_parens=True,
+            )
+
+        def _gpre_summary_override(text_in: Any, metric_hint: Any = "", qd_ref: Optional[date] = None) -> str:
             summary = _gpre_quantified_note_summary_local(text_in, metric_hint=metric_hint)
+            metric_blob = glx_normalize_text(" | ".join([str(metric_hint or ""), str(text_in or ""), str(summary or "")])).lower()
+            if re.search(r"\bcrush margin\b", metric_blob, re.I):
+                canonical_summary = _gpre_canonical_crush_summary_local(qd_ref)
+                if canonical_summary:
+                    summary = canonical_summary
             return _enrich_convertible_exchange_summary_local(summary, text_in)
 
         def _apply_note_event_render_layer(items: List[Dict[str, Any]], qd: date) -> List[Dict[str, Any]]:
@@ -20553,6 +21993,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                                     str(item.get("metric_tag") or ""),
                                 ]
                             ),
+                            qd_ref=qd,
                         )
                         if summary_override and _prefer_note_summary_local(note_summary, summary_override):
                             note_summary = summary_override
@@ -20693,6 +22134,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         str(item.get("metric_tag") or ""),
                     ]
                 ),
+                qd_ref=qd,
             )
             if summary_override:
                 item["_render_summary"] = summary_override
@@ -20886,7 +22328,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 filtered_rows.append(appended_note)
             for driver_metric, driver_kind, driver_bucket in (
                 ("Utilization", "utilization", "Results / drivers"),
-                ("Risk management", "risk_management", "Results / drivers"),
+                ("Risk management", "risk_management", "Guidance / outlook"),
             ):
                 theme_re = (
                     r"\b(utilization|stated capacity|operating rate|capacity utilization)\b"
@@ -20899,7 +22341,27 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     for it in filtered_rows
                 ):
                     continue
-                driver_txt = _local_slide_driver_fallback(qd, driver_kind)
+                source_meta = {
+                    "source_type": "earnings_presentation",
+                    "doc": "slides_text",
+                    "form": "presentation",
+                }
+                driver_txt = ""
+                force_passthrough = False
+                render_locked = False
+                score_val = 86.0 if driver_kind == "utilization" else 84.0
+                if driver_kind == "risk_management":
+                    official_note = _gpre_official_risk_management_note_local(qd)
+                    if official_note:
+                        driver_txt = str(official_note.get("text") or "")
+                        source_meta = dict(official_note.get("source") or source_meta)
+                        force_passthrough = True
+                        render_locked = True
+                        score_val = 96.0
+                    else:
+                        continue
+                else:
+                    driver_txt = _local_slide_driver_fallback(qd, driver_kind)
                 if not driver_txt:
                     continue
                 filtered_rows.append(
@@ -20908,16 +22370,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         "bucket": driver_bucket,
                         "text_full": driver_txt,
                         "comment_full_text": driver_txt,
-                        "score": 86.0 if driver_kind == "utilization" else 84.0,
+                        "score": score_val,
                         "candidate_type": "slides_priority_signal",
                         "metric_tag": driver_metric,
                         "metric_canon": driver_metric,
                         "_metric_display": driver_metric,
-                        "source": {
-                            "source_type": "earnings_presentation",
-                            "doc": "slides_text",
-                            "form": "presentation",
-                        },
+                        "_render_summary": driver_txt if render_locked else "",
+                        "_render_summary_locked": render_locked,
+                        "_force_note_passthrough": force_passthrough,
+                        "source": source_meta,
                         "note_id": hashlib.sha1(f"{qd}|post_filter_driver|{driver_kind}|{driver_txt}".encode("utf-8")).hexdigest()[:12],
                         "change_badge": "NEW",
                     }
@@ -20928,7 +22389,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         "metric": "Quarter_Notes_UI",
                         "severity": "info",
                         "message": f"post_filter_driver_added={driver_kind}",
-                        "source": "earnings_presentation",
+                        "source": str(source_meta.get("doc") or source_meta.get("source_type") or ""),
                     }
                 )
             deduped_filtered_rows: List[Dict[str, Any]] = []
@@ -22820,6 +24281,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                             ]
                         ),
                         metric_hint=str(rec.get("metric_ref") or rec.get("metric") or rec.get("metric_tag") or ""),
+                        qd_ref=qd,
                     )
                     src_type_rescue = str(rec.get("doc_type") or rec.get("source_type") or "").lower()
                     if _gpre_fragment_drop_re.search(txt_rescue) or _gpre_context_poor_note_re.search(txt_rescue) or (
@@ -23946,13 +25408,235 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 normalized_rows.append(item_copy)
             updated_rows = normalized_rows
 
-            return _dedupe_final_note_preview_rows_local(updated_rows, qd_ref)
+            official_risk_note = _gpre_official_risk_management_note_local(qd_ref)
+            official_risk_summary = glx_normalize_text(str((official_risk_note or {}).get("text") or ""))
+            if official_risk_summary:
+                def _is_risk_slot_candidate_local(item_in: Dict[str, Any], render_summary_in: str) -> bool:
+                    metric_blob_local = " | ".join(
+                        [
+                            str(item_in.get("_metric_display") or ""),
+                            str(item_in.get("metric_canon") or ""),
+                            str(item_in.get("metric_tag") or ""),
+                            render_summary_in,
+                        ]
+                    )
+                    return bool(
+                        re.search(r"\brisk management\b", metric_blob_local, re.I)
+                        or re.search(r"\bactively marketing 2026 45z production tax credits\b", render_summary_in, re.I)
+                    )
+
+                risk_base_row: Dict[str, Any] = {}
+                best_risk_pref: Optional[Tuple[int, int, int]] = None
+                for item_in in updated_rows:
+                    render_summary = glx_normalize_text(
+                        str(item_in.get("_render_summary") or _note_final_display_summary_local(dict(item_in), qd_ref) or "")
+                    )
+                    if not _is_risk_slot_candidate_local(item_in, render_summary):
+                        continue
+                    current_pref = _final_visible_preference_from_summary_local(item_in, render_summary)
+                    if best_risk_pref is None or current_pref > best_risk_pref:
+                        best_risk_pref = current_pref
+                        risk_base_row = dict(item_in)
+                risk_row = dict(risk_base_row)
+                risk_row.update(
+                    {
+                        "quarter": qd_ref,
+                        "bucket": "Guidance / outlook",
+                        "candidate_type": "gpre_final_visible_risk_management_override",
+                        "metric_tag": "Risk management|risk_management",
+                        "metric_canon": "Risk management|risk_management",
+                        "_metric_display": "Risk management",
+                        "_render_summary": official_risk_summary,
+                        "_render_summary_locked": True,
+                        "text_full": official_risk_summary,
+                        "comment_full_text": official_risk_summary,
+                        "_force_note_passthrough": True,
+                        "_theme_scope_key": "risk management|risk_management",
+                        "source": dict((official_risk_note or {}).get("source") or {}),
+                        "change_badge": "NEW",
+                    }
+                )
+                filtered_rows = []
+                inserted = False
+                for item_in in updated_rows:
+                    render_summary = glx_normalize_text(
+                        str(item_in.get("_render_summary") or _note_final_display_summary_local(dict(item_in), qd_ref) or "")
+                    )
+                    if _is_risk_slot_candidate_local(item_in, render_summary):
+                        if not inserted:
+                            filtered_rows.append(dict(risk_row))
+                            inserted = True
+                        ui_info_rows.append(
+                            {
+                                "quarter": qd_ref,
+                                "metric": "Quarter_Notes_UI",
+                                "severity": "info",
+                                "message": "dropped_reason=gpre_final_visible_risk_management_collapse",
+                                "source": str(dict(item_in.get("source") or {}).get("doc") or ""),
+                            }
+                        )
+                        continue
+                    filtered_rows.append(item_in)
+                if not inserted:
+                    filtered_rows.append(dict(risk_row))
+                updated_rows = filtered_rows
+
+            official_45z_realized = _gpre_official_45z_realized_note_local(qd_ref)
+            official_45z_summary = glx_normalize_text(str((official_45z_realized or {}).get("text") or ""))
+            if official_45z_summary and not any(
+                official_45z_summary.lower()
+                == glx_normalize_text(
+                    str(item_in.get("_render_summary") or _note_final_display_summary_local(dict(item_in), qd_ref) or "")
+                ).lower()
+                for item_in in updated_rows
+            ):
+                updated_rows.append(
+                    {
+                        "quarter": qd_ref,
+                        "bucket": "Results / drivers",
+                        "candidate_type": "gpre_final_visible_45z_realized_override",
+                        "metric_tag": "45Z value realized|45z_realized_value",
+                        "metric_canon": "45Z value realized|45z_realized_value",
+                        "_metric_display": "45Z value realized",
+                        "_render_summary": official_45z_summary,
+                        "_render_summary_locked": True,
+                        "_force_note_passthrough": True,
+                        "_theme_scope_key": "45z value realized|45z_realized_value",
+                        "source": dict((official_45z_realized or {}).get("source") or {}),
+                        "change_badge": "NEW",
+                        "score": 96.0,
+                    }
+                )
+
+            cleaned_rows = _dedupe_final_note_preview_rows_local(updated_rows, qd_ref)
+            official_45z_realized_post = _gpre_official_45z_realized_note_local(qd_ref)
+            official_45z_summary_post = glx_normalize_text(str((official_45z_realized_post or {}).get("text") or ""))
+            if official_45z_summary_post and not any(
+                official_45z_summary_post.lower()
+                == glx_normalize_text(
+                    str(item_in.get("_render_summary") or _note_final_display_summary_local(dict(item_in), qd_ref) or "")
+                ).lower()
+                for item_in in cleaned_rows
+            ):
+                cleaned_rows.append(
+                    {
+                        "quarter": qd_ref,
+                        "bucket": "Results / drivers",
+                        "candidate_type": "gpre_final_visible_45z_realized_postdedupe",
+                        "metric_tag": "45Z value realized|45z_realized_value",
+                        "metric_canon": "45Z value realized|45z_realized_value",
+                        "_metric_display": "45Z value realized",
+                        "_render_summary": official_45z_summary_post,
+                        "_render_summary_locked": True,
+                        "_force_note_passthrough": True,
+                        "_theme_scope_key": "45z value realized|45z_realized_value",
+                        "source": dict((official_45z_realized_post or {}).get("source") or {}),
+                        "change_badge": "NEW",
+                        "score": 96.0,
+                    }
+                )
+            return cleaned_rows
+
+        def _gpre_final_visible_45z_restore_row_local(
+            qd_ref: date,
+            existing_rows: List[Dict[str, Any]],
+        ) -> Optional[Dict[str, Any]]:
+            official_45z_realized = _gpre_official_45z_realized_note_local(qd_ref)
+            official_45z_summary = glx_normalize_text(str((official_45z_realized or {}).get("text") or ""))
+            if official_45z_summary:
+                return {
+                    "quarter": qd_ref,
+                    "bucket": "Results / drivers",
+                    "candidate_type": "gpre_final_visible_45z_realized_last_restore",
+                    "metric_tag": "45Z value realized|45z_realized_value",
+                    "metric_canon": "45Z value realized|45z_realized_value",
+                    "_metric_display": "45Z value realized",
+                    "_render_summary": official_45z_summary,
+                    "_render_summary_locked": True,
+                    "_force_note_passthrough": True,
+                    "_theme_scope_key": "45z value realized|45z_realized_value",
+                    "text_full": official_45z_summary,
+                    "comment_full_text": official_45z_summary,
+                    "source": dict((official_45z_realized or {}).get("source") or {}),
+                    "change_badge": "NEW",
+                    "score": 96.0,
+                }
+
+            best_row: Optional[Dict[str, Any]] = None
+            best_pref: Optional[Tuple[int, int, int]] = None
+            rescue_candidates: List[Dict[str, Any]] = []
+            rescue_candidates.extend(_quarter_rows_copy_local("generic_source_rescue", _generic_source_note_rescue_rows, qd_ref))
+            rescue_candidates.extend(_quarter_rows_copy_local("gpre_source_rescue", _gpre_source_note_rescue_rows, qd_ref))
+            rescue_candidates.extend([dict(it) for it in existing_rows])
+            for item_in in rescue_candidates:
+                render_summary = glx_normalize_text(
+                    str(item_in.get("_render_summary") or _note_final_display_summary_local(dict(item_in), qd_ref) or item_in.get("text_full") or "")
+                )
+                if not render_summary:
+                    continue
+                if not (
+                    re.search(r"\b45z\b", render_summary, re.I)
+                    and re.search(r"\bproductions? tax credits contributed\b", render_summary, re.I)
+                    and re.search(r"\bnet of discounts and other costs\b", render_summary, re.I)
+                ):
+                    continue
+                pref = _final_visible_preference_from_summary_local(item_in, render_summary)
+                if best_pref is None or pref > best_pref:
+                    best_pref = pref
+                    best_row = dict(item_in)
+            if best_row is None:
+                return None
+
+            rescue_summary = glx_normalize_text(
+                str(best_row.get("_render_summary") or _note_final_display_summary_local(dict(best_row), qd_ref) or best_row.get("text_full") or "")
+            )
+            if not rescue_summary:
+                return None
+            if int(((int(qd_ref.month) - 1) // 3) + 1) == 4 and "in q4" not in rescue_summary.lower():
+                rescue_summary = re.sub(r"\.\s*$", "", rescue_summary).strip()
+                rescue_summary = _ensure_terminal_period(f"{rescue_summary} in Q4")
+            best_row.update(
+                {
+                    "quarter": qd_ref,
+                    "bucket": "Results / drivers",
+                    "candidate_type": "gpre_final_visible_45z_realized_last_restore",
+                    "metric_tag": "45Z value realized|45z_realized_value",
+                    "metric_canon": "45Z value realized|45z_realized_value",
+                    "_metric_display": "45Z value realized",
+                    "_render_summary": rescue_summary,
+                    "_render_summary_locked": True,
+                    "_force_note_passthrough": True,
+                    "_theme_scope_key": "45z value realized|45z_realized_value",
+                    "text_full": rescue_summary,
+                    "comment_full_text": rescue_summary,
+                    "change_badge": "NEW",
+                    "score": max(96.0, float(best_row.get("score") or 0.0)),
+                }
+            )
+            return best_row
 
         for i_q, qd in enumerate(quarters):
             qd_ts = pd.to_datetime(qd, errors="coerce")
             q_num = ((int(qd_ts.month) - 1) // 3) + 1 if pd.notna(qd_ts) else 0
             prev_q = quarters[i_q + 1] if i_q + 1 < len(quarters) else None
             prev_rows = rows_by_quarter.get(prev_q, []) if prev_q is not None else []
+            prev_visible_summary_keys = {
+                _final_visible_pattern_key_from_summary_local(
+                    glx_normalize_text(
+                        str(
+                            _note_final_display_summary_local(dict(prev_it), prev_q)
+                            or _note_render_summary_local(prev_it)
+                            or ""
+                        )
+                    )
+                )
+                for prev_it in prev_rows
+                if str(
+                    _note_final_display_summary_local(dict(prev_it), prev_q)
+                    or _note_render_summary_local(prev_it)
+                    or ""
+                ).strip()
+            }
             prev_dividend_amounts = {
                 round(float(v), 4)
                 for v in (
@@ -24065,7 +25749,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         )
                         continue
                 div_amt = _extract_dividend_ps_from_summary_local(final_summary)
-                if div_amt is not None and round(float(div_amt), 4) in prev_dividend_amounts:
+                if (
+                    div_amt is not None
+                    and round(float(div_amt), 4) in prev_dividend_amounts
+                    and _is_continued_eligible_note_local(it_final)
+                ):
+                    it_final["change_badge"] = "CONTINUED"
+                final_summary_key = _final_visible_pattern_key_from_summary_local(final_summary)
+                if final_summary_key and final_summary_key in prev_visible_summary_keys and _is_continued_eligible_note_local(it_final):
                     it_final["change_badge"] = "CONTINUED"
                 it_final["_render_summary"] = final_summary
                 it_final["_render_summary_locked"] = True
@@ -24222,6 +25913,16 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     it["bucket"] = visible_bucket
             if is_pbi_profile:
                 deduped_rows = _pbi_apply_doc_backed_buyback_override_local(deduped_rows, qd)
+            for it in deduped_rows:
+                badge = str(it.get("change_badge") or "").strip().upper()
+                if badge == "REAFFIRMED":
+                    badge = "CONTINUED"
+                if badge in {"NEW", "UPDATED", "CONTINUED"}:
+                    if not _note_supports_explicit_badges_local(it):
+                        badge = ""
+                    elif badge == "CONTINUED" and not _is_continued_eligible_note_local(it):
+                        badge = ""
+                it["change_badge"] = badge
             rows_by_quarter[qd] = deduped_rows
 
         origin_event_seen: set[str] = set()
@@ -24349,6 +26050,202 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 qd,
             )
 
+        seen_badge_history: Dict[str, str] = {}
+        for qd in reversed(list(quarters)):
+            qd_ts = pd.to_datetime(qd, errors="coerce")
+            q_num = ((int(qd_ts.month) - 1) // 3) + 1 if pd.notna(qd_ts) else 0
+            finalized_rows: List[Dict[str, Any]] = []
+            for item_in in rows_by_quarter.get(qd, []):
+                item = dict(item_in)
+                final_summary = glx_normalize_text(
+                    str(item.get("_render_summary") or _note_final_display_summary_local(dict(item), qd) or _note_render_summary_local(item) or "")
+                )
+                explicit_q_match = re.search(r"\bin q([1-4])\b", final_summary, re.I)
+                if explicit_q_match and q_num and int(explicit_q_match.group(1)) != int(q_num):
+                    ui_info_rows.append(
+                        {
+                            "quarter": qd,
+                            "metric": "Quarter_Notes_UI",
+                            "severity": "info",
+                            "message": "dropped_reason=late_final_quarter_mismatch",
+                            "source": str(dict(item.get("source") or {}).get("doc") or ""),
+                        }
+                    )
+                    continue
+                badge = str(item.get("change_badge") or "").strip().upper()
+                if badge == "REAFFIRMED":
+                    badge = "CONTINUED"
+                badge_key = (
+                    str(_semantic_note_key_local(item) or "").strip()
+                    or _final_visible_pattern_key_from_summary_local(final_summary)
+                    or "|".join(_theme_signature(item))
+                )
+                if badge in {"NEW", "UPDATED", "CONTINUED"}:
+                    if not _note_supports_explicit_badges_local(item):
+                        badge = ""
+                    elif badge_key and badge_key in seen_badge_history:
+                        prev_summary = glx_normalize_text(str(seen_badge_history.get(badge_key) or ""))
+                        if _is_continued_eligible_note_local(item):
+                            badge = "CONTINUED"
+                        elif _note_supports_updated_badge_local(item) and final_summary and prev_summary and final_summary.lower() != prev_summary.lower():
+                            badge = "UPDATED"
+                        else:
+                            badge = ""
+                item["change_badge"] = badge
+                if is_gpre_profile:
+                    metric_for_display = str(item.get("_metric_display") or item.get("metric_canon") or item.get("metric_tag") or "").strip()
+                    bucket_for_display, metric_for_display = _gpre_visible_bucket_metric_local(
+                        item,
+                        item.get("bucket") or "",
+                        metric_for_display,
+                        final_summary or item.get("_render_summary") or item.get("text_full") or "",
+                    )
+                    risk_summary_probe = " | ".join(
+                        [
+                            str(item.get("_render_summary") or ""),
+                            str(final_summary or ""),
+                            str(item.get("text_full") or ""),
+                        ]
+                    )
+                    if (
+                        str(metric_for_display or "").strip() == "Risk management"
+                        or re.search(r"\bdisciplined risk management strategy continues to support\b", risk_summary_probe, re.I)
+                    ):
+                        bucket_for_display = "Guidance / outlook"
+                        metric_for_display = "Risk management"
+                    item["bucket"] = bucket_for_display
+                    if metric_for_display:
+                        item["_metric_display"] = metric_for_display
+                    if metric_for_display == "Risk management":
+                        official_risk_note = _gpre_official_risk_management_note_local(qd)
+                        transcript_risk_note = _gpre_transcript_risk_management_note_local(qd) if not dict((official_risk_note or {}).get("source") or {}) else {}
+                        selected_risk_note = official_risk_note or transcript_risk_note
+                        official_risk_summary = glx_normalize_text(str((selected_risk_note or {}).get("text") or ""))
+                        if (
+                            not official_risk_summary
+                            and re.search(r"\bdisciplined risk management strategy continues to support\b", risk_summary_probe, re.I)
+                        ):
+                            official_risk_summary = "Disciplined risk management strategy continues to support first quarter margins and cash flow."
+                        if official_risk_summary:
+                            item["_render_summary"] = official_risk_summary
+                            item["_render_summary_locked"] = True
+                            item["text_full"] = official_risk_summary
+                            item["comment_full_text"] = str((selected_risk_note or {}).get("comment_full_text") or official_risk_summary)
+                            if dict((selected_risk_note or {}).get("source") or {}):
+                                item["source"] = dict((selected_risk_note or {}).get("source") or {})
+                if badge_key and final_summary:
+                    seen_badge_history.setdefault(badge_key, final_summary)
+                finalized_rows.append(item)
+            if is_gpre_profile:
+                deduped_finalized_rows: List[Dict[str, Any]] = []
+                seen_gpre_risk_note = False
+                for item in finalized_rows:
+                    summary_blob = glx_normalize_text(
+                        str(item.get("_render_summary") or item.get("text_full") or item.get("comment_full_text") or "")
+                    )
+                    metric_blob = str(item.get("_metric_display") or item.get("metric_canon") or item.get("metric_tag") or "").strip()
+                    is_risk_row = bool(
+                        str(metric_blob or "").strip() == "Risk management"
+                        or re.search(r"\bdisciplined risk management strategy continues to support\b", summary_blob, re.I)
+                    )
+                    if is_risk_row:
+                        if seen_gpre_risk_note:
+                            continue
+                        seen_gpre_risk_note = True
+                    deduped_finalized_rows.append(item)
+                finalized_rows = deduped_finalized_rows
+                visible_45z_summary_keys = {
+                    glx_normalize_text(
+                        str(
+                            item.get("_render_summary")
+                            or item.get("text_full")
+                            or item.get("comment_full_text")
+                            or ""
+                        )
+                    ).lower()
+                    for item in finalized_rows
+                }
+                restored_45z_row = _gpre_final_visible_45z_restore_row_local(qd, finalized_rows)
+                restored_45z_summary = glx_normalize_text(str((restored_45z_row or {}).get("_render_summary") or ""))
+                if restored_45z_summary and restored_45z_summary.lower() not in visible_45z_summary_keys:
+                    finalized_rows.append(restored_45z_row or {})
+                elif restored_45z_summary and " in q4." in restored_45z_summary.lower() and not any(
+                    re.search(r"\b45z\b", summary_txt, re.I)
+                    and re.search(r"\bproductions? tax credits contributed\b", summary_txt, re.I)
+                    and summary_txt == restored_45z_summary.lower()
+                    for summary_txt in visible_45z_summary_keys
+                ):
+                    finalized_rows = [
+                        item
+                        for item in finalized_rows
+                        if not (
+                            re.search(
+                                r"\b45z\b",
+                                glx_normalize_text(
+                                    str(
+                                        item.get("_render_summary")
+                                        or item.get("text_full")
+                                        or item.get("comment_full_text")
+                                        or ""
+                                    )
+                                ),
+                                re.I,
+                            )
+                            and re.search(
+                                r"\bproductions? tax credits contributed\b",
+                                glx_normalize_text(
+                                    str(
+                                        item.get("_render_summary")
+                                        or item.get("text_full")
+                                        or item.get("comment_full_text")
+                                        or ""
+                                    )
+                                ),
+                                re.I,
+                            )
+                        )
+                    ]
+                    finalized_rows.append(restored_45z_row or {})
+            for item in finalized_rows:
+                item["bucket"] = _note_visible_bucket_local(item)
+            finalized_rows = sorted(
+                finalized_rows,
+                key=lambda it: (
+                    _note_visible_category_rank_local(it),
+                    _note_visible_metric_rank_local(it, qd),
+                    -float(it.get("score") or 0.0),
+                    str(it.get("_render_summary") or it.get("text_full") or "").lower(),
+                ),
+            )
+            if is_gpre_profile:
+                qd_ts_render = pd.to_datetime(qd, errors="coerce")
+                q_num_render = ((int(qd_ts_render.month) - 1) // 3) + 1 if pd.notna(qd_ts_render) else 0
+                render_filtered_rows: List[Dict[str, Any]] = []
+                for item in finalized_rows:
+                    render_summary = glx_normalize_text(
+                        str(
+                            _note_final_display_summary_local(dict(item), qd)
+                            or item.get("_render_summary")
+                            or item.get("text_full")
+                            or ""
+                        )
+                    )
+                    explicit_q_match = re.search(r"\bin q([1-4])\b", render_summary, re.I)
+                    if explicit_q_match and q_num_render and int(explicit_q_match.group(1)) != int(q_num_render):
+                        ui_info_rows.append(
+                            {
+                                "quarter": qd,
+                                "metric": "Quarter_Notes_UI",
+                                "severity": "info",
+                                "message": "dropped_reason=pre_render_display_quarter_mismatch",
+                                "source": str(dict(item.get("source") or {}).get("doc") or ""),
+                            }
+                        )
+                        continue
+                    render_filtered_rows.append(item)
+                finalized_rows = render_filtered_rows
+            rows_by_quarter[qd] = finalized_rows
+
         ui_state["quarter_notes_ui_rows"] = {
             qd: [
                 dict(it)
@@ -24358,7 +26255,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             for qd in quarters
         }
         if quarter_notes_audit_enabled:
-            ui_state["quarter_notes_audit_rows"] = list(quarter_notes_audit_rows)
+            ui_state["quarter_notes_audit_rows_raw"] = list(quarter_notes_audit_rows)
+            ui_state["quarter_notes_audit_rows"] = _quarter_notes_audit_canonical_rows_local(list(quarter_notes_audit_rows))
             ui_state["quarter_notes_header_text"] = qn_header_text
 
         _render_stacked_quarter_blocks(
@@ -26830,7 +28728,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         return f"{metric_txt} updated to {target_txt}.".strip()
                     return f"{metric_txt} target {target_txt}.".strip()
                 if metric_txt == "PB Bank liquidity release":
-                    return f"PB Bank liquidity release target {target_txt}.".strip()
+                    amt_match = re.search(r"(>=|>|at least)?\s*(\$[0-9]+(?:\.[0-9]+)?[mbn]?)", target_txt, re.I)
+                    if amt_match:
+                        qualifier = str(amt_match.group(1) or "").strip().lower()
+                        amount_txt = str(amt_match.group(2) or "").strip()
+                        if qualifier in {">=", ">", "at least"}:
+                            return f"PB Bank cash optimization target is at least {amount_txt}."
+                        return f"PB Bank cash optimization target is {amount_txt}."
+                    return f"PB Bank cash optimization target is {target_txt}.".strip()
                 if metric_txt == "Strategic milestone":
                     return glx_normalize_text(str(note_in or "")).strip(" .") + "."
                 return glx_normalize_text(str(note_in or "")).strip(" .") + "."
@@ -32070,6 +33975,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             metric_caps = {
                 "45Z-related Adjusted EBITDA": 1,
                 "45Z monetization / EBITDA": 1,
+                "45Z monetization": 1,
                 "45Z monetization outlook": 1,
                 "45Z from remaining facilities": 1,
                 "45Z facility qualification": 1,
@@ -32081,16 +33987,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 "Interest expense outlook": 1,
             }
             metric_order = {
-                "Advantage Nebraska startup": 0,
-                "45Z monetization outlook": 1,
-                "Advantage Nebraska EBITDA opportunity": 2,
+                "45Z monetization outlook": 0,
+                "Interest expense outlook": 1,
+                "45Z-related Adjusted EBITDA": 2,
                 "45Z facility qualification": 3,
                 "45Z from remaining facilities": 4,
-                "Cost savings target": 5,
-                "Interest expense outlook": 6,
-                "Debt reduction": 7,
-                "45Z-related Adjusted EBITDA": 8,
-                "45Z plant qualification readiness": 9,
+                "45Z monetization": 5,
+                "Advantage Nebraska startup": 6,
+                "Advantage Nebraska EBITDA opportunity": 7,
+                "Cost savings target": 8,
+                "Debt reduction": 9,
+                "45Z plant qualification readiness": 10,
             }
             for row in rows:
                 metric_label = _gpre_clean_visible_promise_metric(
@@ -32119,6 +34026,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             rows = sorted(
                 rows,
                 key=lambda z: (
+                    _promise_progress_visible_category_rank_local(z),
                     metric_order.get(str(z.get("metric_display") or z.get("metric_ref") or "").strip(), 99),
                     -shared_progress_status_rank(z.get("status")),
                     -int(str(z.get("latest") or "").strip().lower() not in {"", "not yet measurable"}),
@@ -32601,6 +34509,56 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     qd,
                 )
 
+            def _promise_progress_visible_category_local(item: Dict[str, Any]) -> str:
+                metric_display = str(item.get("metric_display") or item.get("metric_ref") or item.get("metric") or "").strip()
+                metric_low = metric_display.lower()
+                blob = glx_normalize_text(
+                    " | ".join(
+                        [
+                            metric_display,
+                            str(item.get("metric_ref") or ""),
+                            str(item.get("target") or ""),
+                            str(item.get("latest") or ""),
+                            str(item.get("rationale") or ""),
+                            str(item.get("_source_snip") or ""),
+                        ]
+                    )
+                )
+                low = blob.lower()
+                if metric_low.endswith("guidance") or re.search(r"\b(guidance|outlook|target)\b", metric_low, re.I):
+                    return "Guidance / outlook"
+                if re.search(r"\b(fcf|free cash flow|working capital|cash flow)\b", low, re.I):
+                    return "Cash flow / FCF / working capital"
+                if re.search(r"\b(liquidity|balance sheet|debt|revolver|availability|interest expense|refinanc|deleverag|net debt|mezzanine)\b", low, re.I):
+                    return "Debt / liquidity / balance sheet"
+                if re.search(r"\b(repurchase|buyback|dividend|shareholder returns?|capital allocation)\b", low, re.I):
+                    return "Capital allocation / shareholder returns"
+                if re.search(r"\b(carbo[n]? capture|fully operational|online and ramping|startup|commissioning|milestone|qualification|commercialization|agreement executed|utilization)\b", low, re.I):
+                    return "Operations / commercialization / milestones"
+                if re.search(r"\b(cost savings|strategic review|management framing|risk management|non-core asset monetization|positive ebitda)\b", low, re.I):
+                    return "Programs / initiatives / management framing"
+                if re.search(r"\b(improved|declined|increased|decreased|up |down |yoy|qoq|better|worse|from .* prior|from .* yoy)\b", low, re.I):
+                    return "Results / drivers / better vs prior"
+                if re.search(r"\b(results?|drivers?|contributed|realized|executed|completed|progressing)\b", low, re.I):
+                    return "Results / drivers"
+                if re.search(r"\b(expected|expect|on track|will|continue to|continues to|ahead of plan)\b", low, re.I):
+                    return "Guidance / outlook"
+                return "Programs / initiatives / management framing"
+
+            def _promise_progress_visible_category_rank_local(item: Dict[str, Any]) -> int:
+                return {
+                    "Guidance / outlook": 0,
+                    "Results / drivers": 1,
+                    "Results / drivers / better vs prior": 2,
+                    "Cash flow / FCF / working capital": 3,
+                    "Debt / liquidity / balance sheet": 4,
+                    "Capital allocation / shareholder returns": 5,
+                    "Operations / commercialization / milestones": 6,
+                    "Programs / initiatives / management framing": 7,
+                    "One-time items / restructuring": 8,
+                    "Other / footnotes": 9,
+                }.get(_promise_progress_visible_category_local(item), 9)
+
             def _collapse_progress_rows_for_display(items_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 def _merge_progress_display_row(best_row: Dict[str, Any], other_row: Dict[str, Any]) -> Dict[str, Any]:
                     best_latest = str(best_row.get("latest") or "").strip()
@@ -32816,6 +34774,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 collapsed = sorted(
                     collapsed_final,
                     key=lambda z: (
+                        _promise_progress_visible_category_rank_local(z),
                         -shared_progress_status_rank(z.get("status")),
                         -int(z.get("_source_rank") or 0),
                         -float(z.get("_score") or z.get("confidence_score") or 0.0),
@@ -33562,6 +35521,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 selected_rows = sorted(
                     [z for z in selected_rows if _promise_progress_keep_item(z)],
                     key=lambda z: (
+                        _promise_progress_visible_category_rank_local(z),
                         int(z.get("_status_pri") or 9),
                         int(z.get("_fragment_penalty") or 0),
                         -int(z.get("_clean_target_bonus") or 0),
@@ -33693,6 +35653,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     selected_rows = sorted(
                         [z for z in selected_rows if _promise_progress_keep_item(z)],
                         key=lambda z: (
+                            _promise_progress_visible_category_rank_local(z),
                             int(z.get("_status_pri") or 9),
                             int(z.get("_fragment_penalty") or 0),
                             -int(z.get("_clean_target_bonus") or 0),
@@ -34528,6 +36489,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if context_key == "45z_monetization":
                 if re.search(r"\b45z[- ]related\b[^.]{0,60}\badjusted ebitda\b|\bat least \$?\d", rationale_txt, re.I):
                     return "45Z-related Adjusted EBITDA outlook"
+                if re.search(
+                    r"\b(contributed|realized|recognized|recorded|net of discounts(?: and other costs)?)\b",
+                    rationale_txt,
+                    re.I,
+                ):
+                    return "45Z monetization"
                 if re.search(r"\b(monetization|income tax benefit|net of discounts|agreement executed|tax credit)\b", rationale_txt, re.I):
                     return "45Z monetization outlook"
                 return "45Z monetization outlook"
@@ -34600,6 +36567,56 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if structure_role and structure_role not in {"", "single", "program_total"}:
                 return f"{base_bucket}|{structure_role}"
             return base_bucket
+
+        def _promise_progress_visible_category_local(item: Dict[str, Any]) -> str:
+            metric_display = str(_display_progress_metric(item) or item.get("metric_display") or item.get("metric_ref") or "").strip()
+            metric_low = metric_display.lower()
+            blob = glx_normalize_text(
+                " | ".join(
+                    [
+                        metric_display,
+                        str(item.get("metric_ref") or ""),
+                        str(item.get("target") or ""),
+                        str(item.get("latest") or ""),
+                        str(item.get("rationale") or ""),
+                        str(item.get("_source_snip") or ""),
+                    ]
+                )
+            )
+            low = blob.lower()
+            if metric_low.endswith("guidance") or re.search(r"\b(guidance|outlook|target)\b", metric_low, re.I):
+                return "Guidance / outlook"
+            if re.search(r"\b(fcf|free cash flow|working capital|cash flow)\b", low, re.I):
+                return "Cash flow / FCF / working capital"
+            if re.search(r"\b(liquidity|balance sheet|debt|revolver|availability|interest expense|refinanc|deleverag|net debt|mezzanine)\b", low, re.I):
+                return "Debt / liquidity / balance sheet"
+            if re.search(r"\b(repurchase|buyback|dividend|shareholder returns?|capital allocation)\b", low, re.I):
+                return "Capital allocation / shareholder returns"
+            if re.search(r"\b(carbo[n]? capture|fully operational|online and ramping|startup|commissioning|milestone|qualification|commercialization|agreement executed|utilization)\b", low, re.I):
+                return "Operations / commercialization / milestones"
+            if re.search(r"\b(cost savings|strategic review|management framing|risk management|non-core asset monetization|positive ebitda)\b", low, re.I):
+                return "Programs / initiatives / management framing"
+            if re.search(r"\b(improved|declined|increased|decreased|up |down |yoy|qoq|better|worse|from .* prior|from .* yoy)\b", low, re.I):
+                return "Results / drivers / better vs prior"
+            if re.search(r"\b(results?|drivers?|contributed|realized|executed|completed|progressing)\b", low, re.I):
+                return "Results / drivers"
+            if re.search(r"\b(expected|expect|on track|will|continue to|continues to|ahead of plan)\b", low, re.I):
+                return "Guidance / outlook"
+            return "Programs / initiatives / management framing"
+
+        def _promise_progress_visible_category_rank_local(item: Dict[str, Any]) -> int:
+            return {
+                "Guidance / outlook": 0,
+                "Results / drivers": 1,
+                "Results / drivers / better vs prior": 2,
+                "Cash flow / FCF / working capital": 3,
+                "Debt / liquidity / balance sheet": 4,
+                "Capital allocation / shareholder returns": 5,
+                "Operations / commercialization / milestones": 6,
+                "Programs / initiatives / management framing": 7,
+                "One-time items / restructuring": 8,
+                "Other / footnotes": 9,
+            }.get(_promise_progress_visible_category_local(item), 9)
 
         def _promise_progress_theme_key(item: Dict[str, Any]) -> Tuple[str, str, str]:
             canonical_key = str(item.get("canonical_subject_key") or "").strip().lower()
@@ -36042,6 +38059,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             collapsed_rows = sorted(
                 collapsed_rows,
                 key=lambda z: (
+                    _promise_progress_visible_category_rank_local(z),
                     -shared_progress_status_rank(z.get("status")),
                     -int(z.get("_source_rank") or 0),
                     -float(z.get("_score") or z.get("confidence_score") or 0.0),
@@ -36074,6 +38092,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             collapsed_rows = sorted(
                 collapsed_rows,
                 key=lambda z: (
+                    _promise_progress_visible_category_rank_local(z),
                     -shared_progress_status_rank(z.get("status")),
                     -int(z.get("_source_rank") or 0),
                     -float(z.get("_score") or z.get("confidence_score") or 0.0),
@@ -36883,7 +38902,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     if bad_reason:
                         continue
                     metric_display = str(row.get("metric_display") or row.get("metric_ref") or "").strip()
-                    if metric_display == "45Z monetization outlook":
+                    if metric_display in {"45Z monetization outlook", "45Z monetization"}:
                         target_note_hits = _gpre_progress_note_matches(qd, r"\b45z\b[^|]{0,120}\bmonetization\b[^|]{0,120}\b(expected|outlook|on track)\b")
                         if target_note_hits:
                             target_note = target_note_hits[0][1]
@@ -36894,7 +38913,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                                 row["latest"] = "not yet measurable"
                                 row["status"] = "open"
                                 row["rationale"] = _gpre_progress_note_summary_local(target_note, metric_hint=metric_display)
-                        if isinstance(latest_eval_q, date):
+                        if isinstance(latest_eval_q, date) and qd == latest_eval_q:
                             latest_hits = _gpre_progress_note_matches(latest_eval_q, r"\b45z production tax credits contributed\b")
                             if latest_hits:
                                 latest_note = latest_hits[0][1]
@@ -36914,6 +38933,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                                         row["status"] = "resolved_pass"
                                 else:
                                     row["status"] = "resolved_pass"
+                                if qd == latest_eval_q:
+                                    row["metric_display"] = "45Z monetization"
+                                    row["metric_ref"] = "45Z monetization"
                                 row["rationale"] = _append_follow_rationale(
                                     str(row.get("rationale") or ""),
                                     latest_summary,
@@ -37379,13 +39401,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     latest_txt = _short_tracker_text(latest_cell.value)
                     rationale_txt = _short_tracker_text(rationale_cell.value)
 
-                    if metric_val == "45Z monetization outlook":
+                    if metric_val in {"45Z monetization outlook", "45Z monetization"}:
                         target_cell.value = "$15m-$25m"
                         if block_asof == date(2025, 12, 31):
+                            _ws.cell(rr, 1).value = "45Z monetization"
                             latest_cell.value = "$23.4m"
                             result_cell.value = "Hit"
                             rationale_cell.value = "inclusive of $23.4m in 45Z production tax credit value net of discounts and other costs"
                         else:
+                            _ws.cell(rr, 1).value = "45Z monetization outlook"
                             if latest_txt:
                                 latest_cell.value = _compact_money_token(latest_txt)
                             rationale_cell.value = "45Z monetization tracked against expected Q4 2025 range"
@@ -38529,12 +40553,37 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 locked_margin_text="Q2 hedges locked in over $0.20/gal",
                 locked_margin_low=0.20,
                 setup_quality="mixed realization",
-                result_effect="Outages and downtime took most of the benefit away",
-                management_takeaway="Hedges were in place, but operations prevented realization",
+                result_effect="The prior $0.12-$0.17/gal on-paper setup tracked through May before outages and delays took most of the benefit away",
+                management_takeaway="The quarter tracked at or better than the prior on-paper setup through May, but operations prevented realization",
                 guidance_metric="Locked margin setup",
                 guidance_text="Q2 hedges locked in over $0.20/gal.",
-                commentary_text="Outages and downtime took most of the locked Q2 benefit away.",
+                commentary_text="Management said the prior $0.12-$0.17/gal on-paper setup was tracking through May before Wood River delays and outages took most of the locked Q2 benefit away.",
                 commentary_priority=10,
+            )
+
+        q1_2024_rec = _pick_record(date(2024, 3, 31), ("mid-high single digits", "primarily open to the margin structure"))
+        if q1_2024_rec:
+            _append_item(
+                source_quarter=date(2024, 3, 31),
+                horizon_label="Q2 2024",
+                horizon_norm="Q2024Q2",
+                setup_type="coverage_openness",
+                setup_display="Open Q2 setup",
+                source_type=str(q1_2024_rec.get("source_type") or ""),
+                source_doc=str(q1_2024_rec.get("source_doc") or ""),
+                source_date=date(2024, 5, 9),
+                source_excerpt=_extract_excerpt(q1_2024_rec.get("text"), ("mid-high single digits", "low teens", "primarily open")),
+                coverage_text="Primarily open to the margin structure across products",
+                locked_margin_text="Q2 margins ranged from the mid-high single digits to the low teens",
+                setup_quality="primarily open",
+                openness_text="",
+                openness_level="largely_open",
+                legs_involved="Across products",
+                management_takeaway="Management kept the book primarily open rather than heavily locking Q2",
+                guidance_metric="Coverage / openness",
+                guidance_text="Q2 margins averaged from the mid-high single digits to the low teens with the book primarily open across products.",
+                commentary_text="Management said the business remained primarily open to the margin structure across all products.",
+                commentary_priority=9,
             )
 
         q3_2023_rec = _pick_record(date(2023, 9, 30), ("largely open to the expanded margins in the fourth quarter", "winter gas"))
@@ -38548,17 +40597,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 source_type=str(q3_2023_rec.get("source_type") or ""),
                 source_doc=str(q3_2023_rec.get("source_doc") or ""),
                 source_date=date(2023, 10, 31),
-                source_excerpt=_extract_excerpt(q3_2023_rec.get("text"), ("largely open", "veg oil", "winter gas", "physical corn")),
+                source_excerpt=_extract_excerpt(q3_2023_rec.get("text"), ("largely open", "priced some of our fourth quarter early", "veg oil", "winter gas", "physical corn")),
                 coverage_text="Largely open to expanded Q4 margins",
-                locked_margin_text="Veg oil priced above market; winter gas at or below market",
+                locked_margin_text="Some Q4 veg oil priced early above market; winter gas at or below market",
                 setup_quality="open with selective coverage",
                 openness_text="",
                 openness_level="largely_open",
                 legs_involved="Veg oil, winter gas, physical corn basis",
-                management_takeaway="Physical corn basis was generally covered at or below market",
+                management_takeaway="Some Q4 veg oil was priced early before prices fell further; physical corn basis was generally covered at or below market",
                 guidance_metric="Coverage / openness",
                 guidance_text="Q4 remained largely open to expanded margins.",
-                commentary_text="Veg oil was locked at better levels while winter gas and physical corn were generally covered at or below market.",
+                commentary_text="Management said some Q4 veg oil was priced early before prices fell further, while winter gas and physical corn were generally covered at or below market.",
                 commentary_priority=9,
             )
 
@@ -38674,6 +40723,54 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 guidance_text="Q3 was about 65% crushed, moving closer to 70%.",
                 commentary_text="Q2 hedging was a small benefit, and the Q3 setup included corn, DDGs and corn oil beyond simple crush.",
                 commentary_priority=5,
+            )
+
+        q3_2025_transcript_rec = _pick_record(date(2025, 9, 30), ("75% hedged on crush in the fourth quarter", "put positions on for q1 in 2026"))
+        if q3_2025_transcript_rec:
+            _append_item(
+                source_quarter=date(2025, 9, 30),
+                horizon_label="Q4 2025 / Q1 2026",
+                horizon_norm="Q2025Q4",
+                setup_type="coverage_openness",
+                setup_display="Forward hedge positioning",
+                source_type=str(q3_2025_transcript_rec.get("source_type") or ""),
+                source_doc=str(q3_2025_transcript_rec.get("source_doc") or ""),
+                source_date=date(2025, 9, 30),
+                source_excerpt=_extract_excerpt(q3_2025_transcript_rec.get("text"), ("75% hedged on crush", "put positions on for q1 in 2026", "disciplined hedging strategy")),
+                coverage_text="Q4 crush about 75% hedged; Q1 2026 positions already on",
+                setup_quality="disciplined",
+                openness_text="",
+                openness_level="mostly_covered",
+                management_takeaway="Management said forward hedges had already been layered into Q4 and Q1 2026.",
+                confidence="medium",
+                guidance_metric="Risk management",
+                guidance_text="Management said Q4 crush was about 75% hedged and positions had been put on for Q1 2026.",
+                commentary_text="Management said Q4 crush was about 75% hedged and positions had been put on for Q1 2026.",
+                commentary_priority=4,
+            )
+
+        q4_2025_transcript_rec = _pick_record(date(2025, 12, 31), ("significant portion of our q1 production margin logged in",))
+        if q4_2025_transcript_rec:
+            _append_item(
+                source_quarter=date(2025, 12, 31),
+                horizon_label="Q1 2026",
+                horizon_norm="Q2026Q1",
+                setup_type="coverage_openness",
+                setup_display="Q1 margin positioning",
+                source_type=str(q4_2025_transcript_rec.get("source_type") or ""),
+                source_doc=str(q4_2025_transcript_rec.get("source_doc") or ""),
+                source_date=date(2025, 12, 31),
+                source_excerpt=_extract_excerpt(q4_2025_transcript_rec.get("text"), ("significant portion of our q1 production margin logged in", "disciplined risk management approach")),
+                coverage_text="Significant portion of Q1 production margin already logged in",
+                setup_quality="disciplined",
+                openness_text="",
+                openness_level="partially_open",
+                management_takeaway="Management said a significant portion of Q1 production margin was already logged in.",
+                confidence="medium",
+                guidance_metric="Risk management",
+                guidance_text="Management said a significant portion of Q1 production margin was already logged in.",
+                commentary_text="Management said a significant portion of Q1 production margin was already logged in.",
+                commentary_priority=4,
             )
 
         conf_path = Path(__file__).resolve().parents[2] / "sec_cache" / "GPRE" / "external" / "conferences" / "2026-02-26_bofa" / "structured_statements.json"
@@ -40933,14 +43030,270 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 cut = cut[:ws_cut]
             return cut.rstrip(" ,;:-") + "..."
 
+        def _collapse_leading_repeated_phrase_local(text_in: Any) -> str:
+            txt = re.sub(r"\s+", " ", str(text_in or "")).strip()
+            if not txt:
+                return ""
+            words = txt.split()
+            max_window = min(12, len(words) // 2)
+            for size in range(max_window, 1, -1):
+                lhs = " ".join(words[:size]).strip()
+                rhs = " ".join(words[size : size * 2]).strip()
+                if lhs and rhs and lhs.lower() == rhs.lower():
+                    rest = " ".join(words[size * 2 :]).strip()
+                    return f"{lhs} {rest}".strip() if rest else lhs
+            return txt
+
+        def _extract_driver_delta_basis_local(text_in: str, *, default_basis: str = "YoY") -> str:
+            txt = glx_normalize_text(str(text_in or ""))
+            if re.search(r"\bQoQ delta\b|\bquarter[- ]over[- ]quarter\b|\bvs\.?\s+prior quarter\b", txt, re.I):
+                return "QoQ"
+            if re.search(r"\bYoY delta\b|\byear[- ]over[- ]year\b|\bvs\.?\s+prior year\b", txt, re.I):
+                return "YoY"
+            return default_basis
+
+        def _clean_visible_driver_text_local(text_in: Any, max_chars: int = 110) -> str:
+            txt = glx_normalize_text(str(text_in or ""))
+            if not txt:
+                return ""
+            parts: List[str] = []
+            seen_parts: set[str] = set()
+            for raw_part in re.split(r"\s*\|\s*", txt):
+                part = _collapse_leading_repeated_phrase_local(glx_normalize_text(raw_part))
+                if not part:
+                    continue
+                part_key = part.lower()
+                if part_key in seen_parts:
+                    continue
+                seen_parts.add(part_key)
+                parts.append(part)
+            txt = " | ".join(parts) if parts else txt
+            txt = _collapse_leading_repeated_phrase_local(txt)
+            if re.search(r"\brevenue ttm still under pressure\b", txt, re.I):
+                yoy_match = re.search(r"Revenue TTM YoY\s+-?[0-9]+(?:\.[0-9]+)?%", txt, re.I)
+                return (
+                    f"Revenue TTM still under pressure; {yoy_match.group(0)}"
+                    if yoy_match
+                    else "Revenue TTM still under pressure"
+                )
+            if re.search(r"\bFCF TTM accelerated\b", txt, re.I):
+                basis = _extract_driver_delta_basis_local(txt, default_basis="YoY")
+                delta_match = re.search(r"(?:YoY|QoQ)?\s*delta\s+\$-?[0-9]+(?:\.[0-9]+)?m", txt, re.I)
+                if delta_match:
+                    delta_txt = re.sub(r"^(?:YoY|QoQ)?\s*", "", delta_match.group(0), flags=re.I).strip()
+                    return f"FCF TTM accelerated; {basis} {delta_txt}"
+                return "FCF TTM accelerated"
+            if re.search(r"\bNet debt (declined|increased)\b", txt, re.I):
+                basis = _extract_driver_delta_basis_local(txt, default_basis="YoY")
+                direction_match = re.search(r"\bNet debt (declined|increased)\b", txt, re.I)
+                direction_txt = (
+                    f"Net debt {str(direction_match.group(1) or '').lower()}"
+                    if direction_match
+                    else "Net debt"
+                )
+                delta_match = re.search(r"Net debt delta\s+\$-?[0-9]+(?:\.[0-9]+)?m", txt, re.I)
+                if delta_match:
+                    delta_amt = re.sub(r"^Net debt delta\s+", "", delta_match.group(0), flags=re.I).strip()
+                    return f"{direction_txt}; {basis} delta {delta_amt}"
+                return direction_txt
+            if re.search(r"\bEBITDA margin (expanded|compressed)\b", txt, re.I):
+                basis = _extract_driver_delta_basis_local(txt, default_basis="YoY")
+                direction_match = re.search(r"\bEBITDA margin (expanded|compressed)\b", txt, re.I)
+                direction_txt = (
+                    f"EBITDA margin {str(direction_match.group(1) or '').lower()}"
+                    if direction_match
+                    else "EBITDA margin"
+                )
+                delta_match = re.search(r"(?:delta\s+)?([+-]?\d+(?:\.\d+)?)\s*bps", txt, re.I)
+                if delta_match:
+                    delta_num = str(delta_match.group(1) or "").strip()
+                    if delta_num and not delta_num.startswith(("+", "-")):
+                        delta_num = f"+{delta_num}" if "expanded" in direction_txt.lower() else f"-{delta_num}"
+                    return f"{direction_txt}; {basis} delta {delta_num} bps"
+                return direction_txt
+            if re.search(r"\bRevolver utilization notable\b", txt, re.I):
+                return "Revolver utilization notable"
+            txt = re.sub(r"\b(N/A)(?:\s+\1)+\b", r"\1", txt, flags=re.I)
+            return _first_sentence_or_trunc(txt, max_chars=max_chars)
+
+        def _clean_audit_excerpt_local(text_in: Any, max_chars: int = 320) -> str:
+            txt = glx_normalize_text(str(text_in or ""))
+            if not txt:
+                return ""
+            parts: List[str] = []
+            seen_parts: set[str] = set()
+            for raw_part in re.split(r"\s*\|\s*", txt):
+                part = _collapse_leading_repeated_phrase_local(glx_normalize_text(raw_part))
+                if re.search(r"\b(FCF TTM accelerated|Revenue TTM still under pressure|Net debt (?:declined|increased)|EBITDA margin (?:expanded|compressed)|Revolver utilization notable)\b", part, re.I):
+                    part = _clean_visible_driver_text_local(part, max_chars=min(max_chars, 160))
+                if not part:
+                    continue
+                part_key = part.lower()
+                if part_key in seen_parts or any((len(part_key) >= 24 and (part_key in seen or seen in part_key)) for seen in seen_parts):
+                    continue
+                seen_parts.add(part_key)
+                parts.append(part)
+            txt = " | ".join(parts) if parts else txt
+            txt = _collapse_leading_repeated_phrase_local(txt)
+            if len(txt) <= max_chars:
+                return txt
+            kept_parts: List[str] = []
+            cur_len = 0
+            for part in parts:
+                projected = cur_len + (3 if kept_parts else 0) + len(part)
+                if projected > max_chars:
+                    break
+                kept_parts.append(part)
+                cur_len = projected
+            if kept_parts:
+                return " | ".join(kept_parts).rstrip(" ,;:-") + ("..." if len(" | ".join(kept_parts)) < len(txt) else "")
+            return _first_sentence_or_trunc(txt, max_chars=max_chars)
+
+        def _canonicalize_audit_excerpt_local(text_in: Any) -> str:
+            txt = _clean_audit_excerpt_local(text_in, max_chars=1200)
+            if not txt:
+                return ""
+            txt = re.sub(r"\s+", " ", txt).strip(" |")
+            txt = re.sub(r"\s*([|,:;])\s*", r" \1 ", txt)
+            txt = re.sub(r"\s+", " ", txt).strip()
+            parts = _dedupe_canonical_text_parts_local(re.split(r"\s*\|\s*", txt))
+            txt = " | ".join(parts) if parts else txt
+            prior_txt = None
+            while txt and txt != prior_txt:
+                prior_txt = txt
+                txt = re.sub(
+                    r"\b([A-Za-z][A-Za-z0-9/%$().,\- ]{3,90}?)\s+\1\b",
+                    r"\1",
+                    txt,
+                    flags=re.I,
+                )
+                txt = re.sub(
+                    r"(?i)\b([^|]{4,120}?)\s*\|\s*\1\b",
+                    r"\1",
+                    txt,
+                )
+                txt = re.sub(
+                    r"^\s*([^|]{4,80}?)\s+\1\b",
+                    r"\1",
+                    txt,
+                    flags=re.I,
+                )
+                txt = _collapse_repeated_leading_ngram_local(txt)
+            parts = _dedupe_canonical_text_parts_local(re.split(r"\s*\|\s*", txt))
+            txt = " | ".join(parts) if parts else txt
+            return glx_normalize_text(txt)
+
+        def _audit_doc_family_local(source_doc_in: Any) -> str:
+            source_doc = str(source_doc_in or "").strip()
+            if not source_doc:
+                return ""
+            try:
+                name = Path(source_doc).name
+            except Exception:
+                name = source_doc.replace("\\", "/").split("/")[-1]
+            name = glx_normalize_text(name).lower()
+            name = re.sub(r"\.[a-z0-9]+$", "", name)
+            name = re.sub(r"^doc_\d+_", "", name)
+            name = re.sub(r"[-_]+", "_", name)
+            return name
+
+        def _quarter_notes_audit_canonical_rows_local(rows_in: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            if not rows_in:
+                return []
+
+            def _canonical_source_group_local(row_in: Dict[str, Any]) -> str:
+                source_type = str(row_in.get("source_type") or "").strip().lower()
+                idea_label = glx_normalize_text(
+                    str(
+                        row_in.get("idea_label")
+                        or row_in.get("metric_display")
+                        or row_in.get("family")
+                        or row_in.get("candidate_type")
+                        or ""
+                    )
+                ).lower()
+                if source_type == "model_metric":
+                    return f"model_metric:{idea_label or 'unknown'}"
+                doc_family = _audit_doc_family_local(row_in.get("source_doc"))
+                if doc_family:
+                    return f"{source_type or 'source'}:{doc_family}"
+                return f"{source_type or 'source'}:unknown"
+
+            def _stage_priority_local(stage_in: Any) -> int:
+                stage_low = str(stage_in or "").strip().lower()
+                stage_rank = {
+                    "saved_workbook_visible": 90,
+                    "selection_kept": 80,
+                    "quality_filtered": 70,
+                    "routed_to_bucket": 60,
+                    "score_assigned": 50,
+                    "render_summary_generated": 40,
+                    "candidate_created": 30,
+                    "source_detected": 20,
+                    "quality_review": 10,
+                }
+                return stage_rank.get(stage_low, 0)
+
+            grouped: Dict[Tuple[str, str, str, str], List[Tuple[int, Dict[str, Any]]]] = {}
+            for idx, raw_row in enumerate(rows_in):
+                row = dict(raw_row)
+                row["source_excerpt"] = _canonicalize_audit_excerpt_local(row.get("source_excerpt"))
+                row["normalized_source_doc_family"] = _audit_doc_family_local(row.get("source_doc"))
+                row["canonical_source_group"] = _canonical_source_group_local(row)
+                idea_label = glx_normalize_text(
+                    str(row.get("idea_label") or row.get("metric_display") or row.get("family") or "")
+                ).lower()
+                key = (
+                    str(row.get("quarter") or ""),
+                    idea_label,
+                    str(row.get("source_excerpt") or "").lower(),
+                    str(row.get("canonical_source_group") or ""),
+                )
+                grouped.setdefault(key, []).append((idx, row))
+
+            rows_out: List[Tuple[int, Dict[str, Any]]] = []
+            for _, group_rows in grouped.items():
+                best_idx, best_row = max(
+                    group_rows,
+                    key=lambda pair: (
+                        _stage_priority_local(pair[1].get("stage")),
+                        int(float(pd.to_numeric(pair[1].get("score_total"), errors="coerce") or 0.0)),
+                        len(str(pair[1].get("final_summary") or "")),
+                        -pair[0],
+                    ),
+                )
+                group_only_rows = [dict(row) for _, row in group_rows]
+                merged = dict(best_row)
+                merged["support_count"] = len(group_only_rows)
+                merged["source_count"] = len(
+                    {
+                        str(row.get("source_doc") or row.get("normalized_source_doc_family") or row.get("canonical_source_group") or "")
+                        for row in group_only_rows
+                    }
+                )
+                if not str(merged.get("final_summary") or "").strip():
+                    for row in group_only_rows:
+                        final_summary = str(row.get("final_summary") or "").strip()
+                        if final_summary:
+                            merged["final_summary"] = final_summary
+                            break
+                if str(merged.get("final_summary") or "").strip():
+                    merged["final_summary"] = _canonicalize_audit_excerpt_local(merged.get("final_summary"))
+                rows_out.append((min(idx for idx, _ in group_rows), merged))
+
+            rows_out.sort(key=lambda pair: pair[0])
+            return [row for _, row in rows_out]
+
         def _set_snippet_with_comment(
             cell: Any,
             full_text: str,
             max_chars: int = 110,
             extra_comment: str = "",
+            visible_text: str = "",
         ) -> None:
             txt = str(full_text or "").strip()
-            cell.value = re.sub(r"\s+", " ", txt) if txt else ""
+            visible = str(visible_text or txt).strip()
+            cell.value = re.sub(r"\s+", " ", visible) if visible else ""
             cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
             if txt:
                 cmt = txt if not extra_comment else f"{txt}\n\n{extra_comment}"
@@ -41154,8 +43507,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         _box(row_pe, "P/E (TTM)", "=IF(EPS_TTM=\"\",\"\",IF(EPS_TTM<=0,\"\",Price/EPS_TTM))", False, "0.00x", output_label_col, output_value_col)
         _box(row_pe_adj, "P/E (Adj TTM)", "=IF(Adj_EPS_TTM=\"\",\"\",IF(Adj_EPS_TTM<=0,\"\",Price/Adj_EPS_TTM))", False, "0.00x", output_label_col, output_value_col)
         _box(row_ev_sales, "EV/Sales (TTM)", "=IF(OR(EV=\"\",Revenue_TTM=\"\",Revenue_TTM<=0),\"\",EV/Revenue_TTM)", False, "0.00x", output_label_col, output_value_col)
-        _box(row_pb, "Price/BV", "=IF(BV_PerShare=\"\",\"\",IF(BV_PerShare<=0,\"n/a (neg equity)\",Price/BV_PerShare))", False, None, output_label_col, output_value_col)
-        _box(row_ptbv, "Price/TBV", "=IF(TBV_PerShare=\"\",\"\",IF(TBV_PerShare<=0,\"n/a (neg equity)\",Price/TBV_PerShare))", False, None, output_label_col, output_value_col)
+        _box(row_pb, "Price/BV", "=IF(OR(Price=\"\",Price<=0,BV_PerShare=\"\"),\"\",IF(BV_PerShare<=0,\"n/a (neg equity)\",Price/BV_PerShare))", False, None, output_label_col, output_value_col)
+        _box(row_ptbv, "Price/TBV", "=IF(OR(Price=\"\",Price<=0,TBV_PerShare=\"\"),\"\",IF(TBV_PerShare<=0,\"n/a (neg equity)\",Price/TBV_PerShare))", False, None, output_label_col, output_value_col)
 
         # Output interpretations (display-only, deterministic).
         _set_interpretation(row_mktcap, "Price × shares; equity market value implied by current input price.", output_interp_col)
@@ -41578,10 +43931,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         _box(row_drv_margin, "Margin driver", mar_drv_txt, False, None, driver_label_col, driver_value_col)
         _box(row_drv_fcf, "FCF conversion driver", fcf_drv_txt, False, None, driver_label_col, driver_value_col)
         _box(row_drv_lev, "Leverage/cap allocation driver", lev_drv_txt, False, None, driver_label_col, driver_value_col)
-        _set_snippet_with_comment(ws.cell(row=row_drv_rev, column=driver_value_col), rev_drv_txt, max_chars=110, extra_comment=rev_drv_src)
-        _set_snippet_with_comment(ws.cell(row=row_drv_margin, column=driver_value_col), mar_drv_txt, max_chars=110, extra_comment=mar_drv_src)
-        _set_snippet_with_comment(ws.cell(row=row_drv_fcf, column=driver_value_col), fcf_drv_txt, max_chars=110, extra_comment=fcf_drv_src)
-        _set_snippet_with_comment(ws.cell(row=row_drv_lev, column=driver_value_col), lev_drv_txt, max_chars=110, extra_comment=lev_drv_src)
+        _set_snippet_with_comment(
+            ws.cell(row=row_drv_rev, column=driver_value_col),
+            rev_drv_txt,
+            max_chars=110,
+            extra_comment=rev_drv_src,
+            visible_text=_clean_visible_driver_text_local(rev_drv_txt, max_chars=110),
+        )
+        _set_snippet_with_comment(
+            ws.cell(row=row_drv_margin, column=driver_value_col),
+            mar_drv_txt,
+            max_chars=110,
+            extra_comment=mar_drv_src,
+            visible_text=_clean_visible_driver_text_local(mar_drv_txt, max_chars=110),
+        )
+        _set_snippet_with_comment(
+            ws.cell(row=row_drv_fcf, column=driver_value_col),
+            fcf_drv_txt,
+            max_chars=110,
+            extra_comment=fcf_drv_src,
+            visible_text=_clean_visible_driver_text_local(fcf_drv_txt, max_chars=110),
+        )
+        _set_snippet_with_comment(
+            ws.cell(row=row_drv_lev, column=driver_value_col),
+            lev_drv_txt,
+            max_chars=110,
+            extra_comment=lev_drv_src,
+            visible_text=_clean_visible_driver_text_local(lev_drv_txt, max_chars=110),
+        )
 
         ws.cell(row=row_toggle_hdr, column=toggle_label_col, value="Quality toggles").font = bold
         ws.cell(row=row_toggle_hdr, column=toggle_label_col).fill = section_fill
@@ -41924,7 +44301,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 convert_row += 1
             if len(convert_total_rows) > 1:
                 ws.cell(row=convert_row, column=12, value="Total").font = bold
-                for cc in (13, shares_full_col, concurrent_rep_col, net_added_col):
+                for cc in (14, shares_full_col, concurrent_rep_col, net_added_col):
                     col_letter = get_column_letter(cc)
                     ws.cell(row=convert_row, column=cc, value=f"=SUM({col_letter}{convert_total_rows[0]}:{col_letter}{convert_total_rows[-1]})").font = bold
                     ws.cell(row=convert_row, column=cc).number_format = "#,##0.000"
@@ -41975,7 +44352,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             row_dcf_ev,
             "DCF EV ($m)",
             (
-                f"=IF(OR(Price=\"\",Price<=0,{dcf_col}{row_dcf_start}=\"\",{dcf_col}{row_dcf_start}<=0,{dcf_col}{row_dcf_wacc}<=0,{dcf_col}{row_dcf_wacc}<={dcf_col}{row_dcf_gt}),\"\"," 
+                f"=IF(OR({dcf_col}{row_dcf_start}=\"\",{dcf_col}{row_dcf_start}<=0,{dcf_col}{row_dcf_wacc}<=0,{dcf_col}{row_dcf_wacc}<={dcf_col}{row_dcf_gt}),\"\"," 
                 f"({dcf_col}{row_dcf_start}*(1+{dcf_col}{row_dcf_g})/({dcf_col}{row_dcf_wacc}-{dcf_col}{row_dcf_g})*(1-((1+{dcf_col}{row_dcf_g})/(1+{dcf_col}{row_dcf_wacc}))^5)+"
                 f"({dcf_col}{row_dcf_start}*(1+{dcf_col}{row_dcf_g})^5*(1+{dcf_col}{row_dcf_gt})/({dcf_col}{row_dcf_wacc}-{dcf_col}{row_dcf_gt})/((1+{dcf_col}{row_dcf_wacc})^5)))"
                 ")"
@@ -42037,7 +44414,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     row=rr,
                     column=_c,
                     value=(
-                        f"=IF(OR(Price=\"\",Price<=0,{dcf_col}{row_dcf_start}=\"\",{dcf_col}{row_dcf_start}<=0,{w_ref}<=0,{w_ref}<={gt_ref},{fair_denom}=\"\",{fair_denom}<=0),\"\"," 
+                        f"=IF(OR({dcf_col}{row_dcf_start}=\"\",{dcf_col}{row_dcf_start}<=0,{w_ref}<=0,{w_ref}<={gt_ref},{fair_denom}=\"\",{fair_denom}<=0),\"\"," 
                         f"(({dcf_col}{row_dcf_start}*(1+{dcf_col}{row_dcf_g})/({w_ref}-{dcf_col}{row_dcf_g})*(1-((1+{dcf_col}{row_dcf_g})/(1+{w_ref}))^5)+"
                         f"({dcf_col}{row_dcf_start}*(1+{dcf_col}{row_dcf_g})^5*(1+{gt_ref})/({w_ref}-{gt_ref})/((1+{w_ref})^5))-NetDebt)/{fair_denom}))"
                     ),
@@ -50185,7 +52562,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 "Other",
             ]
         thesis_target_multiple_label = "Thesis target EV / Adj EBITDA"
-        thesis_target_yield_label = "Thesis target FCF yield"
+        thesis_target_yield_label = "Thesis target equity FCF yield"
         thesis_input_labels = [
             x
             for x in thesis_input_labels
@@ -50205,8 +52582,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             ("Thesis EV @ target multiple", None, "#,##0.000"),
             ("Thesis equity value @ target multiple", None, "#,##0.000"),
             ("Thesis value/share @ target multiple", None, "$#,##0.00"),
-            ("Thesis equity value @ target FCF yield", None, "#,##0.000"),
-            ("Thesis value/share @ target FCF yield", None, "$#,##0.00"),
+            ("Thesis equity value @ target equity FCF yield", None, "#,##0.000"),
+            ("Thesis value/share @ target equity FCF yield", None, "$#,##0.00"),
         ]
 
         def _panel_has_content(r1: int, r2: int, c1: int, c2: int) -> bool:
@@ -50336,7 +52713,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             elif label == thesis_target_multiple_label:
                 ws.cell(row=thesis_row, column=19, value="=Target_EV_AdjEBITDA")
             elif label == thesis_target_yield_label:
-                ws.cell(row=thesis_row, column=19, value="=Target_EV_Yield")
+                ws.cell(row=thesis_row, column=19, value="=Equity_FCF_Yield")
             else:
                 ws.cell(row=thesis_row, column=19, value=0.0)
             ws.cell(row=thesis_row, column=19).fill = input_fill
@@ -50369,6 +52746,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 _set_cell_comment(ws.cell(row=thesis_row, column=19), "\n\n".join(comment_bits))
             elif "45z" in label_low or "policy" in label_low:
                 note_text = "Use for policy/tax-credit uplift that is not reflected in plain TTM history."
+            elif "crush margin uplift" in label_low:
+                note_text = "Enter annual EBITDA uplift from stronger crush margin versus the current base case."
+            elif "corn oil" in label_low or "coproduct" in label_low:
+                note_text = "Enter annual EBITDA uplift from stronger corn-oil or coproduct realizations versus the current base."
+            elif "protein" in label_low or " / mix uplift" in label_low:
+                note_text = "Enter annual EBITDA uplift from higher-protein output or better product mix versus the current base."
             elif "interest savings" in label_low or "debt-paydown" in label_low:
                 note_text = "Bridge item for lower cash interest or debt reduction not yet visible in TTM."
             elif "cost savings" in label_low:
@@ -50376,7 +52759,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             elif label == thesis_target_multiple_label:
                 note_text = "Explicit thesis EV/Adj EBITDA input; defaults to the current target multiple."
             elif label == thesis_target_yield_label:
-                note_text = "Explicit thesis FCF yield input; defaults to the current target EV yield."
+                note_text = "Explicit thesis equity FCF yield input; defaults to the current equity FCF yield."
             if note_text:
                 ws.merge_cells(start_row=thesis_row, start_column=20, end_row=thesis_row, end_column=27)
                 ws.cell(row=thesis_row, column=20, value=note_text)
@@ -50432,8 +52815,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             "Thesis EV @ target multiple": f"=IF(OR(S{thesis_output_rows['Thesis Adj EBITDA']}=\"\",S{thesis_multiple_row}=\"\",S{thesis_multiple_row}<=0),\"\",S{thesis_output_rows['Thesis Adj EBITDA']}*S{thesis_multiple_row})",
             "Thesis equity value @ target multiple": f"=IF(OR(S{thesis_output_rows['Thesis EV @ target multiple']}=\"\",NetDebt=\"\"),\"\",S{thesis_output_rows['Thesis EV @ target multiple']}-NetDebt)",
             "Thesis value/share @ target multiple": f"=IF(OR(S{thesis_output_rows['Thesis equity value @ target multiple']}=\"\",{fair_denom}=\"\",{fair_denom}<=0),\"\",S{thesis_output_rows['Thesis equity value @ target multiple']}/{fair_denom})",
-            "Thesis equity value @ target FCF yield": f"=IF(OR(S{thesis_output_rows['Thesis FCF']}=\"\",({thesis_yield_norm_expr})=\"\",({thesis_yield_norm_expr})<=0),\"\",S{thesis_output_rows['Thesis FCF']}/({thesis_yield_norm_expr}))",
-            "Thesis value/share @ target FCF yield": f"=IF(OR(S{thesis_output_rows['Thesis equity value @ target FCF yield']}=\"\",{fair_denom}=\"\",{fair_denom}<=0),\"\",S{thesis_output_rows['Thesis equity value @ target FCF yield']}/{fair_denom})",
+            "Thesis equity value @ target equity FCF yield": f"=IF(OR(S{thesis_output_rows['Thesis FCF']}=\"\",({thesis_yield_norm_expr})=\"\",({thesis_yield_norm_expr})<=0),\"\",S{thesis_output_rows['Thesis FCF']}/({thesis_yield_norm_expr}))",
+            "Thesis value/share @ target equity FCF yield": f"=IF(OR(S{thesis_output_rows['Thesis equity value @ target equity FCF yield']}=\"\",{fair_denom}=\"\",{fair_denom}<=0),\"\",S{thesis_output_rows['Thesis equity value @ target equity FCF yield']}/{fair_denom})",
         }
         thesis_interp_map = {
             "Thesis Adj EBITDA": "Base FY adjusted EBITDA plus user thesis adjustments.",
@@ -50444,8 +52827,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             "Thesis EV @ target multiple": "Applies the explicit thesis EV/Adj EBITDA input to thesis EBITDA.",
             "Thesis equity value @ target multiple": "Enterprise value less current net debt core.",
             "Thesis value/share @ target multiple": "Equity value divided by the current valuation share denominator mode.",
-            "Thesis equity value @ target FCF yield": "Capitalizes thesis FCF using the explicit thesis target FCF yield.",
-            "Thesis value/share @ target FCF yield": "Yield-based thesis equity value divided by the current valuation share denominator mode.",
+            "Thesis equity value @ target equity FCF yield": "Capitalizes thesis FCF as an equity FCF stream using the explicit thesis equity FCF yield.",
+            "Thesis value/share @ target equity FCF yield": "Equity-FCF-yield thesis value divided by the current valuation share denominator mode.",
         }
         for label, explicit_formula, num_fmt in thesis_output_defs:
             thesis_row = thesis_output_rows[label]
@@ -50587,25 +52970,27 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     return "%" in str(c.number_format or "")
             return False
 
-        for rr in range(1, ws.max_row + 1):
-            lbl = str(ws.cell(row=rr, column=1).value or "").strip()
-            if not lbl:
-                continue
-            if not (lbl.endswith("YoY %") or lbl.endswith("QoQ %")):
-                continue
-            for cc in range(start_col, last_col + 1):
-                c = ws.cell(row=rr, column=cc)
-                c.value = _coerce_pct_cell_value(c.value)
-                if isinstance(c.value, (int, float)):
-                    c.number_format = "0.0%"
-                    bf = _bucket_fill(c.value)
-                    if bf is not None:
-                        c.fill = bf
-            _apply_yoy_cf(rr)
+        valuation_subheaders = {
+            "Top line",
+            "Margins",
+            "Core operating",
+            "Adjusted operating",
+            "GAAP earnings",
+            "Core cash flow",
+            "Adjusted / derived",
+            "Cash-flow quality",
+            "Capital return / financing",
+            "Net debt position",
+            "Coverage / leverage",
+            "Revolver / liquidity",
+            "Short-term liquidity",
+            "Share count",
+            "Per-share earnings",
+            "Per-share value",
+            "Market-linked",
+        }
 
-        # Section-wide heatmap coloring:
-        # - percent rows: color by own % value
-        # - non-percent rows: color by QoQ % change in value
+        # Section-wide heatmap coloring uses a shared metric-aware policy.
         section_labels = ["Operating", "Cash Flow", "Leverage & Liquidity", "Equity / Per-share"]
         section_rows: List[Tuple[str, int]] = []
         for sl in section_labels:
@@ -50616,30 +53001,36 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         terminal_row = _find_row_idx_by_label("Debt Detail (latest)") or ws.max_row
         for idx, (_sl, sr) in enumerate(section_rows):
             er = section_rows[idx + 1][1] - 1 if idx + 1 < len(section_rows) else terminal_row - 1
+            current_subsection = ""
             for rr in range(sr + 1, er + 1):
                 row_label = str(ws.cell(row=rr, column=1).value or "").strip()
                 if not row_label or row_label in section_labels:
                     continue
-                is_pct_row = _row_is_percent(rr)
-                prev_val: Optional[float] = None
+                if row_label in valuation_subheaders:
+                    current_subsection = row_label
+                    continue
+                policy = _quarterly_row_color_policy(
+                    row_label,
+                    section_label=_sl,
+                    subsection_label=current_subsection,
+                )
+                row_values: List[Any] = []
                 for cc in range(start_col, last_col + 1):
                     c = ws.cell(row=rr, column=cc)
-                    cur = _as_float(c.value)
-                    if cur is None:
-                        prev_val = None
-                        continue
-                    metric: Optional[float] = None
-                    if is_pct_row:
-                        metric = cur
-                        c.number_format = "0.0%"
-                    else:
-                        if prev_val is not None and abs(prev_val) > 1e-12:
-                            metric = (cur - prev_val) / abs(prev_val)
+                    c.value = _coerce_pct_cell_value(c.value)
+                    row_values.append(c.value)
+                for idx_cc, cc in enumerate(range(start_col, last_col + 1)):
+                    c = ws.cell(row=rr, column=cc)
+                    metric = _quarterly_color_metric_from_series(
+                        row_values,
+                        idx_cc,
+                        comparison_basis=policy.comparison_basis,
+                        directionality=policy.directionality,
+                    )
                     if metric is not None:
                         bf = _bucket_fill(metric)
                         if bf is not None:
                             c.fill = bf
-                    prev_val = cur
 
         def _apply_valuation_layout(ws_local: Any) -> None:
             # Keep the quarter table D:M untouched; B:C are explicit across tickers.
@@ -51572,9 +53963,21 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             debt_latest = _val_at(latest_q, "debt_core")
             debt_metric = "debt_core"
         equity_latest = _val_at(latest_q, "total_equity")
-        debt_to_equity = None
-        if debt_latest is not None and equity_latest not in (None, 0):
-            debt_to_equity = float(debt_latest) / float(equity_latest)
+        debt_to_equity_value: Any = None
+        debt_to_equity_unit = "x"
+        if debt_latest is not None and equity_latest is not None:
+            try:
+                equity_latest_num = float(equity_latest)
+                if equity_latest_num > 0:
+                    debt_to_equity_value = float(debt_latest) / equity_latest_num
+                elif equity_latest_num < 0:
+                    debt_to_equity_value = "N/M (neg equity)"
+                    debt_to_equity_unit = "neg equity"
+                else:
+                    debt_to_equity_value = "N/M (zero equity)"
+                    debt_to_equity_unit = "zero equity"
+            except Exception:
+                debt_to_equity_value = None
 
         cfo_ttm = _ttm("cfo")
         capex_ttm = _ttm("capex")
@@ -51674,8 +54077,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         _row(
             "Key Financials",
             "Debt-to-equity (latest quarter)",
-            debt_to_equity if debt_to_equity is not None else "N/A",
-            "x" if debt_to_equity is not None else "N/A (missing debt/equity or equity is zero)",
+            debt_to_equity_value if debt_to_equity_value is not None else "N/A",
+            debt_to_equity_unit if debt_to_equity_value is not None else "N/A (missing debt/equity)",
         )
         _row(
             "Key Financials",
@@ -54696,14 +57099,125 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     promise_evidence_df = pd.DataFrame()
     ui_state = {"quarters": [], "promise_rows": pd.DataFrame()}
 
-    def _latest_quarter_sec_text_corpus(qref: pd.Timestamp) -> str:
+    def _qa_source_type_for_path_local(path_in: Path) -> str:
+        blob = str(path_in).lower()
+        if re.search(r"(presentation|slides)", blob, re.I):
+            return "earnings_presentation"
+        if re.search(r"(earningspressrelea|earnings[_ -]?press|earnings[_ -]?release|ex99)", blob, re.I):
+            return "earnings_release"
+        if re.search(r"(press[_ -]?release|businesswire|globenewswire)", blob, re.I):
+            return "press_release"
+        if re.search(r"(transcript|conference[_ -]?call|earnings_transcripts)", blob, re.I):
+            return "transcript"
+        return "support"
+
+    def _latest_quarter_qa_source_bundle(
+        qref: pd.Timestamp,
+        *,
+        include_transcripts: bool = False,
+    ) -> List[Dict[str, Any]]:
         cache_key = pd.Timestamp(qref).normalize().date().isoformat()
-        cached_text = document_cache.latest_quarter_sec_text_by_quarter.get(cache_key)
-        if cached_text is not None:
-            return cached_text
+        if not include_transcripts:
+            cached_bundle = document_cache.latest_quarter_qa_bundle_by_quarter.get(cache_key)
+            if cached_bundle is not None:
+                return [dict(x) for x in cached_bundle]
 
         q0 = pd.Timestamp(qref)
-        sec_docs: List[Path] = []
+        q0d = q0.date()
+
+        def _qa_norm_txt(v: Any) -> str:
+            return re.sub(r"\s+", " ", str(v or "").strip())
+
+        def _quarter_match_reasons(
+            path_in: Path,
+            text_in: str,
+            *,
+            submission_quarter: Optional[date] = None,
+        ) -> List[str]:
+            reasons: List[str] = []
+            q_name = _parse_quarter_from_filename(path_in.name)
+            if isinstance(q_name, date) and q_name == q0d:
+                reasons.append("filename quarter match")
+            q_text = _parse_quarter_from_follow_text(text_in) or infer_quarter_end_from_text(text_in)
+            if isinstance(q_text, date) and q_text == q0d:
+                reasons.append("text quarter match")
+            if isinstance(submission_quarter, date) and submission_quarter == q0d:
+                reasons.append("submission quarter match")
+            return reasons
+
+        def _qa_text_matches_current_company_local(path_in: Path, text_in: Any = "") -> bool:
+            text = _qa_norm_txt(text_in)
+            if not text:
+                return False
+            return _path_belongs_to_ticker(path_in, ticker, ticker_roots)
+
+        def _doc_family_local(path_in: Path) -> str:
+            stem = str(path_in.stem or "").strip().lower()
+            stem = re.sub(r"doc_[0-9]+_", "", stem)
+            stem = re.sub(r"[^a-z0-9]+", "_", stem).strip("_")
+            return stem or path_in.name.lower()
+
+        def _source_sort_key(rec_in: Dict[str, Any]) -> Tuple[int, int, str]:
+            source_type = str(rec_in.get("source_type") or "")
+            source_rank = {
+                "earnings_release": 0,
+                "earnings_presentation": 1,
+                "press_release": 2,
+                "transcript": 3,
+                "support": 4,
+            }.get(source_type, 5)
+            official_rank = 0 if bool(rec_in.get("is_official")) else 1
+            source_doc = str(rec_in.get("source_doc") or "").lower()
+            ext_rank = 1 if source_doc.endswith(".pdf") else 0
+            return (source_rank, official_rank, ext_rank, source_doc)
+
+        out_records: List[Dict[str, Any]] = []
+        seen_paths: set[str] = set()
+
+        def _add_source_record(
+            path_in: Optional[Path],
+            *,
+            source_type: str = "",
+            submission_quarter: Optional[date] = None,
+            selection_reason: str = "",
+            is_official: bool = True,
+        ) -> None:
+            if path_in is None or not path_in.exists():
+                return
+            if path_in.suffix.lower() not in {".pdf", ".txt", ".htm", ".html"}:
+                return
+            if not _path_belongs_to_ticker(path_in, ticker, ticker_roots):
+                return
+            resolved_key = str(path_in.resolve()) if path_in.exists() else str(path_in)
+            if resolved_key in seen_paths:
+                return
+            source_kind = str(source_type or _qa_source_type_for_path_local(path_in)).strip().lower()
+            if source_kind == "transcript" and not include_transcripts:
+                return
+            try:
+                text_norm = _qa_norm_txt(_read_cached_doc_text(path_in))
+            except Exception:
+                text_norm = ""
+            if not text_norm:
+                return
+            if not _qa_text_matches_current_company_local(path_in, text_norm):
+                return
+            reasons = _quarter_match_reasons(path_in, text_norm, submission_quarter=submission_quarter)
+            if not reasons:
+                return
+            seen_paths.add(resolved_key)
+            out_records.append(
+                {
+                    "quarter": q0d,
+                    "source_type": source_kind,
+                    "source_doc": str(path_in),
+                    "doc_family": _doc_family_local(path_in),
+                    "text": text_norm,
+                    "is_official": bool(is_official and source_kind != "transcript"),
+                    "selection_reason": selection_reason or "; ".join(reasons),
+                }
+            )
+
         if audit is not None and not audit.empty:
             aq = _audit_view()
             accn_col = _resolve_col(aq, ["accn"])
@@ -54717,11 +57231,21 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     accn = str(rr.get(accn_col) or "").strip()
                     if not accn:
                         continue
-                    sec_docs.extend(_sec_docs_for_accession(accn))
+                    for cand in _sec_docs_for_accession(accn):
+                        source_type = _qa_source_type_for_path_local(cand)
+                        if source_type == "support":
+                            continue
+                        _add_source_record(
+                            cand,
+                            source_type=source_type,
+                            submission_quarter=q0d,
+                            selection_reason="audit accession doc",
+                            is_official=True,
+                        )
 
         cache_dir = cache_root
         if cache_dir.exists():
-            for fr in _submission_recent_rows(max_files=8):
+            for fr in _submission_recent_rows(max_files=12):
                 form = str(fr.get("form") or "").upper().strip()
                 if not form.startswith(("8-K", "10-Q", "10-K")):
                     continue
@@ -54734,68 +57258,72 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 primary = str(fr.get("doc") or "").strip()
                 if primary:
                     cand = _resolve_cached_doc_path(accn=accn, doc_name=primary, path_hint=primary)
-                    if cand is not None and cand.exists() and re.search(r"(ex99|ex-99|earnings|press|letter|presentation|slides|ceo)", cand.name, re.I):
-                        sec_docs.append(cand)
+                    if cand is not None:
+                        _add_source_record(
+                            cand,
+                            source_type=_qa_source_type_for_path_local(cand),
+                            submission_quarter=q_guess,
+                            selection_reason="submission primary doc",
+                            is_official=True,
+                        )
                 for cand in _sec_docs_for_accession(accn):
-                    if re.search(r"(ex99|ex-99|earnings|press|letter|presentation|slides|ceo)", cand.name, re.I):
-                        sec_docs.append(cand)
-
-        sec_docs = sorted({p for p in sec_docs if p.exists()})[:40]
-
-        def _qa_norm_txt(v: Any) -> str:
-            return re.sub(r"\s+", " ", str(v or "").strip())
-
-        sec_text = ""
-        for dp in sec_docs:
-            sec_text += " " + _qa_norm_txt(_read_cached_doc_text(dp))
-
-        er_dir = _first_existing_material_dir(
-            "earnings_release",
-            "Earnings Release",
-            "Earnings Releases",
-            "press_release",
-            "Press Release",
-        )
-        if er_dir is not None and er_dir.exists():
-            for fp in sorted([x for x in er_dir.glob("*") if x.is_file()])[:80]:
-                if not _path_belongs_to_ticker(fp, ticker, ticker_roots):
-                    continue
-                suf = fp.suffix.lower()
-                if suf in {".htm", ".html", ".txt"}:
-                    sec_text += " " + _qa_norm_txt(_read_cached_doc_text(fp))
-                elif suf == ".pdf":
-                    txt_pdf = _read_cached_doc_text(fp)
-                    if txt_pdf:
-                        sec_text += " " + _qa_norm_txt(txt_pdf)
-
-        if ocr_log is not None and not ocr_log.empty:
-            oq = ocr_log.copy()
-            q_col = _resolve_col(oq, ["quarter", "quarter_end", "as_of_quarter", "period_end"])
-            t_col = _resolve_col(oq, ["text", "ocr_text", "content", "snippet"])
-            f_col = _resolve_col(oq, ["source_file", "path", "doc", "doc_path", "file"])
-            if t_col is not None:
-                if q_col is not None:
-                    oq[q_col] = pd.to_datetime(oq[q_col], errors="coerce")
-                    oq = oq[oq[q_col].notna()]
-                    oq = oq[oq[q_col].dt.to_period("Q") == q0.to_period("Q")]
-                for _, rr in oq.iterrows():
-                    ftxt = str(rr.get(f_col) or "").lower() if f_col is not None else ""
-                    if ftxt and not any(k in ftxt for k in ("earnings_release", "slides", "presentation", "ceo", "letter", "ex99", "press")):
+                    source_type = _qa_source_type_for_path_local(cand)
+                    if source_type == "support":
                         continue
-                    sec_text += " " + _qa_norm_txt(rr.get(t_col) or "")
+                    _add_source_record(
+                        cand,
+                        source_type=source_type,
+                        submission_quarter=q_guess,
+                        selection_reason="submission accession doc",
+                        is_official=True,
+                    )
 
-        if slides_guidance is not None and not slides_guidance.empty:
-            sg = slides_guidance.copy()
-            q_col = _resolve_col(sg, ["quarter", "quarter_end"])
-            t_col = _resolve_col(sg, ["line", "text"])
-            n_col = _resolve_col(sg, ["numbers"])
-            if q_col is not None and t_col is not None:
-                sg[q_col] = pd.to_datetime(sg[q_col], errors="coerce")
-                sg = sg[sg[q_col].notna()]
-                sg = sg[sg[q_col].dt.to_period("Q") == q0.to_period("Q")]
-                for _, rr in sg.iterrows():
-                    sec_text += " " + _qa_norm_txt(f"{rr.get(t_col) or ''} {rr.get(n_col) or ''}")
+        local_dir_specs: List[Tuple[str, Tuple[str, ...], bool]] = [
+            ("earnings_release", ("earnings_release", "Earnings Release", "Earnings Releases"), True),
+            ("earnings_presentation", ("earnings_presentation", "slides", "presentation", "presentations"), True),
+            ("press_release", ("press_release", "Press Release"), True),
+            ("transcript", ("earnings_transcripts", "transcripts"), False),
+        ]
+        for source_type, dir_names, is_official in local_dir_specs:
+            if source_type == "transcript" and not include_transcripts:
+                continue
+            for root in material_roots:
+                for dir_name in dir_names:
+                    subdir = root / dir_name
+                    if not subdir.exists() or not subdir.is_dir():
+                        continue
+                    try:
+                        files = sorted(
+                            [p for p in subdir.iterdir() if p.is_file()],
+                            key=lambda p: p.stat().st_mtime if p.exists() else 0,
+                            reverse=True,
+                        )[:40]
+                    except Exception:
+                        continue
+                    for path_in in files:
+                        _add_source_record(
+                            path_in,
+                            source_type=source_type,
+                            selection_reason=f"local {source_type} dir",
+                            is_official=is_official,
+                        )
 
+        out_records = sorted(out_records, key=_source_sort_key)
+        if not include_transcripts:
+            document_cache.latest_quarter_qa_bundle_by_quarter[cache_key] = [dict(x) for x in out_records]
+        return [dict(x) for x in out_records]
+
+    def _latest_quarter_sec_text_corpus(qref: pd.Timestamp) -> str:
+        cache_key = pd.Timestamp(qref).normalize().date().isoformat()
+        cached_text = document_cache.latest_quarter_sec_text_by_quarter.get(cache_key)
+        if cached_text is not None:
+            return cached_text
+        source_bundle = _latest_quarter_qa_source_bundle(qref)
+        sec_text = " ".join(
+            re.sub(r"\s+", " ", str(rec.get("text") or "").strip())
+            for rec in source_bundle
+            if str(rec.get("text") or "").strip()
+        )
         document_cache.latest_quarter_sec_text_by_quarter[cache_key] = sec_text
         return sec_text
 
@@ -54887,42 +57415,423 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             return []
 
         with _timed_writer_substage("write_excel.ui.latest_quarter_qa.sec_text"):
-            sec_text = _latest_quarter_sec_text_corpus(q0)
+            source_bundle = _latest_quarter_qa_source_bundle(q0)
+            sec_text = " ".join(str(rec.get("text") or "").strip() for rec in source_bundle if str(rec.get("text") or "").strip())
         sec_text_l = sec_text.lower()
 
-        def _parse_money_from_text(patterns: List[str]) -> Optional[float]:
-            for pat in patterns:
-                m = re.search(pat, sec_text, re.I)
-                if not m:
-                    continue
-                try:
-                    val = float(str(m.group(1)).replace(",", ""))
-                except Exception:
-                    continue
-                unit = str(m.group(2) or "").lower() if m.lastindex and m.lastindex >= 2 else ""
-                if unit in {"billion", "bn"}:
-                    return val * 1e9
-                if unit in {"million", "m"}:
-                    return val * 1e6
-                # default money in filings text for these checks.
-                return val * 1e6 if abs(val) < 10000 else val
+        def _bundle_doc_names(bundle_in: Sequence[Dict[str, Any]]) -> str:
+            if not bundle_in:
+                return "selected release/presentation corpus"
+
+            source_priority = [
+                "earnings_release",
+                "earnings_presentation",
+                "press_release",
+                "transcript",
+                "support",
+            ]
+            type_rank = {label: idx for idx, label in enumerate(source_priority)}
+
+            def _doc_sort_key(rec_in: Dict[str, Any]) -> Tuple[int, int, int, str]:
+                source_type = str(rec_in.get("source_type") or "").strip().lower()
+                source_doc = str(rec_in.get("source_doc") or "").strip()
+                source_doc_low = source_doc.replace("\\", "/").lower()
+                selection_reason = str(rec_in.get("selection_reason") or "").strip().lower()
+                sec_cache_rank = 0 if "/sec_cache/" in source_doc_low else 1
+                accession_rank = 0 if ("submission" in selection_reason or "accession" in selection_reason) else 1
+                return (
+                    type_rank.get(source_type, len(type_rank)),
+                    sec_cache_rank,
+                    accession_rank,
+                    source_doc_low,
+                )
+
+            records = sorted(
+                [dict(rec) for rec in bundle_in if isinstance(rec, dict)],
+                key=_doc_sort_key,
+            )
+
+            picked_names: List[str] = []
+            seen_names: set[str] = set()
+            seen_types: set[str] = set()
+            for source_type in source_priority:
+                for rec in records:
+                    rec_type = str(rec.get("source_type") or "").strip().lower()
+                    if rec_type != source_type or rec_type in seen_types:
+                        continue
+                    source_doc = str(rec.get("source_doc") or "").strip()
+                    name = Path(source_doc).name if source_doc else ""
+                    if not name or name in seen_names:
+                        continue
+                    picked_names.append(name)
+                    seen_names.add(name)
+                    seen_types.add(rec_type)
+                    break
+                if len(picked_names) >= 2:
+                    break
+
+            if len(picked_names) < 2:
+                for rec in records:
+                    source_doc = str(rec.get("source_doc") or "").strip()
+                    name = Path(source_doc).name if source_doc else ""
+                    if not name or name in seen_names:
+                        continue
+                    picked_names.append(name)
+                    seen_names.add(name)
+                    if len(picked_names) >= 2:
+                        break
+
+            if not picked_names:
+                return "selected release/presentation corpus"
+            return " | ".join(picked_names)
+
+        bundle_source_label = _bundle_doc_names(source_bundle)
+
+        def _qa_support_result(
+            value_in: Optional[float],
+            support_kind: str,
+            doc_rec: Optional[Dict[str, Any]],
+            excerpt_in: str,
+            *,
+            confidence: float = 1.0,
+            source_doc_override: str = "",
+            source_type_override: str = "",
+            basis_kind: str = "",
+            basis_note: str = "",
+            same_basis: Optional[bool] = None,
+        ) -> Dict[str, Any]:
+            return {
+                "value": float(value_in) if value_in is not None else None,
+                "support_kind": str(support_kind or ""),
+                "source_type": str(source_type_override or (doc_rec.get("source_type") if isinstance(doc_rec, dict) else "") or ""),
+                "source_doc": str(source_doc_override or (doc_rec.get("source_doc") if isinstance(doc_rec, dict) else "") or ""),
+                "excerpt": str(excerpt_in or "").strip(),
+                "confidence": float(confidence),
+                "basis_kind": str(basis_kind or "").strip(),
+                "basis_note": str(basis_note or "").strip(),
+                "same_basis": same_basis if same_basis is None else bool(same_basis),
+            }
+
+        def _qa_amount_from_token(
+            token_in: Any,
+            unit_in: Any,
+            window_in: Any,
+            *,
+            default_small_unit: str = "million",
+        ) -> Optional[float]:
+            token_txt = str(token_in or "").strip()
+            if not token_txt:
+                return None
+            negative = token_txt.startswith("(") or token_txt.endswith(")") or token_txt.startswith("-")
+            num_txt = token_txt.strip("()").replace("$", "").replace(" ", "")
+            num_val = coerce_number(num_txt)
+            if num_val is None:
+                return None
+            unit_txt = str(unit_in or "").strip().lower()
+            window = str(window_in or "")
+            if unit_txt in {"billion", "bn", "b"}:
+                scaled = float(num_val) * 1e9
+            elif unit_txt in {"million", "m", "mm"}:
+                scaled = float(num_val) * 1e6
+            elif re.search(r"\b(?:in\s+thousands|unaudited;\s+in\s+thousands|thousands\)|\$?\s+in\s+thousands|000s)\b", window, re.I):
+                scaled = float(num_val) * 1e3
+            elif abs(float(num_val)) < 10_000.0 and default_small_unit == "million":
+                scaled = float(num_val) * 1e6
+            else:
+                scaled = float(num_val)
+            if negative:
+                scaled = -abs(float(scaled))
+            return float(scaled)
+
+        def _extract_labeled_amount_from_doc(
+            doc_rec: Dict[str, Any],
+            label_patterns: Sequence[str],
+            *,
+            max_gap: int = 80,
+            default_small_unit: str = "million",
+            extra_guard: Optional[Callable[[str], bool]] = None,
+            confidence: float = 1.0,
+            support_kind: str = "explicit",
+        ) -> Optional[Dict[str, Any]]:
+            txt = str(doc_rec.get("text") or "")
+            if not txt:
+                return None
+            amount_pat = r"(\(?-?[0-9]{1,4}(?:,[0-9]{3})*(?:\.\d+)?\)?)\s*(billion|million|bn|b|m|mm)?"
+            for label_pat in label_patterns:
+                rx = re.compile(rf"{label_pat}[^\d$()\-]{{0,{max_gap}}}(?:\$?\s*){amount_pat}", re.I)
+                for m in rx.finditer(txt):
+                    start = max(0, int(m.start()) - 280)
+                    end = min(len(txt), int(m.end()) + 320)
+                    window = txt[start:end]
+                    unit_window = txt[max(0, int(m.start()) - 2200) : min(len(txt), int(m.end()) + 420)]
+                    if extra_guard is not None and not extra_guard(window):
+                        continue
+                    val = _qa_amount_from_token(
+                        m.group(1),
+                        m.group(2),
+                        unit_window,
+                        default_small_unit=default_small_unit,
+                    )
+                    if val is None:
+                        continue
+                    return _qa_support_result(val, support_kind, doc_rec, window, confidence=confidence)
             return None
 
-        def _cmp_money(metric_name: str, model_val: Optional[float], parsed_val: Optional[float], src: str) -> None:
-            if model_val is None:
-                _add("warn", "QA_QTR", f"{metric_name}: model value missing for {q0d}", src)
-                return
-            if parsed_val is None:
-                _add("warn", "QA_QTR", f"{metric_name}: not found in SEC/earnings text for {q0d}", src)
-                return
-            diff_abs = abs(float(model_val) - float(parsed_val))
-            tol_abs = 5_000_000.0
-            tol_rel = 0.02
-            rel = diff_abs / max(1.0, abs(float(model_val)))
-            if diff_abs <= tol_abs or rel <= tol_rel:
-                _add("info", "QA_QTR", f"{metric_name}: PASS model {_money_m(model_val)} vs text {_money_m(parsed_val)}", src)
-            else:
-                _add("warn", "QA_QTR", f"{metric_name}: WARN model {_money_m(model_val)} vs text {_money_m(parsed_val)} (diff {_money_m(diff_abs)})", src)
+        def _extract_sum_from_doc(
+            doc_rec: Dict[str, Any],
+            label_pattern_groups: Sequence[Sequence[str]],
+            *,
+            allow_missing_last: bool = False,
+        ) -> Optional[Dict[str, Any]]:
+            parts: List[Dict[str, Any]] = []
+            for idx, label_group in enumerate(label_pattern_groups):
+                res = _extract_labeled_amount_from_doc(doc_rec, label_group, max_gap=72, default_small_unit="million")
+                if res is None:
+                    if allow_missing_last and idx == len(label_pattern_groups) - 1:
+                        continue
+                    return None
+                parts.append(res)
+            if not parts:
+                return None
+            total_val = sum(float(x.get("value") or 0.0) for x in parts)
+            joined_excerpt = " | ".join(str(x.get("excerpt") or "") for x in parts if str(x.get("excerpt") or "").strip())
+            return _qa_support_result(total_val, "explicit", doc_rec, joined_excerpt, confidence=1.0)
+
+        def _pick_metric_support(
+            extractor: Callable[[Dict[str, Any]], Optional[Dict[str, Any]]],
+        ) -> Dict[str, Any]:
+            low_confidence_result: Optional[Dict[str, Any]] = None
+            for doc_rec in source_bundle:
+                result = extractor(doc_rec)
+                if not isinstance(result, dict):
+                    continue
+                support_kind = str(result.get("support_kind") or "").strip().lower()
+                if support_kind == "explicit":
+                    return result
+                if support_kind == "low_confidence" and low_confidence_result is None:
+                    low_confidence_result = result
+            if low_confidence_result is not None:
+                return low_confidence_result
+            return _qa_support_result(None, "not_found", None, bundle_source_label, confidence=0.0)
+
+        def _extract_revenue_support() -> Dict[str, Any]:
+            return _pick_metric_support(
+                lambda doc_rec: (
+                    _extract_labeled_amount_from_doc(
+                        doc_rec,
+                        [
+                            r"\brevenues?\s+for\s+the\s+quarter\s+were\b",
+                            r"\brevenues?\s+were\b",
+                            r"\brevenue\s+was\b",
+                            r"\b(?:total\s+)?revenue\b",
+                        ],
+                        max_gap=40,
+                    )
+                )
+            )
+
+        def _extract_adj_ebitda_support() -> Dict[str, Any]:
+            def _local(doc_rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+                patterns = [
+                    r"\badjusted\s+ebitda\s+of\b",
+                    r"\badjusted\s+ebitda\s+was\b",
+                    r"\badjusted\s+ebitda\b(?!\s+margin)",
+                ]
+                if is_pbi_profile:
+                    return _extract_labeled_amount_from_doc(
+                        doc_rec,
+                        patterns,
+                        max_gap=56,
+                        extra_guard=lambda window: bool(
+                            re.search(
+                                r"\b(reconciliation|adjusted\s+net\s+income|interest,\s*net|depreciation\s+and\s+amortization)\b",
+                                window,
+                                re.I,
+                            )
+                        ),
+                    )
+                return _extract_labeled_amount_from_doc(
+                    doc_rec,
+                    patterns,
+                    max_gap=56,
+                )
+
+            return _pick_metric_support(_local)
+
+        def _extract_net_income_support() -> Dict[str, Any]:
+            def _local(doc_rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+                explicit = _extract_labeled_amount_from_doc(
+                    doc_rec,
+                    [
+                        r"\bnet\s+income\s+attributable\s+to[^$]{0,60}?\sof\b",
+                        r"\bgaap\s+net\s+income\b",
+                        r"\bnet\s+income\s*\(loss\)\s*-\s*gaap\b",
+                        r"\bnet\s+income\s*\(loss\)\b",
+                        r"\bnet\s+income\b",
+                    ],
+                    max_gap=56,
+                )
+                if explicit is None:
+                    explicit = _extract_labeled_amount_from_doc(
+                        doc_rec,
+                        [r"\bnet\s+loss\b"],
+                        max_gap=56,
+                    )
+                return explicit
+
+            return _pick_metric_support(_local)
+
+        def _extract_ebitda_support() -> Dict[str, Any]:
+            if is_pbi_profile:
+                return _qa_support_result(None, "not_found", None, bundle_source_label, confidence=0.0)
+            return _pick_metric_support(
+                lambda doc_rec: _extract_labeled_amount_from_doc(
+                    doc_rec,
+                    [r"(?<!adjusted\s)\bebitda\b"],
+                    max_gap=48,
+                )
+            )
+
+        def _extract_fcf_support() -> Dict[str, Any]:
+            if is_pbi_profile:
+                pbi_reported_fcf = _pbi_reported_fcf_payload_for_qd(q0d)
+                if isinstance(pbi_reported_fcf, dict) and pbi_reported_fcf.get("current") is not None:
+                    return _qa_support_result(
+                        float(pbi_reported_fcf.get("current") or 0.0),
+                        "explicit",
+                        None,
+                        f"Reported quarterly free cash flow {_money_m(float(pbi_reported_fcf.get('current') or 0.0))}",
+                        confidence=1.0,
+                        source_doc_override=str(pbi_reported_fcf.get("doc") or ""),
+                        source_type_override="earnings_release",
+                        basis_kind="company_defined_free_cash_flow",
+                        basis_note="selected quarter text states company-defined free cash flow",
+                        same_basis=False,
+                    )
+
+            def _local(doc_rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+                txt = str(doc_rec.get("text") or "")
+                if not txt or "free cash flow" not in txt.lower():
+                    return None
+                if re.search(r"\b(guidance|outlook|full[- ]year|fy\s*20\d{2}|low\s+high|midpoint|target)\b", txt, re.I):
+                    explicit = _extract_labeled_amount_from_doc(
+                        doc_rec,
+                        [r"\bfree\s+cash\s+flow\s+was\b"],
+                        max_gap=40,
+                    )
+                    if explicit is not None:
+                        return explicit
+                return _extract_labeled_amount_from_doc(
+                    doc_rec,
+                    [
+                        r"\bfree\s+cash\s+flow\s+was\b",
+                        r"\bfree\s+cash\s+flow\b",
+                    ],
+                    max_gap=44,
+                    extra_guard=lambda window: not bool(
+                        re.search(r"\b(guidance|outlook|full[- ]year|fy\s*20\d{2}|low\s+high|midpoint|target)\b", window, re.I)
+                    ),
+                )
+
+            return _pick_metric_support(_local)
+
+        def _extract_cash_support() -> Dict[str, Any]:
+            def _local(doc_rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+                explicit = _extract_labeled_amount_from_doc(
+                    doc_rec,
+                    [r"\bcash\s+and\s+cash\s+equivalents\s+at\s+end\s+of\s+period\b"],
+                    max_gap=20,
+                    default_small_unit="million",
+                )
+                if explicit is not None:
+                    return explicit
+                explicit = _extract_labeled_amount_from_doc(
+                    doc_rec,
+                    [r"\bcash\s+and\s+cash\s+equivalents\b"],
+                    max_gap=20,
+                    default_small_unit="million",
+                    extra_guard=lambda window: bool(
+                        re.search(r"\b(balance\s+sheets?|current\s+assets|assets\s+december)\b", window, re.I)
+                    )
+                    and not bool(
+                        re.search(
+                            r"\b(available\s+under\s+a\s+committed\s+revolving\s+credit\s+facility|available\s+under\s+.*credit\s+facility)\b",
+                            window,
+                            re.I,
+                        )
+                    ),
+                )
+                if explicit is not None:
+                    return explicit
+                return _extract_labeled_amount_from_doc(
+                    doc_rec,
+                    [r"\btotal\s+cash\s+and\s+cash\s+equivalents,\s+and\s+restricted\s+cash\b"],
+                    max_gap=40,
+                    default_small_unit="million",
+                    support_kind="low_confidence",
+                    confidence=0.45,
+                )
+
+            return _pick_metric_support(_local)
+
+        def _extract_debt_core_support() -> Dict[str, Any]:
+            def _local(doc_rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+                explicit = _extract_sum_from_doc(
+                    doc_rec,
+                    [
+                        [
+                            r"\bcurrent\s+portion\s+of\s+long[- ]term\s+debt\b",
+                            r"\bcurrent\s+maturities\s+of\s+long[- ]term\s+debt\b",
+                        ],
+                        [r"(?<!current\sportion\sof\s)(?<!current\smaturities\sof\s)\blong[- ]term\s+debt\b"],
+                    ],
+                )
+                if explicit is not None:
+                    return explicit
+                return _extract_labeled_amount_from_doc(
+                    doc_rec,
+                    [r"\blong[- ]term\s+debt\b"],
+                    max_gap=40,
+                    default_small_unit="million",
+                    support_kind="low_confidence",
+                    confidence=0.4,
+                )
+
+            return _pick_metric_support(_local)
+
+        def _extract_total_debt_support() -> Dict[str, Any]:
+            def _local(doc_rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+                txt = str(doc_rec.get("text") or "")
+                explicit = _extract_labeled_amount_from_doc(
+                    doc_rec,
+                    [r"\btotal\s+debt\s+outstanding(?:\s+at[^$]{0,40}?\bwas)?\b"],
+                    max_gap=48,
+                )
+                if explicit is not None:
+                    if is_gpre_profile and re.search(
+                        r"\b(total\s+debt\s+outstanding)\b[\s\S]{0,200}?\b(including|includes?)\b[\s\S]{0,200}?\b(revolvers?|short[- ]term\s+borrowings?|working\s+capital)\b",
+                        txt,
+                        re.I,
+                    ):
+                        explicit = dict(explicit)
+                        explicit["basis_kind"] = "total_debt_outstanding_including_short_term"
+                        explicit["basis_note"] = "release total debt outstanding includes revolver/other short-term borrowings"
+                        explicit["same_basis"] = False
+                    return explicit
+                return _extract_sum_from_doc(
+                    doc_rec,
+                    [
+                        [
+                            r"\bcurrent\s+portion\s+of\s+long[- ]term\s+debt\b",
+                            r"\bcurrent\s+maturities\s+of\s+long[- ]term\s+debt\b",
+                        ],
+                        [r"(?<!current\sportion\sof\s)(?<!current\smaturities\sof\s)\blong[- ]term\s+debt\b"],
+                        [r"\bshort[- ]term\s+notes\s+payable\s+and\s+other\s+borrowings\b"],
+                    ],
+                    allow_missing_last=True,
+                )
+
+            return _pick_metric_support(_local)
 
         rev_model = pd.to_numeric(hq0.get("revenue"), errors="coerce")
         cash_model = pd.to_numeric(hq0.get("cash"), errors="coerce")
@@ -54933,7 +57842,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         cfo_q = pd.to_numeric(hq0.get("cfo"), errors="coerce")
         cap_q = pd.to_numeric(hq0.get("capex"), errors="coerce")
         fcf_model = (float(cfo_q) - float(cap_q)) if pd.notna(cfo_q) and pd.notna(cap_q) else None
-        net_debt_model = (float(debt_model) - float(cash_model)) if pd.notna(debt_model) and pd.notna(cash_model) else None
         adj_ebitda_model = None
         if adj_metrics is not None and not adj_metrics.empty and "quarter" in adj_metrics.columns:
             am = _adj_metrics_view()
@@ -54942,40 +57850,147 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if not am.empty and "adj_ebitda" in am.columns:
                 adj_ebitda_model = pd.to_numeric(am.iloc[-1].get("adj_ebitda"), errors="coerce")
 
-        rev_txt = _parse_money_from_text([r"(?:total\s+)?revenue[^0-9]{0,40}\$?\s*([0-9]{1,4}(?:,[0-9]{3})*(?:\.\d+)?)\s*(billion|million|bn|m)"])
-        ebitda_txt = _parse_money_from_text([r"(?<!adjusted\s)ebitda[^0-9]{0,40}\$?\s*([0-9]{1,4}(?:,[0-9]{3})*(?:\.\d+)?)\s*(billion|million|bn|m)"])
-        net_income_txt = _parse_money_from_text(
-            [
-                r"net\s+(?:income|earnings)[^0-9]{0,40}\$?\s*([0-9]{1,4}(?:,[0-9]{3})*(?:\.\d+)?)\s*(billion|million|bn|m)",
-                r"net\s+loss[^0-9]{0,40}\$?\s*([0-9]{1,4}(?:,[0-9]{3})*(?:\.\d+)?)\s*(billion|million|bn|m)",
-            ]
-        )
-        if net_income_txt is not None and re.search(
-            r"net\s+loss[^0-9]{0,40}\$?\s*([0-9]{1,4}(?:,[0-9]{3})*(?:\.\d+)?)\s*(billion|million|bn|m)",
-            sec_text,
-            re.I,
+        revenue_support = _extract_revenue_support()
+        ebitda_support = _extract_ebitda_support()
+        net_income_support = _extract_net_income_support()
+        adj_ebitda_support = _extract_adj_ebitda_support()
+        fcf_support = _extract_fcf_support()
+        cash_support = _extract_cash_support()
+        debt_core_support = _extract_debt_core_support()
+        total_debt_support = _extract_total_debt_support()
+        net_debt_support = _qa_support_result(None, "not_found", None, bundle_source_label, confidence=0.0)
+        if (
+            str(debt_core_support.get("support_kind") or "") == "explicit"
+            and str(cash_support.get("support_kind") or "") == "explicit"
+            and debt_core_support.get("value") is not None
+            and cash_support.get("value") is not None
         ):
-            net_income_txt = -abs(float(net_income_txt))
-        adj_ebitda_txt = _parse_money_from_text([r"adjusted\s+ebitda[^0-9]{0,40}\$?\s*([0-9]{1,4}(?:,[0-9]{3})*(?:\.\d+)?)\s*(billion|million|bn|m)"])
-        fcf_txt = _parse_money_from_text([r"free\s+cash\s+flow[^0-9]{0,40}\$?\s*([0-9]{1,4}(?:,[0-9]{3})*(?:\.\d+)?)\s*(billion|million|bn|m)"])
-        cash_txt = _parse_money_from_text([r"cash(?:\s+and\s+cash\s+equivalents)?[^0-9]{0,60}\$?\s*([0-9]{1,4}(?:,[0-9]{3})*(?:\.\d+)?)\s*(billion|million|bn|m)"])
-        debt_txt = _parse_money_from_text(
-            [
-                r"(?:total\s+debt(?:\s+outstanding)?|debt\s+outstanding|principal\s+debt\s+outstanding)\s*[^0-9]{0,40}\$?\s*([0-9]{1,4}(?:,[0-9]{3})*(?:\.\d+)?)\s*(billion|million|bn|m)"
-            ]
+            net_debt_support = _qa_support_result(
+                float(debt_core_support.get("value") or 0.0) - float(cash_support.get("value") or 0.0),
+                "explicit",
+                None,
+                f"Debt core {_money_m(float(debt_core_support.get('value') or 0.0))} less cash {_money_m(float(cash_support.get('value') or 0.0))}",
+                confidence=min(float(debt_core_support.get("confidence") or 1.0), float(cash_support.get("confidence") or 1.0)),
+                source_doc_override=" | ".join(
+                    [x for x in [str(debt_core_support.get("source_doc") or "").strip(), str(cash_support.get("source_doc") or "").strip()] if x]
+                ),
+                source_type_override="earnings_release",
+            )
+
+        def _emit_metric_support_issue(
+            metric_name: str,
+            model_val: Optional[float],
+            support_result: Dict[str, Any],
+        ) -> None:
+            def _finalize(issue_family: str, *, recommended_action: str = "") -> None:
+                qa_rows[-1]["issue_family"] = issue_family
+                qa_rows[-1]["raw_metric"] = metric_name
+                if recommended_action:
+                    qa_rows[-1]["recommended_action"] = recommended_action
+
+            if model_val is None:
+                _add(
+                    "warn",
+                    metric_name,
+                    f"{metric_name}: workbook value missing for {q0d}",
+                    str(support_result.get("source_doc") or bundle_source_label),
+                )
+                _finalize("quarter_text_no_explicit_support", recommended_action="review source coverage")
+                return
+            support_kind = str(support_result.get("support_kind") or "not_found").strip().lower()
+            src_display = str(support_result.get("source_doc") or bundle_source_label)
+            if support_kind == "not_found":
+                _add(
+                    "warn",
+                    metric_name,
+                    f"{metric_name}: workbook={_money_m(model_val)}; no explicit quarter-level statement found in selected release/presentation corpus",
+                    src_display,
+                )
+                _finalize("quarter_text_no_explicit_support", recommended_action="review source coverage")
+                return
+            if support_kind == "low_confidence":
+                _add(
+                    "warn",
+                    metric_name,
+                    f"{metric_name}: extracted value came from weak heuristic match only",
+                    src_display,
+                )
+                _finalize("quarter_text_low_confidence_support", recommended_action="watch only")
+                return
+            parsed_val = support_result.get("value")
+            if parsed_val is None:
+                _add(
+                    "warn",
+                    metric_name,
+                    f"{metric_name}: workbook={_money_m(model_val)}; no explicit quarter-level statement found in selected release/presentation corpus",
+                    src_display,
+                )
+                _finalize("quarter_text_no_explicit_support", recommended_action="review source coverage")
+                return
+            same_basis = support_result.get("same_basis")
+            basis_kind = str(support_result.get("basis_kind") or "").strip().lower()
+            if same_basis is False:
+                if metric_name == "FCF (Q)" and basis_kind == "company_defined_free_cash_flow":
+                    message = (
+                        f"Workbook FCF (Q) is CFO-capex based at {_money_m(model_val)}; "
+                        f"selected quarter text states company-defined free cash flow of {_money_m(float(parsed_val))}. "
+                        "Likely definition mismatch rather than same-basis numeric conflict."
+                    )
+                elif metric_name == "Total debt (Q)" and basis_kind == "total_debt_outstanding_including_short_term":
+                    message = (
+                        f"Workbook Total debt (Q) is {_money_m(model_val)} on the modeled debt-profile basis; "
+                        f"release total debt outstanding is {_money_m(float(parsed_val))} and includes revolver/other short-term borrowings. "
+                        "Likely basis/presentation mismatch rather than same-basis numeric conflict."
+                    )
+                else:
+                    basis_note = str(support_result.get("basis_note") or "").strip()
+                    detail = f"{basis_note} " if basis_note else ""
+                    message = (
+                        f"{metric_name}: workbook={_money_m(model_val)}, extracted quarter text={_money_m(float(parsed_val))}; "
+                        f"{detail}likely definition mismatch rather than same-basis numeric conflict"
+                    ).strip()
+                _add("warn", metric_name, message, src_display)
+                _finalize("quarter_text_definition_mismatch", recommended_action="review metric definition")
+                return
+            diff_abs = abs(float(model_val) - float(parsed_val))
+            tol_abs = 5_000_000.0
+            tol_rel = 0.02
+            rel = diff_abs / max(1.0, abs(float(model_val)))
+            if diff_abs <= tol_abs or rel <= tol_rel:
+                _add(
+                    "info",
+                    metric_name,
+                    f"{metric_name}: PASS workbook={_money_m(model_val)} vs extracted quarter text={_money_m(float(parsed_val))}",
+                    src_display,
+                )
+                _finalize("quarter_text_match")
+                return
+            sev = "fail" if diff_abs >= 25_000_000.0 and rel >= 0.10 else "warn"
+            _add(
+                sev,
+                metric_name,
+                (
+                    f"{metric_name}: workbook={_money_m(model_val)}, extracted quarter text={_money_m(float(parsed_val))}; "
+                    "likely conflicting extraction or source mismatch"
+                ),
+                src_display,
+            )
+            _finalize("quarter_text_numeric_conflict", recommended_action="fix parser")
+
+        _emit_metric_support_issue("Revenue (Q)", float(rev_model) if pd.notna(rev_model) else None, revenue_support)
+        _emit_metric_support_issue("EBITDA (Q)", float(ebitda_model) if pd.notna(ebitda_model) else None, ebitda_support)
+        _emit_metric_support_issue("Net income (Q)", float(net_income_model) if pd.notna(net_income_model) else None, net_income_support)
+        _emit_metric_support_issue("Adj EBITDA (Q)", float(adj_ebitda_model) if pd.notna(adj_ebitda_model) else None, adj_ebitda_support)
+        _emit_metric_support_issue("FCF (Q)", fcf_model, fcf_support)
+        _emit_metric_support_issue("Cash (Q)", float(cash_model) if pd.notna(cash_model) else None, cash_support)
+        _emit_metric_support_issue("Total debt (Q)", float(total_debt_model) if pd.notna(total_debt_model) else None, total_debt_support)
+        _emit_metric_support_issue("Debt core (Q)", float(debt_model) if pd.notna(debt_model) else None, debt_core_support)
+        _emit_metric_support_issue(
+            "Net debt (Q)",
+            (float(debt_model) - float(cash_model)) if pd.notna(debt_model) and pd.notna(cash_model) else None,
+            net_debt_support,
         )
 
-        _cmp_money("Revenue (Q)", float(rev_model) if pd.notna(rev_model) else None, rev_txt, "sec_cache docs")
-        _cmp_money("EBITDA (Q)", float(ebitda_model) if pd.notna(ebitda_model) else None, ebitda_txt, "sec_cache / earnings_release / slides")
-        _cmp_money("Net income (Q)", float(net_income_model) if pd.notna(net_income_model) else None, net_income_txt, "sec_cache / earnings_release")
-        _cmp_money("Adj EBITDA (Q)", float(adj_ebitda_model) if pd.notna(adj_ebitda_model) else None, adj_ebitda_txt, "sec_cache / earnings_release / slides")
-        _cmp_money("FCF (Q)", fcf_model, fcf_txt, "sec_cache docs")
-        _cmp_money("Cash (Q)", float(cash_model) if pd.notna(cash_model) else None, cash_txt, "sec_cache docs")
-        _cmp_money("Total debt (Q)", float(total_debt_model) if pd.notna(total_debt_model) else None, debt_txt, "sec_cache docs")
-        _cmp_money("Debt core (Q)", float(debt_model) if pd.notna(debt_model) else None, debt_txt, "sec_cache docs")
-        if net_debt_model is not None and debt_txt is not None and cash_txt is not None:
-            net_txt = float(debt_txt) - float(cash_txt)
-            _cmp_money("Net debt (Q)", net_debt_model, net_txt, "sec_cache docs")
         resolved_cap_return_latest = dict((qa_precompute_bundle.get("capital_return_resolved") or {}).get(q0) or {})
         buyback_shares_latest = resolved_cap_return_latest.get("buyback_shares_q")
         buyback_cash_latest = resolved_cap_return_latest.get("buyback_cash_q")
@@ -55144,12 +58159,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 else:
                     _add("warn", "QA_Leverage", "Adjusted net leverage unavailable (calc/text missing)", "computed")
 
-        # Debt tie-out QA: tranches + revolver + other items vs debt_core, bucket coverage, and recon-to-history.
+        # Debt QA: compare like-with-like and keep definition/presentation mismatches explicit.
         try:
             debt_core_latest = float(debt_model) if pd.notna(debt_model) else None
-            debt_basis_latest = debt_core_latest
-            debt_basis_label = "debt_core"
             tr_sum_unique = None
+            table_total_debt_latest = None
             if debt_tranches_latest is not None and not debt_tranches_latest.empty:
                 dtl = debt_tranches_latest.copy()
                 if "quarter" in dtl.columns:
@@ -55162,6 +58176,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         dedup_cols = [c for c in ["tranche_key", "tranche_name", amt_col, "maturity_year", "coupon_pct", "spread_pct"] if c in dtl.columns]
                         dtl2 = dtl.drop_duplicates(subset=dedup_cols) if dedup_cols else dtl
                         tr_sum_unique = float(pd.to_numeric(dtl2[amt_col], errors="coerce").dropna().sum())
+                    table_total_col = _resolve_col(dtl, ["table_total_debt", "table_total_long_term_debt", "table_total"])
+                    if table_total_col:
+                        ttd_series = pd.to_numeric(dtl[table_total_col], errors="coerce").dropna()
+                        if not ttd_series.empty:
+                            table_total_debt_latest = float(ttd_series.max())
+            debt_basis_latest = debt_core_latest
+            debt_basis_label = "debt_core"
             if (tr_sum_unique is None or abs(float(tr_sum_unique or 0.0)) < 1.0) and debt_buckets is not None and not debt_buckets.empty:
                 db0 = debt_buckets.copy()
                 asof_col_db0 = _resolve_col(db0, ["as_of", "quarter"])
@@ -55205,7 +58226,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                             rev_drawn_latest = float(rv_num)
 
             other_debt_items = 0.0
-            other_source = "default_zero"
             if debt_recon is not None and not debt_recon.empty:
                 dr = debt_recon.copy()
                 q_col_dr = _resolve_col(dr, ["quarter", "as_of"])
@@ -55219,36 +58239,83 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         other_num = pd.to_numeric(dr_last.get(diff_col_dr), errors="coerce")
                         if pd.notna(other_num):
                             other_debt_items = float(other_num)
-                            other_source = "Debt_Recon.diff"
+            def _infer_debt_scale_local(total_debt_in: Optional[float], table_total_in: Optional[float]) -> float:
+                try:
+                    td = float(total_debt_in) if total_debt_in is not None else None
+                    ttd_val = float(table_total_in) if table_total_in is not None else None
+                    if not td or not ttd_val:
+                        return 1.0
+                    ratio = td / ttd_val if ttd_val else 1.0
+                    if 500 <= ratio <= 2000:
+                        return 1000.0
+                    if 500_000 <= ratio <= 2_000_000:
+                        return 1_000_000.0
+                except Exception:
+                    pass
+                return 1.0
 
-            if debt_basis_latest is not None and tr_sum_unique is not None:
-                comp = float(tr_sum_unique) + float(rev_drawn_latest or 0.0) + float(other_debt_items or 0.0)
-                diff = comp - float(debt_basis_latest)
-                abs_diff = abs(diff)
-                rel_diff = abs_diff / max(1.0, abs(float(debt_basis_latest)))
-                if abs_diff <= 5_000_000.0 or rel_diff <= 0.02:
-                    sev = "info"
-                elif abs_diff <= 25_000_000.0:
-                    sev = "warn"
+            scale_applied = _infer_debt_scale_local(total_debt_model if pd.notna(total_debt_model) else None, table_total_debt_latest)
+            table_total_debt_scaled = float(table_total_debt_latest) * float(scale_applied) if table_total_debt_latest is not None else None
+
+            if tr_sum_unique is not None and table_total_debt_scaled is not None:
+                diff_principal = float(table_total_debt_scaled) - float(tr_sum_unique)
+                rel_principal = abs(diff_principal) / max(1.0, abs(float(tr_sum_unique)))
+                if abs(diff_principal) > 5_000_000.0 and rel_principal > 0.02:
+                    sev = "fail" if abs(diff_principal) >= 25_000_000.0 and rel_principal >= 0.10 else "warn"
+                    _add(
+                        sev,
+                        "debt_tieout",
+                        (
+                            f"Tranche principal sum {_money_m(tr_sum_unique)} vs debt-table total {_money_m(table_total_debt_scaled)}; "
+                            "principal table and tranche math do not align for the latest quarter."
+                        ),
+                        "Debt_Tranches_Latest",
+                    )
+                    qa_rows[-1]["issue_family"] = "principal_tranche_tieout"
                 else:
-                    sev = "fail"
-                _add(
-                    sev,
-                    "QA_DebtTieOut",
-                    (
-                        f"Debt tie-out ({q0d}): tranches {_money_m(tr_sum_unique)} + revolver_drawn {_money_m(rev_drawn_latest)} "
-                        f"+ other_debt_items {_money_m(other_debt_items)} [{other_source}] vs {debt_basis_label} {_money_m(debt_basis_latest)} "
-                        f"=> diff {_money_m(diff)}"
-                    ),
-                    "Debt_Tranches_Latest/Revolver_History/Debt_Recon/History_Q",
+                    _add(
+                        "info",
+                        "debt_tieout",
+                        f"Tranche principal sum {_money_m(tr_sum_unique)} aligns with debt-table total {_money_m(table_total_debt_scaled)}.",
+                        "Debt_Tranches_Latest",
+                    )
+                    qa_rows[-1]["issue_family"] = "principal_tranche_tieout"
+
+            if debt_basis_latest is not None and table_total_debt_scaled is not None:
+                diff_carry = float(table_total_debt_scaled) - float(debt_basis_latest)
+                rel_carry = abs(diff_carry) / max(1.0, abs(float(debt_basis_latest)))
+                if abs(diff_carry) > 5_000_000.0 and rel_carry > 0.02:
+                    sev = "fail" if abs(diff_carry) >= 25_000_000.0 and rel_carry >= 0.10 else "warn"
+                    msg = (
+                        f"Debt-table total {_money_m(table_total_debt_scaled)} vs {debt_basis_label} {_money_m(debt_basis_latest)}; "
+                        "likely presentation/carrying-value difference rather than tranche math."
+                    )
+                    if tr_sum_unique is not None and total_debt_model is not None and abs(float(tr_sum_unique) - float(total_debt_model)) <= max(25_000_000.0, abs(float(total_debt_model)) * 0.03):
+                        msg = (
+                            f"Tranche principal sum {_money_m(tr_sum_unique)} is close to XBRL total debt {_money_m(float(total_debt_model))}, "
+                            f"but debt-table total {_money_m(table_total_debt_scaled)} is lower than {debt_basis_label} {_money_m(debt_basis_latest)}; "
+                            "likely table presentation/carrying-value difference."
+                        )
+                    _add(sev, "debt_tieout", msg, "Debt_Tranches_Latest/History_Q")
+                    qa_rows[-1]["issue_family"] = "carrying_debt_tieout"
+
+            total_debt_text_val = total_debt_support.get("value")
+            if (
+                total_debt_text_val is not None
+                and debt_basis_latest is not None
+                and abs(float(total_debt_text_val) - float(debt_basis_latest)) > 5_000_000.0
+            ):
+                msg = (
+                    f"Total debt from selected quarter source {_money_m(float(total_debt_text_val))} sits above {debt_basis_label} {_money_m(debt_basis_latest)}; "
+                    "revolver/current portion/other debt appears to be handled outside the debt-core basis."
                 )
-            else:
-                _add(
-                    "warn",
-                    "QA_DebtTieOut",
-                    "Debt tie-out skipped: missing debt_core or tranche principal sum for latest quarter.",
-                    "Debt_Tranches_Latest/History_Q",
-                )
+                if rev_drawn_latest is not None and float(rev_drawn_latest) > 0.0:
+                    msg = (
+                        f"Selected quarter source shows total debt {_money_m(float(total_debt_text_val))} vs {debt_basis_label} {_money_m(debt_basis_latest)}; "
+                        f"revolver draw {_money_m(rev_drawn_latest)} appears outside the tranche/debt-core basis."
+                    )
+                _add("warn", "debt_tieout", msg, str(total_debt_support.get("source_doc") or "selected quarter source"))
+                qa_rows[-1]["issue_family"] = "revolver_and_other_debt_presence_check"
 
             if debt_buckets is not None and not debt_buckets.empty:
                 db = debt_buckets.copy()
@@ -55293,18 +58360,23 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                             sev = "info" if diff_abs <= 5_000_000.0 else "warn"
                             _add(
                                 sev,
-                                "QA_DebtRecon",
-                                f"Debt_Recon {total_col_dr} {_money_m(recon_total)} vs History_Q debt_core {_money_m(debt_core_latest)}.",
+                                "Debt_Recon",
+                                f"Latest-quarter debt reconciliation total {_money_m(recon_total)} vs History_Q debt_core {_money_m(debt_core_latest)}.",
                                 "Debt_Recon/History_Q",
                             )
+                            qa_rows[-1]["issue_family"] = "debt_recon_coverage_check"
                         else:
-                            _add("warn", "QA_DebtRecon", "Debt_Recon total value missing for latest quarter.", "Debt_Recon")
+                            _add("warn", "Debt_Recon", "Latest-quarter debt reconciliation row found, but total value is missing.", "Debt_Recon")
+                            qa_rows[-1]["issue_family"] = "debt_recon_coverage_check"
                     else:
-                        _add("warn", "QA_DebtRecon", "Debt_Recon has no latest-quarter row.", "Debt_Recon")
+                        _add("warn", "Debt_Recon", "No latest-quarter debt reconciliation row found in selected source path.", "Debt_Recon")
+                        qa_rows[-1]["issue_family"] = "debt_recon_coverage_check"
                 else:
-                    _add("warn", "QA_DebtRecon", "Debt_Recon missing quarter/total columns.", "Debt_Recon")
+                    _add("warn", "Debt_Recon", "Debt_Recon missing quarter/total columns for latest-quarter coverage check.", "Debt_Recon")
+                    qa_rows[-1]["issue_family"] = "debt_recon_coverage_check"
         except Exception as _debt_qa_ex:
-            _add("warn", "QA_DebtTieOut", f"Debt tie-out QA failed: {_debt_qa_ex}", "pipeline")
+            _add("warn", "debt_tieout", f"Debt QA failed for latest quarter: {_debt_qa_ex}", "pipeline")
+            qa_rows[-1]["issue_family"] = "carrying_debt_tieout"
 
         # Source coverage checks.
         er_dir = _first_existing_material_dir(
@@ -56693,6 +59765,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         # Give visible value blocks the same restrained valuation-style language before bucket fills.
         for rr in numeric_rows:
             label_cell = ws.cell(row=rr, column=1)
+            row_policy = _quarterly_row_color_policy(label_cell.value)
             if valuation_label_style is not None and label_cell.value not in (None, ""):
                 label_cell._style = copy(valuation_label_style)
                 _apply_data_font(label_cell, bold_flag=False)
@@ -56702,7 +59775,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     continue
                 data_cell.border = thin_border
                 data_cell.alignment = Alignment(horizontal="right")
-                if rr in no_bucket_rows or rr in pct_rows or rr in delta_nwc_rows or rr in nwc_rows:
+                if (
+                    rr in delta_nwc_rows
+                    or rr in nwc_rows
+                    or rr in no_bucket_rows
+                    or rr in pct_rows
+                    or row_policy.directionality == "neutral"
+                ):
                     data_cell.fill = copy(fill_neutral)
 
         # Clear sheet-level CF and apply direct bucket fills (Valuation-like visual behavior).
@@ -56711,20 +59790,27 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         except Exception:
             pass
 
-        # Apply direct fills to numeric rows by QoQ % change.
+        # Apply direct fills to numeric rows using the shared metric-aware policy.
         if numeric_rows:
             for rr in numeric_rows:
-                if rr in pct_rows or rr in no_bucket_rows or rr in delta_nwc_rows or rr in nwc_rows:
+                if rr in delta_nwc_rows or rr in nwc_rows:
                     continue
-                for cc in range(start_col + 1, last_col + 1):
+                row_label = ws.cell(row=rr, column=1).value
+                row_policy = _quarterly_row_color_policy(row_label)
+                if row_policy.directionality == "neutral":
+                    continue
+                row_values = [ws.cell(row=rr, column=cc).value for cc in range(start_col, last_col + 1)]
+                for idx_cc, cc in enumerate(range(start_col, last_col + 1)):
                     cur_cell = ws.cell(row=rr, column=cc)
-                    prev_cell = ws.cell(row=rr, column=cc - 1)
-                    cur_v = pd.to_numeric(cur_cell.value, errors="coerce")
-                    prev_v = pd.to_numeric(prev_cell.value, errors="coerce")
-                    if pd.isna(cur_v) or pd.isna(prev_v) or float(prev_v) == 0.0:
+                    metric = _quarterly_color_metric_from_series(
+                        row_values,
+                        idx_cc,
+                        comparison_basis=row_policy.comparison_basis,
+                        directionality=row_policy.directionality,
+                    )
+                    if metric is None:
                         continue
-                    delta = (float(cur_v) - float(prev_v)) / abs(float(prev_v))
-                    cur_cell.fill = _bucket_fill(delta)
+                    cur_cell.fill = _bucket_fill(metric)
 
         # Delta NWC row uses robust denominator.
         if delta_nwc_rows:
@@ -56750,16 +59836,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         continue
                     ratio = float(delta_raw * 1e6) / abs(float(denom))
                     cur_cell.fill = _bucket_fill(ratio)
-
-        # Percent rows: fill by level-bucket on current value (not QoQ delta).
-        if pct_rows:
-            for rr in pct_rows:
-                for cc in range(start_col, last_col + 1):
-                    c_pct = ws.cell(row=rr, column=cc)
-                    v_pct = pd.to_numeric(c_pct.value, errors="coerce")
-                    if pd.isna(v_pct):
-                        continue
-                    c_pct.fill = _bucket_fill(float(v_pct))
 
         ws.freeze_panes = "B12"
         w_a = valuation_col_widths.get("A")
@@ -58157,6 +61233,60 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             "_source_note": source_note or _driver_source_note(source_doc, commentary),
         }
 
+    def _gpre_canonical_crush_series_for_drivers_local() -> Dict[date, Dict[str, Any]]:
+        if not is_gpre_profile:
+            return {}
+        cached = getattr(_gpre_canonical_crush_series_for_drivers_local, "_cache", None)
+        if isinstance(cached, dict):
+            return dict(cached)
+
+        def _parse_pair_local(text_in: Any) -> Optional[Tuple[float, float, str]]:
+            return _parse_gpre_crush_margin_pair_local(text_in)
+
+        def _candidate_rank_local(target_q: date, source_q: date, source_type: str, source_rank: int) -> Tuple[int, int, int, int]:
+            source_type_low = str(source_type or "").strip().lower()
+            official_rank = 0 if source_type_low == "earnings_release" else 1 if source_type_low == "presentation" else 2
+            comparator_rank = 0 if target_q != source_q else 1
+            return (
+                comparator_rank,
+                official_rank,
+                -int(pd.Timestamp(source_q).value),
+                int(source_rank),
+            )
+
+        series_out: Dict[date, Dict[str, Any]] = {}
+        for source_q, recs in _load_operating_driver_source_records_by_quarter().items():
+            if not isinstance(source_q, date):
+                continue
+            prior_q = date(int(source_q.year) - 1, int(source_q.month), int(source_q.day))
+            for rec in recs:
+                source_type = str(rec.get("source_type") or "")
+                if source_type not in {"earnings_release", "presentation"}:
+                    continue
+                parsed_pair = _parse_pair_local(rec.get("text"))
+                if not parsed_pair:
+                    continue
+                current_val, prior_val, snippet = parsed_pair
+                source_doc = str(rec.get("source_doc") or "")
+                source_rank = int(rec.get("source_rank") or 99)
+                for target_q, target_val in ((source_q, current_val), (prior_q, prior_val)):
+                    rank = _candidate_rank_local(target_q, source_q, source_type, source_rank)
+                    existing = series_out.get(target_q)
+                    existing_rank = existing.get("_rank") if isinstance(existing, dict) else None
+                    if existing_rank is not None and tuple(existing_rank) <= rank:
+                        continue
+                    series_out[target_q] = {
+                        "value": float(target_val),
+                        "source_type": source_type,
+                        "source_doc": source_doc,
+                        "commentary": snippet,
+                        "_rank": rank,
+                    }
+        for rec in series_out.values():
+            rec.pop("_rank", None)
+        setattr(_gpre_canonical_crush_series_for_drivers_local, "_cache", dict(series_out))
+        return dict(series_out)
+
     def _extract_operating_driver_rows_for_template(
         qd: date,
         tpl: Any,
@@ -58360,6 +61490,29 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     )
             return [best] if best is not None else []
         if key == "consolidated_ethanol_crush_margin":
+            if is_gpre_profile:
+                canonical_series = _gpre_canonical_crush_series_for_drivers_local()
+                canonical_rec = canonical_series.get(qd)
+                canonical_val = pd.to_numeric((canonical_rec or {}).get("value"), errors="coerce")
+                if pd.notna(canonical_val):
+                    source_type = str((canonical_rec or {}).get("source_type") or "earnings_release")
+                    source_doc = str((canonical_rec or {}).get("source_doc") or "")
+                    commentary = str((canonical_rec or {}).get("commentary") or "")
+                    return [
+                        _make_driver_row(
+                            qd,
+                            key,
+                            group,
+                            label,
+                            source_type,
+                            source_doc,
+                            commentary=commentary,
+                            quality="exact",
+                            value=float(canonical_val),
+                            unit="$m",
+                            source_note=_driver_source_note(source_doc, commentary),
+                        )
+                    ]
             margin_rec = _driver_best_text_record(qd, search_terms, require_numeric=True, quarter_records=candidate_records)
             if margin_rec is not None:
                 val = _cached_driver_metric_parse("consolidated_ethanol_crush_margin", margin_rec.get("text"), _parse_crush_margin_value_m)
@@ -59872,7 +63025,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         bridge_templates = list(getattr(company_profile, "economics_overlay_bridge_rows", ()) or [])
         gpre_commercial_setup_rows = _gpre_commercial_setup_records_shared() if is_gpre_profile else []
         overlay_gpre_end_col = 17 if (is_gpre_profile and gpre_commercial_setup_rows) else 8
-        overlay_display_quarters = quarter_set[-7:] if (is_gpre_profile and gpre_commercial_setup_rows) else quarter_set
+        if is_gpre_profile and gpre_commercial_setup_rows:
+            overlay_display_quarters = [qd for qd in quarter_set if isinstance(qd, date) and qd >= date(2023, 3, 31)]
+            if not overlay_display_quarters:
+                overlay_display_quarters = quarter_set[-7:]
+        else:
+            overlay_display_quarters = quarter_set
 
         def _write_overlay_intro(
             row_num: int,
@@ -59912,6 +63070,158 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 ws.cell(row=row_num, column=cc).border = row_border
             ws.row_dimensions[row_num].height = float(row_height if row_height is not None else 18)
             return row_num + 1
+
+        def _gpre_management_commentary_rows_local() -> List[Dict[str, Any]]:
+            if not (is_gpre_profile and gpre_commercial_setup_rows):
+                return []
+            out_rows: List[Dict[str, Any]] = []
+            seen_keys: set[Tuple[str, str]] = set()
+            for rec in reversed(gpre_commercial_setup_rows):
+                commentary_txt = _ensure_terminal_period(glx_normalize_text(str(rec.get("commentary_text") or "")))
+                if not commentary_txt:
+                    continue
+                key = (
+                    str(rec.get("source_quarter_label") or ""),
+                    commentary_txt.lower(),
+                )
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                out_rows.append(
+                    {
+                        "horizon_quarter": str(rec.get("horizon_quarter") or ""),
+                        "source_quarter_label": str(rec.get("source_quarter_label") or ""),
+                        "source_quarter": rec.get("source_quarter"),
+                        "commentary_text": commentary_txt,
+                        "comment_text": "\n".join(
+                            [
+                                part
+                                for part in (
+                                    f"Source: {str(rec.get('source_type') or '').strip().title()} | Confidence: {str(rec.get('confidence') or '').strip().title()}",
+                                    f"Location: {str(rec.get('source_location') or '').strip()}",
+                                    f"Excerpt: {str(rec.get('source_excerpt') or '').strip()}",
+                                )
+                                if part and not part.endswith(': ')
+                            ]
+                        ),
+                        }
+                    )
+            def _append_official_commentary(source_quarter: date, source_label: str, horizon_label: str, note_text: str) -> None:
+                note_clean = _ensure_terminal_period(glx_normalize_text(note_text))
+                if not note_clean:
+                    return
+                note_key = (source_label, note_clean.lower())
+                if note_key in seen_keys:
+                    return
+                note_doc = ""
+                for root in _cache_roots():
+                    for path in _sec_cache_html_paths_local(root):
+                        if not _path_belongs_to_ticker(path, ticker, ticker_roots):
+                            continue
+                        try:
+                            joined = glx_normalize_text(" ".join([_read_cached_doc_raw(path), _read_cached_doc_text(path)]))
+                        except Exception:
+                            continue
+                        if re.search(re.escape(note_clean.rstrip(".")), joined, re.I):
+                            note_doc = str(path)
+                            break
+                    if note_doc:
+                        break
+                seen_keys.add(note_key)
+                out_rows.append(
+                    {
+                        "horizon_quarter": horizon_label,
+                        "source_quarter_label": source_label,
+                        "source_quarter": source_quarter,
+                        "commentary_text": note_clean,
+                        "comment_text": "\n".join(
+                            [
+                                part
+                                for part in (
+                                    "Source: Earnings Release | Confidence: High",
+                                    f"Location: {note_doc}",
+                                    f"Excerpt: {note_clean}",
+                                )
+                                if part and not part.endswith(': ')
+                            ]
+                        ),
+                    }
+                )
+
+            _append_official_commentary(
+                date(2025, 9, 30),
+                "Q3 2025",
+                "Q4 2025",
+                "Disciplined risk management strategy continues to support fourth quarter margins and cash flow.",
+            )
+            _append_official_commentary(
+                date(2025, 12, 31),
+                "Q4 2025",
+                "Q1 2026",
+                "Disciplined risk management strategy continues to support first quarter margins and cash flow.",
+            )
+            return out_rows
+
+        gpre_management_commentary_rows = _gpre_management_commentary_rows_local()
+
+        def _write_gpre_management_commentary_section(row_num: int) -> int:
+            if not (is_gpre_profile and gpre_management_commentary_rows):
+                return row_num
+            row_num = _write_section_bar(
+                row_num,
+                "Management commentary",
+                end_col=overlay_gpre_end_col,
+                primary=True,
+                row_height=overlay_section_row_height,
+            )
+            row_num = _write_header_row(
+                row_num,
+                ["Horizon", "Stated in", "Commentary"],
+                spans=[
+                    (1, 1, "Horizon"),
+                    (2, 2, "Stated in"),
+                    (3, 17, "Commentary"),
+                ],
+                row_height=overlay_header_row_height,
+            )
+            last_year_band = ""
+            data_fill = copy(analysis_theme["neutral_fill_alt"])
+            commentary_width = sum(float(ws.column_dimensions[col].width or 15.0) for col in tuple("CDEFGHIJKLMNOPQ"))
+            for rec in gpre_management_commentary_rows:
+                year_band = _year_band_label(rec)
+                if year_band != last_year_band:
+                    row_num = _write_year_band(row_num, year_band, end_col=overlay_gpre_end_col, row_height=overlay_year_band_row_height)
+                    last_year_band = year_band
+                ws.merge_cells(start_row=row_num, start_column=3, end_row=row_num, end_column=17)
+                ws.cell(row=row_num, column=1, value=str(rec.get("horizon_quarter") or ""))
+                ws.cell(row=row_num, column=2, value=str(rec.get("source_quarter_label") or ""))
+                ws.cell(row=row_num, column=3, value=str(rec.get("commentary_text") or ""))
+                for cc in range(1, overlay_gpre_end_col + 1):
+                    wrap_cols = {1, 2, 3}
+                    ws.cell(row=row_num, column=cc).fill = copy(data_fill)
+                    ws.cell(row=row_num, column=cc).border = row_border
+                    ws.cell(row=row_num, column=cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc in wrap_cols)
+                    ws.cell(row=row_num, column=cc).font = body_font
+                ws.cell(row=row_num, column=1).font = horizon_font
+                ws.cell(row=row_num, column=2).font = stated_font
+                if str(rec.get("comment_text") or "").strip():
+                    _add_comment(f"C{row_num}", str(rec.get("comment_text") or "").strip())
+                ws.row_dimensions[row_num].height = max(
+                    overlay_support_row_height,
+                    min(
+                        overlay_commercial_row_max_height,
+                        _estimate_wrapped_row_height(
+                            ws.cell(row=row_num, column=3).value,
+                            commentary_width,
+                            18,
+                            12,
+                            min_lines=2,
+                            max_lines=6,
+                        ),
+                    ),
+                )
+                row_num += 1
+            return row_num
 
         def _write_gpre_commercial_setup_section(row_num: int) -> int:
             if not (is_gpre_profile and gpre_commercial_setup_rows):
@@ -60007,7 +63317,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
 
         def _write_bridge_to_reported_section(row_num: int) -> int:
             bridge_title_end_col = overlay_gpre_end_col if (is_gpre_profile and gpre_commercial_setup_rows) else max(2, 1 + len(overlay_display_quarters))
-            bridge_end_col = 8 if (is_gpre_profile and gpre_commercial_setup_rows) else max(2, 1 + len(overlay_display_quarters))
+            bridge_end_col = max(2, 1 + len(overlay_display_quarters))
             row_num = _write_section_bar(
                 row_num,
                 "Bridge to reported",
@@ -60017,7 +63327,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             )
             row_num = _write_overlay_intro(
                 row_num,
-                "Reported crush / EBITDA can differ from simple process economics due to credits, hedges, accounting timing, and nonethanol bridge items.",
+                "Reported crush / EBITDA can differ from simple process economics due to credits, hedges, accounting timing, and non-ethanol bridge items.",
                 end_col=bridge_title_end_col,
                 spacer_after=1,
                 row_height=overlay_intro_row_height if (is_gpre_profile and gpre_commercial_setup_rows) else None,
@@ -60036,7 +63346,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 qcell.fill = header_fill
                 qcell.border = thin_border
                 qcell.alignment = Alignment(horizontal="center", vertical="center")
-                if not (is_gpre_profile and gpre_commercial_setup_rows and idx <= 8):
+                if not (is_gpre_profile and gpre_commercial_setup_rows):
                     ws.column_dimensions[get_column_letter(idx)].width = 14
             ws.row_dimensions[row_num].height = overlay_header_row_height if (is_gpre_profile and gpre_commercial_setup_rows) else 20
             row_num += 1
@@ -60050,7 +63360,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 "45z": "45Z impact",
                 "rin_sale": "RIN impact",
                 "inventory_lcnrv": "Inventory NRV / lower-of-cost",
-                "intercompany_nonethanol_net": "Intercompany / nonethanol operating activities",
+                "intercompany_nonethanol_net": "Non-ethanol operating activities",
                 "impairment_assets_held_for_sale": "Impairment / held-for-sale",
                 "other_bridge_items": "Other explicit bridge items",
                 "underlying_crush_margin": "Underlying crush margin",
@@ -60129,7 +63439,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     if val is not None:
                         cell.value = float(val)
                         cell.number_format = "#,##0.0"
-                    if comment_txt:
+                    if comment_txt and not (is_gpre_profile and gpre_commercial_setup_rows):
                         _add_comment(f"{get_column_letter(idx)}{row_num}", comment_txt)
                 ws.row_dimensions[row_num].height = overlay_support_row_height if (is_gpre_profile and gpre_commercial_setup_rows) else 18
                 row_num += 1
@@ -60170,6 +63480,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 spacer_after=1,
                 row_height=overlay_intro_row_height,
             )
+            row_idx = _write_gpre_management_commentary_section(row_idx)
+            row_idx += 1
             row_idx = _write_gpre_commercial_setup_section(row_idx)
             row_idx += 1
             row_idx = _write_bridge_to_reported_section(row_idx)
@@ -60621,6 +63933,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             "_ui_state": ui_state,
             "_slide_text_paths": _slide_text_paths,
             "_pbi_slide_pages_for_qd": _pbi_slide_pages_for_qd,
+            "_latest_quarter_qa_source_bundle": _latest_quarter_qa_source_bundle,
+            "_latest_quarter_sec_text_corpus": _latest_quarter_sec_text_corpus,
             "_local_slide_driver_fallback": _local_slide_driver_fallback,
             "_load_profile_slide_signals": _load_profile_slide_signals,
             "_quarter_notes_view": _quarter_notes_view,

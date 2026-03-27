@@ -48,6 +48,45 @@ def _sanitize_excel_sheet_text(value: Any) -> Any:
     return text
 
 
+def _canonicalize_qnote_audit_text(value: Any) -> str:
+    text = _normalize_qnote_cell(value)
+    if not text:
+        return ""
+
+    def _collapse_leading_ngram(part_in: str) -> str:
+        words = part_in.split()
+        if len(words) < 4:
+            return part_in
+        lowered = [w.lower() for w in words]
+        for n in range(min(6, len(words) // 2), 1, -1):
+            prefix = lowered[:n]
+            idx = n
+            repeats = 1
+            while idx + n <= len(words) and lowered[idx : idx + n] == prefix:
+                repeats += 1
+                idx += n
+            if repeats > 1:
+                return " ".join(words[:n] + words[idx:])
+        return part_in
+
+    parts = []
+    for raw_part in re.split(r"\s*\|\s*", text):
+        part = _collapse_leading_ngram(_normalize_qnote_cell(raw_part))
+        if part:
+            parts.append(part)
+    deduped_parts: List[str] = []
+    for idx, part in enumerate(parts):
+        low = part.lower()
+        if any(idx != jdx and other.lower() in low and len(part) >= len(other) + 12 for jdx, other in enumerate(parts)):
+            continue
+        if low not in {p.lower() for p in deduped_parts}:
+            deduped_parts.append(part)
+    text = " | ".join(deduped_parts) if deduped_parts else text
+    text = re.sub(r"\b([A-Za-z][A-Za-z0-9/%$().,\- ]{3,90}?)\s+\1\b", r"\1", text, flags=re.I)
+    text = _collapse_leading_ngram(text)
+    return _normalize_qnote_cell(text)
+
+
 def _quarter_notes_ui_snapshot_from_ws(ws: Any) -> Dict[str, List[Tuple[str, str]]]:
     rows_by_quarter: Dict[str, List[Tuple[str, str]]] = {}
     current_quarter = ""
@@ -662,41 +701,36 @@ def enrich_quarter_notes_audit_rows_with_readback(
         return []
     snapshot_rows = provenance.get("quarter_notes_ui_snapshot_rows") or {}
     rows_out: List[Dict[str, Any]] = []
-    readback_status_keys: set[Tuple[str, str, str]] = set()
     for row in audit_rows:
         base = dict(row)
         for key in ("workbook_path", "workbook_size", "workbook_sha1", "quarter_notes_header"):
             base[key] = provenance.get(key, base.get(key, ""))
-        rows_out.append(base)
         if str(base.get("stage") or "") != "final_selected":
+            rows_out.append(base)
             continue
         quarter = str(base.get("quarter") or "")
         category = _normalize_qnote_cell(base.get("visible_category") or base.get("bucket") or "")
         note = _normalize_qnote_cell(base.get("final_summary") or "")
         if not quarter or not note:
+            rows_out.append(base)
             continue
         matched_row = None
         for snap_category, snap_note, snap_row_idx in snapshot_rows.get(quarter, []):
             if _normalize_qnote_cell(snap_category) == category and _normalize_qnote_cell(snap_note) == note:
                 matched_row = snap_row_idx
                 break
-        status_key = (str(base.get("trace_id") or ""), quarter, note.lower())
-        if status_key in readback_status_keys:
-            continue
-        readback_status_keys.add(status_key)
-        status_row = dict(base)
         if matched_row is not None:
-            status_row["stage"] = "readback_verified"
-            status_row["saved_workbook_visible"] = True
-            status_row["saved_workbook_missing"] = False
-            status_row["saved_workbook_row"] = int(matched_row)
+            base["saved_workbook_visible"] = True
+            base["saved_workbook_missing"] = False
+            base["saved_workbook_row"] = int(matched_row)
+            base["readback_status"] = "verified"
         else:
-            status_row["stage"] = "saved_workbook_missing"
-            status_row["saved_workbook_visible"] = False
-            status_row["saved_workbook_missing"] = True
-            status_row["saved_workbook_row"] = ""
-            status_row["dropped_reason"] = str(status_row.get("dropped_reason") or "export_provenance_mismatch")
-        rows_out.append(status_row)
+            base["saved_workbook_visible"] = False
+            base["saved_workbook_missing"] = True
+            base["saved_workbook_row"] = ""
+            base["readback_status"] = "missing"
+            base["dropped_reason"] = str(base.get("dropped_reason") or "export_provenance_mismatch")
+        rows_out.append(base)
     return rows_out
 
 
@@ -756,7 +790,13 @@ def write_quarter_notes_audit_sheet(path: Path, audit_rows: List[Dict[str, Any]]
         cols = preferred_cols + extra_cols
         ws.append([_sanitize_excel_sheet_text(col) for col in cols])
         for row in audit_rows:
-            ws.append([_sanitize_excel_sheet_text(row.get(col, "")) for col in cols])
+            row_out: List[Any] = []
+            for col in cols:
+                val = row.get(col, "")
+                if col in {"source_excerpt", "final_summary"}:
+                    val = _canonicalize_qnote_audit_text(val)
+                row_out.append(_sanitize_excel_sheet_text(val))
+            ws.append(row_out)
         ws.freeze_panes = "A2"
         for idx, col_name in enumerate(cols, start=1):
             width = 16.0

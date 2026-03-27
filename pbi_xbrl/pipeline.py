@@ -10691,6 +10691,8 @@ def build_qa_checks(df_all: pd.DataFrame, hist: pd.DataFrame, audit: pd.DataFram
     for spec in GAAP_SPECS:
         if spec.kind != "duration" or spec.name not in h.columns or not spec.tags:
             continue
+        if spec.name == "shares_diluted":
+            continue
         cand_m = df_all[df_all["tag"].isin(spec.tags)].copy()
         cand_m = _filter_unit(cand_m, spec)
         tag_m = choose_best_tag(cand_m, spec)

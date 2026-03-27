@@ -108,31 +108,176 @@ def validate_debt_tieout(
     if issues.empty:
         return pd.DataFrame()
 
-    out_rows = []
-    if "long_term_debt" in issues.columns:
-        denom_lt = pd.to_numeric(issues["long_term_debt"], errors="coerce").replace(0, pd.NA)
-        issues["lt_diff_pct"] = (issues["table_total_debt_scaled"] - issues["long_term_debt"]) / denom_lt
-        close_lt = issues["long_term_debt"].notna() & issues["lt_diff_pct"].abs().le(0.05)
-        if close_lt.any():
-            lt_rows = issues[close_lt].copy()
-            lt_rows["metric"] = "debt_tieout"
-            lt_rows["severity"] = "warn"
-            lt_rows["message"] = "Table total aligns with long-term debt; total_debt tieout skipped."
-            lt_rows["diff"] = lt_rows["table_total_debt_scaled"] - lt_rows["long_term_debt"]
-            lt_rows["diff_pct"] = lt_rows["lt_diff_pct"]
-            out_rows.append(lt_rows)
-            issues = issues[~close_lt].copy()
+    def _fmt_amt(val_in: Any) -> str:
+        try:
+            val = float(val_in)
+        except Exception:
+            return "n/a"
+        sign = "-" if val < 0 else ""
+        aval = abs(val)
+        if aval >= 1_000_000_000:
+            body = f"{aval / 1_000_000_000:,.2f}".rstrip("0").rstrip(".")
+            return f"{sign}${body}bn"
+        body = f"{aval / 1_000_000:,.1f}".rstrip("0").rstrip(".")
+        return f"{sign}${body}m"
 
-    if not issues.empty:
-        issues["metric"] = "debt_tieout"
-        issues["severity"] = issues["diff_pct"].abs().apply(lambda x: "fail" if x >= 0.10 else "warn")
-        issues["message"] = "Total debt from table differs from XBRL total_debt by >2%."
-        out_rows.append(issues)
+    def _safe_ratio(num_in: Any, den_in: Any) -> float | None:
+        try:
+            den = float(den_in)
+            if den == 0:
+                return None
+            return float(num_in) / den
+        except Exception:
+            return None
+
+    def _build_diagnostic_message(row: pd.Series) -> str:
+        total_debt = pd.to_numeric(row.get("total_debt"), errors="coerce")
+        table_total = pd.to_numeric(row.get("table_total_debt_scaled"), errors="coerce")
+        tranche_sum = pd.to_numeric(row.get("tranche_sum_scaled"), errors="coerce")
+        long_term_total = pd.to_numeric(row.get("long_term_debt"), errors="coerce")
+        diff_val = pd.to_numeric(row.get("diff"), errors="coerce")
+        if pd.isna(total_debt) or pd.isna(table_total):
+            return "Total debt from table differs from XBRL total_debt by >2%."
+
+        parts: List[str] = [
+            f"Debt table total {_fmt_amt(table_total)} vs XBRL total debt {_fmt_amt(total_debt)} (gap {_fmt_amt(diff_val)})."
+        ]
+        tranche_ratio = _safe_ratio((tranche_sum - total_debt) if pd.notna(tranche_sum) else None, total_debt)
+        if pd.notna(tranche_sum) and tranche_ratio is not None and abs(tranche_ratio) <= 0.03:
+            parts.append(
+                f"Tranche principal sum {_fmt_amt(tranche_sum)} is close to XBRL total debt, so the mismatch appears to sit in the debt-table total rather than tranche math."
+            )
+        elif pd.notna(tranche_sum):
+            parts.append(f"Tranche principal sum is {_fmt_amt(tranche_sum)}.")
+
+        lt_ratio = _safe_ratio((table_total - long_term_total) if pd.notna(long_term_total) else None, long_term_total)
+        if pd.notna(long_term_total) and lt_ratio is not None and abs(lt_ratio) <= 0.05:
+            parts.append(
+                f"Debt table total is close to long-term debt {_fmt_amt(long_term_total)}, which suggests current portion and/or short-term debt may sit outside the table total."
+            )
+            current_portion = float(total_debt) - float(long_term_total)
+            if current_portion > 0:
+                gap_match_ratio = _safe_ratio(abs(abs(diff_val) - current_portion), max(current_portion, 1.0))
+                if gap_match_ratio is not None and gap_match_ratio <= 0.20:
+                    parts.append(f"Gap is broadly similar to current portion ({_fmt_amt(current_portion)}).")
+
+        if pd.notna(tranche_sum) and abs(float(tranche_sum) - float(table_total)) >= 25_000_000.0:
+            parts.append(
+                "Table total also sits below principal tranche sum, which can happen when the table is carrying-value based or excludes a current portion."
+            )
+
+        return " ".join(parts)
+
+    out_rows: List[Dict[str, Any]] = []
+
+    for _, row in issues.iterrows():
+        quarter_val = row.get("quarter")
+        total_debt = pd.to_numeric(row.get("total_debt"), errors="coerce")
+        table_total = pd.to_numeric(row.get("table_total_debt_scaled"), errors="coerce")
+        tranche_sum = pd.to_numeric(row.get("tranche_sum_scaled"), errors="coerce")
+        long_term_total = pd.to_numeric(row.get("long_term_debt"), errors="coerce")
+        diff_val = pd.to_numeric(row.get("diff"), errors="coerce")
+        diff_pct = pd.to_numeric(row.get("diff_pct"), errors="coerce")
+
+        tranche_diff = None
+        tranche_diff_pct = None
+        tranche_close_to_total = False
+        if pd.notna(tranche_sum) and pd.notna(total_debt):
+            tranche_diff = float(tranche_sum) - float(total_debt)
+            tranche_diff_pct = tranche_diff / max(abs(float(total_debt)), 1.0)
+            tranche_close_to_total = abs(float(tranche_diff_pct)) <= 0.03
+
+        table_close_to_lt = False
+        current_portion = None
+        if pd.notna(long_term_total) and pd.notna(table_total):
+            lt_diff_pct = (float(table_total) - float(long_term_total)) / max(abs(float(long_term_total)), 1.0)
+            table_close_to_lt = abs(float(lt_diff_pct)) <= 0.05
+            if pd.notna(total_debt):
+                current_portion = float(total_debt) - float(long_term_total)
+
+        if tranche_diff_pct is not None and abs(float(tranche_diff_pct)) > 0.02:
+            out_rows.append(
+                {
+                    "quarter": quarter_val,
+                    "metric": "debt_tieout",
+                    "issue_family": "principal_tranche_tieout",
+                    "severity": "fail" if abs(float(tranche_diff_pct)) >= 0.10 else "warn",
+                    "message": (
+                        f"Tranche principal sum {_fmt_amt(tranche_sum)} vs XBRL total debt {_fmt_amt(total_debt)}; "
+                        "principal-oriented debt totals do not align."
+                    ),
+                    "total_debt": total_debt,
+                    "table_total_debt": row.get("table_total_debt"),
+                    "tranche_sum": row.get("tranche_sum"),
+                    "diff": tranche_diff,
+                    "diff_pct": tranche_diff_pct,
+                    "scale_applied": row.get("scale_applied"),
+                    "long_term_debt": long_term_total,
+                }
+            )
+
+        if pd.notna(table_total) and pd.notna(total_debt):
+            carrying_message = _build_diagnostic_message(row)
+            out_rows.append(
+                {
+                    "quarter": quarter_val,
+                    "metric": "debt_tieout",
+                    "issue_family": "carrying_debt_tieout",
+                    "severity": "fail" if abs(float(diff_pct)) >= 0.10 else "warn",
+                    "message": carrying_message,
+                    "total_debt": total_debt,
+                    "table_total_debt": row.get("table_total_debt"),
+                    "tranche_sum": row.get("tranche_sum"),
+                    "diff": diff_val,
+                    "diff_pct": diff_pct,
+                    "scale_applied": row.get("scale_applied"),
+                    "long_term_debt": long_term_total,
+                }
+            )
+
+        if tranche_close_to_total and (table_close_to_lt or (current_portion is not None and abs(float(diff_val or 0.0) - float(current_portion)) <= max(5_000_000.0, abs(float(current_portion)) * 0.25))):
+            msg = "Revolver/current portion appears outside tranche principal table."
+            if table_close_to_lt and pd.notna(long_term_total):
+                msg = (
+                    f"Debt-table total {_fmt_amt(table_total)} is close to long-term debt {_fmt_amt(long_term_total)}, "
+                    "which suggests current portion and/or revolver borrowings sit outside the tranche table."
+                )
+            out_rows.append(
+                {
+                    "quarter": quarter_val,
+                    "metric": "debt_tieout",
+                    "issue_family": "revolver_and_other_debt_presence_check",
+                    "severity": "warn",
+                    "message": msg,
+                    "total_debt": total_debt,
+                    "table_total_debt": row.get("table_total_debt"),
+                    "tranche_sum": row.get("tranche_sum"),
+                    "diff": diff_val,
+                    "diff_pct": diff_pct,
+                    "scale_applied": row.get("scale_applied"),
+                    "long_term_debt": long_term_total,
+                }
+            )
 
     if not out_rows:
         return pd.DataFrame()
-    out = pd.concat(out_rows, ignore_index=True)
-    return out[["quarter", "metric", "severity", "message", "total_debt", "table_total_debt", "tranche_sum", "diff", "diff_pct", "scale_applied"]]
+    out = pd.DataFrame(out_rows)
+    keep_cols = [
+        "quarter",
+        "metric",
+        "issue_family",
+        "severity",
+        "message",
+        "total_debt",
+        "table_total_debt",
+        "tranche_sum",
+        "diff",
+        "diff_pct",
+        "scale_applied",
+    ]
+    if "long_term_debt" in out.columns:
+        keep_cols.append("long_term_debt")
+    return out[keep_cols]
 
 
 def needs_review_from_audit(audit: pd.DataFrame) -> pd.DataFrame:

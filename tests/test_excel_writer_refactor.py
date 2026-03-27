@@ -37,6 +37,7 @@ from pbi_xbrl.excel_writer_core import (
     ensure_ui_evidence,
     ensure_valuation_inputs,
     prepare_writer_inputs,
+    write_qa_sheets,
     write_raw_data_sheets,
 )
 from pbi_xbrl.excel_writer_financials import (
@@ -212,6 +213,22 @@ def _find_row_containing(ws, text: str, *, column: int = 1) -> int | None:
         if needle in str(cell_value or ""):
             return rr
     return None
+
+
+def _find_col_with_value(ws, text: str, *, row: int) -> int | None:
+    needle = str(text)
+    for cc in range(1, ws.max_column + 1):
+        if str(ws.cell(row=row, column=cc).value or "").strip() == needle:
+            return cc
+    return None
+
+
+def _fill_rgb(cell) -> str:
+    return str(cell.fill.fgColor.rgb or "")
+
+
+def _sheet_data_row_count(ws) -> int:
+    return max(int(ws.max_row) - 1, 0)
 
 
 def _sheet_metric_rows(path: Path, sheet_name: str, metric: str, *, quarters: list[str] | None = None) -> list[dict[str, str]]:
@@ -464,6 +481,7 @@ def test_write_excel_minimal_workbook_has_core_sheets_and_order() -> None:
             "Valuation",
             "Valuation_Grid",
             "History_Q",
+            "QA_Log",
             "Needs_Review",
             "QA_Checks",
             "Hidden_Value_Flags",
@@ -472,7 +490,8 @@ def test_write_excel_minimal_workbook_has_core_sheets_and_order() -> None:
         assert sheetnames.index("SUMMARY") < sheetnames.index("Valuation")
         assert sheetnames.index("Valuation") < sheetnames.index("Hidden_Value_Flags")
         assert sheetnames.index("Hidden_Value_Flags") < sheetnames.index("History_Q")
-        assert sheetnames.index("History_Q") < sheetnames.index("Needs_Review")
+        assert sheetnames.index("History_Q") < sheetnames.index("QA_Log")
+        assert sheetnames.index("QA_Log") < sheetnames.index("Needs_Review")
         assert sheetnames.index("Needs_Review") < sheetnames.index("QA_Checks")
 
 
@@ -729,6 +748,126 @@ def test_build_writer_context_exposes_explicit_state_contract() -> None:
         assert ctx.state["_load_operating_driver_45z_guidance_docs_by_quarter"] is not None
         assert "ctx_ref" not in ctx.state
         assert "valuation_style_bundle_cache" not in ctx.state
+
+
+def test_quarterly_row_color_policy_helper_is_metric_aware() -> None:
+    policy_revenue = writer_context_module._quarterly_row_color_policy("Revenue", section_label="Operating")
+    assert policy_revenue.comparison_basis == "yoy"
+    assert policy_revenue.directionality == "higher_better"
+
+    policy_capex = writer_context_module._quarterly_row_color_policy("Capex", section_label="Cash Flow")
+    assert policy_capex.comparison_basis == "yoy"
+    assert policy_capex.directionality == "lower_better"
+
+    policy_net_debt_qoq = writer_context_module._quarterly_row_color_policy(
+        "Net debt QoQ Î” ($m)",
+        section_label="Leverage & Liquidity",
+    )
+    assert policy_net_debt_qoq.comparison_basis == "direct_delta"
+    assert policy_net_debt_qoq.directionality == "lower_better"
+
+    policy_fcf_ttm = writer_context_module._quarterly_row_color_policy("FCF (TTM)", section_label="Cash Flow")
+    assert policy_fcf_ttm.comparison_basis == "ttm_vs_prior_ttm"
+    assert policy_fcf_ttm.directionality == "higher_better"
+
+    policy_current_ratio = writer_context_module._quarterly_row_color_policy(
+        "Current ratio",
+        section_label="Leverage & Liquidity",
+    )
+    assert policy_current_ratio.comparison_basis == "yoy"
+    assert policy_current_ratio.directionality == "higher_better"
+
+    policy_interest_cov = writer_context_module._quarterly_row_color_policy(
+        "Interest coverage (P&L TTM)",
+        section_label="Leverage & Liquidity",
+    )
+    assert policy_interest_cov.comparison_basis == "ttm_vs_prior_ttm"
+    assert policy_interest_cov.directionality == "higher_better"
+
+    policy_cash_interest_cov = writer_context_module._quarterly_row_color_policy(
+        "Cash interest coverage (TTM)",
+        section_label="Leverage & Liquidity",
+    )
+    assert policy_cash_interest_cov.comparison_basis == "ttm_vs_prior_ttm"
+    assert policy_cash_interest_cov.directionality == "higher_better"
+
+    policy_bv_share = writer_context_module._quarterly_row_color_policy(
+        "BV/share",
+        section_label="Equity / Per-share",
+    )
+    assert policy_bv_share.comparison_basis == "yoy"
+    assert policy_bv_share.directionality == "higher_better"
+
+    policy_tbv_share = writer_context_module._quarterly_row_color_policy(
+        "TBV/share",
+        section_label="Equity / Per-share",
+    )
+    assert policy_tbv_share.comparison_basis == "yoy"
+    assert policy_tbv_share.directionality == "higher_better"
+
+    policy_fcf_share_ttm = writer_context_module._quarterly_row_color_policy(
+        "FCF/share (TTM)",
+        section_label="Equity / Per-share",
+    )
+    assert policy_fcf_share_ttm.comparison_basis == "ttm_vs_prior_ttm"
+    assert policy_fcf_share_ttm.directionality == "higher_better"
+
+    policy_ev_ebitda_ttm = writer_context_module._quarterly_row_color_policy(
+        "EV/EBITDA (TTM)",
+        section_label="Equity / Per-share",
+    )
+    assert policy_ev_ebitda_ttm.comparison_basis == "ttm_vs_prior_ttm"
+    assert policy_ev_ebitda_ttm.directionality == "neutral"
+
+    policy_ev_adj_ebitda_ttm = writer_context_module._quarterly_row_color_policy(
+        "EV/Adj EBITDA (TTM)",
+        section_label="Equity / Per-share",
+    )
+    assert policy_ev_adj_ebitda_ttm.comparison_basis == "ttm_vs_prior_ttm"
+    assert policy_ev_adj_ebitda_ttm.directionality == "neutral"
+
+    policy_acquisitions = writer_context_module._quarterly_row_color_policy(
+        "Acquisitions (TTM, cash)",
+        section_label="Cash Flow",
+    )
+    assert policy_acquisitions.directionality == "neutral"
+
+
+def test_quarterly_color_metric_helper_uses_basis_and_directionality() -> None:
+    assert writer_context_module._quarterly_color_metric_from_series(
+        [100.0, 130.0, 120.0, 90.0, 110.0],
+        4,
+        comparison_basis="yoy",
+        directionality="higher_better",
+    ) > 0
+
+    assert writer_context_module._quarterly_color_metric_from_series(
+        [50.0, 40.0, 60.0, 55.0, 45.0],
+        4,
+        comparison_basis="yoy",
+        directionality="lower_better",
+    ) > 0
+
+    assert writer_context_module._quarterly_color_metric_from_series(
+        [None, 74.055, -28.609],
+        1,
+        comparison_basis="direct_delta",
+        directionality="higher_better",
+    ) > 0
+
+    assert writer_context_module._quarterly_color_metric_from_series(
+        [None, -11.841, 57.502],
+        1,
+        comparison_basis="direct_delta",
+        directionality="lower_better",
+    ) > 0
+
+    assert writer_context_module._quarterly_color_metric_from_series(
+        [100.0, 105.0, 110.0, 115.0, 140.0],
+        4,
+        comparison_basis="ttm_vs_prior_ttm",
+        directionality="higher_better",
+    ) > 0
 
 
 def test_ensure_driver_inputs_memoize_and_reuse_cached_results(
@@ -1434,14 +1573,14 @@ def test_writer_doc_cache_is_shared_across_leverage_and_valuation(
                 counts["read"] += 1
             return original_read_text(self, *args, **kwargs)
 
-        def counted_glob(self: Path, pattern: str):
+        def counted_glob(self: Path, pattern: str, *args, **kwargs):
             try:
                 current = self.resolve()
             except Exception:
                 current = self
             if current == cache_resolved and pattern.startswith("doc_000012345625000001_"):
                 counts["glob"] += 1
-            return original_glob(self, pattern)
+            return original_glob(self, pattern, *args, **kwargs)
 
         monkeypatch.setattr(Path, "read_text", counted_read_text)
         monkeypatch.setattr(Path, "glob", counted_glob)
@@ -1501,14 +1640,15 @@ def test_latest_quarter_qa_reuses_shared_sec_doc_cache(
                 counts["read"] += 1
             return original_read_text(self, *args, **kwargs)
 
-        def counted_glob(self: Path, pattern: str):
+        def counted_glob(self: Path, pattern: str, *args, **kwargs):
             try:
                 current = self.resolve()
             except Exception:
                 current = self
-            if current == cache_resolved and pattern.startswith("doc_000012345625000001_"):
+            pattern_txt = str(pattern)
+            if current == cache_resolved and pattern_txt.startswith("doc_000012345625000001_"):
                 counts["glob"] += 1
-            return original_glob(self, pattern)
+            return original_glob(self, pattern, *args, **kwargs)
 
         monkeypatch.setattr(Path, "read_text", counted_read_text)
         monkeypatch.setattr(Path, "glob", counted_glob)
@@ -1525,6 +1665,87 @@ def test_latest_quarter_qa_reuses_shared_sec_doc_cache(
         assert qa_rows
         assert counts["read"] == reads_after_leverage == 1
         assert counts["glob"] == globs_after_leverage == 3
+
+
+def test_latest_quarter_qa_classifies_pbi_fcf_as_definition_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_ticker_model_out_path(case_dir, "PBI", "pbi_fcf_definition_mismatch.xlsx")
+            sec_cache_dir = out_path.parent.parent / "sec_cache"
+            sec_cache_dir.mkdir(parents=True, exist_ok=True)
+            source_doc = sec_cache_dir / "doc_000162828026008604_q42025earningspressrelea.htm"
+            source_doc.write_text(
+                (
+                    "Pitney Bowes Discloses Financial Results for Fourth Quarter and Full Year 2025. "
+                    "Fourth Quarter ($ millions except EPS) 2025 2024 Cash from Operations $222 $132 Free Cash Flow1 $212 $142. "
+                    "Adjusted EBIT, Adjusted EBITDA and Free Cash Flow are non-GAAP measures. "
+                    "Free cash flow adjusts cash flow from operations calculated in accordance with GAAP for capital expenditures, "
+                    "restructuring payments and other special items. "
+                    "Pitney Bowes Inc. Reconciliation of reported net cash from operating activities to free cash flow "
+                    "Net cash from operating activities - continuing operations $221,699 $131,837 "
+                    "Capital expenditures (20,251) (22,182) Restructuring payments 10,495 32,104 "
+                    "Free cash flow $211,943 $141,759."
+                ),
+                encoding="utf-8",
+            )
+            hist = _make_hist().copy()
+            hist["cfo"] = [90_000_000.0, 100_000_000.0, 110_000_000.0, 221_699_000.0]
+            hist["capex"] = [20_000_000.0, 20_000_000.0, 20_000_000.0, 20_251_000.0]
+            hist["cash"] = [300_000_000.0, 295_000_000.0, 290_000_000.0, 284_887_000.0]
+            hist["debt_core"] = [2_250_000_000.0, 2_200_000_000.0, 2_150_000_000.0, 2_104_116_000.0]
+            hist["total_debt"] = hist["debt_core"]
+            inputs = _make_inputs(out_path, ticker="PBI", hist=hist)
+            ctx = build_writer_context(inputs)
+
+            qa_rows = ctx.callbacks.run_latest_quarter_qa()
+            fcf_row = next(row for row in qa_rows if str(row.get("metric") or "") == "FCF (Q)")
+
+            assert fcf_row["issue_family"] == "quarter_text_definition_mismatch"
+            assert (
+                fcf_row["message"]
+                == "Workbook FCF (Q) is CFO-capex based at $201.4m; selected quarter text states company-defined free cash flow of $211.9m. Likely definition mismatch rather than same-basis numeric conflict."
+            )
+            assert str(fcf_row.get("recommended_action") or "") == "review metric definition"
+            assert str(fcf_row.get("source") or "").endswith("doc_000162828026008604_q42025earningspressrelea.htm")
+
+
+def test_latest_quarter_qa_classifies_gpre_total_debt_as_definition_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "GPRE"):
+            out_path = _make_ticker_model_out_path(case_dir, "GPRE", "gpre_total_debt_definition_mismatch.xlsx")
+            release_dir = out_path.parent.parent / "earnings_release"
+            release_dir.mkdir(parents=True, exist_ok=True)
+            source_doc = release_dir / "GPRE_Q4_2025_release.txt"
+            source_doc.write_text(
+                (
+                    "Green Plains Reports Fourth Quarter and Full Year 2025 Financial Results. "
+                    "Results for the Fourth Quarter 2025 and Future Outlook: "
+                    "Total debt outstanding at December 31, 2025 was $399.5 million, including $33.6 million outstanding debt under "
+                    "working capital revolvers and other short-term borrowing arrangements."
+                ),
+                encoding="utf-8",
+            )
+            hist = _make_hist().copy()
+            hist["cash"] = [40_000_000.0, 38_000_000.0, 36_000_000.0, 33_600_000.0]
+            hist["debt_core"] = [390_000_000.0, 380_000_000.0, 372_000_000.0, 365_900_000.0]
+            hist["total_debt"] = [390_000_000.0, 380_000_000.0, 372_000_000.0, 365_900_000.0]
+            inputs = _make_inputs(out_path, ticker="GPRE", hist=hist)
+            ctx = build_writer_context(inputs)
+
+            qa_rows = ctx.callbacks.run_latest_quarter_qa()
+            debt_row = next(row for row in qa_rows if str(row.get("metric") or "") == "Total debt (Q)")
+
+            assert debt_row["issue_family"] == "quarter_text_definition_mismatch"
+            assert (
+                debt_row["message"]
+                == "Workbook Total debt (Q) is $365.9m on the modeled debt-profile basis; release total debt outstanding is $399.5m and includes revolver/other short-term borrowings. Likely basis/presentation mismatch rather than same-basis numeric conflict."
+            )
+            assert str(debt_row.get("recommended_action") or "") == "review metric definition"
+            assert str(debt_row.get("source") or "").endswith("GPRE_Q4_2025_release.txt")
 
 
 def test_submission_recent_rows_cache_is_shared_across_valuation_and_qa(
@@ -1962,14 +2183,15 @@ def test_latest_quarter_sec_text_corpus_is_reused_across_repeated_qa_runs(
         original_glob = Path.glob
         cache_resolved = cache_dir.resolve()
 
-        def counted_glob(self: Path, pattern: str):
+        def counted_glob(self: Path, pattern: str, *args, **kwargs):
             try:
                 current = self.resolve()
             except Exception:
                 current = self
-            if current == cache_resolved and pattern.startswith(f"doc_{accn.replace('-', '')}_"):
+            pattern_txt = str(pattern)
+            if current == cache_resolved and pattern_txt.startswith(f"doc_{accn.replace('-', '')}_"):
                 counts["glob"] += 1
-            return original_glob(self, pattern)
+            return original_glob(self, pattern, *args, **kwargs)
 
         monkeypatch.setattr(Path, "glob", counted_glob)
         manifest_df = pd.DataFrame({"path": [str(doc_path)]})
@@ -1984,7 +2206,10 @@ def test_latest_quarter_sec_text_corpus_is_reused_across_repeated_qa_runs(
         assert qa_once == qa_twice
         assert globs_after_first == counts["glob"]
         assert globs_after_first == 3
-        assert ctx.data.doc_cache.latest_quarter_sec_text_by_quarter
+        assert (
+            ctx.data.doc_cache.latest_quarter_qa_bundle_by_quarter
+            or ctx.data.doc_cache.latest_quarter_sec_text_by_quarter
+        )
 
 
 def test_write_ui_sheets_records_ui_substage_timings() -> None:
@@ -3986,6 +4211,58 @@ def test_pbi_quarter_notes_quantify_fcf_summary_from_adj_metrics_context(
 
             visible_notes = [str(ws.cell(row=rr, column=3).value or "") for rr in range(1, ws.max_row + 1)]
             assert any("Free cash flow improved to $221.7m, up $89.9m YoY." in note for note in visible_notes)
+
+
+def test_pbi_quarter_notes_prefer_release_backed_fcf_over_adj_metrics_when_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_ticker_model_out_path(case_dir, "PBI", "pbi_notes_release_backed_fcf.xlsx")
+            sec_cache = case_dir / "PBI" / "sec_cache"
+            sec_cache.mkdir(parents=True, exist_ok=True)
+            source_doc = sec_cache / "doc_000162828026008604_q42025earningspressrelea.htm"
+            source_doc.write_text(
+                (
+                    "Fourth Quarter ($ millions except EPS) 2025 2024 Cash from Operations $222 $132 "
+                    "Free Cash Flow1 $212 $142. "
+                    "Pitney Bowes Inc. Reconciliation of reported net cash from operating activities to free cash flow "
+                    "Net cash from operating activities - continuing operations $221,699 $131,837 "
+                    "Capital expenditures (20,251) (22,182) Restructuring payments 10,495 32,104 "
+                    "Free cash flow $211,943 $141,759."
+                ),
+                encoding="utf-8",
+            )
+            quarter_notes = pd.DataFrame(
+                {
+                    "quarter": [pd.Timestamp("2025-12-31")],
+                    "note_id": ["fcf-1"],
+                    "category": ["Cash flow / FCF / capex"],
+                    "claim": ["Free cash flow improved."],
+                    "note": ["Free cash flow improved."],
+                    "metric_ref": ["FCF improvement"],
+                    "score": [92.0],
+                    "doc_type": ["earnings_release"],
+                    "doc": ["release_q4.txt"],
+                    "evidence_snippet": ["Free cash flow improved."],
+                }
+            )
+            adj_metrics = pd.DataFrame(
+                {
+                    "quarter": [pd.Timestamp("2024-12-31"), pd.Timestamp("2025-12-31")],
+                    "adj_fcf": [131_800_000.0, 221_700_000.0],
+                }
+            )
+
+            base_inputs = _make_inputs(out_path, ticker="PBI", quarter_notes=quarter_notes)
+            inputs = base_inputs.__class__(**{**vars(base_inputs), "adj_metrics": adj_metrics})
+            ctx = build_writer_context(inputs)
+            ctx.callbacks.write_quarter_notes_ui_v2()
+            ws = ctx.wb["Quarter_Notes_UI"]
+
+            visible_notes = [str(ws.cell(row=rr, column=3).value or "") for rr in range(1, ws.max_row + 1)]
+            assert any("Free cash flow improved to $211.9m, up $70.2m YoY." in note for note in visible_notes)
+            assert not any("Free cash flow improved to $221.7m, up $89.9m YoY." in note for note in visible_notes)
 
 
 def test_pbi_recent_quarter_notes_can_recall_ceo_letter_buyback_result_from_html_promise(
@@ -8663,10 +8940,10 @@ def test_quarter_notes_ui_uses_reaffirmed_and_never_shows_repeat_badge() -> None
         q4_rows = _quarter_block_notes(ws, "2025-12-31")
         assert not any("[REPEAT]" in note for note in q4_rows)
         assert not any("[REPEAT]" in note for note in _quarter_block_notes(ws, "2025-09-30"))
+        assert not any("[REAFFIRMED]" in note for note in q4_rows)
         if q4_rows:
             assert any(
-                ("[REAFFIRMED]" in note)
-                or ("[CONTINUED]" in note)
+                ("[CONTINUED]" in note)
                 or not note.startswith("[")
                 for note in q4_rows
             )
@@ -8875,6 +9152,48 @@ def test_gpre_saved_workbook_buyback_truth_drops_historical_leakage_and_syncs_re
             ) == []
 
 
+def test_needs_review_source_gap_ordering_prefers_stronger_expected_metrics() -> None:
+    with _case_dir() as case_dir:
+        out_path = _make_model_out_path(case_dir, "needs_review_source_gap_ordering.xlsx")
+        qref = pd.Timestamp("2025-12-31")
+        custom_needs_review = pd.DataFrame(
+            [
+                {
+                    "quarter": qref,
+                    "metric": "EBITDA (Q)",
+                    "severity": "warn",
+                    "message": "EBITDA (Q): workbook=$159.0m; no explicit quarter-level statement found in selected release/presentation corpus",
+                    "source": "release.htm | slides.pdf",
+                    "issue_family": "quarter_text_no_explicit_support",
+                    "raw_metric": "EBITDA (Q)",
+                    "recommended_action": "review source coverage",
+                },
+                {
+                    "quarter": qref,
+                    "metric": "Revenue (Q)",
+                    "severity": "warn",
+                    "message": "Revenue (Q): workbook=$1,000.0m; no explicit quarter-level statement found in selected release/presentation corpus",
+                    "source": "release.htm | slides.pdf",
+                    "issue_family": "quarter_text_no_explicit_support",
+                    "raw_metric": "Revenue (Q)",
+                    "recommended_action": "review source coverage",
+                },
+            ]
+        )
+        base_inputs = _make_inputs(out_path, ticker="TEST")
+        inputs = base_inputs.__class__(**{**vars(base_inputs), "needs_review": custom_needs_review})
+        ctx = build_writer_context(inputs)
+        setattr(ctx.callbacks, "run_latest_quarter_qa", lambda: [])
+
+        write_qa_sheets(ctx, [])
+
+        ws_nr = ctx.wb["Needs_Review"]
+        assert _sheet_data_row_count(ws_nr) == 2
+        assert str(ws_nr.cell(row=2, column=1).value or "").strip() == "Current-quarter source gaps"
+        assert str(ws_nr.cell(row=2, column=11).value or "").strip() == "Revenue (Q)"
+        assert str(ws_nr.cell(row=3, column=11).value or "").strip() == "EBITDA (Q)"
+
+
 def test_current_delivered_workbooks_match_visible_quarter_notes_ui_snapshots() -> None:
     expected_snapshots = {
         "PBI": {
@@ -8883,13 +9202,14 @@ def test_current_delivered_workbooks_match_visible_quarter_notes_ui_snapshots() 
                 ("Guidance / outlook", "FY 2025 Adjusted EBIT guidance tracking near the midpoint of $450m-$465m."),
                 ("Guidance / outlook", "FY 2025 EPS guidance tracking near the midpoint of $1.20-$1.40."),
                 ("Guidance / outlook", "FY 2025 FCF target tracking near the midpoint of $330m-$370m."),
+                ("Cash flow / FCF / working capital", "Free cash flow declined to $60.4m, down $13.1m YoY."),
+                ("Debt / liquidity / balance sheet", "Revolver availability increased from $265.0m to $400.0m."),
                 ("Capital allocation / shareholder returns", "Repurchase authorization increased to $500.0m, up from $400.0m."),
                 ("Capital allocation / shareholder returns", "Remaining share repurchase capacity was $148.2m at quarter-end."),
                 ("Capital allocation / shareholder returns", "Quarterly dividend increased to $0.09/share from $0.08/share."),
                 ("Capital allocation / shareholder returns", "Repurchased 14.1m shares for $161.5m with an average price of $11.44/share in Q3."),
                 ("Capital allocation / shareholder returns", "Used $61.9m from convertible notes proceeds to repurchase 5.5m shares."),
                 ("Capital allocation / shareholder returns", "Entered capped call transactions expected to reduce dilution from convertible notes conversion."),
-                ("Debt / liquidity / balance sheet", "Revolver availability increased from $265.0m to $400.0m."),
             ],
             "2025-12-31": [
                 ("Guidance / outlook", "FY 2026 Revenue guidance $1,760m-$1,860m."),
@@ -8897,50 +9217,51 @@ def test_current_delivered_workbooks_match_visible_quarter_notes_ui_snapshots() 
                 ("Guidance / outlook", "FY 2026 EPS guidance $1.40-$1.60."),
                 ("Guidance / outlook", "FY 2026 FCF target $340m-$370m."),
                 ("Guidance / outlook", "Guidance ranges widened due to market uncertainty and forecasting changes."),
-                ("Capital allocation / shareholder returns", "Repurchase authorization increased by $250.0m."),
-                ("Capital allocation / shareholder returns", "Remaining share repurchase capacity was $359.0m at quarter-end."),
-                ("Capital allocation / shareholder returns", "Repurchased 12.6m shares for $126.6m with an average price of $10.04/share in Q4."),
-                ("Capital allocation / shareholder returns", "Quarterly dividend set at $0.09/share."),
-                ("Cash flow / FCF / working capital", "Free cash flow improved to $221.7m, up $89.9m YoY."),
-                ("Debt / liquidity / balance sheet", "Reduced principal debt by $114.1m in Q4."),
-                ("Debt / liquidity / balance sheet", "Reached sub-3.0x leverage, improving covenant flexibility."),
                 ("Results / drivers / better vs prior", "Gross margin expanded 180 bps, driven by cost optimization and a shift to higher margin revenue streams."),
                 ("Results / drivers / better vs prior", "Operating expenses declined $28.0m YoY, primarily from cost reduction."),
+                ("Cash flow / FCF / working capital", "Free cash flow improved to $211.9m, up $70.2m YoY."),
+                ("Debt / liquidity / balance sheet", "Reduced principal debt by $114.1m in Q4."),
+                ("Debt / liquidity / balance sheet", "Reached sub-3.0x leverage, improving covenant flexibility."),
+                ("Capital allocation / shareholder returns", "Repurchase authorization increased by $250.0m."),
+                ("Capital allocation / shareholder returns", "Remaining share repurchase capacity was $359.0m at quarter-end."),
+                ("Capital allocation / shareholder returns", "Quarterly dividend set at $0.09/share."),
+                ("Capital allocation / shareholder returns", "Repurchased 12.6m shares for $126.6m with an average price of $10.04/share in Q4."),
                 ("Programs / initiatives / management framing", "Strategic review phase 2 remains on track by end of Q2 2026."),
             ],
         },
         "GPRE": {
             "2025-09-30": [
                 ("Guidance / outlook", "Q4 2025 45Z monetization expected at $15m-$25m."),
-                    ("Results / drivers", "45Z production tax credits contributed $25.0m net of discounts and other costs."),
                 ("Guidance / outlook", "All eight operating ethanol plants expected to qualify for production tax credits in 2026"),
-                ("Capital allocation / shareholder returns", "Repurchase authorization increased to $200.0m."),
+                ("Results / drivers", "45Z production tax credits contributed $25.0m net of discounts and other costs."),
+                ("Results / drivers / better vs prior", "EBITDA margin compressed 405 bps YoY."),
+                ("Results / drivers / better vs prior", "Consolidated ethanol crush margin improved to $59.6m from $58.3m YoY."),
                 ("Debt / liquidity / balance sheet", "Junior mezzanine debt of $130.7m was repaid from Obion sale proceeds."),
                 ("Debt / liquidity / balance sheet", "Revolver availability ended the quarter at $325.0m."),
-                ("Results / drivers / better vs prior", "EBITDA margin compressed 405 bps YoY."),
+                ("Capital allocation / shareholder returns", "Repurchase authorization increased to $200.0m."),
+                ("Operations / commercialization / milestones", "45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025."),
                 ("Operations / commercialization / milestones", "Utilization reached 101% across operating plants."),
                 ("Operations / commercialization / milestones", "York carbon capture was fully operational; Central City and Wood River were online and ramping."),
-                ("Operations / commercialization / milestones", "45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025."),
             ],
-                "2025-12-31": [
-                    ("Guidance / outlook", "FY 2026 45Z-related Adjusted EBITDA outlook is at least $188.0m."),
-                        ("Results / drivers", "45Z production tax credits contributed $23.4m net of discounts and other costs in Q4."),
-                    ("Guidance / outlook", "Corporate activities included $16.1m of restructuring costs from the cost reduction initiative."),
-                    ("Capital allocation / shareholder returns", "Repurchase authorization increased to $200.0m."),
-                    ("Capital allocation / shareholder returns", "Repurchased approximately 2.9m shares for approximately $30.0m in connection with the October 27, 2025 exchange and subscription transactions."),
-                    ("Capital allocation / shareholder returns", "Issued an additional $30.0m of 5.25% convertible senior notes due November 2030; proceeds funded the repurchase of approximately 2.9m shares for approximately $30.0m."),
-                    ("Cash flow / FCF / working capital", "FCF TTM improved by $198.7m YoY."),
-                    ("Debt / liquidity / balance sheet", "Net debt declined by $77.9m YoY."),
-                    ("Debt / liquidity / balance sheet", "Exchanged $170.0m of 2.25% convertible senior notes due 2027 for $170.0m of 5.25% convertible senior notes due November 2030 (conversion price $15.72/share)."),
-                    ("Debt / liquidity / balance sheet", "Annualized 2026 interest expense is expected at about $30.0m-$35.0m, reflecting the 2030 convertible notes, Junior Note extinguishment and carbon equipment financing."),
-                    ("Results / drivers / better vs prior", "Adjusted EBITDA improved 369.8% YoY."),
-                    ("Results / drivers / better vs prior", "Consolidated ethanol crush margin improved to $44.4m from $15.5m YoY."),
-                    ("Operations / commercialization / milestones", "Advantage Nebraska 2026 Adjusted >$150M EBITDA opportunity."),
-                    ("Operations / commercialization / milestones", "Carbon capture was fully operational at Central City, Wood River and York, Nebraska facilities."),
-                    ("Operations / commercialization / milestones", "45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025 and amended on December 10, 2025 to add credits from three additional facilities."),
-                ],
-            },
-        }
+            "2025-12-31": [
+                ("Guidance / outlook", "FY 2026 45Z-related Adjusted EBITDA outlook is at least $188.0m."),
+                ("Guidance / outlook", "Disciplined risk management strategy continues to support first quarter margins and cash flow."),
+                ("Results / drivers", "Corporate activities included $16.1m of restructuring costs from the cost reduction initiative."),
+                ("Results / drivers", "45Z production tax credits contributed $23.4m net of discounts and other costs in Q4."),
+                ("Results / drivers / better vs prior", "Adjusted EBITDA improved 369.8% YoY."),
+                ("Results / drivers / better vs prior", "Consolidated ethanol crush margin improved to $44.4m from $(15.5)m YoY."),
+                ("Cash flow / FCF / working capital", "FCF TTM improved by $198.7m YoY."),
+                ("Debt / liquidity / balance sheet", "Net debt declined by $77.9m YoY."),
+                ("Debt / liquidity / balance sheet", "Exchanged $170.0m of 2.25% convertible senior notes due 2027 for $170.0m of 5.25% convertible senior notes due November 2030 (conversion price $15.72/share)."),
+                ("Debt / liquidity / balance sheet", "Annualized 2026 interest expense is expected at about $30.0m-$35.0m, reflecting the 2030 convertible notes, Junior Note extinguishment and carbon equipment financing."),
+                ("Capital allocation / shareholder returns", "Repurchase authorization increased to $200.0m."),
+                ("Capital allocation / shareholder returns", "Repurchased approximately 2.9m shares for approximately $30.0m in connection with the October 27, 2025 exchange and subscription transactions."),
+                ("Capital allocation / shareholder returns", "Issued an additional $30.0m of 5.25% convertible senior notes due November 2030; proceeds funded the repurchase of approximately 2.9m shares for approximately $30.0m."),
+                ("Operations / commercialization / milestones", "45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025 and amended on December 10, 2025 to add credits from three additional facilities."),
+                ("Operations / commercialization / milestones", "Advantage Nebraska 2026 Adjusted >$150M EBITDA opportunity."),
+            ],
+        },
+    }
 
     for ticker, expected_snapshot in expected_snapshots.items():
         workbook_path = _current_delivered_model_path(ticker)
@@ -9177,7 +9498,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert q4_guidance[("Cost savings target", "")][2] == "from $170m-$190m"
                 assert q4_guidance[("Adj EBIT", "FY2026")][2] == "Δ -$22.5m (-4.9%) | L -$40.0m | H -$5.0m"
                 assert q4_guidance[("Adj EPS", "FY2026")][2] == "Δ +$0.20 (+15.4%) | L +$0.20 | H +$0.20"
-                assert q4_guidance[("FCF", "FY2026")][2] == "Δ +$5.0m (+1.4%) | L +$10.0m | H +$0.0m"
+                assert q4_guidance[("FCF", "FY2026")][2] == "Δ +$55.0m (+18.3%)"
                 assert float(pd.to_numeric(wb["Valuation"].cell(row=convertible_row + 2, column=17).value, errors="coerce")) == pytest.approx(14.25, abs=0.01)
                 assert float(pd.to_numeric(wb["Valuation"].cell(row=convertible_row + 2, column=19).value, errors="coerce")) == pytest.approx(16.135259, abs=0.001)
                 assert float(pd.to_numeric(wb["Valuation"].cell(row=convertible_row + 2, column=21).value, errors="coerce")) == pytest.approx(5.535928, abs=0.001)
@@ -9232,6 +9553,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert "truck or rail movement of liquid CO2" in panel_blob
                 assert any(
                     metric in {
+                        "45Z monetization",
                         "45Z monetization outlook",
                         "45Z from remaining facilities",
                         "Advantage Nebraska EBITDA opportunity",
@@ -9282,10 +9604,13 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 )
                 assert str(wb["Valuation"].cell(row=216, column=2).value or "").strip() != "Valuation Sensitivity Grid"
                 assert str(wb["Valuation"].cell(row=217, column=2).value or "").strip() == "Valuation Sensitivity Grid"
-                assert str(wb["Valuation"].cell(row=10, column=17).value or "").strip() == "Q1 2026"
-                assert str(wb["Valuation"].cell(row=10, column=19).value or "").strip() == "Base improved by ILUC removal, facility qualification, and Advantage Nebraska"
-                assert str(wb["Valuation"].cell(row=13, column=15).value or "").strip() == "Commercial positioning"
-                assert str(wb["Valuation"].cell(row=13, column=19).value or "").strip() == "Q1 consolidated crush margins were better year over year."
+                assert str(wb["Valuation"].cell(row=10, column=17).value or "").strip() == "Q4 2025"
+                assert str(wb["Valuation"].cell(row=10, column=15).value or "").strip() == "Capex"
+                assert str(wb["Valuation"].cell(row=10, column=19).value or "").strip() == "$15.0m-$25.0m"
+                assert str(wb["Valuation"].cell(row=11, column=15).value or "").strip() == "45Z base-case improvement"
+                assert str(wb["Valuation"].cell(row=11, column=19).value or "").strip() == "Base improved by ILUC removal, facility qualification, and Advantage Nebraska"
+                assert str(wb["Valuation"].cell(row=14, column=15).value or "").strip() == "Commercial positioning"
+                assert str(wb["Valuation"].cell(row=14, column=19).value or "").strip() == "Q1 consolidated crush margins were better year over year."
                 assert panel_blob.count("Q1 consolidated crush margins were better year over year.") == 1
                 q3_guidance = _guidance_block_rows(wb["Valuation"], "2025-09-30")
                 assert ("Coverage / openness", "Q2 2025", "Q3 2025", "Q3 was about 65% crushed, moving closer to 70%.", "") in q3_guidance
@@ -9400,7 +9725,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                     "45Z impact",
                     "RIN impact",
                     "Inventory NRV / lower-of-cost",
-                    "Intercompany / nonethanol operating activities",
+                    "Non-ethanol operating activities",
                     "Impairment / held-for-sale",
                     "Other explicit bridge items",
                     "Underlying crush margin",
@@ -9452,10 +9777,27 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert float(wb["Operating_Drivers"]["A7"].font.size or 0.0) == pytest.approx(12.0, abs=0.1)
                 assert float(wb["Operating_Drivers"]["B7"].font.size or 0.0) == pytest.approx(12.0, abs=0.1)
                 rows_2025_q3 = _block_rows(wb["Promise_Progress_UI"], "2025-09-30")
-                monet_row = next(row for row in rows_2025_q3 if row[0] == "45Z monetization outlook")
-                assert monet_row[3] == "Hit"
-                assert monet_row[1] == "$15m-$25m"
-                assert monet_row[8] == "2025-12-31"
+                assert [row[0] for row in rows_2025_q3] == [
+                    "45Z monetization outlook",
+                    "Adj EPS guidance (FY 2025)",
+                    "Debt reduction",
+                    "45Z facility qualification",
+                ]
+                monetization_outlook_row = next(row for row in rows_2025_q3 if row[0] == "45Z monetization outlook")
+                assert monetization_outlook_row[1] == "$15m-$25m"
+                assert monetization_outlook_row[2] == "not yet measurable"
+                assert monetization_outlook_row[3] == "Open"
+                eps_guidance_row = next(row for row in rows_2025_q3 if row[0] == "Adj EPS guidance (FY 2025)")
+                assert eps_guidance_row[1] == "$0.17"
+                assert eps_guidance_row[2] == "not yet measurable"
+                assert eps_guidance_row[3] == "Open"
+                debt_reduction_row = next(row for row in rows_2025_q3 if row[0] == "Debt reduction")
+                assert debt_reduction_row[1] == "$130.7m"
+                assert debt_reduction_row[2] == "Debt repaid"
+                assert debt_reduction_row[3] == "Completed"
+                facility_row = next(row for row in rows_2025_q3 if row[0] == "45Z facility qualification")
+                assert facility_row[2] == "Expected in 2026"
+                assert facility_row[3] == "On track"
                 assert "Debt exchange" in quarter_note_metrics
                 assert "Interest expense outlook" in quarter_note_metrics
                 cost_note_row = next(
@@ -9760,7 +10102,7 @@ def test_current_delivered_workbooks_analysis_sheets_share_blue_theme() -> None:
                 assert _fill_rgb(ws_drivers["A5"]) == theme_header
                 assert _fill_rgb(ws_drivers["A6"]) == theme_section
 
-            for untouched_name in ["Hidden_Value_Flags", "QA_Checks", "Needs_Review", "Promise_Evidence", "Promise_Progress"]:
+            for untouched_name in ["Hidden_Value_Flags", "QA_Log", "QA_Checks", "Needs_Review", "Promise_Evidence", "Promise_Progress"]:
                 if untouched_name in wb.sheetnames:
                     untouched_fill = _fill_rgb(wb[untouched_name]["A1"])
                     assert untouched_fill not in {theme_title, theme_section, theme_header}
@@ -9998,6 +10340,568 @@ def test_current_delivered_workbooks_valuation_row_order_and_semantic_fixes() ->
             wb.close()
 
 
+def test_current_delivered_workbooks_remaining_overlay_note_and_qa_fixes() -> None:
+    pbi_path = _current_delivered_model_path("PBI")
+    gpre_path = _current_delivered_model_path("GPRE")
+    if not pbi_path.exists() or not gpre_path.exists():
+        pytest.skip("Current delivered PBI/GPRE workbooks missing for remaining cleanup readback test.")
+
+    wb_pbi = load_workbook(pbi_path, data_only=False, read_only=False)
+    try:
+        ws_val = wb_pbi["Valuation"]
+        debt_detail_row = _find_row_containing(ws_val, "August 2032", column=1)
+        assert debt_detail_row is not None
+        src_comment = ws_val.cell(row=debt_detail_row, column=17).comment
+        assert src_comment is not None
+        src_comment_text = str(src_comment.text or "")
+        assert "\\sec_cache\\PBI\\" in src_comment_text
+        assert "\\sec_cache\\GPRE\\" not in src_comment_text
+
+        ws_qa = wb_pbi["QA_Checks"]
+        qa_messages = [str(ws_qa.cell(row=rr, column=5).value or "").strip() for rr in range(1, ws_qa.max_row + 1)]
+        assert not any(msg.startswith("FCF (Q): WARN model") for msg in qa_messages)
+
+        ws_nr = wb_pbi["Needs_Review"]
+        needs_review_blob = " | ".join(
+            str(ws_nr.cell(row=rr, column=cc).value or "").strip()
+            for rr in range(1, ws_nr.max_row + 1)
+            for cc in range(1, min(ws_nr.max_column, 6) + 1)
+        )
+        assert "FCF (Q): WARN model" not in needs_review_blob
+
+        ws_qn_pbi = wb_pbi["Quarter_Notes_UI"]
+        q3_notes = _quarter_block_notes(ws_qn_pbi, "2025-09-30")
+        assert "Free cash flow declined to $60.4m, down $13.1m YoY." in q3_notes
+        fcf_note_row = next(
+            rr
+            for rr in range(1, ws_qn_pbi.max_row + 1)
+            if str(ws_qn_pbi.cell(row=rr, column=3).value or "").strip() == "Free cash flow declined to $60.4m, down $13.1m YoY."
+        )
+        fcf_comment = ws_qn_pbi.cell(row=fcf_note_row, column=3).comment
+        assert fcf_comment is not None
+        fcf_comment_text = str(fcf_comment.text or "")
+        assert "\\sec_cache\\PBI\\" in fcf_comment_text
+        assert "adj_metrics" not in fcf_comment_text
+        pbi_fcf_metrics = {
+            str(ws_qn_pbi.cell(row=rr, column=4).value or "").strip()
+            for rr in range(1, ws_qn_pbi.max_row + 1)
+            if "Free cash flow " in str(ws_qn_pbi.cell(row=rr, column=3).value or "")
+        }
+        assert pbi_fcf_metrics == {"Quarterly FCF"}
+    finally:
+        wb_pbi.close()
+
+    wb_gpre = load_workbook(gpre_path, data_only=False, read_only=False)
+    try:
+        ws_qn = wb_gpre["Quarter_Notes_UI"]
+        for note_txt in [
+            "Corporate activities included $16.1m of restructuring costs from the cost reduction initiative.",
+            "Corporate activities included $10.3m of restructuring costs from the cost reduction initiative.",
+        ]:
+            row_idx = next(
+                rr
+                for rr in range(1, ws_qn.max_row + 1)
+                if note_txt in str(ws_qn.cell(row=rr, column=3).value or "")
+            )
+            assert str(ws_qn.cell(row=row_idx, column=2).value or "").strip() == "Results / drivers"
+            assert str(ws_qn.cell(row=row_idx, column=4).value or "").strip() == "One-time items / restructuring"
+
+        ws_overlay = wb_gpre["Economics_Overlay"]
+        overlay_rows = [
+            " | ".join(str(ws_overlay.cell(row=rr, column=cc).value or "").strip() for cc in range(1, min(18, ws_overlay.max_column + 1)))
+            for rr in range(1, ws_overlay.max_row + 1)
+        ]
+        overlay_blob = "\n".join(overlay_rows)
+        assert "Management commentary" in overlay_blob
+        assert "mid-high single digits to the low teens" in overlay_blob
+        assert "Primarily open to the margin structure across products" in overlay_blob
+        assert "priced early before prices fell further" in overlay_blob
+        assert "$0.12-$0.17/gal on-paper setup tracked through May" in overlay_blob
+        assert "Management said Q4 crush was about 75% hedged and positions had been put on for Q1 2026." in overlay_blob
+        assert "Management said a significant portion of Q1 production margin was already logged in." in overlay_blob
+        assert "Disciplined risk management strategy continues to support fourth quarter margins and cash flow." in overlay_blob
+        assert "Disciplined risk management strategy continues to support first quarter margins and cash flow." in overlay_blob
+        q3_transcript_row = next(
+            rr
+            for rr in range(1, ws_overlay.max_row + 1)
+            if str(ws_overlay.cell(row=rr, column=3).value or "").strip()
+            == "Management said Q4 crush was about 75% hedged and positions had been put on for Q1 2026."
+        )
+        q4_transcript_row = next(
+            rr
+            for rr in range(1, ws_overlay.max_row + 1)
+            if str(ws_overlay.cell(row=rr, column=3).value or "").strip()
+            == "Management said a significant portion of Q1 production margin was already logged in."
+        )
+        q3_transcript_comment = ws_overlay.cell(row=q3_transcript_row, column=3).comment
+        q4_transcript_comment = ws_overlay.cell(row=q4_transcript_row, column=3).comment
+        assert q3_transcript_comment is not None
+        assert q4_transcript_comment is not None
+        assert "Source: Transcript" in str(q3_transcript_comment.text or "")
+        assert "GPRE_Q3_2025_transcript.txt" in str(q3_transcript_comment.text or "")
+        assert "third quarter" not in str(q3_transcript_comment.text or "").lower()
+        assert "Source: Transcript" in str(q4_transcript_comment.text or "")
+        assert "GPRE_Q4_2025_transcript.txt" in str(q4_transcript_comment.text or "")
+
+        q4_notes = _quarter_block_notes(ws_qn, "2025-12-31")
+        q3_notes = _quarter_block_notes(ws_qn, "2025-09-30")
+        assert "[NEW] Disciplined risk management strategy continues to support first quarter margins and cash flow." in q4_notes
+        assert "Management said Q4 crush was about 75% hedged and positions had been put on for Q1 2026." not in q3_notes
+        assert "Management said a significant portion of Q1 production margin was already logged in." not in q4_notes
+        risk_row = next(
+            rr
+            for rr in range(1, ws_qn.max_row + 1)
+            if str(ws_qn.cell(row=rr, column=3).value or "").strip()
+            == "[NEW] Disciplined risk management strategy continues to support first quarter margins and cash flow."
+        )
+        assert str(ws_qn.cell(row=risk_row, column=2).value or "").strip() == "Guidance / outlook"
+        assert str(ws_qn.cell(row=risk_row, column=4).value or "").strip() == "Risk management"
+
+        asset_note_row = next(
+            rr
+            for rr in range(1, ws_qn.max_row + 1)
+            if "Management is pursuing non-core asset monetization to enhance liquidity and strengthen the balance sheet."
+            in str(ws_qn.cell(row=rr, column=3).value or "")
+        )
+        assert str(ws_qn.cell(row=asset_note_row, column=4).value or "").strip() == "Liquidity / balance-sheet"
+    finally:
+        wb_gpre.close()
+
+
+def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() -> None:
+    pbi_path = _current_delivered_model_path("PBI")
+    gpre_path = _current_delivered_model_path("GPRE")
+    if not pbi_path.exists() or not gpre_path.exists():
+        pytest.skip("Current delivered PBI/GPRE workbooks missing for verified output bug-fix readback test.")
+
+    wb_gpre = load_workbook(gpre_path, data_only=False, read_only=False)
+    try:
+        ws_val = wb_gpre["Valuation"]
+        assert ws_val["N248"].value == 60
+        assert ws_val["N249"].value == 200
+        assert ws_val["N250"].value == "=SUM(N248:N249)"
+        assert "Price" not in str(ws_val["J222"].value or "")
+        for coord in ["H227", "I227", "J227", "K227", "L227"]:
+            assert "Price" not in str(ws_val[coord].value or "")
+        assert ws_val["N209"].value == '=IF(OR(Price="",Price<=0,BV_PerShare=""),"",IF(BV_PerShare<=0,"n/a (neg equity)",Price/BV_PerShare))'
+        assert ws_val["O49"].value == "Thesis target equity FCF yield"
+        crush_row = _find_row_with_value(ws_val, "Crush margin uplift", column=15)
+        corn_row = _find_row_with_value(ws_val, "Corn oil / coproduct uplift", column=15)
+        protein_row = _find_row_with_value(ws_val, "Protein / mix uplift", column=15)
+        assert crush_row is not None and "stronger crush margin" in str(ws_val.cell(row=crush_row, column=20).value or "")
+        assert corn_row is not None and "corn-oil or coproduct" in str(ws_val.cell(row=corn_row, column=20).value or "")
+        assert protein_row is not None and "higher-protein output or better product mix" in str(ws_val.cell(row=protein_row, column=20).value or "")
+        assert ws_val["D249"].value == "FCF TTM accelerated; YoY delta $198.7m"
+        assert ws_val["D250"].value == "Net debt declined; YoY delta $-77.9m"
+
+        ws_qn = wb_gpre["Quarter_Notes_UI"]
+        q4_2024_notes = _quarter_block_notes(ws_qn, "2024-12-31")
+        assert "Consolidated ethanol crush margin declined to $(15.5)m from $53.0m YoY." in q4_2024_notes
+        q4_2025_notes = _quarter_block_notes(ws_qn, "2025-12-31")
+        q3_2025_notes = _quarter_block_notes(ws_qn, "2025-09-30")
+        assert "[NEW] Disciplined risk management strategy continues to support first quarter margins and cash flow." in q4_2025_notes
+        assert "[NEW] 45Z production tax credits contributed $23.4m net of discounts and other costs in Q4." in q4_2025_notes
+        assert q3_2025_notes.count("[NEW] 45Z production tax credits contributed $25.0m net of discounts and other costs.") == 1
+        q4_auth_row = next(
+            rr
+            for rr in range(1, ws_qn.max_row + 1)
+            if str(ws_qn.cell(row=rr, column=1).value or "").strip() == "2025-12-31"
+        )
+        q3_auth_row = next(
+            rr
+            for rr in range(1, ws_qn.max_row + 1)
+            if str(ws_qn.cell(row=rr, column=1).value or "").strip() == "2025-09-30"
+        )
+        q4_auth_note = ""
+        q3_auth_note = ""
+        for rr in range(q4_auth_row + 1, min(q4_auth_row + 18, ws_qn.max_row + 1)):
+            if str(ws_qn.cell(row=rr, column=1).value or "").strip().startswith("202"):
+                break
+            note_txt = str(ws_qn.cell(row=rr, column=3).value or "").strip()
+            if "Repurchase authorization increased to $200.0m." in note_txt:
+                q4_auth_note = note_txt
+                break
+        for rr in range(q3_auth_row + 1, min(q3_auth_row + 18, ws_qn.max_row + 1)):
+            if str(ws_qn.cell(row=rr, column=1).value or "").strip().startswith("202"):
+                break
+            note_txt = str(ws_qn.cell(row=rr, column=3).value or "").strip()
+            if "Repurchase authorization increased to $200.0m." in note_txt:
+                q3_auth_note = note_txt
+                break
+        assert q4_auth_note == "Repurchase authorization increased to $200.0m."
+        assert q3_auth_note == "Repurchase authorization increased to $200.0m."
+
+        ws_drv = wb_gpre["Operating_Drivers"]
+        assert [str(ws_drv.cell(row=rr, column=1).value or "").strip() for rr in range(13, 18)] == [
+            "Consolidated ethanol crush margin ($m)",
+            "Crush margin ex-45Z ($m)",
+            "RIN impact / accumulated RIN sale ($m)",
+            "Crush margin ex-RIN ($m)",
+            "Underlying crush margin ($m)",
+        ]
+        crush_row = _find_row_with_value(ws_drv, "Consolidated ethanol crush margin ($m)", column=1)
+        assert crush_row is not None
+        crush_series = {
+            str(ws_drv.cell(row=5, column=cc).value or "").strip(): float(pd.to_numeric(ws_drv.cell(row=crush_row, column=cc).value, errors="coerce"))
+            for cc in range(2, ws_drv.max_column + 1)
+            if str(ws_drv.cell(row=5, column=cc).value or "").strip()
+        }
+        assert crush_series["2024-Q4"] == pytest.approx(-15.5, abs=0.01)
+        assert crush_series["2025-Q3"] == pytest.approx(59.6, abs=0.01)
+        assert crush_series["2025-Q4"] == pytest.approx(44.4, abs=0.01)
+
+        ws_overlay = wb_gpre["Economics_Overlay"]
+        bridge_row = _find_row_with_value(ws_overlay, "Bridge to reported", column=1)
+        assert bridge_row is not None
+        quarter_row = next(
+            rr
+            for rr in range(bridge_row, ws_overlay.max_row + 1)
+            if str(ws_overlay.cell(row=rr, column=1).value or "").strip() == "Quarter"
+        )
+        assert [str(ws_overlay.cell(row=quarter_row, column=cc).value or "").strip() for cc in range(1, 14)] == [
+            "Quarter",
+            "2023-Q1",
+            "2023-Q2",
+            "2023-Q3",
+            "2023-Q4",
+            "2024-Q1",
+            "2024-Q2",
+            "2024-Q3",
+            "2024-Q4",
+            "2025-Q1",
+            "2025-Q2",
+            "2025-Q3",
+            "2025-Q4",
+        ]
+        non_eth_row = _find_row_with_value(ws_overlay, "Non-ethanol operating activities", column=1)
+        assert non_eth_row is not None
+        assert all(ws_overlay.cell(row=non_eth_row, column=cc).comment is None for cc in range(2, 14))
+        assert all(ws_overlay.cell(row=quarter_row + 1, column=cc).comment is None for cc in range(2, 14))
+
+        ws_log = wb_gpre["QA_Log"]
+        assert ws_log.max_row > ws_qn.max_row
+        assert wb_gpre.sheetnames.index("History_Q") < wb_gpre.sheetnames.index("QA_Log") < wb_gpre.sheetnames.index("Needs_Review")
+        qa_log_blob = "\n".join(
+            " | ".join(str(ws_log.cell(row=rr, column=cc).value or "").strip() for cc in range(1, min(ws_log.max_column, 8) + 1))
+            for rr in range(1, min(ws_log.max_row, 1200) + 1)
+        )
+        assert "2011-12-31 00:00:00 | debt_tieout" in qa_log_blob
+        ws_nr = wb_gpre["Needs_Review"]
+        nr_header = [str(ws_nr.cell(row=1, column=cc).value or "").strip() for cc in range(1, ws_nr.max_column + 1)]
+        assert nr_header[:12] == [
+            "priority",
+            "issue_family",
+            "severity",
+            "first_seen_q",
+            "last_seen_q",
+            "quarter_count",
+            "latest_message",
+            "recommended_action",
+            "source",
+            "quarter",
+            "raw_metric",
+            "canonical_issue_key",
+        ]
+        assert _sheet_data_row_count(ws_nr) == 4
+        assert ws_nr.max_row < 10
+        nr_first_seen = [str(ws_nr.cell(row=rr, column=4).value or "").strip() for rr in range(2, min(ws_nr.max_row, 80) + 1)]
+        assert not any(q.startswith("2010") or q.startswith("2011") for q in nr_first_seen)
+        nr_rows = [
+            [str(ws_nr.cell(row=rr, column=cc).value or "").strip() for cc in range(1, min(ws_nr.max_column, 12) + 1)]
+            for rr in range(2, ws_nr.max_row + 1)
+        ]
+        nr_issue_families = [str(ws_nr.cell(row=rr, column=2).value or "").strip() for rr in range(2, ws_nr.max_row + 1)]
+        assert nr_issue_families[0:4] == [
+            "debt_recon_coverage_check",
+            "revolver_and_other_debt_presence_check",
+            "quarter_text_no_explicit_support",
+            "debt_tranches",
+        ]
+        assert "quarter_text_definition_mismatch" not in nr_issue_families
+        assert any(
+            row[0] == "Current-quarter basis / definition issues"
+            and row[1] == "revolver_and_other_debt_presence_check"
+            and "revolver draw $25.0m appears outside the tranche/debt-core basis" in row[6]
+            and row[10] == "Total debt (Q)"
+            for row in nr_rows
+        )
+        gpre_source_gap_row = next(row for row in nr_rows if row[1] == "quarter_text_no_explicit_support")
+        assert gpre_source_gap_row[0] == "Current-quarter source gaps"
+        assert gpre_source_gap_row[8] == "doc_000130940226000016_gpre-q42025earningsrelease.htm | GPRE-Q4-2025-Earnings-Slides-FINAL.pdf"
+        assert "..." not in gpre_source_gap_row[8]
+        assert "2025-12-31 00:00:00 | Total debt (Q) | quarter_text_numeric_conflict" not in qa_log_blob
+        gpre_log_header = [str(ws_log.cell(row=1, column=cc).value or "").strip() for cc in range(1, ws_log.max_column + 1)]
+        gpre_log_rows = [
+            {gpre_log_header[cc - 1]: ws_log.cell(row=rr, column=cc).value for cc in range(1, ws_log.max_column + 1)}
+            for rr in range(2, min(ws_log.max_row, 1200) + 1)
+        ]
+        assert any(
+            str(row.get("metric") or "").strip() == "Total debt (Q)"
+            and str(row.get("issue_family") or "").strip() == "quarter_text_definition_mismatch"
+            for row in gpre_log_rows
+        )
+    finally:
+        wb_gpre.close()
+
+    wb_pbi = load_workbook(pbi_path, data_only=False, read_only=False)
+    try:
+        ws_summary = wb_pbi["SUMMARY"]
+        debt_eq_row = _find_row_with_value(ws_summary, "Debt-to-equity (latest quarter)", column=1)
+        assert debt_eq_row is not None
+        assert str(ws_summary.cell(row=debt_eq_row, column=2).value or "").strip() == "N/M (neg equity)"
+
+        ws_qn = wb_pbi["Quarter_Notes_UI"]
+        q3_2025_notes = _quarter_block_notes(ws_qn, "2025-09-30")
+        assert "Free cash flow declined to $60.4m, down $13.1m YoY." in q3_2025_notes
+        note_rows = {
+            str(ws_qn.cell(row=rr, column=3).value or "").strip()
+            for rr in range(1, ws_qn.max_row + 1)
+            if str(ws_qn.cell(row=rr, column=3).value or "").strip()
+        }
+        assert "Free cash flow declined to $17.5m, down $43.2m YoY." in note_rows
+        assert "Presort delivered record revenue and EBIT, while SendTech again improved profit and margins." in note_rows
+        assert "Adjusted EBIT improved by more than $23m on relatively flat revenue, supported by segment performance and an 8% opex decline." in note_rows
+
+        ws_qa = wb_pbi["QA_Checks"]
+        qa_blob = "\n".join(
+            " | ".join(str(ws_qa.cell(row=rr, column=cc).value or "").strip() for cc in range(1, 6))
+            for rr in range(1, ws_qa.max_row + 1)
+        )
+        assert "shares_diluted | qsum_vs_fy" not in qa_blob
+
+        ws_nr = wb_pbi["Needs_Review"]
+        needs_rows = [
+            [str(ws_nr.cell(row=rr, column=cc).value or "").strip() for cc in range(1, min(ws_nr.max_column, 12) + 1)]
+            for rr in range(1, ws_nr.max_row + 1)
+        ]
+        assert _sheet_data_row_count(ws_nr) == 5
+        assert ws_nr.max_row < 15
+        assert needs_rows[0][:12] == [
+            "priority",
+            "issue_family",
+            "severity",
+            "first_seen_q",
+            "last_seen_q",
+            "quarter_count",
+            "latest_message",
+            "recommended_action",
+            "source",
+            "quarter",
+            "raw_metric",
+            "canonical_issue_key",
+        ]
+        assert not any(row[1] in {"bank_deposits", "bank_finance_receivables"} for row in needs_rows[1:] if len(row) > 1)
+        assert not any("Latest-quarter QA failed" in row[6] for row in needs_rows[1:] if len(row) > 6)
+        assert not any(row[1] == "quarter_text_model_mismatch" for row in needs_rows[1:] if len(row) > 1)
+        assert any(
+            row[1] == "carrying_debt_tieout" and row[2] == "warn" and row[4] == "2025-09-30 00:00:00"
+            for row in needs_rows
+        )
+        assert any(
+            "Tranche principal sum" in row[6] and "carrying-value based or excludes a current portion" in row[6]
+            for row in needs_rows
+            if len(row) > 6 and row[1] == "carrying_debt_tieout"
+        )
+        assert any(
+            row[1] == "debt_recon_coverage_check" and row[0] == "Current-quarter critical" and row[7] == "fix source preference"
+            for row in needs_rows
+            if len(row) > 7
+        )
+        assert any(
+            row[1] == "quarter_text_definition_mismatch"
+            and row[0] == "Current-quarter basis / definition issues"
+            and row[7] == "review metric definition"
+            and row[10] == "FCF (Q)"
+            for row in needs_rows
+            if len(row) > 10
+        )
+        assert any(
+            row[1] == "quarter_text_no_explicit_support" and row[0] == "Current-quarter source gaps" and row[10] == "EBITDA (Q)"
+            for row in needs_rows
+            if len(row) > 10
+        )
+        pbi_source_gap_row = next(
+            row for row in needs_rows[1:] if len(row) > 10 and row[1] == "quarter_text_no_explicit_support" and row[10] == "EBITDA (Q)"
+        )
+        assert pbi_source_gap_row[8] == "doc_000162828026008604_q42025earningspressrelea.htm | PBI_2025_Q4_Earnings_Slides.pdf"
+        assert "..." not in pbi_source_gap_row[8]
+        assert any(
+            row[1] == "debt_tranches" and row[0] == "Methodology / heuristic watch"
+            for row in needs_rows
+            if len(row) > 2
+        )
+        assert any(
+            row[1] == "quarter_text_definition_mismatch"
+            and row[6]
+            == "Workbook FCF (Q) is CFO-capex based at $201.4m; selected quarter text states company-defined free cash flow of $211.9m. Likely definition mismatch rather than same-basis numeric conflict."
+            for row in needs_rows
+            if len(row) > 6
+        )
+
+        ws_log = wb_pbi["QA_Log"]
+        assert ws_log.max_row > ws_nr.max_row
+        log_header = [str(ws_log.cell(row=1, column=cc).value or "").strip() for cc in range(1, ws_log.max_column + 1)]
+        assert "is_current_review_relevant" in log_header
+        assert "is_expected_legacy" in log_header
+        qa_log_blob = "\n".join(
+            " | ".join(str(ws_log.cell(row=rr, column=cc).value or "").strip() for cc in range(1, min(ws_log.max_column, 8) + 1))
+            for rr in range(1, ws_log.max_row + 1)
+        )
+        assert "Latest-quarter QA failed" not in qa_log_blob
+        assert "quarter_text_model_mismatch" not in qa_log_blob
+        assert "2025-12-31 00:00:00 | EBITDA (Q) | quarter_text_no_explicit_support" in qa_log_blob
+        assert "2025-12-31 00:00:00 | FCF (Q) | quarter_text_numeric_conflict" not in qa_log_blob
+        assert "2025-12-31 00:00:00 | FCF (Q) | quarter_text_definition_mismatch" in qa_log_blob
+
+        ws_audit = wb_pbi["Quarter_Notes_Audit"]
+        audit_header = [str(ws_audit.cell(row=1, column=cc).value or "").strip() for cc in range(1, ws_audit.max_column + 1)]
+        assert "canonical_source_group" in audit_header
+        assert "support_count" in audit_header
+        assert "source_count" in audit_header
+        audit_blob = "\n".join(
+            str(ws_audit.cell(row=rr, column=audit_header.index("final_summary") + 1).value or "").strip()
+            for rr in range(1, min(ws_audit.max_row, 40) + 1)
+        )
+        assert "FCF TTM accelerated FCF TTM accelerated" not in audit_blob
+        assert "Revenue TTM still under pressure Revenue TTM still under pressure" not in audit_blob
+        seen_audit_keys: set[tuple[str, str, str]] = set()
+        for rr in range(2, min(ws_audit.max_row, 80) + 1):
+            key = (
+                str(ws_audit.cell(row=rr, column=audit_header.index("quarter") + 1).value or "").strip(),
+                str(ws_audit.cell(row=rr, column=audit_header.index("idea_label") + 1).value or "").strip(),
+                str(ws_audit.cell(row=rr, column=audit_header.index("canonical_source_group") + 1).value or "").strip(),
+            )
+            assert key not in seen_audit_keys
+            seen_audit_keys.add(key)
+    finally:
+        wb_pbi.close()
+
+
+def test_current_delivered_workbooks_quarterly_color_logic_is_metric_and_basis_aware() -> None:
+    pbi_path = _current_delivered_model_path("PBI")
+    gpre_path = _current_delivered_model_path("GPRE")
+    if not pbi_path.exists() or not gpre_path.exists():
+        pytest.skip("Current delivered PBI/GPRE workbooks missing for quarterly color readback test.")
+
+    wb_pbi = load_workbook(pbi_path, data_only=False, read_only=False)
+    try:
+        ws_val = wb_pbi["Valuation"]
+        q1_2024 = _find_col_with_value(ws_val, "2024-Q1", row=6)
+        q2_2025 = _find_col_with_value(ws_val, "2025-Q2", row=6)
+        q4_2024 = _find_col_with_value(ws_val, "2024-Q4", row=6)
+        q4_2025 = _find_col_with_value(ws_val, "2025-Q4", row=6)
+        q2_2023 = _find_col_with_value(ws_val, "2023-Q2", row=6)
+        assert q1_2024 is not None and q2_2025 is not None and q4_2024 is not None and q4_2025 is not None and q2_2023 is not None
+
+        revenue_row = _find_row_with_value(ws_val, "Revenue")
+        capex_row = _find_row_with_value(ws_val, "Capex")
+        fcf_ttm_row = _find_row_with_value(ws_val, "FCF (TTM)")
+        net_debt_qoq_row = _find_row_with_value(ws_val, "Net debt QoQ Δ ($m)")
+        acquisitions_row = _find_row_with_value(ws_val, "Acquisitions (TTM, cash)")
+        interest_cov_row = _find_row_with_value(ws_val, "Interest coverage (P&L TTM)")
+        cash_interest_cov_row = _find_row_with_value(ws_val, "Cash interest coverage (TTM)")
+        bv_share_row = _find_row_with_value(ws_val, "BV/share")
+        tbv_share_row = _find_row_with_value(ws_val, "TBV/share")
+        fcf_share_ttm_row = _find_row_with_value(ws_val, "FCF/share (TTM)")
+        ev_ebitda_row = _find_row_with_value(ws_val, "EV/EBITDA (TTM)")
+        ev_adj_ebitda_row = _find_row_with_value(ws_val, "EV/Adj EBITDA (TTM)")
+        assert revenue_row is not None
+        assert capex_row is not None
+        assert fcf_ttm_row is not None
+        assert net_debt_qoq_row is not None
+        assert acquisitions_row is not None
+        assert interest_cov_row is not None
+        assert cash_interest_cov_row is not None
+        assert bv_share_row is not None
+        assert tbv_share_row is not None
+        assert fcf_share_ttm_row is not None
+        assert ev_ebitda_row is not None
+        assert ev_adj_ebitda_row is not None
+
+        assert _fill_rgb(ws_val.cell(row=revenue_row, column=q1_2024)) == "00A63A00"
+        assert _fill_rgb(ws_val.cell(row=capex_row, column=q1_2024)) == "002F80ED"
+        assert _fill_rgb(ws_val.cell(row=net_debt_qoq_row, column=q2_2023)) == "002F80ED"
+        assert _fill_rgb(ws_val.cell(row=fcf_ttm_row, column=q4_2024)) == "002F80ED"
+        assert _fill_rgb(ws_val.cell(row=acquisitions_row, column=q4_2024)) == "00000000"
+        assert _fill_rgb(ws_val.cell(row=interest_cov_row, column=q2_2025)) == "002F80ED"
+        assert _fill_rgb(ws_val.cell(row=cash_interest_cov_row, column=q2_2025)) == "002F80ED"
+        assert _fill_rgb(ws_val.cell(row=bv_share_row, column=q1_2024)) == "00A63A00"
+        assert _fill_rgb(ws_val.cell(row=tbv_share_row, column=q4_2025)) == "00A63A00"
+        assert _fill_rgb(ws_val.cell(row=fcf_share_ttm_row, column=q4_2024)) == "002F80ED"
+        assert _fill_rgb(ws_val.cell(row=ev_ebitda_row, column=q4_2025)) == "00000000"
+        assert _fill_rgb(ws_val.cell(row=ev_adj_ebitda_row, column=q4_2025)) == "00000000"
+
+        ws_bs = wb_pbi["BS_Segments"]
+        q2_2024_bs = _find_col_with_value(ws_bs, "2024-Q2", row=11)
+        q1_2025_bs = _find_col_with_value(ws_bs, "2025-Q1", row=11)
+        assert q2_2024_bs is not None and q1_2025_bs is not None
+
+        cash_qoq_row = _find_row_with_value(ws_bs, "Δ Cash QoQ ($m)")
+        current_ratio_row = _find_row_with_value(ws_bs, "Current ratio")
+        total_debt_qoq_row = _find_row_with_value(ws_bs, "Δ Total debt QoQ ($m)")
+        goodwill_pct_row = _find_row_with_value(ws_bs, "Goodwill % of assets")
+        assert cash_qoq_row is not None
+        assert current_ratio_row is not None
+        assert total_debt_qoq_row is not None
+        assert goodwill_pct_row is not None
+
+        assert _fill_rgb(ws_bs.cell(row=cash_qoq_row, column=q2_2024_bs)) == "002F80ED"
+        assert _fill_rgb(ws_bs.cell(row=current_ratio_row, column=q1_2025_bs)) == "00A63A00"
+        assert _fill_rgb(ws_bs.cell(row=total_debt_qoq_row, column=q2_2024_bs)) == "002F80ED"
+        assert _fill_rgb(ws_bs.cell(row=goodwill_pct_row, column=q1_2025_bs)) == "00DDDDDD"
+
+        for sheet_name in ["REPORT_IS_Q", "REPORT_BS_Q", "REPORT_CF_Q"]:
+            ws_report = wb_pbi[sheet_name]
+            report_fills = {
+                _fill_rgb(ws_report.cell(row=rr, column=cc))
+                for rr in range(10, min(ws_report.max_row, 25) + 1)
+                for cc in range(2, min(ws_report.max_column, 8) + 1)
+                if _fill_rgb(ws_report.cell(row=rr, column=cc)) not in {"", "00000000", "000000"}
+            }
+            assert report_fills == set()
+    finally:
+        wb_pbi.close()
+
+    wb_gpre = load_workbook(gpre_path, data_only=False, read_only=False)
+    try:
+        ws_val = wb_gpre["Valuation"]
+        q2_2023 = _find_col_with_value(ws_val, "2023-Q2", row=6)
+        q3_2023 = _find_col_with_value(ws_val, "2023-Q3", row=6)
+        q4_2024 = _find_col_with_value(ws_val, "2024-Q4", row=6)
+        q4_2025 = _find_col_with_value(ws_val, "2025-Q4", row=6)
+        assert q2_2023 is not None and q3_2023 is not None and q4_2024 is not None and q4_2025 is not None
+
+        net_debt_qoq_row = _find_row_with_value(ws_val, "Net debt QoQ Δ ($m)")
+        cash_interest_cov_row = _find_row_with_value(ws_val, "Cash interest coverage (TTM)")
+        bv_share_row = _find_row_with_value(ws_val, "BV/share")
+        fcf_share_ttm_row = _find_row_with_value(ws_val, "FCF/share (TTM)")
+        ev_ebitda_row = _find_row_with_value(ws_val, "EV/EBITDA (TTM)")
+        ev_adj_ebitda_row = _find_row_with_value(ws_val, "EV/Adj EBITDA (TTM)")
+        assert net_debt_qoq_row is not None
+        assert cash_interest_cov_row is not None
+        assert bv_share_row is not None
+        assert fcf_share_ttm_row is not None
+        assert ev_ebitda_row is not None
+        assert ev_adj_ebitda_row is not None
+
+        assert _fill_rgb(ws_val.cell(row=net_debt_qoq_row, column=q2_2023)) == "00A63A00"
+        assert _fill_rgb(ws_val.cell(row=net_debt_qoq_row, column=q3_2023)) == "002F80ED"
+        assert _fill_rgb(ws_val.cell(row=cash_interest_cov_row, column=q4_2024)) == "002F80ED"
+        assert _fill_rgb(ws_val.cell(row=bv_share_row, column=q4_2024)) == "00A63A00"
+        assert _fill_rgb(ws_val.cell(row=fcf_share_ttm_row, column=q4_2025)) == "002F80ED"
+        assert _fill_rgb(ws_val.cell(row=ev_ebitda_row, column=q4_2025)) == "00000000"
+        assert _fill_rgb(ws_val.cell(row=ev_adj_ebitda_row, column=q4_2025)) == "00000000"
+
+        ws_bs = wb_gpre["BS_Segments"]
+        q4_2025_bs = _find_col_with_value(ws_bs, "2025-Q4", row=11)
+        shares_out_row = _find_row_with_value(ws_bs, "Shares outstanding (m)")
+        assert q4_2025_bs is not None
+        assert shares_out_row is not None
+        assert _fill_rgb(ws_bs.cell(row=shares_out_row, column=q4_2025_bs)) == "00D55E00"
+    finally:
+        wb_gpre.close()
+
+
 def test_current_delivered_workbooks_match_visible_promise_progress_ui_snapshots() -> None:
     expected_latest_blocks = {
         "PBI": [
@@ -10009,11 +10913,13 @@ def test_current_delivered_workbooks_match_visible_promise_progress_ui_snapshots
             ("Strategic milestone", "", "Strategic review phase 2 remains on track by end of Q2 2026.", "On track"),
         ],
         "GPRE": [
-            ("Advantage Nebraska startup", "Advantage Nebraska fully operational", "Advantage Nebraska fully operational", "Completed"),
-            ("45Z monetization outlook", "$15m-$25m", "$23.4m", "Hit"),
-            ("Advantage Nebraska EBITDA opportunity", "> $150.0m in 2026", "$150.0m disclosed in 2026", "On track"),
-            ("45Z from remaining facilities", "> $38.0m expected in 2026", "not yet measurable", "On track"),
             ("Interest expense outlook", "$30m-$35m", "not yet measurable", "Open"),
+            ("45Z-related Adjusted EBITDA outlook", ">= $188.0m in 2026", "Advantage Nebraska fully operational (Q4 2025)", "On track"),
+            ("Capex guidance (FY 2026)", "$15.0m-$25.0m", "not yet measurable", "Open"),
+            ("45Z monetization", "$15m-$25m", "$23.4m", "Hit"),
+            ("45Z from remaining facilities", "> $44.4m expected in 2026", "not yet measurable", "On track"),
+            ("Advantage Nebraska startup", "Advantage Nebraska fully operational", "Advantage Nebraska fully operational", "Completed"),
+            ("Advantage Nebraska EBITDA opportunity", "> $150.0m in 2026", "$150.0m disclosed in 2026", "On track"),
         ],
     }
 

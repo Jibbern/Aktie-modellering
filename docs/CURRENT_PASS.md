@@ -24,6 +24,11 @@
 - `Valuation` `Management commentary` now renders clean sentence text while the `Context` column carries the family / period metadata.
 - `Valuation` `Trend / realized` now separates normal guidance deltas from carry-forward realized text, and PBI cost-savings target rows now surface a prior-target comparison in the saved workbook.
 - `Promise_Progress_UI` now applies final result fills after the last visible repair pass, so `Updated` is consistently blue and the generated title row no longer picks up a stray status fill.
+- `Needs_Review` now preserves the current QA taxonomy but reads more cleanly:
+  - row counts should be interpreted as data rows, not worksheet `max_row`
+  - `quarter_text_no_explicit_support` rows keep their visibility but use softer internal ordering for metrics that are often absent from release text
+  - visible `source` fields now prefer a short selected-doc list instead of a noisy bundle summary
+  - curated debt-basis rows may use a more readable display metric while keeping the same canonical coalescing behavior
 
 ## Runtime Freeze Note
 - The quarter-notes runtime pass is intentionally frozen at the current quality/output level.
@@ -72,7 +77,7 @@
 - GPRE `Promise_Progress_UI` still does not surface a separate Q4 2025 `45Z monetization / EBITDA` visible row in the delivered workbook, even though `Quarter_Notes_UI` carries that guidance note.
 - GPRE `Valuation` forward-commentary panel is materially better than before but still has some wording noise in the current delivered workbook.
 - 2024 historical note coverage remains thinner than 2025.
-- `QA_Checks` and `Needs_Review` still surface some noisy provenance issues for metrics beyond buybacks.
+- `QA_Checks` and `Needs_Review` are materially cleaner, but some source-gap and debt-definition rows remain as truthful current-quarter QA rather than cosmetic noise.
 - Some GPRE wording and labels could still be polished further.
 - Runtime remains high, especially for PBI, and should be treated as a separate optimization pass.
 - Manual desktop-Excel acceptance is still required for the final live-recalc check:

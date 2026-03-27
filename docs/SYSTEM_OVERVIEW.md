@@ -54,6 +54,10 @@
 - Origin-quarter-only events should not auto-carry forward as continued notes.
 - `Valuation` leverage / coverage labels must match the actual denominator family.
 - Use `N/M` when the relevant EBITDA denominator is non-meaningful.
+- `Needs_Review` is a curated action queue; row counts should be interpreted as data rows, excluding the header.
+- `quarter_text_no_explicit_support` stays visible when current-quarter support is missing, but ordering may be softened for metrics that are often omitted from release text.
+- Visible QA `source` fields should stay concise and human-readable; full provenance remains in the underlying evidence path and raw logs.
+- Curated queue rows may use a more readable display metric than the raw internal metric name when closely related issue families are coalesced.
 
 ## Summary Architecture
 - `SUMMARY` is topic-aware, not single-document-driven.
