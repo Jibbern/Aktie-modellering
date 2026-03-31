@@ -1,3 +1,4 @@
+"""Valuation-engine helpers and dataframe builders for valuation surfaces."""
 from __future__ import annotations
 
 from dataclasses import dataclass

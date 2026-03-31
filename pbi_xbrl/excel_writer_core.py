@@ -1,3 +1,4 @@
+"""Lower-level workbook writer utilities shared across rendering surfaces."""
 from __future__ import annotations
 
 import json
@@ -25,6 +26,9 @@ def timed_writer_stage(
     *,
     enabled: bool,
 ) -> Iterator[None]:
+    # Writer timings are grouped by coarse stage so profiling can show where time
+    # clusters in workbook generation without threading instrumentation through every
+    # helper call.
     start = time.perf_counter()
     try:
         yield
@@ -54,6 +58,9 @@ def ensure_driver_inputs(ctx: WriterContext) -> None:
         "write_excel.derive.driver_inputs",
         enabled=bool(ctx.inputs.profile_timings),
     ):
+        # Driver inputs are derived once per workbook write and then memoized in
+        # writer state. That keeps both Operating_Drivers and Economics_Overlay on
+        # the same source selection without recomputing heavy text indexes twice.
         if data.enable_operating_drivers_sheet:
             with timed_writer_stage(
                 ctx.writer_timings,
@@ -872,6 +879,9 @@ def ensure_ui_evidence(ctx: WriterContext) -> None:
         "write_excel.derive.ui_evidence",
         enabled=bool(ctx.inputs.profile_timings),
     ):
+        # These evidence frames are the explicit bridge between raw doc-intel output
+        # and the visible UI sheets. They are cached in writer state because both
+        # readback validation and clickable provenance depend on a stable row index.
         quarter_notes_evidence_df = _sync_frame_placeholder(
             state.get("quarter_notes_evidence_df"),
             callbacks.build_qn_evidence_src(),

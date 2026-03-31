@@ -70,6 +70,77 @@ def test_list_filings_uses_cached_submissions_json(monkeypatch) -> None:
         shutil.rmtree(case_dir, ignore_errors=True)
 
 
+def test_list_filings_uses_root_submissions_alias_when_nested_missing(monkeypatch) -> None:
+    case_dir = _make_case_dir()
+    try:
+        cfg = _make_cfg(case_dir)
+        cik_int = 123456
+        cik10 = sec_ingest.cik10_from_int(cik_int)
+        root_submissions_path = cfg.cache_dir / f"submissions_{cik10}.json"
+        root_submissions_path.parent.mkdir(parents=True, exist_ok=True)
+        submissions = {
+            "filings": {
+                "recent": {
+                    "form": ["10-K"],
+                    "accessionNumber": ["0000123456-26-000001"],
+                    "filingDate": ["2026-02-20"],
+                    "reportDate": ["2025-12-31"],
+                    "primaryDocument": ["fy.htm"],
+                }
+            }
+        }
+        root_submissions_path.write_text(json.dumps(submissions), encoding="utf-8")
+        monkeypatch.setattr(sec_ingest, "SecClient", _FakeSecClient)
+
+        got_cik, filings_df, got_path = sec_ingest.list_filings(cfg, cik=cik_int)
+
+        assert got_cik == cik_int
+        assert got_path == cfg.cache_dir / cik10 / "submissions.json"
+        assert got_path.exists()
+        assert list(filings_df["accession"]) == ["0000123456-26-000001"]
+        assert list(filings_df["primaryDoc"]) == ["fy.htm"]
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
+def test_list_filings_infers_local_cik_without_ticker_lookup(monkeypatch) -> None:
+    case_dir = _make_case_dir()
+    try:
+        cfg = _make_cfg(case_dir)
+        cik_int = 1309402
+        cik10 = sec_ingest.cik10_from_int(cik_int)
+        root_submissions_path = cfg.cache_dir / f"submissions_{cik10}.json"
+        root_submissions_path.parent.mkdir(parents=True, exist_ok=True)
+        submissions = {
+            "filings": {
+                "recent": {
+                    "form": ["10-K"],
+                    "accessionNumber": ["0001309402-26-000001"],
+                    "filingDate": ["2026-02-07"],
+                    "reportDate": ["2025-12-31"],
+                    "primaryDocument": ["fy.htm"],
+                }
+            }
+        }
+        root_submissions_path.write_text(json.dumps(submissions), encoding="utf-8")
+        monkeypatch.setattr(sec_ingest, "SecClient", _FakeSecClient)
+        monkeypatch.setattr(
+            sec_ingest,
+            "ticker_to_cik",
+            lambda sec, ticker: (_ for _ in ()).throw(AssertionError("ticker_to_cik should not be called")),
+        )
+
+        got_cik, filings_df, got_path = sec_ingest.list_filings(cfg, ticker="GPRE")
+
+        assert got_cik == cik_int
+        assert got_path == cfg.cache_dir / cik10 / "submissions.json"
+        assert got_path.exists()
+        assert list(filings_df["accession"]) == ["0001309402-26-000001"]
+        assert list(filings_df["primaryDoc"]) == ["fy.htm"]
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
 def test_download_filing_package_uses_cached_index_json_without_network() -> None:
     case_dir = _make_case_dir()
     try:
@@ -186,5 +257,90 @@ def test_download_all_passes_record_dicts_to_download_filing_package(monkeypatch
             "0000123456-25-000002",
         ]
         assert all(filing["ticker"] == "DEMO" for filing in seen_filings)
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
+def test_materialize_financial_statement_files_keeps_primary_and_good_exhibits_only() -> None:
+    case_dir = _make_case_dir()
+    try:
+        output_dir = case_dir / "GPRE" / "financial_statement"
+        source_dir = case_dir / "source"
+        source_dir.mkdir(parents=True, exist_ok=True)
+
+        primary = source_dir / "gpre-20250630.htm"
+        primary.write_text("<html><body>10-Q filing</body></html>", encoding="utf-8")
+        annual_pdf = source_dir / "annual_report_ex13.pdf"
+        annual_pdf.write_bytes(b"%PDF-1.4 annual report data")
+        logo_pdf = source_dir / "company_logo.pdf"
+        logo_pdf.write_bytes(b"%PDF-1.4 logo noise")
+        cert_pdf = source_dir / "ex31_certification.pdf"
+        cert_pdf.write_bytes(b"%PDF-1.4 certification")
+
+        files_df = pd.DataFrame(
+            [
+                {
+                    "form": "10-Q",
+                    "reportDate": "2025-06-30",
+                    "filedDate": "2025-08-05",
+                    "kind": "primary",
+                    "sec_type": "PRIMARY",
+                    "filename": "gpre-20250630.htm",
+                    "local_path": str(primary),
+                    "bytes": primary.stat().st_size,
+                    "status": "cache_hit",
+                },
+                {
+                    "form": "10-K",
+                    "reportDate": "2025-12-31",
+                    "filedDate": "2026-02-20",
+                    "kind": "exhibit",
+                    "sec_type": "EX-13",
+                    "filename": "annual_report_ex13.pdf",
+                    "local_path": str(annual_pdf),
+                    "bytes": 12000,
+                    "status": "cache_hit",
+                },
+                {
+                    "form": "10-K",
+                    "reportDate": "2025-12-31",
+                    "filedDate": "2026-02-20",
+                    "kind": "exhibit",
+                    "sec_type": "EX-99",
+                    "filename": "company_logo.pdf",
+                    "local_path": str(logo_pdf),
+                    "bytes": 12000,
+                    "status": "cache_hit",
+                },
+                {
+                    "form": "10-K",
+                    "reportDate": "2025-12-31",
+                    "filedDate": "2026-02-20",
+                    "kind": "exhibit",
+                    "sec_type": "EX-31",
+                    "filename": "ex31_certification.pdf",
+                    "local_path": str(cert_pdf),
+                    "bytes": 12000,
+                    "status": "cache_hit",
+                },
+            ]
+        )
+
+        manifest_df, summary = sec_ingest.materialize_financial_statement_files(
+            files_df,
+            output_dir=output_dir,
+            ticker="GPRE",
+            method="copy",
+        )
+
+        materialized_names = sorted(p.name for p in output_dir.iterdir() if p.is_file() and p.name != summary.manifest_path.name)
+        assert summary.materialized_count == 2
+        assert summary.primary_count == 1
+        assert summary.exhibit_count == 1
+        assert summary.skipped_decorative == 1
+        assert summary.skipped_noncandidate == 1
+        assert len(manifest_df) == 2
+        assert any(name.endswith("_financial_statement.htm") for name in materialized_names)
+        assert any("__EX-13__" in name for name in materialized_names)
     finally:
         shutil.rmtree(case_dir, ignore_errors=True)

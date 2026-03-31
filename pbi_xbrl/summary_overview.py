@@ -1,3 +1,4 @@
+"""Topic-aware SUMMARY builder and source-ranking helpers."""
 from __future__ import annotations
 
 import html

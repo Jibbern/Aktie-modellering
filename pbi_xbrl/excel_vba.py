@@ -1,3 +1,4 @@
+"""Excel COM helpers for optional post-save VBA injection."""
 from __future__ import annotations
 
 import gc

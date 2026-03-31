@@ -1,3 +1,12 @@
+"""SEC download and local statement-materialization helpers.
+
+This module handles two related jobs:
+- downloading filing-package content into `sec_cache`
+- materializing good 10-Q / 10-K statement documents into local
+  `financial_statement` folders for downstream parsing
+
+The local statement folder complements the SEC cache; it does not replace it.
+"""
 from __future__ import annotations
 
 import dataclasses
@@ -68,6 +77,18 @@ class IngestConfig:
     materialize_method: str = "hardlink"
     quiet_download_logs: bool = True
     max_filings: Optional[int] = None
+
+
+@dataclasses.dataclass(frozen=True)
+class FinancialStatementSyncSummary:
+    output_dir: Path
+    manifest_path: Path
+    materialized_count: int
+    primary_count: int
+    exhibit_count: int
+    skipped_missing: int
+    skipped_decorative: int
+    skipped_noncandidate: int
 
 
 def _normalize_form_token(form: str) -> str:
@@ -224,6 +245,38 @@ def _safe_materialize(src: Path, dst: Path, method: str = "hardlink") -> Path:
     return dst
 
 
+def _candidate_submissions_paths(cache_root: Path, cik10: str) -> List[Path]:
+    # The workspace has historically used a few submissions aliases. Keep them all as
+    # valid read locations so ingest remains tolerant of older cache layouts.
+    return [
+        cache_root / cik10 / "submissions.json",
+        cache_root / f"submissions_{cik10}.json",
+        cache_root / f"submissions_CIK{cik10}-submissions-001.json",
+    ]
+
+
+def _infer_local_cik_from_cache(cache_root: Path) -> Optional[int]:
+    root = Path(cache_root)
+    candidates: set[int] = set()
+    try:
+        for path in root.glob("submissions_*.json"):
+            m = re.fullmatch(r"submissions_(\d{10})\.json", path.name, re.I)
+            if m:
+                candidates.add(int(m.group(1)))
+        for path in root.glob("submissions_CIK*-submissions-001.json"):
+            m = re.fullmatch(r"submissions_CIK(\d{10})-submissions-001\.json", path.name, re.I)
+            if m:
+                candidates.add(int(m.group(1)))
+        for path in root.iterdir():
+            if path.is_dir() and re.fullmatch(r"\d{10}", path.name):
+                candidates.add(int(path.name))
+    except Exception:
+        return None
+    if len(candidates) == 1:
+        return next(iter(candidates))
+    return None
+
+
 def _canonical_name(
     ticker: str,
     form: str,
@@ -338,14 +391,24 @@ def _filings_df(submissions: Dict[str, Any], forms: Iterable[str]) -> pd.DataFra
 
 def list_filings(cfg: IngestConfig, *, ticker: Optional[str] = None, cik: Optional[int] = None) -> Tuple[int, pd.DataFrame, Path]:
     sec = SecClient(cfg)
-    cik_int = int(cik) if cik is not None else ticker_to_cik(sec, ticker or "")
+    if cik is not None:
+        cik_int = int(cik)
+    else:
+        local_cik = _infer_local_cik_from_cache(cfg.cache_dir)
+        cik_int = int(local_cik) if local_cik is not None else ticker_to_cik(sec, ticker or "")
     cik10 = cik10_from_int(cik_int)
     cache_dir = cfg.cache_dir / cik10
     cache_dir.mkdir(parents=True, exist_ok=True)
     sub_path = cache_dir / "submissions.json"
-    if sub_path.exists():
-        submissions = _read_json_file(sub_path)
-        _log_download(cfg, f"[CACHE HIT] {sub_path}")
+    existing_sub_path = next((p for p in _candidate_submissions_paths(cfg.cache_dir, cik10) if p.exists()), None)
+    if existing_sub_path is not None:
+        submissions = _read_json_file(existing_sub_path)
+        _log_download(cfg, f"[CACHE HIT] {existing_sub_path}")
+        if existing_sub_path != sub_path and not sub_path.exists():
+            try:
+                _write_json_file(sub_path, submissions)
+            except Exception:
+                pass
     else:
         url = f"{SEC_BASE}/submissions/CIK{cik10}.json"
         _log_download(cfg, f"[DOWNLOAD] {url}")
@@ -775,3 +838,206 @@ def download_all(
     files_df = pd.DataFrame(files_rows)
     exhibits_df = pd.DataFrame(exhibits_rows)
     return filings_df, files_df, exhibits_df, instance_paths
+
+
+_FINANCIAL_STATEMENT_FORMS = {"10-Q", "10-Q/A", "10-K", "10-K/A"}
+_FINANCIAL_STATEMENT_DECORATIVE_RE = re.compile(
+    r"(favicon|logo|icon|header|footer|banner|watermark|thumb|thumbnail|seal|graphic)",
+    re.I,
+)
+_FINANCIAL_STATEMENT_HINT_RE = re.compile(
+    r"(annual[_ -]?report|quarterly[_ -]?report|financial|statement|balance[_ -]?sheet|cash[_ -]?flow|"
+    r"operations|schedule|supplement|appendix|debt|credit|term[_ -]?loan|note|indenture|mezzanine|convertible)",
+    re.I,
+)
+
+
+def _financial_statement_period_label(form: str, report_date: Any, filed_date: Any) -> str:
+    ts = pd.to_datetime(report_date or filed_date, errors="coerce")
+    if pd.isna(ts):
+        return "UNK"
+    q_end = pd.Timestamp(ts).date()
+    if q_end.month == 12 and q_end.day == 31 and str(form or "").upper().startswith("10-K"):
+        return f"FY{q_end.year}"
+    quarter_num = ((int(q_end.month) - 1) // 3) + 1
+    return f"Q{quarter_num}_{q_end.year}"
+
+
+def _financial_statement_canonical_name(
+    *,
+    ticker: str,
+    form: str,
+    report_date: Any,
+    filed_date: Any,
+    kind: str,
+    sec_type: str,
+    filename: str,
+) -> str:
+    tkr = _sanitize_token(str(ticker or "").upper() or "UNK")
+    form_txt = str(form or "").upper()
+    form_tok = "10K" if form_txt.startswith("10-K") else "10Q" if form_txt.startswith("10-Q") else _sanitize_token(form_txt or "FORM")
+    date_tok = _sanitize_token(str(report_date or filed_date or "unknown")[:10])
+    period_tok = _sanitize_token(_financial_statement_period_label(form, report_date, filed_date))
+    ext = Path(str(filename or "")).suffix.lower() or ".htm"
+    if kind == "primary":
+        return f"{tkr}_{period_tok}_{form_tok}_{date_tok}_financial_statement{ext}"
+    sec_tok = _sanitize_token(str(sec_type or "EX").upper())
+    stem_tok = _sanitize_token(Path(str(filename or "")).stem or "file")
+    return f"{tkr}_{period_tok}_{form_tok}_{date_tok}_financial_statement__{sec_tok}__{stem_tok}{ext}"
+
+
+def _is_financial_statement_candidate(row: Dict[str, Any]) -> Tuple[bool, str]:
+    # The statement folder should keep real primary docs and a very small set of useful
+    # exhibits, while decorative SEC viewer assets are filtered out here.
+    form = str(row.get("form") or "").upper()
+    if form not in _FINANCIAL_STATEMENT_FORMS:
+        return False, "non_form"
+    status = str(row.get("status") or "").lower()
+    if status not in {"ok", "cache_hit"}:
+        return False, "bad_status"
+    filename = str(row.get("filename") or "")
+    if not filename:
+        return False, "no_filename"
+    if _FINANCIAL_STATEMENT_DECORATIVE_RE.search(filename):
+        return False, "decorative"
+    ext = Path(filename).suffix.lower()
+    if ext not in {".pdf", ".htm", ".html", ".txt"}:
+        return False, "bad_ext"
+    kind = str(row.get("kind") or "").lower()
+    if kind == "primary":
+        return True, "primary"
+    if kind != "exhibit":
+        return False, "noncandidate"
+    sec_type = str(row.get("sec_type") or "").upper()
+    byte_count = _safe_int(row.get("bytes")) or 0
+    if byte_count and byte_count < 4096:
+        return False, "decorative"
+    if sec_type.startswith("EX-13"):
+        return True, "exhibit"
+    if sec_type.startswith(("EX-4", "EX-10", "EX-12", "EX-99")) and _FINANCIAL_STATEMENT_HINT_RE.search(filename):
+        return True, "exhibit"
+    if _FINANCIAL_STATEMENT_HINT_RE.search(filename):
+        return True, "exhibit"
+    return False, "noncandidate"
+
+
+def materialize_financial_statement_files(
+    files_df: pd.DataFrame,
+    *,
+    output_dir: Path,
+    ticker: str,
+    method: str = "hardlink",
+) -> Tuple[pd.DataFrame, FinancialStatementSyncSummary]:
+    # Materialization writes a durable manifest because the resulting folder becomes a
+    # curated local source family that later pipeline and writer stages consume.
+    out_dir = Path(output_dir).expanduser().resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rows: List[Dict[str, Any]] = []
+    seen_targets: set[str] = set()
+    primary_count = 0
+    exhibit_count = 0
+    skipped_missing = 0
+    skipped_decorative = 0
+    skipped_noncandidate = 0
+
+    if files_df is None or files_df.empty:
+        manifest_path = out_dir / f"{str(ticker or 'SEC').upper()}_financial_statement_manifest.csv"
+        pd.DataFrame().to_csv(manifest_path, index=False)
+        return pd.DataFrame(), FinancialStatementSyncSummary(
+            output_dir=out_dir,
+            manifest_path=manifest_path,
+            materialized_count=0,
+            primary_count=0,
+            exhibit_count=0,
+            skipped_missing=0,
+            skipped_decorative=0,
+            skipped_noncandidate=0,
+        )
+
+    for row in files_df.to_dict("records"):
+        is_candidate, reason = _is_financial_statement_candidate(row)
+        if not is_candidate:
+            if reason == "decorative":
+                skipped_decorative += 1
+            else:
+                skipped_noncandidate += 1
+            continue
+        local_path = Path(str(row.get("local_path") or ""))
+        if not local_path.exists():
+            skipped_missing += 1
+            continue
+        kind = str(row.get("kind") or "").lower()
+        canon = _financial_statement_canonical_name(
+            ticker=str(ticker or "").upper(),
+            form=str(row.get("form") or ""),
+            report_date=row.get("reportDate"),
+            filed_date=row.get("filedDate"),
+            kind=kind,
+            sec_type=str(row.get("sec_type") or ""),
+            filename=str(row.get("filename") or local_path.name),
+        )
+        if canon in seen_targets:
+            continue
+        seen_targets.add(canon)
+        dst = _safe_materialize(local_path, out_dir / canon, method=method)
+        rows.append(
+            {
+                "ticker": str(ticker or "").upper(),
+                "form": row.get("form"),
+                "reportDate": row.get("reportDate"),
+                "filedDate": row.get("filedDate"),
+                "kind": kind,
+                "sec_type": row.get("sec_type"),
+                "filename": row.get("filename"),
+                "source_local_path": str(local_path),
+                "materialized_path": str(dst),
+                "bytes": _safe_int(row.get("bytes")) or 0,
+                "status": row.get("status"),
+            }
+        )
+        if kind == "primary":
+            primary_count += 1
+        else:
+            exhibit_count += 1
+
+    manifest_df = pd.DataFrame(rows)
+    manifest_path = out_dir / f"{str(ticker or 'SEC').upper()}_financial_statement_manifest.csv"
+    manifest_df.to_csv(manifest_path, index=False)
+    summary = FinancialStatementSyncSummary(
+        output_dir=out_dir,
+        manifest_path=manifest_path,
+        materialized_count=len(rows),
+        primary_count=primary_count,
+        exhibit_count=exhibit_count,
+        skipped_missing=skipped_missing,
+        skipped_decorative=skipped_decorative,
+        skipped_noncandidate=skipped_noncandidate,
+    )
+    return manifest_df, summary
+
+
+def download_and_materialize_financial_statements(
+    cfg: IngestConfig,
+    *,
+    ticker: Optional[str] = None,
+    cik: Optional[int] = None,
+    output_dir: Path,
+    method: Optional[str] = None,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, FinancialStatementSyncSummary]:
+    # Operator-friendly path: discover filing files first, then immediately keep only
+    # the subset worth carrying forward as local statement evidence.
+    sync_cfg = dataclasses.replace(
+        cfg,
+        forms=("10-Q", "10-K"),
+        include_exhibits=True,
+        materialize=False,
+        attachment_mode="smart",
+    )
+    filings_df, files_df, exhibits_df, _ = download_all(sync_cfg, ticker=ticker, cik=cik)
+    manifest_df, summary = materialize_financial_statement_files(
+        files_df,
+        output_dir=output_dir,
+        ticker=str(ticker or ""),
+        method=str(method or cfg.materialize_method or "hardlink").lower(),
+    )
+    return filings_df, files_df, manifest_df, summary

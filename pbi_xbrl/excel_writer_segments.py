@@ -1,3 +1,4 @@
+"""Helpers for quarterly and annual segment-workbook extraction."""
 from __future__ import annotations
 
 import datetime as dt

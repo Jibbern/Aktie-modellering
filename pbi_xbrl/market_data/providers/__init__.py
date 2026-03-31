@@ -1,3 +1,10 @@
+"""Registered market-data providers used by the sync service.
+
+The registry stays small and explicit so orchestration can rebuild manifests and
+parsed outputs deterministically from the providers that are currently
+supported.
+"""
+
 from .ams_3617 import AMS3617Provider
 from .nwer import NWERProvider
 

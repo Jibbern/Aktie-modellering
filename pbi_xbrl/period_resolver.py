@@ -1,3 +1,4 @@
+"""XBRL period-resolution helpers for quarterly and annual fact selection."""
 from __future__ import annotations
 
 import dataclasses

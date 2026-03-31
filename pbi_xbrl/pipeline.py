@@ -1,4 +1,10 @@
-﻿from __future__ import annotations
+"""Thin public pipeline surface used by CLI commands and tests.
+
+The heavy cache-aware assembly work lives in `pipeline_orchestration.py`. This module
+keeps the external call shape stable by exposing a small wrapper API for running the
+pipeline and packaging the resulting frames into workbook-writer inputs.
+"""
+from __future__ import annotations
 
 import datetime as dt
 import hashlib
@@ -119,7 +125,7 @@ REVOLVER_TABLE_MAX_CANDIDATES = 15
 REVOLVER_DOC_MAX_PER_FILING = 8
 REVOLVER_CACHE_VERSION = 4
 # Bump whenever stage-level extraction logic changes so stale pickles don't mask fixes.
-PIPELINE_STAGE_CACHE_VERSION = 6
+PIPELINE_STAGE_CACHE_VERSION = 7
 
 
 def _resolve_path_safe(p: Path) -> Path:
@@ -4539,8 +4545,6 @@ def build_local_main_revolver_history(
     quiet_pdf_warnings: bool = True,
 ) -> pd.DataFrame:
     fs_dir = Path(base_dir) / "financial_statement"
-    if not fs_dir.exists() or not fs_dir.is_dir():
-        return pd.DataFrame()
 
     def _parse_quarter_from_name(name: str) -> Optional[dt.date]:
         nm = str(name or "")
@@ -4780,7 +4784,7 @@ def build_local_main_revolver_history(
 
     rows: List[Dict[str, Any]] = []
     try:
-        fs_files = sorted(p for p in fs_dir.iterdir() if p.is_file())
+        fs_files = sorted(p for p in fs_dir.iterdir() if p.is_file()) if fs_dir.exists() and fs_dir.is_dir() else []
     except Exception:
         fs_files = []
     tkr_l = str(ticker or "").strip().lower()
@@ -4793,6 +4797,105 @@ def build_local_main_revolver_history(
         parsed = _parse_doc(path_in)
         if parsed:
             rows.append(parsed)
+
+    narrative_rows: Dict[dt.date, Dict[str, Any]] = {}
+    narrative_dirs = [
+        Path(base_dir) / "earnings_transcripts",
+        Path(base_dir) / "earnings_presentation",
+        Path(base_dir) / "earnings_release",
+    ]
+    availability_patterns = [
+        re.compile(
+            r"\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d+)?)\s*(million|billion|m|bn)\s+(?:in|of)\s+working capital revolver availability\b",
+            re.I,
+        ),
+        re.compile(
+            r"\$?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.\d+)?)\s*(million|billion|m|bn)\s+available under (?:our|the)\s+(?:committed\s+)?revolving credit",
+            re.I,
+        ),
+    ]
+    for mat_dir in narrative_dirs:
+        if not mat_dir.exists() or not mat_dir.is_dir():
+            continue
+        try:
+            mat_files = sorted(p for p in mat_dir.iterdir() if p.is_file())
+        except Exception:
+            mat_files = []
+        for path_in in mat_files:
+            if path_in.suffix.lower() not in {".pdf", ".txt", ".htm", ".html"}:
+                continue
+            name_l = path_in.name.lower()
+            if tkr_l and tkr_l not in name_l:
+                continue
+            raw_txt = _read_text(path_in)
+            if not raw_txt:
+                continue
+            q_end = _parse_quarter_from_name(path_in.name) or infer_quarter_end_from_text(raw_txt)
+            if not isinstance(q_end, dt.date):
+                continue
+            availability = None
+            avail_snip = None
+            for pat in availability_patterns:
+                m_av = pat.search(raw_txt)
+                if not m_av:
+                    continue
+                availability = _scale_amount(m_av.group(1), m_av.group(2) or "", default_millions=True)
+                if availability is not None:
+                    avail_snip = re.sub(r"\s+", " ", raw_txt[max(0, m_av.start() - 80):m_av.end() + 180]).strip()
+                    break
+            if availability is None:
+                continue
+            existing = narrative_rows.get(q_end) or {
+                "quarter": q_end,
+                "revolver_commitment": None,
+                "revolver_facility_size": None,
+                "revolver_drawn": None,
+                "revolver_letters_of_credit": None,
+                "revolver_availability": None,
+                "source_type": "local_narrative_revolver",
+                "commitment_source_type": "missing",
+                "facility_source_type": "missing",
+                "drawn_source_type": "missing",
+                "lc_source_type": "missing",
+                "availability_source_type": "missing",
+                "commitment_snippet": None,
+                "drawn_snippet": None,
+                "lc_snippet": None,
+                "availability_snippet": None,
+                "source_snippet": None,
+                "note": "",
+            }
+            existing["revolver_availability"] = float(availability)
+            existing["availability_source_type"] = "text"
+            existing["availability_snippet"] = avail_snip
+            existing["source_snippet"] = avail_snip or existing.get("source_snippet")
+            existing["note"] = f"local narrative revolver availability from {path_in.name}"
+            narrative_rows[q_end] = existing
+
+    if narrative_rows:
+        if rows:
+            rows_by_q: Dict[dt.date, Dict[str, Any]] = {r["quarter"]: dict(r) for r in rows if isinstance(r.get("quarter"), dt.date)}
+            for q_end, narrative_row in narrative_rows.items():
+                merged = rows_by_q.get(q_end, {"quarter": q_end})
+                merged.setdefault("revolver_commitment", None)
+                merged.setdefault("revolver_facility_size", None)
+                merged.setdefault("revolver_drawn", None)
+                merged.setdefault("revolver_letters_of_credit", None)
+                merged.setdefault("source_type", narrative_row.get("source_type"))
+                for col in (
+                    "revolver_availability",
+                    "availability_source_type",
+                    "availability_snippet",
+                    "source_snippet",
+                    "note",
+                ):
+                    if narrative_row.get(col) not in {None, ""}:
+                        merged[col] = narrative_row.get(col)
+                rows_by_q[q_end] = merged
+            rows = list(rows_by_q.values())
+        else:
+            rows = list(narrative_rows.values())
+
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
@@ -5204,6 +5307,20 @@ def _source_tier(src: str) -> str:
     return "Other"
 
 
+def _stringify_table_cells(values: Iterable[Any]) -> List[str]:
+    out: List[str] = []
+    for value in values:
+        if pd.isna(value):
+            out.append("")
+        else:
+            out.append(str(value))
+    return out
+
+
+def _table_head_text(frame: pd.DataFrame, rows: int) -> str:
+    return " ".join(_stringify_table_cells(frame.head(rows).values.ravel().tolist())).lower()
+
+
 def _extract_income_statement_from_html(
     html_bytes: bytes,
     quarter_end: dt.date,
@@ -5317,7 +5434,7 @@ def _extract_income_statement_from_html(
             continue
         t2 = t.copy()
         header_text = " ".join([str(c) for c in t2.columns]).lower()
-        body_text = " ".join(t2.astype(str).head(30).fillna("").values.ravel().tolist()).lower()
+        body_text = _table_head_text(t2, 30)
         table_text = header_text + " " + body_text
 
         title_ok = True
@@ -5331,7 +5448,7 @@ def _extract_income_statement_from_html(
         # choose label col by alpha density
         alpha_scores = {}
         for c in t2.columns:
-            vals = t2[c].head(25).astype(str).tolist()
+            vals = _stringify_table_cells(t2[c].head(25).tolist())
             alpha_scores[c] = sum(1 for v in vals if re.search(r"[A-Za-z]", v))
         label_col = max(alpha_scores, key=alpha_scores.get)
         # numeric columns
@@ -5344,7 +5461,7 @@ def _extract_income_statement_from_html(
             continue
 
         # score table for income statement markers
-        hay = " ".join(t2[label_col].astype(str).head(30).tolist()).lower()
+        hay = " ".join(_stringify_table_cells(t2[label_col].head(30).tolist())).lower()
         score = 0
         if "revenue" in hay or "net sales" in hay:
             score += 2
@@ -5447,7 +5564,8 @@ def _extract_income_statement_from_html(
                 continue
 
         for _, r in rows.iterrows():
-            label = r[label_col].strip().lower()
+            raw_label = r[label_col]
+            label = "" if pd.isna(raw_label) else str(raw_label).strip().lower()
             if not label or label == "nan":
                 continue
             label_norm = _norm_label(label)
@@ -6062,7 +6180,7 @@ def _extract_quarterly_data_10k(html_bytes: bytes) -> Optional[Dict[str, Any]]:
                 continue
             t2 = t.copy()
             header_text = " ".join([str(c) for c in t2.columns]).lower()
-            body_text = " ".join(t2.astype(str).head(30).fillna("").values.ravel().tolist()).lower()
+            body_text = _table_head_text(t2, 30)
             table_text = header_text + " " + body_text
             marker_ok = True
             if require_marker:
@@ -6096,7 +6214,7 @@ def _extract_quarterly_data_10k(html_bytes: bytes) -> Optional[Dict[str, Any]]:
             # choose label column by alpha density
             alpha_scores = {}
             for c in t2.columns:
-                vals = t2[c].head(25).astype(str).tolist()
+                vals = _stringify_table_cells(t2[c].head(25).tolist())
                 alpha_scores[c] = sum(1 for v in vals if re.search(r"[A-Za-z]", v))
             label_col = max(alpha_scores, key=alpha_scores.get)
 
@@ -7510,7 +7628,7 @@ def _extract_eps_shares_from_html(
             continue
         t2 = t.copy()
         header_text = " ".join([str(c) for c in t2.columns]).lower()
-        body_text = " ".join(t2.astype(str).head(20).fillna("").values.ravel().tolist()).lower()
+        body_text = _table_head_text(t2, 20)
         table_text = header_text + " " + body_text
         if "earnings per share" not in table_text and "eps" not in table_text:
             continue
@@ -7537,7 +7655,7 @@ def _extract_eps_shares_from_html(
         # label col by alpha density
         alpha_scores = {}
         for i, c in enumerate(t2.columns):
-            vals = t2[c].head(25).astype(str).tolist()
+            vals = _stringify_table_cells(t2[c].head(25).tolist())
             alpha_scores[i] = sum(1 for v in vals if re.search(r"[A-Za-z]", v))
         label_col_idx = max(alpha_scores, key=alpha_scores.get)
         rows = t2.iloc[:, [label_col_idx, col_idx_pos]].copy()
@@ -7748,7 +7866,7 @@ def _extract_cash_taxes_from_html(
         if t is None or t.empty:
             continue
         t2 = t.copy()
-        table_text = " ".join(t2.astype(str).head(25).fillna("").values.ravel().tolist()).lower()
+        table_text = _table_head_text(t2, 25)
         table_text = table_text.replace("\xa0", " ")
         if "tax" not in table_text:
             continue
@@ -7788,7 +7906,7 @@ def _extract_cash_taxes_from_html(
                 if period_hint == "9M" and ("nine months ended" in r1 or "nine-months ended" in r1) and str(quarter_end.year) in row2[i]:
                     col_idx = t2.columns[i]
                     break
-        top_text = " ".join(t2.head(3).astype(str).fillna("").values.ravel().tolist()).lower()
+        top_text = _table_head_text(t2, 3)
         top_text = re.sub(r"\s+", " ", top_text.replace("\xa0", " ")).strip()
 
         year_pos = _year_positions(t2)
@@ -11177,6 +11295,9 @@ def run_pipeline(
     ticker: Optional[str] = None,
     cik: Optional[str] = None,
 ) -> Tuple[pd.DataFrame, ...]:
+    # The orchestration layer returns a structured artifact bundle. This wrapper keeps
+    # the older tuple-based interface intact so existing callers do not need to know
+    # about internal artifact classes.
     from .pipeline_orchestration import run_pipeline_impl
 
     artifacts = run_pipeline_impl(
@@ -11238,6 +11359,8 @@ def write_excel(
     quarter_notes_audit: bool = False,
     capture_saved_workbook_provenance: bool = True,
 ) -> Any:
+    # This wrapper is intentionally mechanical: it documents the dataframe bundle that
+    # crosses from pipeline space into workbook-rendering space.
     from .excel_writer import write_excel_from_inputs
 
     inputs = WorkbookInputs(

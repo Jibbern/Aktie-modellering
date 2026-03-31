@@ -1,3 +1,4 @@
+"""Metric definitions, statement rules, and shared metric metadata."""
 from __future__ import annotations
 
 import dataclasses

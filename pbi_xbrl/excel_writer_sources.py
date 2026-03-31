@@ -1,3 +1,4 @@
+"""Source-index and provenance helpers used by workbook rendering."""
 from __future__ import annotations
 
 import json
@@ -103,6 +104,14 @@ def infer_q_from_name(name: str) -> Optional[date]:
         md = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}.get(qn)
         if md:
             return date(yr, md[0], md[1])
+    m3 = re.search(r"([12][0-9]{3})[-_]?([01][0-9])[-_]?([0-3][0-9])", s)
+    if m3:
+        try:
+            q_guess = date(int(m3.group(1)), int(m3.group(2)), int(m3.group(3)))
+        except Exception:
+            q_guess = None
+        if isinstance(q_guess, date):
+            return q_guess if _is_quarter_end(q_guess) else _coerce_prev_quarter_end(q_guess)
     return None
 
 
@@ -413,6 +422,21 @@ def build_valuation_filing_docs_by_quarter(
         re.I,
     )
 
+    def _containing_quarter_end(dt_in: Optional[date]) -> Optional[pd.Timestamp]:
+        if not isinstance(dt_in, date):
+            return None
+        try:
+            return pd.Timestamp(dt_in).to_period("Q").end_time.normalize()
+        except Exception:
+            return None
+
+    def _infer_doc_quarter_from_name(path_in: Path) -> Optional[pd.Timestamp]:
+        q_guess = infer_q_from_name(path_in.name)
+        if not isinstance(q_guess, date):
+            return None
+        q_norm = q_guess if _is_quarter_end(q_guess) else _coerce_prev_quarter_end(q_guess)
+        return pd.Timestamp(q_norm).normalize() if isinstance(q_norm, date) else None
+
     def _fallback_scan_docs() -> Dict[pd.Timestamp, List[Dict[str, Any]]]:
         if not cache_root.exists():
             return docs_by_quarter
@@ -492,15 +516,34 @@ def build_valuation_filing_docs_by_quarter(
         accn_txt = str(fr.get("accn") or "").strip()
         if not accn_txt:
             continue
-        q_guess = submission_recent_row_quarter(fr)
-        if q_guess is None:
-            continue
-        qts = pd.Timestamp(q_guess).normalize()
-        if qts not in q_set:
-            continue
-        bucket = q_to_accns.setdefault(qts, [])
-        if accn_txt not in bucket:
-            bucket.append(accn_txt)
+        candidate_quarters: List[pd.Timestamp] = []
+        if form.startswith("8-K"):
+            # 8-Ks often disclose discrete in-quarter events rather than quarter-end
+            # results. Prefer a document-name quarter when it is explicit (for example
+            # q42025 earnings releases), otherwise fall back to the containing quarter
+            # of the event/report date so mid-quarter buyback disclosures land in the
+            # actual execution quarter instead of the prior quarter.
+            for dp in docs_for_valuation_accn_fn(accn_txt):
+                doc_q = _infer_doc_quarter_from_name(dp)
+                if doc_q is not None and doc_q not in candidate_quarters:
+                    candidate_quarters.append(doc_q)
+            if not candidate_quarters:
+                report_d = parse_date(fr.get("report"))
+                filed_d = parse_date(fr.get("filed"))
+                q_guess = _containing_quarter_end(report_d) or _containing_quarter_end(filed_d)
+                if q_guess is not None:
+                    candidate_quarters.append(q_guess)
+        else:
+            q_guess = submission_recent_row_quarter(fr)
+            if q_guess is not None:
+                candidate_quarters.append(pd.Timestamp(q_guess).normalize())
+        for qts in candidate_quarters:
+            qts = pd.Timestamp(qts).normalize()
+            if qts not in q_set:
+                continue
+            bucket = q_to_accns.setdefault(qts, [])
+            if accn_txt not in bucket:
+                bucket.append(accn_txt)
 
     for qts, accns in q_to_accns.items():
         rows: List[Dict[str, Any]] = []
@@ -513,6 +556,13 @@ def build_valuation_filing_docs_by_quarter(
                 seen_docs.add(doc_key)
                 txt = extract_doc_text_fn(dp)
                 if not txt:
+                    continue
+                doc_q = _infer_doc_quarter_from_name(dp)
+                if doc_q is not None and doc_q != qts:
+                    # Audit/source bundles can sometimes leak the next filing accession
+                    # into an earlier quarter bucket. When the document name itself
+                    # clearly points to a different quarter, keep the document aligned
+                    # with its own quarter and do not let it contaminate this bucket.
                     continue
                 txt_low = txt.lower()
                 if not relevance_re.search(txt_low):

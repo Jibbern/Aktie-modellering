@@ -1,3 +1,10 @@
+"""Provider label normalization rules for market-data inputs.
+
+Workbook logic expects a consistent small vocabulary for regions, commodities,
+and product names. These regex mappings collapse the noisier provider-specific
+labels into that shared vocabulary before quarterly aggregation or overlay text
+selection happens downstream.
+"""
 from __future__ import annotations
 
 import re

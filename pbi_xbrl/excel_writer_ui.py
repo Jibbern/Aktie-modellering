@@ -1,3 +1,4 @@
+"""Presentation-oriented helpers for workbook UI surfaces and note rendering."""
 from __future__ import annotations
 
 from typing import Any, Dict, List
@@ -20,6 +21,9 @@ def write_ui_sheets(ctx: WriterContext) -> List[Dict[str, Any]]:
             "write_excel.ui.raw_frames",
             enabled=bool(ctx.inputs.profile_timings),
         ):
+            # These raw evidence tabs are written before the visible UI sheets so the
+            # saved workbook always contains the backing rows used for readback and
+            # provenance, even if later visible rendering is the expensive part.
             write_sheet("Quarter_Notes", ctx.inputs.quarter_notes)
             write_sheet(
                 "Quarter_Notes_Evidence",
@@ -40,6 +44,8 @@ def write_ui_sheets(ctx: WriterContext) -> List[Dict[str, Any]]:
             "write_excel.ui.render.quarter_notes",
             enabled=bool(ctx.inputs.profile_timings),
         ):
+            # Quarter notes are profiled separately because they are often the single
+            # largest workbook hotspot and deserve their own timing bucket.
             ui_qa_rows.extend(ctx.callbacks.write_quarter_notes_ui_v2(quarters_shown=8))
         with timed_writer_stage(
             ctx.writer_timings,
@@ -52,5 +58,8 @@ def write_ui_sheets(ctx: WriterContext) -> List[Dict[str, Any]]:
             "write_excel.ui.render.promise_progress",
             enabled=bool(ctx.inputs.profile_timings),
         ):
+            # Promise progress stays separate from promise tracker timing because row
+            # selection, lifecycle collapse, and follow-through resolution can be
+            # costly even when the raw tracker tab is small.
             ui_qa_rows.extend(ctx.callbacks.write_promise_progress_ui_v2())
         return ui_qa_rows

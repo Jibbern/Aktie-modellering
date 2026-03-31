@@ -1,3 +1,10 @@
+"""Core pipeline assembly and stage-cache orchestration.
+
+This module combines SEC facts, local materials, document intelligence, debt parsing,
+and summary resolution into a single `PipelineArtifacts` bundle. It is also the main
+fine-grained persistence boundary for stage caches such as GAAP history, debt outputs,
+local non-GAAP fallback, `doc_intel`, and company overview.
+"""
 from __future__ import annotations
 
 import datetime as dt
@@ -56,7 +63,7 @@ from .pipeline_runtime import (
 from .pipeline_types import PipelineArtifacts, PipelineConfig
 
 
-LOCAL_NON_GAAP_FALLBACK_VERSION = 4
+LOCAL_NON_GAAP_FALLBACK_VERSION = 12
 LOCAL_NON_GAAP_PDF_PAGE_CACHE_VERSION = 1
 DOC_INTEL_BEHAVIOR_VERSION = "v17_workbook_dataflow_hardening"
 COMPANY_OVERVIEW_BEHAVIOR_VERSION = "v8_topic_aware_summary_dataflow_hardening"
@@ -76,6 +83,281 @@ def _module_code_signature(*relative_names: str) -> str:
         return "none"
     return hashlib.sha1("||".join(rows).encode("utf-8", errors="ignore")).hexdigest()
 LOCAL_NON_GAAP_CANONICAL_METRICS: Tuple[str, ...] = ("adj_ebitda", "adj_ebit", "adj_eps", "adj_fcf")
+
+
+def _local_non_gaap_page_scores(text: str) -> Dict[str, int]:
+    t = str(text or "").lower()
+    score = {"non_gaap": 0, "segment": 0, "debt": 0, "guidance": 0}
+    if "reconciliation of reported net income" in t:
+        score["non_gaap"] += 5
+    if "reconciliation of reported" in t or "reconciliation of reported consolidated results" in t:
+        score["non_gaap"] += 4
+    if "reconciliation" in t and "adjusted ebitda" in t:
+        score["non_gaap"] += 3
+    if "adjusted ebitda" in t and "adjusted ebit" in t:
+        score["non_gaap"] += 2
+    if "adjusted ebitda" in t and ("net income" in t or "net loss" in t):
+        score["non_gaap"] += 2
+    if "adjusted diluted earnings per share" in t:
+        score["non_gaap"] += 2
+    if "free cash flow" in t and "capital expenditures" in t:
+        score["non_gaap"] += 2
+    if "adjusted segment ebit" in t or "reportable segments" in t or "adjusted segment ebitda" in t:
+        score["segment"] += 3
+    if "sending technology" in t or "presort" in t:
+        score["segment"] += 2
+    if "debt profile" in t or "credit agreement" in t:
+        score["debt"] += 3
+    if "revolving credit facility" in t or "aggregate commitments" in t:
+        score["debt"] += 2
+    debt_markers = (
+        "working capital revolver",
+        "working capital financing",
+        "long-term debt",
+        "convertible debt",
+        "convertible note",
+        "junior mezzanine",
+        "term loan",
+        "total debt outstanding",
+    )
+    if any(marker in t for marker in debt_markers):
+        score["debt"] += 2
+    if "guidance" in t or "outlook" in t:
+        score["guidance"] += 2
+    if "fy" in t and ("guidance" in t or "outlook" in t):
+        score["guidance"] += 1
+    if ("adjusted segment" in t or "reportable segments" in t) and "reconciliation of reported" not in t:
+        score["non_gaap"] = min(score["non_gaap"], 1)
+    return score
+
+
+def _local_non_gaap_has_financial_statement_files(base_dir: Path, ticker: str = "") -> bool:
+    candidate_dirs = [base_dir / "financial_statement"]
+    ticker_u = str(ticker or "").strip().upper()
+    if ticker_u:
+        candidate_dirs.extend(
+            [
+                base_dir / f"{ticker_u}-10K",
+                base_dir / f"{ticker_u}_10K",
+                base_dir / f"{ticker_u} 10K",
+            ]
+        )
+    for folder in candidate_dirs:
+        if not folder.exists() or not folder.is_dir():
+            continue
+        try:
+            if any(p.is_file() and p.suffix.lower() in {".txt", ".htm", ".html", ".pdf"} for p in folder.iterdir()):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _local_non_gaap_debt_source_allowed(src_name: str, *, has_financial_statement_files: bool) -> bool:
+    # Annual-report debt tables are only a fallback when a better statement-specific
+    # local source is absent. Once `financial_statement` files exist, those should win.
+    if str(src_name or "").strip().lower() == "annual_reports":
+        return not has_financial_statement_files
+    return True
+
+
+def _limit_recent_financial_statement_debt_rows(
+    df: pd.DataFrame,
+    *,
+    max_recent_quarters: int = 6,
+) -> pd.DataFrame:
+    if df is None or df.empty or "quarter" not in df.columns or max_recent_quarters <= 0:
+        return df
+    out = df.copy()
+    if "source" in out.columns:
+        source_mask = out["source"].astype(str).str.lower().eq("financial_statement")
+    else:
+        source_mask = pd.Series([True] * len(out), index=out.index)
+    if not bool(source_mask.any()):
+        return out
+    q_series = pd.to_datetime(out.loc[source_mask, "quarter"], errors="coerce")
+    valid_q = sorted({pd.Timestamp(v) for v in q_series.dropna()})
+    if len(valid_q) <= max_recent_quarters:
+        return out
+    keep_q = set(valid_q[-max_recent_quarters:])
+    keep_mask = ~source_mask
+    keep_mask.loc[source_mask] = pd.to_datetime(out.loc[source_mask, "quarter"], errors="coerce").isin(keep_q)
+    trimmed = out.loc[keep_mask].copy()
+    return trimmed.reset_index(drop=True)
+
+
+def _drop_financial_statement_debt_rows_covered_by_slides(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty or "source" not in df.columns or "quarter" not in df.columns:
+        return df
+    out = df.copy()
+    source = out["source"].astype(str).str.lower()
+    slide_q = {
+        pd.Timestamp(v)
+        for v in pd.to_datetime(out.loc[source.eq("slides"), "quarter"], errors="coerce").dropna()
+    }
+    if not slide_q:
+        return out
+    fs_mask = source.eq("financial_statement")
+    fs_q = pd.to_datetime(out.loc[fs_mask, "quarter"], errors="coerce")
+    keep_mask = ~fs_mask
+    keep_mask.loc[fs_mask] = ~fs_q.isin(slide_q)
+    trimmed = out.loc[keep_mask].copy()
+    return trimmed.reset_index(drop=True)
+
+
+def _parse_financial_statement_debt_table_html(path_in: Path, q_end: Optional[dt.date]) -> List[Dict[str, Any]]:
+    try:
+        tables = pd.read_html(str(path_in))
+    except Exception:
+        return []
+
+    def _norm_text(value: Any) -> str:
+        txt = str(value or "").strip()
+        return "" if txt.lower() == "nan" else txt
+
+    best_rows: List[Dict[str, Any]] = []
+    for df in tables:
+        if df is None or df.empty:
+            continue
+        candidate_rows: List[Dict[str, Any]] = []
+        for _, row in df.fillna("").iterrows():
+            values = [_norm_text(v) for v in row.tolist()]
+            nonempty = [v for v in values if v]
+            if not nonempty:
+                continue
+            lead_cells = [v for v in values[:3] if v]
+            label = lead_cells[0] if lead_cells else nonempty[0]
+            low = label.lower()
+            if low.startswith(
+                (
+                    "corporate",
+                    "green plains",
+                    "total book value",
+                    "unamortized",
+                    "less:",
+                    "total long-term debt",
+                    "lease liabilities",
+                    "year ending",
+                    "thereafter",
+                    "total",
+                )
+            ):
+                continue
+            is_other = low == "other"
+            is_debt_row = is_other or bool(
+                re.search(
+                    r"(convertible\s+notes?\s+due|notes?\s+due|term\s+loan\s+due|tallgrass\s+term\s+loan\s+due|mezzanine\s+notes?\s+due)",
+                    low,
+                )
+            )
+            if not is_debt_row:
+                continue
+            nums: List[float] = []
+            for cell in nonempty[1:]:
+                cell_low = cell.lower()
+                if "%" in cell_low or "sofr" in cell_low or "libor" in cell_low or "interest rate" in cell_low:
+                    continue
+                if cell in {"—", "–", "-"}:
+                    continue
+                num = coerce_number(cell)
+                if num is None:
+                    continue
+                if abs(float(num)) <= 0:
+                    continue
+                nums.append(float(num))
+            if not nums:
+                continue
+            maturity_match = re.search(r"\b(20\d{2})\b", low)
+            candidate_rows.append(
+                {
+                    "quarter": q_end,
+                    "tranche": label[:180],
+                    "amount": nums[0] * 1000.0,
+                    "maturity_year": int(maturity_match.group(1)) if maturity_match else None,
+                    "unit": "USD",
+                    "is_table_total": False,
+                    "asof_col_idx": 0,
+                    "asof_match_found": bool(q_end is not None),
+                }
+            )
+        if len(candidate_rows) > len(best_rows):
+            best_rows = candidate_rows
+    return best_rows
+
+
+def _parse_local_non_gaap_header_dates(text: str) -> List[dt.date]:
+    txt = str(text or "")
+    out: List[dt.date] = []
+    seen: set[dt.date] = set()
+
+    def _append_date(value: Optional[dt.date]) -> None:
+        if value is None or value in seen:
+            return
+        seen.add(value)
+        out.append(value)
+
+    for token in re.findall(r"(?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12]\d|3[01])[/-](?:\d{2}|\d{4})", txt):
+        m = re.match(r"^\s*(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\s*$", token)
+        if not m:
+            continue
+        mm = int(m.group(1))
+        dd = int(m.group(2))
+        yy_raw = int(m.group(3))
+        yy = yy_raw if yy_raw >= 100 else (2000 + yy_raw if yy_raw <= 69 else 1900 + yy_raw)
+        try:
+            _append_date(dt.date(yy, mm, dd))
+        except Exception:
+            continue
+
+    month_pat = re.compile(
+        r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
+        r"Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2}),?\s*(\d{4})",
+        re.I,
+    )
+    for match in month_pat.finditer(txt):
+        month_txt = str(match.group(1) or "").replace(".", "").strip().lower()
+        if month_txt == "sept":
+            month_txt = "sep"
+        day_num = int(match.group(2))
+        year_num = int(match.group(3))
+        try:
+            parsed = pd.to_datetime(f"{month_txt} {day_num} {year_num}", errors="coerce")
+        except Exception:
+            parsed = pd.NaT
+        if pd.notna(parsed):
+            _append_date(pd.Timestamp(parsed).date())
+
+    return out
+
+
+def _infer_local_non_gaap_period_end_from_name(name: str) -> Optional[dt.date]:
+    name_txt = str(name or "")
+    m = re.search(r"(20\d{2})[-_]?([01]\d)[-_]?([0-3]\d)", name_txt)
+    if m:
+        try:
+            d = dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            return _coerce_prev_quarter_end(d)
+        except Exception:
+            pass
+    m2 = re.search(r"Q([1-4])\s*(20\d{2})", name_txt, re.IGNORECASE)
+    if m2:
+        q = int(m2.group(1))
+        y = int(m2.group(2))
+        return dt.date(y, 3 * q, 30 if q in (2, 3) else 31)
+    m3 = re.search(r"(20\d{2})\s*[_-]?Q([1-4])", name_txt, re.IGNORECASE)
+    if m3:
+        y = int(m3.group(1))
+        q = int(m3.group(2))
+        return dt.date(y, 3 * q, 30 if q in (2, 3) else 31)
+    low = name_txt.lower()
+    if re.search(r"(annual[_\s-]?report|10k|10-k|fy20\d{2})", low):
+        year_match = re.search(r"(20\d{2})", name_txt)
+        if year_match:
+            try:
+                return dt.date(int(year_match.group(1)), 12, 31)
+            except Exception:
+                return None
+    return None
 
 
 def _normalized_quarter_timestamps(values: Any) -> set[pd.Timestamp]:
@@ -272,6 +554,9 @@ def run_pipeline_impl(
         df_all["fy_calc"] = df_all["end_d"].map(_calc_fy_fallback)
     stage_timings: Dict[str, float] = {}
     local_material_sig = material_dirs_signature(base_dir, ticker)
+    # Stage cache is the fine-grained persistence layer. Its role is to reuse expensive
+    # intermediate frames while still allowing submissions, code, and material changes
+    # to invalidate stale outputs predictably.
     stage_cache = PipelineStageCache(Path(config.cache_dir) / "pipeline_stage_cache", cik10, PIPELINE_STAGE_CACHE_VERSION)
     _sub_recent_signature = submissions_recent_signature
     _df_quick_sig = dataframe_quick_signature
@@ -281,6 +566,9 @@ def run_pipeline_impl(
 
     submissions_sig = _sub_recent_signature(sub, forms_prefix=("10-Q", "10-K", "8-K", "DEF 14A", "DEFA14A"), max_rows=600)
     df_all_sig = _df_quick_sig(df_all, ["concept", "end_d", "start_d", "val", "fy_calc", "fp", "frame"])
+    # GAAP history is the first expensive stage because many later stages depend on
+    # quarter-normalized history, audit rows, and preview tables. Cache invalidation
+    # is driven by recent submissions identity plus a compact signature of facts.
     gaap_history_key = "|".join(
         [
             "v1",
@@ -335,6 +623,8 @@ def run_pipeline_impl(
     )
     debt_tranches = pd.DataFrame()
     if config.enable_tier2_debt:
+        # Tier-2 debt is cached independently because it is expensive, SEC-driven,
+        # and reused by both workbook debt tabs and downstream QA.
         debt_tranches_key = "|".join(
             [
                 "v1",
@@ -385,6 +675,9 @@ def run_pipeline_impl(
 
     if config.enable_tier3_non_gaap:
         def _load_or_build_tier3(mode_name: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+            # Tier-3 non-GAAP outputs are persisted per mode because strict and
+            # relaxed runs intentionally have different evidence and suppression
+            # rules while feeding the same workbook surfaces.
             tier3_key = "|".join(
                 [
                     "v1",
@@ -418,25 +711,7 @@ def run_pipeline_impl(
 
     # Last-resort local fallback for adjusted metrics (slides/transcripts) when EX-99 missing
     def _infer_q_from_filename(name: str) -> Optional[dt.date]:
-        m = re.search(r"(20\d{2})[-_]?([01]\d)[-_]?([0-3]\d)", name)
-        if m:
-            try:
-                d = dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-                return _coerce_prev_quarter_end(d)
-            except Exception:
-                pass
-        # handle both "Q2 2024" and "2024_Q2"
-        m2 = re.search(r"Q([1-4])\s*(20\d{2})", name, re.IGNORECASE)
-        if m2:
-            q = int(m2.group(1))
-            y = int(m2.group(2))
-            return dt.date(y, 3 * q, 30 if q in (2, 3) else 31)
-        m3 = re.search(r"(20\d{2})\s*[_-]?Q([1-4])", name, re.IGNORECASE)
-        if m3:
-            y = int(m3.group(1))
-            q = int(m3.group(2))
-            return dt.date(y, 3 * q, 30 if q in (2, 3) else 31)
-        return None
+        return _infer_local_non_gaap_period_end_from_name(name)
 
     def _extract_text_from_file(p: Path) -> str:
         suf = p.suffix.lower()
@@ -461,6 +736,7 @@ def run_pipeline_impl(
         rows_seg: List[Dict[str, Any]] = []
         rows_debt: List[Dict[str, Any]] = []
         rows_guid: List[Dict[str, Any]] = []
+        has_financial_statement_files = _local_non_gaap_has_financial_statement_files(base_dir, tkr_u)
         sources = [
             ("earnings_release", base_dir / "earnings_release"),
             ("earnings_release", base_dir / "Earnings Release"),
@@ -473,15 +749,15 @@ def run_pipeline_impl(
             ("transcripts", base_dir / "Earnings Transcripts"),
             ("transcripts", base_dir / "transcripts"),
             ("transcripts", base_dir / "earnings_transcripts"),
-            ("other", base_dir / "annual_reports"),
-            ("other", base_dir / "financial_statement"),
+            ("annual_reports", base_dir / "annual_reports"),
+            ("financial_statement", base_dir / "financial_statement"),
         ]
         if tkr_u:
             sources.extend(
                 [
-                    ("other", base_dir / f"{tkr_u}-10K"),
-                    ("other", base_dir / f"{tkr_u}_10K"),
-                    ("other", base_dir / f"{tkr_u} 10K"),
+                    ("financial_statement", base_dir / f"{tkr_u}-10K"),
+                    ("financial_statement", base_dir / f"{tkr_u}_10K"),
+                    ("financial_statement", base_dir / f"{tkr_u} 10K"),
                 ]
             )
         seen_q: set[pd.Timestamp] = set()
@@ -626,40 +902,6 @@ def run_pipeline_impl(
                 existing_metrics_by_quarter_for_local_fallback,
             )
 
-        def _score_page(text: str) -> Dict[str, int]:
-            t = (text or "").lower()
-            score = {"non_gaap": 0, "segment": 0, "debt": 0, "guidance": 0}
-            if "reconciliation of reported net income" in t:
-                score["non_gaap"] += 5
-            if "reconciliation of reported" in t or "reconciliation of reported consolidated results" in t:
-                score["non_gaap"] += 4
-            if "reconciliation" in t and "adjusted ebitda" in t:
-                score["non_gaap"] += 3
-            if "adjusted ebitda" in t and "adjusted ebit" in t:
-                score["non_gaap"] += 2
-            if "adjusted ebitda" in t and ("net income" in t or "net loss" in t):
-                score["non_gaap"] += 2
-            if "adjusted diluted earnings per share" in t:
-                score["non_gaap"] += 2
-            if "free cash flow" in t and "capital expenditures" in t:
-                score["non_gaap"] += 2
-            if "adjusted segment ebit" in t or "reportable segments" in t or "adjusted segment ebitda" in t:
-                score["segment"] += 3
-            if "sending technology" in t or "presort" in t:
-                score["segment"] += 2
-            if "debt profile" in t or "credit agreement" in t:
-                score["debt"] += 3
-            if "revolving credit facility" in t or "aggregate commitments" in t:
-                score["debt"] += 2
-            if "guidance" in t or "outlook" in t:
-                score["guidance"] += 2
-            if "fy" in t and ("guidance" in t or "outlook" in t):
-                score["guidance"] += 1
-            # Avoid treating segment pages as consolidated adjusted results unless explicitly reconciled.
-            if ("adjusted segment" in t or "reportable segments" in t) and "reconciliation of reported" not in t:
-                score["non_gaap"] = min(score["non_gaap"], 1)
-            return score
-
         def _parse_segment_from_text(txt: str, q_end: Optional[dt.date]) -> List[Dict[str, Any]]:
             if not txt or q_end is None:
                 return []
@@ -719,19 +961,6 @@ def run_pipeline_impl(
                 return out
             scale = _detect_scale_txt(txt)
 
-            def _parse_mmddyyyy(token: str) -> Optional[dt.date]:
-                m = re.match(r"^\s*(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\s*$", token)
-                if not m:
-                    return None
-                mm = int(m.group(1))
-                dd = int(m.group(2))
-                yy_raw = int(m.group(3))
-                yy = yy_raw if yy_raw >= 100 else (2000 + yy_raw if yy_raw <= 69 else 1900 + yy_raw)
-                try:
-                    return dt.date(yy, mm, dd)
-                except Exception:
-                    return None
-
             def _amount_tokens(line_txt: str) -> List[str]:
                 # Keep only amount-like columns ($000-style with commas) and dash placeholders.
                 return re.findall(r"(?:\(?\d{1,3}(?:,\d{3})+\)?|[—–-])", line_txt)
@@ -739,11 +968,7 @@ def run_pipeline_impl(
             as_of_idx = 0
             as_of_match_found = False
             for ln in lines[:35]:
-                dt_tokens = re.findall(r"(?:0?[1-9]|1[0-2])[/-](?:0?[1-9]|[12]\d|3[01])[/-](?:\d{2}|\d{4})", ln)
-                if len(dt_tokens) < 2:
-                    continue
-                dates = [_parse_mmddyyyy(tk) for tk in dt_tokens]
-                dates = [d for d in dates if d is not None]
+                dates = _parse_local_non_gaap_header_dates(ln)
                 if len(dates) < 2:
                     continue
                 if q_end is not None:
@@ -781,7 +1006,9 @@ def run_pipeline_impl(
                                 }
                             )
                     continue
-                if "due" not in l:
+                if len(ln) > 250:
+                    continue
+                if not re.search(r"\bdue\b", l):
                     continue
                 if not re.search(r"\b(20\d{2})\b", l):
                     continue
@@ -1158,7 +1385,7 @@ def run_pipeline_impl(
                                 txt = _read_cached_page(cache_key)
                                 if not txt:
                                     continue
-                                scores = _score_page(txt)
+                                scores = _local_non_gaap_page_scores(txt)
                                 if max(scores.values()) == 0:
                                     continue
                                 q_end = _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
@@ -1207,8 +1434,15 @@ def run_pipeline_impl(
                                         for r0 in seg_rows:
                                             r0.update({"doc": str(p), "page": idx + 1, "source": src_name})
                                         rows_seg.extend(seg_rows)
-                                if scores.get("debt", 0) >= 2:
-                                    debt_rows = _parse_debt_profile_from_text(txt, q_end)
+                                if scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
+                                    src_name,
+                                    has_financial_statement_files=has_financial_statement_files,
+                                ):
+                                    debt_rows = []
+                                    if src_name == "financial_statement" and p.suffix.lower() in {".htm", ".html"}:
+                                        debt_rows = _parse_financial_statement_debt_table_html(p, q_end)
+                                    if not debt_rows:
+                                        debt_rows = _parse_debt_profile_from_text(txt, q_end)
                                     if debt_rows:
                                         for r0 in debt_rows:
                                             r0.update({"doc": str(p), "page": idx + 1, "source": src_name})
@@ -1267,18 +1501,18 @@ def run_pipeline_impl(
                                             ocr_txt = _ocr_page_text(page, cache_key=cache_key, cache_dir=ocr_cache_dir)
                                             if ocr_txt and len(ocr_txt) > len(txt):
                                                 txt = ocr_txt
-                                    scores = _score_page(txt)
+                                    scores = _local_non_gaap_page_scores(txt)
                                     # For slides: OCR can recover key lines even when text exists but is low-signal.
                                     if src_name == "slides" and scores.get("non_gaap", 0) < 2 and (has_hint or idx >= max(0, n_pages - 6)):
                                         ocr_txt = _ocr_page_text(page, cache_key=cache_key, cache_dir=ocr_cache_dir)
                                         if ocr_txt and len(ocr_txt) > len(txt):
                                             txt = ocr_txt
-                                            scores = _score_page(txt)
+                                            scores = _local_non_gaap_page_scores(txt)
                                     if max(scores.values()) == 0 and "appendix: financial information" in txt.lower():
                                         ocr_txt = _ocr_page_text(page, cache_key=cache_key, cache_dir=ocr_cache_dir)
                                         if ocr_txt and len(ocr_txt) > len(txt):
                                             txt = ocr_txt
-                                            scores = _score_page(txt)
+                                            scores = _local_non_gaap_page_scores(txt)
                                     if max(scores.values()) == 0:
                                         continue
                                     q_end = _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
@@ -1327,8 +1561,15 @@ def run_pipeline_impl(
                                         for r0 in seg_rows:
                                             r0.update({"doc": str(p), "page": idx + 1, "source": src_name})
                                         rows_seg.extend(seg_rows)
-                                if scores.get("debt", 0) >= 2:
-                                    debt_rows = _parse_debt_profile_from_text(txt, q_end)
+                                if scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
+                                    src_name,
+                                    has_financial_statement_files=has_financial_statement_files,
+                                ):
+                                    debt_rows = []
+                                    if src_name == "financial_statement" and p.suffix.lower() in {".htm", ".html"}:
+                                        debt_rows = _parse_financial_statement_debt_table_html(p, q_end)
+                                    if not debt_rows:
+                                        debt_rows = _parse_debt_profile_from_text(txt, q_end)
                                     if debt_rows:
                                         for r0 in debt_rows:
                                             r0.update({"doc": str(p), "page": idx + 1, "source": src_name})
@@ -1358,7 +1599,7 @@ def run_pipeline_impl(
                     txt = _extract_text_from_file(p)
                     if not txt or len(txt) < 50:
                         continue
-                    scores = _score_page(txt)
+                    scores = _local_non_gaap_page_scores(txt)
                     if max(scores.values()) == 0:
                         continue
                     q_end = _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
@@ -1407,8 +1648,15 @@ def run_pipeline_impl(
                             for r0 in seg_rows:
                                 r0.update({"doc": str(p), "page": None, "source": src_name})
                             rows_seg.extend(seg_rows)
-                    if scores.get("debt", 0) >= 2:
-                        debt_rows = _parse_debt_profile_from_text(txt, q_end)
+                    if scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
+                        src_name,
+                        has_financial_statement_files=has_financial_statement_files,
+                    ):
+                        debt_rows = []
+                        if src_name == "financial_statement" and p.suffix.lower() in {".htm", ".html"}:
+                            debt_rows = _parse_financial_statement_debt_table_html(p, q_end)
+                        if not debt_rows:
+                            debt_rows = _parse_debt_profile_from_text(txt, q_end)
                         if debt_rows:
                             for r0 in debt_rows:
                                 r0.update({"doc": str(p), "page": None, "source": src_name})
@@ -1482,7 +1730,9 @@ def run_pipeline_impl(
                 pdf_manifest_path.write_text(json.dumps(pdf_manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception:
             pass
-        return df_m, pd.DataFrame(rows_f), pd.DataFrame(rows_seg), pd.DataFrame(rows_debt), pd.DataFrame(rows_guid)
+        df_debt = _limit_recent_financial_statement_debt_rows(pd.DataFrame(rows_debt))
+        df_debt = _drop_financial_statement_debt_rows_covered_by_slides(df_debt)
+        return df_m, pd.DataFrame(rows_f), pd.DataFrame(rows_seg), df_debt, pd.DataFrame(rows_guid)
 
     # Use local fallback only when EX-99 (strict/relaxed) missing for a quarter
     if config.enable_tier3_non_gaap:
@@ -1507,6 +1757,9 @@ def run_pipeline_impl(
         existing_metrics_by_quarter_for_local_fallback = _existing_local_non_gaap_metrics_by_quarter(
             canonical_adj_metrics
         )
+        # The local fallback stage rescues adjusted metrics and slide-derived support
+        # from curated local materials. It is keyed by local material signature so
+        # new PDFs/TXTs invalidate the cache without touching SEC-driven stages.
         local_fallback_key = "|".join(
             [
                 f"v{LOCAL_NON_GAAP_FALLBACK_VERSION}",
@@ -2056,7 +2309,9 @@ def run_pipeline_impl(
                 local_row = local_by_q[qk]
                 for col in overlay_cols:
                     if col in local_row.index:
-                        revolver_history.at[idx, col] = local_row.get(col)
+                        local_val = local_row.get(col)
+                        if pd.notna(local_val) and local_val != "":
+                            revolver_history.at[idx, col] = local_val
                 commit = pd.to_numeric(revolver_history.at[idx, "revolver_commitment"], errors="coerce")
                 drawn = pd.to_numeric(revolver_history.at[idx, "revolver_drawn"], errors="coerce")
                 avail = pd.to_numeric(revolver_history.at[idx, "revolver_availability"], errors="coerce")
@@ -2146,6 +2401,12 @@ def run_pipeline_impl(
         except Exception:
             earnings_release_sig = "err"
 
+    # `doc_intel_bundle` is the bridge from raw document text into visible evidence
+    # products such as Quarter_Notes_UI, promises, and promise-progress rows.
+    # `doc_intel_bundle` is one of the most expensive stages because it turns raw
+    # filing/local text into visible Quarter_Notes, promises, promise-progress, and
+    # non-GAAP credibility evidence. The key therefore tracks both input content and
+    # behavior-sensitive code signatures.
     doc_intel_key = "|".join(
         [
             DOC_INTEL_BEHAVIOR_VERSION,
@@ -2214,6 +2475,8 @@ def run_pipeline_impl(
         review_quarters=config.qa_review_quarters,
     )
 
+    # Company overview is cached independently because it is topic-aware summary text,
+    # not just another generic dataframe side effect of the main pipeline.
     company_overview_key = "|".join(
         [
             COMPANY_OVERVIEW_BEHAVIOR_VERSION,
@@ -2232,6 +2495,9 @@ def run_pipeline_impl(
                 company_overview = build_company_overview(sec, cik_int, sub, ticker=ticker)
             _save_stage_cache("company_overview", company_overview_key, company_overview)
         except Exception as exc:
+            # Safe blank behavior: when summary evidence cannot be resolved, return
+            # explicit `N/A` placeholders instead of guessing narrative text that
+            # could contaminate visible workbook surfaces.
             err = f"{type(exc).__name__}: {exc}"
             company_overview = {
                 "what_it_does": "N/A",

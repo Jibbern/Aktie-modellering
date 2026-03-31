@@ -1,3 +1,4 @@
+"""Helpers for parsing local XBRL instance documents and metadata."""
 from __future__ import annotations
 
 import dataclasses

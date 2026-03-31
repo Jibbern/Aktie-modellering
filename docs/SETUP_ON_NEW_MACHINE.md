@@ -4,6 +4,9 @@
 - Treat **git + docs + saved workbooks** as the portable source of truth.
 - Do **not** rely on Codex/Chat history being available on a new machine in the same form.
 - The most important handoff docs right now are:
+  - [README.md](/c:/Users/Jibbe/Aktier/Code/README.md)
+  - [CODEBASE_MAP.md](/c:/Users/Jibbe/Aktier/Code/docs/CODEBASE_MAP.md)
+  - [SEC_CACHE_REFERENCE.md](/c:/Users/Jibbe/Aktier/Code/docs/SEC_CACHE_REFERENCE.md)
   - [BASELINE_FREEZE_2026-03-20.md](/c:/Users/Jibbe/Aktier/Code/docs/BASELINE_FREEZE_2026-03-20.md)
   - [CURRENT_PASS.md](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md)
   - [WORKBOOK_ACCEPTANCE.md](/c:/Users/Jibbe/Aktier/Code/docs/WORKBOOK_ACCEPTANCE.md)
@@ -22,12 +25,18 @@
 6. Run a small sanity check before making changes.
 
 ## Python Environment
-- There is currently **no pinned dependency file** in the repo root.
-- That means the environment is still partly knowledge-based rather than fully automated.
-- Practical default:
-  - create a local `.venv`
-  - install dependencies as needed from import/test failures
-- If we want machine setup to be more repeatable later, the best next step would be adding a proper `requirements.txt` or `pyproject.toml`.
+- The repo root now includes [requirements.txt](/c:/Users/Jibbe/Aktier/Code/requirements.txt).
+- Current practical setup is:
+  - create a Python virtual environment outside the repo if you want the repo to stay easy to zip/share
+  - install from `requirements.txt`
+- Current working local pattern on this machine:
+  - repo: [Code](/c:/Users/Jibbe/Aktier/Code)
+  - external venv: `C:\Users\Jibbe\Aktier\.venv_code`
+  - base Python: `C:\Users\Jibbe\Python313\python.exe`
+- Example setup:
+  - `C:\Users\Jibbe\Python313\python.exe -m venv C:\Users\Jibbe\Aktier\.venv_code`
+  - `C:\Users\Jibbe\Aktier\.venv_code\Scripts\python.exe -m pip install -r C:\Users\Jibbe\Aktier\Code\requirements.txt`
+- If someone prefers a repo-local venv later, that still works, but it is less convenient for zipping/sharing the repo.
 
 ## Minimal Sanity Check On A New Machine
 - Confirm git state:
@@ -43,6 +52,9 @@
 ## How To Resume Work With Codex
 - Start a fresh Codex thread on the new machine.
 - Point it first to:
+  - [README.md](/c:/Users/Jibbe/Aktier/Code/README.md)
+  - [CODEBASE_MAP.md](/c:/Users/Jibbe/Aktier/Code/docs/CODEBASE_MAP.md)
+  - [SEC_CACHE_REFERENCE.md](/c:/Users/Jibbe/Aktier/Code/docs/SEC_CACHE_REFERENCE.md)
   - [BASELINE_FREEZE_2026-03-20.md](/c:/Users/Jibbe/Aktier/Code/docs/BASELINE_FREEZE_2026-03-20.md)
   - [CURRENT_PASS.md](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md)
   - [WORKBOOK_ACCEPTANCE.md](/c:/Users/Jibbe/Aktier/Code/docs/WORKBOOK_ACCEPTANCE.md)

@@ -128,6 +128,156 @@ def test_local_non_gaap_pdf_cache_layout_is_stable_for_slides_and_other_sources(
         assert other_key != slide_key
 
 
+def test_local_non_gaap_page_scores_detect_debt_profile_markers_from_slide_text() -> None:
+    text = """
+    Select Balance Sheet Data
+    Working capital financing consists of revolvers for the Finance Company and Trade Group.
+    Long-term debt includes convertible debt $228.2 million, junior mezzanine notes $130.7 million and term loan balances.
+    """
+
+    scores = pipeline_orchestration._local_non_gaap_page_scores(text)
+
+    assert scores["debt"] >= 2
+
+
+def test_local_non_gaap_debt_source_allows_annual_reports_only_when_financial_statement_missing() -> None:
+    assert pipeline_orchestration._local_non_gaap_debt_source_allowed(
+        "annual_reports",
+        has_financial_statement_files=False,
+    )
+    assert not pipeline_orchestration._local_non_gaap_debt_source_allowed(
+        "annual_reports",
+        has_financial_statement_files=True,
+    )
+    assert pipeline_orchestration._local_non_gaap_debt_source_allowed(
+        "slides",
+        has_financial_statement_files=True,
+    )
+
+
+def test_parse_financial_statement_debt_table_html_extracts_modern_debt_rows() -> None:
+    with _case_dir() as case_dir:
+        path_in = case_dir / "GPRE_FY2025_10K_2025-12-31_financial_statement.htm"
+        path_in.write_text(
+            """
+            <html><body>
+            <p>The initial conversion rate is 31.6206 shares per $1,000 principal amount of the 2.25% notes.</p>
+            <table>
+              <tr><th>Corporate</th><th>2025</th><th>2024</th></tr>
+              <tr><td>2.25% convertible notes due 2027 (1)</td><td>60,000</td><td>230,000</td></tr>
+              <tr><td>5.25% convertible notes due 2030 (2)</td><td>200,000</td><td>&mdash;</td></tr>
+              <tr><td>Term loan due 2035 (4)</td><td>70,125</td><td>71,625</td></tr>
+              <tr><td>Tallgrass Term loan due 2037</td><td>34,523</td><td>&mdash;</td></tr>
+              <tr><td>Other</td><td>9,842</td><td>11,163</td></tr>
+              <tr><td>Total long-term debt</td><td>374,490</td><td>437,788</td></tr>
+            </table>
+            </body></html>
+            """,
+            encoding="utf-8",
+        )
+
+        rows = pipeline_orchestration._parse_financial_statement_debt_table_html(
+            path_in,
+            dt.date(2025, 12, 31),
+        )
+
+        assert len(rows) == 5
+        assert rows[0]["tranche"] == "2.25% convertible notes due 2027 (1)"
+        assert rows[0]["amount"] == 60_000_000.0
+        assert rows[1]["maturity_year"] == 2030
+        assert rows[-1]["tranche"] == "Other"
+        assert all(row["quarter"] == dt.date(2025, 12, 31) for row in rows)
+
+
+def test_parse_financial_statement_debt_table_html_skips_interest_rate_cells() -> None:
+    with _case_dir() as case_dir:
+        path_in = case_dir / "PBI_FY2025_10K_2025-12-31_financial_statement.htm"
+        path_in.write_text(
+            """
+            <html><body>
+            <table>
+              <tr><th></th><th></th><th></th><th>Interest rate</th><th>Interest rate</th><th>Interest rate</th><th>2025</th><th>2025</th><th>2024</th><th>2024</th></tr>
+              <tr><td>Notes due March 2027</td><td>Notes due March 2027</td><td>Notes due March 2027</td><td>6.875%</td><td>6.875%</td><td>6.875%</td><td>346,700</td><td>346,700</td><td>380,000</td><td>380,000</td></tr>
+              <tr><td>Convertible Notes due August 2030</td><td>Convertible Notes due August 2030</td><td>Convertible Notes due August 2030</td><td>1.50%</td><td>1.50%</td><td>1.50%</td><td>230,000</td><td>230,000</td><td>&mdash;</td><td>&mdash;</td></tr>
+            </table>
+            </body></html>
+            """,
+            encoding="utf-8",
+        )
+
+        rows = pipeline_orchestration._parse_financial_statement_debt_table_html(
+            path_in,
+            dt.date(2025, 12, 31),
+        )
+
+        assert len(rows) == 2
+        assert rows[0]["amount"] == 346_700_000.0
+        assert rows[1]["amount"] == 230_000_000.0
+        assert rows[1]["maturity_year"] == 2030
+
+
+def test_limit_recent_financial_statement_debt_rows_trims_old_statement_quarters() -> None:
+    df = pd.DataFrame(
+        [
+            {"quarter": "2021-03-31", "tranche": "Old A", "source": "financial_statement"},
+            {"quarter": "2022-03-31", "tranche": "Old B", "source": "financial_statement"},
+            {"quarter": "2023-03-31", "tranche": "Mid A", "source": "financial_statement"},
+            {"quarter": "2024-03-31", "tranche": "Mid B", "source": "financial_statement"},
+            {"quarter": "2025-03-31", "tranche": "New A", "source": "financial_statement"},
+            {"quarter": "2025-06-30", "tranche": "New B", "source": "financial_statement"},
+            {"quarter": "2025-09-30", "tranche": "New C", "source": "financial_statement"},
+            {"quarter": "2025-12-31", "tranche": "New D", "source": "financial_statement"},
+            {"quarter": "2020-12-31", "tranche": "Slide row", "source": "slides"},
+        ]
+    )
+
+    out = pipeline_orchestration._limit_recent_financial_statement_debt_rows(
+        df,
+        max_recent_quarters=4,
+    )
+
+    kept = {(str(q), str(t), str(s)) for q, t, s in out[["quarter", "tranche", "source"]].itertuples(index=False, name=None)}
+    assert ("2021-03-31", "Old A", "financial_statement") not in kept
+    assert ("2022-03-31", "Old B", "financial_statement") not in kept
+    assert ("2024-03-31", "Mid B", "financial_statement") not in kept
+    assert ("2025-12-31", "New D", "financial_statement") in kept
+    assert ("2020-12-31", "Slide row", "slides") in kept
+
+
+def test_drop_financial_statement_debt_rows_covered_by_slides() -> None:
+    df = pd.DataFrame(
+        [
+            {"quarter": "2025-12-31", "tranche": "Slide A", "source": "slides"},
+            {"quarter": "2025-12-31", "tranche": "FS A", "source": "financial_statement"},
+            {"quarter": "2025-09-30", "tranche": "FS B", "source": "financial_statement"},
+            {"quarter": "2025-06-30", "tranche": "Deck", "source": "slides"},
+            {"quarter": "2025-06-30", "tranche": "FS C", "source": "financial_statement"},
+        ]
+    )
+
+    out = pipeline_orchestration._drop_financial_statement_debt_rows_covered_by_slides(df)
+    kept = {(str(q), str(t), str(s)) for q, t, s in out[["quarter", "tranche", "source"]].itertuples(index=False, name=None)}
+
+    assert ("2025-12-31", "FS A", "financial_statement") not in kept
+    assert ("2025-06-30", "FS C", "financial_statement") not in kept
+    assert ("2025-09-30", "FS B", "financial_statement") in kept
+    assert ("2025-12-31", "Slide A", "slides") in kept
+
+
+def test_local_non_gaap_header_dates_parse_month_name_slide_headers() -> None:
+    dates = pipeline_orchestration._parse_local_non_gaap_header_dates(
+        "For the period ending Sep. 30, 2025 Dec. 31, 2024"
+    )
+
+    assert dates == [dt.date(2025, 9, 30), dt.date(2024, 12, 31)]
+
+
+def test_local_non_gaap_infers_annual_report_period_end_from_filename() -> None:
+    assert pipeline_orchestration._infer_local_non_gaap_period_end_from_name(
+        "GPRE_2024_annual_report.pdf"
+    ) == dt.date(2024, 12, 31)
+
+
 class _FakeEx99Sec:
     def __init__(self, cache_dir: Path | None = None) -> None:
         self.cache_dir = cache_dir

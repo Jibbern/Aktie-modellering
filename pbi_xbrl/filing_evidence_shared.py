@@ -1,3 +1,4 @@
+"""Shared evidence normalization, ranking, and merge helpers for note pipelines."""
 from __future__ import annotations
 
 import html

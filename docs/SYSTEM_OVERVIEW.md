@@ -8,6 +8,8 @@
 ## Main Inputs
 - `sec_cache/<TICKER>/`
   - Canonical filing and narrative cache layout.
+- `GPRE/USDA_weekly_data` and `GPRE/USDA_daily_data`
+  - Ticker-local USDA working folders for NWER / AMS PDFs and optional curated bootstrap CSVs.
 - `History_Q`
   - Structured quarter history for deterministic metric rows.
 - Earnings releases / CEO letters / annual letters
@@ -29,6 +31,9 @@
 - Treat **git + docs + saved workbooks** as the durable project memory.
 - Do not assume Codex/Chat thread history will be available or identical on another machine.
 - For machine changes or fresh restarts, begin with:
+  - [README.md](/c:/Users/Jibbe/Aktier/Code/README.md)
+  - [CODEBASE_MAP.md](/c:/Users/Jibbe/Aktier/Code/docs/CODEBASE_MAP.md)
+  - [SEC_CACHE_REFERENCE.md](/c:/Users/Jibbe/Aktier/Code/docs/SEC_CACHE_REFERENCE.md)
   - [SETUP_ON_NEW_MACHINE.md](/c:/Users/Jibbe/Aktier/Code/docs/SETUP_ON_NEW_MACHINE.md)
   - [BASELINE_FREEZE_2026-03-20.md](/c:/Users/Jibbe/Aktier/Code/docs/BASELINE_FREEZE_2026-03-20.md)
   - [CURRENT_PASS.md](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md)
@@ -36,13 +41,17 @@
 ## Active Workbook Dataflow
 1. Pipeline artifacts are built from filings, structured facts, and narrative evidence.
 2. `summary_overview.build_company_overview()` resolves topic-aware `SUMMARY` rows.
-3. `excel_writer_context` resolves `Valuation` inputs and final visible note rows.
+3. `excel_writer_context` resolves `Valuation` inputs and final visible note rows, while run-scoped helper modules cache repeated quarter-note, valuation-doc, operating-driver, and market-data fallback analysis inside one export.
 4. `Quarter_Notes_UI`, `SUMMARY`, and `Valuation` are written to the workbook.
 5. The saved workbook is reopened and verified against expected output.
 
 ## Cache Policy
 - `doc_intel_bundle` and `company_overview` stage-cache keys now include explicit behavior versions plus code signatures.
 - This is intended to keep code patches from being hidden behind stale stage cache.
+- `sec_cache` should be treated as a mixed runtime store, not a generic temp folder.
+- See [SEC_CACHE_REFERENCE.md](/c:/Users/Jibbe/Aktier/Code/docs/SEC_CACHE_REFERENCE.md) for keep/delete guidance by subtree.
+- See [PERFORMANCE_NOTES.md](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md) for current hotspot interpretation and cache-layer profiling guidance.
+- See [MARKET_DATA_USDA.md](/c:/Users/Jibbe/Aktier/Code/docs/MARKET_DATA_USDA.md) for the live NWER / AMS download and archive-backfill flow.
 
 ## Key Product Rules
 - Saved workbook is truth.
@@ -77,6 +86,8 @@
   - authorization / remaining-capacity context
   - provenance and suppress reasons
 - `Valuation` and `Quarter_Notes_UI` should converge when the same explicit SEC buyback evidence is available.
+- Hidden-history heatmap fills are allowed to look one year behind the visible window when a real prior comparator exists; this is render-only and does not change the visible numeric values.
+- Market-data refresh for `GPRE` now relies on USDA AJAX release fragments for the freshest NWER / AMS reports; ticker-local USDA folders are the first on-disk handoff before raw-cache sync.
 
 ## Current Workbook Truth
 - PBI `SUMMARY`

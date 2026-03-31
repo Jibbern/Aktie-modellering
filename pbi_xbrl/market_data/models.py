@@ -1,3 +1,9 @@
+"""Typed containers shared across market-data providers and service code.
+
+These dataclasses describe the normalized frames and metadata that move from
+provider parsers into cache persistence and finally into provider-agnostic
+exports consumed by workbook overlays.
+"""
 from __future__ import annotations
 
 import dataclasses

@@ -1,3 +1,4 @@
+"""Lexicon and scoring helpers for quarter-note and promise candidate selection."""
 from __future__ import annotations
 
 import re

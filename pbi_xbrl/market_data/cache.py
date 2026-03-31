@@ -1,3 +1,9 @@
+"""Filesystem helpers for the `sec_cache/market_data` tree.
+
+The service layer uses these helpers to keep the raw/index/parsed/export layout
+stable regardless of whether callers pass the overall cache root or the nested
+`market_data` directory directly.
+"""
 from __future__ import annotations
 
 import hashlib

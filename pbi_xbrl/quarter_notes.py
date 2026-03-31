@@ -1,3 +1,4 @@
+"""Quarter-note construction helpers and supporting text-shaping logic."""
 from __future__ import annotations
 
 import hashlib

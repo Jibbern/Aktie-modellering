@@ -1,3 +1,4 @@
+"""Guidance classification, text normalization, and scoring heuristics."""
 from __future__ import annotations
 
 import datetime as dt

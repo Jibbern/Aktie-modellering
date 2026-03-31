@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""CLI entrypoint for pipeline runs, workbook export, and cache maintenance.
+
+This script is the operator-facing surface for the project. It coordinates:
+- SEC and local statement ingest
+- market-data refresh and reparsing
+- coarse pipeline bundle caching
+- workbook export plus saved-workbook readback validation
+
+The saved workbook remains the final product truth; caches here exist to reduce
+runtime, not to bypass output verification.
+"""
 from __future__ import annotations
 
 import argparse
@@ -15,7 +26,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from pbi_xbrl import __version__
-from pbi_xbrl.company_profiles import get_company_profile
+from pbi_xbrl.company_profiles import COMPANY_PROFILES, get_company_profile
 from pbi_xbrl.cache_layout import bootstrap_canonical_ticker_cache, canonical_ticker_cache_root
 from pbi_xbrl.excel_writer import (
     enrich_quarter_notes_audit_rows_with_readback,
@@ -25,9 +36,10 @@ from pbi_xbrl.excel_writer import (
 )
 from pbi_xbrl.market_data import sync_market_cache
 from pbi_xbrl.metrics import get_income_statement_rules
+from pbi_xbrl.source_material_refresh import format_refresh_summary, refresh_source_materials
 from pbi_xbrl.excel_vba import MacroInjectionError, inject_valuation_macros
 from pbi_xbrl.pipeline import PipelineConfig, run_pipeline, write_excel
-from pbi_xbrl.sec_ingest import IngestConfig, download_all
+from pbi_xbrl.sec_ingest import IngestConfig, download_all, download_and_materialize_financial_statements
 from pbi_xbrl.sec_xbrl import SecConfig
 from pbi_xbrl.xbrl_instance import InstanceMetadata, parse_instance
 
@@ -137,6 +149,8 @@ def _material_signature(repo_root: Path, ticker: Optional[str]) -> str:
         ticker_root / "annual_reports",
         ticker_root / "earnings_presentation",
         ticker_root / "earnings_transcripts",
+        ticker_root / "historical_segment",
+        ticker_root / "segment_financials",
         ticker_root / "financial_statement",
         ticker_root / "press_release",
         ticker_root / f"{t}-10K",
@@ -178,6 +192,21 @@ def _default_history_export_path(ticker: str | None, suffix: str) -> Path:
     return (_excel_output_root(repo_root) / f"{stem}{suffix}").resolve()
 
 
+def _default_cache_dir_for_ticker(repo_root: Path, ticker: str) -> Path:
+    ticker_u = str(ticker or "").strip().upper()
+    cache_dir = canonical_ticker_cache_root(repo_root, ticker_u).resolve()
+    migration = bootstrap_canonical_ticker_cache(repo_root, ticker_u)
+    if migration.get("status") == "copied":
+        print(
+            "[sec_cache] "
+            f"seeded canonical cache {migration['canonical']} "
+            f"from legacy {migration['legacy']} "
+            f"(files={migration.get('copied_files', 0)} dirs={migration.get('created_dirs', 0)}"
+            f"{'; skipped=' + ','.join(migration.get('skipped', [])) if migration.get('skipped') else ''})"
+        )
+    return cache_dir
+
+
 def _sec_cache_signature(cache_dir: Path) -> str:
     pats = ["submissions_*.json", "companyfacts_*.json"]
     blobs = []
@@ -196,6 +225,9 @@ def _sec_cache_signature(cache_dir: Path) -> str:
     return hashlib.sha1(b"||".join(blobs)).hexdigest()
 
 
+# This bundle cache is intentionally coarse. It stores the full pipeline output bundle
+# that is ready for workbook rendering, while finer-grained persistence happens in the
+# stage-cache layer inside `pipeline_orchestration.py`.
 def _pipeline_bundle_cache_key(args: argparse.Namespace, cfg: PipelineConfig, repo_root: Path) -> str:
     return "|".join(
         [
@@ -279,6 +311,16 @@ def main() -> None:
     ap.add_argument("--cik", default=None, help="CIK as int; overrides ticker lookup")
     ap.add_argument("--out", default=None, help="Output Excel path (default: Excel stock models/{TICKER}_model.xlsm)")
     ap.add_argument("--step-a-only", action="store_true", help="Run SEC ingest + raw XBRL export only")
+    ap.add_argument(
+        "--download-financial-statements",
+        action="store_true",
+        help="Download/cache 10-Q and 10-K filings and materialize primary docs plus good exhibits into {TICKER}/financial_statement.",
+    )
+    ap.add_argument(
+        "--financial-statement-dir",
+        default="",
+        help="Optional override for the financial_statement output directory.",
+    )
     ap.add_argument("--max-filings", type=int, default=None, help="Max filings to download for Step A")
     ap.add_argument(
         "--forms",
@@ -337,6 +379,21 @@ def main() -> None:
         "--market-only",
         action="store_true",
         help="Sync/parse/export market data cache and exit without generating the workbook.",
+    )
+    ap.add_argument(
+        "--refresh-market-data",
+        action="store_true",
+        help="Refresh market data for the requested ticker or all market-enabled tickers, then exit.",
+    )
+    ap.add_argument(
+        "--refresh-source-materials",
+        action="store_true",
+        help="Refresh local SEC/IR source-material families for the requested ticker or configured supported tickers, then exit.",
+    )
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Audit refresh-source-material decisions without downloading or writing files.",
     )
     ap.add_argument("--max-quarters", type=int, default=80, help="How many quarters back")
     ap.add_argument("--min-year", type=int, default=None, help="Drop quarters earlier than this year (e.g., 2009)")
@@ -426,21 +483,100 @@ def main() -> None:
     args = ap.parse_args()
 
     ua = _require_user_agent(args.user_agent)
+    repo_root = _project_root()
+
+    if args.refresh_source_materials:
+        if args.cache_dir and not str(args.ticker or "").strip():
+            raise SystemExit("ERROR: --cache-dir with --refresh-source-materials requires --ticker.")
+        if str(args.ticker or "").strip():
+            refresh_tickers = [str(args.ticker or "").strip().upper()]
+        else:
+            refresh_tickers = sorted(str(ticker or "").strip().upper() for ticker in COMPANY_PROFILES.keys())
+        if not refresh_tickers:
+            print("[source_materials] no configured tickers found.", flush=True)
+            return
+        summaries = refresh_source_materials(
+            repo_root=repo_root,
+            tickers=refresh_tickers,
+            user_agent=ua,
+            max_filings=args.max_filings,
+            cache_dir_override=Path(args.cache_dir).expanduser().resolve() if args.cache_dir and len(refresh_tickers) == 1 else None,
+            dry_run=bool(args.dry_run),
+        )
+        for summary in summaries:
+            print(format_refresh_summary(summary), flush=True)
+            for event in summary.events:
+                detail_parts = [
+                    f"status={event.status}",
+                    f"origin={event.origin}",
+                    f"family={event.family}",
+                ]
+                if event.quarter:
+                    detail_parts.append(f"quarter={event.quarter}")
+                if event.destination_path:
+                    detail_parts.append(f"path={event.destination_path}")
+                elif event.source_url:
+                    detail_parts.append(f"url={event.source_url}")
+                if event.reason:
+                    detail_parts.append(f"reason={event.reason}")
+                print("[source_materials] " + " ".join(detail_parts), flush=True)
+            for line in summary.coverage_lines:
+                print(line, flush=True)
+            if summary.coverage_report_path:
+                print(f"[source_materials] coverage_report={summary.coverage_report_path}", flush=True)
+        return
+
+    # Market data is managed as its own cache family because the workbook uses the
+    # exported parquet rows directly, while operators may still need to refresh raw and
+    # parsed source layers independently.
+    if args.refresh_market_data:
+        if args.cache_dir and not str(args.ticker or "").strip():
+            raise SystemExit("ERROR: --cache-dir with --refresh-market-data requires --ticker.")
+        if str(args.ticker or "").strip():
+            refresh_tickers = [str(args.ticker or "").strip().upper()]
+        else:
+            refresh_tickers = sorted(
+                ticker
+                for ticker, profile in COMPANY_PROFILES.items()
+                if tuple(str(x or "").strip() for x in (getattr(profile, "enabled_market_sources", ()) or ()) if str(x or "").strip())
+            )
+        if not refresh_tickers:
+            print("[market_data] no market-enabled tickers configured.", flush=True)
+            return
+        for refresh_ticker in refresh_tickers:
+            cache_dir = (
+                Path(args.cache_dir).expanduser().resolve()
+                if args.cache_dir and len(refresh_tickers) == 1
+                else _default_cache_dir_for_ticker(repo_root, refresh_ticker)
+            )
+            market_profile = get_company_profile(refresh_ticker)
+            market_summary = sync_market_cache(
+                cache_dir=cache_dir,
+                ticker=refresh_ticker,
+                profile=market_profile,
+                sync_raw=True,
+                refresh=True,
+                reparse=False,
+            )
+            print(
+                "[market_data] "
+                f"ticker={refresh_ticker} "
+                f"sources={','.join(market_summary.sources_enabled) or 'none'} "
+                f"raw_added={market_summary.raw_added} "
+                f"raw_refreshed={market_summary.raw_refreshed} "
+                f"raw_skipped={market_summary.raw_skipped} "
+                f"parsed={','.join(market_summary.parsed_sources) or 'none'} "
+                f"export_rows={market_summary.export_rows} "
+                f"export_path={market_summary.export_path}",
+                flush=True,
+            )
+        return
 
     tkr_u = str(args.ticker or "").upper() or "SEC"
     if args.cache_dir:
         cache_dir = Path(args.cache_dir).expanduser().resolve()
     else:
-        cache_dir = canonical_ticker_cache_root(_project_root(), tkr_u).resolve()
-        migration = bootstrap_canonical_ticker_cache(_project_root(), tkr_u)
-        if migration.get("status") == "copied":
-            print(
-                "[sec_cache] "
-                f"seeded canonical cache {migration['canonical']} "
-                f"from legacy {migration['legacy']} "
-                f"(files={migration.get('copied_files', 0)} dirs={migration.get('created_dirs', 0)}"
-                f"{'; skipped=' + ','.join(migration.get('skipped', [])) if migration.get('skipped') else ''})"
-            )
+        cache_dir = _default_cache_dir_for_ticker(repo_root, tkr_u)
 
     min_year = args.min_year
 
@@ -513,6 +649,59 @@ def main() -> None:
         )
         if args.market_only:
             return
+
+    # This path materializes statement-like 10-Q / 10-K documents into the ticker's
+    # `financial_statement` folder. Those files become local evidence for later pipeline
+    # and workbook passes, but they do not replace the SEC cache itself.
+    if args.download_financial_statements:
+        if not str(args.ticker or "").strip():
+            raise SystemExit("ERROR: --ticker is required for --download-financial-statements.")
+        forms_materialize_dir = (
+            Path(args.financial_statement_dir).expanduser().resolve()
+            if str(args.financial_statement_dir or "").strip()
+            else (_ticker_root(repo_root, args.ticker) / "financial_statement").resolve()
+        )
+        ingest_cfg = IngestConfig(
+            cache_dir=cfg.cache_dir,
+            user_agent=ua,
+            forms=("10-Q", "10-K"),
+            include_exhibits=True,
+            max_file_mb=max(1, int(args.max_file_mb or 25)),
+            materialize=False,
+            materialize_dir=None,
+            attachment_mode="smart",
+            verify_cache_sha256=bool(args.verify_cache_sha256),
+            materialize_method=str(args.materialize_method or "hardlink").lower(),
+            quiet_download_logs=bool(args.quiet_download_logs),
+            max_filings=args.max_filings,
+        )
+        filings_df, files_df, manifest_df, fs_summary = download_and_materialize_financial_statements(
+            ingest_cfg,
+            ticker=args.ticker,
+            cik=int(args.cik) if args.cik else None,
+            output_dir=forms_materialize_dir,
+            method=str(args.materialize_method or "hardlink").lower(),
+        )
+        print(
+            "[financial_statements] "
+            f"ticker={str(args.ticker or '').upper()} "
+            f"output_dir={fs_summary.output_dir} "
+            f"materialized={fs_summary.materialized_count} "
+            f"primary={fs_summary.primary_count} "
+            f"exhibits={fs_summary.exhibit_count} "
+            f"skipped_missing={fs_summary.skipped_missing} "
+            f"skipped_decorative={fs_summary.skipped_decorative} "
+            f"skipped_noncandidate={fs_summary.skipped_noncandidate}",
+            flush=True,
+        )
+        print(
+            "[financial_statements] "
+            f"filings={len(filings_df) if filings_df is not None else 0} "
+            f"files={len(files_df) if files_df is not None else 0} "
+            f"manifest={fs_summary.manifest_path}",
+            flush=True,
+        )
+        return
 
     if args.step_a_only:
         forms = tuple(x.strip() for x in str(args.forms or "").split(",") if x.strip())
@@ -651,13 +840,21 @@ def main() -> None:
     pipeline_bundle = None
     timing_rows: Dict[str, float] = {}
     if args.only_write_excel:
+        # Workbook-only rerenders deliberately trust the last saved bundle even if
+        # the coarse bundle key would now differ. This is the fastest path for
+        # layout/UI passes where pipeline truth is intentionally frozen.
         pipeline_bundle = _load_pipeline_bundle_cache(cfg.cache_dir, args.ticker, pipeline_cache_key, ignore_key=True)
         if pipeline_bundle is None:
             raise SystemExit("ERROR: --only-write-excel requires an existing cached pipeline bundle.")
     elif not args.rebuild_pipeline_cache:
+        # Normal reruns still prefer the coarse bundle cache before paying the cost
+        # of a full pipeline rebuild. Finer stage reuse happens deeper inside the
+        # pipeline and is documented separately in `pipeline_orchestration.py`.
         pipeline_bundle = _load_pipeline_bundle_cache(cfg.cache_dir, args.ticker, pipeline_cache_key, ignore_key=False)
 
     if pipeline_bundle is None:
+        # A cold run rebuilds the pipeline bundle from source/cache inputs, then saves
+        # it for faster re-renders during later workbook-only passes.
         with _timed("run_pipeline", enabled=cfg.profile_timings, store=timing_rows):
             pipeline_bundle = run_pipeline(
                 cfg,
@@ -708,6 +905,9 @@ def main() -> None:
     out_path = _default_out_path(args.ticker) if not args.out else _normalize_out_path_xlsm(args.out)
     xlsx_tmp_path = out_path.with_name(f"{out_path.stem}_nomacro.xlsx")
     with _timed("write_excel", enabled=cfg.profile_timings, store=timing_rows):
+        # `write_excel` persists the workbook and returns the expected
+        # saved-workbook snapshot bundle used for readback validation
+        # immediately afterward.
         writer_result = write_excel(
             out_path=xlsx_tmp_path,
             hist=hist,
@@ -863,6 +1063,9 @@ def main() -> None:
             print(f"[WARN] Parquet export skipped: {type(e).__name__}: {e}")
 
     if cfg.profile_timings and timing_rows:
+        # Timing rows are observational hotspots, not additive wall-clock budgets.
+        # Nested stages can both appear in the summary, so use this output to find
+        # where time clusters rather than summing every label.
         summary = " | ".join(f"{k}={v:.2f}s" for k, v in sorted(timing_rows.items(), key=lambda kv: (-kv[1], kv[0])))
         print(f"[Timing Summary] {summary}", flush=True)
 

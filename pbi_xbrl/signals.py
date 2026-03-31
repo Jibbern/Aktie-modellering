@@ -1,3 +1,4 @@
+"""Hidden-value flag and scenario-signal builders for valuation surfaces."""
 from __future__ import annotations
 
 import json

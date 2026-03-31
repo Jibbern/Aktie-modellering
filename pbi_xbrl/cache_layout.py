@@ -1,3 +1,4 @@
+"""Helpers for resolving canonical ticker and shared cache roots."""
 from __future__ import annotations
 
 import shutil

@@ -1,3 +1,4 @@
+"""Ticker-specific workbook, guidance, and overlay configuration."""
 from __future__ import annotations
 
 import dataclasses
@@ -57,6 +58,14 @@ class EconomicsOverlayBridgeRow:
 
 
 @dataclasses.dataclass(frozen=True)
+class SourceMaterialSeed:
+    family: str
+    seed_url: str
+    follow_detail_pages: bool = False
+    allowed_hosts: Tuple[str, ...] = tuple()
+
+
+@dataclasses.dataclass(frozen=True)
 class CompanyProfile:
     ticker: str
     has_bank: bool
@@ -65,6 +74,8 @@ class CompanyProfile:
     segment_alias_patterns: Tuple[Tuple[Pattern[str], str], ...]
     key_adv_require_keywords: Tuple[str, ...]
     key_adv_deny_keywords: Tuple[str, ...]
+    commentary_prefer_terms: Tuple[str, ...] = tuple()
+    commentary_deny_terms: Tuple[str, ...] = tuple()
     enable_operating_drivers_sheet: bool = False
     enable_economics_overlay_sheet: bool = False
     enable_economics_market_raw_sheet: bool = False
@@ -82,6 +93,7 @@ class CompanyProfile:
     economics_overlay_hedge_templates: Tuple[EconomicsOverlayHedgeTemplate, ...] = tuple()
     economics_overlay_bridge_rows: Tuple[EconomicsOverlayBridgeRow, ...] = tuple()
     enabled_market_sources: Tuple[str, ...] = tuple()
+    official_source_seeds: Tuple[SourceMaterialSeed, ...] = tuple()
     thesis_bridge_labels: Tuple[str, ...] = tuple()
     summary_description_fallback: str = ""
     summary_key_advantage_fallback: str = ""
@@ -243,7 +255,7 @@ _DEFAULT_ECONOMICS_OVERLAY_COEFFICIENTS = _overlay_coefficients(
         ("Ethanol yield", "gal/bushel", ("ethanol yield", "gallons per bushel"), None, "", "", "ethanol_yield"),
         ("Renewable corn oil yield", "lbs/bushel", ("corn oil yield", "renewable corn oil yield"), None, "", "", "renewable_corn_oil_yield"),
         ("Distillers yield", "lbs/bushel", ("distillers yield", "distillers grains per bushel"), None, "", "", "distillers_yield"),
-        ("UHP yield", "lbs/bushel", ("uhp yield", "ultra-high protein yield"), None, "", "", "uhp_yield"),
+        ("Ultra-high protein yield", "lbs/bushel", ("uhp yield", "ultra-high protein yield"), None, "", "", "uhp_yield"),
         ("Natural gas usage", "BTU/gal", ("natural gas usage", "gas usage", "btu per gallon"), None, "", "", "natural_gas_usage"),
         ("Electricity usage", "kWh/gal", ("electricity usage", "kwh per gallon"), None, "", "", "electricity_usage"),
     )
@@ -301,7 +313,7 @@ _DEFAULT_ECONOMICS_OVERLAY_MARKET_INPUTS = _overlay_market_inputs(
             ("gpre_core", "iowa", "nebraska", "midwest"),
             "quarter_avg",
         ),
-        ("UHP price", "$/lb", ("uhp price", "ultra-high protein price"), "uhp_price"),
+        ("Ultra-high protein price", "$/lb", ("uhp price", "ultra-high protein price"), "uhp_price"),
         (
             "Renewable corn oil price",
             "$/lb",
@@ -426,7 +438,47 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
             "cross-sell",
         ),
         key_adv_deny_keywords=_DENY_COMMON,
-        enable_operating_drivers_sheet=False,
+        commentary_prefer_terms=(
+            "revenue",
+            "volume",
+            "volumes",
+            "pricing",
+            "mix",
+            "margin",
+            "adjusted ebit",
+            "operating profit",
+            "customer losses",
+            "migration",
+            "recurring revenue",
+            "price concessions",
+            "labor productivity",
+            "transportation costs",
+            "meter base",
+            "product lifecycle",
+            "first class",
+            "marketing mail",
+            "cross-border",
+            "domestic parcel revenue per piece",
+            "favorable revenue mix",
+            "supply chain",
+            "lower cogs",
+            "sg&a",
+        ),
+        commentary_deny_terms=(
+            "ethanol",
+            "crush",
+            "distillers grains",
+            "ddgs",
+            "rin",
+            "45z",
+            "corn oil",
+            "ultra-high protein",
+            "e15",
+            "biorefin",
+            "bushel",
+            "gallons",
+        ),
+        enable_operating_drivers_sheet=True,
         enable_economics_overlay_sheet=False,
         enable_economics_market_raw_sheet=False,
         enable_annual_segment_block=True,
@@ -548,6 +600,26 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
         economics_overlay_hedge_templates=_DEFAULT_ECONOMICS_OVERLAY_HEDGES,
         economics_overlay_bridge_rows=_DEFAULT_ECONOMICS_OVERLAY_BRIDGE_ROWS,
         enabled_market_sources=("nwer", "ams_3617"),
+        official_source_seeds=(
+            SourceMaterialSeed(
+                family="earnings_presentation",
+                seed_url="https://www.investorrelations.pitneybowes.com/events-and-presentations/presentations",
+                follow_detail_pages=False,
+                allowed_hosts=("www.investorrelations.pitneybowes.com",),
+            ),
+            SourceMaterialSeed(
+                family="press_release",
+                seed_url="https://www.investorrelations.pitneybowes.com/financial-information/quarterly-results",
+                follow_detail_pages=False,
+                allowed_hosts=("www.investorrelations.pitneybowes.com",),
+            ),
+            SourceMaterialSeed(
+                family="earnings_transcripts",
+                seed_url="https://www.investorrelations.pitneybowes.com/financial-information/quarterly-results",
+                follow_detail_pages=False,
+                allowed_hosts=("www.investorrelations.pitneybowes.com",),
+            ),
+        ),
         thesis_bridge_labels=(
             "Base Adj EBITDA FY",
             "Pricing / mix uplift",
@@ -635,6 +707,51 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
             "msc",
         ),
         key_adv_deny_keywords=_DENY_COMMON,
+        commentary_prefer_terms=(
+            "ethanol",
+            "crush",
+            "margin",
+            "corn oil",
+            "ddgs",
+            "protein",
+            "ultra-high protein",
+            "45z",
+            "rin",
+            "export",
+            "exports",
+            "e15",
+            "utilization",
+            "maintenance",
+            "downtime",
+            "capacity utilization",
+            "corn",
+            "yield",
+            "tharaldson",
+            "fairmont",
+            "care and maintenance",
+            "spring maintenance season",
+            "production cost",
+            "domestic blending",
+            "hedged",
+            "logged in",
+        ),
+        commentary_deny_terms=(
+            "50 pro product",
+            "sequence",
+            "pet food customer",
+            "pet food customers",
+            "sendtech",
+            "presort",
+            "parcel",
+            "postage",
+            "mailing",
+            "shipping",
+            "saas",
+            "locker",
+            "lease extension",
+            "cross-border",
+            "digital shipping",
+        ),
         enable_operating_drivers_sheet=True,
         enable_economics_overlay_sheet=True,
         enable_economics_market_raw_sheet=True,
@@ -720,7 +837,7 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
                 ),
                 (
                     "Outputs / realizations",
-                    "Distillers grains / Ultra-High Protein",
+                    "Distillers grains / Ultra-high protein",
                     "Protein mix and coproduct pricing affect margin quality.",
                     ("protein", "ultra-high protein", "distillers grains", "coproduct"),
                     tuple(),
@@ -832,8 +949,8 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
                 ),
                 (
                     "Coproducts / mix",
-                    "Ultra-High Protein",
-                    "Ultra-High Protein volume helps track mix improvement and higher-value coproduct conversion.",
+                    "Ultra-high protein",
+                    "Ultra-high protein volume helps track mix improvement and higher-value coproduct conversion.",
                     ("ultra-high protein", "uhp"),
                     tuple(),
                     ("ultra-high protein", "uhp"),
@@ -942,8 +1059,8 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
                 ),
                 (
                     "Coproducts / mix",
-                    "Distillers grains / UHP commentary",
-                    "Distillers grains and UHP trends inform mix quality and coproduct economics.",
+                    "Distillers grains / Ultra-high protein commentary",
+                    "Distillers grains and ultra-high protein trends inform mix quality and coproduct economics.",
                     ("distillers grains", "ultra-high protein", "uhp"),
                     tuple(),
                     ("distillers grains", "ultra-high protein"),
@@ -967,7 +1084,7 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
                 ("Ethanol yield", "gal/bushel", ("ethanol yield", "gallons per bushel"), 2.9, "inferred", "Platform baseline coefficient", "ethanol_yield"),
                 ("Renewable corn oil yield", "lbs/bushel", ("corn oil yield", "renewable corn oil yield"), 1.0, "inferred", "Platform baseline coefficient", "renewable_corn_oil_yield"),
                 ("Distillers yield", "lbs/bushel", ("distillers yield", "distillers grains per bushel"), 17.0, "inferred", "Platform baseline coefficient", "distillers_yield"),
-                ("UHP yield", "lbs/bushel", ("uhp yield", "ultra-high protein yield"), None, "user assumption", "", "uhp_yield"),
+                ("Ultra-high protein yield", "lbs/bushel", ("uhp yield", "ultra-high protein yield"), None, "user assumption", "", "uhp_yield"),
                 ("Natural gas usage", "BTU/gal", ("natural gas usage", "gas usage", "btu per gallon"), 27000.0, "user assumption", "Process assumption", "natural_gas_usage"),
                 ("Electricity usage", "kWh/gal", ("electricity usage", "kwh per gallon"), 0.9, "user assumption", "Process assumption", "electricity_usage"),
             )
@@ -976,6 +1093,26 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
         economics_overlay_hedge_templates=_DEFAULT_ECONOMICS_OVERLAY_HEDGES,
         economics_overlay_bridge_rows=_DEFAULT_ECONOMICS_OVERLAY_BRIDGE_ROWS,
         enabled_market_sources=("nwer", "ams_3617"),
+        official_source_seeds=(
+            SourceMaterialSeed(
+                family="earnings_presentation",
+                seed_url="https://investor.gpreinc.com/events-and-presentations/",
+                follow_detail_pages=True,
+                allowed_hosts=("investor.gpreinc.com",),
+            ),
+            SourceMaterialSeed(
+                family="press_release",
+                seed_url="https://investor.gpreinc.com/news/news-details/",
+                follow_detail_pages=True,
+                allowed_hosts=("investor.gpreinc.com",),
+            ),
+            SourceMaterialSeed(
+                family="earnings_transcripts",
+                seed_url="https://investor.gpreinc.com/events-and-presentations/",
+                follow_detail_pages=True,
+                allowed_hosts=("investor.gpreinc.com",),
+            ),
+        ),
         thesis_bridge_labels=(
             "Base Adj EBITDA FY",
             "45Z uplift / policy uplift",
@@ -1014,6 +1151,8 @@ def get_company_profile(ticker: Optional[str]) -> CompanyProfile:
             "recurring",
         ),
         key_adv_deny_keywords=_DENY_COMMON,
+        commentary_prefer_terms=tuple(),
+        commentary_deny_terms=tuple(),
         quarter_note_priority_terms=tuple(),
         promise_priority_terms=tuple(),
         operating_driver_templates=_drivers(

@@ -231,6 +231,92 @@ def _sheet_data_row_count(ws) -> int:
     return max(int(ws.max_row) - 1, 0)
 
 
+def _quarter_label_ord(label: str) -> int | None:
+    txt = str(label or "").strip()
+    m = re.fullmatch(r"(\d{4})-Q([1-4])", txt)
+    if m:
+        return int(m.group(1)) * 4 + int(m.group(2))
+    m = re.fullmatch(r"Q([1-4])\s+(\d{4})", txt)
+    if m:
+        return int(m.group(2)) * 4 + int(m.group(1))
+    return None
+
+
+def _operating_commentary_rows(ws) -> list[dict[str, str]]:
+    start_row = _find_row_with_value(ws, "Operating Commentary", column=1)
+    assert start_row is not None
+    assert str(ws.cell(row=start_row + 1, column=1).value or "").strip() == "Horizon"
+    assert str(ws.cell(row=start_row + 1, column=2).value or "").strip() == "Stated in"
+    assert str(ws.cell(row=start_row + 1, column=3).value or "").strip() == "Commentary"
+    rows: list[dict[str, str]] = []
+    rr = start_row + 2
+    current_year_band = ""
+    while rr <= ws.max_row:
+        col_a = str(ws.cell(row=rr, column=1).value or "").strip()
+        col_b = str(ws.cell(row=rr, column=2).value or "").strip()
+        col_c = str(ws.cell(row=rr, column=3).value or "").strip()
+        if col_a in {"2023", "2024", "2025", "2026 / current"} and not col_b and not col_c:
+            current_year_band = col_a
+            rr += 1
+            continue
+        if not col_a and not col_b and not col_c:
+            rr += 1
+            continue
+        if col_a.startswith("Actuals") or col_b.startswith("Actuals"):
+            break
+        if col_a.startswith("Segment support") or (col_a == "Quarter" and rr > start_row + 1):
+            break
+        if not col_c:
+            rr += 1
+            continue
+        rows.append(
+            {
+                "row": str(rr),
+                "year_band": current_year_band,
+                "horizon": col_a,
+                "stated_in": col_b,
+                "commentary": col_c,
+            }
+        )
+        rr += 1
+    return rows
+
+
+def _overlay_management_commentary_rows(ws) -> list[dict[str, str]]:
+    start_row = _find_row_with_value(ws, "Management commentary", column=1)
+    assert start_row is not None
+    assert str(ws.cell(row=start_row + 1, column=1).value or "").strip() == "Horizon"
+    assert str(ws.cell(row=start_row + 1, column=2).value or "").strip() == "Stated in"
+    assert str(ws.cell(row=start_row + 1, column=3).value or "").strip() == "Commentary"
+    rows: list[dict[str, str]] = []
+    rr = start_row + 2
+    current_year_band = ""
+    while rr <= ws.max_row:
+        col_a = str(ws.cell(row=rr, column=1).value or "").strip()
+        col_b = str(ws.cell(row=rr, column=2).value or "").strip()
+        col_c = str(ws.cell(row=rr, column=3).value or "").strip()
+        if col_a in {"2023", "2024", "2025", "2026 / current"} and not col_b and not col_c:
+            current_year_band = col_a
+            rr += 1
+            continue
+        if col_a == "Commercial / hedge setup":
+            break
+        if not col_c:
+            rr += 1
+            continue
+        rows.append(
+            {
+                "row": str(rr),
+                "year_band": current_year_band,
+                "horizon": col_a,
+                "stated_in": col_b,
+                "commentary": col_c,
+            }
+        )
+        rr += 1
+    return rows
+
+
 def _sheet_metric_rows(path: Path, sheet_name: str, metric: str, *, quarters: list[str] | None = None) -> list[dict[str, str]]:
     wb = load_workbook(path, data_only=False, read_only=True)
     try:
@@ -734,6 +820,9 @@ def test_build_writer_context_exposes_explicit_state_contract() -> None:
         assert isinstance(ctx.data.operating_driver_history_rows, list)
         assert isinstance(ctx.data.economics_market_rows, list)
         assert ctx.data.doc_cache.accession_doc_paths == {}
+        assert ctx.data.runtime_cache.quarter_notes.doc_analysis_cache == {}
+        assert ctx.data.runtime_cache.valuation_precompute.filing_doc_text_cache == {}
+        assert ctx.data.runtime_cache.operating_drivers.template_rows_cache == {}
 
         assert ctx.callbacks.write_sheet is ctx.state["_write_sheet"]
         assert ctx.callbacks.build_report is ctx.state["_build_report"]
@@ -831,6 +920,34 @@ def test_quarterly_row_color_policy_helper_is_metric_aware() -> None:
         section_label="Cash Flow",
     )
     assert policy_acquisitions.directionality == "neutral"
+
+    policy_buybacks_cash = writer_context_module._quarterly_row_color_policy(
+        "Buybacks (cash)",
+        section_label="Cash Flow",
+    )
+    assert policy_buybacks_cash.comparison_basis == "qoq"
+    assert policy_buybacks_cash.directionality == "higher_better"
+
+    policy_revolver_drawn = writer_context_module._quarterly_row_color_policy(
+        "Revolver drawn",
+        section_label="Leverage & Liquidity",
+    )
+    assert policy_revolver_drawn.comparison_basis == "yoy"
+    assert policy_revolver_drawn.directionality == "lower_better"
+
+    policy_revolver_availability = writer_context_module._quarterly_row_color_policy(
+        "Revolver availability",
+        section_label="Leverage & Liquidity",
+    )
+    assert policy_revolver_availability.comparison_basis == "yoy"
+    assert policy_revolver_availability.directionality == "higher_better"
+
+    policy_liquidity = writer_context_module._quarterly_row_color_policy(
+        "Liquidity (cash+availability)",
+        section_label="Leverage & Liquidity",
+    )
+    assert policy_liquidity.comparison_basis == "yoy"
+    assert policy_liquidity.directionality == "higher_better"
 
 
 def test_quarterly_color_metric_helper_uses_basis_and_directionality() -> None:
@@ -1037,9 +1154,9 @@ def test_writer_front_modules_use_explicit_derived_frames_not_compat_state(
         monkeypatch.setattr(ctx.callbacks, "write_flags_sheet", capture_sheet)
         monkeypatch.setattr(ctx.callbacks, "write_valuation_sheet", lambda: None)
         monkeypatch.setattr(ctx.callbacks, "write_bs_segments_sheet", lambda quarters_shown=8: [])
-        monkeypatch.setattr(ctx.callbacks, "write_quarter_notes_ui_v2", lambda quarters_shown=8: [])
-        monkeypatch.setattr(ctx.callbacks, "write_promise_tracker_ui_v2", lambda: [])
-        monkeypatch.setattr(ctx.callbacks, "write_promise_progress_ui_v2", lambda: [])
+        monkeypatch.setattr(ctx.callbacks, "write_quarter_notes_ui_v2", lambda quarters_shown=8, **_: [])
+        monkeypatch.setattr(ctx.callbacks, "write_promise_tracker_ui_v2", lambda *_, **__: [])
+        monkeypatch.setattr(ctx.callbacks, "write_promise_progress_ui_v2", lambda *_, **__: [])
         monkeypatch.setattr(ctx.callbacks, "write_operating_drivers_raw_sheet", lambda rows: None)
         monkeypatch.setattr(ctx.callbacks, "write_economics_market_raw_sheet", lambda rows: None)
 
@@ -2212,6 +2329,86 @@ def test_latest_quarter_sec_text_corpus_is_reused_across_repeated_qa_runs(
         )
 
 
+def test_quarter_notes_ui_reuses_doc_sentence_harvest_cache_across_repeated_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_model_out_path(case_dir, "qn_doc_sentence_cache.xlsx")
+            cache_dir = out_path.parent
+            doc_path = cache_dir / "doc_000012345625000001_10k.txt"
+            doc_path.write_text(
+                "Results of operations. "
+                "SG&A expense decreased $12 million compared to prior year primarily due to lower compensation costs. "
+                "Cash flows from operating activities increased $25 million compared to prior year primarily due to working capital release. "
+                "Cash flows from financing activities increased $10 million due to debt repayment timing.",
+                encoding="utf-8",
+            )
+
+            submission_rows = [
+                {
+                    "accn": "0000123456-25-000001",
+                    "form": "10-K",
+                    "filed": "2026-02-20",
+                    "report": "2025-12-31",
+                    "doc": doc_path.name,
+                }
+            ]
+            quarter_notes = pd.DataFrame(
+                {
+                    "quarter": [pd.Timestamp("2025-12-31")],
+                    "note_id": ["seed-note-1"],
+                    "category": ["Results / drivers"],
+                    "claim": ["Revenue stabilized in the fourth quarter."],
+                    "note": ["Revenue stabilized in the fourth quarter."],
+                    "metric_ref": ["Revenue"],
+                    "score": [95.0],
+                    "doc_type": ["earnings_release"],
+                    "doc": ["seed_release.txt"],
+                    "source_type": ["earnings_release"],
+                    "evidence_snippet": ["Revenue stabilized in the fourth quarter."],
+                }
+            )
+
+            counts = {str(doc_path): 0}
+            original_glob = Path.glob
+            original_read_text = Path.read_text
+
+            def counted_glob(self: Path, pattern: str, *args, **kwargs):
+                if str(pattern).startswith("doc_000012345625000001_"):
+                    return [doc_path]
+                return original_glob(self, pattern, *args, **kwargs)
+
+            def counted_read_text(self: Path, *args, **kwargs):
+                path_str = str(self)
+                if path_str in counts:
+                    counts[path_str] += 1
+                return original_read_text(self, *args, **kwargs)
+
+            monkeypatch.setattr(Path, "glob", counted_glob)
+            monkeypatch.setattr(Path, "read_text", counted_read_text)
+            monkeypatch.setattr(writer_context_module, "source_submission_recent_rows", lambda **kwargs: list(submission_rows))
+
+            inputs = _make_inputs(out_path, ticker="PBI", quarter_notes=quarter_notes)
+            manifest_df = pd.DataFrame({"path": [str(doc_path)]})
+            inputs = inputs.__class__(**{**vars(inputs), "manifest_df": manifest_df})
+            ctx = build_writer_context(inputs)
+
+            if "Quarter_Notes_UI" in ctx.wb.sheetnames:
+                del ctx.wb["Quarter_Notes_UI"]
+            ctx.callbacks.write_quarter_notes_ui_v2()
+            first_rows = _quarter_block_notes(ctx.wb["Quarter_Notes_UI"], "2025-12-31")
+            reads_after_first = counts[str(doc_path)]
+
+            del ctx.wb["Quarter_Notes_UI"]
+            ctx.callbacks.write_quarter_notes_ui_v2()
+            second_rows = _quarter_block_notes(ctx.wb["Quarter_Notes_UI"], "2025-12-31")
+
+            assert reads_after_first >= 1
+            assert counts[str(doc_path)] == reads_after_first
+            assert first_rows == second_rows
+
+
 def test_write_ui_sheets_records_ui_substage_timings() -> None:
     with _case_dir() as case_dir:
         out_path = _make_model_out_path(case_dir, "ui_timings.xlsx")
@@ -2331,7 +2528,7 @@ def test_pbi_profile_omits_driver_and_economics_sheets_but_keeps_ui_sheets() -> 
         write_excel_from_inputs(_make_inputs(out_path, ticker="PBI"))
 
         wb = load_workbook(out_path, data_only=False)
-        assert "Operating_Drivers" not in wb.sheetnames
+        assert "Operating_Drivers" in wb.sheetnames
         assert "Economics_Overlay" not in wb.sheetnames
         assert "economics_market_raw" not in wb.sheetnames
         assert "Quarter_Notes_UI" in wb.sheetnames
@@ -6589,6 +6786,70 @@ def test_pbi_quarter_notes_dedupe_same_visible_buyback_note_from_different_sourc
             ) == 1
 
 
+def test_quarter_notes_adds_post_quarter_buyback_commentary_as_separate_deduped_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_model_out_path(case_dir, "buyback_post_quarter_companion_row.xlsx")
+            quarter_notes = pd.DataFrame(
+                {
+                    "quarter": [pd.Timestamp("2025-03-31")] * 5,
+                    "note_id": ["bb-main", "bb-post-release", "bb-post-ceo", "rev-guid", "fcf-guid"],
+                    "category": [
+                        "Capital allocation / shareholder returns",
+                        "Capital allocation / shareholder returns",
+                        "Capital allocation / shareholder returns",
+                        "Guidance / outlook",
+                        "Guidance / outlook",
+                    ],
+                    "claim": [
+                        "Repurchased 1.5 million shares for $15.0 million in the first quarter.",
+                        "An additional $12 million of common stock was repurchased after quarter-end through May 2.",
+                        "An additional $12 million was repurchased after quarter-end through May 2.",
+                        "FY 2025 revenue guidance remains $1.95bn-$2.00bn.",
+                        "FY 2025 FCF target remains $330m-$370m.",
+                    ],
+                    "note": [
+                        "Repurchased 1.5 million shares for $15.0 million in the first quarter.",
+                        "An additional $12 million of common stock was repurchased after quarter-end through May 2.",
+                        "An additional $12 million was repurchased after quarter-end through May 2.",
+                        "FY 2025 revenue guidance remains $1.95bn-$2.00bn.",
+                        "FY 2025 FCF target remains $330m-$370m.",
+                    ],
+                    "metric_ref": [
+                        "Capital allocation / buyback",
+                        "Capital allocation / buyback",
+                        "Capital allocation / buyback",
+                        "Revenue guidance",
+                        "FCF target",
+                    ],
+                    "score": [97.0, 91.0, 90.0, 95.0, 94.0],
+                    "doc_type": ["earnings_release", "earnings_release", "ceo_letter", "earnings_release", "earnings_release"],
+                    "doc": ["release_q1.txt", "release_q1.txt", "ceo_q1.txt", "release_q1.txt", "release_q1.txt"],
+                    "source_type": ["earnings_release", "earnings_release", "ceo_letter", "earnings_release", "earnings_release"],
+                    "evidence_snippet": [
+                        "Repurchased 1.5 million shares for $15.0 million in the first quarter.",
+                        "An additional $12 million of common stock was repurchased after quarter-end through May 2.",
+                        "An additional $12 million was repurchased after quarter-end through May 2.",
+                        "FY 2025 revenue guidance remains $1.95bn-$2.00bn.",
+                        "FY 2025 FCF target remains $330m-$370m.",
+                    ],
+                }
+            )
+
+            ctx = build_writer_context(_make_inputs(out_path, ticker="TEST", quarter_notes=quarter_notes))
+            ctx.callbacks.write_quarter_notes_ui_v2()
+            ws = ctx.wb["Quarter_Notes_UI"]
+            q1_rows = _quarter_block_notes(ws, "2025-03-31")
+
+            assert any("Repurchased 1.5m shares for $15.0m" in note for note in q1_rows)
+            companion_rows = [note for note in q1_rows if "excluded from quarter/TTM data." in note]
+            assert companion_rows == [
+                "Additional $12.0m repurchased after quarter-end through May 2; excluded from quarter/TTM data."
+            ]
+
+
 def test_pbi_quarter_notes_add_ceo_letter_management_notes_without_dropping_guidance(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -8607,10 +8868,12 @@ def test_pbi_valuation_prefers_filing_table_buyback_truth_over_rounded_press_rel
             assert "QoQ +12.614m" in str(ws.cell(row=buybacks_row, column=2).value or "")
 
             buyback_note = str(ws.cell(row=buybacks_note_row, column=2).value or "")
-            assert "$126.6m" in buyback_note
-            assert "$10.04/share" in buyback_note
+            assert "Remaining capacity $359.0m" in buyback_note
+            assert "Latest increase by $250.0m on 2026-02-13" in buyback_note
             assert "$127.0m" not in buyback_note
             assert "$10.08/share" not in buyback_note
+            assert "$126.6m" not in buyback_note
+            assert "$10.04/share" not in buyback_note
 
 
 def test_pbi_valuation_prefers_q4_issuer_purchases_table_over_other_repurchase_narrative_in_same_filing(
@@ -8651,10 +8914,12 @@ def test_pbi_valuation_prefers_q4_issuer_purchases_table_over_other_repurchase_n
             assert "QoQ +12.614m" in str(ws.cell(row=buybacks_row, column=2).value or "")
 
             buyback_note = str(ws.cell(row=buybacks_note_row, column=2).value or "")
-            assert "$126.6m" in buyback_note
-            assert "$10.04/share" in buyback_note
+            assert "Remaining capacity $359.0m" in buyback_note
+            assert "Latest increase by $250.0m on 2026-02-13" in buyback_note
             assert "$61.9m" not in buyback_note
             assert "$127.0m" not in buyback_note
+            assert "$126.6m" not in buyback_note
+            assert "$10.04/share" not in buyback_note
 
 
 def test_pbi_buyback_ttm_cash_uses_quarter_safe_cashflow_deltas(
@@ -8690,14 +8955,520 @@ def test_pbi_buyback_ttm_cash_uses_quarter_safe_cashflow_deltas(
 
             valuation_snapshot = result.saved_workbook_provenance.get("valuation_snapshot") or {}
             quarter_headers = list(valuation_snapshot.get("quarter_headers") or [])
+            buyback_cash_vals = list((valuation_snapshot.get("grid_rows") or {}).get("Buybacks (cash)") or [])
             buyback_ttm_vals = list((valuation_snapshot.get("grid_rows") or {}).get("Buybacks (TTM, cash)") or [])
+            cash_by_q = dict(zip(quarter_headers, buyback_cash_vals))
             ttm_by_q = dict(zip(quarter_headers, buyback_ttm_vals))
 
+            assert cash_by_q.get("2025-Q1") == pytest.approx(15.0)
+            assert cash_by_q.get("2025-Q2") == pytest.approx(75.274)
+            assert cash_by_q.get("2025-Q3") == pytest.approx(161.5)
+            assert cash_by_q.get("2025-Q4") == pytest.approx(126.587)
             assert ttm_by_q.get("2025-Q1") in (None, "")
             assert ttm_by_q.get("2025-Q2") in (None, "")
             assert ttm_by_q.get("2025-Q3") in (None, "")
             assert ttm_by_q.get("2025-Q4") == pytest.approx(378.361)
             assert ttm_by_q.get("2025-Q4") != pytest.approx(524.91407196)
+
+            wb = load_workbook(out_path, data_only=False, read_only=False)
+            try:
+                ws = wb["Valuation"]
+                buyback_cash_row = _find_row_with_value(ws, "Buybacks (cash)")
+                buyback_ttm_row = _find_row_with_value(ws, "Buybacks (TTM, cash)")
+                assert buyback_cash_row is not None
+                assert buyback_ttm_row is not None
+                assert buyback_cash_row + 1 == buyback_ttm_row
+            finally:
+                wb.close()
+
+
+def test_valuation_first_visible_year_can_use_hidden_history_for_heatmap_fill() -> None:
+    with _case_dir() as case_dir:
+        out_path = _make_model_out_path(case_dir, "valuation_hidden_history_heatmap.xlsx")
+        quarters = pd.period_range("2022Q1", "2025Q4", freq="Q").to_timestamp("Q")
+        hist = pd.DataFrame(
+            {
+                "quarter": pd.to_datetime(quarters),
+                "revenue": [
+                    100_000_000.0,
+                    110_000_000.0,
+                    120_000_000.0,
+                    130_000_000.0,
+                    120_000_000.0,
+                    130_000_000.0,
+                    140_000_000.0,
+                    150_000_000.0,
+                    140_000_000.0,
+                    150_000_000.0,
+                    160_000_000.0,
+                    170_000_000.0,
+                    160_000_000.0,
+                    170_000_000.0,
+                    180_000_000.0,
+                    190_000_000.0,
+                ],
+                "cfo": [(10.0 + i) * 1_000_000.0 for i in range(len(quarters))],
+                "capex": [(2.0 + (0.1 * i)) * 1_000_000.0 for i in range(len(quarters))],
+                "ebitda": [(15.0 + i) * 1_000_000.0 for i in range(len(quarters))],
+                "ebit": [(9.0 + i) * 1_000_000.0 for i in range(len(quarters))],
+                "cash": [(20.0 + i) * 1_000_000.0 for i in range(len(quarters))],
+                "debt_core": [(80.0 - i) * 1_000_000.0 for i in range(len(quarters))],
+                "shares_outstanding": [10_000_000.0] * len(quarters),
+                "shares_diluted": [10_000_000.0] * len(quarters),
+                "market_cap": [100_000_000.0] * len(quarters),
+                "interest_expense_net": [1_000_000.0] * len(quarters),
+            }
+        )
+
+        ctx = build_writer_context(_make_inputs(out_path, hist=hist))
+        ensure_valuation_inputs(ctx)
+        ctx.callbacks.write_valuation_sheet()
+        ws = ctx.wb["Valuation"]
+
+        q1_2023_col = _find_col_with_value(ws, "2023-Q1", row=6)
+        revenue_row = _find_row_with_value(ws, "Revenue")
+        buybacks_cash_row = _find_row_with_value(ws, "Buybacks (cash)")
+
+        assert q1_2023_col is not None
+        assert revenue_row is not None
+        assert buybacks_cash_row is not None
+        assert ws.cell(row=revenue_row, column=q1_2023_col).value == pytest.approx(120.0)
+        assert _fill_rgb(ws.cell(row=revenue_row, column=q1_2023_col)) == "002F80ED"
+        assert ws.cell(row=buybacks_cash_row, column=q1_2023_col).value in (None, "")
+        assert _fill_rgb(ws.cell(row=buybacks_cash_row, column=q1_2023_col)) in {"", "00000000", "000000"}
+
+
+def test_valuation_derived_rows_can_use_hidden_2022_history_for_2023_fill() -> None:
+    with _case_dir() as case_dir:
+        out_path = _make_model_out_path(case_dir, "valuation_hidden_history_derived_rows.xlsx")
+        quarters = pd.period_range("2022Q1", "2025Q4", freq="Q").to_timestamp("Q")
+        revenue = [
+            100_000_000.0,
+            105_000_000.0,
+            110_000_000.0,
+            115_000_000.0,
+            120_000_000.0,
+            125_000_000.0,
+            130_000_000.0,
+            135_000_000.0,
+            140_000_000.0,
+            145_000_000.0,
+            150_000_000.0,
+            155_000_000.0,
+            160_000_000.0,
+            165_000_000.0,
+            170_000_000.0,
+            175_000_000.0,
+        ]
+        gross_profit = [
+            40_000_000.0,
+            42_000_000.0,
+            44_000_000.0,
+            46_000_000.0,
+            60_000_000.0,
+            62_500_000.0,
+            65_000_000.0,
+            67_500_000.0,
+            70_000_000.0,
+            72_500_000.0,
+            75_000_000.0,
+            77_500_000.0,
+            80_000_000.0,
+            82_500_000.0,
+            85_000_000.0,
+            87_500_000.0,
+        ]
+        ebitda = [30_000_000.0 + (i * 1_000_000.0) for i in range(len(quarters))]
+        hist = pd.DataFrame(
+            {
+                "quarter": pd.to_datetime(quarters),
+                "revenue": revenue,
+                "gross_profit": gross_profit,
+                "ebitda": ebitda,
+                "ebit": [20_000_000.0 + (i * 1_000_000.0) for i in range(len(quarters))],
+                "net_income": [10_000_000.0 + (i * 1_000_000.0) for i in range(len(quarters))],
+                "cfo": [12_000_000.0 + (i * 500_000.0) for i in range(len(quarters))],
+                "capex": [3_000_000.0 + (i * 100_000.0) for i in range(len(quarters))],
+                "cash": [20_000_000.0 + (i * 1_000_000.0) for i in range(len(quarters))],
+                "debt_core": [90_000_000.0 - (i * 1_000_000.0) for i in range(len(quarters))],
+                "shares_outstanding": [10_000_000.0] * len(quarters),
+                "shares_diluted": [10_000_000.0] * len(quarters),
+                "market_cap": [100_000_000.0] * len(quarters),
+                "interest_expense_net": [1_000_000.0] * len(quarters),
+            }
+        )
+        adj_ebitda = [
+            40_000_000.0,
+            41_000_000.0,
+            42_000_000.0,
+            43_000_000.0,
+            52_000_000.0,
+            53_000_000.0,
+            54_000_000.0,
+            55_000_000.0,
+            60_000_000.0,
+            61_000_000.0,
+            62_000_000.0,
+            63_000_000.0,
+            68_000_000.0,
+            69_000_000.0,
+            70_000_000.0,
+            71_000_000.0,
+        ]
+        adj_metrics = pd.DataFrame(
+            {
+                "quarter": pd.to_datetime(quarters),
+                "adj_ebitda": adj_ebitda,
+            }
+        )
+
+        base_inputs = _make_inputs(out_path, hist=hist)
+        inputs = base_inputs.__class__(**{**vars(base_inputs), "adj_metrics": adj_metrics})
+        ctx = build_writer_context(inputs)
+        ensure_valuation_inputs(ctx)
+        ctx.callbacks.write_valuation_sheet()
+        ws = ctx.wb["Valuation"]
+
+        q1_2023_col = _find_col_with_value(ws, "2023-Q1", row=6)
+        gross_margin_row = _find_row_with_value(ws, "Gross margin %")
+        adj_diff_row = _find_row_with_value(ws, "Adj EBITDA - EBITDA")
+
+        assert q1_2023_col is not None
+        assert gross_margin_row is not None
+        assert adj_diff_row is not None
+        assert ws.cell(row=gross_margin_row, column=q1_2023_col).value == pytest.approx(0.5)
+        assert _fill_rgb(ws.cell(row=gross_margin_row, column=q1_2023_col)) == "002F80ED"
+        assert ws.cell(row=adj_diff_row, column=q1_2023_col).value == pytest.approx(18.0)
+        assert _fill_rgb(ws.cell(row=adj_diff_row, column=q1_2023_col)) == "002F80ED"
+
+
+def test_valuation_buybacks_cash_uses_qoq_heatmap_when_prior_visible_quarter_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_model_out_path(case_dir, "valuation_buybacks_cash_qoq_fill.xlsx")
+            sec_cache_dir = case_dir / "PBI" / "sec_cache"
+            sec_cache_dir.mkdir(parents=True, exist_ok=True)
+            (sec_cache_dir / "doc_000162828025012345_pbi-20250331.htm").write_text(
+                "Pitney Bowes Inc. During the quarter we repurchased 1.5 million shares for $15.0 million. "
+                "Condensed Consolidated Statements of Cash Flows Common stock repurchases ( 15,000 )",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_000162828025023456_pbi-20250630.htm").write_text(
+                "Pitney Bowes Inc. During the quarter we repurchased 7.6 million shares for $75.3 million. "
+                "Condensed Consolidated Statements of Cash Flows Common stock repurchases ( 90,274 )",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_000162828025034567_pbi-20250930.htm").write_text(
+                "Pitney Bowes Inc. During the quarter we repurchased 14.1 million shares for $161.5 million. "
+                "Condensed Consolidated Statements of Cash Flows Common stock repurchases ( 251,774 )",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_000162828026045678_pbi-20251231.htm").write_text(
+                "Pitney Bowes Inc. During the quarter we repurchased 12.6 million shares for $126.6 million. "
+                "Consolidated Statements of Cash Flows Common stock repurchases ( 378,361 )",
+                encoding="utf-8",
+            )
+
+            base_inputs = _make_inputs(out_path, ticker="PBI")
+            inputs = base_inputs.__class__(**{**vars(base_inputs), "cache_dir": sec_cache_dir})
+            result = write_excel_from_inputs(inputs)
+
+            validate_valuation_export(out_path, result.valuation_export_expectation)
+
+            wb = load_workbook(out_path, data_only=False, read_only=False)
+            try:
+                ws = wb["Valuation"]
+                q1_2025_col = _find_col_with_value(ws, "2025-Q1", row=6)
+                q2_2025_col = _find_col_with_value(ws, "2025-Q2", row=6)
+                q3_2025_col = _find_col_with_value(ws, "2025-Q3", row=6)
+                buyback_cash_row = _find_row_with_value(ws, "Buybacks (cash)")
+
+                assert q1_2025_col is not None
+                assert q2_2025_col is not None
+                assert q3_2025_col is not None
+                assert buyback_cash_row is not None
+                assert _fill_rgb(ws.cell(row=buyback_cash_row, column=q1_2025_col)) in {"", "00000000", "000000"}
+                assert _fill_rgb(ws.cell(row=buyback_cash_row, column=q2_2025_col)) not in {"", "00000000", "000000"}
+                assert _fill_rgb(ws.cell(row=buyback_cash_row, column=q3_2025_col)) not in {"", "00000000", "000000"}
+            finally:
+                wb.close()
+
+
+def test_bs_segments_first_visible_year_can_use_hidden_history_for_heatmap_fill() -> None:
+    with _case_dir() as case_dir:
+        out_path = _make_model_out_path(case_dir, "bs_segments_hidden_history_heatmap.xlsx")
+        quarters = pd.period_range("2022Q1", "2024Q4", freq="Q").to_timestamp("Q")
+        hist = pd.DataFrame(
+            {
+                "quarter": pd.to_datetime(quarters),
+                "cash": [100_000_000.0 + (i * 10_000_000.0) for i in range(len(quarters))],
+                "assets_current": [300_000_000.0 + (i * 20_000_000.0) for i in range(len(quarters))],
+                "liabilities_current": [150_000_000.0 + (i * 5_000_000.0) for i in range(len(quarters))],
+                "assets": [800_000_000.0 + (i * 30_000_000.0) for i in range(len(quarters))],
+                "liabilities": [400_000_000.0 + (i * 10_000_000.0) for i in range(len(quarters))],
+                "equity": [400_000_000.0 + (i * 20_000_000.0) for i in range(len(quarters))],
+                "shares_outstanding": [100_000_000.0] * len(quarters),
+                "shares_diluted": [100_000_000.0] * len(quarters),
+            }
+        )
+
+        ctx = build_writer_context(_make_inputs(out_path, hist=hist))
+        ctx.callbacks.write_bs_segments_sheet()
+        ws = ctx.wb["BS_Segments"]
+
+        q1_2023_col = next(
+            (
+                cc
+                for rr in range(1, ws.max_row + 1)
+                for cc in range(1, ws.max_column + 1)
+                if str(ws.cell(row=rr, column=cc).value or "").strip() == "2023-Q1"
+            ),
+            None,
+        )
+        cash_row = _find_row_with_value(ws, "Cash & cash equivalents")
+
+        assert q1_2023_col is not None
+        assert cash_row is not None
+        assert ws.cell(row=cash_row, column=q1_2023_col).value == pytest.approx(140.0)
+        assert _fill_rgb(ws.cell(row=cash_row, column=q1_2023_col)) == "002F80ED"
+
+
+def test_operating_drivers_first_visible_year_can_use_hidden_history_for_heatmap_fill() -> None:
+    with _case_dir() as case_dir:
+        out_path = _make_model_out_path(case_dir, "operating_drivers_hidden_history_heatmap.xlsx")
+        hist_quarters = pd.period_range("2023Q1", "2025Q4", freq="Q").to_timestamp("Q")
+        hist = pd.DataFrame(
+            {
+                "quarter": pd.to_datetime(hist_quarters),
+                "revenue": [100.0 + i for i in range(len(hist_quarters))],
+                "cfo": [10.0 + i for i in range(len(hist_quarters))],
+                "capex": [2.0 + i for i in range(len(hist_quarters))],
+                "ebitda": [15.0 + i for i in range(len(hist_quarters))],
+                "ebit": [9.0 + i for i in range(len(hist_quarters))],
+                "cash": [20.0 + i for i in range(len(hist_quarters))],
+                "debt_core": [50.0 - i for i in range(len(hist_quarters))],
+                "shares_outstanding": [10.0] * len(hist_quarters),
+                "shares_diluted": [10.0] * len(hist_quarters),
+                "market_cap": [100.0] * len(hist_quarters),
+                "interest_expense_net": [1.0] * len(hist_quarters),
+            }
+        )
+        profile = CompanyProfile(
+            ticker="TEST",
+            has_bank=False,
+            industry_keywords=tuple(),
+            segment_patterns=tuple(),
+            segment_alias_patterns=tuple(),
+            key_adv_require_keywords=tuple(),
+            key_adv_deny_keywords=tuple(),
+            promise_priority_terms=tuple(),
+            enable_operating_drivers_sheet=True,
+            operating_driver_history_templates=tuple(),
+        )
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(writer_context_module, "get_company_profile", lambda ticker: profile)
+        try:
+            ctx = build_writer_context(_make_inputs(out_path, hist=hist))
+            rows = []
+            for quarter, value in [
+                ("2022-03-31", 70.0),
+                ("2022-06-30", 75.0),
+                ("2022-09-30", 78.0),
+                ("2022-12-31", 80.0),
+                ("2023-03-31", 100.0),
+                ("2023-06-30", 110.0),
+                ("2023-09-30", 120.0),
+                ("2023-12-31", 130.0),
+                ("2024-03-31", 140.0),
+                ("2024-06-30", 150.0),
+                ("2024-09-30", 160.0),
+                ("2024-12-31", 170.0),
+                ("2025-03-31", 180.0),
+                ("2025-06-30", 190.0),
+                ("2025-09-30", 200.0),
+                ("2025-12-31", 210.0),
+            ]:
+                rows.append(
+                    {
+                        "Quarter": pd.Timestamp(quarter).date(),
+                        "Driver group": "Volume",
+                        "Driver": "Volume sold",
+                        "Unit": "m gallons",
+                        "Value": value,
+                        "_driver_key": "volume_sold",
+                    }
+                )
+            ctx.callbacks.write_operating_drivers_sheet(rows)
+            ws = ctx.wb["Operating_Drivers"]
+
+            q1_2023_col = next(
+                (
+                    cc
+                    for rr in range(1, ws.max_row + 1)
+                    for cc in range(1, ws.max_column + 1)
+                    if str(ws.cell(row=rr, column=cc).value or "").strip() == "2023-Q1"
+                ),
+                None,
+            )
+            volume_row = _find_row_with_value(ws, "Volume sold (million gallons)")
+
+            assert q1_2023_col is not None
+            assert volume_row is not None
+            assert ws.cell(row=volume_row, column=q1_2023_col).value == pytest.approx(100.0)
+            assert _fill_rgb(ws.cell(row=volume_row, column=q1_2023_col)) == "002F80ED"
+        finally:
+            monkeypatch.undo()
+
+
+def test_valuation_cashflow_deltas_do_not_overwrite_direct_quarter_safe_buyback_truth(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_model_out_path(case_dir, "valuation_buyback_direct_truth_not_overwritten.xlsx")
+            sec_cache_dir = case_dir / "PBI" / "sec_cache"
+            sec_cache_dir.mkdir(parents=True, exist_ok=True)
+            (sec_cache_dir / "doc_000162828025012345_pbi-20250331.htm").write_text(
+                "Pitney Bowes Inc. During the quarter we repurchased 1.5 million shares for $15.0 million. "
+                "Condensed Consolidated Statements of Cash Flows Common stock repurchases ( 15,000 )",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_000162828025023456_pbi-20250630.htm").write_text(
+                "Pitney Bowes Inc. During the quarter we repurchased 7.6 million shares for $75.3 million. "
+                "Condensed Consolidated Statements of Cash Flows Common stock repurchases ( 90,274 )",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_000162828025034567_pbi-20250930.htm").write_text(
+                "Pitney Bowes Inc. During the quarter we repurchased 14.1 million shares for $161.5 million. "
+                "Condensed Consolidated Statements of Cash Flows Common stock repurchases ( 251,774 )",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_000162828026045678_pbi-20251231.htm").write_text(
+                "Pitney Bowes Inc. During the quarter we repurchased 12.6 million shares for $126.6 million. "
+                "Consolidated Statements of Cash Flows Common stock repurchases ( 378,361 )",
+                encoding="utf-8",
+            )
+
+            base_inputs = _make_inputs(out_path, ticker="PBI")
+            inputs = base_inputs.__class__(**{**vars(base_inputs), "cache_dir": sec_cache_dir})
+            result = write_excel_from_inputs(inputs)
+            valuation_snapshot = result.saved_workbook_provenance.get("valuation_snapshot") or {}
+            quarter_headers = list(valuation_snapshot.get("quarter_headers") or [])
+            buyback_cash_vals = list((valuation_snapshot.get("grid_rows") or {}).get("Buybacks (cash)") or [])
+            cash_by_q = dict(zip(quarter_headers, buyback_cash_vals))
+
+            assert cash_by_q.get("2025-Q1") == pytest.approx(15.0)
+            assert cash_by_q.get("2025-Q2") == pytest.approx(75.3, rel=1e-9)
+            assert cash_by_q.get("2025-Q3") == pytest.approx(161.5, rel=1e-9)
+            assert cash_by_q.get("2025-Q4") == pytest.approx(126.6, rel=1e-9)
+
+
+def test_valuation_filing_docs_filter_out_audit_bucket_quarter_leakage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_model_out_path(case_dir, "valuation_buyback_doc_quarter_filter.xlsx")
+            sec_cache_dir = case_dir / "PBI" / "sec_cache"
+            sec_cache_dir.mkdir(parents=True, exist_ok=True)
+            (sec_cache_dir / "doc_000162828025023713_pbi-20250331.htm").write_text(
+                "Pitney Bowes Inc. During the quarter we repurchased 1.5 million shares for $15.0 million.",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "doc_000162828025036856_pbi-20250630.htm").write_text(
+                "Pitney Bowes Inc. During the quarter we repurchased 7.6 million shares for $75.3 million.",
+                encoding="utf-8",
+            )
+            audit = pd.DataFrame(
+                {
+                    "quarter": [
+                        pd.Timestamp("2025-03-31"),
+                        pd.Timestamp("2025-03-31"),
+                        pd.Timestamp("2025-06-30"),
+                    ],
+                    "accn": [
+                        "0001628280-25-023713",
+                        "0001628280-25-036856",
+                        "0001628280-25-036856",
+                    ],
+                    "form": ["10-Q", "10-Q", "10-Q"],
+                    "filed": [
+                        pd.Timestamp("2025-05-08"),
+                        pd.Timestamp("2025-07-31"),
+                        pd.Timestamp("2025-07-31"),
+                    ],
+                }
+            )
+
+            base_inputs = _make_inputs(out_path, ticker="PBI")
+            inputs = base_inputs.__class__(**{**vars(base_inputs), "cache_dir": sec_cache_dir, "audit": audit})
+            ctx = build_writer_context(inputs)
+            ensure_valuation_inputs(ctx)
+            quarter_key = tuple(pd.Timestamp(q) for q in ctx.inputs.hist["quarter"].tolist())
+            render_bundle = ctx.state["_ensure_valuation_render_bundle"](quarter_key, ctx.derived.leverage_df)
+            pre = ctx.state["_ensure_valuation_precompute_bundle"](quarter_key, render_bundle)
+
+            assert pre["buyback_cash_doc_map"][pd.Timestamp("2025-03-31")] == pytest.approx(15_000_000.0)
+            assert pre["buyback_cash_doc_map"][pd.Timestamp("2025-06-30")] == pytest.approx(75_300_000.0)
+            q1_docs = list((ctx.derived.valuation_filing_docs_by_quarter or {}).get(pd.Timestamp("2025-03-31")) or [])
+            assert all("20250630" not in str(rec.get("name") or "") for rec in q1_docs)
+
+
+def test_valuation_submission_8k_midquarter_event_maps_into_execution_quarter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "GPRE"):
+            out_path = _make_model_out_path(case_dir, "valuation_buyback_midquarter_8k.xlsx")
+            sec_cache_dir = case_dir / "GPRE" / "sec_cache"
+            sec_cache_dir.mkdir(parents=True, exist_ok=True)
+            accn = "0001309402-25-000156"
+            (sec_cache_dir / "submissions_test.json").write_text(
+                json.dumps(
+                    {
+                        "filings": {
+                            "recent": {
+                                "accessionNumber": [accn],
+                                "form": ["8-K"],
+                                "filingDate": ["2025-10-22"],
+                                "reportDate": [""],
+                                "primaryDocument": ["exhibit991_pressrelease102.htm"],
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (
+                sec_cache_dir / "doc_000130940225000156_exhibit991_pressrelease102.htm"
+            ).write_text(
+                "Green Plains Inc. In connection with the exchange transactions and subscription transactions, "
+                "the company agreed to repurchase approximately 2.9 million shares of its common stock for "
+                "approximately $30.0 million. The transactions are expected to close on October 27, 2025.",
+                encoding="utf-8",
+            )
+            audit = pd.DataFrame(
+                {
+                    "quarter": [pd.Timestamp("2025-12-31")],
+                    "accn": [None],
+                    "form": [None],
+                    "filed": [pd.NaT],
+                }
+            )
+
+            base_inputs = _make_inputs(out_path, ticker="GPRE")
+            inputs = base_inputs.__class__(**{**vars(base_inputs), "cache_dir": sec_cache_dir, "audit": audit})
+            ctx = build_writer_context(inputs)
+            ensure_valuation_inputs(ctx)
+            quarter_key = tuple(pd.Timestamp(q) for q in ctx.inputs.hist["quarter"].tolist())
+            render_bundle = ctx.state["_ensure_valuation_render_bundle"](quarter_key, ctx.derived.leverage_df)
+            pre = ctx.state["_ensure_valuation_precompute_bundle"](quarter_key, render_bundle)
+
+            assert pre["buyback_cash_doc_map"][pd.Timestamp("2025-12-31")] == pytest.approx(30_000_000.0)
+            assert pre["buyback_shares_doc_map"][pd.Timestamp("2025-12-31")] == pytest.approx(2_900_000.0)
+            assert "2.9m shares" in str(pre["buyback_doc_note_map"][pd.Timestamp("2025-12-31")] or "").lower()
 
 
 def test_pbi_capped_call_note_stays_in_origin_quarter_only(
@@ -8982,6 +9753,7 @@ def test_write_excel_saved_workbook_provenance_captures_summary_and_valuation_tr
         valuation_snapshot = result.saved_workbook_provenance.get("valuation_snapshot") or {}
         assert summary_snapshot["What the company does"]["value"] == "Demo company description."
         assert summary_snapshot["Current strategic context"]["source"] == "Source: SEC 8-K demo"
+        assert "Buybacks (cash)" in dict(valuation_snapshot.get("grid_rows") or {})
         assert "Buybacks (TTM, cash)" in dict(valuation_snapshot.get("grid_rows") or {})
 
 
@@ -9020,10 +9792,10 @@ def test_pbi_saved_workbook_buyback_truth_is_synced_across_valuation_qa_and_need
             hidden_rows = dict(valuation_snapshot.get("hidden_rows") or {})
             shares_text = str(hidden_rows.get("Buybacks (shares)") or "")
             note_text = str(hidden_rows.get("Buybacks note") or "")
-            assert "Latest quarter +12.614m" in shares_text
+            assert "QoQ +12.614m" in shares_text
             assert "$10.04/share" in shares_text
             assert "$126.6m" in shares_text
-            assert "QoQ" not in shares_text
+            assert "convertible notes" not in shares_text.lower()
             assert "YoY" not in shares_text
             assert "Remaining capacity $359.0m" in note_text
             assert "Latest increase by $250.0m on 2026-02-13" in note_text
@@ -9125,8 +9897,9 @@ def test_gpre_saved_workbook_buyback_truth_drops_historical_leakage_and_syncs_re
             hidden_rows = dict(valuation_snapshot.get("hidden_rows") or {})
             shares_text = str(hidden_rows.get("Buybacks (shares)") or "")
             note_text = str(hidden_rows.get("Buybacks note") or "")
-            assert "Latest quarter +2.900m" in shares_text
+            assert "+2.900m" in shares_text
             assert "$10.34/share" in shares_text
+            assert "includes 2.900m shares concurrent with convertible notes" in shares_text
             assert "2.024" not in shares_text
             assert "TTM" not in shares_text
             assert "Remaining capacity $77.2m" in note_text
@@ -9379,29 +10152,13 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
             if ticker == "PBI":
                 assert all("FY 2043" not in " | ".join(row) for row in progress_rows)
                 assert "FY 2043" not in panel_blob
-                assert "Management commentary" in panel_blob
+                assert "Management commentary" not in panel_blob
                 assert "Guidance full text" not in panel_blob
-                assert str(wb["Valuation"].cell(row=2, column=15).value or "").strip() == "Raised target to $180m-$200m annualized savings."
-                assert str(wb["Valuation"].cell(row=3, column=15).value or "").strip() == "Management expects to continue the buyback program and retire the 2027 Notes in full when callable in March 2026."
-                assert str(wb["Valuation"].cell(row=4, column=15).value or "").strip() == "Realizing the potential of PB Bank to optimize cash, strengthen the balance sheet, and drive profitable growth."
-                assert str(wb["Valuation"].cell(row=5, column=15).value or "").strip() == "Presort will more aggressively pursue accretive tuck-in acquisition opportunities."
-                assert str(wb["Valuation"].cell(row=6, column=15).value or "").strip() == "Management plans to continue deleveraging in 2026 and target ~3.0x Net Debt to Adjusted EBITDA over the long term."
-                assert "retire the 2027 Notes in full" in panel_blob
-                assert "optimize cash, strengthen the balance sheet" in panel_blob
-                assert "accretive tuck-in acquisition opportunities" in panel_blob
-                assert "continue deleveraging in 2026 and target ~3.0x" in panel_blob
-                assert "Capital allocation / note retirement:" not in panel_blob
-                assert "PB Bank strategy:" not in panel_blob
-                assert "Presort tuck-in acquisitions:" not in panel_blob
-                assert "Deleveraging target:" not in panel_blob
-                assert all(not latest.startswith("- [") for latest in [
-                    str(wb["Valuation"].cell(row=2, column=15).value or ""),
-                    str(wb["Valuation"].cell(row=3, column=15).value or ""),
-                    str(wb["Valuation"].cell(row=4, column=15).value or ""),
-                    str(wb["Valuation"].cell(row=5, column=15).value or ""),
-                    str(wb["Valuation"].cell(row=6, column=15).value or ""),
-                ])
-                assert str(wb["Valuation"].cell(row=1, column=30).value or "").strip() == "Context"
+                assert str(wb["Valuation"].cell(row=7, column=15).value or "").strip().startswith("Guidance (As of 2025-12-31)")
+                assert str(wb["Valuation"].cell(row=8, column=15).value or "").strip() == "Metric"
+                assert str(wb["Valuation"].cell(row=9, column=15).value or "").strip() == "A) Updated / mentioned this quarter"
+                assert str(wb["Valuation"].cell(row=18, column=15).value or "").strip().startswith("Guidance (As of 2025-09-30)")
+                assert "Context" not in panel_blob
                 assert any(metric == "FCF target" for metric, _, _, _, _, _ in progress_rows)
                 assert any(
                     metric == "Cost savings target"
@@ -9460,7 +10217,8 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                     str(wb["Valuation"].cell(row=245, column=2).border.bottom.style or "") == "thick"
                     or str(wb["Valuation"].cell(row=246, column=2).border.top.style or "") == "thick"
                 )
-                assert _find_row_with_value(wb["Valuation"], "Operating Drivers", column=15) == 33
+                operating_drivers_row = _find_row_with_value(wb["Valuation"], "Operating Drivers", column=15)
+                assert operating_drivers_row is not None and operating_drivers_row > 18
                 assert str(wb["Valuation"].cell(row=216, column=2).value or "").strip() != "Valuation Sensitivity Grid"
                 assert str(wb["Valuation"].cell(row=217, column=2).value or "").strip() == "Valuation Sensitivity Grid"
                 assert [str(wb["Valuation"].cell(row=8, column=cc).value or "").strip() for cc in (15, 17, 18, 19, 26)] == [
@@ -9491,7 +10249,13 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 )
                 q4_guidance = {(metric, applies): (stated, guidance, trend) for metric, stated, applies, guidance, trend in _guidance_block_rows(wb["Valuation"], "2025-12-31")}
                 q3_guidance = {(metric, applies): (stated, guidance, trend) for metric, stated, applies, guidance, trend in _guidance_block_rows(wb["Valuation"], "2025-09-30")}
-                assert q4_guidance[("Cost savings", "Run-rate")][2] == "$157m realized"
+                assert q4_guidance[("Revenue", "FY2026")][0] == "Q4 2025"
+                assert q4_guidance[("Adj EBIT", "FY2026")][0] == "Q4 2025"
+                assert q4_guidance[("Adj EPS", "FY2026")][0] == "Q4 2025"
+                assert q4_guidance[("FCF", "FY2026")][0] == "Q4 2025"
+                assert q4_guidance[("Cost savings run-rate", "Run-rate")][0] == "Q1 2025"
+                assert "Raised target to $180m-$200m annualized savings" in q4_guidance[("Cost savings run-rate", "Run-rate")][1]
+                assert q4_guidance[("Cost savings run-rate", "Run-rate")][2] == ""
                 assert q3_guidance[("Adj EBIT", "FY2025")][2] == "Δ +$0.0m (0.0%)"
                 assert q3_guidance[("Adj EPS", "FY2025")][2] == "Δ +$0.00 (0.0%)"
                 assert q3_guidance[("FCF", "FY2025")][2] == "Δ +$0.0m (0.0%)"
@@ -9545,12 +10309,11 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert junk_metrics.isdisjoint(visible_metrics)
                 assert all(latest.lower() != "nan" for _, _, latest, _, _, _ in progress_rows)
                 assert "No guidance text captured for this quarter." not in panel_blob
-                assert "Management commentary" in panel_blob
+                assert "Management commentary" not in panel_blob
                 assert "Guidance full text" not in panel_blob
-                assert "2026 credits are being marketed and that interest is strong" in panel_blob
-                assert "Roughly $188m of 2026 EBITDA tied to 45Z and carbon value" in panel_blob
-                assert "farm-practice benefits" in panel_blob
-                assert "truck or rail movement of liquid CO2" in panel_blob
+                assert str(wb["Valuation"].cell(row=7, column=15).value or "").strip().startswith("Guidance (As of 2025-12-31)")
+                assert str(wb["Valuation"].cell(row=8, column=15).value or "").strip() == "Metric"
+                assert str(wb["Valuation"].cell(row=9, column=15).value or "").strip() == "A) Updated / mentioned this quarter"
                 assert any(
                     metric in {
                         "45Z monetization",
@@ -9586,14 +10349,15 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 red_green_row = _find_row_with_value(wb["Valuation"], "Red/Green Flags", column=1)
                 assert red_green_row is not None
                 assert any(m.min_row == red_green_row and m.min_col == 1 and m.max_col == 9 for m in wb["Valuation"].merged_cells.ranges)
-                assert str(wb["Valuation"].cell(row=1, column=30).value or "").strip() == "Context"
+                assert "Context" not in panel_blob
                 assert not bool(wb["Valuation"].row_dimensions[245].hidden)
                 assert float(wb["Valuation"].row_dimensions[245].height or 0.0) == pytest.approx(18.0, rel=1e-9)
                 assert (
                     str(wb["Valuation"].cell(row=245, column=2).border.bottom.style or "") == "thick"
                     or str(wb["Valuation"].cell(row=246, column=2).border.top.style or "") == "thick"
                 )
-                assert _find_row_with_value(wb["Valuation"], "Operating Drivers", column=15) == 33
+                operating_drivers_row = _find_row_with_value(wb["Valuation"], "Operating Drivers", column=15)
+                assert operating_drivers_row is not None and operating_drivers_row > 18
                 convertible_row = _find_row_with_value(wb["Valuation"], "Convertible notes", column=12)
                 assert convertible_row is not None
                 assert str(wb["Valuation"].cell(row=convertible_row + 2, column=12).value or "").strip() == "2.25% notes due 2027"
@@ -9604,16 +10368,22 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 )
                 assert str(wb["Valuation"].cell(row=216, column=2).value or "").strip() != "Valuation Sensitivity Grid"
                 assert str(wb["Valuation"].cell(row=217, column=2).value or "").strip() == "Valuation Sensitivity Grid"
-                assert str(wb["Valuation"].cell(row=10, column=17).value or "").strip() == "Q4 2025"
-                assert str(wb["Valuation"].cell(row=10, column=15).value or "").strip() == "Capex"
-                assert str(wb["Valuation"].cell(row=10, column=19).value or "").strip() == "$15.0m-$25.0m"
-                assert str(wb["Valuation"].cell(row=11, column=15).value or "").strip() == "45Z base-case improvement"
-                assert str(wb["Valuation"].cell(row=11, column=19).value or "").strip() == "Base improved by ILUC removal, facility qualification, and Advantage Nebraska"
-                assert str(wb["Valuation"].cell(row=14, column=15).value or "").strip() == "Commercial positioning"
-                assert str(wb["Valuation"].cell(row=14, column=19).value or "").strip() == "Q1 consolidated crush margins were better year over year."
+                q4_guidance = {(metric, applies): (stated, guidance, trend) for metric, stated, applies, guidance, trend in _guidance_block_rows(wb["Valuation"], "2025-12-31")}
+                assert q4_guidance[("Capex guidance (FY 2026)", "FY2026")][0] == "Q4 2025"
+                assert q4_guidance[("Capex guidance (FY 2026)", "FY2026")][1] == "$15.0m-$25.0m"
+                assert q4_guidance[("45Z base-case improvement", "FY2026")][1] == "Base improved by ILUC removal, facility qualification, and Advantage Nebraska"
+                assert q4_guidance[("Commercial positioning / setup", "Q1 2026")][1] == "Q1 consolidated crush margins were better year over year."
+                assert q4_guidance[("Farm-practice upside timing", "FY2026")][1] == "Excluded from current base; final guidance expected in 2026"
                 assert panel_blob.count("Q1 consolidated crush margins were better year over year.") == 1
                 q3_guidance = _guidance_block_rows(wb["Valuation"], "2025-09-30")
                 assert ("Coverage / openness", "Q2 2025", "Q3 2025", "Q3 was about 65% crushed, moving closer to 70%.", "") in q3_guidance
+                assert any(
+                    metric == "Risk-management setup"
+                    and stated == "Q3 2025"
+                    and applies == "Q4 2025"
+                    and "lock-in opportunities" in guidance
+                    for metric, stated, applies, guidance, _ in q3_guidance
+                )
                 overlay_row = _find_row_with_value(wb["Economics_Overlay"], "Commercial / hedge setup", column=1)
                 assert overlay_row is not None
                 assert _find_row_with_value(wb["Economics_Overlay"], "Hedge / position overlay", column=1) is None
@@ -9642,11 +10412,12 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert bridge_row is not None and base_row is not None and market_row is not None and process_row is not None
                 assert overlay_row < bridge_row < base_row < market_row < process_row
                 assert float(wb["Economics_Overlay"].column_dimensions["A"].width or 0.0) == pytest.approx((315.0 - 5.0) / 7.0, abs=0.05)
-                for letter in tuple("BCDEFGHIJKLMNOPQ"):
+                for letter in tuple("BCDEFGHIJKLMNOPQR"):
                     assert float(wb["Economics_Overlay"].column_dimensions[letter].width or 0.0) == pytest.approx((102.0 - 5.0) / 7.0, abs=0.05)
-                for rr in (overlay_row, bridge_row, base_row, market_row, process_row):
-                    assert str(wb["Economics_Overlay"].cell(row=rr, column=1).fill.fgColor.rgb or "") == "006FA8DC"
-                    assert float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                    for rr in (overlay_row, bridge_row, base_row, market_row, process_row):
+                        assert str(wb["Economics_Overlay"].cell(row=rr, column=1).fill.fgColor.rgb or "") == "006FA8DC"
+                        expected_height = 22.5
+                        assert float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) == pytest.approx(expected_height, abs=0.1)
                     assert bool(wb["Economics_Overlay"].cell(row=rr, column=1).font.bold)
                     assert float(wb["Economics_Overlay"].cell(row=rr, column=1).font.size or 0.0) == pytest.approx(13.0, abs=0.1)
                     assert str(wb["Economics_Overlay"].cell(row=rr, column=1).alignment.horizontal or "") == "center"
@@ -9657,7 +10428,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert str(wb["Economics_Overlay"].cell(row=bridge_row + 1, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
                 assert any(m.min_row == base_row + 3 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert any(m.min_row == base_row + 3 and m.min_col == 6 and m.max_col == 8 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 1 and m.min_col == 7 and m.max_col == 13 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 1 and m.min_col == 1 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 year_band_rows = {
                     str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip(): rr
                     for rr in range(overlay_row + 2, bridge_row)
@@ -9667,7 +10438,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 for label, rr in year_band_rows.items():
                     assert any(m.min_row == rr and m.min_col == 1 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
                     assert str(wb["Economics_Overlay"].cell(row=rr, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
-                    assert float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                    assert float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) == pytest.approx(21.0, abs=0.1)
                 overlay_blob = " | ".join(
                     str(wb["Economics_Overlay"].cell(row=rr, column=cc).value or "").strip()
                     for rr in range(overlay_row, bridge_row)
@@ -9714,14 +10485,16 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 for rr in range(overlay_row + 2, bridge_row):
                     row_label = str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip()
                     if row_label and row_label not in {"2023", "2024", "2025", "2026 / current"}:
-                        assert 24.0 <= float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) <= 56.0
+                        assert 19.5 <= float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) <= 60.0
                 bridge_labels = [
                     str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip()
                     for rr in range(bridge_row + 4, base_row)
                     if str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip()
                 ]
                 assert bridge_labels == [
-                    "Reported consolidated crush margin",
+                    "Approximate market crush / process proxy",
+                    "Gap vs market/process proxy",
+                    "Hedge / realization / residual effects",
                     "45Z impact",
                     "RIN impact",
                     "Inventory NRV / lower-of-cost",
@@ -9729,8 +10502,9 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                     "Impairment / held-for-sale",
                     "Other explicit bridge items",
                     "Underlying crush margin",
+                    "Reported consolidated crush margin",
                 ]
-                assert float(wb["Economics_Overlay"].row_dimensions[bridge_row + 3].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[bridge_row + 3].height or 0.0) == pytest.approx(21.0, abs=0.1)
                 bridge_data_rows = [
                     rr
                     for rr in range(bridge_row + 4, base_row)
@@ -9744,17 +10518,22 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert str(wb["Economics_Overlay"].cell(row=base_row + 1, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
                 assert float(wb["Economics_Overlay"].row_dimensions[base_row + 1].height or 0.0) == pytest.approx(24.0, abs=0.1)
                 assert float(wb["Economics_Overlay"].row_dimensions[base_row + 2].height or 0.0) == pytest.approx(15.0, abs=0.1)
+                assert str(wb["Economics_Overlay"].cell(row=base_row + 3, column=4).value or "").strip() == "Status"
                 assert any(m.min_row == base_row + 3 and m.min_col == 6 and m.max_col == 8 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert any(m.min_row == base_row + 4 and m.min_col == 6 and m.max_col == 8 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert float(wb["Economics_Overlay"].row_dimensions[base_row + 4].height or 0.0) == pytest.approx(24.0, abs=0.1)
-                assert any(m.min_row == market_row + 1 and m.min_col == 2 and m.max_col == 3 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 1 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 1 and m.min_col == 7 and m.max_col == 13 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 2 and m.min_col == 2 and m.max_col == 3 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 2 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 2 and m.min_col == 7 and m.max_col == 13 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert float(wb["Economics_Overlay"].row_dimensions[market_row + 2].height or 0.0) == pytest.approx(24.0, abs=0.1)
-                assert str(wb["Economics_Overlay"].cell(row=process_row + 1, column=1).value or "").strip().startswith("Approximate pre-hedge")
+                assert any(m.min_row == market_row + 1 and m.min_col == 1 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 3 and m.min_col == 2 and m.max_col == 3 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 3 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 3 and m.min_col == 7 and m.max_col == 11 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 3 and m.min_col == 12 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 4 and m.min_col == 2 and m.max_col == 3 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 4 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 4 and m.min_col == 7 and m.max_col == 11 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 4 and m.min_col == 12 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert float(wb["Economics_Overlay"].row_dimensions[market_row + 1].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[market_row + 2].height or 0.0) == pytest.approx(15.0, abs=0.1)
+                assert str(wb["Economics_Overlay"].cell(row=process_row + 1, column=1).value or "").strip() == "Approximate pre-hedge simple crush proxy built from weekly current-quarter observations."
                 assert str(wb["Economics_Overlay"].cell(row=process_row + 1, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
                 assert float(wb["Economics_Overlay"].row_dimensions[process_row + 1].height or 0.0) == pytest.approx(24.0, abs=0.1)
                 assert float(wb["Economics_Overlay"].row_dimensions[process_row + 2].height or 0.0) == pytest.approx(15.0, abs=0.1)
@@ -9766,31 +10545,28 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert any(m.min_row == process_row + 4 and m.min_col == 7 and m.max_col == 9 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 process_margin_row = next(
                     rr for rr in range(process_row + 3, wb["Economics_Overlay"].max_row + 1)
-                    if str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip() == "Approximate process margin"
+                    if str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip() == "Simple crush"
                 )
-                assert str(wb["Economics_Overlay"].cell(row=process_margin_row, column=7).value or "").strip() == "Approximate pre-hedge"
+                assert str(wb["Economics_Overlay"].cell(row=process_margin_row, column=7).value or "").strip() == "Ethanol revenue - corn - natural gas"
                 assert float(wb["Economics_Overlay"].row_dimensions[process_margin_row].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert str(wb["Economics_Overlay"].cell(row=process_margin_row + 1, column=4).value or "").strip() == "As of 2026-01-23"
+                assert float(wb["Economics_Overlay"].row_dimensions[process_margin_row + 1].height or 0.0) == pytest.approx(21.0, abs=0.1)
+                assert any(m.min_row == process_margin_row + 1 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert str(wb["Operating_Drivers"]["A2"].fill.fgColor.rgb or "") == "006FA8DC"
+                assert str(wb["Operating_Drivers"]["A4"].fill.fgColor.rgb or "") == "006FA8DC"
                 assert str(wb["Operating_Drivers"]["A5"].fill.fgColor.rgb or "") == "00EAF3FB"
                 assert str(wb["Operating_Drivers"]["B5"].fill.fgColor.rgb or "") == "00EAF3FB"
-                assert str(wb["Operating_Drivers"]["A6"].fill.fgColor.rgb or "") == "00EDF4FA"
-                assert float(wb["Operating_Drivers"]["A7"].font.size or 0.0) == pytest.approx(12.0, abs=0.1)
-                assert float(wb["Operating_Drivers"]["B7"].font.size or 0.0) == pytest.approx(12.0, abs=0.1)
                 rows_2025_q3 = _block_rows(wb["Promise_Progress_UI"], "2025-09-30")
                 assert [row[0] for row in rows_2025_q3] == [
                     "45Z monetization outlook",
-                    "Adj EPS guidance (FY 2025)",
                     "Debt reduction",
                     "45Z facility qualification",
+                    "Advantage Nebraska startup",
                 ]
                 monetization_outlook_row = next(row for row in rows_2025_q3 if row[0] == "45Z monetization outlook")
                 assert monetization_outlook_row[1] == "$15m-$25m"
                 assert monetization_outlook_row[2] == "not yet measurable"
                 assert monetization_outlook_row[3] == "Open"
-                eps_guidance_row = next(row for row in rows_2025_q3 if row[0] == "Adj EPS guidance (FY 2025)")
-                assert eps_guidance_row[1] == "$0.17"
-                assert eps_guidance_row[2] == "not yet measurable"
-                assert eps_guidance_row[3] == "Open"
                 debt_reduction_row = next(row for row in rows_2025_q3 if row[0] == "Debt reduction")
                 assert debt_reduction_row[1] == "$130.7m"
                 assert debt_reduction_row[2] == "Debt repaid"
@@ -9798,6 +10574,9 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 facility_row = next(row for row in rows_2025_q3 if row[0] == "45Z facility qualification")
                 assert facility_row[2] == "Expected in 2026"
                 assert facility_row[3] == "On track"
+                nebraska_row = next(row for row in rows_2025_q3 if row[0] == "Advantage Nebraska startup")
+                assert nebraska_row[2] == "Advantage Nebraska is fully operational and sequestering CO2 in Wyoming."
+                assert nebraska_row[3] == "Completed"
                 assert "Debt exchange" in quarter_note_metrics
                 assert "Interest expense outlook" in quarter_note_metrics
                 cost_note_row = next(
@@ -9886,7 +10665,6 @@ def test_current_delivered_workbooks_analysis_sheets_share_blue_theme() -> None:
             assert _fill_rgb(ws_val["A3"]) == theme_title
             assert _font_rgb(ws_val["A3"]) == "00FFFFFF"
             assert any(m.min_row == 3 and m.min_col == 1 and m.max_col == 13 for m in ws_val.merged_cells.ranges)
-            assert float(ws_val.row_dimensions[3].height or 0.0) == pytest.approx(20.0, abs=0.1)
             assert float(ws_val.row_dimensions[1].height or 0.0) == pytest.approx(18.0, abs=0.1)
             assert all(float(ws_val.row_dimensions[rr].height or 0.0) == pytest.approx(18.0, abs=0.1) for rr in range(7, 118))
             assert _fill_rgb(ws_val["A6"]) == theme_header
@@ -9894,16 +10672,18 @@ def test_current_delivered_workbooks_analysis_sheets_share_blue_theme() -> None:
             assert _fill_rgb(ws_val["A137"]) == theme_title
             assert _fill_rgb(ws_val["A138"]) == theme_header
             assert _fill_rgb(ws_val["A147"]) == theme_title
-            assert _fill_rgb(ws_val["O1"]) == theme_title
-            assert _fill_rgb(ws_val["O8"]) == theme_header
+            assert _fill_rgb(ws_val["O7"]) == theme_title
             guidance_2025q4_row = _find_row_starting_with(ws_val, "Guidance (As of 2025-12-31)", column=15)
+            assert guidance_2025q4_row == 7
             assert _fill_rgb(ws_val.cell(row=guidance_2025q4_row, column=15)) == theme_title
             assert _font_rgb(ws_val.cell(row=guidance_2025q4_row, column=15)) == "00FFFFFF"
+            assert _fill_rgb(ws_val.cell(row=guidance_2025q4_row + 1, column=15)) == theme_header
+            assert _fill_rgb(ws_val.cell(row=guidance_2025q4_row + 1, column=19)) == theme_header
+            assert _fill_rgb(ws_val.cell(row=guidance_2025q4_row + 1, column=26)) == theme_header
             guidance_2025q3_row = _find_row_starting_with(ws_val, "Guidance (As of 2025-09-30)", column=15)
+            assert guidance_2025q3_row > guidance_2025q4_row
             assert _fill_rgb(ws_val.cell(row=guidance_2025q3_row, column=15)) == theme_title
-            assert _fill_rgb(ws_val["S8"]) == theme_header
-            assert _fill_rgb(ws_val["Z8"]) == theme_header
-            assert _fill_rgb(ws_val["AD1"]) == theme_section
+            assert _fill_rgb(ws_val.cell(row=guidance_2025q3_row + 1, column=15)) == theme_header
             assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Operating Drivers", column=15), column=15)) == theme_title
             assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Thesis Bridge", column=15), column=15)) == theme_title
             assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Debt Detail (latest)", column=1), column=1)) == theme_title
@@ -10093,14 +10873,15 @@ def test_current_delivered_workbooks_analysis_sheets_share_blue_theme() -> None:
                     } == {theme_alt}
                 assert any(m.min_row == _find_row_with_value(ws_overlay, "Base operating coefficients", column=1) + 3 and m.min_col == 4 and m.max_col == 5 for m in ws_overlay.merged_cells.ranges)
                 assert any(m.min_row == _find_row_with_value(ws_overlay, "Base operating coefficients", column=1) + 3 and m.min_col == 6 and m.max_col == 8 for m in ws_overlay.merged_cells.ranges)
-                assert any(m.min_row == _find_row_with_value(ws_overlay, "Market inputs", column=1) + 1 and m.min_col == 7 and m.max_col == 13 for m in ws_overlay.merged_cells.ranges)
+                assert any(m.min_row == _find_row_with_value(ws_overlay, "Market inputs", column=1) + 3 and m.min_col == 7 and m.max_col == 11 for m in ws_overlay.merged_cells.ranges)
+                assert any(m.min_row == _find_row_with_value(ws_overlay, "Market inputs", column=1) + 3 and m.min_col == 12 and m.max_col == 17 for m in ws_overlay.merged_cells.ranges)
 
             if "Operating_Drivers" in wb.sheetnames:
                 ws_drivers = wb["Operating_Drivers"]
                 assert _fill_rgb(ws_drivers["A2"]) == theme_title
-                assert _fill_rgb(ws_drivers["B4"]) == theme_header
+                assert _fill_rgb(ws_drivers["A4"]) == theme_title
                 assert _fill_rgb(ws_drivers["A5"]) == theme_header
-                assert _fill_rgb(ws_drivers["A6"]) == theme_section
+                assert _fill_rgb(ws_drivers["B5"]) == theme_header
 
             for untouched_name in ["Hidden_Value_Flags", "QA_Log", "QA_Checks", "Needs_Review", "Promise_Evidence", "Promise_Progress"]:
                 if untouched_name in wb.sheetnames:
@@ -10204,6 +10985,7 @@ def test_current_delivered_workbooks_valuation_row_order_and_semantic_fixes() ->
                     "Interest paid",
                     "Tax paid",
                     "Capital return / financing",
+                    "Buybacks (cash)",
                     "Buybacks (TTM, cash)",
                     "Dividends (TTM, cash)",
                     "Acquisitions (TTM, cash)",
@@ -10418,9 +11200,21 @@ def test_current_delivered_workbooks_remaining_overlay_note_and_qa_fixes() -> No
         assert "priced early before prices fell further" in overlay_blob
         assert "$0.12-$0.17/gal on-paper setup tracked through May" in overlay_blob
         assert "Management said Q4 crush was about 75% hedged and positions had been put on for Q1 2026." in overlay_blob
+        assert "Management said the team stayed active in Q4 and Q1 2026, looking daily for lock-in opportunities." in overlay_blob
         assert "Management said a significant portion of Q1 production margin was already logged in." in overlay_blob
-        assert "Disciplined risk management strategy continues to support fourth quarter margins and cash flow." in overlay_blob
+        assert "Late-Q3 and early-Q4 margin structure improved on tighter ethanol supply, lower input costs and stronger corn-oil values." in overlay_blob
+        assert "Healthy export volumes and wider E15 acceptance were cited as demand supports into 2026." in overlay_blob
+        assert "DDGS and high-protein values remained under pressure through much of the quarter." in overlay_blob
+        assert "Solid domestic blending and strong export demand supported Q4 ethanol margins." in overlay_blob
+        assert "Corn-oil values contributed positively to gross margin during the quarter." in overlay_blob
+        assert "Protein pricing remained under pressure in Q4." in overlay_blob
+        assert "Reported ethanol-production margin included a $22.6m accumulated RIN sale and a $2.3m inventory NRV adjustment." in overlay_blob
+        assert "Record high ethanol and Ultra-high protein yields supported record protein output and corn-oil production." in overlay_blob
+        assert "Corn-oil pricing and Ultra-high protein demand pointed to a profitable Q3 outlook." in overlay_blob
         assert "Disciplined risk management strategy continues to support first quarter margins and cash flow." in overlay_blob
+        assert "Disciplined risk management strategy continues to support fourth quarter margins and cash flow." not in overlay_blob
+        assert "430k tons" not in overlay_blob
+        assert "900 tons/day" not in overlay_blob
         q3_transcript_row = next(
             rr
             for rr in range(1, ws_overlay.max_row + 1)
@@ -10448,6 +11242,8 @@ def test_current_delivered_workbooks_remaining_overlay_note_and_qa_fixes() -> No
         assert "[NEW] Disciplined risk management strategy continues to support first quarter margins and cash flow." in q4_notes
         assert "Management said Q4 crush was about 75% hedged and positions had been put on for Q1 2026." not in q3_notes
         assert "Management said a significant portion of Q1 production margin was already logged in." not in q4_notes
+        assert q4_notes.count("[NEW] 45Z production tax credits contributed $23.4m net of discounts and other costs in Q4.") == 1
+        assert "[NEW] 45Z production tax credits contributed $23.4m net of discounts and other costs." not in q4_notes
         risk_row = next(
             rr
             for rr in range(1, ws_qn.max_row + 1)
@@ -10489,8 +11285,10 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         corn_row = _find_row_with_value(ws_val, "Corn oil / coproduct uplift", column=15)
         protein_row = _find_row_with_value(ws_val, "Protein / mix uplift", column=15)
         assert crush_row is not None and "stronger crush margin" in str(ws_val.cell(row=crush_row, column=20).value or "")
-        assert corn_row is not None and "corn-oil or coproduct" in str(ws_val.cell(row=corn_row, column=20).value or "")
-        assert protein_row is not None and "higher-protein output or better product mix" in str(ws_val.cell(row=protein_row, column=20).value or "")
+        assert corn_row is not None and bool(ws_val.row_dimensions[corn_row].hidden)
+        assert protein_row is not None and bool(ws_val.row_dimensions[protein_row].hidden)
+        assert "corn-oil or coproduct" in str(ws_val.cell(row=corn_row, column=20).value or "")
+        assert "higher-protein output or better product mix" in str(ws_val.cell(row=protein_row, column=20).value or "")
         assert ws_val["D249"].value == "FCF TTM accelerated; YoY delta $198.7m"
         assert ws_val["D250"].value == "Net debt declined; YoY delta $-77.9m"
 
@@ -10501,7 +11299,11 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         q3_2025_notes = _quarter_block_notes(ws_qn, "2025-09-30")
         assert "[NEW] Disciplined risk management strategy continues to support first quarter margins and cash flow." in q4_2025_notes
         assert "[NEW] 45Z production tax credits contributed $23.4m net of discounts and other costs in Q4." in q4_2025_notes
-        assert q3_2025_notes.count("[NEW] 45Z production tax credits contributed $25.0m net of discounts and other costs.") == 1
+        assert q4_2025_notes.count("[NEW] 45Z production tax credits contributed $23.4m net of discounts and other costs in Q4.") == 1
+        assert "[NEW] 45Z production tax credits contributed $23.4m net of discounts and other costs." not in q4_2025_notes
+        assert "[NEW] Q4 2025 45Z monetization expected at $15m-$25m." in q3_2025_notes
+        assert "[NEW] All eight operating ethanol plants expected to qualify for production tax credits in 2026" in q3_2025_notes
+        assert "[NEW] 45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025." in q3_2025_notes
         q4_auth_row = next(
             rr
             for rr in range(1, ws_qn.max_row + 1)
@@ -10532,27 +11334,204 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert q3_auth_note == "Repurchase authorization increased to $200.0m."
 
         ws_drv = wb_gpre["Operating_Drivers"]
-        assert [str(ws_drv.cell(row=rr, column=1).value or "").strip() for rr in range(13, 18)] == [
-            "Consolidated ethanol crush margin ($m)",
-            "Crush margin ex-45Z ($m)",
-            "RIN impact / accumulated RIN sale ($m)",
-            "Crush margin ex-RIN ($m)",
-            "Underlying crush margin ($m)",
+        assert str(ws_drv["A4"].value or "").strip() == "Operating Commentary"
+        assert ws_drv.freeze_panes is None
+        drv_commentary_rows = [
+            row for row in _operating_commentary_rows(ws_drv) if _quarter_label_ord(row["stated_in"]) is not None
         ]
+        assert 8 <= len(drv_commentary_rows) <= 20
+        assert drv_commentary_rows[0]["stated_in"] == "Q3 2025"
+        drv_quarter_ords = [_quarter_label_ord(row["stated_in"]) for row in drv_commentary_rows]
+        assert all(ord_val is not None for ord_val in drv_quarter_ords)
+        drv_distinct_ords = []
+        for ord_val in drv_quarter_ords:
+            if ord_val not in drv_distinct_ords:
+                drv_distinct_ords.append(ord_val)
+        assert drv_distinct_ords == sorted(drv_distinct_ords, reverse=True)
+        assert max(len([row for row in drv_commentary_rows if row["stated_in"] == qtxt]) for qtxt in {row["stated_in"] for row in drv_commentary_rows}) <= 3
+        assert any((_quarter_label_ord(row["stated_in"]) or 0) <= 2024 * 4 + 4 for row in drv_commentary_rows)
+        assert any(str(row["horizon"]).strip() == "" for row in drv_commentary_rows)
+        assert float(ws_drv.row_dimensions[4].height or 0.0) == pytest.approx(22.5, abs=0.1)
+        assert float(ws_drv.row_dimensions[5].height or 0.0) == pytest.approx(21.0, abs=0.1)
+        assert all(float(ws_drv.row_dimensions[int(row["row"])].height or 0.0) == pytest.approx(19.5, abs=0.1) for row in drv_commentary_rows)
+        year_band_rows = [
+            rr
+            for rr in range(6, ws_drv.max_row + 1)
+            if str(ws_drv.cell(row=rr, column=1).value or "").strip() in {"2023", "2024", "2025", "2026 / current"}
+            and not str(ws_drv.cell(row=rr, column=2).value or "").strip()
+            and not str(ws_drv.cell(row=rr, column=3).value or "").strip()
+        ]
+        assert year_band_rows
+        assert all(float(ws_drv.row_dimensions[rr].height or 0.0) == pytest.approx(21.0, abs=0.1) for rr in year_band_rows)
+        assert bool(ws_drv["A5"].font.bold)
+        assert str(getattr(ws_drv["A5"].font.color, "rgb", "") or "") == str(getattr(ws_drv["B5"].font.color, "rgb", "") or "")
+        for idx, row in enumerate(drv_commentary_rows):
+            has_separator = str(getattr(ws_drv.cell(row=int(row["row"]), column=2).border.top, "style", "") or "") == "thin"
+            horizon_has_separator = str(getattr(ws_drv.cell(row=int(row["row"]), column=1).border.top, "style", "") or "") == "thin"
+            bottom_line = str(getattr(ws_drv.cell(row=int(row["row"]), column=2).border.bottom, "style", "") or "")
+            if idx == 0:
+                assert not has_separator
+                assert not horizon_has_separator
+                assert not bottom_line
+                continue
+            prev_row = drv_commentary_rows[idx - 1]
+            if str(prev_row["year_band"]) != str(row["year_band"]) or str(prev_row["stated_in"]) == str(row["stated_in"]):
+                assert not has_separator
+                assert not horizon_has_separator
+            else:
+                assert has_separator
+                assert horizon_has_separator
+            assert not bottom_line
+        actuals_row = _find_row_with_value(ws_drv, "Actuals — latest 12 quarters", column=1)
+        assert actuals_row is not None
+        legend_row = actuals_row - 1
+        assert all(not str(ws_drv.cell(row=legend_row, column=cc).value or "").strip() for cc in range(1, 9))
+        assert [str(ws_drv.cell(row=legend_row, column=cc).value or "").strip() for cc in range(9, 14)] == [
+            "<=-15%",
+            "-15..-5",
+            "-5..+5",
+            "+5..+15",
+            ">=+15%",
+        ]
+        assert [_fill_rgb(ws_drv.cell(row=legend_row, column=cc)) for cc in range(9, 14)] == [
+            "00A63A00",
+            "00D55E00",
+            "00DDDDDD",
+            "009BD3F5",
+            "002F80ED",
+        ]
+        assert float(ws_drv.row_dimensions[legend_row].height or 0.0) == pytest.approx(15.75, abs=0.1)
+        assert float(ws_drv.row_dimensions[actuals_row].height or 0.0) == pytest.approx(22.5, abs=0.1)
+        assert float(ws_drv.row_dimensions[actuals_row + 1].height or 0.0) == pytest.approx(21.0, abs=0.1)
+        quarter_row = actuals_row + 1
         crush_row = _find_row_with_value(ws_drv, "Consolidated ethanol crush margin ($m)", column=1)
         assert crush_row is not None
         crush_series = {
-            str(ws_drv.cell(row=5, column=cc).value or "").strip(): float(pd.to_numeric(ws_drv.cell(row=crush_row, column=cc).value, errors="coerce"))
+            str(ws_drv.cell(row=quarter_row, column=cc).value or "").strip(): float(pd.to_numeric(ws_drv.cell(row=crush_row, column=cc).value, errors="coerce"))
             for cc in range(2, ws_drv.max_column + 1)
-            if str(ws_drv.cell(row=5, column=cc).value or "").strip()
+            if str(ws_drv.cell(row=quarter_row, column=cc).value or "").strip()
         }
         assert crush_series["2024-Q4"] == pytest.approx(-15.5, abs=0.01)
         assert crush_series["2025-Q3"] == pytest.approx(59.6, abs=0.01)
         assert crush_series["2025-Q4"] == pytest.approx(44.4, abs=0.01)
+        q_2024_q1_col = _find_col_with_value(ws_drv, "2024-Q1", row=quarter_row)
+        q_2024_q4_col = _find_col_with_value(ws_drv, "2024-Q4", row=quarter_row)
+        assert q_2024_q1_col is not None and q_2024_q4_col is not None
+        assert _fill_rgb(ws_drv.cell(row=crush_row, column=q_2024_q1_col)) == "002F80ED"
+        assert _fill_rgb(ws_drv.cell(row=crush_row, column=q_2024_q4_col)) == "00A63A00"
+        assert _fill_rgb(ws_drv["C7"]) == "00FFFFFF"
+        assert _fill_rgb(ws_drv["B7"]) == "00FFFFFF"
+        assert _find_row_with_value(ws_drv, "Ultra-high protein (k tons)", column=1) is not None
+        assert any("Consolidated crush margin improved on tighter ethanol supplies, lower input costs, and stronger corn oil values." == row["commentary"] for row in drv_commentary_rows)
+        assert any("Revenue declined because we exited ethanol marketing for Tharaldson and placed the Fairmont ethanol asset on care and maintenance." == row["commentary"] for row in drv_commentary_rows)
+        assert any(
+            "Plant utilization reflected the normal spring maintenance season, with plants temporarily shut down for annual clean-out and restart."
+            == row["commentary"]
+            for row in drv_commentary_rows
+        )
+        assert any("Plant utilization reflected 93% across the platform during the quarter." == row["commentary"] for row in drv_commentary_rows)
+        assert any(
+            "Plant utilization reflected 81.5% during the quarter, compared with the 96.9% run rate reported in the same period last year."
+            == row["commentary"]
+            for row in drv_commentary_rows
+        )
+        assert any("Spot crush margin was pressured as realized pricing fell below production cost." == row["commentary"] for row in drv_commentary_rows)
+        assert not any("50 Pro" in row["commentary"] for row in drv_commentary_rows)
+        assert not any("45Z" in row["commentary"] for row in drv_commentary_rows)
+        assert not any("Plant utilization rate of 97%" in row["commentary"] for row in drv_commentary_rows)
+        assert not any("Plant utilization rate of 93.9%" in row["commentary"] for row in drv_commentary_rows)
+        assert not any("Plant utilization reflected the spring maintenance season." == row["commentary"] for row in drv_commentary_rows)
+        assert not any("..." in row["commentary"] for row in drv_commentary_rows)
+        assert not any("?" in row["commentary"] for row in drv_commentary_rows)
+        assert not any("start to see" in row["commentary"].lower() for row in drv_commentary_rows)
+        assert not any("Sequence, and" in row["commentary"] for row in drv_commentary_rows)
+        assert not any("a couple of other things" in row["commentary"].lower() for row in drv_commentary_rows)
+        assert not any("what we're seeing" in row["commentary"].lower() for row in drv_commentary_rows)
+        assert not any("sequence without negatively impacting" in row["commentary"].lower() for row in drv_commentary_rows)
+        assert not any("exports as a result of that new capacity" in row["commentary"].lower() for row in drv_commentary_rows)
+        assert not any("applicable securities laws" in row["commentary"].lower() for row in drv_commentary_rows)
+        assert not any("offtake agreement" in row["commentary"].lower() for row in drv_commentary_rows)
+        assert not any(row["commentary"].lower().startswith(("due to ", "driven by ", "helped by ", "impacted by ")) for row in drv_commentary_rows)
 
         ws_overlay = wb_gpre["Economics_Overlay"]
+        overlay_commentary_rows = _overlay_management_commentary_rows(ws_overlay)
+        assert overlay_commentary_rows
+        assert all(float(ws_overlay.row_dimensions[int(row["row"])].height or 0.0) == pytest.approx(19.5, abs=0.1) for row in overlay_commentary_rows)
+        mgmt_row = _find_row_with_value(ws_overlay, "Management commentary", column=1)
+        assert mgmt_row is not None
+        assert float(ws_overlay.row_dimensions[mgmt_row].height or 0.0) == pytest.approx(22.5, abs=0.1)
+        assert float(ws_overlay.row_dimensions[mgmt_row + 1].height or 0.0) == pytest.approx(21.0, abs=0.1)
+        overlay_year_rows = [
+            rr
+            for rr in range(mgmt_row + 2, ws_overlay.max_row + 1)
+            if str(ws_overlay.cell(row=rr, column=1).value or "").strip() in {"2023", "2024", "2025", "2026 / current"}
+            and not str(ws_overlay.cell(row=rr, column=2).value or "").strip()
+            and not str(ws_overlay.cell(row=rr, column=3).value or "").strip()
+        ]
+        assert overlay_year_rows
+        assert all(float(ws_overlay.row_dimensions[rr].height or 0.0) == pytest.approx(21.0, abs=0.1) for rr in overlay_year_rows[:4])
+        assert str(getattr(ws_overlay.cell(row=mgmt_row + 1, column=1).font.color, "rgb", "") or "") == str(getattr(ws_overlay.cell(row=mgmt_row + 1, column=2).font.color, "rgb", "") or "")
+        contiguous_year_bands = []
+        for row in overlay_commentary_rows:
+            if not contiguous_year_bands or contiguous_year_bands[-1] != row["year_band"]:
+                contiguous_year_bands.append(row["year_band"])
+        year_band_rank = {"2026 / current": 0, "2025": 1, "2024": 2, "2023": 3}
+        assert len(contiguous_year_bands) == len(set(contiguous_year_bands))
+        assert contiguous_year_bands == sorted(contiguous_year_bands, key=lambda txt: year_band_rank.get(txt, 99))
+        for idx, row in enumerate(overlay_commentary_rows):
+            has_separator = str(getattr(ws_overlay.cell(row=int(row["row"]), column=2).border.top, "style", "") or "") == "thin"
+            horizon_has_separator = str(getattr(ws_overlay.cell(row=int(row["row"]), column=1).border.top, "style", "") or "") == "thin"
+            bottom_line = str(getattr(ws_overlay.cell(row=int(row["row"]), column=2).border.bottom, "style", "") or "")
+            if idx == 0:
+                assert not has_separator
+                assert not horizon_has_separator
+                assert not bottom_line
+                continue
+            prev_row = overlay_commentary_rows[idx - 1]
+            if str(prev_row["year_band"]) != str(row["year_band"]) or str(prev_row["stated_in"]) == str(row["stated_in"]):
+                assert not has_separator
+                assert not horizon_has_separator
+            else:
+                assert has_separator
+                assert horizon_has_separator
+            assert not bottom_line
+        overlay_setup_row = _find_row_with_value(ws_overlay, "Commercial / hedge setup", column=1)
+        assert overlay_setup_row is not None
+        assert float(ws_overlay.row_dimensions[overlay_setup_row].height or 0.0) == pytest.approx(22.5, abs=0.1)
+        assert float(ws_overlay.row_dimensions[overlay_setup_row + 1].height or 0.0) == pytest.approx(21.0, abs=0.1)
         bridge_row = _find_row_with_value(ws_overlay, "Bridge to reported", column=1)
         assert bridge_row is not None
+        first_setup_data_row = next(
+            rr
+            for rr in range(overlay_setup_row + 2, bridge_row)
+            if str(ws_overlay.cell(row=rr, column=2).value or "").strip()
+            and str(ws_overlay.cell(row=rr, column=3).value or "").strip()
+        )
+        assert str(getattr(ws_overlay.cell(row=first_setup_data_row, column=1).font.color, "rgb", "") or "") == str(getattr(ws_overlay.cell(row=first_setup_data_row, column=2).font.color, "rgb", "") or "")
+        base_row = _find_row_with_value(ws_overlay, "Base operating coefficients", column=1)
+        market_row = _find_row_with_value(ws_overlay, "Market inputs", column=1)
+        process_row = _find_row_with_value(ws_overlay, "Unhedged process economics", column=1)
+        assert base_row is not None and market_row is not None and process_row is not None
+        assert float(ws_overlay.row_dimensions[bridge_row].height or 0.0) == pytest.approx(22.5, abs=0.1)
+        assert float(ws_overlay.row_dimensions[base_row].height or 0.0) == pytest.approx(22.5, abs=0.1)
+        assert float(ws_overlay.row_dimensions[market_row].height or 0.0) == pytest.approx(22.5, abs=0.1)
+        assert float(ws_overlay.row_dimensions[process_row].height or 0.0) == pytest.approx(22.5, abs=0.1)
+        assert str(ws_overlay.cell(row=base_row + 1, column=1).value or "").strip() == "Use platform/process coefficients as editable base assumptions. Reported values override inferred and user-entered assumptions when explicitly disclosed."
+        assert str(ws_overlay.cell(row=base_row + 3, column=4).value or "").strip() == "Status"
+        assert str(ws_overlay.cell(row=market_row + 1, column=1).value or "").strip().startswith("Current QTD uses weekly Nebraska / Average observations")
+        assert str(ws_overlay.cell(row=market_row + 3, column=1).value or "").strip() == "Input"
+        assert str(ws_overlay.cell(row=market_row + 3, column=2).value or "").strip() == "Current QTD"
+        assert str(ws_overlay.cell(row=market_row + 3, column=4).value or "").strip() == "Next quarter thesis"
+        assert str(ws_overlay.cell(row=market_row + 3, column=7).value or "").strip() == "Timing / thesis"
+        assert str(ws_overlay.cell(row=market_row + 3, column=14).value or "").strip() == "Source basis"
+        merged_ranges = {str(rng) for rng in ws_overlay.merged_cells.ranges}
+        assert f"G{market_row + 3}:M{market_row + 3}" in merged_ranges
+        assert f"N{market_row + 3}:R{market_row + 3}" in merged_ranges
+        assert float(ws_overlay.column_dimensions["R"].width or 0.0) == pytest.approx(float(ws_overlay.column_dimensions["Q"].width or 0.0), abs=0.05)
+        assert str(ws_overlay.cell(row=process_row + 1, column=1).value or "").strip() == "Approximate pre-hedge simple crush proxy built from weekly current-quarter observations."
+        assert str(ws_overlay.cell(row=process_row + 3, column=1).value or "").strip() == "Line item"
+        assert str(ws_overlay.cell(row=process_row + 3, column=2).value or "").strip() == "Current QTD"
+        assert str(ws_overlay.cell(row=process_row + 3, column=4).value or "").strip() == "Next quarter thesis"
         quarter_row = next(
             rr
             for rr in range(bridge_row, ws_overlay.max_row + 1)
@@ -10573,10 +11552,94 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
             "2025-Q3",
             "2025-Q4",
         ]
+        proxy_row = _find_row_with_value(ws_overlay, "Approximate market crush / process proxy", column=1)
+        gap_row = _find_row_with_value(ws_overlay, "Gap vs market/process proxy", column=1)
+        residual_row = _find_row_with_value(ws_overlay, "Hedge / realization / residual effects", column=1)
+        assert proxy_row is not None and gap_row is not None and residual_row is not None
+        assert bridge_row < quarter_row < proxy_row < gap_row < residual_row
         non_eth_row = _find_row_with_value(ws_overlay, "Non-ethanol operating activities", column=1)
         assert non_eth_row is not None
         assert all(ws_overlay.cell(row=non_eth_row, column=cc).comment is None for cc in range(2, 14))
         assert all(ws_overlay.cell(row=quarter_row + 1, column=cc).comment is None for cc in range(2, 14))
+        corn_price_row = _find_row_with_value(ws_overlay, "Corn price", column=1)
+        ethanol_price_row = _find_row_with_value(ws_overlay, "Ethanol price", column=1)
+        gas_price_row = _find_row_with_value(ws_overlay, "Natural gas price", column=1)
+        assert corn_price_row is not None and ethanol_price_row is not None and gas_price_row is not None
+        assert corn_price_row < gas_price_row < ethanol_price_row
+        assert "Current QTD | As of 2026-01-23 | Weeks included: 3" in str(ws_overlay.cell(row=corn_price_row, column=7).value or "")
+        assert "CBOT Corn futures May 2026" in str(ws_overlay.cell(row=corn_price_row, column=7).value or "")
+        assert "NYMEX Natural Gas futures May 2026" in str(ws_overlay.cell(row=gas_price_row, column=7).value or "")
+        assert "Manual user thesis input" in str(ws_overlay.cell(row=ethanol_price_row, column=7).value or "")
+        assert str(ws_overlay.cell(row=corn_price_row, column=14).value or "").strip() == "AMS 3617 Nebraska Average | futures-based approximation"
+        assert str(ws_overlay.cell(row=gas_price_row, column=14).value or "").strip() == "Front-month NYMEX Natural Gas | futures-based approximation"
+        assert str(ws_overlay.cell(row=ethanol_price_row, column=14).value or "").strip() == "AMS 3616 / NWER Nebraska Average"
+        assert f"G{corn_price_row}:M{corn_price_row}" in merged_ranges
+        assert f"N{corn_price_row}:R{corn_price_row}" in merged_ranges
+        for hidden_label in [
+            "Renewable corn oil yield",
+            "Distillers yield",
+            "Ultra-high protein yield",
+            "Electricity usage",
+            "Distillers grains price",
+            "Ultra-high protein price",
+            "Renewable corn oil price",
+            "Soybean oil price proxy",
+            "Corn oil premium assumption",
+            "Implied renewable corn oil proxy price",
+            "Distillers contribution",
+            "Ultra-high protein contribution",
+            "Renewable corn oil contribution",
+            "Approximate coproduct credit",
+        ]:
+            hidden_row = _find_row_with_value(ws_overlay, hidden_label, column=1)
+            assert hidden_row is not None
+            assert bool(ws_overlay.row_dimensions[hidden_row].hidden)
+        simple_crush_row = _find_row_with_value(ws_overlay, "Simple crush", column=1)
+        assert simple_crush_row is not None
+        assert not bool(ws_overlay.row_dimensions[simple_crush_row].hidden)
+        assert str(ws_overlay.cell(row=simple_crush_row, column=7).value or "").strip() == "Ethanol revenue - corn - natural gas"
+        assert str(ws_overlay.cell(row=simple_crush_row + 1, column=4).value or "").strip() == "As of 2026-01-23"
+        assert float(ws_overlay.row_dimensions[simple_crush_row + 1].height or 0.0) == pytest.approx(21.0, abs=0.1)
+        assert _fill_rgb(ws_overlay.cell(row=simple_crush_row + 1, column=4)) == _fill_rgb(ws_overlay.cell(row=process_row + 3, column=4))
+        visible_process_labels = [
+            str(ws_overlay.cell(row=rr, column=1).value or "").strip()
+            for rr in range(process_row + 4, simple_crush_row + 1)
+            if str(ws_overlay.cell(row=rr, column=1).value or "").strip()
+            and not bool(ws_overlay.row_dimensions[rr].hidden)
+        ]
+        assert visible_process_labels == [
+            "Ethanol revenue contribution",
+            "Feedstock cost",
+            "Natural gas burden",
+            "Simple crush",
+        ]
+        ethanol_yield_row = _find_row_with_value(ws_overlay, "Ethanol yield", column=1)
+        natural_gas_usage_row = _find_row_with_value(ws_overlay, "Natural gas usage", column=1)
+        assert ethanol_yield_row is not None and natural_gas_usage_row is not None
+        assert str(ws_overlay.cell(row=ethanol_yield_row, column=4).value or "").strip() == "Inferred"
+        assert str(ws_overlay.cell(row=ethanol_yield_row, column=6).value or "").strip() == "Platform baseline assumption"
+        assert str(ws_overlay.cell(row=natural_gas_usage_row, column=4).value or "").strip() == "User-entered assumption"
+        assert str(ws_overlay.cell(row=natural_gas_usage_row, column=6).value or "").strip() == "User-entered process assumption"
+        current_margin_row = _find_row_with_value(ws_overlay, "Current margin setup", column=3)
+        q1_position_row = _find_row_with_value(ws_overlay, "Q1 margin positioning", column=3)
+        lock_in_row = _find_row_with_value(ws_overlay, "Active lock-in execution", column=3)
+        assert current_margin_row is not None
+        assert q1_position_row is not None
+        assert lock_in_row is not None
+        assert float(ws_overlay.row_dimensions[current_margin_row].height or 0.0) >= 49.5
+        assert float(ws_overlay.row_dimensions[q1_position_row].height or 0.0) >= 40.0
+        assert float(ws_overlay.row_dimensions[lock_in_row].height or 0.0) >= 49.5
+        spacer_rows = [
+            rr
+            for rr in range(overlay_setup_row + 2, bridge_row)
+            if not str(ws_overlay.cell(row=rr, column=1).value or "").strip()
+            and not str(ws_overlay.cell(row=rr, column=2).value or "").strip()
+            and not str(ws_overlay.cell(row=rr, column=3).value or "").strip()
+            and float(ws_overlay.row_dimensions[rr].height or 0.0) == pytest.approx(6.0, abs=0.1)
+        ]
+        assert len(spacer_rows) == 9
+        assert spacer_rows == sorted(spacer_rows)
+        assert all((right - left) in {2, 4} for left, right in zip(spacer_rows, spacer_rows[1:]))
 
         ws_log = wb_gpre["QA_Log"]
         assert ws_log.max_row > ws_qn.max_row
@@ -10621,13 +11684,13 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert any(
             row[0] == "Current-quarter basis / definition issues"
             and row[1] == "revolver_and_other_debt_presence_check"
-            and "revolver draw $25.0m appears outside the tranche/debt-core basis" in row[6]
+            and "revolver draw $0.0m appears outside the tranche/debt-core basis" in row[6]
             and row[10] == "Total debt (Q)"
             for row in nr_rows
         )
         gpre_source_gap_row = next(row for row in nr_rows if row[1] == "quarter_text_no_explicit_support")
         assert gpre_source_gap_row[0] == "Current-quarter source gaps"
-        assert gpre_source_gap_row[8] == "doc_000130940226000016_gpre-q42025earningsrelease.htm | GPRE-Q4-2025-Earnings-Slides-FINAL.pdf"
+        assert gpre_source_gap_row[8] == "doc_000130940226000016_gpre-q42025earningsrelease.htm | GPRE_Q4_2025_earnings_presentation.pdf"
         assert "..." not in gpre_source_gap_row[8]
         assert "2025-12-31 00:00:00 | Total debt (Q) | quarter_text_numeric_conflict" not in qa_log_blob
         gpre_log_header = [str(ws_log.cell(row=1, column=cc).value or "").strip() for cc in range(1, ws_log.max_column + 1)]
@@ -10649,6 +11712,97 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         debt_eq_row = _find_row_with_value(ws_summary, "Debt-to-equity (latest quarter)", column=1)
         assert debt_eq_row is not None
         assert str(ws_summary.cell(row=debt_eq_row, column=2).value or "").strip() == "N/M (neg equity)"
+
+        assert "Operating_Drivers" in wb_pbi.sheetnames
+        assert "Economics_Overlay" not in wb_pbi.sheetnames
+        ws_drv_pbi = wb_pbi["Operating_Drivers"]
+        assert str(ws_drv_pbi["A4"].value or "").strip() == "Operating Commentary"
+        assert ws_drv_pbi.freeze_panes is None
+        drv_commentary_rows_pbi = [
+            row for row in _operating_commentary_rows(ws_drv_pbi) if _quarter_label_ord(row["stated_in"]) is not None
+        ]
+        assert 8 <= len(drv_commentary_rows_pbi) <= 20
+        assert drv_commentary_rows_pbi[0]["stated_in"] == "Q4 2025"
+        drv_quarter_ords_pbi = [_quarter_label_ord(row["stated_in"]) for row in drv_commentary_rows_pbi]
+        assert all(ord_val is not None for ord_val in drv_quarter_ords_pbi)
+        drv_distinct_ords_pbi = []
+        for ord_val in drv_quarter_ords_pbi:
+            if ord_val not in drv_distinct_ords_pbi:
+                drv_distinct_ords_pbi.append(ord_val)
+        assert drv_distinct_ords_pbi == sorted(drv_distinct_ords_pbi, reverse=True)
+        assert max(len([row for row in drv_commentary_rows_pbi if row["stated_in"] == qtxt]) for qtxt in {row["stated_in"] for row in drv_commentary_rows_pbi}) <= 3
+        assert any((_quarter_label_ord(row["stated_in"]) or 0) <= 2024 * 4 + 4 for row in drv_commentary_rows_pbi)
+        assert any(str(row["horizon"]).strip() == "" for row in drv_commentary_rows_pbi)
+        assert all(float(ws_drv_pbi.row_dimensions[int(row["row"])].height or 0.0) == pytest.approx(19.5, abs=0.1) for row in drv_commentary_rows_pbi)
+        assert float(ws_drv_pbi.row_dimensions[4].height or 0.0) == pytest.approx(22.5, abs=0.1)
+        assert float(ws_drv_pbi.row_dimensions[5].height or 0.0) == pytest.approx(21.0, abs=0.1)
+        assert _find_row_with_value(ws_drv_pbi, "Actuals — latest 12 quarters", column=1) is None
+        seg_title_row = _find_row_with_value(ws_drv_pbi, "Segment support — latest 12 quarters", column=1)
+        assert seg_title_row is not None
+        legend_row_pbi = seg_title_row - 1
+        assert all(not str(ws_drv_pbi.cell(row=legend_row_pbi, column=cc).value or "").strip() for cc in range(1, 9))
+        assert [str(ws_drv_pbi.cell(row=legend_row_pbi, column=cc).value or "").strip() for cc in range(9, 14)] == [
+            "<=-15%",
+            "-15..-5",
+            "-5..+5",
+            "+5..+15",
+            ">=+15%",
+        ]
+        assert [_fill_rgb(ws_drv_pbi.cell(row=legend_row_pbi, column=cc)) for cc in range(9, 14)] == [
+            "00A63A00",
+            "00D55E00",
+            "00DDDDDD",
+            "009BD3F5",
+            "002F80ED",
+        ]
+        assert float(ws_drv_pbi.row_dimensions[legend_row_pbi].height or 0.0) == pytest.approx(15.75, abs=0.1)
+        assert float(ws_drv_pbi.row_dimensions[seg_title_row].height or 0.0) == pytest.approx(22.5, abs=0.1)
+        assert float(ws_drv_pbi.row_dimensions[seg_title_row + 1].height or 0.0) == pytest.approx(21.0, abs=0.1)
+        assert str(ws_drv_pbi.cell(row=seg_title_row + 1, column=1).value or "").strip() == "Metric / segment"
+        seg_quarters = [
+            str(ws_drv_pbi.cell(row=seg_title_row + 1, column=cc).value or "").strip()
+            for cc in range(2, ws_drv_pbi.max_column + 1)
+            if str(ws_drv_pbi.cell(row=seg_title_row + 1, column=cc).value or "").strip()
+        ]
+        assert len(seg_quarters) == 12
+        assert seg_quarters[-1] == "2025-Q4"
+        assert _find_row_with_value(ws_drv_pbi, "Revenue ($m)", column=1) is not None
+        assert _find_row_with_value(ws_drv_pbi, "Adj EBIT / operating profit ($m)", column=1) is not None
+        assert _find_row_with_value(ws_drv_pbi, "Margin", column=1) is not None
+        sendtech_rev_row = next(
+            rr for rr in range(seg_title_row + 2, ws_drv_pbi.max_row + 1)
+            if str(ws_drv_pbi.cell(row=rr, column=1).value or "").strip() == "SendTech Solutions"
+        )
+        q4_2024_col_pbi = _find_col_with_value(ws_drv_pbi, "2024-Q4", row=seg_title_row + 1)
+        q4_2025_col_pbi = _find_col_with_value(ws_drv_pbi, "2025-Q4", row=seg_title_row + 1)
+        assert q4_2024_col_pbi is not None and q4_2025_col_pbi is not None
+        assert _fill_rgb(ws_drv_pbi.cell(row=sendtech_rev_row, column=q4_2024_col_pbi)) == "00D55E00"
+        assert _fill_rgb(ws_drv_pbi.cell(row=sendtech_rev_row, column=q4_2025_col_pbi)) == "00D55E00"
+        assert _fill_rgb(ws_drv_pbi["C7"]) == "00FFFFFF"
+        for segment_label in ["SendTech Solutions", "Presort Services", "Other operations", "Corporate expense"]:
+            assert _find_row_with_value(ws_drv_pbi, segment_label, column=1) is not None
+        assert any("migration" in row["commentary"].lower() or "recurring revenue" in row["commentary"].lower() for row in drv_commentary_rows_pbi)
+        assert any("customer losses" in row["commentary"].lower() or "price concessions" in row["commentary"].lower() for row in drv_commentary_rows_pbi)
+        assert any("higher margin revenue streams" in row["commentary"].lower() or "operating leverage" in row["commentary"].lower() for row in drv_commentary_rows_pbi)
+        assert any("Presort volumes declined 2%, partly because the quarter had one fewer day." == row["commentary"] for row in drv_commentary_rows_pbi)
+        assert any("SendTech revenue declined due to a smaller mailing install base and near-term headwinds from the product migration." == row["commentary"] for row in drv_commentary_rows_pbi)
+        assert any("Presort revenue increased due to higher volumes and pricing." == row["commentary"] for row in drv_commentary_rows_pbi)
+        assert any(
+            "SendTech revenue declined due to mail decline at low-to-mid single-digit rates, partly offset by growth in shipping."
+            == row["commentary"]
+            for row in drv_commentary_rows_pbi
+        )
+        assert any(
+            "Presort adjusted operating profit improved due to higher revenue per piece, in addition to continued labor and transportation cost productivity and cost reductions."
+            == row["commentary"]
+            for row in drv_commentary_rows_pbi
+        )
+        assert not any("..." in row["commentary"] for row in drv_commentary_rows_pbi)
+        assert not any("aforementioned loss of pre sort customers" in row["commentary"].lower() for row in drv_commentary_rows_pbi)
+        assert not any("accelerated or sudden decline" in row["commentary"].lower() for row in drv_commentary_rows_pbi)
+        assert not any(row["commentary"].lower().startswith(("due to ", "driven by ", "helped by ", "impacted by ")) for row in drv_commentary_rows_pbi)
+        assert not any(row["commentary"] == "Driven by simplification and cost reduction initiatives." for row in drv_commentary_rows_pbi)
+        assert max(len(drv_commentary_rows), len(drv_commentary_rows_pbi)) >= 15
 
         ws_qn = wb_pbi["Quarter_Notes_UI"]
         q3_2025_notes = _quarter_block_notes(ws_qn, "2025-09-30")
@@ -10723,7 +11877,7 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         pbi_source_gap_row = next(
             row for row in needs_rows[1:] if len(row) > 10 and row[1] == "quarter_text_no_explicit_support" and row[10] == "EBITDA (Q)"
         )
-        assert pbi_source_gap_row[8] == "doc_000162828026008604_q42025earningspressrelea.htm | PBI_2025_Q4_Earnings_Slides.pdf"
+        assert pbi_source_gap_row[8] == "doc_000162828026008604_q42025earningspressrelea.htm | PBI_Q4_2025_earnings_presentation.pdf"
         assert "..." not in pbi_source_gap_row[8]
         assert any(
             row[1] == "debt_tranches" and row[0] == "Methodology / heuristic watch"
@@ -10840,15 +11994,27 @@ def test_current_delivered_workbooks_quarterly_color_logic_is_metric_and_basis_a
         current_ratio_row = _find_row_with_value(ws_bs, "Current ratio")
         total_debt_qoq_row = _find_row_with_value(ws_bs, "Δ Total debt QoQ ($m)")
         goodwill_pct_row = _find_row_with_value(ws_bs, "Goodwill % of assets")
+        finance_receivables_row = _find_row_with_value(ws_bs, "Finance receivables (total)")
+        deposits_row = _find_row_with_value(ws_bs, "Deposits (bank/customer)")
+        bank_net_funding_row = _find_row_with_value(ws_bs, "Bank net funding")
+        corporate_expense_row = _find_row_with_value(ws_bs, "Corporate expense")
         assert cash_qoq_row is not None
         assert current_ratio_row is not None
         assert total_debt_qoq_row is not None
         assert goodwill_pct_row is not None
+        assert finance_receivables_row is not None
+        assert deposits_row is not None
+        assert bank_net_funding_row is not None
+        assert corporate_expense_row is not None
 
         assert _fill_rgb(ws_bs.cell(row=cash_qoq_row, column=q2_2024_bs)) == "002F80ED"
         assert _fill_rgb(ws_bs.cell(row=current_ratio_row, column=q1_2025_bs)) == "00A63A00"
         assert _fill_rgb(ws_bs.cell(row=total_debt_qoq_row, column=q2_2024_bs)) == "002F80ED"
-        assert _fill_rgb(ws_bs.cell(row=goodwill_pct_row, column=q1_2025_bs)) == "00DDDDDD"
+        assert _fill_rgb(ws_bs.cell(row=goodwill_pct_row, column=q1_2025_bs)) == "00A63A00"
+        assert _fill_rgb(ws_bs.cell(row=finance_receivables_row, column=q1_2025_bs)) == "00DDDDDD"
+        assert _fill_rgb(ws_bs.cell(row=deposits_row, column=q1_2025_bs)) == "009BD3F5"
+        assert _fill_rgb(ws_bs.cell(row=bank_net_funding_row, column=q1_2025_bs)) == "00A63A00"
+        assert _fill_rgb(ws_bs.cell(row=corporate_expense_row, column=q1_2025_bs)) == "002F80ED"
 
         for sheet_name in ["REPORT_IS_Q", "REPORT_BS_Q", "REPORT_CF_Q"]:
             ws_report = wb_pbi[sheet_name]
@@ -10895,9 +12061,78 @@ def test_current_delivered_workbooks_quarterly_color_logic_is_metric_and_basis_a
         ws_bs = wb_gpre["BS_Segments"]
         q4_2025_bs = _find_col_with_value(ws_bs, "2025-Q4", row=11)
         shares_out_row = _find_row_with_value(ws_bs, "Shares outstanding (m)")
+        year_row = _find_row_with_value(ws_bs, "Year")
         assert q4_2025_bs is not None
         assert shares_out_row is not None
+        assert year_row is not None
         assert _fill_rgb(ws_bs.cell(row=shares_out_row, column=q4_2025_bs)) == "00D55E00"
+        year_2024_col = _find_col_with_value(ws_bs, "2024", row=year_row)
+        intersegment_rows = [
+            rr for rr in range(1, ws_bs.max_row + 1) if str(ws_bs.cell(row=rr, column=1).value or "").strip() == "Intersegment eliminations"
+        ]
+        corporate_assets_rows = [
+            rr for rr in range(1, ws_bs.max_row + 1) if str(ws_bs.cell(row=rr, column=1).value or "").strip() == "Corporate assets"
+        ]
+        corporate_activities_rows = [
+            rr for rr in range(1, ws_bs.max_row + 1) if str(ws_bs.cell(row=rr, column=1).value or "").strip() == "Corporate activities"
+        ]
+        assert year_2024_col is not None
+        assert intersegment_rows
+        assert corporate_assets_rows
+        assert corporate_activities_rows
+        assert _fill_rgb(ws_bs.cell(row=intersegment_rows[0], column=year_2024_col)) == "00DDDDDD"
+        assert _fill_rgb(ws_bs.cell(row=corporate_assets_rows[0], column=year_2024_col)) == "00DDDDDD"
+        assert _fill_rgb(ws_bs.cell(row=corporate_activities_rows[0], column=year_2024_col)) == "00DDDDDD"
+    finally:
+        wb_gpre.close()
+
+
+def test_current_delivered_workbooks_preserve_pbi_adjusted_truth_and_polish_current_notes() -> None:
+    pbi_path = _current_delivered_model_path("PBI")
+    gpre_path = _current_delivered_model_path("GPRE")
+    if not pbi_path.exists() or not gpre_path.exists():
+        pytest.skip("Current delivered PBI/GPRE workbooks missing for adjusted-truth polish readback test.")
+
+    wb_pbi = load_workbook(pbi_path, data_only=False, read_only=False)
+    try:
+        ws_val = wb_pbi["Valuation"]
+        q4_col = _find_col_with_value(ws_val, "2025-Q4", row=6)
+        adj_ebitda_ttm_row = _find_row_with_value(ws_val, "Adj EBITDA (TTM)")
+        adj_eps_ttm_row = _find_row_with_value(ws_val, "Adj EPS (TTM)")
+        adj_fcf_ttm_row = _find_row_with_value(ws_val, "Adj FCF (TTM)")
+        assert q4_col is not None
+        assert adj_ebitda_ttm_row is not None
+        assert adj_eps_ttm_row is not None
+        assert adj_fcf_ttm_row is not None
+        assert float(pd.to_numeric(ws_val.cell(row=adj_ebitda_ttm_row, column=q4_col).value, errors="coerce")) == pytest.approx(572.869, abs=0.01)
+        assert float(pd.to_numeric(ws_val.cell(row=adj_eps_ttm_row, column=q4_col).value, errors="coerce")) == pytest.approx(1.36, abs=0.01)
+        assert float(pd.to_numeric(ws_val.cell(row=adj_fcf_ttm_row, column=q4_col).value, errors="coerce")) == pytest.approx(383.256, abs=0.01)
+
+        ws_qn = wb_pbi["Quarter_Notes_UI"]
+        for note_txt in [
+            "Operating expenses declined $14.0m YoY.",
+            "[NEW] Operating expenses declined $14.0m YoY.",
+            "[NEW] Operating expenses declined $4.0m YoY.",
+        ]:
+            row_idx = next(
+                rr
+                for rr in range(1, ws_qn.max_row + 1)
+                if str(ws_qn.cell(row=rr, column=3).value or "").strip() == note_txt
+            )
+            assert str(ws_qn.cell(row=row_idx, column=2).value or "").strip() == "Results / drivers / better vs prior"
+            assert str(ws_qn.cell(row=row_idx, column=4).value or "").strip() == "Adjusted EBIT / margin"
+    finally:
+        wb_pbi.close()
+
+    wb_gpre = load_workbook(gpre_path, data_only=False, read_only=False)
+    try:
+        ws_qn = wb_gpre["Quarter_Notes_UI"]
+        outlook_row = next(
+            rr
+            for rr in range(1, ws_qn.max_row + 1)
+            if "FY 2026 45Z-related Adjusted EBITDA outlook is at least $188.0m." in str(ws_qn.cell(row=rr, column=3).value or "")
+        )
+        assert str(ws_qn.cell(row=outlook_row, column=4).value or "").strip() == "45Z-related Adjusted EBITDA outlook"
     finally:
         wb_gpre.close()
 

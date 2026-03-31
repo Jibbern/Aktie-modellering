@@ -1,10 +1,11 @@
+"""Debt-table parsing helpers for SEC HTML, plain text, and local materials."""
 from __future__ import annotations
 
 import datetime as dt
 import html as html_lib
 import io
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
@@ -30,6 +31,16 @@ WEAK_DEBT_KEYWORDS = [
     "long term debt",
     "total debt",
 ]
+
+
+def _stringify_table_cells(values: Iterable[Any]) -> List[str]:
+    out: List[str] = []
+    for value in values:
+        if pd.isna(value):
+            out.append("")
+        else:
+            out.append(str(value))
+    return out
 
 
 def coerce_number(x: Any) -> Optional[float]:
@@ -263,7 +274,7 @@ def _debt_table_score(df: pd.DataFrame) -> int:
     if df is None or df.empty:
         return 0
     header = " ".join([str(c).lower() for c in df.columns])
-    body = " ".join(df.astype(str).head(12).fillna("").values.ravel().tolist()).lower()
+    body = " ".join(_stringify_table_cells(df.head(12).values.ravel().tolist())).lower()
     hay = header + " " + body
     strong = sum(1 for k in STRONG_DEBT_KEYWORDS if k in hay)
     weak = sum(1 for k in WEAK_DEBT_KEYWORDS if k in hay)
@@ -310,7 +321,7 @@ def parse_debt_tranches_from_primary_doc(
         local_table_total_long_term_debt: Optional[float] = None
         local_table_total_label: Optional[str] = None
         t2 = t.copy()
-        table_text = " ".join(t2.astype(str).fillna("").values.ravel().tolist()).lower()
+        table_text = " ".join(_stringify_table_cells(t2.values.ravel().tolist())).lower()
         table_has_strong = any(k in table_text for k in STRONG_DEBT_KEYWORDS)
         table_has_weak = any(k in table_text for k in WEAK_DEBT_KEYWORDS)
         table_has_maturity_shape = bool(
@@ -344,7 +355,7 @@ def parse_debt_tranches_from_primary_doc(
 
         alpha_scores: Dict[int, int] = {}
         for idx, c in enumerate(t2.columns):
-            vals = _col_series(t2, idx).head(30).astype(str).tolist()
+            vals = _stringify_table_cells(_col_series(t2, idx).head(30).tolist())
             alpha_scores[idx] = sum(1 for v in vals if re.search(r"[A-Za-z]", v))
         name_col_idx = max(alpha_scores, key=alpha_scores.get)
 
@@ -592,6 +603,25 @@ def parse_debt_tranches_from_primary_doc(
                             continue
                         return float(next_amt), int(next_idx)
                 return None, used_col_idx
+            if (
+                selected_col_is_asof
+                and amt_local is not None
+                and abs(float(amt_local)) < 100.0
+            ):
+                row_text_local = " ".join(str(v) for v in row_vals)
+                has_rate_context = bool(
+                    re.search(r"\b(%|convertible|notes?\s+due|term\s+loan)\b", row_text_local, re.I)
+                )
+                if has_rate_context:
+                    for next_idx in range(used_col_idx + 1, min(len(row_vals), used_col_idx + 3)):
+                        next_cell = row_vals[next_idx]
+                        if _is_blankish_amount_cell(next_cell):
+                            continue
+                        next_amt = coerce_number(next_cell)
+                        if next_amt is None:
+                            continue
+                        if abs(float(next_amt)) >= 1_000.0 and abs(float(next_amt)) >= abs(float(amt_local)) * 100.0:
+                            return float(next_amt), int(next_idx)
             if amt_local is None and not selected_col_is_asof:
                 nums = [coerce_number(v) for v in row_vals]
                 nums = [v for v in nums if v is not None]
@@ -666,7 +696,7 @@ def parse_scheduled_debt_repayments_from_primary_doc(
     for t in tables:
         if t is None or t.empty:
             continue
-        table_text = " ".join([*(str(c) for c in t.columns), *(str(x) for x in t.astype(str).fillna("").values.ravel())]).lower()
+        table_text = " ".join([*(str(c) for c in t.columns), *_stringify_table_cells(t.values.ravel().tolist())]).lower()
         if not re.search(
             r"scheduled\s+(?:long-term\s+)?debt\s+repayments|long-term\s+debt\s+repayments|scheduled\s+repayments",
             table_text,

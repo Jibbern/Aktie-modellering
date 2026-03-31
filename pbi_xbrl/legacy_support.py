@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 """Small explicit compatibility surface for legacy pipeline helpers.
 
 This module intentionally re-exports only the legacy symbols still used by
 newer orchestration/writer modules, so those modules do not depend on broad
 namespace copying from ``pipeline.py``.
 """
+from __future__ import annotations
 
 from .pipeline import (
     PIPELINE_STAGE_CACHE_VERSION,

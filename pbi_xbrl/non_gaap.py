@@ -1,3 +1,4 @@
+"""Non-GAAP text parsing, HTML stripping, and adjusted-metric extraction helpers."""
 from __future__ import annotations
 
 import re

@@ -1,3 +1,4 @@
+"""PDF parsing utility helpers, mainly for warning suppression and hygiene."""
 from __future__ import annotations
 
 import logging

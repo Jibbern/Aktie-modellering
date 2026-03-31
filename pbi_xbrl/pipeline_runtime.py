@@ -1,3 +1,4 @@
+"""Runtime signatures, cache helpers, and root-resolution utilities for the pipeline."""
 from __future__ import annotations
 
 import datetime as dt
@@ -43,6 +44,9 @@ def path_belongs_to_ticker(
 
 
 def paths_signature(paths: List[Path], max_files: int = 1500) -> str:
+    # File signatures are intentionally cheap freshness heuristics. They only need
+    # to notice material input changes strongly enough to invalidate stale caches;
+    # they are not meant to be cryptographic proofs of byte-identical trees.
     rows: List[str] = []
     for path_obj in sorted([Path(x) for x in paths if x is not None]):
         try:
@@ -137,6 +141,9 @@ def submissions_recent_signature(
     forms_prefix: Optional[Tuple[str, ...]] = None,
     max_rows: int = 400,
 ) -> str:
+    # This signature acts as an invalidation guard for SEC-driven stages. It tracks
+    # recent filing identity and dates closely enough to notice relevant filing
+    # changes without serializing the full submissions payload into every cache key.
     recent = ((submissions or {}).get("filings") or {}).get("recent") or {}
     accessions = list(recent.get("accessionNumber") or [])
     forms = list(recent.get("form") or [])
@@ -166,6 +173,9 @@ def submissions_recent_signature(
 
 
 def dataframe_quick_signature(df: pd.DataFrame, cols: List[str]) -> str:
+    # Dataframe signatures are cache-key inputs for expensive stages. They favor
+    # stable column subsets over full-frame hashing so invalidation stays fast even
+    # when large intermediate frames are involved.
     if df is None or df.empty:
         return "empty"
     use_cols = [col for col in cols if col in df.columns]
@@ -183,6 +193,14 @@ def dataframe_quick_signature(df: pd.DataFrame, cols: List[str]) -> str:
 
 
 class PipelineStageCache:
+    """Versioned stage cache for expensive intermediate pipeline artifacts.
+
+    The stage cache is finer-grained than the bundle cache in `stock_models.py`.
+    Each stage chooses its own invalidation signature so downstream workbook-only
+    reruns can reuse expensive intermediate products without hiding true input or
+    behavior changes behind stale state.
+    """
+
     def __init__(self, cache_root: Path, cik10: str, version: int) -> None:
         self.cache_root = Path(cache_root)
         self.cik10 = str(cik10)
@@ -203,6 +221,8 @@ class PipelineStageCache:
             return None
         try:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            # Both the cache format version and the caller-supplied key must match.
+            # The version guards structural changes; the key guards input freshness.
             if meta.get("version") != self.version or str(meta.get("key")) != str(cache_key):
                 return None
             obj = pd.read_pickle(data_path)
@@ -214,6 +234,8 @@ class PipelineStageCache:
     def save(self, stage_name: str, cache_key: str, obj: Any) -> None:
         meta_path, data_path = self._paths(stage_name)
         try:
+            # Stage payloads are written as pickle + tiny JSON metadata so cache
+            # inspection and invalidation debugging stay human-readable.
             pd.to_pickle(obj, data_path)
             meta_path.write_text(
                 json.dumps(

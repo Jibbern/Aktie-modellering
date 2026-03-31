@@ -1,3 +1,4 @@
+"""Workbook save, audit-sheet writeback, and saved-workbook validation helpers."""
 from __future__ import annotations
 
 import hashlib
@@ -200,6 +201,7 @@ def _valuation_snapshot_from_ws(ws: Any) -> Dict[str, Any]:
             quarter_headers.append(val)
             quarter_cols.append(cc)
     grid_targets = [
+        "Buybacks (cash)",
         "Buybacks (TTM, cash)",
         "Dividends (TTM, cash)",
         "Adj EBITDA (TTM)",

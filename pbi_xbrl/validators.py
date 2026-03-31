@@ -1,3 +1,4 @@
+"""Validation helpers that turn raw audit checks into user-facing QA frames."""
 from __future__ import annotations
 
 from typing import Any, Dict, List

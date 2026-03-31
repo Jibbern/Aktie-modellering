@@ -1,3 +1,4 @@
+"""Final QA and Needs_Review shaping helpers for pipeline outputs."""
 from __future__ import annotations
 
 from typing import Any, Iterable, List, Optional

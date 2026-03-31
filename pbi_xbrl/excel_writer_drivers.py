@@ -1,3 +1,4 @@
+"""Operating-driver templates, source indexing, and commentary helper logic."""
 from __future__ import annotations
 
 import re

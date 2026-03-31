@@ -1,3 +1,4 @@
+"""Dataclasses that describe pipeline config, artifacts, and workbook inputs."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

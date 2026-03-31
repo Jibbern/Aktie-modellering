@@ -1,3 +1,9 @@
+"""Quarter-level helpers for provider observations and export shaping.
+
+These functions keep the aggregation math isolated from provider-specific
+parsers so raw observations can be normalized once and then reused by both the
+market-data export layer and the workbook overlay logic.
+"""
 from __future__ import annotations
 
 from datetime import date

@@ -1,3 +1,4 @@
+"""SEC client and XBRL-loading helpers used by ingest and pipeline stages."""
 from __future__ import annotations
 
 import dataclasses
