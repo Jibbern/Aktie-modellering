@@ -161,6 +161,7 @@ class WorkbookInputs:
     profile_timings: bool = False
     quarter_notes_audit: bool = False
     capture_saved_workbook_provenance: bool = True
+    excel_debug_scope: str = "full"
 
     @classmethod
     def from_artifacts(
@@ -179,6 +180,7 @@ class WorkbookInputs:
         profile_timings: bool = False,
         quarter_notes_audit: bool = False,
         capture_saved_workbook_provenance: bool = True,
+        excel_debug_scope: str = "full",
     ) -> "WorkbookInputs":
         return cls(
             out_path=out_path,
@@ -228,4 +230,5 @@ class WorkbookInputs:
             profile_timings=profile_timings,
             quarter_notes_audit=quarter_notes_audit,
             capture_saved_workbook_provenance=capture_saved_workbook_provenance,
+            excel_debug_scope=excel_debug_scope,
         )

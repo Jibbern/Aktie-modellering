@@ -7,6 +7,18 @@
 - Document the runtime layout and clarify which workspace artifacts are source-like, rebuildable, or disposable.
 - Freeze the current runtime/correctness baseline before new feature work in [BASELINE_FREEZE_2026-03-20.md](/c:/Users/Jibbe/Aktier/Code/docs/BASELINE_FREEZE_2026-03-20.md).
 
+## Artifact Sync Status (2026-04-08)
+- Verified live code/test fixes currently present in the worktree:
+  - PBI `Valuation > Buybacks (cash)` uses the quarter-safe filing-doc/precompute path.
+  - GPRE `Operating_Drivers > Utilization (%)` now parses current-quarter official utilization disclosures instead of falling through to comparative transcript values.
+  - Three plant-execution commentary rows now route to `Operating_Drivers` instead of defaulting to `Economics_Overlay`.
+- Local delivered workbook artifacts live in [`Excel stock models`](/c:/Users/Jibbe/Aktier/Excel%20stock%20models), outside the `Code` git repo root.
+- `PBI_model.xlsx` was regenerated on `2026-04-08` and re-verified against the live path:
+  - `Buybacks (cash)` now reads `15.006`, `75.251`, `161.511`, and `126.641` for `2025-Q1` through `2025-Q4`.
+- `GPRE_model.xlsx` was regenerated successfully on `2026-04-08` after restoring the missing `sandbox_process_margin_refs` handoff in the overlay write path.
+  - `Operating_Drivers > Utilization (%)` now reads `87.5`, `81.5`, `93.9`, `95.0`, `92.4`, `92.6`, `96.8`, `92.0`, `100`, `99`, `101`, and `97` across the current actuals window.
+  - The three plant-execution commentary rows now appear in `Operating_Drivers` and no longer appear in `Economics_Overlay`.
+
 ## What Changed
 - Repo docs and module headers were refreshed so the current writer/runtime split is easier to follow from disk without relying on thread history.
 - Market-data docs now reflect the live USDA behavior:
@@ -36,9 +48,44 @@
 - `Promise_Progress_UI` now applies final result fills after the last visible repair pass, so `Updated` is consistently blue and the generated title row no longer picks up a stray status fill.
 - `Needs_Review` now preserves the current QA taxonomy but reads more cleanly:
   - row counts should be interpreted as data rows, not worksheet `max_row`
-  - `quarter_text_no_explicit_support` rows keep their visibility but use softer internal ordering for metrics that are often absent from release text
+  - latest-quarter `quarter_text_no_explicit_support` rows now stay in the curated queue only for stronger expected-support metrics such as Revenue / Cash / Total debt
+  - noisier latest-quarter gaps such as `EBITDA (Q)`, `Adj EBITDA (Q)`, `Net income (Q)`, and similar release-text coverage misses now stay as secondary QA instead of driving `Needs_Review`
   - visible `source` fields now prefer a short selected-doc list instead of a noisy bundle summary
   - curated debt-basis rows may use a more readable display metric while keeping the same canonical coalescing behavior
+- `QA_Checks` latest-quarter metric support is now less noisy:
+  - real numeric conflicts and basis mismatches still surface as `warn` / `fail`
+  - weak no-explicit-support on noisier metrics now lands as `info`
+- Writer-specific QA policy is now declarative and centralized in [writer_qa_policy.py](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/writer_qa_policy.py) instead of being spread across large inline branches.
+- `Quarter_Notes_Audit` now writes terminal readback stages again:
+  - `readback_verified`
+  - `saved_workbook_missing`
+  - internal `final_selected` rows no longer remain the visible terminal audit state after readback enrichment
+- Visible audit export now drops some redundant missing/blob-like readback noise when an equivalent canonical note already verified into the saved workbook.
+- GPRE commentary now uses a clearer single-home split:
+  - `Economics_Overlay > Commercial / hedge setup` carries hedge, risk-management, lock-in, and open-to-the-crush positioning
+  - `Operating_Drivers` carries operating/result-driver commentary such as export demand, corn-oil / protein / DDGS pricing, maintenance / downtime, and RIN / NRV bridge effects
+  - `Economics_Overlay > Management commentary` is no longer the catch-all for all three families
+- GPRE economics overlay now has a more explicit market/proxy split:
+  - `Approximate market crush` remains the simple official row
+  - `GPRE crush proxy` remains the separate fitted row
+  - prior-quarter fitted output is now explicitly resolved from the chosen fitted-model path instead of silently falling back to the official row
+- GPRE chart labeling is now chart-native:
+  - quarter labels live inside the chart on the same date axis as the plotted series
+  - worksheet merged-cell quarter ribbons are no longer the primary source of truth
+- GPRE thesis ethanol is now local-file driven:
+  - `Next quarter thesis` uses the local Chicago ethanol futures EOD CSVs in [`GPRE/Ethanol_futures`](/c:/Users/Jibbe/Aktier/GPRE/Ethanol_futures)
+  - `Quarter-open proxy` keeps strict-frozen precedence but can fall back to a local manual quarter-open snapshot when frozen prior-quarter history is missing
+  - visible overlay wording stays concise and does not dump full provenance into the status line
+- The latest runtime pass materially changed the GPRE write-path profile without changing workbook outputs:
+  - `Economics_Overlay` is no longer the dominant hotspot
+  - GPRE market snapshots/history now reuse one normalized market `DataFrame` plus one precomputed plant-capacity history inside the overlay write path
+  - overlay profiling now shows internal buckets for:
+    - plant-capacity-history resolution
+    - prior/current snapshot build
+    - history-series build
+    - next-quarter thesis build
+    - fitted-model build
+  - `Quarter_Notes_UI` selection is now the dominant remaining GPRE workbook hotspot
 
 ## Runtime Freeze Note
 - The quarter-notes runtime pass is intentionally frozen at the current quality/output level.
@@ -47,8 +94,16 @@
   - PBI `write_excel.ui.render.quarter_notes`: `746.41s -> 418.84s`
   - GPRE `write_excel`: `710.31s -> 558.59s`
 - These gains came from removing redundant audit/readback overhead and reusing run-scoped quarter-notes metadata, not from weakening source selection or saved-workbook validation.
+- Separate from that older quarter-notes pass, the latest GPRE writer/runtime pass produced a much larger overlay-specific improvement:
+  - full `GPRE` `write_excel`: `1693.78s -> 893.70s`
+  - full `GPRE` `write_excel.drivers.render.economics_overlay`: `844.66s -> 9.49s`
+  - `drivers` debug `GPRE` `write_excel`: `881.94s -> 42.66s`
+- Those gains came from reuse/caching of already-equivalent market-data prep, not from any model or workbook-meaning change.
 
 ## Current Delivered Workbook Truth
+- Status note:
+  - as of `2026-04-08`, `PBI_model.xlsx` is re-synced with the live buyback path
+  - as of `2026-04-08`, `GPRE_model.xlsx` is re-synced with the live utilization/commentary routing path
 - PBI
   - `SUMMARY` is topic-aware and source-noted.
   - `Valuation` latest-quarter buybacks now read `12.614m` shares, `$126.6m`, `$10.04/share`.
@@ -79,17 +134,33 @@
     - junk labels like `least 45Z monetization / EBITDA`, `evaluation Results of Debt reduction`, `in all of our Strategic milestone`, and `nan` do not survive visibly
   - `Valuation` hidden flags now use the same live left-panel layout and price-linked helper formulas as PBI.
   - `Buybacks (shares)` can now append a latest-quarter convertible-linked suffix when the concurrent repurchase is explicitly supported.
+  - Live write-path note:
+    - hedge / setup ideas now route to `Commercial / hedge setup`
+    - the three verified plant-execution commentary rows now route to `Operating_Drivers`
+    - the current local delivered workbook now shows that split after the `2026-04-08` artifact refresh
+  - Live write-path note:
+    - `Operating_Drivers > Utilization (%)` now resolves the current-quarter official utilization values for the affected historical actuals quarters
+    - the current local delivered workbook now shows the corrected actuals series after the `2026-04-08` artifact refresh
+  - `Economics_Overlay` quarter and thesis columns now use the local ethanol-files workflow:
+    - `Quarter-open proxy` may show `uses local manual snapshot` when no real frozen prior-quarter thesis snapshot exists
+    - `Current QTD` remains observed-only
+    - `Next quarter thesis` uses the local Chicago ethanol futures strip
+  - `Economics_Overlay` proxy comparison is intentionally split:
+    - official row = `Approximate market crush`
+    - fitted row = `GPRE crush proxy`
+    - those rows should not collapse into one another in the delivered workbook
 
 ## Still Open
 - GPRE `SUMMARY` still has a stale revenue-streams period label:
   - `Business model / revenue streams (% of total revenue) (Quarter end 2025-09-30)`
-- `Quarter_Notes_Audit` still contains `saved_workbook_missing` noise, including duplicate rescue rows and noisy XBRL/blob-like excerpts.
+- `Quarter_Notes_Audit` is cleaner and now uses terminal readback stages, but a smaller tail of `saved_workbook_missing` rows still remains.
 - GPRE `Promise_Progress_UI` still does not surface a separate Q4 2025 `45Z monetization / EBITDA` visible row in the delivered workbook, even though `Quarter_Notes_UI` carries that guidance note.
 - GPRE `Valuation` forward-commentary panel is materially better than before but still has some wording noise in the current delivered workbook.
 - 2024 historical note coverage remains thinner than 2025.
-- `QA_Checks` and `Needs_Review` are materially cleaner, but some source-gap and debt-definition rows remain as truthful current-quarter QA rather than cosmetic noise.
+- `QA_Checks` and `Needs_Review` are materially cleaner, but some debt-definition / debt-basis rows remain as truthful current-quarter QA rather than cosmetic noise.
 - Some GPRE wording and labels could still be polished further.
 - Runtime remains high, especially for PBI, and should be treated as a separate optimization pass.
+- Runtime is now much healthier for the GPRE driver/overlay path, but `Quarter_Notes_UI` selection remains the main remaining GPRE bottleneck.
 - Manual desktop-Excel acceptance is still required for the final live-recalc check:
   - type a `Price` that should activate a price-linked hidden-value flag
   - confirm the visible `Hidden value flags` row appears on `Valuation` without re-export

@@ -276,7 +276,7 @@ def parse_nwer_pdf_text(text: str, *, fallback_date: Optional[pd.Timestamp], sou
 
 class NWERProvider(BaseMarketProvider):
     source = "nwer"
-    provider_parse_version = "v3"
+    provider_parse_version = "v4"
     # New downloads live in the workbook-facing USDA folder, but we keep reading the
     # legacy provider-specific directory so older local restores continue to work.
     local_patterns = (
@@ -291,12 +291,11 @@ class NWERProvider(BaseMarketProvider):
     local_dir_name = "USDA_weekly_data"
 
     def parse_raw_to_rows(self, cache_root: Path, ticker_root: Path, raw_entries: List[Dict[str, Any]]) -> pd.DataFrame:
-        del cache_root, ticker_root
-        q_start, q_end = self._quarter_bounds(as_of=self._today())
+        del ticker_root
         rows: List[Dict[str, Any]] = []
         for entry in raw_entries:
             report_ts = self._date_from_value(entry.get("report_date"))
-            if report_ts is None or not (q_start <= report_ts.date() <= q_end):
+            if report_ts is None:
                 continue
             local_path = Path(str(entry.get("local_path") or "")).expanduser()
             if local_path.suffix.lower() != ".pdf" or not local_path.exists():
@@ -305,6 +304,7 @@ class NWERProvider(BaseMarketProvider):
             if not text:
                 continue
             rows.extend(parse_nwer_pdf_text(text, fallback_date=report_ts, source_file=local_path.name))
+        self._record_parse_debug(cache_root, raw_entries, rows)
         if not rows:
             return pd.DataFrame()
         return pd.DataFrame(rows)

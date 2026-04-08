@@ -39,6 +39,16 @@ This map explains which modules own each major stage of the runtime so the hando
 - [`pbi_xbrl/excel_writer_context.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_context.py)
   - Main workbook renderer and the largest concentration of visible product logic.
   - Owns many final write paths for `Valuation`, `Quarter_Notes_UI`, `Promise_Progress_UI`, `Economics_Overlay`, and supporting QA surfaces.
+  - In the current GPRE runtime layout, it also owns the precompute/reuse boundary for expensive overlay market snapshots and fitted-model preview inputs.
+- [`pbi_xbrl/excel_writer_economics_overlay.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_economics_overlay.py)
+  - Dedicated stage-2 writer surface for the GPRE-specific `Economics_Overlay` support path.
+  - Owns `Basis_Proxy_Sandbox` write orchestration plus the proxy comparison / proxy-implied panels that must stay aligned with the GPRE basis model.
+- [`pbi_xbrl/excel_writer_hidden_value_flags.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_hidden_value_flags.py)
+  - Dedicated stage-3 writer surface for the `Hidden_Value_Flags` sheet.
+  - Owns the sheet-local formatting and visible contract that `Valuation` formulas read back through `Hidden_Value_Flags`.
+- [`pbi_xbrl/excel_writer_promise_progress.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_promise_progress.py)
+  - Dedicated stage-4 writer surface for the visible `Promise_Progress_UI` sheet.
+  - Owns the visible sheet scaffold, Promise Progress block-header rendering, and the final worksheet formatting contract while shared hydration logic stays in `excel_writer_context.py`.
 - [`pbi_xbrl/excel_writer.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer.py)
   - Workbook save/readback helpers and export validation entrypoints.
 - Run-scoped writer runtime helpers:
@@ -57,13 +67,20 @@ This map explains which modules own each major stage of the runtime so the hando
   - [`pbi_xbrl/excel_writer_financials.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_financials.py)
   - [`pbi_xbrl/excel_writer_ui.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_ui.py)
   - [`pbi_xbrl/excel_writer_core.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_core.py)
+  - [`pbi_xbrl/writer_qa_policy.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/writer_qa_policy.py)
+    - Declarative writer-side QA severity and queue policy for visible QA sheets.
 
 ### 6. Market-data pipeline
 - [`pbi_xbrl/market_data/service.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/market_data/service.py)
   - Syncs raw inputs, parsed parquet frames, manifests, and exported rows used by the workbook.
   - Also bridges ticker-local USDA working folders / bootstrap CSVs into the shared export layer.
+  - For GPRE, it also owns the official-proxy snapshots, weekly history series, filing-backed plant-capacity timeline, and fitted-model preview bundle.
+  - Heavy GPRE snapshot/history helpers now accept normalized market-row `DataFrame` inputs so the writer can reuse one prepared frame instead of rebuilding it repeatedly.
 - [`pbi_xbrl/market_data/providers/`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/market_data/providers)
   - Source-specific discovery and parsing.
+  - In the active GPRE workflow, `cme_ethanol_platts` is now effectively local-only:
+    - local Chicago ethanol futures CSVs feed `Next quarter thesis`
+    - local manual snapshot files can seed `Quarter-open proxy` when frozen prior-quarter history is missing
   - Current USDA providers now handle Drupal/AJAX “latest/previous release” fragments instead of relying only on static landing-page links.
 - [`pbi_xbrl/market_data/cache.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/market_data/cache.py)
   - Path and manifest helpers for the market-data cache layout.
@@ -72,6 +89,9 @@ This map explains which modules own each major stage of the runtime so the hando
 
 For the operational USDA download/backfill flow, see
 [`MARKET_DATA_USDA.md`](/c:/Users/Jibbe/Aktier/Code/docs/MARKET_DATA_USDA.md).
+
+For the current `GPRE` economics-overlay source precedence, local ethanol-futures files, and crush-proxy behavior, see
+[`GPRE_ECONOMICS_OVERLAY.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_ECONOMICS_OVERLAY.md).
 
 ### 7. QA, audit, and comparison support
 - [`pbi_xbrl/pipeline_qa.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/pipeline_qa.py)

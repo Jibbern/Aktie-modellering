@@ -11358,6 +11358,7 @@ def write_excel(
     profile_timings: bool = False,
     quarter_notes_audit: bool = False,
     capture_saved_workbook_provenance: bool = True,
+    excel_debug_scope: str = 'full',
 ) -> Any:
     # This wrapper is intentionally mechanical: it documents the dataframe bundle that
     # crosses from pipeline space into workbook-rendering space.
@@ -11411,5 +11412,6 @@ def write_excel(
         profile_timings=profile_timings,
         quarter_notes_audit=quarter_notes_audit,
         capture_saved_workbook_provenance=capture_saved_workbook_provenance,
+        excel_debug_scope=excel_debug_scope,
     )
     return write_excel_from_inputs(inputs)

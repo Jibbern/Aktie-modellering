@@ -3,13 +3,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from .excel_writer_context import WriterContext
 from .excel_writer_core import (
     ensure_hidden_value_inputs,
     ensure_report_inputs,
     ensure_summary_inputs,
     ensure_valuation_inputs,
 )
+from .writer_types import WriterContext
 
 
 def write_summary_sheets(ctx: WriterContext) -> None:

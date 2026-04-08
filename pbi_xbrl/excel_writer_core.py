@@ -14,9 +14,28 @@ from openpyxl.styles import Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.workbook.defined_name import DefinedName
 
-from .excel_writer_context import WriterContext
+from .qa_outputs import (
+    concat_audit_like_frames,
+    dedupe_audit_like_rows,
+    normalize_audit_like_frame,
+    rows_to_audit_like_frame,
+)
 from .signals import build_hidden_value_outputs, build_signals_base
 from .valuation import valuation_engine, valuation_to_frames
+from .writer_types import WriterContext
+from .writer_qa_policy import (
+    WriterQAPolicyContext,
+    coalesce_curated_definition_rows as writer_qa_coalesce_curated_definition_rows,
+    is_current_review_relevant as writer_qa_is_current_review_relevant,
+    issue_family as writer_qa_issue_family,
+    no_explicit_support_expectation_sort as writer_qa_no_explicit_support_expectation_sort,
+    normalize_message_family as writer_qa_normalize_message_family,
+    normalize_metric_family as writer_qa_normalize_metric_family,
+    priority_for_cluster as writer_qa_priority_for_cluster,
+    recommended_action as writer_qa_recommended_action,
+    review_status as writer_qa_review_status,
+    review_status_sort as writer_qa_review_status_sort,
+)
 
 
 @contextmanager
@@ -936,23 +955,41 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
     info_log = data.info_log
     qa_checks = data.qa_checks
     needs_review = ctx.inputs.needs_review
+    info_defaults = {
+        "quarter": pd.NaT,
+        "metric": "",
+        "severity": "info",
+        "message": "",
+        "source": "",
+    }
+    qa_defaults = {
+        **info_defaults,
+        "issue_family": "",
+        "raw_metric": "",
+        "recommended_action": "",
+    }
+    info_keep_cols = ["quarter", "metric", "severity", "message", "source"]
+    qa_keep_cols = [
+        "quarter",
+        "metric",
+        "severity",
+        "message",
+        "source",
+        "issue_family",
+        "raw_metric",
+        "recommended_action",
+    ]
 
     if ctx.ui_info_rows:
-        ui_info_df = pd.DataFrame(ctx.ui_info_rows)
-        for col, default in [
-            ("quarter", pd.NaT),
-            ("metric", ""),
-            ("severity", "info"),
-            ("message", ""),
-            ("source", ""),
-        ]:
-            if col not in ui_info_df.columns:
-                ui_info_df[col] = default
-        ui_info_df = ui_info_df[["quarter", "metric", "severity", "message", "source"]].copy()
-        if info_log is None or info_log.empty:
-            info_log = ui_info_df
-        else:
-            info_log = pd.concat([info_log, ui_info_df], ignore_index=True)
+        ui_info_df = rows_to_audit_like_frame(
+            ctx.ui_info_rows,
+            defaults=info_defaults,
+            keep_cols=info_keep_cols,
+        )
+        info_log = concat_audit_like_frames(
+            normalize_audit_like_frame(info_log, defaults=info_defaults),
+            ui_info_df,
+        )
 
     try:
         qa_info_rows = callbacks.run_latest_quarter_qa()
@@ -967,52 +1004,25 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
             }
         ]
     if qa_info_rows:
-        qa_info_df = pd.DataFrame(qa_info_rows)
-        for col, default in [
-            ("quarter", pd.NaT),
-            ("metric", ""),
-            ("severity", "info"),
-            ("message", ""),
-            ("source", ""),
-            ("issue_family", ""),
-            ("raw_metric", ""),
-            ("recommended_action", ""),
-        ]:
-            if col not in qa_info_df.columns:
-                qa_info_df[col] = default
-        keep_cols = [
-            "quarter",
-            "metric",
-            "severity",
-            "message",
-            "source",
-            "issue_family",
-            "raw_metric",
-            "recommended_action",
-        ]
-        keep_cols = [col for col in keep_cols if col in qa_info_df.columns]
-        qa_info_df = qa_info_df[keep_cols].copy()
-        if info_log is None or info_log.empty:
-            info_log = qa_info_df
-        else:
-            info_log = pd.concat([info_log, qa_info_df], ignore_index=True)
-        if qa_checks is None or qa_checks.empty:
-            qa_checks = qa_info_df.copy()
-        else:
-            qa_checks = pd.concat([qa_checks, qa_info_df], ignore_index=True)
+        qa_info_df = rows_to_audit_like_frame(
+            qa_info_rows,
+            defaults=qa_defaults,
+            keep_cols=qa_keep_cols,
+        )
+        info_log = concat_audit_like_frames(
+            normalize_audit_like_frame(info_log, defaults=qa_defaults),
+            qa_info_df,
+        )
+        qa_checks = concat_audit_like_frames(
+            normalize_audit_like_frame(qa_checks, defaults=qa_defaults),
+            qa_info_df,
+        )
         qa_needs_review = qa_info_df[qa_info_df["severity"].astype(str).str.lower().isin(["warn", "fail"])].copy()
         if not qa_needs_review.empty:
-            if needs_review is None or needs_review.empty:
-                needs_review = qa_needs_review.copy()
-            else:
-                for col in needs_review.columns:
-                    if col not in qa_needs_review.columns:
-                        qa_needs_review[col] = pd.NA
-                for col in qa_needs_review.columns:
-                    if col not in needs_review.columns:
-                        needs_review[col] = pd.NA
-                qa_needs_review = qa_needs_review[needs_review.columns].copy()
-                needs_review = pd.concat([needs_review, qa_needs_review], ignore_index=True)
+            needs_review = concat_audit_like_frames(
+                normalize_audit_like_frame(needs_review, defaults=qa_defaults),
+                qa_needs_review,
+            )
 
     def _valuation_visible_quarters() -> List[pd.Timestamp]:
         out: List[pd.Timestamp] = []
@@ -1102,174 +1112,37 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
         qvals = pd.to_datetime(qa_log["quarter"], errors="coerce")
         coverage_quarters = sorted({pd.Timestamp(q).normalize() for q in qvals.dropna()}, reverse=True)[:12]
     coverage_set = {pd.Timestamp(q).normalize() for q in coverage_quarters}
+    latest_coverage_q = max(coverage_set) if coverage_set else pd.NaT
+    policy_ctx = WriterQAPolicyContext(
+        coverage_set=coverage_set,
+        latest_coverage_q=latest_coverage_q,
+        material_warn_fn=_material_warn_issue,
+    )
+    _normalize_metric_family = writer_qa_normalize_metric_family
+    _normalize_message_family = writer_qa_normalize_message_family
+    _issue_family_local = writer_qa_issue_family
+    _recommended_action_local = writer_qa_recommended_action
+    _no_explicit_support_expectation_sort_local = writer_qa_no_explicit_support_expectation_sort
+    _review_status_local = writer_qa_review_status
+    _review_status_sort_local = writer_qa_review_status_sort
+
+    def _is_current_review_relevant_local(row_in: pd.Series) -> bool:
+        return bool(writer_qa_is_current_review_relevant(row_in, policy_ctx=policy_ctx))
+
+    def _priority_for_cluster(latest_row_in: pd.Series, quarter_count: int) -> Tuple[int, str]:
+        return writer_qa_priority_for_cluster(
+            latest_row_in,
+            quarter_count,
+            latest_coverage_q=latest_coverage_q,
+        )
+
+    def _coalesce_curated_definition_rows(df_in: pd.DataFrame) -> pd.DataFrame:
+        return writer_qa_coalesce_curated_definition_rows(df_in)
 
     if not qa_log.empty:
         qa_log["quarter"] = pd.to_datetime(qa_log["quarter"], errors="coerce")
         qa_log["_quarter_norm"] = qa_log["quarter"].apply(lambda v: pd.Timestamp(v).normalize() if pd.notna(v) else pd.NaT)
         qa_log["is_expected_legacy"] = qa_log.apply(_is_expected_legacy_issue, axis=1)
-
-        latest_coverage_q = max(coverage_set) if coverage_set else pd.NaT
-
-        def _normalize_metric_family(metric_in: Any) -> str:
-            metric_txt = str(metric_in or "").strip()
-            if not metric_txt:
-                return ""
-            metric_txt = re.sub(r"^QA_", "", metric_txt, flags=re.I)
-            metric_txt = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", metric_txt)
-            metric_txt = metric_txt.replace("/", "_").replace("-", "_").replace(" ", "_")
-            metric_txt = re.sub(r"_+", "_", metric_txt).strip("_").lower()
-            metric_txt = metric_txt.replace("tie_out", "tieout")
-            return metric_txt
-
-        def _normalize_message_family(message_in: Any) -> str:
-            msg = str(message_in or "").strip().lower()
-            if not msg:
-                return ""
-            msg = re.sub(r"\b20\d{2}-\d{2}-\d{2}\b", "<quarter>", msg)
-            msg = re.sub(r"\$-?\d[\d,]*(?:\.\d+)?(?:m|bn|b)?", "$#", msg, flags=re.I)
-            msg = re.sub(r"\b\d+(?:\.\d+)?%?\b", "#", msg)
-            msg = re.sub(r"\s+", " ", msg)
-            return msg.strip(" .|")
-
-        def _issue_family_local(row_in: pd.Series) -> str:
-            explicit_issue_family_raw = row_in.get("issue_family")
-            explicit_issue_family = str(explicit_issue_family_raw).strip() if pd.notna(explicit_issue_family_raw) else ""
-            if explicit_issue_family:
-                return explicit_issue_family
-            metric_family = _normalize_metric_family(row_in.get("metric"))
-            message_low = str(row_in.get("message") or "").strip().lower()
-            if metric_family == "qtr":
-                return "quarter_text_model_mismatch"
-            if metric_family in {"debt_tieout", "debt_recon", "debt_tranches"}:
-                return metric_family
-            if metric_family in {"bank_deposits", "bank_finance_receivables"}:
-                return "bank_extraction_fallback"
-            if metric_family == "shares_diluted":
-                return "share_count_fallback"
-            if metric_family == "sources":
-                return "source_coverage_gap"
-            if metric_family == "non_gaap_relaxed":
-                return "non_gaap_relaxed_mode"
-            if metric_family == "tax_paid":
-                return "cash_tax_fallback"
-            if metric_family == "cogs":
-                return "cogs_fallback"
-            if metric_family == "capex" and "sign convention" in message_low:
-                return "sign_convention_check"
-            return metric_family or "review_issue"
-
-        def _recommended_action_local(row_in: pd.Series) -> str:
-            explicit_action_raw = row_in.get("recommended_action")
-            explicit_action = str(explicit_action_raw).strip() if pd.notna(explicit_action_raw) else ""
-            if explicit_action:
-                return explicit_action
-            issue_family = _issue_family_local(row_in)
-            if issue_family == "quarter_text_numeric_conflict":
-                return "fix parser"
-            if issue_family == "quarter_text_definition_mismatch":
-                return "review metric definition"
-            if issue_family == "quarter_text_no_explicit_support":
-                return "review source coverage"
-            if issue_family == "quarter_text_low_confidence_support":
-                return "watch only"
-            if issue_family in {
-                "principal_tranche_tieout",
-                "carrying_debt_tieout",
-                "revolver_and_other_debt_presence_check",
-            }:
-                return "review debt definition"
-            if issue_family == "debt_recon_coverage_check":
-                return "fix source preference"
-            if issue_family == "debt_tranches":
-                return "watch only"
-            return ""
-
-        def _no_explicit_support_expectation_local(row_in: pd.Series) -> str:
-            raw_metric_family = _normalize_metric_family(row_in.get("raw_metric") or row_in.get("metric"))
-            raw_metric_key = re.sub(r"[^a-z0-9]+", "_", raw_metric_family).strip("_")
-            if raw_metric_key in {
-                "revenue_q",
-                "net_income_q",
-                "cash_q",
-                "total_debt_q",
-                "debt_core_q",
-            }:
-                return "strong_expected"
-            if raw_metric_key in {
-                "ebitda_q",
-                "adj_ebitda_q",
-                "fcf_q",
-            }:
-                return "often_not_explicit"
-            return "normal_expected"
-
-        def _no_explicit_support_expectation_sort_local(row_in: pd.Series) -> int:
-            expectation = _no_explicit_support_expectation_local(row_in)
-            return {
-                "strong_expected": 0,
-                "normal_expected": 1,
-                "often_not_explicit": 2,
-            }.get(expectation, 1)
-
-        def _is_methodology_watch_issue_local(row_in: pd.Series) -> bool:
-            issue_family = _issue_family_local(row_in)
-            message_low = str(row_in.get("message") or "").strip().lower()
-            if issue_family in {
-                "quarter_text_low_confidence_support",
-                "bank_extraction_fallback",
-                "share_count_fallback",
-                "source_coverage_gap",
-                "non_gaap_relaxed_mode",
-                "cash_tax_fallback",
-                "cogs_fallback",
-                "sign_convention_check",
-            }:
-                return True
-            if issue_family == "debt_tranches" and re.search(r"\b(scale inferred|fallback|heuristic|verify scaling)\b", message_low, re.I):
-                return True
-            return False
-
-        def _is_current_review_relevant_local(row_in: pd.Series) -> bool:
-            severity_low = str(row_in.get("severity") or row_in.get("status") or "").strip().lower()
-            if severity_low not in {"warn", "fail"}:
-                return False
-            q_norm = row_in.get("_quarter_norm")
-            within_coverage = pd.notna(q_norm) and pd.Timestamp(q_norm).normalize() in coverage_set
-            is_latest_quarter = pd.notna(q_norm) and pd.notna(latest_coverage_q) and pd.Timestamp(q_norm).normalize() == pd.Timestamp(latest_coverage_q).normalize()
-            if bool(row_in.get("is_expected_legacy")):
-                return False
-            if not _material_warn_issue(row_in):
-                return False
-            issue_family = _issue_family_local(row_in)
-            if issue_family in {
-                "bank_extraction_fallback",
-                "share_count_fallback",
-                "source_coverage_gap",
-                "non_gaap_relaxed_mode",
-                "cash_tax_fallback",
-                "cogs_fallback",
-                "sign_convention_check",
-            }:
-                return False
-            if severity_low == "fail" and (within_coverage or is_latest_quarter):
-                return True
-            if issue_family in {
-                "quarter_text_numeric_conflict",
-                "quarter_text_definition_mismatch",
-                "principal_tranche_tieout",
-                "carrying_debt_tieout",
-                "debt_recon_coverage_check",
-            }:
-                return bool(within_coverage or is_latest_quarter)
-            if issue_family in {"quarter_text_no_explicit_support", "revolver_and_other_debt_presence_check"}:
-                return bool(is_latest_quarter or within_coverage)
-            if issue_family in {"debt_tieout", "debt_recon"}:
-                return bool(within_coverage or is_latest_quarter)
-            if issue_family == "debt_tranches":
-                return bool(is_latest_quarter)
-            if _is_methodology_watch_issue_local(row_in):
-                return bool(is_latest_quarter)
-            return bool(within_coverage)
 
         def _quarter_bucket_index(q_in: Any) -> int:
             q_ts = pd.to_datetime(q_in, errors="coerce")
@@ -1277,83 +1150,6 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
                 return -1
             q_num = ((int(q_ts.month) - 1) // 3) + 1
             return int(q_ts.year) * 4 + q_num
-
-        def _priority_for_cluster(latest_row_in: pd.Series, quarter_count: int) -> Tuple[int, str]:
-            severity_low = str(latest_row_in.get("severity") or latest_row_in.get("status") or "").strip().lower()
-            q_norm = pd.to_datetime(latest_row_in.get("_quarter_norm"), errors="coerce")
-            is_current = pd.notna(q_norm) and pd.notna(latest_coverage_q) and pd.Timestamp(q_norm).normalize() == pd.Timestamp(latest_coverage_q).normalize()
-            issue_family = _issue_family_local(latest_row_in)
-            is_methodology_watch = _is_methodology_watch_issue_local(latest_row_in)
-            if is_current and (
-                severity_low == "fail"
-                or issue_family
-                in {
-                    "quarter_text_numeric_conflict",
-                    "principal_tranche_tieout",
-                    "carrying_debt_tieout",
-                    "debt_recon_coverage_check",
-                }
-            ):
-                return (0, "Current-quarter critical")
-            if is_current and issue_family in {"quarter_text_definition_mismatch", "revolver_and_other_debt_presence_check"}:
-                return (1, "Current-quarter basis / definition issues")
-            if is_current and issue_family in {"quarter_text_no_explicit_support"}:
-                return (2, "Current-quarter source gaps")
-            if issue_family in {
-                "quarter_text_numeric_conflict",
-                "quarter_text_definition_mismatch",
-                "quarter_text_no_explicit_support",
-                "principal_tranche_tieout",
-                "carrying_debt_tieout",
-                "debt_recon_coverage_check",
-                "debt_tieout",
-                "debt_recon",
-            } or (quarter_count > 1 and not is_methodology_watch):
-                return (3, "Persistent unresolved material")
-            if is_methodology_watch:
-                return (4, "Methodology / heuristic watch")
-            return (3, "Persistent unresolved material")
-
-        def _coalesce_curated_definition_rows(df_in: pd.DataFrame) -> pd.DataFrame:
-            if df_in.empty:
-                return df_in
-            work = df_in.copy()
-            work["_raw_metric_family_tmp"] = work["raw_metric"].apply(_normalize_metric_family) if "raw_metric" in work.columns else ""
-            work["_source_norm_tmp"] = (
-                work["source"].astype(str).str.strip().str.lower() if "source" in work.columns else ""
-            )
-            work["_quarter_norm_tmp"] = pd.to_datetime(work.get("quarter"), errors="coerce").apply(
-                lambda v: pd.Timestamp(v).normalize() if pd.notna(v) else pd.NaT
-            )
-            definition_rows = work[
-                work["issue_family"].astype(str).eq("quarter_text_definition_mismatch")
-                & work["_raw_metric_family_tmp"].astype(str).str.contains("total_debt", regex=False)
-            ]
-            if definition_rows.empty:
-                return work.drop(columns=["_raw_metric_family_tmp", "_source_norm_tmp", "_quarter_norm_tmp"], errors="ignore")
-            debt_basis_rows = work[
-                work["issue_family"].astype(str).eq("revolver_and_other_debt_presence_check")
-            ]
-            if debt_basis_rows.empty:
-                return work.drop(columns=["_raw_metric_family_tmp", "_source_norm_tmp", "_quarter_norm_tmp"], errors="ignore")
-            drop_idx: set[int] = set()
-            for idx, row in definition_rows.iterrows():
-                quarter_norm = row.get("_quarter_norm_tmp")
-                source_norm = str(row.get("_source_norm_tmp") or "")
-                matches = debt_basis_rows[
-                    debt_basis_rows["_quarter_norm_tmp"].eq(quarter_norm)
-                    & debt_basis_rows["_source_norm_tmp"].eq(source_norm)
-                ]
-                if not matches.empty:
-                    readable_metric = str(row.get("raw_metric") or row.get("metric") or "").strip()
-                    for match_idx in matches.index:
-                        current_raw_metric = str(work.at[match_idx, "raw_metric"] or "").strip()
-                        if _normalize_metric_family(current_raw_metric) in {"", "debt_tieout"}:
-                            work.at[match_idx, "raw_metric"] = readable_metric or "Debt basis"
-                    drop_idx.add(int(idx))
-            if drop_idx:
-                work = work.drop(index=list(drop_idx)).copy()
-            return work.drop(columns=["_raw_metric_family_tmp", "_source_norm_tmp", "_quarter_norm_tmp"], errors="ignore")
 
         def _build_curated_needs_review(df_in: pd.DataFrame) -> pd.DataFrame:
             if df_in.empty:
@@ -1371,6 +1167,8 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
             work_df["message_family"] = work_df["message"].apply(_normalize_message_family)
             work_df["issue_family"] = work_df.apply(_issue_family_local, axis=1)
             work_df["recommended_action"] = work_df.apply(_recommended_action_local, axis=1)
+            work_df["review_status"] = work_df.apply(lambda row: _review_status_local(row, policy_ctx=policy_ctx), axis=1)
+            work_df["_review_status_sort"] = work_df["review_status"].apply(_review_status_sort_local)
             work_df["canonical_issue_key"] = work_df.apply(
                 lambda row: "|".join(
                     [
@@ -1405,8 +1203,10 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
                         curated["latest_message"] = latest_row.get("message")
                         curated["message"] = latest_row.get("message")
                         curated["recommended_action"] = latest_row.get("recommended_action") or _recommended_action_local(latest_row)
+                        curated["review_status"] = latest_row.get("review_status") or _review_status_local(latest_row, policy_ctx=policy_ctx)
                         curated["priority"] = priority_label
                         curated["_priority_sort"] = priority_sort
+                        curated["_review_status_sort"] = _review_status_sort_local(curated["review_status"])
                         curated["_source_gap_expectation_sort"] = (
                             _no_explicit_support_expectation_sort_local(latest_row)
                             if str(curated.get("issue_family") or "").strip() == "quarter_text_no_explicit_support"
@@ -1432,8 +1232,10 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
                     curated["latest_message"] = latest_row.get("message")
                     curated["message"] = latest_row.get("message")
                     curated["recommended_action"] = latest_row.get("recommended_action") or _recommended_action_local(latest_row)
+                    curated["review_status"] = latest_row.get("review_status") or _review_status_local(latest_row, policy_ctx=policy_ctx)
                     curated["priority"] = priority_label
                     curated["_priority_sort"] = priority_sort
+                    curated["_review_status_sort"] = _review_status_sort_local(curated["review_status"])
                     curated["_source_gap_expectation_sort"] = (
                         _no_explicit_support_expectation_sort_local(latest_row)
                         if str(curated.get("issue_family") or "").strip() == "quarter_text_no_explicit_support"
@@ -1444,9 +1246,11 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
             if curated_df.empty:
                 return curated_df
             curated_df = _coalesce_curated_definition_rows(curated_df)
+            curated_df["review_status"] = curated_df.apply(lambda row: _review_status_local(row, policy_ctx=policy_ctx), axis=1)
+            curated_df["_review_status_sort"] = curated_df["review_status"].apply(_review_status_sort_local)
             curated_df = curated_df.sort_values(
-                by=["_priority_sort", "_source_gap_expectation_sort", "last_seen_q", "severity", "issue_family", "metric"],
-                ascending=[True, True, False, True, True, True],
+                by=["_priority_sort", "_review_status_sort", "_source_gap_expectation_sort", "last_seen_q", "severity", "issue_family", "metric"],
+                ascending=[True, True, True, False, True, True, True],
                 kind="stable",
             )
             return curated_df.copy()
@@ -1467,21 +1271,26 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
                 "quarter",
                 "raw_metric",
                 "canonical_issue_key",
+                "review_status",
             ]
             display_cols = [col for col in display_cols if col in df_in.columns]
             return df_in[display_cols].copy()
 
         qa_log["is_current_review_relevant"] = qa_log.apply(_is_current_review_relevant_local, axis=1)
+        qa_log["issue_family"] = qa_log.apply(_issue_family_local, axis=1)
+        qa_log["recommended_action"] = qa_log.apply(_recommended_action_local, axis=1)
+        qa_log["review_status"] = qa_log.apply(lambda row: _review_status_local(row, policy_ctx=policy_ctx), axis=1)
+        qa_log["_review_status_sort"] = qa_log["review_status"].apply(_review_status_sort_local)
         qa_log = qa_log.sort_values(
-            by=[col for col in ["is_current_review_relevant", "quarter", "severity", "metric"] if col in qa_log.columns],
-            ascending=[False, False, True, True][: len([col for col in ["is_current_review_relevant", "quarter", "severity", "metric"] if col in qa_log.columns])],
+            by=[col for col in ["is_current_review_relevant", "_review_status_sort", "quarter", "severity", "metric"] if col in qa_log.columns],
+            ascending=[False, True, False, True, True][: len([col for col in ["is_current_review_relevant", "_review_status_sort", "quarter", "severity", "metric"] if col in qa_log.columns])],
             kind="stable",
         )
         needs_review_raw = qa_log[qa_log["is_current_review_relevant"]].copy()
         needs_review = _build_curated_needs_review(needs_review_raw.drop(columns=[], errors="ignore"))
         needs_review_export = _export_curated_needs_review(needs_review)
         helper_cols = [col for col in ["is_expected_legacy", "is_current_review_relevant"] if col in qa_log.columns]
-        other_cols = [col for col in qa_log.columns if col not in {"_quarter_norm", *helper_cols}]
+        other_cols = [col for col in qa_log.columns if col not in {"_quarter_norm", "_review_status_sort", *helper_cols}]
         qa_log = qa_log[other_cols + helper_cols].copy()
     else:
         needs_review = qa_log.copy()
@@ -1519,17 +1328,93 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
             snap["quarter"] = snap["quarter"].apply(lambda v: pd.Timestamp(v).strftime("%Y-%m-%d") if pd.notna(v) else "")
         return snap.to_dict("records")
 
+    info_log = dedupe_audit_like_rows(
+        normalize_audit_like_frame(info_log, defaults=qa_defaults),
+    )
+    qa_checks = dedupe_audit_like_rows(
+        normalize_audit_like_frame(qa_checks, defaults=qa_defaults),
+    )
+
     callbacks.write_sheet("SEC_Audit_Log", ctx.inputs.audit)
     callbacks.write_sheet("Info_Log", info_log)
     callbacks.write_sheet("OCR_Text_Log", ctx.inputs.ocr_log)
     callbacks.write_sheet("QA_Log", qa_log)
     callbacks.write_sheet("Needs_Review", needs_review_export)
+    shares_diluted_diag_rows: List[Dict[str, Any]] = []
+    audit_df = ctx.inputs.audit
+    if (
+        visible_quarters
+        and audit_df is not None
+        and not audit_df.empty
+        and {"metric", "quarter"}.issubset(set(audit_df.columns))
+    ):
+        aud = audit_df.copy()
+        aud["quarter"] = pd.to_datetime(aud["quarter"], errors="coerce")
+        year_end_quarters = sorted(
+            {
+                pd.Timestamp(q).normalize()
+                for q in visible_quarters
+                if pd.notna(q) and int(pd.Timestamp(q).month) == 12
+            },
+            reverse=True,
+        )
+        if year_end_quarters:
+            latest_year_end = year_end_quarters[0]
+            aud = aud[
+                aud["quarter"].eq(latest_year_end)
+                & aud["metric"].astype(str).str.strip().eq("shares_diluted")
+            ].copy()
+            if not aud.empty:
+                if "source_choice" not in aud.columns:
+                    aud["source_choice"] = ""
+                aud["_source_rank"] = aud["source"].astype(str).str.lower().eq("missing").astype(int)
+                aud = aud.sort_values(["_source_rank", "quarter"], ascending=[True, False], kind="stable")
+                latest_shares_row = aud.iloc[0]
+                source_choice = str(latest_shares_row.get("source_choice") or "").strip().lower()
+                if source_choice in {"fallback_fy", "carry_forward_q3"}:
+                    fallback_label = "same-end-date FY fallback" if source_choice == "fallback_fy" else "prior-quarter carry-forward"
+                    source_note = str(latest_shares_row.get("note") or latest_shares_row.get("accn") or latest_shares_row.get("source") or "").strip()
+                    shares_diluted_diag_rows.append(
+                        {
+                            "quarter": latest_year_end,
+                            "metric": "QA_SharesDiluted",
+                            "severity": "info",
+                            "message": (
+                                f"Diluted shares for {latest_year_end.date()} use {fallback_label}; numeric value was retained, "
+                                "but provenance is fallback rather than direct quarter-backed share-count support."
+                            ),
+                            "source": source_note or "audit",
+                            "issue_family": "share_count_fallback",
+                            "recommended_action": "watch only",
+                            "raw_metric": "shares_diluted",
+                        }
+                    )
     if ui_qa_rows:
         ui_qa_df = pd.DataFrame(ui_qa_rows)
         if qa_checks is None or qa_checks.empty:
             qa_checks = ui_qa_df.copy()
         else:
             qa_checks = pd.concat([qa_checks, ui_qa_df], ignore_index=True)
+    if shares_diluted_diag_rows:
+        diag_df = pd.DataFrame(shares_diluted_diag_rows)
+        if qa_checks is None or qa_checks.empty:
+            qa_checks = diag_df.copy()
+        else:
+            qa_checks = pd.concat([qa_checks, diag_df], ignore_index=True)
+    if qa_checks is not None and not qa_checks.empty:
+        qa_checks = _ensure_review_df(qa_checks)
+        qa_checks["quarter"] = pd.to_datetime(qa_checks["quarter"], errors="coerce")
+        qa_checks["_quarter_norm"] = qa_checks["quarter"].apply(lambda v: pd.Timestamp(v).normalize() if pd.notna(v) else pd.NaT)
+        qa_checks["is_expected_legacy"] = qa_checks.apply(_is_expected_legacy_issue, axis=1)
+        qa_checks["issue_family"] = qa_checks.apply(_issue_family_local, axis=1)
+        qa_checks["recommended_action"] = qa_checks.apply(_recommended_action_local, axis=1)
+        qa_checks["review_status"] = qa_checks.apply(lambda row: _review_status_local(row, policy_ctx=policy_ctx), axis=1)
+        qa_checks["_review_status_sort"] = qa_checks["review_status"].apply(_review_status_sort_local)
+        qa_checks = qa_checks.sort_values(
+            by=[col for col in ["quarter", "_review_status_sort", "severity", "metric"] if col in qa_checks.columns],
+            ascending=[False, True, True, True][: len([col for col in ["quarter", "_review_status_sort", "severity", "metric"] if col in qa_checks.columns])],
+            kind="stable",
+        ).drop(columns=["_quarter_norm", "_review_status_sort"], errors="ignore")
     callbacks.write_sheet("QA_Checks", qa_checks)
     if ctx.inputs.excel_mode == "full":
         callbacks.write_sheet("Tag_Coverage", ctx.inputs.tag_coverage)

@@ -33,6 +33,11 @@ _CORN_REGIONS = (
 )
 _DECIMAL_RE = re.compile(r"^\d+\.\d+$")
 _PRICE_RANGE_RE = re.compile(r"^\d+\.\d+-\d+\.\d+$")
+_BASIS_RANGE_RE = re.compile(
+    r"^(?P<low>[+-]?\d+(?:\.\d+)?)[A-Z]?\s+to\s+(?P<high>[+-]?\d+(?:\.\d+)?)[A-Z]?\b",
+    re.I,
+)
+_BASIS_SINGLE_RE = re.compile(r"^(?P<value>[+-]?\d+(?:\.\d+)?)[A-Z]?\b", re.I)
 
 
 def _safe_pdf_text(pdf_path: Path) -> str:
@@ -71,6 +76,9 @@ def _obs_row(
     region: str,
     price_value: float,
     parsed_note: str,
+    market_family: str = "corn_price",
+    instrument: str = "Corn cash price",
+    unit: str = "$/bushel",
 ) -> Dict[str, Any]:
     return {
         "observation_date": report_date,
@@ -80,14 +88,14 @@ def _obs_row(
         "source": "ams_3617",
         "report_type": "ams_3617_pdf",
         "source_type": "ams_3617_pdf",
-        "market_family": "corn_price",
+        "market_family": market_family,
         "series_key": series_key,
-        "instrument": "Corn cash price",
+        "instrument": instrument,
         "location": region,
         "region": region,
         "tenor": "",
         "price_value": float(price_value),
-        "unit": "$/bushel",
+        "unit": unit,
         "quality": "high",
         "source_file": source_file,
         "parsed_note": parsed_note,
@@ -128,6 +136,31 @@ def _extract_average_from_corn_line(line: str) -> Optional[float]:
     return numeric_tail[-1]
 
 
+def _extract_basis_midpoint_from_corn_line(line: str, region: str) -> Optional[float]:
+    raw_line = str(line or "").strip()
+    region_prefix = f"{str(region or '').strip()} "
+    if not raw_line.startswith(region_prefix):
+        return None
+    tail = raw_line[len(region_prefix) :].strip()
+    if tail.lower().startswith("bid "):
+        tail = tail[4:].strip()
+    match = _BASIS_RANGE_RE.match(tail)
+    if match:
+        try:
+            low = float(match.group("low"))
+            high = float(match.group("high"))
+            return (low + high) / 2.0
+        except Exception:
+            return None
+    match = _BASIS_SINGLE_RE.match(tail)
+    if match:
+        try:
+            return float(match.group("value"))
+        except Exception:
+            return None
+    return None
+
+
 def parse_ams_3617_pdf_text(text: str, *, fallback_date: Optional[pd.Timestamp], source_file: str) -> List[Dict[str, Any]]:
     report_date = _ams3617_report_date(text, fallback=fallback_date)
     if report_date is None:
@@ -152,6 +185,7 @@ def parse_ams_3617_pdf_text(text: str, *, fallback_date: Optional[pd.Timestamp],
             avg_value = _extract_average_from_corn_line(line)
             if avg_value is None:
                 continue
+            basis_mid_cents = _extract_basis_midpoint_from_corn_line(line, region)
             region_key = region.lower().replace(" ", "_")
             rows.append(
                 _obs_row(
@@ -163,13 +197,27 @@ def parse_ams_3617_pdf_text(text: str, *, fallback_date: Optional[pd.Timestamp],
                     parsed_note=f"US #2 Yellow Corn - Bulk daily average for {region}.",
                 )
             )
+            if basis_mid_cents is not None:
+                rows.append(
+                    _obs_row(
+                        report_date=report_date,
+                        source_file=source_file,
+                        series_key=f"corn_basis_{region_key}",
+                        region=region_key,
+                        price_value=float(basis_mid_cents) / 100.0,
+                        parsed_note=f"Midpoint of reported daily corn basis range for {region} from AMS 3617.",
+                        market_family="corn_basis",
+                        instrument="Corn basis",
+                        unit="$/bushel",
+                    )
+                )
             break
     return rows
 
 
 class AMS3617Provider(BaseMarketProvider):
     source = "ams_3617"
-    provider_parse_version = "v3"
+    provider_parse_version = "v5"
     # New downloads live in the workbook-facing USDA folder, but we keep reading the
     # legacy provider-specific directory so older local restores continue to work.
     local_patterns = (
@@ -184,12 +232,11 @@ class AMS3617Provider(BaseMarketProvider):
     local_dir_name = "USDA_daily_data"
 
     def parse_raw_to_rows(self, cache_root: Path, ticker_root: Path, raw_entries: List[Dict[str, Any]]) -> pd.DataFrame:
-        del cache_root, ticker_root
-        q_start, q_end = self._quarter_bounds(as_of=self._today())
+        del ticker_root
         rows: List[Dict[str, Any]] = []
         for entry in raw_entries:
             report_ts = self._date_from_value(entry.get("report_date"))
-            if report_ts is None or not (q_start <= report_ts.date() <= q_end):
+            if report_ts is None:
                 continue
             local_path = Path(str(entry.get("local_path") or "")).expanduser()
             if local_path.suffix.lower() != ".pdf" or not local_path.exists():
@@ -198,6 +245,7 @@ class AMS3617Provider(BaseMarketProvider):
             if not text:
                 continue
             rows.extend(parse_ams_3617_pdf_text(text, fallback_date=report_ts, source_file=local_path.name))
+        self._record_parse_debug(cache_root, raw_entries, rows)
         if not rows:
             return pd.DataFrame()
         return pd.DataFrame(rows)

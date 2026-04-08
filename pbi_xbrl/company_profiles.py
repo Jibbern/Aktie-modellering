@@ -599,7 +599,7 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
         economics_overlay_market_inputs=_DEFAULT_ECONOMICS_OVERLAY_MARKET_INPUTS,
         economics_overlay_hedge_templates=_DEFAULT_ECONOMICS_OVERLAY_HEDGES,
         economics_overlay_bridge_rows=_DEFAULT_ECONOMICS_OVERLAY_BRIDGE_ROWS,
-        enabled_market_sources=("nwer", "ams_3617"),
+        enabled_market_sources=("nwer", "ams_3617", "cme_ethanol_platts"),
         official_source_seeds=(
             SourceMaterialSeed(
                 family="earnings_presentation",
@@ -1081,18 +1081,18 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
         ),
         economics_overlay_coefficients=_overlay_coefficients(
             (
-                ("Ethanol yield", "gal/bushel", ("ethanol yield", "gallons per bushel"), 2.9, "inferred", "Platform baseline coefficient", "ethanol_yield"),
+                ("Ethanol yield", "gal/bushel", ("ethanol yield", "gallons per bushel"), 2.9, "report aligned", "Recent GPRE filing / USDA cited average", "ethanol_yield"),
                 ("Renewable corn oil yield", "lbs/bushel", ("corn oil yield", "renewable corn oil yield"), 1.0, "inferred", "Platform baseline coefficient", "renewable_corn_oil_yield"),
                 ("Distillers yield", "lbs/bushel", ("distillers yield", "distillers grains per bushel"), 17.0, "inferred", "Platform baseline coefficient", "distillers_yield"),
                 ("Ultra-high protein yield", "lbs/bushel", ("uhp yield", "ultra-high protein yield"), None, "user assumption", "", "uhp_yield"),
-                ("Natural gas usage", "BTU/gal", ("natural gas usage", "gas usage", "btu per gallon"), 27000.0, "user assumption", "Process assumption", "natural_gas_usage"),
+                ("Natural gas usage", "BTU/gal", ("natural gas usage", "gas usage", "btu per gallon"), 28000.0, "report aligned", "Recent GPRE filing process disclosure", "natural_gas_usage"),
                 ("Electricity usage", "kWh/gal", ("electricity usage", "kwh per gallon"), 0.9, "user assumption", "Process assumption", "electricity_usage"),
             )
         ),
         economics_overlay_market_inputs=_DEFAULT_ECONOMICS_OVERLAY_MARKET_INPUTS,
         economics_overlay_hedge_templates=_DEFAULT_ECONOMICS_OVERLAY_HEDGES,
         economics_overlay_bridge_rows=_DEFAULT_ECONOMICS_OVERLAY_BRIDGE_ROWS,
-        enabled_market_sources=("nwer", "ams_3617"),
+        enabled_market_sources=("nwer", "ams_3617", "cme_ethanol_platts"),
         official_source_seeds=(
             SourceMaterialSeed(
                 family="earnings_presentation",

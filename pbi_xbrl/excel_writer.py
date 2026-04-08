@@ -17,7 +17,7 @@ from .excel_writer_context import build_writer_context
 from .excel_writer_core import finalize_workbook, prepare_writer_inputs, timed_writer_stage, write_qa_sheets, write_raw_data_sheets
 from .excel_writer_drivers import write_driver_sheets
 from .excel_writer_financials import write_debt_sheets, write_report_sheets, write_summary_sheets, write_valuation_sheets
-from .excel_writer_ui import write_ui_sheets
+from .excel_writer_ui import write_ui_debug_sheets, write_ui_sheets
 from .pipeline_types import WorkbookInputs
 
 
@@ -86,6 +86,84 @@ def _canonicalize_qnote_audit_text(value: Any) -> str:
     text = re.sub(r"\b([A-Za-z][A-Za-z0-9/%$().,\- ]{3,90}?)\s+\1\b", r"\1", text, flags=re.I)
     text = _collapse_leading_ngram(text)
     return _normalize_qnote_cell(text)
+
+
+def _quarter_notes_audit_cleanup_key(row: Dict[str, Any]) -> Tuple[str, str, str]:
+    quarter = str(row.get("quarter") or "").strip()
+    idea_label = _normalize_qnote_cell(
+        row.get("idea_label") or row.get("metric_display") or row.get("family") or row.get("candidate_type") or ""
+    ).lower()
+    canonical_source_group = str(row.get("canonical_source_group") or "").strip().lower()
+    if not canonical_source_group:
+        source_type = str(row.get("source_type") or "").strip().lower()
+        source_doc = str(row.get("source_doc") or "").strip()
+        try:
+            source_doc = Path(source_doc).name if source_doc else ""
+        except Exception:
+            source_doc = source_doc.replace("\\", "/").split("/")[-1]
+        source_doc = re.sub(r"\.[a-z0-9]+$", "", source_doc.lower())
+        source_doc = re.sub(r"^doc_\d+_", "", source_doc)
+        source_doc = re.sub(r"[-_]+", "_", source_doc)
+        canonical_source_group = f"{source_type or 'source'}:{source_doc or 'unknown'}"
+    return (quarter, idea_label, canonical_source_group)
+
+
+def _is_blob_like_qnote_audit_text(value: Any) -> bool:
+    text = str(value or "").strip().lower()
+    if not text:
+        return False
+    if re.search(r"<[^>]+>", text):
+        return True
+    noisy_tokens = (
+        "us-gaap:",
+        "dei:",
+        "xbrli:",
+        "contextref",
+        "xmlns",
+        "link:schema",
+        "ix:nonnumeric",
+        "ix:nonfraction",
+        "textblock",
+    )
+    return any(token in text for token in noisy_tokens)
+
+
+def _cleanup_enriched_quarter_notes_audit_rows(
+    rows_in: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    if not rows_in:
+        return []
+    verified_keys = {
+        _quarter_notes_audit_cleanup_key(row)
+        for row in rows_in
+        if str(row.get("stage") or "").strip().lower() == "readback_verified"
+    }
+    rows_out: List[Dict[str, Any]] = []
+    seen: set[Tuple[str, str, str, str, str]] = set()
+    for row in rows_in:
+        stage_low = str(row.get("stage") or "").strip().lower()
+        cleanup_key = _quarter_notes_audit_cleanup_key(row)
+        normalized_detail = _canonicalize_qnote_audit_text(row.get("final_summary") or row.get("source_excerpt") or "")
+        if stage_low == "saved_workbook_missing" and cleanup_key in verified_keys:
+            continue
+        if (
+            stage_low in {"source_detected", "candidate_created", "saved_workbook_missing"}
+            and cleanup_key in verified_keys
+            and _is_blob_like_qnote_audit_text(row.get("source_excerpt") or row.get("final_summary"))
+        ):
+            continue
+        dedupe_key = (
+            cleanup_key[0],
+            stage_low,
+            cleanup_key[1],
+            cleanup_key[2],
+            normalized_detail,
+        )
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        rows_out.append(dict(row))
+    return rows_out
 
 
 def _quarter_notes_ui_snapshot_from_ws(ws: Any) -> Dict[str, List[Tuple[str, str]]]:
@@ -722,18 +800,23 @@ def enrich_quarter_notes_audit_rows_with_readback(
                 matched_row = snap_row_idx
                 break
         if matched_row is not None:
+            base["stage"] = "readback_verified"
             base["saved_workbook_visible"] = True
             base["saved_workbook_missing"] = False
             base["saved_workbook_row"] = int(matched_row)
             base["readback_status"] = "verified"
+            base["attrition_class"] = ""
         else:
+            base["stage"] = "saved_workbook_missing"
             base["saved_workbook_visible"] = False
             base["saved_workbook_missing"] = True
             base["saved_workbook_row"] = ""
             base["readback_status"] = "missing"
             base["dropped_reason"] = str(base.get("dropped_reason") or "export_provenance_mismatch")
+            if not str(base.get("attrition_class") or "").strip():
+                base["attrition_class"] = "export mismatch"
         rows_out.append(base)
-    return rows_out
+    return _cleanup_enriched_quarter_notes_audit_rows(rows_out)
 
 
 def write_quarter_notes_audit_sheet(path: Path, audit_rows: List[Dict[str, Any]]) -> None:
@@ -865,6 +948,7 @@ def write_excel_impl(
     profile_timings: bool = False,
     quarter_notes_audit: bool = False,
     capture_saved_workbook_provenance: bool = True,
+    excel_debug_scope: str = "full",
 ) -> WorkbookWriteResult:
     inputs = WorkbookInputs(
         out_path=Path(out_path),
@@ -914,12 +998,26 @@ def write_excel_impl(
         profile_timings=profile_timings,
         quarter_notes_audit=quarter_notes_audit,
         capture_saved_workbook_provenance=capture_saved_workbook_provenance,
+        excel_debug_scope=excel_debug_scope,
     )
     return write_excel_from_inputs(inputs)
 
 
+def _normalize_excel_debug_scope(scope_in: Any) -> str:
+    scope_txt = str(scope_in or "full").strip().lower()
+    return scope_txt if scope_txt in {"full", "drivers", "ui"} else "full"
+
+
+def _ensure_partial_debug_sheet(ctx: Any, scope: str) -> None:
+    if list(getattr(ctx.wb, "sheetnames", ()) or []):
+        return
+    ws = ctx.wb.create_sheet("Debug_Info")
+    ws["A1"] = f"No visible sheets were written for excel_debug_scope={scope}."
+
 
 def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
+    excel_debug_scope = _normalize_excel_debug_scope(getattr(inputs, "excel_debug_scope", "full"))
+    partial_debug_scope = excel_debug_scope != "full"
     writer_timings: Dict[str, float] = {}
     with timed_writer_stage(writer_timings, "write_excel.prep", enabled=bool(inputs.profile_timings)):
         ctx = build_writer_context(inputs)
@@ -928,22 +1026,31 @@ def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
         prepare_writer_inputs(ctx)
 
     ui_qa_rows = []
-    with timed_writer_stage(writer_timings, "write_excel.summary", enabled=bool(inputs.profile_timings)):
-        write_summary_sheets(ctx)
-    with timed_writer_stage(writer_timings, "write_excel.valuation", enabled=bool(inputs.profile_timings)):
-        ui_qa_rows.extend(write_valuation_sheets(ctx))
-    with timed_writer_stage(writer_timings, "write_excel.drivers", enabled=bool(inputs.profile_timings)):
-        write_driver_sheets(ctx)
-    with timed_writer_stage(writer_timings, "write_excel.ui", enabled=bool(inputs.profile_timings)):
-        ui_qa_rows.extend(write_ui_sheets(ctx))
-    with timed_writer_stage(writer_timings, "write_excel.debt", enabled=bool(inputs.profile_timings)):
-        write_debt_sheets(ctx)
-    with timed_writer_stage(writer_timings, "write_excel.reports", enabled=bool(inputs.profile_timings)):
-        write_report_sheets(ctx)
-    with timed_writer_stage(writer_timings, "write_excel.raw_data", enabled=bool(inputs.profile_timings)):
-        write_raw_data_sheets(ctx)
-    with timed_writer_stage(writer_timings, "write_excel.qa", enabled=bool(inputs.profile_timings)):
-        write_qa_sheets(ctx, ui_qa_rows)
+    if partial_debug_scope:
+        if excel_debug_scope == "drivers":
+            with timed_writer_stage(writer_timings, "write_excel.drivers", enabled=bool(inputs.profile_timings)):
+                write_driver_sheets(ctx)
+        elif excel_debug_scope == "ui":
+            with timed_writer_stage(writer_timings, "write_excel.ui", enabled=bool(inputs.profile_timings)):
+                ui_qa_rows.extend(write_ui_debug_sheets(ctx))
+        _ensure_partial_debug_sheet(ctx, excel_debug_scope)
+    else:
+        with timed_writer_stage(writer_timings, "write_excel.summary", enabled=bool(inputs.profile_timings)):
+            write_summary_sheets(ctx)
+        with timed_writer_stage(writer_timings, "write_excel.valuation", enabled=bool(inputs.profile_timings)):
+            ui_qa_rows.extend(write_valuation_sheets(ctx))
+        with timed_writer_stage(writer_timings, "write_excel.drivers", enabled=bool(inputs.profile_timings)):
+            write_driver_sheets(ctx)
+        with timed_writer_stage(writer_timings, "write_excel.ui", enabled=bool(inputs.profile_timings)):
+            ui_qa_rows.extend(write_ui_sheets(ctx))
+        with timed_writer_stage(writer_timings, "write_excel.debt", enabled=bool(inputs.profile_timings)):
+            write_debt_sheets(ctx)
+        with timed_writer_stage(writer_timings, "write_excel.reports", enabled=bool(inputs.profile_timings)):
+            write_report_sheets(ctx)
+        with timed_writer_stage(writer_timings, "write_excel.raw_data", enabled=bool(inputs.profile_timings)):
+            write_raw_data_sheets(ctx)
+        with timed_writer_stage(writer_timings, "write_excel.qa", enabled=bool(inputs.profile_timings)):
+            write_qa_sheets(ctx, ui_qa_rows)
     with timed_writer_stage(writer_timings, "write_excel.save", enabled=bool(inputs.profile_timings)):
         finalize_workbook(ctx)
     snapshot = (
@@ -964,7 +1071,7 @@ def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
     qa_export_expectation = dict(getattr(ctx.derived, "qa_export_expectation", {}) or {})
     needs_review_export_expectation = dict(getattr(ctx.derived, "needs_review_export_expectation", {}) or {})
     saved_workbook_provenance: Dict[str, Any] = {}
-    if bool(inputs.capture_saved_workbook_provenance):
+    if bool(inputs.capture_saved_workbook_provenance) and not partial_debug_scope:
         try:
             saved_workbook_provenance = validate_saved_workbook_export(
                 inputs.out_path,

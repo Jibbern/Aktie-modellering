@@ -104,9 +104,15 @@
 ## QA Surface Acceptance
 - `Needs_Review` is the curated working queue; treat counts as data rows and exclude the header row.
 - `QA_Log` remains the raw history surface even when a related issue is coalesced or displayed more readably in `Needs_Review`.
-- `quarter_text_no_explicit_support` should remain visible, but metrics often absent from quarter release text may sort below stronger expected-support gaps inside the same queue bucket.
+- Writer-side QA curation should come from the declarative policy layer in [writer_qa_policy.py](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/writer_qa_policy.py), not from duplicated inline severity / explicitness rules.
+- `quarter_text_no_explicit_support` should drive `Needs_Review` mainly for stronger expected-support metrics such as Revenue / Cash / Total debt.
+- Metrics often absent from quarter release text, such as `EBITDA (Q)` / `Adj EBITDA (Q)` / `Net income (Q)`, should normally remain secondary QA (`QA_Checks` / `QA_Log`) unless they escalate into a real numeric or basis problem.
 - Visible QA `source` cells should show the 1-2 most relevant selected quarter-scoped documents, not long concatenated bundle strings.
 - Readable queue labels are preferred in curated views when they improve clarity without changing the underlying canonical issue key.
+- GPRE commentary acceptance should follow a single-home rule:
+  - `Commercial / hedge setup` owns hedge / lock-in / risk-management positioning
+  - `Operating_Drivers` owns operating, margin, pricing, demand, maintenance, and reported bridge drivers
+  - `Management commentary` should not remain a catch-all when a more specific home exists
 
 ## What Counts As A Successful Pass
 - A targeted quarter block is visibly better in the saved workbook.
@@ -136,6 +142,7 @@
   - The note did not survive save/export/readback.
 - `export_provenance_mismatch`
   - Treat as a real correctness problem, not a cosmetic mismatch.
+- After readback enrichment, the visible terminal audit rows should use `readback_verified` / `saved_workbook_missing` rather than leaving the winner at `final_selected`.
 
 ## Current Practical Standard
 - `Quarter_Notes_Audit` is available when audit mode is enabled for that export.
@@ -147,6 +154,9 @@
   - In the current delivered workbooks, GPRE common-dividend contamination is gone and GPRE Q4 buyback cash aligns to `$30.0m`.
   - In the current delivered workbooks, PBI latest-quarter buybacks now align to filing-table truth at `$126.6m` and `$10.04/share`.
   - In the current delivered workbooks, `QA_Buybacks` is now aligned with the same latest-quarter execution truth on the visible surfaces for both PBI and GPRE.
+- For macro-free `.xlsx` acceptance, some cells should be judged as formulas/links rather than cached numbers.
+  - `openpyxl` does not run a desktop Excel recalc.
+  - If a visible official row is intentionally formula-linked, readback may need to verify the formula path instead of a numeric cache.
 - In the current delivered workbooks, `SUMMARY` now includes a visible `Current strategic context` row.
   - PBI now uses a concise synthesized management-focus row around capital allocation, cost discipline, execution, and guidance accuracy into 2026.
   - GPRE now uses a concise synthesized management-focus row around `45Z` monetization, CCS execution, and broader low-carbon value realization into 2026.
@@ -201,6 +211,17 @@
   - `45Z-related Adjusted EBITDA`
   - `Interest expense outlook`
 - GPRE `Quarter_Notes_UI` no longer shows the false Q3 2025 buyback execution, and Q4 2025 keeps the real repurchase / exchange / subscription / carbon-capture / `45Z` notes.
+- GPRE `Economics_Overlay` proxy rows should remain explicitly split:
+  - `Approximate market crush` is the official simple row
+  - `GPRE crush proxy` is the fitted row
+  - if the saved workbook shows identical values, that should be because the fitted model really lands there, not because the fitted row silently fell back to the official row
+- GPRE `Quarter-open proxy` may validly carry manual provenance when frozen history is missing.
+  - visible wording can say `Quarter-open proxy uses local manual snapshot.`
+  - metadata/provenance should still distinguish that from a true frozen prior-quarter thesis snapshot
+- GPRE thesis ethanol acceptance is now local-file based.
+  - `Next quarter thesis` should use the local Chicago ethanol futures strip
+  - `Current QTD` must remain observed-only
+  - for the detailed source-precedence and file-schema rules, see [`GPRE_ECONOMICS_OVERLAY.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_ECONOMICS_OVERLAY.md)
 - No visible `[REPEAT]` badge remains in the current delivered `Quarter_Notes_UI`.
 - The current delivered PBI and GPRE `Quarter_Notes_UI` quarter blocks are now frozen by explicit saved-workbook snapshot tests.
 - `SUMMARY` is materially improved in both delivered workbooks:
