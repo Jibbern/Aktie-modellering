@@ -41,8 +41,9 @@ This map explains which modules own each major stage of the runtime so the hando
   - Owns many final write paths for `Valuation`, `Quarter_Notes_UI`, `Promise_Progress_UI`, `Economics_Overlay`, and supporting QA surfaces.
   - In the current GPRE runtime layout, it also owns the precompute/reuse boundary for expensive overlay market snapshots and fitted-model preview inputs.
 - [`pbi_xbrl/excel_writer_economics_overlay.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_economics_overlay.py)
-  - Dedicated stage-2 writer surface for the GPRE-specific `Economics_Overlay` support path.
+  - Dedicated stage-2/stage-5 writer surface for the GPRE-specific `Economics_Overlay` support path.
   - Owns `Basis_Proxy_Sandbox` write orchestration plus the proxy comparison / proxy-implied panels that must stay aligned with the GPRE basis model.
+  - In the current stage-5 layout, it also owns the short workbook-facing note that separates the official row, fitted row, production winner, and best forward lens.
 - [`pbi_xbrl/excel_writer_hidden_value_flags.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_hidden_value_flags.py)
   - Dedicated stage-3 writer surface for the `Hidden_Value_Flags` sheet.
   - Owns the sheet-local formatting and visible contract that `Valuation` formulas read back through `Hidden_Value_Flags`.

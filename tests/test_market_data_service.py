@@ -1372,6 +1372,11 @@ def test_build_gpre_basis_proxy_model_returns_quarterly_table_weights_and_metric
         "preview_mae",
         "preview_max_error",
         "preview_quality_class",
+        "walk_forward_tail_mae",
+        "signal_coverage_quarters",
+        "signal_coverage_ratio",
+        "forward_usability_rating",
+        "complexity_rating",
         "top_miss_quarters",
         "top_improved_quarters_vs_incumbent",
         "top_worsened_quarters_vs_incumbent",
@@ -1386,6 +1391,10 @@ def test_build_gpre_basis_proxy_model_returns_quarterly_table_weights_and_metric
         "process_utilization_regime_residual",
         "process_exec_inventory_combo_medium",
         "process_asymmetric_basis_passthrough",
+        "process_market_process_ensemble_35_65",
+        "process_locked_share_asymmetric_passthrough",
+        "process_prior_gap_carryover_small",
+        "process_prior_disturbance_carryover",
         "process_residual_regime_locked_vs_disturbed",
         "process_gated_incumbent_vs_residual",
     } <= set(experimental_candidate_comparison_df["model_key"].astype(str))
@@ -1394,9 +1403,14 @@ def test_build_gpre_basis_proxy_model_returns_quarterly_table_weights_and_metric
     assert experimental_candidate_comparison_df["candidate_method_family"].astype(str).str.strip().ne("").all()
     assert experimental_candidate_comparison_df["signal_dependency_note"].astype(str).str.strip().ne("").all()
     assert experimental_candidate_comparison_df["concentration_note"].astype(str).isin({"broad", "mixed", "mostly_1_2_quarters"}).all()
+    assert experimental_candidate_comparison_df["forward_usability_rating"].astype(str).isin({"high", "medium", "low"}).all()
+    assert experimental_candidate_comparison_df["complexity_rating"].astype(str).isin({"low", "moderate", "high"}).all()
     assert "experimental signal audit" in summary_lower
     assert "experimental realization / regime comparison" in summary_lower
     assert "best experimental candidate" in summary_lower
+    assert "best historical fit" in summary_lower
+    assert "best compromise" in summary_lower
+    assert "best forward lens" in summary_lower
     assert "promoted:" in summary_lower
     assert "gallons_produced" in summary_lower
     assert "gallons_sold" in summary_lower
@@ -1435,11 +1449,20 @@ def test_build_gpre_basis_proxy_model_returns_quarterly_table_weights_and_metric
         assert str(weak_q).lower() in summary_lower
     assert str(result["production_winner_model_key"] or "") in str(result["summary_markdown"] or "")
     assert str(result["expanded_best_candidate_model_key"] or "") in str(result["summary_markdown"] or "")
+    assert str(result.get("best_historical_fit_model_key") or "") in str(result["summary_markdown"] or "")
+    assert str(result.get("best_compromise_model_key") or "") in str(result["summary_markdown"] or "")
+    assert str(result.get("best_forward_lens_model_key") or "") in str(result["summary_markdown"] or "")
     assert str(result["gpre_proxy_live_preview_quality_status"] or "").lower() in summary_lower
+    assert str(result.get("best_historical_fit_model_key") or "").strip()
+    assert str(result.get("best_compromise_model_key") or "").strip()
+    assert str(result.get("best_forward_lens_model_key") or "").strip()
     system_audit = result.get("system_audit")
     assert isinstance(system_audit, dict)
     assert bool(system_audit.get("internal_consistency_detected")) is False
     assert "diagnostic only" in str(system_audit.get("hedge_style_study_role") or "").lower()
+    assert "best historical fit" in str(system_audit.get("best_historical_fit_role") or "").lower()
+    assert "best compromise" in str(system_audit.get("best_compromise_role") or "").lower()
+    assert "best forward lens" in str(system_audit.get("best_forward_lens_role") or "").lower()
 
 
 def test_gpre_utilization_overlay_penalty_is_bounded_and_small_near_full_utilization() -> None:
