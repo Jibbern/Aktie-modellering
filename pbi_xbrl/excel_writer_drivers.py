@@ -14,17 +14,27 @@ from .quarter_notes_lexicon import (
 from .quarter_notes_lexicon import compact_snippet as qn_compact_snippet
 
 if TYPE_CHECKING:
-    from .excel_writer_context import WriterContext
+    from .writer_types import WriterContext
 
 
 def write_driver_sheets(ctx: "WriterContext") -> None:
-    from .excel_writer_core import ensure_driver_inputs
+    from .excel_writer_core import ensure_driver_inputs, timed_writer_stage
 
     ensure_driver_inputs(ctx)
     if ctx.data.enable_operating_drivers_sheet:
-        ctx.callbacks.write_operating_drivers_sheet(ctx.data.operating_driver_history_rows)
+        with timed_writer_stage(
+            ctx.writer_timings,
+            "write_excel.drivers.render.operating_drivers",
+            enabled=bool(ctx.inputs.profile_timings),
+        ):
+            ctx.callbacks.write_operating_drivers_sheet(ctx.data.operating_driver_history_rows)
     if ctx.data.enable_economics_overlay_sheet:
-        ctx.callbacks.write_economics_overlay_sheet(ctx.data.operating_driver_history_rows)
+        with timed_writer_stage(
+            ctx.writer_timings,
+            "write_excel.drivers.render.economics_overlay",
+            enabled=bool(ctx.inputs.profile_timings),
+        ):
+            ctx.callbacks.write_economics_overlay_sheet(ctx.data.operating_driver_history_rows)
 
 
 def driver_source_display(source_type: Any, source_doc: Any = "") -> str:
