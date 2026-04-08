@@ -28,7 +28,7 @@ from typing import Any, Callable, Dict, List, Optional, Pattern, Sequence, Set, 
 import pandas as pd
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
-from openpyxl.chart import Reference, ScatterChart, Series
+from openpyxl.chart import LineChart, Reference, ScatterChart, Series
 from openpyxl.chart.label import DataLabelList
 from openpyxl.comments import Comment
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
@@ -153,6 +153,7 @@ from .excel_writer_drivers import (
 )
 from .excel_writer_economics_overlay import (
     GpreOverlaySupportInputs,
+    _overlay_model_label,
     write_gpre_basis_proxy_overlay_support,
 )
 from .excel_writer_hidden_value_flags import (
@@ -227,6 +228,7 @@ from .market_data.service import (
     _gpre_phase_preview_story as market_gpre_phase_preview_story,
     build_current_qtd_simple_crush_snapshot,
     build_gpre_basis_proxy_model,
+    build_gpre_overlay_proxy_preview_bundle,
     build_gpre_plant_capacity_history,
     build_gpre_official_proxy_history_series,
     build_gpre_official_proxy_snapshot,
@@ -53717,6 +53719,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             thesis_target_multiple_label,
             thesis_target_yield_label,
         ] + thesis_input_labels
+        hidden_thesis_bridge_labels = {
+            "protein / mix uplift",
+        }
+        if is_gpre_profile:
+            filtered_thesis_input_labels: List[str] = []
+            for label in thesis_input_labels:
+                label_low = str(label or "").strip().lower()
+                if "corn oil" in label_low or "coproduct" in label_low or label_low in hidden_thesis_bridge_labels:
+                    continue
+                filtered_thesis_input_labels.append(label)
+            thesis_input_labels = filtered_thesis_input_labels
         thesis_output_defs: List[Tuple[str, Optional[str], Optional[str]]] = [
             ("Thesis Adj EBITDA", None, "#,##0.000"),
             ("Less cash interest", "=IF(InterestPaid_TTM=\"\",\"\",InterestPaid_TTM)", "#,##0.000"),
@@ -53849,9 +53862,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         thesis_base_value_m = float(pd.to_numeric(thesis_base_info.get("value_m"), errors="coerce") or 0.0)
         thesis_base_value_m = float(_normalize_thesis_bridge_basis("ThesisBaseAdjEBITDA_FY", thesis_base_value_m) or 0.0)
         _set_formula_name("ThesisBaseAdjEBITDA_FY", thesis_base_value_m)
-        hidden_thesis_bridge_labels = {
-            "protein / mix uplift",
-        }
         for idx, label in enumerate(thesis_input_labels):
             ws.merge_cells(start_row=thesis_row, start_column=15, end_row=thesis_row, end_column=18)
             ws.cell(row=thesis_row, column=15, value=label)
@@ -53913,8 +53923,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 ws.cell(row=thesis_row, column=20).alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
             for cc in range(panel_col_start, additive_panel_end + 1):
                 ws.cell(row=thesis_row, column=cc).border = thin_border
-            if is_gpre_profile and ("corn oil" in label_low or label_low in hidden_thesis_bridge_labels):
-                ws.row_dimensions[thesis_row].hidden = True
             thesis_input_rows[label] = thesis_row
             thesis_row += 1
 
@@ -67304,6 +67312,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         gpre_official_gas_method = ""
         gpre_official_fallback_policy = ""
         gpre_overlay_preview_bundle: Dict[str, Any] = {}
+        gpre_best_forward_preview_bundle: Dict[str, Any] = {}
         gpre_proxy_implied_results_bundle: Dict[str, Any] = {}
         gpre_bridge_panel_rows: Dict[str, int] = {}
         quarter_open_market_snapshot: Dict[str, Any] = {}
@@ -67320,6 +67329,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         if isinstance(gpre_basis_model_result, dict):
             quarterly_df = gpre_basis_model_result.get("quarterly_df")
             weights_df = gpre_basis_model_result.get("weights_df")
+            leaderboard_df = (
+                gpre_basis_model_result.get("leaderboard_df")
+                if isinstance(gpre_basis_model_result.get("leaderboard_df"), pd.DataFrame)
+                else pd.DataFrame()
+            )
+            production_winner_model_key = str(
+                gpre_basis_model_result.get("production_winner_model_key")
+                or gpre_basis_model_result.get("gpre_proxy_model_key")
+                or ""
+            )
+            best_forward_lens_model_key = str(gpre_basis_model_result.get("best_forward_lens_model_key") or "")
             if isinstance(quarterly_df, pd.DataFrame) and not quarterly_df.empty:
                 for rec in quarterly_df.to_dict("records"):
                     qd = pd.to_datetime(rec.get("quarter"), errors="coerce")
@@ -67340,6 +67360,42 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             gpre_official_gas_method = str(gpre_basis_model_result.get("official_gas_method") or "")
             gpre_official_fallback_policy = str(gpre_basis_model_result.get("official_fallback_policy") or "")
             gpre_overlay_preview_bundle = dict(gpre_basis_model_result.get("overlay_preview_bundle") or {})
+            if best_forward_lens_model_key:
+                if best_forward_lens_model_key == production_winner_model_key:
+                    gpre_best_forward_preview_bundle = dict(gpre_overlay_preview_bundle)
+                else:
+                    best_forward_row = (
+                        leaderboard_df[leaderboard_df["model_key"].astype(str) == best_forward_lens_model_key].iloc[0].to_dict()
+                        if not leaderboard_df.empty
+                        and not leaderboard_df[leaderboard_df["model_key"].astype(str) == best_forward_lens_model_key].empty
+                        else {}
+                    )
+                    try:
+                        gpre_best_forward_preview_bundle = dict(
+                            build_gpre_overlay_proxy_preview_bundle(
+                                economics_market_rows,
+                                ethanol_yield=pd.to_numeric((_overlay_coefficient_detail("ethanol_yield") or {}).get("value"), errors="coerce"),
+                                natural_gas_usage=pd.to_numeric((_overlay_coefficient_detail("natural_gas_usage") or {}).get("value"), errors="coerce"),
+                                as_of_date=overlay_market_as_of,
+                                ticker_root=gpre_ticker_root_local,
+                                bids_snapshot=gpre_bids_snapshot,
+                                plant_capacity_history=gpre_plant_capacity_history,
+                                gpre_basis_model_result={
+                                    "quarterly_df": quarterly_df,
+                                    "gpre_proxy_model_key": best_forward_lens_model_key,
+                                    "gpre_proxy_family": str(best_forward_row.get("family") or ""),
+                                    "gpre_proxy_family_label": str(best_forward_row.get("family_label") or ""),
+                                    "gpre_proxy_timing_rule": str(best_forward_row.get("timing_rule") or ""),
+                                },
+                                prior_market_snapshot=prior_q_market_snapshot,
+                                current_qtd_market_snapshot=current_qtd_market_snapshot,
+                                next_quarter_thesis_snapshot=next_quarter_thesis_snapshot,
+                                simple_crush_history_rows=simple_crush_history_rows,
+                            )
+                            or {}
+                        )
+                    except Exception:
+                        gpre_best_forward_preview_bundle = {}
             gpre_proxy_implied_results_bundle = dict(
                 gpre_basis_model_result.get("proxy_implied_results")
                 or gpre_overlay_preview_bundle.get("proxy_implied_results")
@@ -67402,6 +67458,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             recommended_model_key = str(model_result.get("recommended_model_key") or "")
             incumbent_baseline_model_key = str(model_result.get("incumbent_baseline_model_key") or "")
             expanded_best_candidate_model_key = str(model_result.get("expanded_best_candidate_model_key") or model_result.get("expanded_candidate_model_key") or "")
+            best_historical_fit_model_key = str(model_result.get("best_historical_fit_model_key") or "")
+            best_compromise_model_key = str(model_result.get("best_compromise_model_key") or "")
+            best_forward_lens_model_key = str(model_result.get("best_forward_lens_model_key") or "")
             production_winner_model_key = str(model_result.get("production_winner_model_key") or model_result.get("gpre_proxy_model_key") or "")
             promotion_guard_reason = str(model_result.get("gpre_proxy_promotion_guard_reason") or "")
             production_decision_story = str(model_result.get("production_decision_story") or "").strip()
@@ -67449,6 +67508,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     "process_utilization_regime_residual": "Process utilization regime residual",
                     "process_exec_inventory_combo_medium": "Process exec + inventory combo",
                     "process_asymmetric_basis_passthrough": "Process asymmetric basis passthrough",
+                    "process_market_process_ensemble_35_65": "Market/process ensemble 35/65",
+                    "process_locked_share_asymmetric_passthrough": "Locked-share asymmetric passthrough",
+                    "process_prior_gap_carryover_small": "Prior-gap carryover small",
+                    "process_prior_disturbance_carryover": "Prior-disturbance carryover",
                     "process_residual_regime_locked_vs_disturbed": "Process residual regime split",
                     "process_gated_incumbent_vs_residual": "Process gated incumbent vs residual",
                     "process_front_loaded_ops_penalty": "Process front + ops penalty",
@@ -67577,12 +67640,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             incumbent_display = _sandbox_model_label(incumbent_baseline_model_key)
             process_comparator_display = _sandbox_model_label("process_front_loaded")
             expanded_candidate_display = _sandbox_model_label(expanded_best_candidate_model_key)
+            best_historical_fit_display = _sandbox_model_label(best_historical_fit_model_key)
+            best_compromise_display = _sandbox_model_label(best_compromise_model_key)
+            best_forward_lens_display = _sandbox_model_label(best_forward_lens_model_key)
             production_winner_display = _sandbox_model_label(production_winner_model_key)
             simple_market_test_mae = _metrics_pick("simple_market", "test", "mae")
             recommended_test_mae = _metrics_pick(bridge_official_key, "test", "mae")
             recommended_test_corr = _metrics_pick(bridge_official_key, "test", "correlation")
             chosen_row = {}
             expanded_best_row = {}
+            best_historical_fit_row = {}
+            best_compromise_row = {}
+            best_forward_lens_row = {}
             if isinstance(leaderboard_df, pd.DataFrame) and not leaderboard_df.empty:
                 chosen_sub = leaderboard_df[leaderboard_df["chosen"] == True].copy()
                 if not chosen_sub.empty:
@@ -67590,11 +67659,22 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 expanded_sub = leaderboard_df[leaderboard_df["expanded_best_candidate"] == True].copy() if "expanded_best_candidate" in leaderboard_df.columns else pd.DataFrame()
                 if not expanded_sub.empty:
                     expanded_best_row = expanded_sub.iloc[0].to_dict()
+                best_historical_sub = leaderboard_df[leaderboard_df["model_key"].astype(str) == best_historical_fit_model_key].copy()
+                if not best_historical_sub.empty:
+                    best_historical_fit_row = best_historical_sub.iloc[0].to_dict()
+                best_compromise_sub = leaderboard_df[leaderboard_df["model_key"].astype(str) == best_compromise_model_key].copy()
+                if not best_compromise_sub.empty:
+                    best_compromise_row = best_compromise_sub.iloc[0].to_dict()
+                best_forward_sub = leaderboard_df[leaderboard_df["model_key"].astype(str) == best_forward_lens_model_key].copy()
+                if not best_forward_sub.empty:
+                    best_forward_lens_row = best_forward_sub.iloc[0].to_dict()
             chosen_family_txt = str(chosen_row.get("family_label") or "")
             chosen_timing_txt = str(chosen_row.get("timing_rule") or "")
             chosen_clean_mae = pd.to_numeric(chosen_row.get("clean_mae"), errors="coerce")
             chosen_underlying_mae = pd.to_numeric(chosen_row.get("underlying_mae"), errors="coerce")
             chosen_hybrid = pd.to_numeric(chosen_row.get("hybrid_score"), errors="coerce")
+            chosen_forward_usability = str(chosen_row.get("forward_usability_rating") or "").strip()
+            best_forward_usability = str(best_forward_lens_row.get("forward_usability_rating") or "").strip()
             chosen_preview_quality = str(
                 chosen_row.get("live_preview_quality_status")
                 or model_result.get("gpre_proxy_live_preview_quality_status")
@@ -67666,7 +67746,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             system_fitted_row_role = str(system_audit.get("fitted_row_role") or "GPRE crush proxy = fitted production model").strip()
             system_expanded_pass_role = str(system_audit.get("expanded_pass_role") or "Expanded-pass best = best challenger in the expanded test set").strip()
             system_production_winner_role = str(system_audit.get("production_winner_role") or "Production winner = model that cleared promotion guardrails").strip()
+            system_best_historical_role = str(system_audit.get("best_historical_fit_role") or "Best historical fit = lowest clean-window MAE among eligible official rows").strip()
+            system_best_compromise_role = str(system_audit.get("best_compromise_role") or "Best compromise = best preview-supported fit/robustness balance").strip()
+            system_best_forward_role = str(system_audit.get("best_forward_lens_role") or "Best forward lens = strongest forward-usable preview lens").strip()
             system_winner_preview_quality = str(system_audit.get("winner_preview_quality") or chosen_preview_quality or "n/a").strip()
+            system_winner_forward_usability = str(system_audit.get("winner_forward_usability") or chosen_forward_usability or "n/a").strip()
             system_hedge_role = str(system_audit.get("hedge_style_study_role") or hedge_diagnostic_only_note or "Diagnostic only; does not change official row, fitted row, or winner selection.").strip()
             system_internal_inconsistency = bool(system_audit.get("internal_consistency_detected"))
             recent_quarter_comparison_df = (
@@ -67798,6 +67882,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         f" Process comparator: {process_comparator_display}."
                         f"{f' Expanded-pass best: {expanded_candidate_display}.' if expanded_best_candidate_model_key else ''}"
                         f"{f' Production winner: {production_winner_display}.' if production_winner_model_key else ''}"
+                        f"{f' Best historical fit: {best_historical_fit_display}.' if best_historical_fit_model_key else ''}"
+                        f"{f' Best compromise: {best_compromise_display}.' if best_compromise_model_key else ''}"
+                        f"{f' Best forward lens: {best_forward_lens_display}.' if best_forward_lens_model_key else ''}"
                         f"{f' ({chosen_family_txt})' if chosen_family_txt else ''}."
                         f"{f' Timing rule: {chosen_timing_txt}.' if chosen_timing_txt else ''}"
                         f"{f' Clean MAE: {float(chosen_clean_mae):.3f}.' if pd.notna(chosen_clean_mae) else ''}"
@@ -67808,6 +67895,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         f"{f' Expanded-best selection: {expanded_best_selection_txt}.' if expanded_best_selection_txt else ''}"
                         f"{f' Expanded-best promotion: {expanded_best_promotion_txt}.' if expanded_best_promotion_txt else ''}"
                         f"{f' Preview quality: {chosen_preview_quality}.' if chosen_preview_quality else ''}"
+                        f"{f' Forward usability: {system_winner_forward_usability}.' if system_winner_forward_usability and system_winner_forward_usability != 'n/a' else ''}"
                         f"{f' Preview MAE: {float(chosen_preview_mae):.3f}.' if pd.notna(chosen_preview_mae) else ''}"
                         f"{f' Preview max error: {float(chosen_preview_max_error):.3f}.' if pd.notna(chosen_preview_max_error) else ''}"
                         f"{f' Main preview mode: {_sandbox_preview_phase_label(chosen_preview_worst_phase)}.' if chosen_preview_worst_phase else ''}"
@@ -67860,7 +67948,69 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         target_ws.cell(row=rr, column=cc).fill = copy(intro_fill)
                         target_ws.cell(row=rr, column=cc).border = copy(thin_border)
 
-            winner_story_title_row = 21
+            def _role_summary_text(display_label: str, role_row: Dict[str, Any]) -> str:
+                hybrid_num = pd.to_numeric((role_row or {}).get("hybrid_score"), errors="coerce")
+                clean_mae_num = pd.to_numeric(
+                    (role_row or {}).get("clean_mae")
+                    if "clean_mae" in (role_row or {})
+                    else (role_row or {}).get("clean_window_mae"),
+                    errors="coerce",
+                )
+                forward_txt = str((role_row or {}).get("forward_usability_rating") or "").strip() or "n/a"
+                hybrid_txt = f"{float(hybrid_num):.4f}" if pd.notna(hybrid_num) else "n/a"
+                clean_mae_txt = f"{float(clean_mae_num):.4f}" if pd.notna(clean_mae_num) else "n/a"
+                return f"{display_label or 'n/a'} | Hybrid {hybrid_txt} | MAE {clean_mae_txt} | Forward {forward_txt}"
+
+            role_summary_title_row = 21
+            target_ws.merge_cells(start_row=role_summary_title_row, start_column=21, end_row=role_summary_title_row, end_column=24)
+            role_summary_title = target_ws.cell(row=role_summary_title_row, column=21, value="Role summary")
+            role_summary_title.fill = copy(section_fill)
+            role_summary_title.font = copy(bold_font)
+            role_summary_title.alignment = Alignment(horizontal="center", vertical="center")
+            role_summary_title.border = copy(thin_border)
+            for cc in range(21, 25):
+                target_ws.cell(row=role_summary_title_row, column=cc).fill = copy(section_fill)
+                target_ws.cell(row=role_summary_title_row, column=cc).font = copy(bold_font)
+                target_ws.cell(row=role_summary_title_row, column=cc).border = copy(thin_border)
+                target_ws.cell(row=role_summary_title_row, column=cc).alignment = Alignment(horizontal="center", vertical="center")
+
+            role_summary_rows = [
+                ("Production winner", _role_summary_text(production_winner_display, chosen_row)),
+                ("Best historical fit", _role_summary_text(best_historical_fit_display or "n/a", best_historical_fit_row)),
+                ("Best compromise", _role_summary_text(best_compromise_display or "n/a", best_compromise_row)),
+                ("Best forward lens", _role_summary_text(best_forward_lens_display or "n/a", best_forward_lens_row)),
+            ]
+            role_summary_row = role_summary_title_row + 1
+            for label_txt, value_txt in role_summary_rows:
+                target_ws.merge_cells(start_row=role_summary_row, start_column=22, end_row=role_summary_row, end_column=24)
+                for cc in range(21, 25):
+                    cell = target_ws.cell(row=role_summary_row, column=cc)
+                    cell.fill = copy(zebra_fill_light if ((role_summary_row - role_summary_title_row) % 2) else zebra_fill_dark)
+                    cell.border = copy(thin_border)
+                    cell.font = copy(body_font if cc > 21 else bold_font)
+                    cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                target_ws.cell(row=role_summary_row, column=21, value=label_txt)
+                target_ws.cell(row=role_summary_row, column=22, value=value_txt)
+                target_ws.row_dimensions[role_summary_row].height = 28.0
+                role_summary_row += 1
+
+            role_summary_note_row = role_summary_row
+            target_ws.merge_cells(start_row=role_summary_note_row, start_column=21, end_row=role_summary_note_row, end_column=24)
+            role_summary_note = target_ws.cell(
+                row=role_summary_note_row,
+                column=21,
+                value="Production winner = fitted row used in production; Best forward lens = preview-oriented future-quarter lens.",
+            )
+            role_summary_note.fill = copy(intro_fill)
+            role_summary_note.font = copy(body_font)
+            role_summary_note.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+            role_summary_note.border = copy(thin_border)
+            for cc in range(21, 25):
+                target_ws.cell(row=role_summary_note_row, column=cc).fill = copy(intro_fill)
+                target_ws.cell(row=role_summary_note_row, column=cc).border = copy(thin_border)
+            target_ws.row_dimensions[role_summary_note_row].height = 34.0
+
+            winner_story_title_row = role_summary_note_row + 2
             target_ws.merge_cells(start_row=winner_story_title_row, start_column=21, end_row=winner_story_title_row, end_column=24)
             winner_story_title = target_ws.cell(row=winner_story_title_row, column=21, value="Winner story")
             winner_story_title.fill = copy(section_fill)
@@ -67878,6 +68028,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 ("Process comparator", process_comparator_display),
                 ("Expanded-pass best", expanded_candidate_display),
                 ("Production winner", production_winner_display),
+                ("Best historical fit", best_historical_fit_display or "n/a"),
+                ("Best compromise", best_compromise_display or "n/a"),
+                ("Best forward lens", best_forward_lens_display or "n/a"),
+                ("Forward usability", (
+                    f"Winner {system_winner_forward_usability or 'n/a'}"
+                    f"{f' | Forward lens {best_forward_usability}' if best_forward_usability else ''}"
+                ).strip(" |")),
                 ("Selection status", expanded_best_selection_txt or "n/a"),
                 ("Promotion status", expanded_best_promotion_txt or "n/a"),
                 ("Preview quality", (
@@ -68031,7 +68188,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 ("GPRE crush proxy", system_fitted_row_role),
                 ("Expanded-pass best", system_expanded_pass_role),
                 ("Production winner", system_production_winner_role),
+                ("Best historical fit", system_best_historical_role),
+                ("Best compromise", system_best_compromise_role),
+                ("Best forward lens", system_best_forward_role),
                 ("Winner preview quality", system_winner_preview_quality or "n/a"),
+                ("Winner forward usability", system_winner_forward_usability or "n/a"),
                 ("Hedge-style study", system_hedge_role),
                 ("Inconsistency detected", "Yes" if system_internal_inconsistency else "No"),
             ]
@@ -69120,6 +69281,32 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             return " | ".join(part for part in parts if part)
 
         current_overlay_model_key = str(gpre_basis_model_result.get("gpre_proxy_model_key") or "").strip()
+        best_forward_overlay_model_key = str(gpre_basis_model_result.get("best_forward_lens_model_key") or "").strip()
+        overlay_model_key_to_pred_col = (
+            dict(gpre_basis_model_result.get("model_key_to_pred_col") or {})
+            if isinstance(gpre_basis_model_result, dict)
+            else {}
+        )
+        overlay_leaderboard_df = (
+            gpre_basis_model_result.get("leaderboard_df")
+            if isinstance(gpre_basis_model_result.get("leaderboard_df"), pd.DataFrame)
+            else pd.DataFrame()
+        )
+
+        def _overlay_model_leaderboard_row(model_key_in: Any) -> Dict[str, Any]:
+            key_txt = str(model_key_in or "").strip()
+            if not key_txt or not isinstance(overlay_leaderboard_df, pd.DataFrame) or overlay_leaderboard_df.empty:
+                return {}
+            sub = overlay_leaderboard_df[overlay_leaderboard_df["model_key"].astype(str) == key_txt].copy()
+            return sub.iloc[0].to_dict() if not sub.empty else {}
+
+        def _overlay_preview_bundle_for_model(model_key_in: Any) -> Dict[str, Any]:
+            key_txt = str(model_key_in or "").strip()
+            if not key_txt or key_txt == current_overlay_model_key:
+                return dict(gpre_overlay_preview_bundle or {})
+            if key_txt == best_forward_overlay_model_key:
+                return dict(gpre_best_forward_preview_bundle or {})
+            return {}
 
         def _gpre_preview_frame_value(frame_group: str, frame_key: str) -> Optional[float]:
             frame = (((gpre_overlay_preview_bundle or {}).get(frame_group) or {}).get(frame_key) or {})
@@ -69153,6 +69340,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             frame_note = str((frame or {}).get("live_preview_note") or "").strip()
             return frame_note or _fallback_note(str(frame_key or ""))
 
+        def _gpre_model_preview_frame_value(model_key: str, frame_key: str) -> Optional[float]:
+            frame = (((_overlay_preview_bundle_for_model(model_key) or {}).get("gpre_proxy_frames") or {}).get(frame_key) or {})
+            value_num = pd.to_numeric((frame or {}).get("value"), errors="coerce")
+            if pd.isna(value_num):
+                return None
+            return float(value_num)
+
+        def _gpre_model_preview_frame_note(model_key: str, frame_key: str) -> str:
+            frame = (((_overlay_preview_bundle_for_model(model_key) or {}).get("gpre_proxy_frames") or {}).get(frame_key) or {})
+            frame_note = str((frame or {}).get("live_preview_note") or "").strip()
+            if frame_note:
+                return frame_note
+            phase_map = {
+                "quarter_open": "quarter_open",
+                "current_qtd": "current",
+                "next_quarter_thesis": "next",
+            }
+            preview_story = market_gpre_phase_preview_story(
+                str(model_key or current_overlay_model_key),
+                phase=phase_map.get(str(frame_key or ""), str(frame_key or "")),
+            )
+            note_txt = str((preview_story or {}).get("live_preview_note") or "").strip()
+            if note_txt:
+                return note_txt
+            if str(frame_key or "") == "quarter_open":
+                return "Quarter-open fitted value for the chosen model."
+            return ""
+
         def _same_quarter_last_year(qd_in: Any) -> Optional[date]:
             if not isinstance(qd_in, date):
                 return None
@@ -69168,13 +69383,20 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             quarter_end_day = 31 if quarter_end_month in {3, 12} else 30
             return date(dt_in.year, quarter_end_month, quarter_end_day)
 
-        def _historical_proxy_value(qd_in: Any, *, fitted: bool) -> Optional[float]:
+        def _historical_proxy_value(qd_in: Any, *, fitted: bool, model_key: str = "") -> Optional[float]:
             if not isinstance(qd_in, date):
                 return None
             rec = dict(gpre_basis_quarter_map.get(qd_in) or {})
             if not rec:
                 return None
-            col_name = "gpre_proxy_official_usd_per_gal" if fitted else "official_simple_proxy_usd_per_gal"
+            col_name = "official_simple_proxy_usd_per_gal"
+            if fitted:
+                resolved_model_key = str(model_key or current_overlay_model_key).strip()
+                if resolved_model_key and resolved_model_key != current_overlay_model_key:
+                    pred_col = str(overlay_model_key_to_pred_col.get(resolved_model_key) or "").strip()
+                    col_name = pred_col or "gpre_proxy_official_usd_per_gal"
+                else:
+                    col_name = "gpre_proxy_official_usd_per_gal"
             value_num = pd.to_numeric(rec.get(col_name), errors="coerce")
             if pd.isna(value_num):
                 return None
@@ -69627,6 +69849,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             bridge_label_overrides = {
                 "approx_market_crush_proxy": "Approximate market crush",
                 "gpre_crush_proxy": "GPRE crush proxy",
+                "best_forward_lens_proxy": "Best forward lens",
                 "45z": "45Z impact",
                 "rin_sale": "RIN impact",
                 "inventory_lcnrv": "Inventory NRV / lower-of-cost",
@@ -69639,6 +69862,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             bridge_order = (
                 "approx_market_crush_proxy",
                 "gpre_crush_proxy",
+                "best_forward_lens_proxy",
                 "underlying_crush_margin",
                 "reported_consolidated_crush_margin",
                 "45z",
@@ -69790,43 +70014,74 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     "Approximate market crush from quarter-average weighted ethanol benchmark, delivered corn and gas inputs before hedge, policy and other bridge effects.",
                 )
 
-            def _gpre_crush_proxy_value(qd_in: date) -> Tuple[Optional[float], str]:
+            def _gpre_proxy_role_value(
+                qd_in: date,
+                *,
+                model_key: str,
+                role_label: str,
+            ) -> Tuple[Optional[float], str]:
                 if not (is_gpre_profile and gpre_commercial_setup_rows):
                     return None, ""
                 basis_rec = dict(gpre_basis_quarter_map.get(qd_in) or {})
-                proxy_per_gal = pd.to_numeric(
-                    basis_rec.get(
-                        "gpre_proxy_official_usd_per_gal",
-                        basis_rec.get("bridge_official_proxy_usd_per_gal"),
-                    ),
-                    errors="coerce",
+                resolved_model_key = str(model_key or current_overlay_model_key).strip()
+                pred_col = (
+                    "gpre_proxy_official_usd_per_gal"
+                    if not resolved_model_key or resolved_model_key == current_overlay_model_key
+                    else str(overlay_model_key_to_pred_col.get(resolved_model_key) or "").strip()
                 )
+                proxy_per_gal = pd.to_numeric(basis_rec.get(pred_col), errors="coerce")
+                if pd.isna(proxy_per_gal) and pred_col != "gpre_proxy_official_usd_per_gal":
+                    proxy_per_gal = pd.to_numeric(
+                        basis_rec.get(
+                            "gpre_proxy_official_usd_per_gal",
+                            basis_rec.get("bridge_official_proxy_usd_per_gal"),
+                        ),
+                        errors="coerce",
+                    )
                 if pd.isna(proxy_per_gal):
                     return None, ""
                 gallon_basis, _, _ = _bridge_gallon_basis(qd_in)
                 if gallon_basis is None or abs(float(gallon_basis)) < 1e-9:
                     return None, ""
+                role_row = _overlay_model_leaderboard_row(resolved_model_key)
                 comment_parts = [
-                    "GPRE crush proxy is the fitted row selected from the empirical model competition.",
+                    f"{role_label} uses the {_overlay_model_label(resolved_model_key)} fitted proxy row.",
                 ]
-                family_txt = str(basis_rec.get("gpre_proxy_family_label") or basis_rec.get("gpre_proxy_family") or "").strip()
-                timing_txt = str(basis_rec.get("gpre_proxy_timing_rule") or "").strip()
-                clean_mae = pd.to_numeric(basis_rec.get("gpre_proxy_clean_mae"), errors="coerce")
-                underlying_mae = pd.to_numeric(basis_rec.get("gpre_proxy_underlying_mae"), errors="coerce")
+                family_txt = str(role_row.get("family_label") or role_row.get("family") or "").strip()
+                timing_txt = str(role_row.get("timing_rule") or "").strip()
+                clean_mae = pd.to_numeric(role_row.get("clean_mae"), errors="coerce")
+                hybrid_score = pd.to_numeric(role_row.get("hybrid_score"), errors="coerce")
+                forward_rating = str(role_row.get("forward_usability_rating") or "").strip()
                 if family_txt or timing_txt:
                     comment_parts.append(
                         "Chosen model: "
                         + " | ".join(part for part in (family_txt, timing_txt) if part)
                         + "."
                     )
-                if pd.notna(clean_mae) or pd.notna(underlying_mae):
+                if pd.notna(clean_mae) or pd.notna(hybrid_score) or forward_rating:
                     metric_bits = []
                     if pd.notna(clean_mae):
                         metric_bits.append(f"Clean MAE {float(clean_mae):.4f} $/gal")
-                    if pd.notna(underlying_mae):
-                        metric_bits.append(f"Underlying MAE {float(underlying_mae):.4f} $/gal")
+                    if pd.notna(hybrid_score):
+                        metric_bits.append(f"Hybrid {float(hybrid_score):.4f}")
+                    if forward_rating:
+                        metric_bits.append(f"Forward {forward_rating}")
                     comment_parts.append("; ".join(metric_bits) + ".")
                 return float(proxy_per_gal) * float(gallon_basis), " ".join(part for part in comment_parts if part)
+
+            def _gpre_crush_proxy_value(qd_in: date) -> Tuple[Optional[float], str]:
+                return _gpre_proxy_role_value(
+                    qd_in,
+                    model_key=current_overlay_model_key,
+                    role_label="GPRE crush proxy",
+                )
+
+            def _best_forward_lens_proxy_value(qd_in: date) -> Tuple[Optional[float], str]:
+                return _gpre_proxy_role_value(
+                    qd_in,
+                    model_key=best_forward_overlay_model_key or current_overlay_model_key,
+                    role_label="Best forward lens",
+                )
 
             def _bridge_value_and_comment(bkey_in: str, qd_in: date) -> Tuple[Optional[float], str]:
                 cache_key = (bkey_in, qd_in)
@@ -69836,6 +70091,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     result = _approx_market_proxy_value(qd_in)
                 elif bkey_in == "gpre_crush_proxy":
                     result = _gpre_crush_proxy_value(qd_in)
+                elif bkey_in == "best_forward_lens_proxy":
+                    result = _best_forward_lens_proxy_value(qd_in)
                 elif bkey_in == "gap_vs_market_process_proxy":
                     reported_val, _ = _bridge_value_and_comment("reported_consolidated_crush_margin", qd_in)
                     proxy_val, _ = _bridge_value_and_comment("approx_market_crush_proxy", qd_in)
@@ -69907,7 +70164,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                             gpre_reported_margin_by_quarter[qd] = float(val)
                 ws.row_dimensions[row_num].height = overlay_support_row_height if (is_gpre_profile and gpre_commercial_setup_rows) else 18
                 row_num += 1
-                if is_gpre_profile and gpre_commercial_setup_rows and bkey in {"gpre_crush_proxy", "reported_consolidated_crush_margin"}:
+                if is_gpre_profile and gpre_commercial_setup_rows and bkey in {"best_forward_lens_proxy", "reported_consolidated_crush_margin"}:
                     row_num = _write_bridge_separator_row(row_num)
             return row_num
 
@@ -70321,17 +70578,20 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             checks = ",".join([f"ISNUMBER({ref})" for ref in use_refs])
             return f'=IFERROR(IF(AND({checks}),{expr},""),"")'
 
-        def _gpre_formula_helper(phase_key: str) -> Dict[str, Any]:
-            helper = (((gpre_overlay_preview_bundle or {}).get("gpre_proxy_formula_helpers") or {}).get(phase_key) or {})
+        def _gpre_model_formula_helper(model_key: str, phase_key: str) -> Dict[str, Any]:
+            helper = (((_overlay_preview_bundle_for_model(model_key) or {}).get("gpre_proxy_formula_helpers") or {}).get(phase_key) or {})
             return dict(helper) if isinstance(helper, dict) else {}
 
-        def _gpre_formula_note(phase_key: str) -> str:
-            helper = _gpre_formula_helper(phase_key)
+        def _gpre_formula_helper(phase_key: str) -> Dict[str, Any]:
+            return _gpre_model_formula_helper(current_overlay_model_key, phase_key)
+
+        def _gpre_model_formula_note(model_key: str, phase_key: str) -> str:
+            helper = _gpre_model_formula_helper(model_key, phase_key)
             helper_note = str(helper.get("live_preview_note") or "").strip()
             if helper_note:
                 return helper_note
             preview_story = market_gpre_phase_preview_story(
-                current_overlay_model_key,
+                str(model_key or current_overlay_model_key),
                 phase=(
                     "current"
                     if str(phase_key or "") == "current_qtd"
@@ -70347,8 +70607,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return "Quarter-open fitted value for the chosen model."
             return ""
 
-        def _gpre_fitted_live_formula(phase_key: str, ethanol_ref: str) -> Optional[str]:
-            helper = _gpre_formula_helper(phase_key)
+        def _gpre_formula_note(phase_key: str) -> str:
+            return _gpre_model_formula_note(current_overlay_model_key, phase_key)
+
+        def _gpre_model_live_formula(model_key: str, phase_key: str, ethanol_ref: str) -> Optional[str]:
+            helper = _gpre_model_formula_helper(model_key, phase_key)
             slope_num = pd.to_numeric(helper.get("slope"), errors="coerce")
             intercept_num = pd.to_numeric(helper.get("intercept"), errors="coerce")
             if pd.isna(slope_num) or pd.isna(intercept_num):
@@ -70359,6 +70622,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return None
             expr = f"({float(slope_num):.12f}*{ethanol_ref})+({float(intercept_num):.12f})"
             return _formula_if_ready([ethanol_ref], expr)
+
+        def _gpre_fitted_live_formula(phase_key: str, ethanol_ref: str) -> Optional[str]:
+            return _gpre_model_live_formula(current_overlay_model_key, phase_key, ethanol_ref)
 
         def _sheet_ref(ref_in: str, source_sheet_name: str = "") -> str:
             ref_txt = str(ref_in or "").strip()
@@ -70607,6 +70873,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 gpre_formula_note=_gpre_formula_note,
                 gpre_preview_frame_value=_gpre_preview_frame_value,
                 gpre_preview_frame_note=_gpre_preview_frame_note,
+                gpre_model_live_formula=_gpre_model_live_formula,
+                gpre_model_formula_note=_gpre_model_formula_note,
+                gpre_model_preview_frame_value=_gpre_model_preview_frame_value,
+                gpre_model_preview_frame_note=_gpre_model_preview_frame_note,
                 record_writer_substage=_record_writer_substage,
             )
         )
@@ -70621,6 +70891,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         proxy_comp_header_row = int(overlay_support_result.proxy_comp_header_row or 0)
         official_proxy_comp_row = int(overlay_support_result.official_proxy_comp_row or 0)
         fitted_proxy_comp_row = int(overlay_support_result.fitted_proxy_comp_row or 0)
+        best_forward_proxy_comp_row = int(overlay_support_result.best_forward_proxy_comp_row or 0)
 
         if is_gpre_profile and gpre_commercial_setup_rows:
             overlay_quarter_compare_started = time.perf_counter()
@@ -70650,6 +70921,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     _historical_proxy_value(_same_quarter_last_year(current_market_display_quarter), fitted=True),
                     _gpre_preview_frame_value("gpre_proxy_frames", "next_quarter_thesis"),
                     _historical_proxy_value(_same_quarter_last_year(next_thesis_quarter_end), fitted=True),
+                ),
+                (
+                    best_forward_proxy_comp_row,
+                    "Best forward lens",
+                    _gpre_model_preview_frame_value(best_forward_overlay_model_key or current_overlay_model_key, "prior_quarter"),
+                    _historical_proxy_value(
+                        _same_quarter_last_year(prior_market_display_quarter),
+                        fitted=True,
+                        model_key=best_forward_overlay_model_key or current_overlay_model_key,
+                    ),
+                    _gpre_model_preview_frame_value(best_forward_overlay_model_key or current_overlay_model_key, "quarter_open"),
+                    _historical_proxy_value(
+                        _same_quarter_last_year(quarter_open_display_quarter),
+                        fitted=True,
+                        model_key=best_forward_overlay_model_key or current_overlay_model_key,
+                    ),
+                    _gpre_model_preview_frame_value(best_forward_overlay_model_key or current_overlay_model_key, "current_qtd"),
+                    _historical_proxy_value(
+                        _same_quarter_last_year(current_market_display_quarter),
+                        fitted=True,
+                        model_key=best_forward_overlay_model_key or current_overlay_model_key,
+                    ),
+                    _gpre_model_preview_frame_value(best_forward_overlay_model_key or current_overlay_model_key, "next_quarter_thesis"),
+                    _historical_proxy_value(
+                        _same_quarter_last_year(next_thesis_quarter_end),
+                        fitted=True,
+                        model_key=best_forward_overlay_model_key or current_overlay_model_key,
+                    ),
                 ),
             ]
             ws.merge_cells(start_row=quarter_compare_title_row, start_column=10, end_row=quarter_compare_title_row, end_column=21)
@@ -70707,14 +71006,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             chart_end_row = chart_anchor_row + 24
             chart_start_col = 2  # B
             chart_end_col = 21  # U
-            history_col_date = 23  # W
-            history_col_value = 24  # X
-            thesis_col_date = 25  # Y
-            thesis_col_value = 26  # Z
-            boundary_col_date = 27  # AA
-            boundary_col_value = 28  # AB
-            label_col_date = 29  # AC
-            label_col_value = 30  # AD
+            history_col_date = 37  # AK
+            history_col_value = 38  # AL
+            thesis_col_date = 39  # AM
+            thesis_col_value = 40  # AN
+            boundary_col_date = 41  # AO
+            boundary_col_value = 42  # AP
+            label_col_date = 43  # AQ
+            label_col_value = 44  # AR
             ws.column_dimensions[get_column_letter(history_col_date)].hidden = True
             ws.column_dimensions[get_column_letter(history_col_value)].hidden = True
             ws.column_dimensions[get_column_letter(thesis_col_date)].hidden = True
@@ -70939,6 +71238,261 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     to=AnchorMarker(col=chart_end_col, row=chart_end_row),
                 )
                 ws.add_chart(chart)
+
+                quarterly_chart_rows_by_end: Dict[date, Dict[str, Any]] = {}
+                historical_quarter_ends: Set[date] = set()
+                if isinstance(quarterly_df, pd.DataFrame) and not quarterly_df.empty:
+                    quarter_series = pd.to_datetime(quarterly_df.get("quarter"), errors="coerce").dt.date
+                    official_series = (
+                        pd.to_numeric(quarterly_df.get("official_simple_proxy_usd_per_gal"), errors="coerce")
+                        if "official_simple_proxy_usd_per_gal" in quarterly_df.columns
+                        else pd.Series(dtype=float)
+                    )
+                    fitted_series = (
+                        pd.to_numeric(quarterly_df.get("gpre_proxy_official_usd_per_gal"), errors="coerce")
+                        if "gpre_proxy_official_usd_per_gal" in quarterly_df.columns
+                        else pd.Series(dtype=float)
+                    )
+                    best_forward_pred_col = str(
+                        overlay_model_key_to_pred_col.get(best_forward_overlay_model_key or current_overlay_model_key) or ""
+                    ).strip()
+                    best_forward_series = (
+                        pd.to_numeric(quarterly_df.get(best_forward_pred_col), errors="coerce")
+                        if best_forward_pred_col and best_forward_pred_col in quarterly_df.columns
+                        else fitted_series
+                    )
+                    for quarter_end, official_num, fitted_num, best_forward_num in zip(
+                        quarter_series,
+                        official_series,
+                        fitted_series,
+                        best_forward_series,
+                    ):
+                        if not isinstance(quarter_end, date):
+                            continue
+                        if pd.isna(official_num) and pd.isna(fitted_num) and pd.isna(best_forward_num):
+                            continue
+                        historical_quarter_ends.add(quarter_end)
+                        quarterly_chart_rows_by_end[quarter_end] = {
+                            "quarter_end": quarter_end,
+                            "official": None if pd.isna(official_num) else float(official_num),
+                            "fitted": None if pd.isna(fitted_num) else float(fitted_num),
+                            "best_forward": None if pd.isna(best_forward_num) else float(best_forward_num),
+                            "official_formula": "",
+                            "fitted_formula": "",
+                            "best_forward_formula": "",
+                            "_preview_priority": -1,
+                        }
+                preview_priority = {
+                    "quarter_open": 1,
+                    "current_qtd": 2,
+                    "next_quarter_thesis": 3,
+                }
+                preview_quarter_specs = [
+                    ("quarter_open", quarter_open_display_quarter, 4),
+                    ("current_qtd", current_market_display_quarter, 6),
+                    ("next_quarter_thesis", next_thesis_quarter_end, 8),
+                ]
+                current_chart_model_key = str(current_overlay_model_key or "").strip()
+                best_forward_chart_model_key = str(best_forward_overlay_model_key or current_chart_model_key).strip()
+                for frame_key, target_quarter_end, source_col in preview_quarter_specs:
+                    if not isinstance(target_quarter_end, date):
+                        continue
+                    existing_rec = quarterly_chart_rows_by_end.get(target_quarter_end)
+                    if existing_rec is None:
+                        existing_rec = {
+                            "quarter_end": target_quarter_end,
+                            "official": None,
+                            "fitted": None,
+                            "best_forward": None,
+                            "official_formula": "",
+                            "fitted_formula": "",
+                            "best_forward_formula": "",
+                            "_preview_priority": -1,
+                        }
+                        quarterly_chart_rows_by_end[target_quarter_end] = existing_rec
+                    if target_quarter_end in historical_quarter_ends:
+                        continue
+                    if int(existing_rec.get("_preview_priority") or -1) > int(preview_priority.get(frame_key, 0)):
+                        continue
+                    existing_rec["_preview_priority"] = int(preview_priority.get(frame_key, 0))
+                    existing_rec["official"] = _gpre_preview_frame_value("official_frames", frame_key)
+                    existing_rec["fitted"] = _gpre_model_preview_frame_value(current_chart_model_key, frame_key)
+                    existing_rec["best_forward"] = _gpre_model_preview_frame_value(best_forward_chart_model_key, frame_key)
+                    if official_proxy_comp_row > 0:
+                        existing_rec["official_formula"] = f"={get_column_letter(source_col)}{official_proxy_comp_row}"
+                    if fitted_proxy_comp_row > 0:
+                        existing_rec["fitted_formula"] = f"={get_column_letter(source_col)}{fitted_proxy_comp_row}"
+                    if best_forward_proxy_comp_row > 0:
+                        existing_rec["best_forward_formula"] = f"={get_column_letter(source_col)}{best_forward_proxy_comp_row}"
+                quarterly_chart_rows = [
+                    {
+                        key: value
+                        for key, value in rec.items()
+                        if key != "_preview_priority"
+                    }
+                    for _, rec in sorted(quarterly_chart_rows_by_end.items(), key=lambda item: item[0])
+                ]
+                if len(quarterly_chart_rows) >= 2:
+                    quarterly_chart_title_row = chart_end_row + 2
+                    while bool(ws.row_dimensions[quarterly_chart_title_row].hidden):
+                        quarterly_chart_title_row += 1
+                    quarterly_chart_anchor_row = quarterly_chart_title_row + 1
+                    quarterly_chart_end_row = quarterly_chart_anchor_row + 18
+                    quarterly_col_label = 45  # AS
+                    quarterly_col_official = 46  # AT
+                    quarterly_col_fitted = 47  # AU
+                    quarterly_col_best_forward = 48  # AV
+                    for helper_col in (
+                        quarterly_col_label,
+                        quarterly_col_official,
+                        quarterly_col_fitted,
+                        quarterly_col_best_forward,
+                    ):
+                        ws.column_dimensions[get_column_letter(helper_col)].hidden = True
+                    quarterly_helper_start_row = quarterly_chart_title_row
+                    ws.cell(row=quarterly_helper_start_row, column=quarterly_col_label, value="Quarter")
+                    ws.cell(row=quarterly_helper_start_row, column=quarterly_col_official, value="Approximate market crush ($/gal)")
+                    ws.cell(row=quarterly_helper_start_row, column=quarterly_col_fitted, value="GPRE crush proxy ($/gal)")
+                    ws.cell(row=quarterly_helper_start_row, column=quarterly_col_best_forward, value="Best forward lens ($/gal)")
+                    quarterly_helper_last_row = quarterly_helper_start_row
+                    quarterly_y_values: List[float] = []
+                    for helper_row, rec in enumerate(quarterly_chart_rows, start=quarterly_helper_start_row + 1):
+                        quarter_end = rec["quarter_end"]
+                        quarter_label = (
+                            f"{quarter_end.year}-Q{((quarter_end.month - 1) // 3) + 1}"
+                            if isinstance(quarter_end, date)
+                            else ""
+                        )
+                        ws.cell(row=helper_row, column=quarterly_col_label, value=quarter_label)
+                        official_num = pd.to_numeric(rec.get("official"), errors="coerce")
+                        fitted_num = pd.to_numeric(rec.get("fitted"), errors="coerce")
+                        best_forward_num = pd.to_numeric(rec.get("best_forward"), errors="coerce")
+                        official_formula = str(rec.get("official_formula") or "").strip()
+                        fitted_formula = str(rec.get("fitted_formula") or "").strip()
+                        best_forward_formula = str(rec.get("best_forward_formula") or "").strip()
+                        if official_formula:
+                            ws.cell(row=helper_row, column=quarterly_col_official, value=official_formula)
+                            ws.cell(row=helper_row, column=quarterly_col_official).number_format = "#,##0.000"
+                        elif pd.notna(official_num):
+                            ws.cell(row=helper_row, column=quarterly_col_official, value=float(official_num))
+                            ws.cell(row=helper_row, column=quarterly_col_official).number_format = "#,##0.000"
+                        if pd.notna(official_num):
+                            quarterly_y_values.append(float(official_num))
+                        if fitted_formula:
+                            ws.cell(row=helper_row, column=quarterly_col_fitted, value=fitted_formula)
+                            ws.cell(row=helper_row, column=quarterly_col_fitted).number_format = "#,##0.000"
+                        elif pd.notna(fitted_num):
+                            ws.cell(row=helper_row, column=quarterly_col_fitted, value=float(fitted_num))
+                            ws.cell(row=helper_row, column=quarterly_col_fitted).number_format = "#,##0.000"
+                        if pd.notna(fitted_num):
+                            quarterly_y_values.append(float(fitted_num))
+                        if best_forward_formula:
+                            ws.cell(row=helper_row, column=quarterly_col_best_forward, value=best_forward_formula)
+                            ws.cell(row=helper_row, column=quarterly_col_best_forward).number_format = "#,##0.000"
+                        elif pd.notna(best_forward_num):
+                            ws.cell(row=helper_row, column=quarterly_col_best_forward, value=float(best_forward_num))
+                            ws.cell(row=helper_row, column=quarterly_col_best_forward).number_format = "#,##0.000"
+                        if pd.notna(best_forward_num):
+                            quarterly_y_values.append(float(best_forward_num))
+                        quarterly_helper_last_row = helper_row
+
+                    ws.merge_cells(start_row=quarterly_chart_title_row, start_column=chart_start_col, end_row=quarterly_chart_title_row, end_column=chart_end_col)
+                    quarterly_title_cell = ws.cell(
+                        row=quarterly_chart_title_row,
+                        column=2,
+                        value="Approximate market crush vs Fitted models (quarterly)",
+                    )
+                    quarterly_title_cell.fill = title_fill
+                    quarterly_title_cell.font = title_font
+                    quarterly_title_cell.alignment = align_center
+                    quarterly_title_cell.border = thin_border
+                    for cc in range(chart_start_col, chart_end_col + 1):
+                        ws.cell(row=quarterly_chart_title_row, column=cc).fill = title_fill
+                        ws.cell(row=quarterly_chart_title_row, column=cc).font = title_font
+                        ws.cell(row=quarterly_chart_title_row, column=cc).alignment = align_center
+                        ws.cell(row=quarterly_chart_title_row, column=cc).border = thin_border
+                    ws.row_dimensions[quarterly_chart_title_row].height = 18.0
+
+                    quarterly_chart = LineChart()
+                    quarterly_chart.title = None
+                    quarterly_chart.height = 13.0
+                    quarterly_chart.width = 34.0
+                    quarterly_chart.x_axis.title = None
+                    quarterly_chart.x_axis.tickLblPos = "low"
+                    quarterly_chart.x_axis.majorTickMark = "out"
+                    quarterly_chart.x_axis.minorTickMark = "none"
+                    quarterly_chart.y_axis.title = None
+                    quarterly_chart.y_axis.axPos = "l"
+                    quarterly_chart.y_axis.delete = False
+                    quarterly_chart.y_axis.number_format = "$0.00"
+                    quarterly_chart.y_axis.tickLblPos = "nextTo"
+                    quarterly_chart.y_axis.crosses = "min"
+                    quarterly_chart.y_axis.majorTickMark = "out"
+                    quarterly_chart.y_axis.minorTickMark = "none"
+                    quarterly_chart.visible_cells_only = False
+                    try:
+                        quarterly_chart.legend.position = "t"
+                    except Exception:
+                        pass
+
+                    quarterly_categories_ref = Reference(
+                        ws,
+                        min_col=quarterly_col_label,
+                        min_row=quarterly_helper_start_row + 1,
+                        max_row=quarterly_helper_last_row,
+                    )
+                    quarterly_data_ref = Reference(
+                        ws,
+                        min_col=quarterly_col_official,
+                        min_row=quarterly_helper_start_row,
+                        max_col=quarterly_col_best_forward,
+                        max_row=quarterly_helper_last_row,
+                    )
+                    quarterly_chart.add_data(quarterly_data_ref, titles_from_data=True, from_rows=False)
+                    quarterly_chart.set_categories(quarterly_categories_ref)
+                    try:
+                        quarterly_chart.series[0].graphicalProperties.line.solidFill = "2F80ED"
+                        quarterly_chart.series[0].graphicalProperties.line.width = 12700
+                        quarterly_chart.series[0].marker.symbol = "circle"
+                        quarterly_chart.series[0].marker.size = 6
+                    except Exception:
+                        pass
+                    try:
+                        quarterly_chart.series[1].graphicalProperties.line.solidFill = "E67E22"
+                        quarterly_chart.series[1].graphicalProperties.line.width = 12700
+                        quarterly_chart.series[1].marker.symbol = "diamond"
+                        quarterly_chart.series[1].marker.size = 7
+                    except Exception:
+                        pass
+                    try:
+                        quarterly_chart.series[2].graphicalProperties.line.solidFill = "27AE60"
+                        quarterly_chart.series[2].graphicalProperties.line.width = 12700
+                        quarterly_chart.series[2].marker.symbol = "triangle"
+                        quarterly_chart.series[2].marker.size = 7
+                    except Exception:
+                        pass
+
+                    if quarterly_y_values:
+                        quarterly_y_min = min(quarterly_y_values)
+                        quarterly_y_max = max(quarterly_y_values)
+                    else:
+                        quarterly_y_min, quarterly_y_max = (-0.50, 0.50)
+                    quarterly_span = max(float(quarterly_y_max) - float(quarterly_y_min), 0.10)
+                    quarterly_pad = max(quarterly_span * 0.08, 0.03)
+                    quarterly_chart_y_min = float(quarterly_y_min) - quarterly_pad
+                    quarterly_chart_y_max = float(quarterly_y_max) + quarterly_pad
+                    try:
+                        quarterly_chart.y_axis.scaling.min = float(quarterly_chart_y_min)
+                        quarterly_chart.y_axis.scaling.max = float(quarterly_chart_y_max)
+                    except Exception:
+                        pass
+
+                    quarterly_chart.anchor = TwoCellAnchor(
+                        _from=AnchorMarker(col=1, row=quarterly_chart_anchor_row - 1),
+                        to=AnchorMarker(col=chart_end_col, row=quarterly_chart_end_row),
+                    )
+                    ws.add_chart(quarterly_chart)
+                    row_idx = max(row_idx, quarterly_chart_end_row + 1)
         _record_writer_substage("write_excel.drivers.render.economics_overlay.charts_helpers", overlay_charts_started)
 
         overlay_final_formatting_started = time.perf_counter()
@@ -71033,6 +71587,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         "Economics_Overlay",
         "Quarter_Notes_UI",
         "Promise_Progress_UI",
+        "Basis_Proxy_Sandbox",
         "Hidden_Value_Flags",
         "Revolver_History",
         "Debt_Tranches_Latest",

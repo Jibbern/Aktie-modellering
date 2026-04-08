@@ -164,6 +164,175 @@ Longer provenance belongs in metadata / notes / snapshot payloads, not the short
 - the visible workbook row is now consistently `Approximate market crush`
 - some internal technical keys still use legacy names such as `process_margin`; those are wiring details, not user-facing labels
 
+## Stage 5 Winner Roles
+Stage 5 keeps one production winner, but makes the decision roles explicit instead of
+pretending one model is "best" on every axis.
+
+- `Production winner`
+  - the fitted model that still has to pass the existing selection / promotion guardrails
+  - current verified winner: `process_utilization_regime_residual`
+- `Best historical fit`
+  - lowest clean-window MAE among official-eligible candidates
+  - current verified winner: `process_utilization_regime_residual`
+- `Best compromise`
+  - best preview-supported / forward-usable compromise on hybrid score, hard-quarter MAE,
+    and late-window tail MAE
+  - current verified winner: `process_utilization_regime_blend`
+- `Best forward lens`
+  - best preview-supported high-forward-usability lens, even when it is not the production
+    winner
+  - current verified winner: `process_quarter_open_blend`
+
+The key product rule is:
+- do not silently promote the best forward lens into the production winner
+- do show it explicitly when it differs, so future-quarter discussion does not overfit to
+  ex-post fit
+
+## Stage 5.1 Presentation Pass
+Stage 5.1 is a small workbook/readability pass on top of stage 5. It does not change
+production-winner logic or add a new model-ranking layer.
+
+Verified stage-5.1 workbook surfaces:
+- `Basis_Proxy_Sandbox`
+  - adds a compact `Role summary` block for:
+    - `Production winner`
+    - `Best historical fit`
+    - `Best compromise`
+    - `Best forward lens`
+  - each row stays compact and uses the same metrics:
+    - `Hybrid`
+    - `MAE`
+    - `Forward`
+  - keeps the longer `Winner story` block below it
+- `Economics_Overlay`
+  - `Bridge to reported` now includes:
+    - `Approximate market crush ($m)`
+    - `GPRE crush proxy ($m)`
+    - `Best forward lens ($m)`
+  - `Proxy comparison ($/gal)` now includes:
+    - `Approximate market crush ($/gal)`
+    - `GPRE crush proxy ($/gal)`
+    - `Best forward lens ($/gal)`
+  - the quarterly chart now plots three quarterly series:
+    - `Approximate market crush`
+    - `GPRE crush proxy`
+    - `Best forward lens`
+
+Legend note:
+- top-left was the preferred visual goal
+- the chart legend is intentionally placed at `top` because that is the clearest
+  supported Excel/openpyxl position that avoids colliding with the x-axis date labels
+
+Short interpretation note now surfaced in the sandbox:
+- `Production winner = fitted row used in production`
+- `Best forward lens = preview-oriented future-quarter lens`
+
+## Stage 5.2 Readability Pass
+Stage 5.2 is a narrow workbook/readability pass on top of stage 5.1. It does not
+change model roles, selection logic, or promotion guardrails.
+
+Verified stage-5.2 workbook surfaces:
+- `Economics_Overlay`
+  - `Implied gallons assumption` now spans `V:X`
+  - `Volume basis` now spans `V:X`
+  - the `Proxy comparison ($/gal)` note now spans `A:U`
+  - the proxy note uses the same light note treatment and row height as the earlier
+    note surface on the sheet
+  - fitted / forward proxy-comparison comments are writer-compacted to a maximum of
+    12 words so the saved workbook stays readable
+- quarterly chart
+  - title now reads:
+    - `Approximate market crush vs Fitted models (quarterly)`
+  - continues to show the three business series:
+    - `Approximate market crush`
+    - `GPRE crush proxy`
+    - `Best forward lens`
+  - now extends the chart path with preview / future-quarter proxy values from the
+    existing proxy-comparison inputs instead of stopping at the historical quarterly
+    frame
+  - now uses a simpler quarter-labeled 3-series line chart with visible `YYYY-Q#`
+    categories instead of the older quarterly boundary/helper-series approach
+  - no quarterly `Quarter boundary` helper series remain in the chart surface
+
+Legend note:
+- top-left remained the visual preference
+- `top` is still the chosen chart-API placement because it is the clearest supported
+  non-overlapping position for the quarterly chart
+
+## Owner Earnings + Economics QA Pass
+This was a selective QA-/presentation-pass on top of the stage-5 overlay work. It
+did not change model roles or add a new diagnostics panel.
+
+Verified additions:
+- `Valuation`
+  - the GPRE `Owner earnings (proxy)` / `Cash-flow quality` issue was a row-placement
+    bug, not a stale-test-only problem
+  - hidden GPRE thesis-bridge labels are now filtered before row placement, so the
+    visible rows stay present in the saved workbook
+- `Economics_Overlay` / `Basis_Proxy_Sandbox`
+  - `Role summary`, `Winner story`, `Bridge to reported`, `Proxy comparison`, and the
+    quarterly chart were rechecked against the current `model_result` surface
+  - `Best forward lens` remains consistent across summary, bridge, proxy comparison,
+    and the quarterly chart
+  - the three plant-execution commentary rows remain routed to `Operating_Drivers`
+    instead of leaking back into `Economics_Overlay`
+
+Workbook note:
+- no extra QA table was added to `Basis_Proxy_Sandbox`
+- the existing role summary plus the current method / leaderboard surfaces were judged
+  sufficient and less noisy for normal workbook use
+
+## Candidate Families And Stage 5 Additions
+The current GPRE proxy pass still compares the existing bounded families:
+- official / simple
+- bridge timing
+- process timing
+- quarter-open / current blend
+- execution / utilization overlays
+- inventory-gap penalties
+- asymmetric passthrough
+- residual / regime splits
+- gated ensembles
+- hedge-memo families
+
+Stage 5 adds four bounded candidates that stay inside preview-available signals:
+- `process_market_process_ensemble_35_65`
+  - bounded market/process compromise
+- `process_locked_share_asymmetric_passthrough`
+  - forward-first locked-share / asymmetric passthrough blend
+- `process_prior_gap_carryover_small`
+  - bounded prior-gap carryover
+- `process_prior_disturbance_carryover`
+  - bounded prior-disturbance carryover
+
+These are intentionally simple enough to stay interpretable in the workbook and cheap
+enough to avoid turning the pass into a modeling / optimization project.
+
+## Charts
+The current workbook now uses two GPRE proxy charts on `Economics_Overlay`.
+
+### Weekly chart
+- title: `Simple crush margin proxy (weekly)`
+- keeps the official/simple weekly history path
+- continues to include the thesis helper series already used by the overlay
+
+### Quarterly chart
+- title: `Approximate market crush vs Fitted models (quarterly)`
+- sits directly under the weekly chart
+- uses quarterly data because the fitted GPRE proxy does not have a verified separate
+  weekly history path in the current runtime
+- compares:
+  - `Approximate market crush ($/gal)`
+  - `GPRE crush proxy ($/gal)`
+  - `Best forward lens ($/gal)`
+- extends beyond pure historical quarterly rows by appending preview / future-quarter
+  points from the already-selected proxy-comparison path
+- keeps a date-axis scatter path underneath, but surfaces readable quarter labels such
+  as `2023-Q1` and `2026-Q3` directly inside the chart
+
+This chart is meant to stay visually light. It is a quarterly comparison aid, not a new
+dashboard section.
+
 ## Isolation Rules
 These should hold unless a pass explicitly changes them:
 
@@ -197,10 +366,18 @@ Main implementation surfaces:
   - quarterly strip construction
   - thesis snapshot and quarter-open precedence logic
   - fitted-vs-official proxy preview preparation
+  - GPRE basis/proxy candidate comparison, forward-role scoring, and winner story inputs
 - [`pbi_xbrl/excel_writer_context.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_context.py)
   - visible overlay wording
   - chart/output integration
+  - final sheet order, including `Promise_Progress_UI -> Basis_Proxy_Sandbox -> Hidden_Value_Flags`
   - workbook-facing provenance display
+- [`pbi_xbrl/excel_writer_economics_overlay.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_economics_overlay.py)
+  - `Basis_Proxy_Sandbox`
+  - proxy comparison panel
+  - proxy-implied results panel
+  - the short stage-5 note that explains official row, fitted row, production winner, and
+    best forward lens
 
 ## Practical Rebuild / Verification
 Typical local commands:
@@ -218,6 +395,8 @@ What to verify after a change:
 - `Current QTD` remains observed-only
 - `Approximate market crush` remains the official row
 - `GPRE crush proxy` remains the fitted row
+- `Basis_Proxy_Sandbox` sits directly to the right of `Promise_Progress_UI`
+- the workbook still shows the production winner and a separate best forward lens when they differ
 - visible source wording stays concise
 
 ## Acceptance Notes
@@ -225,6 +404,12 @@ Saved-workbook acceptance should check:
 - quarter-open provenance is truthful
 - thesis ethanol provenance is truthful
 - official vs fitted rows stay separate
+- weekly official/simple chart still exists
+- quarterly fitted-vs-official chart exists directly under the weekly chart
+- `Basis_Proxy_Sandbox` winner story includes:
+  - `Best historical fit`
+  - `Best compromise`
+  - `Best forward lens`
 - a blank value is blank for a real reason
   - missing months
   - missing frozen history
