@@ -50,11 +50,14 @@ def main() -> None:
         print(
             "[usda_backfill] "
             f"source={item.source} "
+            f"status={'error' if str(item.error_text or '').strip() else 'ok'} "
             f"dir={item.local_dir} "
             f"discovered={item.discovered_assets} "
             f"downloaded={item.downloaded_files} "
             f"skipped={item.skipped_existing}"
         )
+        if str(item.error_text or "").strip():
+            print(f"[usda_backfill] source={item.source} error={item.error_text}")
     if summary.market_sync_summary is not None:
         market = summary.market_sync_summary
         print(

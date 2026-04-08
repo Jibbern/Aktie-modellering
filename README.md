@@ -22,9 +22,10 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
 2. [`docs/CODEBASE_MAP.md`](/c:/Users/Jibbe/Aktier/Code/docs/CODEBASE_MAP.md)
 3. [`docs/SEC_CACHE_REFERENCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/SEC_CACHE_REFERENCE.md)
 4. [`docs/MARKET_DATA_USDA.md`](/c:/Users/Jibbe/Aktier/Code/docs/MARKET_DATA_USDA.md)
-5. [`docs/PERFORMANCE_NOTES.md`](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md)
-6. [`docs/WORKBOOK_ACCEPTANCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/WORKBOOK_ACCEPTANCE.md)
-7. [`docs/CURRENT_PASS.md`](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md)
+5. [`docs/GPRE_ECONOMICS_OVERLAY.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_ECONOMICS_OVERLAY.md)
+6. [`docs/PERFORMANCE_NOTES.md`](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md)
+7. [`docs/WORKBOOK_ACCEPTANCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/WORKBOOK_ACCEPTANCE.md)
+8. [`docs/CURRENT_PASS.md`](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md)
 
 ## Runtime Model
 - The saved workbook is the product truth.
@@ -37,6 +38,11 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
   - [`GPRE/USDA_weekly_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_weekly_data)
   - [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
   before syncing them into [`sec_cache/market_data/raw`](/c:/Users/Jibbe/Aktier/sec_cache/market_data/raw).
+- For `GPRE`, thesis ethanol is now practical local-market-data driven:
+  - `Next quarter thesis` uses the local Chicago ethanol futures CSVs under [`GPRE/Ethanol_futures`](/c:/Users/Jibbe/Aktier/GPRE/Ethanol_futures)
+  - `Quarter-open proxy` first prefers a real frozen prior-quarter snapshot and then falls back to a local manual quarter-open snapshot file when frozen history is missing
+  - current observed ethanol still comes from the observed NWER path and should not be contaminated by those futures files
+  - the full overlay/source-precedence note now lives in [`docs/GPRE_ECONOMICS_OVERLAY.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_ECONOMICS_OVERLAY.md)
 - Source selection should prefer explicit support and safe blanks over contaminated values.
 - Readback validation exists so fixes are measured against the saved workbook, not only in-memory dataframes.
 
@@ -55,6 +61,7 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
 - Refresh market data for a market-enabled ticker:
   - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE --refresh-market-data`
   - This now supports the current USDA AJAX-based report pages for NWER and AMS 3617 latest releases.
+  - `cme_ethanol_platts` is now effectively local-only in the active GPRE workflow; refresh writes debug artifacts but thesis ethanol comes from the local CSV/manual snapshot files in `GPRE/Ethanol_futures`.
 - Backfill historical USDA gaps:
   - `.\.venv\Scripts\python.exe Code\usda_backfill.py --ticker GPRE --start 2026-01-23 --end 2026-03-31`
   - Use `--refresh-market-data` for the newest releases and `usda_backfill.py` for targeted historical windows.

@@ -15,6 +15,7 @@ These are current observations from recent local runs and may vary by machine, c
 
 - `write_excel.ui.render.quarter_notes`
   - The dominant workbook hotspot in recent PBI and GPRE runs.
+  - After the latest GPRE writer pass, the expensive part is now clearly `write_excel.ui.render.quarter_notes.selection`, not the visible block rendering.
   - This is where visible quarter-note selection, grouping, formatting, and QA shaping concentrate.
 - `write_excel.valuation.precompute.buyback_dividend_maps`
   - Expensive because it reads and interprets filing/document evidence to resolve quarter-safe buyback and dividend support.
@@ -62,6 +63,68 @@ If runtime optimization becomes its own pass, the best first targets are:
 - `doc_intel_bundle` source scanning and evidence shaping
 
 These are better first targets than broad refactors because they already show up as isolated timing buckets.
+
+## Current Practical Optimization Direction
+For the current writer/runtime split, the safest higher-payoff improvements are:
+
+- quarter notes selection
+  - focus on document selection / section scanning / evidence shaping before touching visible sheet formatting
+  - recent profiling shows `selection` dominates while `render_blocks` is comparatively cheap
+- buyback/dividend precompute
+  - reuse per-document execution extraction instead of rescanning the same filing text in multiple fallback passes
+  - prefer run-scoped caches keyed by document identity + quarter
+- operating-driver template rows
+  - cache candidate-record sets per `(quarter, template)` before the row-building step
+  - avoid rebuilding the same candidate list when the workbook asks for the same template repeatedly inside one export
+- promise-progress
+  - memoize visible metric/category/theme metadata on the row objects once they are stable
+  - avoid rerunning the same text normalization and regex categorization in sort/group/display passes
+
+These are better short-term bets than broad workbook rewrites because they can save visible runtime without weakening workbook truth.
+
+## Latest Measured Result
+Recent profiled runs after the latest GPRE-first write-path pass showed that the old `Economics_Overlay` hotspot was mostly repeated market-data preparation, not visible openpyxl cell-writing.
+
+- Full `GPRE` build
+  - `write_excel`
+    - before: `1693.78s`
+    - after: `893.70s`
+    - delta: `-800.08s`
+  - `write_excel.drivers`
+    - before: `868.60s`
+    - after: `33.58s`
+    - delta: `-835.02s`
+  - `write_excel.drivers.render.economics_overlay`
+    - before: `844.66s`
+    - after: `9.49s`
+    - delta: `-835.17s`
+- `GPRE` drivers debug scope
+  - `write_excel`
+    - before: `881.94s`
+    - after: `42.66s`
+    - delta: `-839.28s`
+  - `write_excel.drivers.render.economics_overlay`
+    - before: `849.64s`
+    - after: `9.86s`
+    - delta: `-839.78s`
+
+The kept changes were:
+- fine-grained timing buckets for `Economics_Overlay` and `Quarter_Notes_UI`
+- reuse of prebuilt GPRE snapshots/history between overlay rendering and fitted-model preview
+- reuse of a normalized market `DataFrame` across the heavy GPRE market-data helpers
+- single-pass reuse of filing-backed GPRE plant-capacity history inside the overlay writer
+
+What did not materially move yet:
+- `write_excel.ui.render.quarter_notes`
+  - still the dominant hotspot on full `GPRE`
+  - recent observed run:
+    - `write_excel.ui.render.quarter_notes=731.01s`
+    - `write_excel.ui.render.quarter_notes.selection=726.89s`
+    - `write_excel.ui.render.quarter_notes.render_blocks=4.11s`
+- `write_excel.ui.progress_rows.select`
+  - still material at about `14.6s` on the latest profiled `GPRE` run
+
+So the next realistic optimization target is no longer `Economics_Overlay`. It is `Quarter_Notes_UI` selection.
 
 ## What Not To “Optimize”
 - Do not bypass cache invalidation rules just to get faster runs.

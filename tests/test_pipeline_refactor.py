@@ -1375,6 +1375,7 @@ def test_pipeline_wrappers_delegate_to_extracted_modules(
         quiet_pdf_warnings=False,
         rebuild_doc_text_cache=True,
         profile_timings=True,
+        excel_debug_scope="drivers",
     )
 
     inputs = captured["write_excel_inputs"]
@@ -1386,3 +1387,32 @@ def test_pipeline_wrappers_delegate_to_extracted_modules(
     assert inputs.price == 17.25
     assert inputs.strictness == "only3m"
     assert inputs.profile_timings is True
+    assert inputs.excel_debug_scope == "drivers"
+
+
+def test_pipeline_write_excel_forwards_ui_debug_scope(monkeypatch) -> None:
+    artifacts = _make_artifacts()
+    out_path = Path("out.xlsx")
+    captured: dict[str, object] = {}
+
+    def fake_write_excel_from_inputs(inputs: WorkbookInputs) -> None:
+        captured["write_excel_inputs"] = inputs
+
+    monkeypatch.setattr(excel_writer, "write_excel_from_inputs", fake_write_excel_from_inputs)
+
+    write_kwargs = {
+        field_name: getattr(artifacts, field_name)
+        for field_name in PipelineArtifacts.__dataclass_fields__
+        if field_name not in {"stage_timings", "company_overview"}
+    }
+    pipeline.write_excel(
+        out_path,
+        **write_kwargs,
+        company_overview=artifacts.company_overview,
+        ticker="ABC",
+        excel_debug_scope="ui",
+    )
+
+    inputs = captured["write_excel_inputs"]
+    assert isinstance(inputs, WorkbookInputs)
+    assert inputs.excel_debug_scope == "ui"

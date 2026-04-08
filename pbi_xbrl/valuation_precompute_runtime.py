@@ -24,6 +24,7 @@ from .non_gaap import strip_html
 class ValuationPrecomputeRuntime:
     filing_doc_text_cache: Dict[str, str] = field(default_factory=dict)
     cap_alloc_doc_analysis_cache: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    buyback_execution_doc_cache: Dict[Tuple[str, str], Dict[str, Any]] = field(default_factory=dict)
 
 
 def extract_valuation_filing_doc_text(

@@ -8,7 +8,6 @@ files back into the normal market-data sync/export flow.
 from __future__ import annotations
 
 import json
-import time
 import urllib.parse
 from dataclasses import dataclass
 from datetime import date
@@ -24,10 +23,6 @@ from .service import sync_market_cache
 
 
 _USDA_ARCHIVE_SOURCES: Tuple[str, ...] = ("nwer", "ams_3617")
-_RETRY_ATTEMPTS = 5
-_RETRY_SLEEP_SECONDS = 1.5
-
-
 @dataclass(frozen=True)
 class USDAProviderBackfillSummary:
     source: str
@@ -37,6 +32,7 @@ class USDAProviderBackfillSummary:
     discovered_assets: int
     downloaded_files: int
     skipped_existing: int
+    error_text: str = ""
 
 
 @dataclass(frozen=True)
@@ -49,33 +45,11 @@ class USDABackfillSummary:
 
 
 def _fetch_text_retry(provider: Any, url: str, *, extra_headers: Optional[Dict[str, str]] = None) -> str:
-    last_exc: Exception | None = None
-    for attempt in range(1, _RETRY_ATTEMPTS + 1):
-        try:
-            return provider._fetch_text(url, extra_headers=extra_headers)
-        except Exception as exc:  # pragma: no cover - exercised against live USDA
-            last_exc = exc
-            if attempt >= _RETRY_ATTEMPTS:
-                raise
-            time.sleep(_RETRY_SLEEP_SECONDS)
-    if last_exc is not None:  # pragma: no cover - defensive
-        raise last_exc
-    raise RuntimeError("unexpected USDA text fetch retry state")
+    return provider._fetch_text(url, extra_headers=extra_headers)
 
 
 def _fetch_bytes_retry(provider: Any, url: str, *, extra_headers: Optional[Dict[str, str]] = None) -> bytes:
-    last_exc: Exception | None = None
-    for attempt in range(1, _RETRY_ATTEMPTS + 1):
-        try:
-            return provider._fetch_bytes(url, extra_headers=extra_headers)
-        except Exception as exc:  # pragma: no cover - exercised against live USDA
-            last_exc = exc
-            if attempt >= _RETRY_ATTEMPTS:
-                raise
-            time.sleep(_RETRY_SLEEP_SECONDS)
-    if last_exc is not None:  # pragma: no cover - defensive
-        raise last_exc
-    raise RuntimeError("unexpected USDA bytes fetch retry state")
+    return provider._fetch_bytes(url, extra_headers=extra_headers)
 
 
 def _iter_year_months(start_date: date, end_date: date) -> Iterable[tuple[int, int]]:
@@ -120,19 +94,37 @@ def _normalize_archive_doc(provider: Any, doc: Dict[str, Any]) -> Optional[Dict[
     }
 
 
-def collect_archive_assets(provider: Any, start_date: date, end_date: date) -> List[Dict[str, Any]]:
+def collect_archive_assets(
+    provider: Any,
+    start_date: date,
+    end_date: date,
+    *,
+    cache_root: Optional[Path] = None,
+) -> List[Dict[str, Any]]:
     """Collect latest and month-archive USDA assets for one provider/date range."""
     assets: Dict[str, Dict[str, Any]] = {}
+    archive_debug: Dict[str, Any] = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "latest_refresh_candidates": [],
+        "previous_release_url": "",
+        "month_fetches": [],
+        "discovered_assets": [],
+    }
 
-    for item in list(provider.discover_remote_assets(as_of=end_date) or []):
+    for item in list(provider.discover_remote_assets(as_of=end_date, cache_root=cache_root) or []):
         report_ts = provider._date_from_value(item.get("report_date"))
         if report_ts is None:
             continue
         if start_date <= report_ts.date() <= end_date:
             assets[str(item.get("url") or "")] = dict(item)
+    archive_debug["latest_refresh_candidates"] = [provider._sanitize_candidate_debug(item) for item in assets.values()]
 
     previous_release_url = _previous_release_fragment_url(provider)
+    archive_debug["previous_release_url"] = str(previous_release_url or "")
     if not previous_release_url:
+        archive_debug["discovered_assets"] = [provider._sanitize_candidate_debug(item) for item in assets.values()]
+        provider._write_remote_debug(cache_root, {"archive_backfill": archive_debug}, merge=True)
         return sorted(assets.values(), key=lambda item: str(item.get("report_date") or ""))
 
     headers = {
@@ -142,33 +134,59 @@ def collect_archive_assets(provider: Any, start_date: date, end_date: date) -> L
     }
     for year, month in _iter_year_months(start_date, end_date):
         archive_url = f"{previous_release_url}?type=month&month={month}&year={year}"
-        payload = _fetch_text_retry(provider, archive_url, extra_headers=headers)
-        parsed = json.loads(payload)
-        for doc in list(parsed.get("data") or []):
-            normalized = _normalize_archive_doc(provider, doc)
-            if normalized is None:
-                continue
-            report_ts = provider._date_from_value(normalized.get("report_date"))
-            if report_ts is None:
-                continue
-            if not (start_date <= report_ts.date() <= end_date):
-                continue
-            assets[str(normalized.get("url") or "")] = normalized
-    return sorted(
+        month_diag: Dict[str, Any] = {
+            "url": archive_url,
+            "year": year,
+            "month": month,
+            "status": "pending",
+            "document_count": 0,
+        }
+        try:
+            payload = _fetch_text_retry(provider, archive_url, extra_headers=headers)
+            parsed = json.loads(payload)
+            docs = list(parsed.get("data") or [])
+            month_diag["status"] = "ok"
+            month_diag["document_count"] = len(docs)
+            for doc in docs:
+                normalized = _normalize_archive_doc(provider, doc)
+                if normalized is None:
+                    continue
+                report_ts = provider._date_from_value(normalized.get("report_date"))
+                if report_ts is None:
+                    continue
+                if not (start_date <= report_ts.date() <= end_date):
+                    continue
+                assets[str(normalized.get("url") or "")] = normalized
+        except Exception as exc:
+            month_diag["status"] = "error"
+            month_diag["error"] = f"{type(exc).__name__}: {exc}"
+        archive_debug["month_fetches"].append(month_diag)
+    selected_assets = sorted(
         assets.values(),
         key=lambda item: (
             str(item.get("report_date") or ""),
             str(item.get("url") or ""),
         ),
     )
+    archive_debug["discovered_assets"] = [provider._sanitize_candidate_debug(item) for item in selected_assets]
+    provider._write_remote_debug(cache_root, {"archive_backfill": archive_debug}, merge=True)
+    return selected_assets
 
 
-def download_archive_assets(provider: Any, ticker_root: Path, start_date: date, end_date: date) -> USDAProviderBackfillSummary:
+def download_archive_assets(
+    provider: Any,
+    ticker_root: Path,
+    start_date: date,
+    end_date: date,
+    *,
+    cache_root: Optional[Path] = None,
+) -> USDAProviderBackfillSummary:
     """Download missing archive assets into the provider's ticker-local USDA folder."""
     local_dir = provider._local_dir(Path(ticker_root))
-    discovered_assets = collect_archive_assets(provider, start_date, end_date)
+    discovered_assets = collect_archive_assets(provider, start_date, end_date, cache_root=cache_root)
     downloaded = 0
     skipped = 0
+    download_attempts: List[Dict[str, Any]] = []
     for asset in discovered_assets:
         url = str(asset.get("url") or "").strip()
         asset_type = str(asset.get("asset_type") or "pdf").strip() or "pdf"
@@ -179,10 +197,52 @@ def download_archive_assets(provider: Any, ticker_root: Path, start_date: date, 
         local_path = local_dir / local_name
         if local_path.exists():
             skipped += 1
+            download_attempts.append(
+                {
+                    "url": url,
+                    "status": "skipped",
+                    "saved_local_path": str(local_path),
+                    "report_date": report_ts,
+                }
+            )
             continue
-        payload = _fetch_bytes_retry(provider, url)
-        local_path.write_bytes(payload)
-        downloaded += 1
+        try:
+            payload = _fetch_bytes_retry(provider, url)
+            local_path.write_bytes(payload)
+            downloaded += 1
+            download_attempts.append(
+                {
+                    "url": url,
+                    "status": "downloaded",
+                    "saved_local_path": str(local_path),
+                    "report_date": report_ts,
+                    "bytes": len(payload),
+                }
+            )
+        except Exception as exc:
+            download_attempts.append(
+                {
+                    "url": url,
+                    "status": "error",
+                    "saved_local_path": str(local_path),
+                    "report_date": report_ts,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            raise
+    provider._write_remote_debug(
+        cache_root,
+        {
+            "archive_backfill_downloads": {
+                "start_date": start_date,
+                "end_date": end_date,
+                "download_attempts": download_attempts,
+                "downloaded_files": downloaded,
+                "skipped_existing": skipped,
+            }
+        },
+        merge=True,
+    )
     return USDAProviderBackfillSummary(
         source=str(provider.source),
         local_dir=local_dir,
@@ -225,16 +285,41 @@ def run_usda_archive_backfill(
     ticker_root = repo_root / ticker_u
     if not ticker_root.exists():
         ticker_root.mkdir(parents=True, exist_ok=True)
+    resolved_cache_dir = Path(cache_dir).expanduser().resolve() if cache_dir is not None else canonical_ticker_cache_root(repo_root, ticker_u).resolve()
 
     selected_sources = resolve_usda_sources(sources)
     provider_summaries: List[USDAProviderBackfillSummary] = []
     for source in selected_sources:
         provider = PROVIDERS[source]
-        provider_summaries.append(download_archive_assets(provider, ticker_root, start_date, end_date))
+        try:
+            provider_summaries.append(download_archive_assets(provider, ticker_root, start_date, end_date, cache_root=resolved_cache_dir))
+        except Exception as exc:
+            provider._write_remote_debug(
+                resolved_cache_dir,
+                {
+                    "archive_backfill_error": {
+                        "start_date": start_date,
+                        "end_date": end_date,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                },
+                merge=True,
+            )
+            provider_summaries.append(
+                USDAProviderBackfillSummary(
+                    source=str(provider.source),
+                    local_dir=provider._local_dir(Path(ticker_root)),
+                    start_date=start_date,
+                    end_date=end_date,
+                    discovered_assets=0,
+                    downloaded_files=0,
+                    skipped_existing=0,
+                    error_text=f"{type(exc).__name__}: {exc}",
+                )
+            )
 
     market_sync_summary = None
     if sync_cache:
-        resolved_cache_dir = Path(cache_dir).expanduser().resolve() if cache_dir is not None else canonical_ticker_cache_root(repo_root, ticker_u).resolve()
         bootstrap_canonical_ticker_cache(repo_root, ticker_u)
         market_sync_summary = sync_market_cache(
             cache_dir=resolved_cache_dir,

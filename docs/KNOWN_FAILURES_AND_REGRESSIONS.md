@@ -53,6 +53,15 @@
   - Why it matters: one-time capital-markets events should stay tied to the event quarter.
 
 ## Still Relevant / Watchlist
+- Delivered workbook artifacts live outside the `Code` git repo root
+  - Why it matters: local artifact sync and git/main sync are separate steps in this workspace; a safe main merge cannot by itself guarantee that the sibling `Excel stock models/*.xlsx` files are current.
+- `Quarter_Notes_UI` / `quarter_notes` runtime is still the dominant workbook hotspot
+  - Why it matters: current writer runtime is now materially better on buyback/valuation work, so `quarter_notes` has become the clearest next optimization target.
+  - Current observation from recent profiled runs:
+    - `GPRE` around `732s`
+    - `PBI` around `500s`
+- Excel COM / VBA injection is still failing locally, so current CLI exports fall back to macro-free `.xlsx`
+  - Why it matters: saved workbooks are still valid, but acceptance/readback must sometimes verify formulas or visible text rather than relying on desktop-Excel cached values.
 - PBI `Valuation` historical / TTM buyback-cash series is still not fully trusted
   - Why it matters: latest-quarter execution truth is now clean on visible surfaces, but `Buybacks (TTM, cash)` still shows `524.91407196` for `2025-Q4` in the current delivered workbook.
 - PBI `SUMMARY` revenue streams currently show `N/A`
@@ -71,8 +80,6 @@
   - Why it matters: distinct ideas like outlook vs liquidity can be lost if the collapse is too aggressive.
 - Category / metric labeling can still look slightly odd in some rows
   - Why it matters: note content may be right while visible category/metric is still imperfect.
-- GPRE Q1 / Q2 management-note metric labels still need cleanup
-  - Why it matters: content is strong, but labels like `Crush margin` or noisy management tags can still look wrong.
 - GPRE Q4 45Z contributed row still omits an explicit `in Q4` suffix
   - Why it matters: the row is now correctly categorized as a realized result, but quarter wording could still be slightly clearer if source support is tightened further.
 - PBI latest-quarter buyback authorization context still comes from the February 2026 `8-K`
@@ -81,13 +88,16 @@
   - Why it matters: current logic is strongest in 2025 and still leaves historical explanatory coverage on the table, partly because older wording is less covered by current phrase families.
 - Net income / EBITDA / Adjusted EBITDA provenance review is still only partial
   - Why it matters: these rows are more trustworthy when the workbook makes it easier to tell whether the number came from structured GAAP facts, mapped non-GAAP facts, or weaker narrative support.
-- Latest-quarter `QA_Checks` text parsing is still noisy for some metrics
-  - Why it matters: the QA surface is now working and is useful, but current PASS/WARN rows for Revenue / EBITDA / Net income can still reflect text-parsing ambiguity rather than a real model bug.
+- Latest-quarter `QA_Checks` text parsing is still not perfect for some metrics
+  - Why it matters: the QA surface is useful, but some PASS / INFO rows still reflect text-parsing ambiguity rather than a real model bug.
+  - Current mitigation: noisier no-explicit-support cases are now kept out of `Needs_Review` and remain secondary QA only.
+- GPRE commentary-home routing is improved but still worth watching on future passes
+  - Why it matters: hedge/setup, operating-driver commentary, and higher-level management framing now have clearer single homes, but new phrase families can still land in the wrong bucket until the routing heuristics learn them.
 - Delivered `.xlsx` files now include visible `Quarter_Notes_Audit` by default in current CLI exports
   - Why it matters: docs and pass summaries should treat the audit sheet as available unless an export explicitly disables it.
-- `Quarter_Notes_Audit` still has `saved_workbook_missing` noise
-  - Why it matters: the current audit sheet still shows duplicate rescue rows and noisy XBRL/blob-like excerpts even when the visible workbook output is right.
-  - This is a watchlist item for audit cleanliness, not automatic evidence of visible-surface failure.
+- `Quarter_Notes_Audit` still has a residual `saved_workbook_missing` tail
+  - Why it matters: terminal readback stages are restored, but some missing-note rows still remain as a smaller audit-cleanliness watchlist.
+  - Current mitigation: duplicate/matched missing rows and obvious blob-like noise are now suppressed when a canonical note already verified into the saved workbook.
 
 ## Uncertain / Needs Recheck
 - Some `Tone / expectations` vs `Strategy / segment` placements

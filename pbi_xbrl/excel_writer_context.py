@@ -151,6 +151,19 @@ from .excel_writer_drivers import (
     template_candidate_terms as driver_template_candidate_terms,
     text_matches_template_terms as driver_text_matches_template_terms,
 )
+from .excel_writer_economics_overlay import (
+    GpreOverlaySupportInputs,
+    write_gpre_basis_proxy_overlay_support,
+)
+from .excel_writer_hidden_value_flags import (
+    HiddenValueFlagsSheetInputs,
+    write_hidden_value_flags_sheet,
+)
+from .excel_writer_promise_progress import (
+    PromiseProgressRenderHelpers,
+    PromiseProgressSheetInputs,
+    write_promise_progress_sheet,
+)
 from .excel_writer_segments import (
     annual_segment_label as ew_annual_segment_label,
     extract_quarter_from_cell as ew_extract_quarter_from_cell,
@@ -7147,6 +7160,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             pass
 
     def _write_flags_sheet(name: str, df: pd.DataFrame) -> None:
+        if str(name) == "Hidden_Value_Flags":
+            write_hidden_value_flags_sheet(
+                HiddenValueFlagsSheetInputs(
+                    wb=wb,
+                    sheet_name=str(name),
+                    flags_df=df if isinstance(df, pd.DataFrame) else pd.DataFrame(),
+                    font_size=font_size,
+                    header_size=header_size,
+                    safe_cell=_safe_cell,
+                )
+            )
+            return
         ws = wb.create_sheet(name)
         if df is None or df.empty:
             ws["A1"] = "No signals."
@@ -7163,12 +7188,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         ws.sheet_view.zoomScale = 110
         _autowidth(ws, len(headers))
         rng = None
-        if str(name) == "Hidden_Value_Flags":
-            # Match requested UI: narrower rank, wider title.
-            ws.column_dimensions["A"].width = 7
-            ws.column_dimensions["C"].width = 30
-            if "K" in ws.column_dimensions:
-                ws.column_dimensions["K"].width = max(34, min(42, ws.column_dimensions["K"].width or 34))
         # widen evidence columns and wrap to keep sheet readable
         col_map = {h: i + 1 for i, h in enumerate(headers)}
         for col_name in ["evidence_1", "evidence_2", "evidence_3"]:
@@ -7192,50 +7211,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     fill=PatternFill("solid", fgColor="C6EFCE"),
                 ),
             )
-        if str(name) == "Hidden_Value_Flags":
-            if score_idx:
-                # Row-level status colors for active rows (works when many flags are active at once).
-                row_rng = f"A2:{get_column_letter(len(headers))}{ws.max_row}"
-                ws.conditional_formatting.add(
-                    row_rng,
-                    FormulaRule(formula=["AND($B2<>\"\",$D2>=70)"], fill=PatternFill("solid", fgColor="C6EFCE")),
-                )
-                ws.conditional_formatting.add(
-                    row_rng,
-                    FormulaRule(formula=["AND($B2<>\"\",$D2>=40,$D2<70)"], fill=PatternFill("solid", fgColor="FFEB9C")),
-                )
-                ws.conditional_formatting.add(
-                    row_rng,
-                    FormulaRule(formula=["AND($B2<>\"\",$D2<40)"], fill=PatternFill("solid", fgColor="FFC7CE")),
-                )
-                ws.conditional_formatting.add(
-                    rng,
-                    CellIsRule(
-                        operator="between",
-                        formula=["40", "69.999"],
-                        fill=PatternFill("solid", fgColor="FFEB9C"),
-                    ),
-                )
-                ws.conditional_formatting.add(
-                    rng,
-                    CellIsRule(
-                        operator="lessThan",
-                        formula=["40"],
-                        fill=PatternFill("solid", fgColor="FFC7CE"),
-                    ),
-                )
-            elif {"Flag", "Title", "Status", "Why it failed", "Key blocker"}.issubset(set(headers)):
-                for col_name, width in {"A": 10, "B": 28, "C": 22, "D": 56, "E": 28}.items():
-                    ws.column_dimensions[col_name].width = width
-                for rr in range(2, ws.max_row + 1):
-                    for cc in range(1, 6):
-                        ws.cell(row=rr, column=cc).alignment = Alignment(wrap_text=True, vertical="top")
-            elif {"Flag", "Status", "Why it failed", "Key blocker"}.issubset(set(headers)):
-                for col_name, width in {"A": 12, "B": 24, "C": 56, "D": 28}.items():
-                    ws.column_dimensions[col_name].width = width
-                for rr in range(2, ws.max_row + 1):
-                    for cc in range(1, 5):
-                        ws.cell(row=rr, column=cc).alignment = Alignment(wrap_text=True, vertical="top")
         try:
             if len(headers) == len(set(headers)) and all(isinstance(h, str) for h in headers):
                 ref = f"A1:{get_column_letter(len(headers))}{ws.max_row}"
@@ -30993,24 +30968,39 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         return bundle
 
     def _write_promise_progress_ui_v2() -> List[Dict[str, Any]]:
-        ws = wb.create_sheet("Promise_Progress_UI")
         qa_rows: List[Dict[str, Any]] = []
         pp_rationale_col_width_default = max(40.0, (554.0 - 5.0) / 7.0)
         ts = datetime.now(dt.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
-        _write_analysis_sheet_title_and_metadata(
-            ws,
-            "Promise Progress",
-            f"Generated at {ts} | Quarter blocks",
-            max_col=15,
-        )
+        pp_header_text = f"Generated at {ts} | Quarter blocks"
+
+        def _write_empty_promise_progress_sheet(message: str) -> List[Dict[str, Any]]:
+            write_promise_progress_sheet(
+                PromiseProgressSheetInputs(
+                    wb=wb,
+                    sheet_name="Promise_Progress_UI",
+                    quarters=[],
+                    rows_by_quarter={},
+                    generated_at_text=pp_header_text,
+                    pp_rationale_col_width_default=pp_rationale_col_width_default,
+                    empty_message=message,
+                ),
+                PromiseProgressRenderHelpers(
+                    write_analysis_sheet_title_and_metadata=_write_analysis_sheet_title_and_metadata,
+                    render_stacked_quarter_blocks=lambda *args, **kwargs: 0,
+                    row_writer=lambda *_args, **_kwargs: None,
+                    get_analysis_sheet_style_bundle=_get_analysis_sheet_style_bundle,
+                    estimate_wrapped_line_count=_estimate_wrapped_line_count,
+                    parse_dollar_amount=lambda *_args, **_kwargs: None,
+                ),
+            )
+            return qa_rows
+
         tracker_rows_seed = ui_state.get("promise_tracker_rows_by_q", {}) if isinstance(ui_state, dict) else {}
         guidance_seed = ui_state.get("guidance_snapshot_by_q", {}) if isinstance(ui_state, dict) else {}
         has_tracker_seed = any(bool(rows) for rows in tracker_rows_seed.values()) if isinstance(tracker_rows_seed, dict) else False
         has_guidance_seed = any(bool(rows) for rows in guidance_seed.values()) if isinstance(guidance_seed, dict) else False
         if (promise_progress is None or promise_progress.empty) and not (has_tracker_seed or has_guidance_seed):
-            ws["A3"] = "No data."
-            ws.freeze_panes = "A3"
-            return qa_rows
+            return _write_empty_promise_progress_sheet("No data.")
 
         quarter_hint = tuple(q for q in (ui_state.get("quarters") or []) if isinstance(q, date))
         with _timed_writer_substage("write_excel.ui.progress_bundle.build"):
@@ -31058,18 +31048,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 progress_records = []
                 progress_records_by_q = {}
             else:
-                ws["A3"] = "Missing progress columns."
-                ws.freeze_panes = "A3"
-                return qa_rows
+                return _write_empty_promise_progress_sheet("Missing progress columns.")
         if (prog is None or prog.empty) and not tracker_only_progress_mode:
             if has_tracker_seed or has_guidance_seed:
                 tracker_only_progress_mode = True
                 progress_records = []
                 progress_records_by_q = {}
             else:
-                ws["A3"] = "No valid quarter rows."
-                ws.freeze_panes = "A3"
-                return qa_rows
+                return _write_empty_promise_progress_sheet("No valid quarter rows.")
 
         def _qend(x: Any) -> Optional[date]:
             t = pd.to_datetime(x, errors="coerce")
@@ -37208,32 +37194,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         repaired += 1
             return repaired
 
-        def _block_header_writer(_ws: Any, row_idx: int, _qd: date, _max_col: int) -> int:
-            theme = _get_analysis_sheet_style_bundle()
-            hdr_fill = copy(theme["header_fill"])
-            thin_border = copy(theme["thin_border"])
-            labels = {
-                1: "Metric",
-                2: "Target",
-                3: "Latest",
-                4: "Result",
-                5: "Rationale",
-                6: "Stated",
-                7: "Last Seen",
-                8: "Carried To",
-                9: "Evaluated Through",
-                10: "Evidence",
-                15: "Promise Id",
-            }
-            for cc in range(1, _max_col + 1):
-                cell = _ws.cell(row=row_idx, column=cc, value=labels.get(cc, ""))
-                cell.font = Font(bold=True, size=11, color=str(theme["text_dark"]))
-                cell.fill = hdr_fill
-                cell.alignment = Alignment(horizontal="left", vertical="center")
-                cell.border = thin_border
-            _ws.row_dimensions[row_idx].height = 16.0
-            return row_idx + 1
-
         def _display_progress_metric(item: Dict[str, Any]) -> str:
             metric_display = str(item.get("metric_display") or "").strip()
             metric_display_low = metric_display.lower()
@@ -39834,18 +39794,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         _repair_pbi_visible_progress_rows()
         _gpre_repair_visible_progress_rows()
 
-        _render_stacked_quarter_blocks(
-            ws=ws,
-            quarters=quarters,
-            rows_by_quarter=rows_by_quarter,
-            max_col=15,
-            block_title_fn=lambda qd: f"Promise progress (As of {qd})",
-            row_writer=_row_writer,
-            block_header_writer=_block_header_writer,
-            start_row=3,
-            blank_row_between=False,
-        )
-
         def _collapse_rendered_pbi_guidance_rows(_ws: Any) -> None:
             guidance_metrics = {
                 "revenue guidance",
@@ -40312,166 +40260,32 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             for rr in sorted(set(rows_to_delete), reverse=True):
                 _ws.delete_rows(rr, 1)
 
+        progress_cleanups: List[Callable[[Any], None]] = []
         if is_pbi_profile:
-            _collapse_rendered_pbi_guidance_rows(ws)
+            progress_cleanups.append(_collapse_rendered_pbi_guidance_rows)
         if is_gpre_profile:
-            _cleanup_rendered_gpre_progress_rows(ws)
+            progress_cleanups.append(_cleanup_rendered_gpre_progress_rows)
 
-        def _promise_sheet_metric_is_monetary(metric_text: Any) -> bool:
-            metric_low = str(metric_text or "").strip().lower()
-            return any(
-                token in metric_low
-                for token in (
-                    "revenue",
-                    "ebit",
-                    "ebitda",
-                    "eps",
-                    "fcf",
-                    "cost savings",
-                    "liquidity",
-                    "interest expense",
-                    "45z",
-                    "debt",
-                    "buyback",
-                    "dividend",
-                )
-            )
-
-        def _promise_sheet_moneyish(value_in: Any) -> bool:
-            txt = str(value_in or "").strip()
-            if not txt:
-                return False
-            if _parse_dollar_amount(txt) is not None:
-                return True
-            return bool(re.match(r"^[><~]?\s*\$[0-9]", txt))
-
-        def _apply_promise_progress_visible_formatting(_ws: Any) -> None:
-            theme = _get_analysis_sheet_style_bundle()
-            zebra_fills = [copy(theme["neutral_fill_alt"]), copy(theme["neutral_fill"])]
-
-            def _apply_result_fill_local(cell_in: Any) -> None:
-                result_low = str(getattr(cell_in, "value", "") or "").strip().lower()
-                fill_color = "E7EDF3"
-                if result_low == "missed":
-                    fill_color = "F4CCCC"
-                elif result_low == "at risk":
-                    fill_color = "FCE5CD"
-                elif result_low == "beat":
-                    fill_color = "A9D18E"
-                elif result_low == "hit":
-                    fill_color = "C6EFCE"
-                elif result_low == "completed":
-                    fill_color = "70AD47"
-                elif result_low == "on track":
-                    fill_color = "D9EAD3"
-                elif result_low == "updated":
-                    fill_color = "D9EAF7"
-                elif result_low == "open":
-                    fill_color = "E7EDF3"
-                elif result_low == "not yet measurable":
-                    fill_color = "E7E6E6"
-                cell_in.fill = PatternFill("solid", fgColor=fill_color)
-
-            blank_side_local = Side(style=None)
-            zebra_idx = 0
-            for rr in range(1, _ws.max_row + 1):
-                metric_val = str(_ws.cell(rr, 1).value or "").strip()
-                row_vals = [str(_ws.cell(rr, cc).value or "").strip() for cc in range(1, 16)]
-                if metric_val == "Promise Progress":
-                    for cc in range(1, 16):
-                        cell = _ws.cell(rr, cc)
-                        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
-                        cell.border = copy(theme["thin_border"])
-                    continue
-                if metric_val.startswith("Promise progress (As of "):
-                    continue
-                if metric_val.startswith("Generated at "):
-                    for cc in range(1, 16):
-                        cell = _ws.cell(rr, cc)
-                        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                        cell.border = Border(
-                            left=cell.border.left,
-                            right=cell.border.right,
-                            top=blank_side_local,
-                            bottom=blank_side_local,
-                        )
-                    _ws.cell(rr, 4).fill = PatternFill(fill_type=None)
-                    continue
-                if not metric_val:
-                    continue
-                if metric_val == "Metric":
-                    for cc in range(1, 16):
-                        _ws.cell(rr, cc).alignment = Alignment(
-                            horizontal="right" if cc in {2, 3} else "left",
-                            vertical="center",
-                            wrap_text=False,
-                        )
-                    continue
-                if metric_val and not any(row_vals[1:]):
-                    for cc in range(1, 16):
-                        cell = _ws.cell(rr, cc)
-                        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                    continue
-                metric_cell = _ws.cell(rr, 1)
-                target_cell = _ws.cell(rr, 2)
-                latest_cell = _ws.cell(rr, 3)
-                result_cell = _ws.cell(rr, 4)
-                rationale_cell = _ws.cell(rr, 5)
-                meta_cols = [6, 7, 8, 9, 10, 15]
-
-                metric_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                target_cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=False)
-                latest_cell.alignment = Alignment(
-                    horizontal="right",
-                    vertical="center",
-                    wrap_text=False,
-                )
-                result_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
-                _apply_result_fill_local(result_cell)
-                rationale_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-                for cc in meta_cols:
-                    _ws.cell(rr, cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-                for cc in range(11, 15):
-                    _ws.cell(rr, cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-
-                if _promise_sheet_metric_is_monetary(metric_val):
-                    try:
-                        latest_num = float(latest_cell.value)
-                    except Exception:
-                        latest_num = None
-                    if latest_num is not None:
-                        if "eps" in metric_val.lower():
-                            latest_cell.number_format = "$0.00"
-                        elif abs(latest_num) >= 1_000_000:
-                            latest_cell.number_format = '$#,##0.000,,"m"'
-                        elif abs(latest_num) >= 1_000:
-                            latest_cell.number_format = "$#,##0.0"
-                        else:
-                            latest_cell.number_format = "$0.00"
-                rationale_txt = str(rationale_cell.value or "").strip()
-                rationale_lines = _estimate_wrapped_line_count(
-                    rationale_txt,
-                    float(_ws.column_dimensions["E"].width or pp_rationale_col_width_default),
-                    min_lines=1,
-                    max_lines=4,
-                )
-                preferred_height = 20.0 if rationale_lines <= 1.25 else (26.0 if rationale_lines <= 2.1 else 32.0)
-                current_height = float(_ws.row_dimensions[rr].height or preferred_height)
-                _ws.row_dimensions[rr].height = max(preferred_height, min(current_height, 40.0))
-                for cc in range(1, 16):
-                    cell = _ws.cell(rr, cc)
-                    cell.border = Border(
-                        left=cell.border.left,
-                        right=cell.border.right,
-                        top=blank_side_local,
-                        bottom=blank_side_local,
-                    )
-                    if cc != 4:
-                        cell.fill = copy(zebra_fills[zebra_idx % 2])
-                zebra_idx += 1
-
-        _apply_promise_progress_visible_formatting(ws)
-        ws.row_dimensions[1].height = 27.0
+        render_result = write_promise_progress_sheet(
+            PromiseProgressSheetInputs(
+                wb=wb,
+                sheet_name="Promise_Progress_UI",
+                quarters=quarters,
+                rows_by_quarter=rows_by_quarter,
+                generated_at_text=pp_header_text,
+                pp_rationale_col_width_default=pp_rationale_col_width_default,
+            ),
+            PromiseProgressRenderHelpers(
+                write_analysis_sheet_title_and_metadata=_write_analysis_sheet_title_and_metadata,
+                render_stacked_quarter_blocks=_render_stacked_quarter_blocks,
+                row_writer=_row_writer,
+                get_analysis_sheet_style_bundle=_get_analysis_sheet_style_bundle,
+                estimate_wrapped_line_count=_estimate_wrapped_line_count,
+                parse_dollar_amount=_parse_dollar_amount,
+                post_render_cleanups=tuple(progress_cleanups),
+            ),
+        )
+        ws = render_result.ws
 
         _record_writer_substage("write_excel.ui.progress_rows.render", progress_render_started)
         if milestone_suppressed_count > 0:
@@ -40484,45 +40298,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     "source": "pipeline",
                 }
             )
-        for rr in range(2, ws.max_row + 1):
-            row_vals = [str(ws.cell(row=rr, column=cc).value or "").strip() for cc in range(1, 16)]
-            if not any(row_vals):
-                ws.row_dimensions[rr].height = 12.0
-                continue
-            if row_vals[0].startswith("Promise progress (As of "):
-                ws.row_dimensions[rr].height = 19.5
-                continue
-            if row_vals[0] and not any(row_vals[1:]):
-                ws.row_dimensions[rr].height = 16.0
-                continue
-            if row_vals[0].lower() == "metric" and row_vals[14].lower() == "promise id":
-                ws.row_dimensions[rr].height = 19.5
-                continue
-            if row_vals[0].lower().startswith("guidance accuracy"):
-                ws.row_dimensions[rr].height = 16.0
-
-        ws.freeze_panes = "A3"
-        def _px_to_excel_width(px: float) -> float:
-            try:
-                v = (float(px) - 5.0) / 7.0
-            except Exception:
-                v = 10.0
-            return max(0.1, v)
-        ws.column_dimensions["A"].width = 30
-        ws.column_dimensions["B"].width = _px_to_excel_width(272.0)
-        ws.column_dimensions["C"].width = _px_to_excel_width(272.0)
-        ws.column_dimensions["D"].width = 17
-        ws.column_dimensions["E"].width = _px_to_excel_width(554.0)
-        ws.column_dimensions["F"].width = 12
-        ws.column_dimensions["G"].width = 12
-        ws.column_dimensions["H"].width = 12
-        ws.column_dimensions["I"].width = 16
-        ws.column_dimensions["J"].width = 12
-        ws.column_dimensions["K"].width = 4
-        ws.column_dimensions["L"].width = 4
-        ws.column_dimensions["M"].width = 4
-        ws.column_dimensions["N"].width = 4
-        ws.column_dimensions["O"].width = 24
         return qa_rows
 
     def _period_type(row: pd.Series) -> str:
@@ -41357,6 +41132,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             future_latest_only: bool = False,
             show_in_setup: bool = True,
             show_in_management_commentary: bool = True,
+            commentary_home: str = "overlay_management",
         ) -> None:
             out_items.append(
                     {
@@ -41392,6 +41168,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     "_future_latest_only": bool(future_latest_only),
                     "show_in_setup": bool(show_in_setup),
                     "show_in_management_commentary": bool(show_in_management_commentary),
+                    "commentary_home": str(commentary_home or "overlay_management"),
                     "source_date": pd.to_datetime(source_date, errors="coerce"),
                     "source": _source_payload(source_type, source_doc, source_date, source_quarter),
                 }
@@ -41723,6 +41500,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 commentary_text="Plants ran above 100% capacity utilization during the quarter.",
                 commentary_priority=4,
                 show_in_setup=False,
+                commentary_home="operating_commentary",
             )
         q3_2025_reliability_rec = _pick_record(date(2025, 9, 30), ("reliability-centered maintenance", "planned and unplanned downtime"))
         if q3_2025_reliability_rec:
@@ -41740,6 +41518,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 commentary_text="Reliability-centered maintenance reduced planned and unplanned downtime.",
                 commentary_priority=5,
                 show_in_setup=False,
+                commentary_home="operating_commentary",
             )
 
         q4_2025_transcript_rec = _pick_record(date(2025, 12, 31), ("significant portion of our q1 production margin logged in",))
@@ -41922,6 +41701,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 commentary_text="Record high ethanol and Ultra-high protein yields supported record protein output and corn-oil production.",
                 commentary_priority=5,
                 show_in_setup=False,
+                commentary_home="operating_commentary",
             )
 
         conf_path = Path(__file__).resolve().parents[2] / "sec_cache" / "GPRE" / "external" / "conferences" / "2026-02-26_bofa" / "structured_statements.json"
@@ -61931,12 +61711,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     def _parse_utilization_value(text_in: Any) -> Optional[float]:
         txt = glx_normalize_text(text_in)
         txt_one = re.sub(r"\s+", " ", txt).strip()
+        pct_token = r"(\d{2,3}(?:\.\d+)?)\s*%(?:\*)?(?!\d)"
         patterns = [
-            re.compile(r"\bachieved[^.]{0,120}?(\d{2,3}(?:\.\d+)?)\s*%\s*(?:capacity\s+)?utilization\b", re.I),
-            re.compile(r"\b(\d{2,3}(?:\.\d+)?)\s*%\s*(?:capacity\s+)?utilization\b", re.I),
-            re.compile(r"\bproduction at\s+(\d{2,3}(?:\.\d+)?)\s*%\b", re.I),
-            re.compile(r"\butilization[^.]{0,120}?(\d{2,3}(?:\.\d+)?)\s*%\b", re.I),
-            re.compile(r"\b(\d{2,3}(?:\.\d+)?)\s*%(?:\*)?(?!\w).{0,80}?\bof\s+(?:production|stated)\s+capacity\b", re.I),
+            re.compile(rf"\bachieved[^.]{{0,120}}?{pct_token}\s*(?:capacity\s+)?utilization\b", re.I),
+            re.compile(rf"\b{pct_token}\s*(?:capacity\s+)?utilization\b", re.I),
+            re.compile(rf"\bproduction at\s+{pct_token}(?:\s+of\s+(?:production|stated)?\s*capacity)?", re.I),
+            re.compile(rf"\butilization(?:\s+rate)?(?:\s+of)?[^.]{{0,120}}?{pct_token}", re.I),
+            re.compile(rf"\b{pct_token}.{0,80}?\bof\s+(?:production|stated)\s+capacity\b", re.I),
         ]
         for pat in patterns:
             m = pat.search(txt_one)
@@ -65608,6 +65389,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             candidate["_metric_explicit_bonus_local"] = int(rendered.get("metric_bonus") or 0)
             candidate["_reason_fragment_penalty_local"] = int(rendered.get("reason_penalty") or 0)
             candidate["_business_model_score_local"] = _operating_commentary_business_model_score(candidate)
+            force_include = bool(candidate.get("_force_include_operating_commentary"))
             candidate_text = str(candidate.get("_commentary_text") or "").strip()
             candidate_text = re.sub(
                 r"^Plant utilization rate of (\d{2,3}(?:\.\d+)?)%,\s*extending track record of strong and improving operations;?\.?$",
@@ -65688,7 +65470,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return None
             if "..." in candidate_low:
                 return None
-            if metric_bonus_local < 7 and not re.match(
+            if not force_include and metric_bonus_local < 7 and not re.match(
                 r"^(sendtech revenue|presort revenue|sendtech adjusted operating profit|presort adjusted operating profit|revenue|volumes?|adjusted operating profit|consolidated crush margin|reported ethanol-production margin|plant utilization)\b",
                 candidate_low,
                 re.I,
@@ -65710,13 +65492,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return None
             if "when you look at" in candidate_low:
                 return None
-            if metric_bonus_local < 7 and re.match(
+            if not force_include and metric_bonus_local < 7 and re.match(
                 r"^(for the year|primarily as a result of|final results will depend|the way we hedge|we expect that|with \[|we fit into the rationale)\b",
                 candidate_low,
                 re.I,
             ):
                 return None
-            if metric_bonus_local < 7 and re.match(r"^(we|our)\b", candidate_low, re.I):
+            if not force_include and metric_bonus_local < 7 and re.match(r"^(we|our)\b", candidate_low, re.I):
                 return None
             if re.match(
                 r"^(final results will primarily depend|corn oil markets remained steady|whether it be looking at|chris and his team and operations continue to focus on|with \[ stated \]|as a result of the merger)\b",
@@ -66028,10 +65810,44 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 finalized_candidate = _finalize_operating_commentary_candidate(candidate)
                 if finalized_candidate is not None:
                     candidates_by_quarter.setdefault(qd, []).append(finalized_candidate)
+            if is_gpre_profile:
+                for rec in _gpre_commercial_setup_records_shared():
+                    if str(rec.get("commentary_home") or "").strip().lower() != "operating_commentary":
+                        continue
+                    qd = rec.get("source_quarter")
+                    if not isinstance(qd, date) or qd not in target_set:
+                        continue
+                    source_type_txt = str(rec.get("source_type") or "").strip().lower()
+                    if source_type_txt not in {"earnings_release", "presentation", "press_release", "10-q", "10-k", "transcript"}:
+                        continue
+                    commentary_txt = _clean_operating_commentary_text(rec.get("commentary_text"))
+                    commentary_signal = int(_operating_commentary_signal_score(commentary_txt))
+                    if not commentary_txt or commentary_signal < 5:
+                        continue
+                    candidate = {
+                        "Quarter": qd,
+                        "Driver": "Plant utilization",
+                        "Driver group": "Operating execution",
+                        "_source_type": rec.get("source_type"),
+                        "_source_doc": rec.get("source_location"),
+                        "_source_note": rec.get("source_excerpt"),
+                        "Commentary": commentary_txt,
+                        "_commentary_text": commentary_txt,
+                        "_commentary_signal_local": commentary_signal,
+                        "_source_rank_local": int(_source_rank(rec.get("source_type"), rec.get("source_location"))),
+                        "_is_complete_signal_local": 1 if qn_is_complete_signal_text(commentary_txt) else 0,
+                        "_fragment_penalty_local": 0.0,
+                        "_force_include_operating_commentary": 1,
+                        "_raw_text_local": rec.get("commentary_text"),
+                    }
+                    finalized_candidate = _finalize_operating_commentary_candidate(candidate)
+                    if finalized_candidate is not None:
+                        candidates_by_quarter.setdefault(qd, []).append(finalized_candidate)
             for qd in target_quarters:
                 ranked_candidates = sorted(
                     candidates_by_quarter.get(qd, []),
                     key=lambda rec: (
+                        -int(rec.get("_force_include_operating_commentary") or 0),
                         _operating_commentary_priority(rec),
                         int(rec.get("_source_rank_local") or 99),
                         -int(rec.get("_is_complete_signal_local") or 0),
@@ -66045,20 +65861,21 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 if is_gpre_profile and re.fullmatch(r"Plant utilization reflected the spring maintenance season\.?", commentary_txt, re.I):
                     commentary_txt = "Plant utilization reflected the normal spring maintenance season, with plants temporarily shut down for annual clean-out and restart."
                 norm_key = glx_normalize_text(commentary_txt).lower()
+                force_include = bool(rec_in.get("_force_include_operating_commentary"))
                 family_key = _operating_commentary_family(rec_in)
                 subject_key = _operating_commentary_subject_signature(rec_in)
                 score_cutoff = 10 if int(per_quarter_cap) <= 1 else 18 if int(per_quarter_cap) == 2 else 23
                 if not norm_key or norm_key in seen_norms:
                     return False
-                if int(quarter_counts.get(qd_in, 0)) >= int(per_quarter_cap):
+                if not force_include and int(quarter_counts.get(qd_in, 0)) >= int(per_quarter_cap):
                     return False
-                if family_key in quarter_families.get(qd_in, set()):
+                if not force_include and family_key in quarter_families.get(qd_in, set()):
                     return False
-                if subject_key and subject_key in quarter_subjects.get(qd_in, set()):
+                if not force_include and subject_key and subject_key in quarter_subjects.get(qd_in, set()):
                     return False
                 if any(_operating_commentary_is_semantic_duplicate(rec_in, prev_rec) for prev_rec in selected_candidates_by_quarter.get(qd_in, [])):
                     return False
-                if int(_operating_commentary_candidate_score(rec_in)) < int(score_cutoff):
+                if not force_include and int(_operating_commentary_candidate_score(rec_in)) < int(score_cutoff):
                     return False
                 source_type_txt = str(rec_in.get("_source_type") or "")
                 source_doc_txt = str(rec_in.get("_source_doc") or "")
@@ -66095,6 +65912,71 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 out_rows.extend(selected_by_quarter.get(qd, []))
                 if len(out_rows) >= 20:
                     break
+            if is_gpre_profile:
+                seen_commentary_norms = {
+                    glx_normalize_text(str(rec.get("commentary") or "")).lower()
+                    for rec in out_rows
+                    if str(rec.get("commentary") or "").strip()
+                }
+                explicit_rows: List[Dict[str, Any]] = []
+                for rec in _gpre_commercial_setup_records_shared():
+                    if str(rec.get("commentary_home") or "").strip().lower() != "operating_commentary":
+                        continue
+                    qd = rec.get("source_quarter")
+                    if not isinstance(qd, date) or qd not in target_set:
+                        continue
+                    commentary_txt = _ensure_terminal_period(str(rec.get("commentary_text") or "").strip())
+                    commentary_norm = glx_normalize_text(commentary_txt).lower()
+                    if not commentary_txt or commentary_norm in seen_commentary_norms:
+                        continue
+                    explicit_rows.append(
+                        {
+                            "source_quarter": qd,
+                            "year_band_label": "2026 / current" if int(qd.year) >= 2026 else str(int(qd.year)),
+                            "horizon_label": _operating_commentary_horizon_label(rec.get("commentary_text"), qd),
+                            "stated_in": _quarter_label_overlay_style(qd),
+                            "commentary": commentary_txt,
+                            "comment_text": _driver_source_note(
+                                rec.get("source_location"),
+                                commentary_txt,
+                                rec.get("source_excerpt"),
+                            ),
+                            "_priority": int(rec.get("commentary_priority") or 50),
+                            "_forced_explicit": 1,
+                        }
+                    )
+                    seen_commentary_norms.add(commentary_norm)
+                def _operating_commentary_output_priority(rec_in: Dict[str, Any]) -> Tuple[Any, ...]:
+                    qd_local = rec_in.get("source_quarter")
+                    qd_ord = int(qd_local.strftime("%Y%m%d")) if isinstance(qd_local, date) else 0
+                    return (
+                        -qd_ord,
+                        -(int(rec_in.get("_forced_explicit") or 0)),
+                        int(rec_in.get("_priority") or 50),
+                        str(rec_in.get("commentary") or ""),
+                    )
+
+                explicit_rows.sort(key=_operating_commentary_output_priority)
+                out_rows.extend(explicit_rows)
+                if len(out_rows) > 20:
+                    sorted_rows = sorted(out_rows, key=_operating_commentary_output_priority)
+                    trimmed_rows: List[Dict[str, Any]] = []
+                    for idx, rec in enumerate(sorted_rows):
+                        if len(trimmed_rows) >= 20:
+                            break
+                        force_include = int(rec.get("_forced_explicit") or 0) > 0
+                        if not force_include:
+                            forced_left = sum(
+                                1
+                                for future_rec in sorted_rows[idx + 1 :]
+                                if int(future_rec.get("_forced_explicit") or 0) > 0
+                            )
+                            remaining_slots = 20 - len(trimmed_rows)
+                            if forced_left >= remaining_slots:
+                                continue
+                        trimmed_rows.append(rec)
+                    out_rows = trimmed_rows
+                out_rows = sorted(out_rows, key=_operating_commentary_output_priority)
             return out_rows[:20]
 
         def _segment_support_bundle() -> Dict[str, Any]:
@@ -67505,27 +67387,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 quarter_open_display_quarter = current_market_display_quarter
                 quarter_open_display_quarter_txt = current_market_display_quarter_txt
                 quarter_open_subheader_txt = "Quarter-open proxy"
-
-        def _write_gpre_basis_proxy_sidecars(model_result: Dict[str, Any]) -> None:
-            if not isinstance(model_result, dict):
-                return
-            quarterly_df = model_result.get("quarterly_df")
-            if not isinstance(quarterly_df, pd.DataFrame) or quarterly_df.empty:
-                return
-            ticker_root_local = _first_gpre_ticker_root_local()
-            if ticker_root_local is None:
-                return
-            out_dir = ticker_root_local / "basis_proxy"
-            try:
-                out_dir.mkdir(parents=True, exist_ok=True)
-                quarterly_df.to_csv(out_dir / "gpre_basis_proxy_quarterly.csv", index=False)
-                quarterly_df.to_parquet(out_dir / "gpre_basis_proxy_quarterly.parquet", index=False)
-                (out_dir / "gpre_basis_proxy_summary.md").write_text(
-                    str(model_result.get("summary_markdown") or "").strip() + "\n",
-                    encoding="utf-8",
-                )
-            except Exception:
-                pass
 
         def _write_gpre_basis_proxy_sandbox(target_ws: Any, start_row: int, model_result: Dict[str, Any]) -> Dict[str, Any]:
             if not isinstance(model_result, dict):
@@ -70717,262 +70578,51 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             }
 
         _record_writer_substage("write_excel.drivers.render.economics_overlay.market_inputs", overlay_market_inputs_started)
-        overlay_sandbox_started = time.perf_counter()
-        gpre_basis_sandbox_layout: Dict[str, Any] = {}
-        if is_gpre_profile and gpre_commercial_setup_rows:
-            _write_gpre_basis_proxy_sidecars(gpre_basis_model_result)
-            sandbox_ws = wb.create_sheet("Basis_Proxy_Sandbox")
-            gpre_basis_sandbox_layout = _write_gpre_basis_proxy_sandbox(sandbox_ws, 1, gpre_basis_model_result)
+        overlay_support_result = write_gpre_basis_proxy_overlay_support(
+            GpreOverlaySupportInputs(
+                wb=wb,
+                ws=ws,
+                row_idx=row_idx,
+                is_gpre_profile=is_gpre_profile,
+                has_gpre_commercial_setup=bool(gpre_commercial_setup_rows),
+                model_result=gpre_basis_model_result,
+                proxy_implied_results_bundle=gpre_proxy_implied_results_bundle,
+                bridge_panel_rows=gpre_bridge_panel_rows,
+                ticker_root=_first_gpre_ticker_root_local(),
+                current_ref=current_ref,
+                thesis_ref=thesis_ref,
+                title_fill=title_fill,
+                title_font=title_font,
+                header_fill=header_fill,
+                bold_font=bold_font,
+                body_font=body_font,
+                thin_border=thin_border,
+                align_center=align_center,
+                align_center_wrap=align_center_wrap,
+                align_left_center_wrap=align_left_center_wrap,
+                zebra_fill_light=zebra_fill_light,
+                sandbox_writer=_write_gpre_basis_proxy_sandbox,
+                add_comment=_add_comment,
+                gpre_fitted_live_formula=_gpre_fitted_live_formula,
+                gpre_formula_note=_gpre_formula_note,
+                gpre_preview_frame_value=_gpre_preview_frame_value,
+                gpre_preview_frame_note=_gpre_preview_frame_note,
+                record_writer_substage=_record_writer_substage,
+            )
+        )
+        gpre_basis_sandbox_layout = dict(overlay_support_result.sandbox_layout or {})
         sandbox_process_margin_refs = (
             ((gpre_basis_sandbox_layout.get("approx_market_crush_build_up") or {}).get("process_margin_refs"))
             if isinstance(gpre_basis_sandbox_layout, dict)
             else {}
         ) or {}
-        _record_writer_substage("write_excel.drivers.render.economics_overlay.basis_proxy_sandbox", overlay_sandbox_started)
-        proxy_comp_end_row = row_idx - 1
+        proxy_comp_end_row = int(overlay_support_result.proxy_comp_end_row or (row_idx - 1))
+        proxy_comp_title_row = int(overlay_support_result.proxy_comp_title_row or 0)
+        proxy_comp_header_row = int(overlay_support_result.proxy_comp_header_row or 0)
+        official_proxy_comp_row = int(overlay_support_result.official_proxy_comp_row or 0)
+        fitted_proxy_comp_row = int(overlay_support_result.fitted_proxy_comp_row or 0)
+
         if is_gpre_profile and gpre_commercial_setup_rows:
-            overlay_proxy_comparison_started = time.perf_counter()
-            proxy_comp_title_row = row_idx
-            proxy_comp_header_row = proxy_comp_title_row + 1
-            official_proxy_comp_row = proxy_comp_header_row + 1
-            fitted_proxy_comp_row = proxy_comp_header_row + 2
-            proxy_comp_end_row = fitted_proxy_comp_row
-            ws.merge_cells(start_row=proxy_comp_title_row, start_column=1, end_row=proxy_comp_title_row, end_column=9)
-            proxy_title_cell = ws.cell(row=proxy_comp_title_row, column=1, value="Proxy comparison ($/gal)")
-            proxy_title_cell.fill = title_fill
-            proxy_title_cell.font = title_font
-            proxy_title_cell.alignment = align_center
-            for cc in range(1, 10):
-                ws.cell(row=proxy_comp_title_row, column=cc).fill = title_fill
-                ws.cell(row=proxy_comp_title_row, column=cc).font = title_font
-                ws.cell(row=proxy_comp_title_row, column=cc).border = thin_border
-                ws.cell(row=proxy_comp_title_row, column=cc).alignment = align_center_wrap
-            ws.row_dimensions[proxy_comp_title_row].height = 18.0
-            proxy_header_spans = [
-                (1, 1, "Proxy row"),
-                (2, 3, "Prior quarter"),
-                (4, 5, "Quarter-open proxy"),
-                (6, 7, "Current QTD"),
-                (8, 9, "Next quarter"),
-            ]
-            for start_col, end_col, hdr in proxy_header_spans:
-                if end_col > start_col:
-                    ws.merge_cells(start_row=proxy_comp_header_row, start_column=start_col, end_row=proxy_comp_header_row, end_column=end_col)
-                cell = ws.cell(row=proxy_comp_header_row, column=start_col, value=hdr)
-                cell.fill = header_fill
-                cell.font = bold_font
-                cell.border = thin_border
-                cell.alignment = align_center_wrap
-                for cc in range(start_col, end_col + 1):
-                    ws.cell(row=proxy_comp_header_row, column=cc).fill = header_fill
-                    ws.cell(row=proxy_comp_header_row, column=cc).font = bold_font
-                    ws.cell(row=proxy_comp_header_row, column=cc).border = thin_border
-                    ws.cell(row=proxy_comp_header_row, column=cc).alignment = align_center_wrap
-            ws.row_dimensions[proxy_comp_header_row].height = 21.0
-            proxy_table_rows = [
-                ("Approximate market crush ($/gal)", "official_frames"),
-                ("GPRE crush proxy ($/gal)", "gpre_proxy_frames"),
-            ]
-            frame_order = ("prior_quarter", "quarter_open", "current_qtd", "next_quarter_thesis")
-            official_proxy_refs = {
-                frame_key: (
-                    f'=IF(ISNUMBER({sandbox_process_margin_refs[frame_key]}),{sandbox_process_margin_refs[frame_key]},"")'
-                    if str(sandbox_process_margin_refs.get(frame_key) or "").strip()
-                    else '=""'
-                )
-                for frame_key in frame_order
-            }
-            fitted_live_refs = {
-                "current_qtd": _gpre_fitted_live_formula("current_qtd", current_ref.get("ethanol_price", "")),
-                "next_quarter_thesis": _gpre_fitted_live_formula("next_quarter_thesis", thesis_ref.get("ethanol_price", "")),
-            }
-            for row_num, (label_txt, frame_group) in zip((official_proxy_comp_row, fitted_proxy_comp_row), proxy_table_rows):
-                ws.cell(row=row_num, column=1, value=label_txt)
-                value_spans = [(2, 3), (4, 5), (6, 7), (8, 9)]
-                for start_col, end_col in value_spans:
-                    ws.merge_cells(start_row=row_num, start_column=start_col, end_row=row_num, end_column=end_col)
-                fill_ref = copy(zebra_fill_light)
-                for cc in range(1, 10):
-                    cell = ws.cell(row=row_num, column=cc)
-                    cell.fill = fill_ref
-                    cell.font = body_font
-                    cell.border = thin_border
-                    cell.alignment = align_left_center_wrap if cc == 1 else align_center
-                for (start_col, _end_col), frame_key in zip(value_spans, frame_order):
-                    cell = ws.cell(row=row_num, column=start_col)
-                    if frame_group == "official_frames":
-                        cell.value = official_proxy_refs.get(frame_key, "")
-                        cell.number_format = "#,##0.000"
-                        continue
-                    if frame_key in {"current_qtd", "next_quarter_thesis"} and fitted_live_refs.get(frame_key):
-                        cell.value = fitted_live_refs.get(frame_key)
-                        cell.number_format = "#,##0.000"
-                        fitted_note = _gpre_formula_note(frame_key)
-                        if fitted_note:
-                            _add_comment(f"{get_column_letter(start_col)}{row_num}", fitted_note)
-                        continue
-                    value_num = _gpre_preview_frame_value(frame_group, frame_key)
-                    if value_num is not None:
-                        cell.value = value_num
-                        cell.number_format = "#,##0.000"
-                        fitted_note = _gpre_preview_frame_note(frame_group, frame_key)
-                        if fitted_note:
-                            _add_comment(f"{get_column_letter(start_col)}{row_num}", fitted_note)
-                ws.row_dimensions[row_num].height = 19.5
-            _record_writer_substage("write_excel.drivers.render.economics_overlay.proxy_comparison", overlay_proxy_comparison_started)
-
-            if gpre_bridge_panel_rows and gpre_proxy_implied_results_bundle:
-                overlay_proxy_implied_started = time.perf_counter()
-                panel_title_row = int(gpre_bridge_panel_rows.get("panel_title_row") or 0)
-                panel_header_row = int(gpre_bridge_panel_rows.get("panel_header_row") or 0)
-                approx_bridge_row = int(gpre_bridge_panel_rows.get("approx_market_crush_proxy") or 0)
-                fitted_bridge_row = int(gpre_bridge_panel_rows.get("gpre_crush_proxy") or 0)
-                if all(
-                    row_val > 0
-                    for row_val in (
-                        panel_title_row,
-                        panel_header_row,
-                        approx_bridge_row,
-                        fitted_bridge_row,
-                    )
-                ):
-                    helper_gallons_row = int(gpre_bridge_panel_rows.get("underlying_crush_margin") or 0)
-                    helper_basis_row = int(gpre_bridge_panel_rows.get("reported_consolidated_crush_margin") or 0)
-                    if helper_gallons_row <= 0 or helper_basis_row <= 0:
-                        helper_gallons_row = fitted_bridge_row + 2
-                        helper_basis_row = fitted_bridge_row + 3
-                    panel_start_col = 14  # N
-                    panel_end_col = 21  # U
-                    helper_label_start_col = 22  # V
-                    helper_label_end_col = 31  # AE
-                    frame_spans = {
-                        "prior_quarter": (14, 15),  # N:O
-                        "quarter_open": (16, 17),  # P:Q
-                        "current_qtd": (18, 19),  # R:S
-                        "next_quarter_thesis": (20, 21),  # T:U
-                    }
-                    proxy_source_cols = {
-                        "prior_quarter": 2,  # B
-                        "quarter_open": 4,  # D
-                        "current_qtd": 6,  # F
-                        "next_quarter_thesis": 8,  # H
-                    }
-                    proxy_implied_frames = dict(gpre_proxy_implied_results_bundle.get("frames") or {})
-                    neighbor_width = ws.column_dimensions["U"].width or ws.column_dimensions["T"].width or 13.86
-                    for col_letter in ("V", "AE", "AF"):
-                        ws.column_dimensions[col_letter].width = neighbor_width
-
-                    ws.merge_cells(
-                        start_row=panel_title_row,
-                        start_column=panel_start_col,
-                        end_row=panel_title_row,
-                        end_column=panel_end_col,
-                    )
-                    panel_title_cell = ws.cell(
-                        row=panel_title_row,
-                        column=panel_start_col,
-                        value=str(gpre_proxy_implied_results_bundle.get("title") or "Proxy-implied results ($m)"),
-                    )
-                    panel_title_cell.fill = title_fill
-                    panel_title_cell.font = title_font
-                    panel_title_cell.border = thin_border
-                    panel_title_cell.alignment = align_center_wrap
-                    for cc in range(panel_start_col, panel_end_col + 1):
-                        ws.cell(row=panel_title_row, column=cc).fill = title_fill
-                        ws.cell(row=panel_title_row, column=cc).font = title_font
-                        ws.cell(row=panel_title_row, column=cc).border = thin_border
-                        ws.cell(row=panel_title_row, column=cc).alignment = align_center_wrap
-                    ws.row_dimensions[panel_title_row].height = 18.0
-                    panel_note = str(gpre_proxy_implied_results_bundle.get("note") or "").strip()
-                    if panel_note:
-                        _add_comment(f"{get_column_letter(panel_start_col)}{panel_title_row}", panel_note)
-
-                    for cc in range(panel_start_col, panel_end_col + 1):
-                        ws.cell(row=panel_header_row, column=cc).fill = header_fill
-                        ws.cell(row=panel_header_row, column=cc).font = bold_font
-                        ws.cell(row=panel_header_row, column=cc).border = thin_border
-                        ws.cell(row=panel_header_row, column=cc).alignment = align_center_wrap
-                    for frame_key, (start_col, end_col) in frame_spans.items():
-                        ws.merge_cells(
-                            start_row=panel_header_row,
-                            start_column=start_col,
-                            end_row=panel_header_row,
-                            end_column=end_col,
-                        )
-                        ws.cell(
-                            row=panel_header_row,
-                            column=start_col,
-                            value=str((proxy_implied_frames.get(frame_key) or {}).get("frame_label") or ""),
-                        )
-                    for row_num_local in (approx_bridge_row, fitted_bridge_row, helper_gallons_row, helper_basis_row):
-                        fill_ref = copy(zebra_fill_light)
-                        for cc in range(panel_start_col, panel_end_col + 1):
-                            ws.cell(row=row_num_local, column=cc).fill = fill_ref
-                            ws.cell(row=row_num_local, column=cc).font = body_font
-                            ws.cell(row=row_num_local, column=cc).border = thin_border
-                            ws.cell(row=row_num_local, column=cc).alignment = align_center_wrap
-                    for row_num_local in (approx_bridge_row, fitted_bridge_row, helper_gallons_row, helper_basis_row):
-                        for start_col, end_col in frame_spans.values():
-                            ws.merge_cells(
-                                start_row=row_num_local,
-                                start_column=start_col,
-                                end_row=row_num_local,
-                                end_column=end_col,
-                            )
-
-                    for title_row, title_txt in (
-                        (helper_gallons_row, "Implied gallons assumption"),
-                        (helper_basis_row, "Volume basis"),
-                    ):
-                        ws.merge_cells(
-                            start_row=title_row,
-                            start_column=helper_label_start_col,
-                            end_row=title_row,
-                            end_column=helper_label_end_col,
-                        )
-                        for cc in range(helper_label_start_col, helper_label_end_col + 1):
-                            ws.cell(row=title_row, column=cc).fill = header_fill
-                            ws.cell(row=title_row, column=cc).font = bold_font
-                            ws.cell(row=title_row, column=cc).border = thin_border
-                            ws.cell(row=title_row, column=cc).alignment = align_left_center_wrap
-                        ws.cell(row=title_row, column=helper_label_start_col, value=title_txt)
-
-                    for frame_key, (start_col, _end_col) in frame_spans.items():
-                        frame_rec = dict(proxy_implied_frames.get(frame_key) or {})
-                        proxy_src_col = int(proxy_source_cols.get(frame_key) or 0)
-                        gallons_cell_ref = f"{get_column_letter(start_col)}{helper_gallons_row}"
-                        official_proxy_ref = f"{get_column_letter(proxy_src_col)}{official_proxy_comp_row}"
-                        fitted_proxy_ref = f"{get_column_letter(proxy_src_col)}{fitted_proxy_comp_row}"
-                        ws.cell(
-                            row=approx_bridge_row,
-                            column=start_col,
-                            value=f'=IF(AND(ISNUMBER({official_proxy_ref}),ISNUMBER({gallons_cell_ref})),{official_proxy_ref}*{gallons_cell_ref},"")',
-                        ).number_format = "0.0;-0.0"
-                        ws.cell(
-                            row=fitted_bridge_row,
-                            column=start_col,
-                            value=f'=IF(AND(ISNUMBER({fitted_proxy_ref}),ISNUMBER({gallons_cell_ref})),{fitted_proxy_ref}*{gallons_cell_ref},"")',
-                        ).number_format = "0.0;-0.0"
-
-                        implied_gallons_display_num = pd.to_numeric(frame_rec.get("implied_gallons_million_display"), errors="coerce")
-                        gallons_cell = ws.cell(row=helper_gallons_row, column=start_col)
-                        if pd.notna(implied_gallons_display_num):
-                            gallons_cell.value = float(implied_gallons_display_num)
-                            gallons_cell.number_format = '0.0"m gal"'
-                        else:
-                            gallons_cell.value = ""
-                        basis_cell = ws.cell(row=helper_basis_row, column=start_col, value=str(frame_rec.get("volume_basis_display") or "Unavailable"))
-                        basis_cell.alignment = align_center_wrap
-                        note_bits = [
-                            str(frame_rec.get("volume_basis_comment") or "").strip(),
-                            str(frame_rec.get("reason_unavailable") or "").strip(),
-                        ]
-                        note_txt = " ".join(bit for bit in note_bits if bit)
-                        if note_txt:
-                            _add_comment(f"{get_column_letter(start_col)}{helper_gallons_row}", note_txt)
-                            _add_comment(f"{get_column_letter(start_col)}{helper_basis_row}", note_txt)
-                _record_writer_substage("write_excel.drivers.render.economics_overlay.proxy_implied_results", overlay_proxy_implied_started)
-
             overlay_quarter_compare_started = time.perf_counter()
             quarter_compare_title_row = proxy_comp_title_row
             quarter_compare_header_row = proxy_comp_header_row

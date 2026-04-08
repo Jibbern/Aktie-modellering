@@ -408,6 +408,11 @@ def build_signals_base(
     adj_ebitda_ttm_raw = _series(lev, "adj_ebitda_ttm")
     adj_fallback = adj_ebitda_ttm_raw.empty
     adj_ebitda_ttm = adj_ebitda_ttm_raw.copy()
+    if adj_fallback:
+        # Hidden-value flags still need a stable margin series when adjusted TTM
+        # EBITDA is unavailable. In that case we fall back to GAAP EBITDA TTM and
+        # mark the downstream flag output as a fallback-driven result.
+        adj_ebitda_ttm = ebitda_ttm.copy()
     adj_margin_ttm = margin(adj_ebitda_ttm, revenue_ttm)
     adj_margin_ttm_yoy_bps = (adj_margin_ttm - adj_margin_ttm.shift(4)) * 10_000.0
     ebit_growth_yoy = yoy(ebit_ttm)

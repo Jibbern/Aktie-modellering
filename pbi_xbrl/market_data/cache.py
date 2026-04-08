@@ -62,6 +62,13 @@ def parsed_manifest_path(cache_root: Path) -> Path:
     return cache_root / "index" / "parsed_manifest.json"
 
 
+def remote_debug_path(cache_root: Path, source: str) -> Path:
+    root = resolve_market_cache_root(cache_root)
+    out_dir = root / "index" / "remote_debug"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir / f"{str(source or 'unknown').strip().lower()}.json"
+
+
 def load_manifest(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}

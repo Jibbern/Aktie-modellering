@@ -21,9 +21,14 @@ import pandas as pd
 class QuarterNotesRuntime:
     submissions_recent_rows_cache: Optional[List[Dict[str, Any]]] = None
     filing_quarter_end_cache: Dict[str, Optional[date]] = field(default_factory=dict)
+    filings_for_quarter_cache: Dict[date, List[Dict[str, Any]]] = field(default_factory=dict)
     filings_for_quarter_forms_cache: Dict[Tuple[date, Tuple[str, ...]], List[Dict[str, Any]]] = field(
         default_factory=dict
     )
+    quarter_doc_pool_cache: Dict[Tuple[str, Tuple[str, ...], int, str, str, int], List[Dict[str, Any]]] = field(
+        default_factory=dict
+    )
+    docs_for_accn_ranked_cache: Dict[str, List[Path]] = field(default_factory=dict)
     docs_for_accn_sorted_cache: Dict[Tuple[str, int], List[Path]] = field(default_factory=dict)
     doc_analysis_cache: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     doc_plain_cache: Dict[str, str] = field(default_factory=dict)
@@ -67,13 +72,15 @@ class QuarterNotesRuntime:
         if cache_key in self.filing_quarter_end_cache:
             return self.filing_quarter_end_cache[cache_key]
         rep_d = parse_date(filing_row.get("report"))
-        if rep_d is not None:
-            q_end = pd.Timestamp(rep_d).to_period("Q").end_time.date()
+        rep_ts = pd.to_datetime(rep_d, errors="coerce")
+        if pd.notna(rep_ts):
+            q_end = pd.Timestamp(rep_ts).to_period("Q").end_time.date()
             self.filing_quarter_end_cache[cache_key] = q_end
             return q_end
         filed_d = parse_date(filing_row.get("filed"))
-        if filed_d is not None:
-            q_end = pd.Timestamp(filed_d - timedelta(days=60)).to_period("Q").end_time.date()
+        filed_ts = pd.to_datetime(filed_d, errors="coerce")
+        if pd.notna(filed_ts):
+            q_end = pd.Timestamp(filed_ts - timedelta(days=60)).to_period("Q").end_time.date()
             self.filing_quarter_end_cache[cache_key] = q_end
             return q_end
         self.filing_quarter_end_cache[cache_key] = None
@@ -92,12 +99,19 @@ class QuarterNotesRuntime:
         cached = self.filings_for_quarter_forms_cache.get(cache_key)
         if cached is not None:
             return list(cached)
+        quarter_cached = self.filings_for_quarter_cache.get(quarter_end)
+        if quarter_cached is None:
+            quarter_rows: List[Dict[str, Any]] = []
+            for filing_row in self.load_submissions_recent_rows(rows_loader):
+                if self.filing_quarter_end(filing_row, parse_date=parse_date) != quarter_end:
+                    continue
+                quarter_rows.append(filing_row)
+            self.filings_for_quarter_cache[quarter_end] = list(quarter_rows)
+            quarter_cached = quarter_rows
         filtered: List[Dict[str, Any]] = []
-        for filing_row in self.load_submissions_recent_rows(rows_loader):
+        for filing_row in quarter_cached:
             form = str(filing_row.get("form") or "").upper()
             if form_key and form not in form_key:
-                continue
-            if self.filing_quarter_end(filing_row, parse_date=parse_date) != quarter_end:
                 continue
             filtered.append(filing_row)
         self.filings_for_quarter_forms_cache[cache_key] = list(filtered)
@@ -110,39 +124,170 @@ class QuarterNotesRuntime:
         sec_docs_for_accession: Callable[[str], List[Path]],
         max_docs: int = 16,
     ) -> List[Path]:
-        cache_key = (str(accession or ""), int(max_docs))
+        accession_key = str(accession or "")
+        cache_key = (accession_key, int(max_docs))
         cached = self.docs_for_accn_sorted_cache.get(cache_key)
         if cached is not None:
             return list(cached)
-        uniq = sec_docs_for_accession(accession)
-        if not uniq:
+        ranked = self.docs_for_accn_ranked_cache.get(accession_key)
+        if ranked is None:
+            uniq = sec_docs_for_accession(accession)
+            if not uniq:
+                self.docs_for_accn_ranked_cache[accession_key] = []
+                self.docs_for_accn_sorted_cache[cache_key] = []
+                return []
+
+            def _score_doc(path_in: Path) -> Tuple[int, int]:
+                name_low = path_in.name.lower()
+                score = 0
+                if "ex99" in name_low or "press" in name_low or "earnings" in name_low:
+                    score += 30
+                if "ceo" in name_low or "letter" in name_low or "annualletter" in name_low or "shareholder" in name_low:
+                    score += 22
+                if "slide" in name_low or "presentation" in name_low:
+                    score += 18
+                if "10k" in name_low:
+                    score += 16
+                if "10q" in name_low:
+                    score += 14
+                if "_pbi-" in name_low:
+                    score += 12
+                if "ex10" in name_low or "agreement" in name_low or "indenture" in name_low:
+                    score -= 20
+                if "ex31" in name_low or "ex32" in name_low:
+                    score -= 12
+                return (score, -len(name_low))
+
+            ranked = sorted(uniq, key=_score_doc, reverse=True)
+            self.docs_for_accn_ranked_cache[accession_key] = list(ranked)
+        if not ranked:
             self.docs_for_accn_sorted_cache[cache_key] = []
             return []
+        ranked_limited = list(ranked[: max(1, int(max_docs))])
+        self.docs_for_accn_sorted_cache[cache_key] = list(ranked_limited)
+        return ranked_limited
 
-        def _score_doc(path_in: Path) -> Tuple[int, int]:
-            name_low = path_in.name.lower()
-            score = 0
-            if "ex99" in name_low or "press" in name_low or "earnings" in name_low:
-                score += 30
-            if "ceo" in name_low or "letter" in name_low or "annualletter" in name_low or "shareholder" in name_low:
-                score += 22
-            if "slide" in name_low or "presentation" in name_low:
-                score += 18
-            if "10k" in name_low:
-                score += 16
-            if "10q" in name_low:
-                score += 14
-            if "_pbi-" in name_low:
-                score += 12
-            if "ex10" in name_low or "agreement" in name_low or "indenture" in name_low:
-                score -= 20
-            if "ex31" in name_low or "ex32" in name_low:
-                score -= 12
-            return (score, -len(name_low))
+    def quarter_doc_pool(
+        self,
+        quarter_end: date,
+        forms: Any,
+        *,
+        rows_loader: Callable[[], List[Dict[str, Any]]],
+        parse_date: Callable[[Any], Optional[date]],
+        sec_docs_for_accession: Callable[[str], List[Path]],
+        locate_cached_doc_path: Callable[[str, str], Optional[Path]],
+        path_cache_key: Callable[[Path], str],
+        read_cached_doc_text: Callable[[Path], str],
+        normalize_text: Callable[[Any], str],
+        max_docs: int = 16,
+        doc_scope: str = "ranked",
+        row_scope: str = "quarter_filtered",
+        require_quarter_match: bool = True,
+    ) -> List[Dict[str, Any]]:
+        form_key = tuple(sorted(str(x or "").upper() for x in (forms or []) if str(x or "").strip()))
+        doc_scope_key = str(doc_scope or "ranked").strip().lower() or "ranked"
+        row_scope_key = str(row_scope or "quarter_filtered").strip().lower() or "quarter_filtered"
+        # Run-scoped only: a fresh QuarterNotesRuntime is built for each export, so
+        # this pool can safely reuse doc discovery/parsing within one run without
+        # risking stale results after filings, parser output, or options change.
+        cache_key = (
+            str(quarter_end),
+            form_key,
+            int(max_docs),
+            doc_scope_key,
+            row_scope_key,
+            int(bool(require_quarter_match)),
+        )
+        cached = self.quarter_doc_pool_cache.get(cache_key)
+        if cached is not None:
+            return list(cached)
 
-        ranked = sorted(uniq, key=_score_doc, reverse=True)[: max(1, int(max_docs))]
-        self.docs_for_accn_sorted_cache[cache_key] = list(ranked)
-        return list(ranked)
+        if row_scope_key == "quarter_filtered":
+            filing_rows = self.filings_for_quarter_forms(
+                quarter_end,
+                form_key,
+                rows_loader=rows_loader,
+                parse_date=parse_date,
+            )
+        else:
+            filing_rows = []
+            for filing_row in self.load_submissions_recent_rows(rows_loader):
+                form = str(filing_row.get("form") or "").upper()
+                if form_key and form not in form_key:
+                    continue
+                filing_rows.append(filing_row)
+
+        doc_rows: List[Dict[str, Any]] = []
+        for filing_row in filing_rows:
+            form = str(filing_row.get("form") or "").upper()
+            accn = str(filing_row.get("accn") or "")
+            if not accn:
+                continue
+            if doc_scope_key == "primary":
+                doc_path = locate_cached_doc_path(accn, str(filing_row.get("doc") or ""))
+                docs = [doc_path] if doc_path is not None else []
+            else:
+                docs = self.docs_for_accn_sorted(
+                    accn,
+                    sec_docs_for_accession=sec_docs_for_accession,
+                    max_docs=max_docs,
+                )
+                if not docs:
+                    doc_path = locate_cached_doc_path(accn, str(filing_row.get("doc") or ""))
+                    docs = [doc_path] if doc_path is not None else []
+            for doc_path in docs:
+                if doc_path is None or not doc_path.exists():
+                    continue
+                doc_analysis = self.doc_analysis(
+                    doc_path,
+                    path_cache_key=path_cache_key,
+                    read_cached_doc_text=read_cached_doc_text,
+                    normalize_text=normalize_text,
+                )
+                plain = str(doc_analysis.get("plain") or "")
+                if not plain:
+                    continue
+                matches_quarter = True
+                if require_quarter_match:
+                    matches_quarter = self.doc_matches_quarter(
+                        filing_row,
+                        form=form,
+                        doc_path=doc_path,
+                        plain_text=plain,
+                        quarter_end=quarter_end,
+                        path_cache_key=path_cache_key,
+                        read_cached_doc_text=read_cached_doc_text,
+                        normalize_text=normalize_text,
+                        parse_date=parse_date,
+                    )
+                    if not matches_quarter:
+                        continue
+                doc_priority, source_type = self.doc_source_priority(
+                    doc_path,
+                    path_cache_key=path_cache_key,
+                    read_cached_doc_text=read_cached_doc_text,
+                    normalize_text=normalize_text,
+                )
+                doc_rows.append(
+                    {
+                        # This pool is run-scoped only. It intentionally caches
+                        # reusable filing/doc analysis inside one export and is
+                        # recreated for every new writer context.
+                        "filing_row": filing_row,
+                        "form": form,
+                        "accn": accn,
+                        "doc_path": doc_path,
+                        "doc_name": doc_path.name.lower(),
+                        "doc_analysis": doc_analysis,
+                        "plain": plain,
+                        "plain_low": str(doc_analysis.get("plain_low") or ""),
+                        "doc_priority": int(doc_priority),
+                        "source_type": str(source_type or ""),
+                        "matches_quarter": bool(matches_quarter),
+                    }
+                )
+        self.quarter_doc_pool_cache[cache_key] = list(doc_rows)
+        return list(doc_rows)
 
     def doc_analysis(
         self,

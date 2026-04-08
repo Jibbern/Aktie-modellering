@@ -155,7 +155,8 @@ def gpre_canonical_crush_series_for_drivers(
     def _candidate_rank_local(target_q: date, source_q: date, source_type: str, source_rank: int) -> Tuple[int, int, int, int]:
         source_type_low = str(source_type or "").strip().lower()
         official_rank = 0 if source_type_low == "earnings_release" else 1 if source_type_low == "presentation" else 2
-        comparator_rank = 0 if target_q != source_q else 1
+        # Prefer the direct same-quarter disclosure over later quarter prior-period comparators.
+        comparator_rank = 0 if target_q == source_q else 1
         return (
             comparator_rank,
             official_rank,
@@ -209,9 +210,17 @@ def extract_operating_driver_rows_for_template(
     group = str(template_spec.get("group") or "")
     label = str(template_spec.get("label") or "")
     search_terms = tuple(template_spec.get("search_terms") or ())
-    if quarter_records is None:
-        quarter_records = deps.load_source_records_by_quarter_fn().get(qd, [])
-    candidate_records = deps.candidate_records_for_template_fn(qd, template_spec, quarter_records=quarter_records)
+    cache_key = (qd, key)
+    candidate_records = runtime.template_candidate_cache.get(cache_key)
+    if candidate_records is None:
+        if quarter_records is None:
+            quarter_records = deps.load_source_records_by_quarter_fn().get(qd, [])
+        candidate_records = deps.candidate_records_for_template_fn(
+            qd,
+            template_spec,
+            quarter_records=quarter_records,
+        )
+        runtime.template_candidate_cache[cache_key] = candidate_records
 
     if key == "utilization":
 
@@ -443,6 +452,69 @@ def extract_operating_driver_rows_for_template(
 
     if key == "consolidated_ethanol_crush_margin":
         if deps.is_gpre_profile:
+            same_quarter_best: Optional[Tuple[Tuple[int, int], Dict[str, Any], float, str]] = None
+            for rec in quarter_records or []:
+                source_type = str(rec.get("source_type") or "")
+                if source_type not in {"earnings_release", "presentation"}:
+                    continue
+                parsed_pair = deps.parse_gpre_crush_margin_pair_fn(rec.get("text"))
+                if not parsed_pair:
+                    continue
+                current_val, _prior_val, snippet = parsed_pair
+                source_type_low = source_type.strip().lower()
+                official_rank = 0 if source_type_low == "earnings_release" else 1 if source_type_low == "presentation" else 2
+                rank = (official_rank, int(rec.get("source_rank") or 99))
+                if same_quarter_best is None or rank < same_quarter_best[0]:
+                    same_quarter_best = (rank, rec, float(current_val), str(snippet or ""))
+            if same_quarter_best is not None:
+                _, best_rec, best_val, best_snippet = same_quarter_best
+                source_type = str(best_rec.get("source_type") or "earnings_release")
+                source_doc = str(best_rec.get("source_doc") or "")
+                return [
+                    make_driver_row(
+                        qd,
+                        key,
+                        group,
+                        label,
+                        source_type,
+                        source_doc,
+                        driver_source_display_fn=deps.driver_source_display_fn,
+                        driver_source_note_fn=deps.driver_source_note_fn,
+                        commentary=best_snippet,
+                        quality="exact",
+                        value=float(best_val),
+                        unit="$m",
+                        source_note=deps.driver_source_note_fn(source_doc, best_snippet),
+                    )
+                ]
+            margin_rec = deps.driver_best_text_record_fn(qd, search_terms, require_numeric=True, quarter_records=candidate_records)
+            if margin_rec is not None:
+                val = deps.cached_metric_parse_fn(
+                    "consolidated_ethanol_crush_margin",
+                    margin_rec.get("text"),
+                    deps.parse_crush_margin_value_m_fn,
+                )
+                if val is not None:
+                    return [
+                        make_driver_row(
+                            qd,
+                            key,
+                            group,
+                            label,
+                            str(margin_rec.get("source_type") or ""),
+                            str(margin_rec.get("source_doc") or ""),
+                            driver_source_display_fn=deps.driver_source_display_fn,
+                            driver_source_note_fn=deps.driver_source_note_fn,
+                            commentary=str(margin_rec.get("snippet") or ""),
+                            quality="exact",
+                            value=float(val),
+                            unit="$m",
+                            source_note=deps.driver_source_note_fn(
+                                margin_rec.get("source_doc"),
+                                margin_rec.get("snippet"),
+                            ),
+                        )
+                    ]
             canonical_series = gpre_canonical_crush_series_for_drivers(runtime, deps)
             canonical_rec = canonical_series.get(qd)
             canonical_val = pd.to_numeric((canonical_rec or {}).get("value"), errors="coerce")

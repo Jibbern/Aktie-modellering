@@ -155,6 +155,20 @@ def test_hidden_value_flags_independent_metrics_match() -> None:
     assert pd.notna(b.loc[q_common_a, "shares_yoy"])
 
 
+def test_hidden_value_signals_base_uses_gaap_ebitda_ttm_fallback_when_adjusted_missing() -> None:
+    hist = _make_hist()
+
+    base = build_signals_base(hist=hist)
+
+    assert not base.empty
+    base_idx = base.set_index(pd.to_datetime(base["quarter"])).sort_index()
+    hist_idx = hist.set_index(pd.to_datetime(hist["quarter"])).sort_index()
+    expected_margin = _margin(_ttm(hist_idx["ebitda"]), _ttm(hist_idx["revenue"]))
+
+    _assert_series_close(base_idx["adj_margin_ttm"], expected_margin)
+    assert float(pd.to_numeric(base_idx["adj_fallback"].dropna().iloc[-1], errors="coerce")) == pytest.approx(1.0, abs=1e-9)
+
+
 def test_hidden_value_flags_trigger_logic_matches_spec() -> None:
     hist = _make_hist()
     base_df = build_signals_base(hist=hist)

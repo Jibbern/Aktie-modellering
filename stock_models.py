@@ -438,6 +438,16 @@ def main() -> None:
         help="Reuse the latest cached pipeline bundle and only rebuild the workbook.",
     )
     ap.add_argument(
+        "--excel-debug-scope",
+        default="full",
+        choices=["full", "drivers", "ui"],
+        help=(
+            "Workbook write scope: full workbook, faster drivers-only debug workbook "
+            "(Operating_Drivers + Economics_Overlay/Basis_Proxy_Sandbox), or UI-only "
+            "debug workbook (Quarter_Notes + Promise raw tabs + Quarter_Notes_UI)."
+        ),
+    )
+    ap.add_argument(
         "--rebuild-pipeline-cache",
         action="store_true",
         help="Ignore cached full pipeline bundle and rebuild it before writing Excel.",
@@ -902,8 +912,16 @@ def main() -> None:
         company_overview,
     ) = pipeline_bundle
 
+    partial_debug_scope = str(args.excel_debug_scope or "full").strip().lower() != "full"
     out_path = _default_out_path(args.ticker) if not args.out else _normalize_out_path_xlsm(args.out)
+    if partial_debug_scope and not args.out:
+        out_path = out_path.with_name(f"{out_path.stem}_{args.excel_debug_scope}_debug{out_path.suffix}")
     xlsx_tmp_path = out_path.with_name(f"{out_path.stem}_nomacro.xlsx")
+    if partial_debug_scope:
+        print(
+            f"[Info] Excel debug scope={args.excel_debug_scope}; writing a partial workbook for faster sheet iteration.",
+            flush=True,
+        )
     with _timed("write_excel", enabled=cfg.profile_timings, store=timing_rows):
         # `write_excel` persists the workbook and returns the expected
         # saved-workbook snapshot bundle used for readback validation
@@ -956,6 +974,7 @@ def main() -> None:
             profile_timings=cfg.profile_timings,
             quarter_notes_audit=bool(args.quarter_notes_audit),
             capture_saved_workbook_provenance=False,
+            excel_debug_scope=args.excel_debug_scope,
         )
     try:
         if out_path.exists():
@@ -1023,23 +1042,25 @@ def main() -> None:
             except Exception:
                 pass
 
-    final_provenance = _verify_saved_workbook_export(final_out_path, writer_result)
-    if bool(args.quarter_notes_audit) and getattr(writer_result, "quarter_notes_audit_rows", None):
-        final_audit_rows = enrich_quarter_notes_audit_rows_with_readback(
-            list(getattr(writer_result, "quarter_notes_audit_rows", []) or []),
-            final_provenance,
-        )
-        write_quarter_notes_audit_sheet(final_out_path, final_audit_rows)
-        try:
-            validate_saved_workbook_after_audit_write(
-                final_out_path,
-                quarter_notes_ui_snapshot=getattr(writer_result, "quarter_notes_ui_snapshot", {}) or {},
-                quarter_notes_header_text=str(getattr(writer_result, "quarter_notes_header_text", "") or ""),
+    final_provenance: Dict[str, Any] = {}
+    if not partial_debug_scope:
+        final_provenance = _verify_saved_workbook_export(final_out_path, writer_result)
+        if bool(args.quarter_notes_audit) and getattr(writer_result, "quarter_notes_audit_rows", None):
+            final_audit_rows = enrich_quarter_notes_audit_rows_with_readback(
+                list(getattr(writer_result, "quarter_notes_audit_rows", []) or []),
+                final_provenance,
             )
-        except Exception as exc:
-            raise SystemExit(
-                f"ERROR: saved workbook audit verification failed for {final_out_path}: {type(exc).__name__}: {exc}"
-            ) from exc
+            write_quarter_notes_audit_sheet(final_out_path, final_audit_rows)
+            try:
+                validate_saved_workbook_after_audit_write(
+                    final_out_path,
+                    quarter_notes_ui_snapshot=getattr(writer_result, "quarter_notes_ui_snapshot", {}) or {},
+                    quarter_notes_header_text=str(getattr(writer_result, "quarter_notes_header_text", "") or ""),
+                )
+            except Exception as exc:
+                raise SystemExit(
+                    f"ERROR: saved workbook audit verification failed for {final_out_path}: {type(exc).__name__}: {exc}"
+                ) from exc
 
     print(f"[OK] Wrote Excel: {final_out_path}")
     print(

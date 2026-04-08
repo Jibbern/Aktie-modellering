@@ -117,6 +117,8 @@ def series_meta_from_key(series_key: Any, source_type: str) -> Optional[Dict[str
 
     if key.startswith("corn_cash_"):
         return _meta("corn_price", "Corn cash price", key.replace("corn_cash_", "", 1), "$/bushel")
+    if key.startswith("corn_basis_"):
+        return _meta("corn_basis", "Corn basis", key.replace("corn_basis_", "", 1), "$/bushel")
     if source_type.startswith("ams_3617") and key.startswith("corn_"):
         return _meta("corn_price", "Corn cash price", key.replace("corn_", "", 1), "$/bushel")
     if key.startswith("ethanol_"):
