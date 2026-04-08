@@ -7,6 +7,94 @@
 - Document the runtime layout and clarify which workspace artifacts are source-like, rebuildable, or disposable.
 - Freeze the current runtime/correctness baseline before new feature work in [BASELINE_FREEZE_2026-03-20.md](/c:/Users/Jibbe/Aktier/Code/docs/BASELINE_FREEZE_2026-03-20.md).
 
+## Economics Overlay Stage 5 Status (2026-04-08)
+- Verified live code/test changes now present in the worktree:
+  - `Basis_Proxy_Sandbox` is explicitly ordered directly after `Promise_Progress_UI`.
+  - `Economics_Overlay` now shows a short note under `Proxy comparison ($/gal)` that distinguishes the official row, fitted row, production winner, and best forward lens.
+  - `Basis_Proxy_Sandbox` winner story now carries:
+    - `Best historical fit`
+    - `Best compromise`
+    - `Best forward lens`
+    - `Forward usability`
+  - `Economics_Overlay` now includes a second chart:
+    - `GPRE proxy crush vs Approximate market crush (quarterly)`
+- Verified local artifact sync:
+  - `GPRE_model.xlsx` was regenerated successfully on `2026-04-08`.
+  - the regenerated workbook now shows the new sheet order, the weekly + quarterly chart pair, and the updated GPRE winner-story surfaces.
+- Verified current model roles after the stage-5 pass:
+  - production winner: `process_utilization_regime_residual`
+  - best historical fit: `process_utilization_regime_residual`
+  - best compromise: `process_utilization_regime_blend`
+  - best forward lens: `process_quarter_open_blend`
+- Interpretation note:
+  - stage 5 intentionally keeps `best forward lens` separate from the production winner when the more forward-usable lens is not the same model as the promotion-guarded winner.
+
+## Economics Overlay Stage 5.1 Status (2026-04-08)
+- Verified intent:
+  - this is a small presentation/workbook pass on top of stage 5, not a new model-selection pass
+  - production-winner logic stays unchanged
+- Verified live code/test changes now present in the worktree:
+  - `Basis_Proxy_Sandbox` now has a compact `Role summary` block with:
+    - `Production winner`
+    - `Best historical fit`
+    - `Best compromise`
+    - `Best forward lens`
+  - each role row uses compact, consistent metrics:
+    - `Hybrid`
+    - `MAE`
+    - `Forward`
+  - `Bridge to reported` now adds `Best forward lens ($m)` directly under `GPRE crush proxy ($m)`
+  - `Proxy comparison ($/gal)` now adds `Best forward lens ($/gal)` directly under `GPRE crush proxy ($/gal)`
+  - the quarterly GPRE chart now plots three series:
+    - `Approximate market crush`
+    - `GPRE crush proxy`
+    - `Best forward lens`
+  - the quarterly chart legend moved from `bottom` to `top` to keep it away from the date labels on the x-axis
+- Product note:
+  - `Production winner` remains the fitted row used in production
+  - `Best forward lens` is now surfaced explicitly as the preview-oriented future-quarter lens when it differs
+
+## Economics Overlay Stage 5.2 Status (2026-04-09)
+- Verified intent:
+  - this is a small readability/workbook pass on top of stage 5.1
+  - production-winner logic stays unchanged
+- Verified live code/test changes now present in the worktree:
+  - `Implied gallons assumption` and `Volume basis` now span `V:X` on `Economics_Overlay`
+  - the `Proxy comparison ($/gal)` note now spans `A:U` and keeps the same compact role order
+  - the quarterly chart title is now:
+    - `Approximate market crush vs Fitted models (quarterly)`
+  - the quarterly chart now extends beyond historical quarterly rows and shows preview / future-quarter values from the existing proxy-comparison path
+  - the quarterly chart is now a simple 3-series quarter-labeled line chart with visible `YYYY-Q#` labels and no quarterly `Quarter boundary` helper clutter
+  - fitted / forward proxy-comparison comments are now writer-compacted to max 12 words for workbook readability
+- Verified local artifact sync:
+  - `GPRE_model.xlsx` was regenerated successfully on `2026-04-09`
+  - the saved workbook shows the `V:X` helper panel, the widened `A:U` note row, the renamed quarterly chart, and future-quarter points in the quarterly chart path
+- Product note:
+  - `Best forward lens` remains the preview-oriented future-quarter lens surfaced alongside the production fitted row
+  - this pass only improves workbook clarity; it does not change model roles or selection
+
+## Owner Earnings + Economics QA Pass (2026-04-09)
+- Verified scope:
+  - this is a selective QA-/presentation-pass, not a broad workbook audit and not an optimization pass
+  - production-winner logic remains unchanged
+- Verified owner-earnings root cause and fix:
+  - the red delivered-QA issue around `Owner earnings (proxy)` was a real GPRE valuation row-placement bug
+  - hidden GPRE thesis-bridge labels such as `Corn oil / coproduct uplift` and `Protein / mix uplift` were being written and then hidden at the worksheet-row level
+  - those hidden labels are now filtered before row placement, so the visible bridge rows compress upward instead of hiding `Owner earnings (proxy)` and `Cash-flow quality`
+- Verified saved-workbook truth after the fix:
+  - `Valuation > Owner earnings (proxy)` is now visible in `GPRE_model.xlsx`
+  - `Valuation > Cash-flow quality` is now visible in `GPRE_model.xlsx`
+  - `Cost savings uplift` now lands on the visible `Owner earnings (proxy)` row
+  - `Interest savings / debt-paydown uplift` now lands on the visible `Cash-flow quality` row
+- Verified selective economics QA:
+  - `Role summary`, `Winner story`, `Bridge to reported`, `Proxy comparison`, and the quarterly chart remain internally consistent
+  - `Best forward lens` continues to use the same model role across summary, bridge, proxy comparison, and chart surfaces
+  - the three plant-execution commentary rows remain in `Operating_Drivers` and do not reappear in `Economics_Overlay`
+  - the `Proxy comparison ($/gal)` note row now matches the earlier light note styling and row height used on the sheet
+- QA-table decision:
+  - no new workbook QA table was added to `Basis_Proxy_Sandbox`
+  - the existing `Role summary`, `Winner story`, and method tables already cover the useful surface without making the sheet noisier
+
 ## Artifact Sync Status (2026-04-08)
 - Verified live code/test fixes currently present in the worktree:
   - PBI `Valuation > Buybacks (cash)` uses the quarter-safe filing-doc/precompute path.

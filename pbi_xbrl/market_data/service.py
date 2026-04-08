@@ -7124,6 +7124,208 @@ def _gpre_gated_model_value(
     return None
 
 
+def _gpre_prior_gap_carryover_value(
+    base_value: Any,
+    prior_gap_penalty: Any,
+    *,
+    multiplier: float = 0.50,
+    cap: float = 0.03,
+) -> Optional[float]:
+    base_num = pd.to_numeric(base_value, errors="coerce")
+    if pd.isna(base_num):
+        return None
+    prior_penalty_num = pd.to_numeric(prior_gap_penalty, errors="coerce")
+    if pd.isna(prior_penalty_num):
+        return float(base_num)
+    carryover = float(np.clip(float(multiplier) * float(prior_penalty_num), 0.0, float(cap)))
+    return float(base_num) - carryover
+
+
+def _gpre_prior_disturbance_carryover_value(
+    base_value: Any,
+    *,
+    prior_disturbed_flag: Any,
+    prior_hard_flag: Any,
+    prior_residual_penalty: Any,
+    multiplier: float = 0.60,
+    cap: float = 0.04,
+) -> Optional[float]:
+    base_num = pd.to_numeric(base_value, errors="coerce")
+    if pd.isna(base_num):
+        return None
+    if not (bool(prior_disturbed_flag) or bool(prior_hard_flag)):
+        return float(base_num)
+    prior_penalty_num = pd.to_numeric(prior_residual_penalty, errors="coerce")
+    if pd.isna(prior_penalty_num):
+        return float(base_num)
+    carryover = float(np.clip(float(multiplier) * float(prior_penalty_num), 0.0, float(cap)))
+    return float(base_num) - carryover
+
+
+def _gpre_walk_forward_tail_mae(
+    quarterly_df: pd.DataFrame,
+    *,
+    pred_col: str,
+    actual_col: str = "evaluation_target_margin_usd_per_gal",
+    tail_quarters: int = 4,
+) -> float:
+    if (
+        quarterly_df is None
+        or quarterly_df.empty
+        or pred_col not in quarterly_df.columns
+        or actual_col not in quarterly_df.columns
+    ):
+        return float("nan")
+    sub = pd.DataFrame(
+        {
+            "quarter": pd.to_datetime(quarterly_df["quarter"], errors="coerce"),
+            "pred": pd.to_numeric(quarterly_df[pred_col], errors="coerce"),
+            "actual": pd.to_numeric(quarterly_df[actual_col], errors="coerce"),
+        }
+    )
+    sub = sub[sub["quarter"].notna() & sub["pred"].notna() & sub["actual"].notna()].copy()
+    if sub.empty:
+        return float("nan")
+    sub = sub.sort_values("quarter").tail(max(int(tail_quarters), 1)).copy()
+    if sub.empty:
+        return float("nan")
+    return float((sub["pred"] - sub["actual"]).abs().mean())
+
+
+def _gpre_signal_coverage_stats(
+    quarterly_df: pd.DataFrame,
+    *,
+    pred_col: str,
+    actual_col: str = "evaluation_target_margin_usd_per_gal",
+) -> Tuple[int, float]:
+    if (
+        quarterly_df is None
+        or quarterly_df.empty
+        or pred_col not in quarterly_df.columns
+        or actual_col not in quarterly_df.columns
+    ):
+        return 0, 0.0
+    actual_series = pd.to_numeric(quarterly_df[actual_col], errors="coerce")
+    pred_series = pd.to_numeric(quarterly_df[pred_col], errors="coerce")
+    evaluable_mask = actual_series.notna()
+    evaluable_count = int(evaluable_mask.sum())
+    if evaluable_count <= 0:
+        return 0, 0.0
+    coverage_count = int((evaluable_mask & pred_series.notna()).sum())
+    return coverage_count, float(coverage_count / evaluable_count)
+
+
+def _gpre_forward_usability_rating(
+    model_key: Any,
+    *,
+    family: Any = "",
+) -> str:
+    key_txt = str(model_key or "").strip()
+    family_txt = str(family or "").strip()
+    explicit: Dict[str, str] = {
+        "process_market_process_ensemble_35_65": "medium",
+        "process_locked_share_asymmetric_passthrough": "high",
+        "process_prior_gap_carryover_small": "high",
+        "process_prior_disturbance_carryover": "high",
+        "process_inventory_gap_penalty_small": "low",
+        "process_inventory_gap_penalty_medium": "low",
+        "process_utilization_regime_blend": "medium",
+        "process_utilization_regime_residual": "low",
+        "process_exec_inventory_combo_medium": "low",
+        "process_asymmetric_basis_passthrough": "high",
+        "process_residual_regime_locked_vs_disturbed": "low",
+        "process_gated_incumbent_vs_residual": "low",
+        "process_quarter_open_blend_exec_penalty": "medium",
+        "process_quarter_open_blend_ops_penalty": "medium",
+        "process_quarter_open_blend_hedge_realization": "medium",
+        "process_quarter_open_blend_utilization_penalty": "medium",
+        "process_quarter_open_blend_maintenance_delay_penalty": "medium",
+        "process_quarter_open_blend_inventory_timing_drag": "medium",
+        "process_front_loaded_ops_penalty": "medium",
+        "process_two_stage_realization_residual": "low",
+    }
+    if key_txt in explicit:
+        return explicit[key_txt]
+    if family_txt in {
+        "bridge_timing",
+        "disclosed_hedge_memo",
+        "pattern_hedge_memo",
+        "bid_offset",
+        "process_family",
+        "process_blend",
+        "process_blend_locked_setup",
+        "basis_blend_current_front",
+        "basis_passthrough_beta",
+        "regime_basis_passthrough",
+        "capacity_weighted_basis_strict",
+        "simple_market",
+    }:
+        return "high"
+    if family_txt in {
+        "process_ops_penalty",
+        "process_geo",
+    }:
+        return "medium"
+    return "medium"
+
+
+def _gpre_complexity_rating(
+    model_key: Any,
+    *,
+    family: Any = "",
+) -> str:
+    key_txt = str(model_key or "").strip()
+    family_txt = str(family or "").strip()
+    explicit: Dict[str, str] = {
+        "process_market_process_ensemble_35_65": "low",
+        "process_locked_share_asymmetric_passthrough": "moderate",
+        "process_prior_gap_carryover_small": "low",
+        "process_prior_disturbance_carryover": "low",
+        "process_inventory_gap_penalty_small": "low",
+        "process_inventory_gap_penalty_medium": "low",
+        "process_utilization_regime_blend": "moderate",
+        "process_utilization_regime_residual": "moderate",
+        "process_exec_inventory_combo_medium": "moderate",
+        "process_asymmetric_basis_passthrough": "low",
+        "process_residual_regime_locked_vs_disturbed": "high",
+        "process_gated_incumbent_vs_residual": "high",
+        "process_quarter_open_blend_exec_penalty": "low",
+        "process_quarter_open_blend_ops_penalty": "low",
+        "process_quarter_open_blend_hedge_realization": "moderate",
+        "process_quarter_open_blend_utilization_penalty": "low",
+        "process_quarter_open_blend_maintenance_delay_penalty": "low",
+        "process_quarter_open_blend_inventory_timing_drag": "low",
+        "process_front_loaded_ops_penalty": "low",
+        "process_front_loaded_ethanol_geo": "low",
+        "process_two_stage_realization_residual": "moderate",
+    }
+    if key_txt in explicit:
+        return explicit[key_txt]
+    if family_txt in {
+        "simple_market",
+        "bridge_timing",
+        "process_family",
+        "disclosed_hedge_memo",
+        "pattern_hedge_memo",
+        "bid_offset",
+        "process_blend",
+        "process_blend_locked_setup",
+        "basis_blend_current_front",
+        "basis_passthrough_beta",
+        "regime_basis_passthrough",
+        "capacity_weighted_basis_strict",
+    }:
+        return "low"
+    if family_txt in {
+        "utilization_regime",
+        "exec_inventory_combo",
+        "residual_regime",
+        "gated_ensemble",
+    }:
+        return "moderate"
+    return "moderate"
+
+
 def _gpre_phase_preview_story(model_key: str, *, phase: str) -> Dict[str, str]:
     key = str(model_key or "")
     if key == "process_inventory_gap_penalty_small":
@@ -7191,6 +7393,50 @@ def _gpre_phase_preview_story(model_key: str, *, phase: str) -> Dict[str, str]:
             return {
                 "live_preview_mode": "reduced_form_approximation",
                 "live_preview_note": "Next-quarter fitted preview uses the same asymmetric current-basis passthrough, with stronger downside than upside transmission.",
+            }
+    if key == "process_market_process_ensemble_35_65":
+        if phase == "current":
+            return {
+                "live_preview_mode": "exact_formula",
+                "live_preview_note": "Current fitted preview blends 35% of the official/simple market row with 65% of the quarter-open severe-execution process proxy.",
+            }
+        if phase == "next":
+            return {
+                "live_preview_mode": "reduced_form_approximation",
+                "live_preview_note": "Next-quarter fitted preview keeps the same 35/65 market-process blend, using the official next-quarter lens plus the bounded severe-execution process preview.",
+            }
+    if key == "process_locked_share_asymmetric_passthrough":
+        if phase == "current":
+            return {
+                "live_preview_mode": "exact_formula",
+                "live_preview_note": "Current fitted preview uses capped locked-share evidence to blend locked/setup behavior with the asymmetric basis-passthrough lens.",
+            }
+        if phase == "next":
+            return {
+                "live_preview_mode": "reduced_form_approximation",
+                "live_preview_note": "Next-quarter fitted preview reuses the same capped locked-share blend between locked/setup behavior and the asymmetric passthrough lens.",
+            }
+    if key == "process_prior_gap_carryover_small":
+        if phase == "current":
+            return {
+                "live_preview_mode": "exact_formula",
+                "live_preview_note": "Current fitted preview subtracts a small bounded carryover from the prior quarter's sold-produced gap penalty from the quarter-open/current process blend.",
+            }
+        if phase == "next":
+            return {
+                "live_preview_mode": "reduced_form_approximation",
+                "live_preview_note": "Next-quarter fitted preview carries the current quarter's small inventory-gap penalty forward one quarter on top of the future process blend.",
+            }
+    if key == "process_prior_disturbance_carryover":
+        if phase == "current":
+            return {
+                "live_preview_mode": "exact_formula",
+                "live_preview_note": "Current fitted preview keeps the beta-0.35 passthrough base and only subtracts carryover drag when the prior quarter was hard or disturbed.",
+            }
+        if phase == "next":
+            return {
+                "live_preview_mode": "reduced_form_approximation",
+                "live_preview_note": "Next-quarter fitted preview keeps the same bounded prior-disturbance carryover on top of the beta-0.35 passthrough base.",
             }
     if key == "process_residual_regime_locked_vs_disturbed":
         if phase == "current":
@@ -8531,8 +8777,11 @@ def _gpre_preview_accuracy_for_model(
     utilization_penalty_map = _map_num("utilization_overlay_penalty_usd_per_gal")
     maintenance_delay_penalty_map = _map_num("maintenance_delay_penalty_usd_per_gal")
     inventory_drag_penalty_map = _map_num("inventory_timing_drag_penalty_usd_per_gal")
+    realization_residual_penalty_map = _map_num("realization_residual_penalty_usd_per_gal")
     disclosed_share_map = _map_num("hedge_share_disclosed")
     pattern_share_map = _map_num("hedge_share_pattern")
+    disturbed_flag_map = _map_num("disturbed_quarter_flag")
+    hard_flag_map = _map_num("hard_quarter_flag")
     process_blend_map = _map_num("process_quarter_open_blend_usd_per_gal")
     process_blend_util_map = _map_num("process_quarter_open_blend_utilization_penalty_usd_per_gal")
     process_blend_maintenance_map = _map_num("process_quarter_open_blend_maintenance_delay_penalty_usd_per_gal")
@@ -8551,6 +8800,10 @@ def _gpre_preview_accuracy_for_model(
     process_utilization_regime_residual_map = _map_num("process_utilization_regime_residual_usd_per_gal")
     process_exec_inventory_combo_medium_map = _map_num("process_exec_inventory_combo_medium_usd_per_gal")
     process_asymmetric_basis_passthrough_map = _map_num("process_asymmetric_basis_passthrough_usd_per_gal")
+    process_market_process_ensemble_35_65_map = _map_num("process_market_process_ensemble_35_65_usd_per_gal")
+    process_locked_share_asymmetric_passthrough_map = _map_num("process_locked_share_asymmetric_passthrough_usd_per_gal")
+    process_prior_gap_carryover_small_map = _map_num("process_prior_gap_carryover_small_usd_per_gal")
+    process_prior_disturbance_carryover_map = _map_num("process_prior_disturbance_carryover_usd_per_gal")
     process_residual_regime_locked_vs_disturbed_map = _map_num("process_residual_regime_locked_vs_disturbed_usd_per_gal")
     process_gated_incumbent_vs_residual_map = _map_num("process_gated_incumbent_vs_residual_usd_per_gal")
     process_front_ops_map = _map_num("process_front_loaded_ops_penalty_usd_per_gal")
@@ -8592,6 +8845,10 @@ def _gpre_preview_accuracy_for_model(
     process_utilization_regime_residual_next_map = _lead_map(process_utilization_regime_residual_map)
     process_exec_inventory_combo_medium_next_map = _lead_map(process_exec_inventory_combo_medium_map)
     process_asymmetric_basis_passthrough_next_map = _lead_map(process_asymmetric_basis_passthrough_map)
+    process_market_process_ensemble_35_65_next_map = _lead_map(process_market_process_ensemble_35_65_map)
+    process_locked_share_asymmetric_passthrough_next_map = _lead_map(process_locked_share_asymmetric_passthrough_map)
+    process_prior_gap_carryover_small_next_map = _lead_map(process_prior_gap_carryover_small_map)
+    process_prior_disturbance_carryover_next_map = _lead_map(process_prior_disturbance_carryover_map)
     process_residual_regime_locked_vs_disturbed_next_map = _lead_map(process_residual_regime_locked_vs_disturbed_map)
     process_gated_incumbent_vs_residual_next_map = _lead_map(process_gated_incumbent_vs_residual_map)
     hedge_disclosed_bridge_current_next_map = _lead_map(hedge_disclosed_bridge_current_map)
@@ -8714,6 +8971,14 @@ def _gpre_preview_accuracy_for_model(
             return process_exec_inventory_combo_medium_map.get(qd)
         if model_key == "process_asymmetric_basis_passthrough":
             return process_asymmetric_basis_passthrough_map.get(qd)
+        if model_key == "process_market_process_ensemble_35_65":
+            return process_market_process_ensemble_35_65_map.get(qd)
+        if model_key == "process_locked_share_asymmetric_passthrough":
+            return process_locked_share_asymmetric_passthrough_map.get(qd)
+        if model_key == "process_prior_gap_carryover_small":
+            return process_prior_gap_carryover_small_map.get(qd)
+        if model_key == "process_prior_disturbance_carryover":
+            return process_prior_disturbance_carryover_map.get(qd)
         if model_key == "process_residual_regime_locked_vs_disturbed":
             return process_residual_regime_locked_vs_disturbed_map.get(qd)
         if model_key == "process_gated_incumbent_vs_residual":
@@ -8824,6 +9089,59 @@ def _gpre_preview_accuracy_for_model(
             return process_exec_inventory_combo_medium_next_map.get(qd)
         if model_key == "process_asymmetric_basis_passthrough":
             return process_asymmetric_basis_passthrough_next_map.get(qd)
+        if model_key == "process_market_process_ensemble_35_65":
+            process_exec_next = pd.to_numeric(process_current_next_map.get(qd), errors="coerce")
+            exec_penalty_next = pd.to_numeric(total_exec_penalty_next_map.get(qd), errors="coerce")
+            process_exec_component = (
+                None
+                if pd.isna(process_exec_next)
+                else float(process_exec_next) - (0.0 if pd.isna(exec_penalty_next) else float(exec_penalty_next))
+            )
+            return _blend_optional_values(
+                bridge_current_next_map.get(qd),
+                process_exec_component,
+                anchor_weight=0.35,
+                current_weight=0.65,
+            )
+        if model_key == "process_locked_share_asymmetric_passthrough":
+            locked_share, _ = _gpre_effective_hedge_share(
+                disclosed_share_next_map.get(qd),
+                pattern_share_next_map.get(qd),
+                cap=0.35,
+            )
+            locked_setup_next = _gpre_locked_setup_value(
+                process_current_next_map.get(qd),
+                disclosed_share=disclosed_share_next_map.get(qd),
+                pattern_share=pattern_share_next_map.get(qd),
+                quarter_open_anchor=process_anchor_map.get(qd),
+                cap=0.40,
+            )
+            asym_next = _gpre_asymmetric_passthrough_value(
+                process_basis_passthrough_beta35_next_map.get(qd),
+                process_basis_passthrough_beta65_next_map.get(qd),
+            )
+            return _blend_optional_values(
+                locked_setup_next,
+                asym_next,
+                anchor_weight=float(locked_share),
+                current_weight=1.0 - float(locked_share),
+            )
+        if model_key == "process_prior_gap_carryover_small":
+            return _gpre_prior_gap_carryover_value(
+                process_current_next_map.get(qd),
+                process_inventory_gap_penalty_small_map.get(qd),
+                multiplier=0.50,
+                cap=0.03,
+            )
+        if model_key == "process_prior_disturbance_carryover":
+            return _gpre_prior_disturbance_carryover_value(
+                process_basis_passthrough_beta35_next_map.get(qd),
+                prior_disturbed_flag=(float(pd.to_numeric(disturbed_flag_map.get(qd), errors="coerce")) > 0.0) if pd.notna(pd.to_numeric(disturbed_flag_map.get(qd), errors="coerce")) else False,
+                prior_hard_flag=(float(pd.to_numeric(hard_flag_map.get(qd), errors="coerce")) > 0.0) if pd.notna(pd.to_numeric(hard_flag_map.get(qd), errors="coerce")) else False,
+                prior_residual_penalty=realization_residual_penalty_map.get(qd),
+                multiplier=0.60,
+                cap=0.04,
+            )
         if model_key == "process_residual_regime_locked_vs_disturbed":
             return process_residual_regime_locked_vs_disturbed_next_map.get(qd)
         if model_key == "process_gated_incumbent_vs_residual":
@@ -8962,6 +9280,10 @@ def _gpre_preview_accuracy_for_model(
                 "process_utilization_regime_residual",
                 "process_exec_inventory_combo_medium",
                 "process_asymmetric_basis_passthrough",
+                "process_market_process_ensemble_35_65",
+                "process_locked_share_asymmetric_passthrough",
+                "process_prior_gap_carryover_small",
+                "process_prior_disturbance_carryover",
                 "process_residual_regime_locked_vs_disturbed",
                 "process_gated_incumbent_vs_residual",
                 "process_basis_blend_current40_front60",
@@ -8994,6 +9316,10 @@ def _gpre_preview_accuracy_for_model(
             "process_utilization_regime_residual",
             "process_exec_inventory_combo_medium",
             "process_asymmetric_basis_passthrough",
+            "process_market_process_ensemble_35_65",
+            "process_locked_share_asymmetric_passthrough",
+            "process_prior_gap_carryover_small",
+            "process_prior_disturbance_carryover",
             "process_residual_regime_locked_vs_disturbed",
             "process_gated_incumbent_vs_residual",
             "process_basis_blend_current40_front60",
@@ -9163,12 +9489,28 @@ def _build_gpre_proxy_leaderboard(
         model_key = str(spec.get("model_key") or "")
         pred_col = str(spec.get("pred_col") or "")
         pred_series = pd.to_numeric(quarterly_df[pred_col], errors="coerce") if pred_col in quarterly_df.columns else pd.Series(dtype=float)
+        coverage_quarters, coverage_ratio = _gpre_signal_coverage_stats(
+            quarterly_df,
+            pred_col=pred_col,
+        )
         clean_mae = _gpre_leaderboard_metric_pick(metrics_df, model_key, "clean_reported_window", "mae")
         underlying_mae = _gpre_leaderboard_metric_pick(metrics_df, model_key, "diag_underlying", "mae")
         hybrid_score = (
             (0.50 * clean_mae) + (0.50 * underlying_mae)
             if np.isfinite(clean_mae) and np.isfinite(underlying_mae)
             else float("nan")
+        )
+        walk_forward_tail_mae = _gpre_walk_forward_tail_mae(
+            quarterly_df,
+            pred_col=pred_col,
+        )
+        forward_usability_rating = _gpre_forward_usability_rating(
+            model_key,
+            family=spec.get("family"),
+        )
+        complexity_rating = _gpre_complexity_rating(
+            model_key,
+            family=spec.get("family"),
         )
         eligible_official = bool(spec.get("eligible_official")) and (not pred_series.empty) and pred_series.notna().all() and np.isfinite(hybrid_score)
         diff_stats = _gpre_diff_vs_official_stats(pred_series, official_simple_series)
@@ -9242,6 +9584,11 @@ def _build_gpre_proxy_leaderboard(
                     official_simple_series,
                     threshold=0.025,
                 ),
+                "walk_forward_tail_mae": walk_forward_tail_mae,
+                "signal_coverage_quarters": coverage_quarters,
+                "signal_coverage_ratio": coverage_ratio,
+                "forward_usability_rating": forward_usability_rating,
+                "complexity_rating": complexity_rating,
                 "avg_abs_diff_vs_official": diff_stats["avg_abs_diff_vs_official"],
                 "diff_quarters_gt_0_02_vs_official": diff_stats["diff_quarters_gt_0_02_vs_official"],
                 "diff_quarters_gt_0_05_vs_official": diff_stats["diff_quarters_gt_0_05_vs_official"],
@@ -9459,7 +9806,7 @@ def _gpre_experimental_signal_audit(quarterly_df: pd.DataFrame) -> Dict[str, Any
             "source": "_gpre_preview_accuracy_for_model current/next helper branches",
             "available_quarters": len(quarterly_df),
             "active_signal_quarters": len(quarterly_df),
-            "note": "All six-family experimental candidates in this pass keep explicit current/next preview helper support.",
+            "note": "All experimental candidates in this pass keep explicit current/next preview helper support.",
         },
     ]
     interpretation_lines = [
@@ -9539,6 +9886,7 @@ def _gpre_experimental_candidate_comparison(
                 "mean_error": pd.to_numeric(rec.get("full_mean_error"), errors="coerce"),
                 "correlation": pd.to_numeric(rec.get("test_corr"), errors="coerce"),
                 "sign_hit_rate": pd.to_numeric(rec.get("test_sign_hit_rate"), errors="coerce"),
+                "sign_accuracy": pd.to_numeric(rec.get("test_sign_hit_rate"), errors="coerce"),
                 "q1_mae": pd.to_numeric(rec.get("q1_mae"), errors="coerce"),
                 "q2_mae": pd.to_numeric(rec.get("q2_mae"), errors="coerce"),
                 "q3_mae": pd.to_numeric(rec.get("q3_mae"), errors="coerce"),
@@ -9549,6 +9897,13 @@ def _gpre_experimental_candidate_comparison(
                 "q4_mean_error": pd.to_numeric(rec.get("q4_mean_error"), errors="coerce"),
                 "hard_quarter_mae": hard_num,
                 "hard_quarter_mean_error": pd.to_numeric(rec.get("hard_quarter_mean_error"), errors="coerce"),
+                "walk_forward_tail_mae": pd.to_numeric(rec.get("walk_forward_tail_mae"), errors="coerce"),
+                "signal_coverage_quarters": int(pd.to_numeric(rec.get("signal_coverage_quarters"), errors="coerce") or 0),
+                "signal_coverage_ratio": pd.to_numeric(rec.get("signal_coverage_ratio"), errors="coerce"),
+                "forward_usability_rating": str(rec.get("forward_usability_rating") or ""),
+                "complexity_rating": str(rec.get("complexity_rating") or ""),
+                "preview_supported": bool(rec.get("preview_supported")),
+                "eligible_official": bool(rec.get("eligible_official")),
                 "avg_abs_diff_vs_official": pd.to_numeric(rec.get("avg_abs_diff_vs_official"), errors="coerce"),
                 "diff_quarters_gt_0_02_vs_official": pd.to_numeric(rec.get("diff_quarters_gt_0_02_vs_official"), errors="coerce"),
                 "diff_quarters_gt_0_05_vs_official": pd.to_numeric(rec.get("diff_quarters_gt_0_05_vs_official"), errors="coerce"),
@@ -10637,6 +10992,9 @@ def build_gpre_basis_proxy_model(
         | pd.to_numeric(quarterly_df["inventory_timing_drag_penalty_usd_per_gal"], errors="coerce").fillna(0.0).gt(0.0)
         | pd.to_numeric(quarterly_df["sold_minus_produced_gap_ratio"], errors="coerce").abs().fillna(0.0).gt(0.05)
     )
+    hard_quarter_reason_series = quarterly_df.apply(_gpre_hard_quarter_reason, axis=1)
+    quarterly_df["hard_quarter_reason"] = hard_quarter_reason_series.astype(str)
+    quarterly_df["hard_quarter_flag"] = hard_quarter_reason_series.astype(str).str.strip().ne("")
     quarterly_df["inventory_gap_penalty_small_usd_per_gal"] = pd.to_numeric(
         pd.Series(
             [
@@ -10748,6 +11106,152 @@ def build_gpre_basis_proxy_model(
         ),
         errors="coerce",
     )
+    quarterly_df["process_market_process_ensemble_35_65_usd_per_gal"] = pd.to_numeric(
+        pd.Series(
+            [
+                _blend_optional_values(
+                    official_simple_val,
+                    process_exec_val,
+                    anchor_weight=0.35,
+                    current_weight=0.65,
+                )
+                for official_simple_val, process_exec_val in zip(
+                    quarterly_df["official_simple_proxy_usd_per_gal"],
+                    quarterly_df["process_quarter_open_blend_exec_penalty_usd_per_gal"],
+                )
+            ],
+            index=quarterly_df.index,
+        ),
+        errors="coerce",
+    )
+    quarterly_df["locked_share_for_asymmetric_passthrough"] = pd.to_numeric(
+        pd.Series(
+            [
+                _gpre_effective_hedge_share(disclosed_share, pattern_share, cap=0.35)[0]
+                for disclosed_share, pattern_share in zip(
+                    quarterly_df["hedge_share_disclosed"],
+                    quarterly_df["hedge_share_pattern"],
+                )
+            ],
+            index=quarterly_df.index,
+        ),
+        errors="coerce",
+    )
+    quarterly_df["process_locked_share_asymmetric_passthrough_usd_per_gal"] = pd.to_numeric(
+        pd.Series(
+            [
+                _blend_optional_values(
+                    locked_setup_val,
+                    asym_val,
+                    anchor_weight=float(pd.to_numeric(locked_share, errors="coerce") or 0.0),
+                    current_weight=1.0 - float(pd.to_numeric(locked_share, errors="coerce") or 0.0),
+                )
+                for locked_share, locked_setup_val, asym_val in zip(
+                    quarterly_df["locked_share_for_asymmetric_passthrough"],
+                    quarterly_df["process_quarter_open_blend_locked_setup_usd_per_gal"],
+                    quarterly_df["process_asymmetric_basis_passthrough_usd_per_gal"],
+                )
+            ],
+            index=quarterly_df.index,
+        ),
+        errors="coerce",
+    )
+    prior_gap_penalty_small_map = _shift_quarter_map(
+        {
+            qd: float(val)
+            for qd, val in zip(
+                pd.to_datetime(quarterly_df["quarter"], errors="coerce").dt.date,
+                pd.to_numeric(quarterly_df["inventory_gap_penalty_small_usd_per_gal"], errors="coerce"),
+            )
+            if isinstance(qd, date) and pd.notna(val)
+        },
+        target_quarters,
+        lag_quarters=1,
+    )
+    quarterly_df["prior_inventory_gap_penalty_small_usd_per_gal"] = quarterly_df["quarter"].map(prior_gap_penalty_small_map)
+    quarterly_df["process_prior_gap_carryover_small_usd_per_gal"] = pd.to_numeric(
+        pd.Series(
+            [
+                _gpre_prior_gap_carryover_value(
+                    base_val,
+                    prior_gap_penalty,
+                    multiplier=0.50,
+                    cap=0.03,
+                )
+                for base_val, prior_gap_penalty in zip(
+                    quarterly_df["process_quarter_open_blend_usd_per_gal"],
+                    quarterly_df["prior_inventory_gap_penalty_small_usd_per_gal"],
+                )
+            ],
+            index=quarterly_df.index,
+        ),
+        errors="coerce",
+    )
+    prior_residual_penalty_map = _shift_quarter_map(
+        {
+            qd: float(val)
+            for qd, val in zip(
+                pd.to_datetime(quarterly_df["quarter"], errors="coerce").dt.date,
+                pd.to_numeric(quarterly_df["realization_residual_penalty_usd_per_gal"], errors="coerce"),
+            )
+            if isinstance(qd, date) and pd.notna(val)
+        },
+        target_quarters,
+        lag_quarters=1,
+    )
+    prior_disturbed_flag_map = _shift_quarter_map(
+        {
+            qd: 1.0 if bool(flag) else 0.0
+            for qd, flag in zip(
+                pd.to_datetime(quarterly_df["quarter"], errors="coerce").dt.date,
+                quarterly_df["disturbed_quarter_flag"],
+            )
+            if isinstance(qd, date)
+        },
+        target_quarters,
+        lag_quarters=1,
+    )
+    prior_hard_flag_map = _shift_quarter_map(
+        {
+            qd: 1.0 if bool(flag) else 0.0
+            for qd, flag in zip(
+                pd.to_datetime(quarterly_df["quarter"], errors="coerce").dt.date,
+                quarterly_df["hard_quarter_flag"],
+            )
+            if isinstance(qd, date)
+        },
+        target_quarters,
+        lag_quarters=1,
+    )
+    quarterly_df["prior_realization_residual_penalty_usd_per_gal"] = quarterly_df["quarter"].map(prior_residual_penalty_map)
+    quarterly_df["prior_disturbed_quarter_flag"] = (
+        pd.to_numeric(quarterly_df["quarter"].map(prior_disturbed_flag_map), errors="coerce").fillna(0.0).gt(0.0)
+    )
+    quarterly_df["prior_hard_quarter_flag"] = (
+        pd.to_numeric(quarterly_df["quarter"].map(prior_hard_flag_map), errors="coerce").fillna(0.0).gt(0.0)
+    )
+    quarterly_df["process_prior_disturbance_carryover_usd_per_gal"] = pd.to_numeric(
+        pd.Series(
+            [
+                _gpre_prior_disturbance_carryover_value(
+                    base_val,
+                    prior_disturbed_flag=prior_disturbed_flag,
+                    prior_hard_flag=prior_hard_flag,
+                    prior_residual_penalty=prior_residual_penalty,
+                    multiplier=0.60,
+                    cap=0.04,
+                )
+                for base_val, prior_disturbed_flag, prior_hard_flag, prior_residual_penalty in zip(
+                    quarterly_df["process_basis_passthrough_beta35_usd_per_gal"],
+                    quarterly_df["prior_disturbed_quarter_flag"],
+                    quarterly_df["prior_hard_quarter_flag"],
+                    quarterly_df["prior_realization_residual_penalty_usd_per_gal"],
+                )
+            ],
+            index=quarterly_df.index,
+        ),
+        errors="coerce",
+    )
     quarterly_df["process_residual_regime_locked_vs_disturbed_usd_per_gal"] = pd.to_numeric(
         pd.Series(
             [
@@ -10780,9 +11284,6 @@ def build_gpre_basis_proxy_model(
         pd.to_numeric(quarterly_df["process_proxy_front_loaded_usd_per_gal"], errors="coerce")
         + geo_term_series.fillna(0.0)
     )
-    hard_quarter_reason_series = quarterly_df.apply(_gpre_hard_quarter_reason, axis=1)
-    quarterly_df["hard_quarter_reason"] = hard_quarter_reason_series.astype(str)
-    quarterly_df["hard_quarter_flag"] = hard_quarter_reason_series.astype(str).str.strip().ne("")
     quarterly_df["process_gated_incumbent_vs_residual_usd_per_gal"] = pd.to_numeric(
         pd.Series(
             [
@@ -11110,6 +11611,50 @@ def build_gpre_basis_proxy_model(
             "preview_supported": True,
         },
         {
+            "model_key": "process_market_process_ensemble_35_65",
+            "pred_col": "process_market_process_ensemble_35_65_usd_per_gal",
+            "family": "market_process_ensemble",
+            "family_label": "Market/process ensemble 35/65",
+            "timing_rule": "35% official/simple + 65% process q-open severe-execution proxy",
+            "experimental_method_family": "market/process ensemble",
+            "signal_dependency_note": "Blends the official/simple market row with the hard-quarter-aware process execution winner to test a bounded compromise candidate.",
+            "eligible_official": True,
+            "preview_supported": True,
+        },
+        {
+            "model_key": "process_locked_share_asymmetric_passthrough",
+            "pred_col": "process_locked_share_asymmetric_passthrough_usd_per_gal",
+            "family": "locked_share_asymmetric",
+            "family_label": "Locked-share asymmetric passthrough",
+            "timing_rule": "Locked-setup share blended with asymmetric passthrough",
+            "experimental_method_family": "locked-share asymmetric passthrough",
+            "signal_dependency_note": "Uses capped locked-share evidence to blend locked/setup behavior with asymmetric basis passthrough that is already available in preview mode.",
+            "eligible_official": True,
+            "preview_supported": True,
+        },
+        {
+            "model_key": "process_prior_gap_carryover_small",
+            "pred_col": "process_prior_gap_carryover_small_usd_per_gal",
+            "family": "prior_gap_carryover",
+            "family_label": "Prior-gap carryover small",
+            "timing_rule": "Quarter-open/current blend - bounded prior inventory-gap carryover",
+            "experimental_method_family": "prior-gap carryover",
+            "signal_dependency_note": "Carries forward half of the prior quarter's small sold-produced gap penalty with a tight cap, without relying on same-quarter ex-post realization signals.",
+            "eligible_official": True,
+            "preview_supported": True,
+        },
+        {
+            "model_key": "process_prior_disturbance_carryover",
+            "pred_col": "process_prior_disturbance_carryover_usd_per_gal",
+            "family": "prior_disturbance_carryover",
+            "family_label": "Prior-disturbance carryover",
+            "timing_rule": "Beta-35 base - bounded prior disturbed-quarter carryover",
+            "experimental_method_family": "prior-disturbance carryover",
+            "signal_dependency_note": "Starts from the simple beta-0.35 passthrough and only adds bounded carryover drag when the prior quarter was hard/disturbed.",
+            "eligible_official": True,
+            "preview_supported": True,
+        },
+        {
             "model_key": "process_residual_regime_locked_vs_disturbed",
             "pred_col": "process_residual_regime_locked_vs_disturbed_usd_per_gal",
             "family": "residual_regime",
@@ -11148,6 +11693,10 @@ def build_gpre_basis_proxy_model(
         "process_utilization_regime_residual",
         "process_exec_inventory_combo_medium",
         "process_asymmetric_basis_passthrough",
+        "process_market_process_ensemble_35_65",
+        "process_locked_share_asymmetric_passthrough",
+        "process_prior_gap_carryover_small",
+        "process_prior_disturbance_carryover",
         "process_residual_regime_locked_vs_disturbed",
         "process_gated_incumbent_vs_residual",
     }
@@ -11199,20 +11748,24 @@ def build_gpre_basis_proxy_model(
         "utilization_regime": 5,
         "exec_inventory_combo": 6,
         "asymmetric_basis_passthrough": 7,
-        "residual_regime": 8,
-        "gated_ensemble": 9,
-        "process_blend_utilization_penalty": 10,
-        "process_blend_maintenance_delay_penalty": 11,
-        "process_blend_inventory_timing_drag": 12,
-        "process_blend_locked_setup": 13,
-        "process_family": 14,
-        "process_geo": 15,
-        "process_ops_penalty": 16,
-        "bridge_timing": 17,
-        "disclosed_hedge_memo": 18,
-        "pattern_hedge_memo": 19,
-        "bid_offset": 20,
-        "simple_market": 21,
+        "market_process_ensemble": 8,
+        "locked_share_asymmetric": 9,
+        "prior_gap_carryover": 10,
+        "prior_disturbance_carryover": 11,
+        "residual_regime": 12,
+        "gated_ensemble": 13,
+        "process_blend_utilization_penalty": 14,
+        "process_blend_maintenance_delay_penalty": 15,
+        "process_blend_inventory_timing_drag": 16,
+        "process_blend_locked_setup": 17,
+        "process_family": 18,
+        "process_geo": 19,
+        "process_ops_penalty": 20,
+        "bridge_timing": 21,
+        "disclosed_hedge_memo": 22,
+        "pattern_hedge_memo": 23,
+        "bid_offset": 24,
+        "simple_market": 25,
     }
     new_candidate_keys = set(str(item or "") for item in experimental_candidate_keys if str(item or "").strip())
     incumbent_baseline_leaderboard_df = _build_gpre_proxy_leaderboard(
@@ -11302,6 +11855,55 @@ def build_gpre_basis_proxy_model(
         incumbent_model_key=str(incumbent_baseline_model_key or gpre_proxy_model_key),
         experimental_candidate_keys=experimental_candidate_keys,
     )
+
+    def _pick_best_role_row(
+        frame_in: pd.DataFrame,
+        *,
+        role_name: str,
+    ) -> Dict[str, Any]:
+        if frame_in is None or frame_in.empty:
+            return {}
+        sub = frame_in.copy()
+        sub["complexity_rank"] = sub["complexity_rating"].astype(str).map({"low": 0, "moderate": 1, "high": 2}).fillna(9)
+        if role_name == "historical":
+            sub = sub[sub["eligible_official"] == True].copy()
+            sort_cols = ["clean_mae", "hybrid_score", "walk_forward_tail_mae", "complexity_rank", "model_key"]
+        elif role_name == "compromise":
+            sub = sub[
+                (sub["preview_supported"] == True)
+                & sub["forward_usability_rating"].astype(str).ne("low")
+                & sub["complexity_rating"].astype(str).ne("high")
+            ].copy()
+            sort_cols = ["hybrid_score", "hard_quarter_mae", "walk_forward_tail_mae", "clean_mae", "complexity_rank", "model_key"]
+        elif role_name == "forward":
+            sub = sub[
+                (sub["preview_supported"] == True)
+                & sub["forward_usability_rating"].astype(str).eq("high")
+            ].copy()
+            sort_cols = ["walk_forward_tail_mae", "hybrid_score", "complexity_rank", "clean_mae", "model_key"]
+        else:
+            return {}
+        sub = sub[sub["model_key"].astype(str).str.strip().ne("")].copy()
+        if sub.empty:
+            return {}
+        return sub.sort_values(sort_cols, na_position="last").iloc[0].to_dict()
+
+    best_historical_fit_row = _pick_best_role_row(leaderboard_df, role_name="historical")
+    best_compromise_row = _pick_best_role_row(leaderboard_df, role_name="compromise")
+    best_forward_lens_row = _pick_best_role_row(leaderboard_df, role_name="forward")
+    if not best_historical_fit_row and isinstance(leaderboard_df, pd.DataFrame) and not leaderboard_df.empty:
+        hist_fallback = leaderboard_df[pd.to_numeric(leaderboard_df.get("clean_mae"), errors="coerce").notna()].copy()
+        if not hist_fallback.empty:
+            best_historical_fit_row = hist_fallback.sort_values(["clean_mae", "hybrid_score"], na_position="last").iloc[0].to_dict()
+    if not best_compromise_row and isinstance(leaderboard_df, pd.DataFrame) and not leaderboard_df.empty:
+        compromise_fallback = leaderboard_df[leaderboard_df["preview_supported"] == True].copy()
+        if not compromise_fallback.empty:
+            best_compromise_row = compromise_fallback.sort_values(["hybrid_score", "clean_mae"], na_position="last").iloc[0].to_dict()
+    if not best_forward_lens_row:
+        best_forward_lens_row = dict(best_compromise_row or best_historical_fit_row or {})
+    best_historical_fit_model_key = str(best_historical_fit_row.get("model_key") or "")
+    best_compromise_model_key = str(best_compromise_row.get("model_key") or "")
+    best_forward_lens_model_key = str(best_forward_lens_row.get("model_key") or "")
     production_decision_story, selection_vs_promotion_explanation = _gpre_selection_vs_promotion_story(
         incumbent_baseline_model_key=incumbent_baseline_model_key,
         expanded_best_row=expanded_best_row,
@@ -11322,6 +11924,9 @@ def build_gpre_basis_proxy_model(
     quarterly_df["gpre_proxy_promotion_guard_pass"] = bool(chosen_row.get("promotion_guard_pass"))
     quarterly_df["gpre_proxy_expanded_best_candidate_model_key"] = str(expanded_best_candidate_model_key or "")
     quarterly_df["gpre_proxy_production_winner_model_key"] = str(gpre_proxy_model_key or "")
+    quarterly_df["gpre_proxy_best_historical_fit_model_key"] = str(best_historical_fit_model_key or "")
+    quarterly_df["gpre_proxy_best_compromise_model_key"] = str(best_compromise_model_key or "")
+    quarterly_df["gpre_proxy_best_forward_lens_model_key"] = str(best_forward_lens_model_key or "")
     quarterly_df["gpre_proxy_production_decision_story"] = str(production_decision_story or "")
     quarterly_df["gpre_proxy_selection_vs_promotion_explanation"] = str(selection_vs_promotion_explanation or "")
     quarterly_df["gpre_proxy_official_usd_per_gal"] = pd.to_numeric(quarterly_df[gpre_proxy_pred_col], errors="coerce")
@@ -11507,6 +12112,13 @@ def build_gpre_basis_proxy_model(
         "fitted_row_role": "GPRE crush proxy = fitted production model",
         "expanded_pass_role": "Expanded-pass best = best challenger in the expanded test set",
         "production_winner_role": "Production winner = model that cleared promotion guardrails",
+        "best_historical_fit_role": "Best historical fit = lowest clean-window MAE among eligible official rows",
+        "best_compromise_role": "Best compromise = preview-supported medium/high-forward-usable model with the best hybrid / hard-quarter / recent-tail balance",
+        "best_forward_lens_role": "Best forward lens = highest-forward-usability preview model with the strongest recent tail fit",
+        "best_historical_fit_model_key": best_historical_fit_model_key,
+        "best_compromise_model_key": best_compromise_model_key,
+        "best_forward_lens_model_key": best_forward_lens_model_key,
+        "winner_forward_usability": str(chosen_row.get("forward_usability_rating") or ""),
         "winner_preview_quality": str(chosen_row.get("live_preview_quality_status") or "n/a"),
         "hedge_style_study_role": hedge_diagnostic_only_note or "Diagnostic only; does not change official row, fitted row, or winner selection.",
         "internal_consistency_detected": internal_consistency_detected,
@@ -11516,9 +12128,13 @@ def build_gpre_basis_proxy_model(
             f"- {str(rec.get('model_key') or '')}: family {str(rec.get('experimental_method_family') or rec.get('family_label') or 'n/a')}, "
             f"clean {_fmt_metric(rec.get('clean_mae'))}, "
             f"underlying {_fmt_metric(rec.get('underlying_mae'))}, hybrid {_fmt_metric(rec.get('hybrid_score'))}, "
+            f"tail {_fmt_metric(rec.get('walk_forward_tail_mae'))}, "
             f"avg abs diff vs official {_fmt_metric(rec.get('avg_abs_diff_vs_official'))}, "
             f"hard-quarter MAE {_fmt_metric(rec.get('hard_quarter_mae'))}, "
             f"preview {_fmt_metric(rec.get('live_preview_mae'))}/{str(rec.get('live_preview_quality_status') or 'n/a')}, "
+            f"coverage {_fmt_metric(pd.to_numeric(rec.get('signal_coverage_ratio'), errors='coerce') * 100.0, digits=1)}%, "
+            f"forward {str(rec.get('forward_usability_rating') or 'n/a')}, "
+            f"complexity {str(rec.get('complexity_rating') or 'n/a')}, "
             f"selection {'pass' if bool(rec.get('selection_guard_pass')) else 'fail'}, "
             f"promotion {'pass' if bool(rec.get('promotion_guard_pass')) else 'fail'}, "
             f"incremental {str(rec.get('incremental_value_status') or 'low')}, "
@@ -11642,7 +12258,25 @@ def build_gpre_basis_proxy_model(
                 f"Production winner: {gpre_proxy_model_key} | "
                 f"reason {_gpre_guard_reason_human(promotion_guard_reason) or 'n/a'} | "
                 f"preview {str(chosen_row.get('live_preview_quality_status') or 'n/a')} | "
+                f"forward usability {str(chosen_row.get('forward_usability_rating') or 'n/a')} | "
                 f"hard-quarter MAE {_fmt_metric(chosen_row.get('hard_quarter_mae'))}"
+            ),
+            (
+                f"Best historical fit: {best_historical_fit_model_key or 'n/a'} | "
+                f"clean-window MAE {_fmt_metric(best_historical_fit_row.get('clean_mae'))} | "
+                f"forward usability {str(best_historical_fit_row.get('forward_usability_rating') or 'n/a')}."
+            ),
+            (
+                f"Best compromise: {best_compromise_model_key or 'n/a'} | "
+                f"hybrid {_fmt_metric(best_compromise_row.get('hybrid_score'))} | "
+                f"hard-quarter MAE {_fmt_metric(best_compromise_row.get('hard_quarter_mae'))} | "
+                f"tail {_fmt_metric(best_compromise_row.get('walk_forward_tail_mae'))}."
+            ),
+            (
+                f"Best forward lens: {best_forward_lens_model_key or 'n/a'} | "
+                f"tail {_fmt_metric(best_forward_lens_row.get('walk_forward_tail_mae'))} | "
+                f"hybrid {_fmt_metric(best_forward_lens_row.get('hybrid_score'))} | "
+                f"forward usability {str(best_forward_lens_row.get('forward_usability_rating') or 'n/a')}."
             ),
             f"Production decision story: {production_decision_story}",
             f"Selection vs promotion: {selection_vs_promotion_explanation}",
@@ -11685,6 +12319,15 @@ def build_gpre_basis_proxy_model(
                 f"with MAE {float(pd.to_numeric(diag_best.get('mae'), errors='coerce')):.4f} $/gal."
                 if diag_best and pd.notna(pd.to_numeric(diag_best.get('mae'), errors='coerce'))
                 else "Best underlying-window model: n/a"
+            ),
+            (
+                f"Best historical fit (official-eligible): {best_historical_fit_model_key or 'n/a'}."
+            ),
+            (
+                f"Best compromise: {best_compromise_model_key or 'n/a'}."
+            ),
+            (
+                f"Best forward lens: {best_forward_lens_model_key or 'n/a'}."
             ),
             (f"Top miss quarters for incumbent baseline: {str(incumbent_row.get('top_miss_quarters') or 'n/a')}." if incumbent_row else "Top miss quarters for incumbent baseline: n/a"),
             (f"Top miss quarters for process comparator: {str(process_comparator_row.get('top_miss_quarters') or 'n/a')}." if process_comparator_row else "Top miss quarters for process comparator: n/a"),
@@ -11779,6 +12422,9 @@ def build_gpre_basis_proxy_model(
         "process_comparator_model_key": "process_front_loaded",
         "expanded_candidate_model_key": expanded_best_candidate_model_key,
         "expanded_best_candidate_model_key": expanded_best_candidate_model_key,
+        "best_historical_fit_model_key": best_historical_fit_model_key,
+        "best_compromise_model_key": best_compromise_model_key,
+        "best_forward_lens_model_key": best_forward_lens_model_key,
         "production_winner_model_key": gpre_proxy_model_key,
         "gpre_proxy_model_key": gpre_proxy_model_key,
         "gpre_proxy_selection_guard_reason": str(chosen_row.get("selection_guard_reason") or ""),

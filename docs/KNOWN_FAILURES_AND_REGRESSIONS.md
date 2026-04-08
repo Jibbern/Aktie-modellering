@@ -51,6 +51,8 @@
   - Why it matters: silent fallback from adjusted EBITDA to adjusted EBIT is a real mapping / bridge bug when D&A exists.
 - PBI capped-call note leaking into later quarters
   - Why it matters: one-time capital-markets events should stay tied to the event quarter.
+- GPRE `Economics_Overlay` lacking a clear official/fitted/winner split and fitted quarterly chart
+  - Why it matters: users need to see the official simple row, the fitted GPRE row, the guarded production winner, and any separate forward lens without reverse-engineering the sandbox table.
 
 ## Still Relevant / Watchlist
 - Delivered workbook artifacts live outside the `Code` git repo root
