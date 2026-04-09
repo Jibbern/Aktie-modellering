@@ -41,6 +41,7 @@ from pbi_xbrl.market_data.service import (
     build_simple_crush_history_series,
     build_prior_quarter_simple_crush_snapshot,
     build_next_quarter_thesis_snapshot,
+    download_gpre_corn_bids_snapshot,
     fetch_gpre_corn_bids_snapshot,
     load_market_export_rows,
     parse_gpre_corn_bids_html,
@@ -1124,13 +1125,130 @@ Corn Apr 2026 4.31 -0.25 @C6K 455'6 1'4
 
 
 def test_fetch_gpre_corn_bids_snapshot_falls_back_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
-    def _raise_url_error(*args: object, **kwargs: object) -> object:
-        raise OSError("network blocked")
-
-    monkeypatch.setattr(market_service.urllib.request, "urlopen", _raise_url_error)
+    monkeypatch.setattr(
+        market_service,
+        "_fetch_gpre_corn_bids_html_payload",
+        lambda **kwargs: {
+            "status": "unavailable",
+            "source_url": "https://grain.gpreinc.com/index.cfm",
+            "entry_url": "https://gpreinc.com/corn-bids/",
+            "error": "network blocked",
+            "html_text": "",
+            "rows": [],
+        },
+    )
     snap = fetch_gpre_corn_bids_snapshot(as_of_date=date(2026, 4, 2), timeout_seconds=0.01)
     assert str(snap.get("status") or "") == "unavailable"
     assert "network blocked" in str(snap.get("error") or "")
+
+
+def test_download_gpre_corn_bids_snapshot_writes_html_and_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir("gpre_corn_bids_download")
+    html_blob = """
+    <html><body>
+    <table>
+      <tr><td><b>Madison</b></td></tr>
+      <tr>
+        <td>Corn</td><td>Apr 2026</td>
+        <td><script>displayNumber(38.2425,2);</script></td>
+        <td>@C6K</td>
+        <td title="Basis Month: @C6K"><script>displayNumber(33.7025,2);</script></td>
+      </tr>
+      <tr><td><b>Wood River</b></td></tr>
+      <tr>
+        <td>Corn</td><td>May 2026</td>
+        <td><script>displayNumber(37.7125,2);</script></td>
+        <td>@C6N</td>
+        <td title="Basis Month: @C6N"><script>displayNumber(32.9925,2);</script></td>
+      </tr>
+    </table>
+    <script>var cfg = { NoScrapeOffset: 33.4225 };</script>
+    </body></html>
+    """.strip()
+
+    monkeypatch.setattr(
+        market_service,
+        "_fetch_gpre_corn_bids_html_payload",
+        lambda **kwargs: {
+            "status": "ok",
+            "source_url": "https://grain.gpreinc.com/index.cfm",
+            "entry_url": "https://gpreinc.com/corn-bids/",
+            "html_text": html_blob,
+            "rows": [{"location": "Madison"}],
+        },
+    )
+
+    try:
+        summary = download_gpre_corn_bids_snapshot(tmp_path, as_of_date=date(2026, 4, 2), timeout_seconds=0.01)
+        assert str(summary.get("status") or "") == "ok"
+        html_path = Path(summary["html_path"])
+        csv_path = Path(summary["csv_path"])
+        assert html_path.exists()
+        assert csv_path.exists()
+        assert html_path.parent.name == "corn_bids"
+        assert csv_path.parent == html_path.parent
+        assert "Madison" in html_path.read_text(encoding="utf-8")
+        saved_df = pd.read_csv(csv_path)
+        assert {"location", "delivery_label", "basis_usd_per_bu"} <= set(saved_df.columns)
+        assert "Madison" in set(saved_df["location"].astype(str))
+        assert "Wood River" in set(saved_df["location"].astype(str))
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_load_local_gpre_corn_bids_snapshot_prefers_corn_bids_subdir() -> None:
+    tmp_path = _local_test_dir("gpre_corn_bids_local")
+    html_blob = """
+    <html><body>
+    <table>
+      <tr><td><b>Madison</b></td></tr>
+      <tr>
+        <td>Corn</td><td>Apr 2026</td>
+        <td><script>displayNumber(38.2425,2);</script></td>
+        <td>@C6K</td>
+        <td title="Basis Month: @C6K"><script>displayNumber(33.7025,2);</script></td>
+      </tr>
+    </table>
+    <script>var cfg = { NoScrapeOffset: 33.4225 };</script>
+    </body></html>
+    """.strip()
+    try:
+        corn_bids_dir = tmp_path / "corn_bids"
+        corn_bids_dir.mkdir(parents=True, exist_ok=True)
+        html_path = corn_bids_dir / "grain_gpre_home.html"
+        html_path.write_text(html_blob, encoding="utf-8")
+        snap = market_service._load_local_gpre_corn_bids_snapshot(
+            ticker_root=tmp_path,
+            as_of_date=date(2026, 4, 2),
+        )
+        assert str(snap.get("status") or "") == "ok"
+        assert Path(str(snap.get("source_url") or "")).parent.name == "corn_bids"
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_sync_market_cache_refresh_triggers_gpre_corn_bids_download(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir("gpre_corn_bids_sync")
+    calls: list[tuple[str, bool]] = []
+
+    class _Profile:
+        market_data_enabled = True
+
+    monkeypatch.setattr(market_service, "_enabled_sources_for_profile", lambda profile: tuple())
+
+    def _fake_refresh(ticker_root: Path, *, refresh: bool) -> dict[str, object]:
+        calls.append((str(ticker_root), bool(refresh)))
+        return {"status": "ok"}
+
+    monkeypatch.setattr(market_service, "_refresh_gpre_corn_bids_download", _fake_refresh)
+    try:
+        summary = sync_market_cache(tmp_path, "GPRE", profile=_Profile(), sync_raw=True, refresh=True, reparse=False)
+        assert calls
+        assert Path(calls[0][0]).name == "GPRE"
+        assert calls[0][1] is True
+        assert summary.export_rows == 0
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
 
 def test_build_gpre_basis_proxy_model_returns_quarterly_table_weights_and_metrics() -> None:

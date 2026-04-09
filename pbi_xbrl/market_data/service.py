@@ -12,6 +12,7 @@ import calendar
 import html
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -70,6 +71,16 @@ PARSED_SCHEMA_COLUMNS = [
     "_priority",
     "_obs_count",
 ]
+
+
+_GPRE_CORN_BIDS_ENTRY_URL = "https://gpreinc.com/corn-bids/"
+_GPRE_CORN_BIDS_DIRECT_URLS: Tuple[str, ...] = (
+    "https://grain.gpreinc.com/index.cfm",
+    "https://grain.gpreinc.com/index.cfm?show=0&mid=1",
+)
+_GPRE_CORN_BIDS_DIRNAME = "corn_bids"
+_GPRE_CORN_BIDS_HTML_FILENAME = "grain_gpre_home.html"
+_GPRE_CORN_BIDS_CSV_FILENAME = "gpre_corn_bids_snapshot.csv"
 
 
 def _normalize_raw_manifest_entry(entry: Dict[str, Any], *, source: str, provider: Any) -> Optional[Dict[str, Any]]:
@@ -557,6 +568,11 @@ def sync_market_cache(
     cache_root = resolve_market_cache_root(Path(cache_dir))
     ensure_market_cache_dirs(cache_root)
     ticker_root = _ticker_root_from_cache_dir(Path(cache_dir), ticker_u)
+    if ticker_u == "GPRE" and (sync_raw or refresh):
+        _refresh_gpre_corn_bids_download(
+            ticker_root,
+            refresh=bool(refresh),
+        )
     enabled_sources = tuple(src for src in _enabled_sources_for_profile(profile) if src in PROVIDERS)
     raw_manifest = load_manifest(raw_manifest_path(cache_root))
     parsed_manifest = load_manifest(parsed_manifest_path(cache_root))
@@ -1697,41 +1713,180 @@ def _summarize_gpre_corn_bids_rows(
     }
 
 
-def fetch_gpre_corn_bids_snapshot(
+def _gpre_corn_bids_candidate_urls(entry_html: str) -> List[str]:
+    urls: List[str] = []
+    for match in re.finditer(r'href=["\'](?P<href>[^"\']+)["\']', str(entry_html or ""), re.I):
+        href = html.unescape(str(match.group("href") or "").strip())
+        if not href:
+            continue
+        abs_url = urllib.parse.urljoin(_GPRE_CORN_BIDS_ENTRY_URL, href)
+        if "grain.gpreinc.com" not in abs_url.lower():
+            continue
+        if abs_url not in urls:
+            urls.append(abs_url)
+    for url in _GPRE_CORN_BIDS_DIRECT_URLS:
+        if url not in urls:
+            urls.append(url)
+    return urls
+
+
+def _fetch_gpre_corn_bids_html_payload(
     *,
-    as_of_date: Optional[date] = None,
     timeout_seconds: float = 8.0,
 ) -> Dict[str, Any]:
-    urls = (
-        "https://grain.gpreinc.com/index.cfm",
-        "https://grain.gpreinc.com/index.cfm?show=0&mid=1",
-    )
-    last_error = ""
-    for url in urls:
+    entry_html = ""
+    entry_error = ""
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+    try:
+        entry_req = urllib.request.Request(
+            _GPRE_CORN_BIDS_ENTRY_URL,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; Codex GPRE bids fetch)",
+                "Accept": "text/html,application/xhtml+xml,*/*",
+            },
+        )
+        with opener.open(entry_req, timeout=float(timeout_seconds)) as resp:
+            entry_html = resp.read().decode("utf-8", errors="ignore")
+    except Exception as exc:
+        entry_error = f"{type(exc).__name__}: {exc}"
+    candidate_urls = _gpre_corn_bids_candidate_urls(entry_html)
+    if not candidate_urls:
+        candidate_urls = list(_GPRE_CORN_BIDS_DIRECT_URLS)
+    last_error = entry_error
+    for url in candidate_urls:
         try:
             req = urllib.request.Request(
                 url,
                 headers={
                     "User-Agent": "Mozilla/5.0 (compatible; Codex GPRE bids fetch)",
                     "Accept": "text/html,application/xhtml+xml,*/*",
+                    "Referer": _GPRE_CORN_BIDS_ENTRY_URL,
                 },
             )
-            with urllib.request.urlopen(req, timeout=float(timeout_seconds)) as resp:
+            with opener.open(req, timeout=float(timeout_seconds)) as resp:
                 html_text = resp.read().decode("utf-8", errors="ignore")
-            rows = parse_gpre_corn_bids_html(html_text, as_of_date=as_of_date, source_url=url)
+            rows = parse_gpre_corn_bids_html(html_text, source_url=url)
             if rows:
-                summary = _summarize_gpre_corn_bids_rows(rows, as_of_date=as_of_date, source_url=url)
-                summary["html_length"] = len(html_text)
-                return summary
+                return {
+                    "status": "ok",
+                    "source_url": url,
+                    "entry_url": _GPRE_CORN_BIDS_ENTRY_URL,
+                    "entry_html_length": len(entry_html),
+                    "html_text": html_text,
+                    "rows": rows,
+                }
+            last_error = f"ValueError: no parsable corn bid rows at {url}"
         except Exception as exc:
             last_error = f"{type(exc).__name__}: {exc}"
             continue
     return {
         "status": "unavailable",
-        "rows": [],
-        "source_url": urls[0],
+        "source_url": candidate_urls[0] if candidate_urls else _GPRE_CORN_BIDS_DIRECT_URLS[0],
+        "entry_url": _GPRE_CORN_BIDS_ENTRY_URL,
         "error": last_error,
+        "html_text": "",
+        "rows": [],
     }
+
+
+def fetch_gpre_corn_bids_snapshot(
+    *,
+    as_of_date: Optional[date] = None,
+    timeout_seconds: float = 8.0,
+) -> Dict[str, Any]:
+    payload = _fetch_gpre_corn_bids_html_payload(timeout_seconds=timeout_seconds)
+    row_list = [
+        dict(rec)
+        for rec in list(payload.get("rows") or [])
+        if isinstance(rec, dict)
+    ]
+    if not row_list:
+        return {
+            "status": "unavailable",
+            "rows": [],
+            "source_url": str(payload.get("source_url") or _GPRE_CORN_BIDS_DIRECT_URLS[0]),
+            "entry_url": str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
+            "error": str(payload.get("error") or ""),
+        }
+    row_list = parse_gpre_corn_bids_html(
+        str(payload.get("html_text") or ""),
+        as_of_date=as_of_date,
+        source_url=str(payload.get("source_url") or _GPRE_CORN_BIDS_DIRECT_URLS[0]),
+    )
+    summary = _summarize_gpre_corn_bids_rows(
+        row_list,
+        as_of_date=as_of_date,
+        source_url=str(payload.get("source_url") or _GPRE_CORN_BIDS_DIRECT_URLS[0]),
+    )
+    summary["html_length"] = len(str(payload.get("html_text") or ""))
+    summary["entry_url"] = str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL)
+    summary["source_kind"] = "remote_html"
+    return summary
+
+
+def download_gpre_corn_bids_snapshot(
+    ticker_root: Path,
+    *,
+    as_of_date: Optional[date] = None,
+    timeout_seconds: float = 8.0,
+) -> Dict[str, Any]:
+    root = Path(ticker_root).expanduser().resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    storage_root = root / _GPRE_CORN_BIDS_DIRNAME
+    storage_root.mkdir(parents=True, exist_ok=True)
+    html_path = storage_root / _GPRE_CORN_BIDS_HTML_FILENAME
+    csv_path = storage_root / _GPRE_CORN_BIDS_CSV_FILENAME
+    payload = _fetch_gpre_corn_bids_html_payload(timeout_seconds=timeout_seconds)
+    html_text = str(payload.get("html_text") or "")
+    source_url = str(payload.get("source_url") or "")
+    if str(payload.get("status") or "") != "ok" or not html_text.strip():
+        return {
+            "status": "unavailable",
+            "html_path": html_path,
+            "csv_path": csv_path,
+            "source_url": source_url or _GPRE_CORN_BIDS_DIRECT_URLS[0],
+            "entry_url": str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
+            "error": str(payload.get("error") or ""),
+        }
+    html_path.write_text(html_text, encoding="utf-8")
+    parsed_rows = parse_gpre_corn_bids_html(
+        html_text,
+        as_of_date=as_of_date,
+        source_url=source_url,
+    )
+    pd.DataFrame(parsed_rows).to_csv(csv_path, index=False)
+    summary = _summarize_gpre_corn_bids_rows(
+        parsed_rows,
+        as_of_date=as_of_date,
+        source_url=source_url,
+    )
+    summary.update(
+        {
+            "html_path": html_path,
+            "csv_path": csv_path,
+            "entry_url": str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
+            "html_length": len(html_text),
+            "source_kind": "downloaded_html",
+        }
+    )
+    return summary
+
+
+def _refresh_gpre_corn_bids_download(
+    ticker_root: Path,
+    *,
+    refresh: bool,
+) -> Dict[str, Any]:
+    if not bool(refresh):
+        return {"status": "skipped", "reason": "refresh_disabled"}
+    try:
+        return download_gpre_corn_bids_snapshot(
+            ticker_root,
+            as_of_date=date.today(),
+            timeout_seconds=8.0,
+        )
+    except Exception as exc:
+        return {"status": "unavailable", "error": f"{type(exc).__name__}: {exc}"}
 
 
 def _load_local_gpre_corn_bids_snapshot(
@@ -1743,6 +1898,8 @@ def _load_local_gpre_corn_bids_snapshot(
     if isinstance(ticker_root, Path):
         candidate_paths.extend(
             [
+                ticker_root / _GPRE_CORN_BIDS_DIRNAME / _GPRE_CORN_BIDS_HTML_FILENAME,
+                ticker_root / _GPRE_CORN_BIDS_HTML_FILENAME,
                 ticker_root / "grain_gpre_home.html",
                 ticker_root.parent / "grain_gpre_home.html",
             ]
