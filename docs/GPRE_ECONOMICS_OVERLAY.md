@@ -259,6 +259,53 @@ Legend note:
 - `top` is still the chosen chart-API placement because it is the clearest supported
   non-overlapping position for the quarterly chart
 
+## Stage 8 Coproduct Source Gate
+Stage 8 is a narrow ingestion/readiness pass for `GPRE` coproduct inputs. It does
+not activate a visible coproduct block on `Economics_Overlay`.
+
+Verified Stage-8 source decisions:
+- `NWER`
+  - remains active
+  - now parses coproduct rows for:
+    - `Distillers Corn Oil Feed Grade`
+    - `Distillers Grain Dried 10%`
+- `AMS 3618`
+  - is now the primary new coproduct source for this track
+  - is wired as a provider off `viewReport/3618`
+  - targets the ticker-local bioenergy folder
+- `AMS 3511`
+  - stays secondary / manual only in this stage
+  - is not enabled as a live parsed source yet
+- soybean stays out of scope in Stage B.1
+
+Verified local folder policy:
+- active bioenergy working folder:
+  - [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
+- secondary manual feedstuffs folder:
+  - [`GPRE/USDA_feedstuffs_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_feedstuffs_reports)
+- legacy folders still read for compatibility:
+  - [`GPRE/USDA_weekly_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_weekly_data)
+  - [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
+
+Verified workbook-facing Stage-8 behavior:
+- `Basis_Proxy_Sandbox` now shows:
+  - `Coproduct source gate`
+  - `Coproduct signal readiness`
+- current live gate result after the saved-workbook rebuild is:
+  - `NWER coproduct rows = YES`
+  - `AMS 3618 coproduct rows = NO`
+  - `Renewable corn oil price = YES`
+  - `Distillers grains price = YES`
+  - `Approximate coproduct credit = YES`
+  - `Overlay activation = HOLD`
+- `Economics_Overlay` row `176` remains visually empty
+
+Source reliability note:
+- the `ams.usda.gov` category pages are useful manual/latest discovery pages
+- the `viewReport/...` pages remain the canonical automated landing pages
+- in the current local environment, USDA landing fetches are still flaky enough that
+  manual drop + sync must remain the official fallback for `NWER` / `AMS 3618`
+
 ## Owner Earnings + Economics QA Pass
 This was a selective QA-/presentation-pass on top of the stage-5 overlay work. It
 did not change model roles or add a new diagnostics panel.
@@ -281,6 +328,96 @@ Workbook note:
 - no extra QA table was added to `Basis_Proxy_Sandbox`
 - the existing role summary plus the current method / leaderboard surfaces were judged
   sufficient and less noisy for normal workbook use
+
+## Stage 6 Coproduct Readiness Pass
+Stage 6 is a narrow coproduct inventory/readiness pass. It does not add a visible
+coproduct panel to `Economics_Overlay` yet.
+
+Verified stage-6 workbook surfaces:
+- `Economics_Overlay`
+  - still carries the hidden coproduct scaffolding rows for:
+    - `Renewable corn oil yield`
+    - `Distillers yield`
+    - `Ultra-high protein yield`
+    - `Distillers grains price`
+    - `Ultra-high protein price`
+    - `Renewable corn oil price`
+    - `Soybean oil price proxy`
+    - `Corn oil premium assumption`
+    - `Implied renewable corn oil proxy price`
+  - does **not** add a visible coproduct block yet
+  - row `176` remains visually available until the visible block is ready
+- `Basis_Proxy_Sandbox`
+  - keeps the existing `Approximate market crush build-up ($/gal)` section as the
+    simple coproduct/backing build-up
+  - now adds `Coproduct signal readiness`, a compact coverage/readiness section for:
+    - `Renewable corn oil price`
+    - `Soybean oil price proxy`
+    - `Corn oil premium assumption`
+    - `Implied renewable corn oil proxy price`
+    - `Distillers grains price`
+    - `UHP price`
+    - `Approximate coproduct credit`
+  - shows:
+    - source mode
+    - direct / proxy / assumption / derived status
+    - current fill state
+    - historical / current / next readiness
+
+Placement note:
+- `Operating_Drivers` remains the first home for physical yield / mix signals such as
+  renewable corn oil volume, protein / coproduct mix, and DDGS / UHP commentary
+- `Economics_Overlay` remains the intended home for the future compact **economic**
+  coproduct story
+- `Basis_Proxy_Sandbox` is the current backing home for coverage, provenance, and
+  gating
+
+Current gating rule:
+- no visible `Economics_Overlay` coproduct block until at least:
+  - renewable-corn-oil price / proxy resolves non-blank
+  - approximate coproduct credit resolves non-blank
+
+Current sequencing:
+- corn oil first
+- DDGS second
+- UHP / protein mix later and more cautiously
+
+## Stage 7 Corn Oil Gate Pass
+Stage 7 is a very narrow corn-oil-only pass on top of Stage 6. It does not activate
+the visible overlay block yet.
+
+Verified stage-7 workbook surfaces:
+- `Basis_Proxy_Sandbox`
+  - now adds `Corn oil gate check` directly ahead of `Coproduct signal readiness`
+  - the gate block checks:
+    - `Soybean oil price proxy`
+    - `Corn oil premium policy`
+    - `Renewable corn oil price`
+    - `Approximate coproduct credit`
+    - `Overlay activation`
+  - the block keeps the current result explicit:
+    - `NO` / `NO` / `NO` / `NO`
+    - `HOLD` for overlay activation
+  - the block also adds a short provenance note:
+    - corn-oil premium stays manual
+    - verified management commentary supports premium to soybean oil directionally
+    - commentary is not treated as an auto-filled quarter default
+- `Economics_Overlay`
+  - still does not add a visible corn-oil block
+  - row `176` remains the activation point, but stays blank in the current gate state
+
+Current Stage 7 blockers:
+- no verified soybean-oil market series in the current GPRE export path
+- corn-oil premium is still manual-only
+- resolved renewable-corn-oil price remains blank
+- approximate coproduct credit remains blocked on the corn-oil path
+
+Placement note:
+- `Operating_Drivers` still owns physical/yield/mix
+- `Economics_Overlay` is still the intended home for the eventual compact economic
+  corn-oil story
+- `Basis_Proxy_Sandbox` remains the backing layer for gate status, provenance, and
+  activation logic
 
 ## Candidate Families And Stage 5 Additions
 The current GPRE proxy pass still compares the existing bounded families:
@@ -395,6 +532,7 @@ What to verify after a change:
 - `Current QTD` remains observed-only
 - `Approximate market crush` remains the official row
 - `GPRE crush proxy` remains the fitted row
+- coproduct source-gate statuses stay truthful and do not go green on missing sources
 - `Basis_Proxy_Sandbox` sits directly to the right of `Promise_Progress_UI`
 - the workbook still shows the production winner and a separate best forward lens when they differ
 - visible source wording stays concise

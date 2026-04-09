@@ -5,7 +5,9 @@ import shutil
 from datetime import date
 from pathlib import Path
 
+from pbi_xbrl.market_data.providers.ams_3617 import AMS3617Provider
 from pbi_xbrl.market_data.providers.nwer import NWERProvider
+from pbi_xbrl.market_data.providers.ams_3618 import AMS3618Provider
 from pbi_xbrl.market_data.usda_backfill import (
     collect_archive_assets,
     download_archive_assets,
@@ -58,7 +60,7 @@ def test_collect_archive_assets_merges_latest_and_month_archive(monkeypatch) -> 
     monkeypatch.setattr(
         provider,
         "discover_remote_assets",
-        lambda as_of=None: [
+        lambda as_of=None, cache_root=None: [
             {
                 "url": "https://mymarketnews.ams.usda.gov/filerepo/sites/default/files/3616/2026-03-23/1313671/ams_3616_00184.pdf",
                 "label": "Latest Report",
@@ -82,13 +84,13 @@ def test_download_archive_assets_writes_stable_files_and_skips_existing(monkeypa
     tmp_path = Path(__file__).resolve().parents[1] / "tests" / "_tmp_usda_backfill_download"
     shutil.rmtree(tmp_path, ignore_errors=True)
     ticker_root = tmp_path / "GPRE"
-    local_dir = ticker_root / "USDA_weekly_data"
+    local_dir = ticker_root / provider.local_dir_name
     local_dir.mkdir(parents=True, exist_ok=True)
     (local_dir / "nwer_2026-02-16.pdf").write_bytes(b"existing")
 
     monkeypatch.setattr(
         "pbi_xbrl.market_data.usda_backfill.collect_archive_assets",
-        lambda provider_in, start_date, end_date: [
+        lambda provider_in, start_date, end_date, cache_root=None: [
             {
                 "url": "https://mymarketnews.ams.usda.gov/filerepo/sites/default/files/3616/2026-02-16/1305786/ams_3616_00179.pdf",
                 "label": "Archived Report",
@@ -119,12 +121,17 @@ def test_run_usda_archive_backfill_can_skip_market_sync(monkeypatch) -> None:
     tmp_repo = Path(__file__).resolve().parents[1] / "tests" / "_tmp_usda_backfill_run"
     shutil.rmtree(tmp_repo, ignore_errors=True)
     (tmp_repo / "GPRE").mkdir(parents=True, exist_ok=True)
+    providers = {
+        "nwer": NWERProvider(),
+        "ams_3617": AMS3617Provider(),
+        "ams_3618": AMS3618Provider(),
+    }
 
     monkeypatch.setattr(
         "pbi_xbrl.market_data.usda_backfill.download_archive_assets",
-        lambda provider, ticker_root, start_date, end_date: type("Summary", (), {
+        lambda provider, ticker_root, start_date, end_date, cache_root=None: type("Summary", (), {
             "source": provider.source,
-            "local_dir": ticker_root / ("USDA_weekly_data" if provider.source == "nwer" else "USDA_daily_data"),
+            "local_dir": ticker_root / str(getattr(provider, "local_dir_name", f"{provider.source}_pdfs")),
             "start_date": start_date,
             "end_date": end_date,
             "discovered_assets": 1,
@@ -132,6 +139,7 @@ def test_run_usda_archive_backfill_can_skip_market_sync(monkeypatch) -> None:
             "skipped_existing": 0,
         })(),
     )
+    monkeypatch.setattr("pbi_xbrl.market_data.usda_backfill.PROVIDERS", providers)
 
     try:
         summary = run_usda_archive_backfill(
@@ -139,12 +147,12 @@ def test_run_usda_archive_backfill_can_skip_market_sync(monkeypatch) -> None:
             ticker="GPRE",
             start_date=date(2026, 1, 23),
             end_date=date(2026, 3, 31),
-            sources=("nwer", "ams_3617"),
+            sources=("nwer", "ams_3617", "ams_3618"),
             sync_cache=False,
         )
         assert summary.ticker == "GPRE"
         assert summary.market_sync_summary is None
-        assert tuple(item.source for item in summary.provider_summaries) == ("nwer", "ams_3617")
+        assert tuple(item.source for item in summary.provider_summaries) == ("nwer", "ams_3617", "ams_3618")
     finally:
         shutil.rmtree(tmp_repo, ignore_errors=True)
 

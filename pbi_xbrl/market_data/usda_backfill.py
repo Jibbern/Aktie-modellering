@@ -22,7 +22,7 @@ from .providers import PROVIDERS
 from .service import sync_market_cache
 
 
-_USDA_ARCHIVE_SOURCES: Tuple[str, ...] = ("nwer", "ams_3617")
+_USDA_ARCHIVE_SOURCES: Tuple[str, ...] = ("nwer", "ams_3617", "ams_3618")
 @dataclass(frozen=True)
 class USDAProviderBackfillSummary:
     source: str

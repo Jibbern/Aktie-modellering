@@ -1092,7 +1092,7 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
         economics_overlay_market_inputs=_DEFAULT_ECONOMICS_OVERLAY_MARKET_INPUTS,
         economics_overlay_hedge_templates=_DEFAULT_ECONOMICS_OVERLAY_HEDGES,
         economics_overlay_bridge_rows=_DEFAULT_ECONOMICS_OVERLAY_BRIDGE_ROWS,
-        enabled_market_sources=("nwer", "ams_3617", "cme_ethanol_platts"),
+        enabled_market_sources=("nwer", "ams_3617", "ams_3618", "cme_ethanol_platts"),
         official_source_seeds=(
             SourceMaterialSeed(
                 family="earnings_presentation",

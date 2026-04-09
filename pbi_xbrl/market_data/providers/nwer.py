@@ -40,6 +40,34 @@ _ETHANOL_REGIONS = (
     "South Dakota",
     "Wisconsin",
 )
+_NWER_CORN_OIL_SERIES = (
+    ("Illinois", "corn_oil_illinois"),
+    ("Indiana", "corn_oil_indiana"),
+    ("Iowa East", "corn_oil_iowa_east"),
+    ("Iowa West", "corn_oil_iowa_west"),
+    ("Kansas", "corn_oil_kansas"),
+    ("Michigan", "corn_oil_michigan"),
+    ("Minnesota", "corn_oil_minnesota"),
+    ("Missouri", "corn_oil_missouri"),
+    ("Nebraska", "corn_oil_nebraska"),
+    ("Ohio", "corn_oil_ohio"),
+    ("South Dakota", "corn_oil_south_dakota"),
+    ("Wisconsin", "corn_oil_wisconsin"),
+)
+_NWER_DDGS_SERIES = (
+    ("Illinois", "ddgs_10_illinois"),
+    ("Indiana", "ddgs_10_indiana"),
+    ("Iowa East", "ddgs_10_iowa_east"),
+    ("Iowa West", "ddgs_10_iowa_west"),
+    ("Kansas", "ddgs_10_kansas"),
+    ("Michigan", "ddgs_10_michigan"),
+    ("Minnesota", "ddgs_10_minnesota"),
+    ("Missouri", "ddgs_10_missouri"),
+    ("Nebraska", "ddgs_10_nebraska"),
+    ("Ohio", "ddgs_10_ohio"),
+    ("South Dakota", "ddgs_10_south_dakota"),
+    ("Wisconsin", "ddgs_10_wisconsin"),
+)
 _DECIMAL_RE = re.compile(r"^\d+\.\d+$")
 _PRICE_TOKEN_RE = re.compile(r"^\d+\.\d+(?:-\d+\.\d+)?$")
 
@@ -144,6 +172,57 @@ def _extract_average_after_price_token(line: str) -> Optional[float]:
     if numeric_tail[-1] >= 1.0 and numeric_tail[-2] >= 1.0:
         return numeric_tail[-2]
     return numeric_tail[-1]
+
+
+def _parse_regional_section(
+    text: str,
+    *,
+    start_markers: tuple[str, ...],
+    stop_markers: tuple[str, ...],
+    region_series: tuple[tuple[str, str], ...],
+    unit: str,
+    market_family: str,
+    instrument: str,
+    parsed_note_prefix: str,
+    report_date: date,
+    source_file: str,
+) -> List[Dict[str, Any]]:
+    capture = False
+    rows_by_key: Dict[str, Dict[str, Any]] = {}
+    for raw_line in str(text or "").splitlines():
+        line = str(raw_line or "").strip()
+        if not line:
+            continue
+        if any(marker in line for marker in start_markers):
+            capture = True
+            continue
+        if capture and any(marker in line for marker in stop_markers):
+            capture = False
+            continue
+        if not capture:
+            continue
+        if line.startswith(("Ethanol Plant", "State/Province/Region", "Grain By-Products", "Source:", "National Weekly Ethanol Report", "Agricultural Marketing Service", "Livestock, Poultry, and Grain Market News", "Email us with accessibility issues", "Saint Joseph, MO", "www.ams.usda.gov", "https://mymarketnews.ams.usda.gov/", "Explanatory Notes:")):
+            continue
+        for region_label, series_key in region_series:
+            if not line.startswith(f"{region_label} "):
+                continue
+            avg_value = _extract_average_after_price_token(line)
+            if avg_value is None:
+                break
+            region_key = region_label.lower().replace(" ", "_")
+            rows_by_key[series_key] = _obs_row(
+                report_date=report_date,
+                source_file=source_file,
+                series_key=series_key,
+                market_family=market_family,
+                instrument=instrument,
+                region=region_key,
+                unit=unit,
+                price_value=avg_value,
+                parsed_note=f"{parsed_note_prefix} for {region_label}.",
+            )
+            break
+    return list(rows_by_key.values())
 
 
 def _parse_futures_line(
@@ -271,15 +350,45 @@ def parse_nwer_pdf_text(text: str, *, fallback_date: Optional[pd.Timestamp], sou
                 )
             )
             break
+    rows.extend(
+        _parse_regional_section(
+            text,
+            start_markers=("Distillers Corn Oil Feed Grade", "Distillers Corn Oil"),
+            stop_markers=("Distillers Grain Dried 10%", "Distillers Grain Wet 65-70%", "Explanatory Notes:"),
+            region_series=_NWER_CORN_OIL_SERIES,
+            unit="c/lb",
+            market_family="renewable_corn_oil_price",
+            instrument="Renewable corn oil price",
+            parsed_note_prefix="NWER distillers corn oil feed-grade average",
+            report_date=report_date,
+            source_file=source_file,
+        )
+    )
+    rows.extend(
+        _parse_regional_section(
+            text,
+            start_markers=("Distillers Grain Dried 10%",),
+            stop_markers=("Distillers Grain Wet 65-70%", "Explanatory Notes:"),
+            region_series=_NWER_DDGS_SERIES,
+            unit="$/ton",
+            market_family="ddgs_price",
+            instrument="DDGS price",
+            parsed_note_prefix="NWER distillers grain dried 10% average",
+            report_date=report_date,
+            source_file=source_file,
+        )
+    )
     return rows
 
 
 class NWERProvider(BaseMarketProvider):
     source = "nwer"
-    provider_parse_version = "v4"
+    provider_parse_version = "v5"
     # New downloads live in the workbook-facing USDA folder, but we keep reading the
     # legacy provider-specific directory so older local restores continue to work.
     local_patterns = (
+        "USDA_bioenergy_reports/*",
+        "USDA_bioenergy_reports/**/*",
         "USDA_weekly_data/*",
         "USDA_weekly_data/**/*",
         "nwer_pdfs/*",
@@ -288,7 +397,7 @@ class NWERProvider(BaseMarketProvider):
     landing_page_url = "https://mymarketnews.ams.usda.gov/viewReport/3616"
     report_token = "/3616/"
     stable_name_prefix = "nwer"
-    local_dir_name = "USDA_weekly_data"
+    local_dir_name = "USDA_bioenergy_reports"
 
     def parse_raw_to_rows(self, cache_root: Path, ticker_root: Path, raw_entries: List[Dict[str, Any]]) -> pd.DataFrame:
         del ticker_root

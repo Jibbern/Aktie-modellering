@@ -12,8 +12,10 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 import pytest
 
+from pbi_xbrl.company_profiles import get_company_profile
 from pbi_xbrl.market_data.cache import ensure_market_cache_dirs, remote_debug_path
 from pbi_xbrl.market_data.providers.ams_3617 import AMS3617Provider, parse_ams_3617_pdf_text
+from pbi_xbrl.market_data.providers.ams_3618 import AMS3618Provider, parse_ams_3618_pdf_text
 from pbi_xbrl.market_data.providers.base import BaseMarketProvider
 from pbi_xbrl.market_data.providers.cme_ethanol_platts import (
     CMEChicagoEthanolPlattsProvider,
@@ -24,6 +26,7 @@ from pbi_xbrl.market_data.providers.cme_ethanol_platts import (
 )
 from pbi_xbrl.market_data.providers.nwer import NWERProvider, parse_nwer_pdf_text
 import pbi_xbrl.market_data.providers.ams_3617 as ams_module
+import pbi_xbrl.market_data.providers.ams_3618 as ams_3618_module
 import pbi_xbrl.market_data.providers.nwer as nwer_module
 import pbi_xbrl.market_data.service as market_service
 import pbi_xbrl.market_data.usda_backfill as usda_backfill_module
@@ -424,6 +427,41 @@ Nebraska Trade 1.6000-1.6100 UNCH 1.6050 1.4700 FOB - T Current
     assert float(rows.loc[rows["series_key"] == "nymex_gas_may26_usd", "price_value"].iloc[0]) == 3.5
 
 
+def test_parse_nwer_pdf_text_extracts_coproduct_rows() -> None:
+    text = """
+National Weekly Ethanol Report
+Agricultural Marketing Service
+Livestock, Poultry, and Grain Market News April 2, 2026
+Grain By-Products
+Distillers Corn Oil Feed Grade
+Ethanol Plant
+State/Province/Region Sale Type Price (¢/Lb) Price Change Average Year Ago Freight Delivery
+Iowa East Ask 71.00 UNCH 71.00 48.50 FOB - T Current
+Nebraska Ask 65.00-77.00 UNCH-UP 2.00 71.00 47.64 FOB - T Current
+Source: USDA AMS Livestock, Poultry & Grain Market News Page 1 of 4
+National Weekly Ethanol Report
+Agricultural Marketing Service
+Livestock, Poultry, and Grain Market News April 2, 2026
+Michigan Ask 70.00-73.00 UNCH-UP 1.00 71.50 46.60 FOB - T Current
+South Dakota Ask 68.00-75.00 UNCH-UP 3.00 71.00 47.00 FOB - T Current
+Distillers Grain Dried 10%
+Ethanol Plant
+State/Province/Region Sale Type Price ($/Ton) Price Change Average Year Ago Freight Delivery
+Iowa East Ask 160.00-168.00 UNCH 164.00 141.67 FOB - T Current
+Nebraska Ask 165.00-190.00 UNCH 179.29 156.80 FOB - T Current
+Source: USDA AMS Livestock, Poultry & Grain Market News Page 2 of 4
+"""
+
+    rows = pd.DataFrame(parse_nwer_pdf_text(text, fallback_date=pd.Timestamp("2026-04-02"), source_file="nwer_2026-03-30.pdf"))
+
+    assert float(rows.loc[rows["series_key"] == "corn_oil_iowa_east", "price_value"].iloc[0]) == 71.0
+    assert float(rows.loc[rows["series_key"] == "corn_oil_nebraska", "price_value"].iloc[0]) == 71.0
+    assert float(rows.loc[rows["series_key"] == "ddgs_10_iowa_east", "price_value"].iloc[0]) == 164.0
+    assert float(rows.loc[rows["series_key"] == "ddgs_10_nebraska", "price_value"].iloc[0]) == 179.29
+    assert str(rows.loc[rows["series_key"] == "corn_oil_nebraska", "unit"].iloc[0]) == "c/lb"
+    assert str(rows.loc[rows["series_key"] == "ddgs_10_nebraska", "unit"].iloc[0]) == "$/ton"
+
+
 def test_parse_ams_3617_pdf_text_extracts_daily_nebraska_corn_average() -> None:
     text = """
 National Daily Ethanol Report
@@ -443,6 +481,75 @@ Nebraska Bid -43.00Z to -10.00Z UNCH 3.7850-4.1150 DN 0.0050 3.9338 4.1646 DLVD 
     assert float(rows.loc[rows["series_key"] == "corn_iowa_east", "price_value"].iloc[0]) == 3.9035
     assert float(rows.loc[rows["series_key"] == "corn_basis_nebraska", "price_value"].iloc[0]) == pytest.approx(-0.265, abs=0.0001)
     assert float(rows.loc[rows["series_key"] == "corn_basis_iowa_east", "price_value"].iloc[0]) == pytest.approx(-0.285, abs=0.0001)
+
+
+def test_parse_ams_3618_pdf_text_extracts_corn_oil_and_ddgs_rows() -> None:
+    text = """
+National Weekly Grain Co-Products Report
+Agricultural Marketing Service
+Livestock, Poultry, and Grain Market News February 23, 2026
+Corn Values¹
+Distillers Corn Oil
+Region/Location
+Price (¢/Lb)
+Value ($/Bu)³
+Value Change
+Week Ago
+Year Ago
+Eastern Cornbelt
+56.95
+0.34
+UNCH
+0.34
+0.28
+Iowa
+57.19
+0.34
+UNCH
+0.34
+0.28
+Kansas
+52.00
+0.31
+UNCH
+0.31
+0.29
+Nebraska
+57.19
+0.34
+UNCH
+0.34
+0.28
+Distillers Grain Dried 10%
+Region/Location
+Price ($/Ton)
+Value ($/Bu)³
+Value Change
+Week Ago
+Year Ago
+Iowa
+145.00
+1.20
+0.01
+1.19
+1.23
+Nebraska
+163.50
+1.35
+UNCH
+1.35
+1.40
+Distillers Grain Wet 65-70%
+"""
+
+    rows = pd.DataFrame(parse_ams_3618_pdf_text(text, fallback_date=pd.Timestamp("2026-02-23"), source_file="ams_3618_2026-02-16.pdf"))
+
+    assert float(rows.loc[rows["series_key"] == "corn_oil_iowa_avg", "price_value"].iloc[0]) == 57.19
+    assert float(rows.loc[rows["series_key"] == "corn_oil_nebraska", "price_value"].iloc[0]) == 57.19
+    assert float(rows.loc[rows["series_key"] == "ddgs_10_iowa", "price_value"].iloc[0]) == 145.0
+    assert float(rows.loc[rows["series_key"] == "ddgs_10_nebraska", "price_value"].iloc[0]) == 163.5
+    assert str(rows.loc[rows["series_key"] == "corn_oil_nebraska", "unit"].iloc[0]) == "c/lb"
+    assert str(rows.loc[rows["series_key"] == "ddgs_10_nebraska", "unit"].iloc[0]) == "$/ton"
 
 
 def test_nwer_sync_raw_discovers_current_quarter_pdf_and_data_assets(monkeypatch) -> None:
@@ -489,8 +596,8 @@ def test_nwer_sync_raw_discovers_current_quarter_pdf_and_data_assets(monkeypatch
         result = provider.sync_raw(cache_root, ticker_root, refresh=True)
 
         assert result["raw_added"] >= 6
-        assert (ticker_root / "USDA_weekly_data" / "nwer_2026-01-23.pdf").exists()
-        assert (ticker_root / "USDA_weekly_data" / "nwer_2026-01-23_data.csv").exists()
+        assert (ticker_root / "USDA_bioenergy_reports" / "nwer_2026-01-23.pdf").exists()
+        assert (ticker_root / "USDA_bioenergy_reports" / "nwer_2026-01-23_data.csv").exists()
         assert any(str(entry.get("asset_type") or "") == "pdf" for entry in result["entries"])
         assert any(str(entry.get("asset_type") or "") == "data" for entry in result["entries"])
     finally:
@@ -661,10 +768,50 @@ def test_nwer_sync_raw_discovers_current_quarter_pdf_and_data_assets_from_legacy
         result = provider.sync_raw(cache_root, ticker_root, refresh=True)
 
         assert result["raw_added"] >= 6
-        assert (ticker_root / "USDA_weekly_data" / "nwer_2026-01-23.pdf").exists()
-        assert (ticker_root / "USDA_weekly_data" / "nwer_2026-01-23_data.csv").exists()
+        assert (ticker_root / "USDA_bioenergy_reports" / "nwer_2026-01-23.pdf").exists()
+        assert (ticker_root / "USDA_bioenergy_reports" / "nwer_2026-01-23_data.csv").exists()
         assert any(str(entry.get("asset_type") or "") == "pdf" for entry in result["entries"])
         assert any(str(entry.get("asset_type") or "") == "data" for entry in result["entries"])
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_ams_3618_sync_raw_discovers_current_quarter_pdf_asset(monkeypatch) -> None:
+    provider = AMS3618Provider()
+    landing_html = """
+    <html><body>
+      <div>Slug Id: 3618</div>
+    </body></html>
+    """
+    latest_html = """
+    {"html":"<a href=\"/filerepo/sites/default/files/3618/2026-02-16/1306158/ams_3618_00177.pdf\">Feb 16 PDF</a>"}
+    """
+
+    def _fake_fetch_text(url: str, *, extra_headers: dict[str, str] | None = None) -> str:
+        del extra_headers
+        if "get_latest_release" in url:
+            return latest_html
+        if "get_previous_release" in url:
+            return "{\"html\":\"\"}"
+        return landing_html
+
+    monkeypatch.setattr(provider, "_today", lambda: date(2026, 3, 28))
+    monkeypatch.setattr(provider, "_fetch_text_diagnostic", _diagnostic_text_stub(_fake_fetch_text))
+    monkeypatch.setattr(provider, "_fetch_bytes_diagnostic", _diagnostic_bytes_stub(lambda url, *, extra_headers=None: b"demo"))
+
+    tmp_path = Path(__file__).resolve().parents[1] / "tests" / "_tmp_market_data_service_3618"
+    shutil.rmtree(tmp_path, ignore_errors=True)
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    cache_root = tmp_path / "sec_cache" / "market_data"
+    ensure_market_cache_dirs(cache_root)
+    ticker_root = tmp_path / "GPRE"
+
+    try:
+        result = provider.sync_raw(cache_root, ticker_root, refresh=True)
+
+        assert result["raw_added"] >= 1
+        assert (ticker_root / "USDA_bioenergy_reports" / "ams_3618_2026-02-16.pdf").exists()
+        assert any(str(entry.get("asset_type") or "") == "pdf" for entry in result["entries"])
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
@@ -696,6 +843,33 @@ def test_bootstrap_specs_can_read_usda_weekly_and_daily_folders() -> None:
         assert float(ams_df.loc[ams_df["series_key"] == "corn_nebraska", "price_value"].iloc[0]) == 4.12
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_bootstrap_specs_can_read_usda_bioenergy_folder_for_nwer() -> None:
+    tmp_path = Path(__file__).resolve().parents[1] / "tests" / "_tmp_market_data_bioenergy_bootstrap"
+    shutil.rmtree(tmp_path, ignore_errors=True)
+    ticker_root = tmp_path / "GPRE"
+    bioenergy_dir = ticker_root / "USDA_bioenergy_reports"
+    bioenergy_dir.mkdir(parents=True, exist_ok=True)
+    (bioenergy_dir / "nwer_weekly.csv").write_text(
+        "week_end,ethanol_nebraska,source_pdf\n2026-01-23,1.61,nwer_2026-01-23.pdf\n",
+        encoding="utf-8",
+    )
+
+    try:
+        nwer_df, nwer_fp = market_service._bootstrap_rows_for_source("nwer", ticker_root)
+        assert nwer_fp != "none"
+        assert float(nwer_df.loc[nwer_df["series_key"] == "ethanol_nebraska", "price_value"].iloc[0]) == 1.61
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_gpre_profile_enables_ams_3618_without_changing_non_gpre_sources() -> None:
+    gpre_profile = get_company_profile("GPRE")
+    pbi_profile = get_company_profile("PBI")
+
+    assert "ams_3618" in tuple(gpre_profile.enabled_market_sources or ())
+    assert "ams_3618" not in tuple(pbi_profile.enabled_market_sources or ())
 
 
 def test_sync_market_cache_rebuilds_raw_manifest_from_existing_raw_files(monkeypatch) -> None:
