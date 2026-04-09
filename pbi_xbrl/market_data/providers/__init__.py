@@ -6,14 +6,16 @@ supported.
 """
 
 from .ams_3617 import AMS3617Provider
+from .ams_3618 import AMS3618Provider
 from .cme_ethanol_platts import CMEChicagoEthanolPlattsProvider
 from .nwer import NWERProvider
 
 
 PROVIDERS = {
     "ams_3617": AMS3617Provider(),
+    "ams_3618": AMS3618Provider(),
     "cme_ethanol_platts": CMEChicagoEthanolPlattsProvider(),
     "nwer": NWERProvider(),
 }
 
-__all__ = ["PROVIDERS", "AMS3617Provider", "CMEChicagoEthanolPlattsProvider", "NWERProvider"]
+__all__ = ["PROVIDERS", "AMS3617Provider", "AMS3618Provider", "CMEChicagoEthanolPlattsProvider", "NWERProvider"]

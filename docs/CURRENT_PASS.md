@@ -7,6 +7,91 @@
 - Document the runtime layout and clarify which workspace artifacts are source-like, rebuildable, or disposable.
 - Freeze the current runtime/correctness baseline before new feature work in [BASELINE_FREEZE_2026-03-20.md](/c:/Users/Jibbe/Aktier/Code/docs/BASELINE_FREEZE_2026-03-20.md).
 
+## GPRE Coproduct Stage B.1: NWER + AMS 3618 Ingestion (2026-04-09)
+- Verified scope:
+  - this is a narrow ingestion/readiness pass, not a visible coproduct rollout
+  - soybean remains out of scope in this stage
+  - `AMS 3511` remains manual / secondary only
+- Verified source-path changes:
+  - `NWER` now parses coproduct rows for:
+    - `Distillers Corn Oil Feed Grade`
+    - `Distillers Grain Dried 10%`
+  - `AMS 3618` is now wired as a new provider and enabled for `GPRE`
+  - new ticker-local folders now exist:
+    - [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
+    - [`GPRE/USDA_feedstuffs_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_feedstuffs_reports)
+  - the bioenergy folder is now the active working folder for `NWER` and `AMS 3618`
+  - legacy `USDA_weekly_data` / `USDA_daily_data` reads remain accepted for compatibility
+- Verified live source/readback outcome:
+  - the rebuilt `GPRE` market export now contains parsed `NWER` coproduct rows for corn oil / DDGS
+  - `AMS 3618` is wired, but the current live export still does not contain parsed `AMS 3618` coproduct rows
+  - `Basis_Proxy_Sandbox` now shows a compact `Coproduct source gate` with:
+    - `NWER coproduct rows = YES`
+    - `AMS 3618 coproduct rows = NO`
+    - `Renewable corn oil price = YES`
+    - `Distillers grains price = YES`
+    - `Approximate coproduct credit = YES`
+    - `Overlay activation = HOLD`
+  - `Economics_Overlay` row `176` remains visually empty
+- Verified operational conclusion:
+  - `AMS 3618` is now the primary new coproduct source to pursue
+  - `NWER` is now useful for live coproduct backing
+  - USDA landing fetches are still flaky in this local environment, so manual drop + sync remains the official fallback when remote refresh does not land
+
+## GPRE Corn Oil Stage B Gate Pass (2026-04-09)
+- Verified scope:
+  - this is a very narrow corn-oil-only gate/readiness pass on top of Stage 6
+  - it does not add a visible corn-oil block to `Economics_Overlay`
+  - it does not pull DDGS / UHP / protein-mix into the same activation pass
+- Verified workbook-facing change:
+  - `Basis_Proxy_Sandbox` now adds a compact `Corn oil gate check` block ahead of
+    the broader coproduct readiness table
+  - the gate block explicitly checks:
+    - `Soybean oil price proxy`
+    - `Corn oil premium policy`
+    - `Renewable corn oil price`
+    - `Approximate coproduct credit`
+    - `Overlay activation`
+  - the block also carries a short provenance note:
+    - corn-oil premium stays manual
+    - management commentary supports premium-to-soy directionally
+    - commentary is not treated as an auto-filled quarter series
+- Verified gate outcome:
+  - current Stage B result is still `NO-GO` for a visible corn-oil block
+  - `Economics_Overlay` row `176` remains visually free
+  - the blockers are:
+    - no verified soybean-oil market series in the current GPRE export
+    - premium policy remains manual-only
+    - resolved corn-oil price stays blank
+    - approximate coproduct credit stays blocked on the corn-oil path
+
+## GPRE Coproduct Stage A Readiness (2026-04-09)
+- Verified scope:
+  - this is a narrow inventory/readiness pass, not a new coproduct model and not a new visible overlay panel
+  - `Economics_Overlay` remains the eventual home for the economic coproduct story
+  - `Operating_Drivers` remains the primary home for physical yield / mix / process commentary
+- Verified workbook-facing change:
+  - `Basis_Proxy_Sandbox` now adds a compact `Coproduct signal readiness` section for:
+    - `Renewable corn oil price`
+    - `Soybean oil price proxy`
+    - `Corn oil premium assumption`
+    - `Implied renewable corn oil proxy price`
+    - `Distillers grains price`
+    - `UHP price`
+    - `Approximate coproduct credit`
+  - the section now shows:
+    - source mode
+    - direct / proxy / assumption / derived status
+    - current fill state
+    - historical / current / next-quarter readiness
+- Verified gating rule:
+  - no visible coproduct block is added to `Economics_Overlay` yet
+  - row `176` stays visually free until at least renewable-corn-oil price/proxy and total approximate coproduct credit resolve non-blank in the GPRE path
+- Product note:
+  - corn oil remains the first realistic surfacing candidate
+  - DDGS stays second
+  - UHP / protein-mix remains commentary / diagnostics first until the price path is more robust
+
 ## Economics Overlay Stage 5 Status (2026-04-08)
 - Verified live code/test changes now present in the worktree:
   - `Basis_Proxy_Sandbox` is explicitly ordered directly after `Promise_Progress_UI`.

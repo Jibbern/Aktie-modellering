@@ -1334,6 +1334,8 @@ def test_write_driver_sheets_does_not_leak_gpre_overlay_surface_to_non_gpre_prof
         assert _find_row_with_value(ws_overlay, "Approximate market crush ($/gal)", column=1) is None
         assert _find_row_with_value(ws_overlay, "GPRE crush proxy ($/gal)", column=1) is None
         assert _find_row_with_value(ws_overlay, "Proxy comparison ($/gal)", column=1) is None
+        assert _find_row_with_value(ws_overlay, "Coproduct source gate", column=1) is None
+        assert _find_row_with_value(ws_overlay, "Coproduct signal readiness", column=1) is None
         assert _find_row_with_value(ws_overlay, "Approximate market crush vs Fitted models (quarterly)", column=2) is None
         assert not list(getattr(ws_overlay, "_charts", []))
         assert "write_excel.drivers.render.economics_overlay.basis_proxy_sandbox" in ctx.writer_timings
@@ -10676,12 +10678,82 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         best_compromise_row = _find_row_with_value(ws_basis, "Best compromise", column=21)
         best_forward_row = _find_row_with_value(ws_basis, "Best forward lens", column=21)
         forward_usability_row = _find_row_with_value(ws_basis, "Forward usability", column=21)
+        corn_oil_gate_title_row = _find_row_with_value(ws_basis, "Coproduct source gate", column=2)
+        coproduct_readiness_title_row = _find_row_with_value(ws_basis, "Coproduct signal readiness", column=2)
+        nwer_gate_row = next(
+            (rr for rr in range((corn_oil_gate_title_row or 0) + 1, (corn_oil_gate_title_row or 0) + 10)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "NWER coproduct rows"),
+            None,
+        )
+        ams_3618_gate_row = next(
+            (rr for rr in range((corn_oil_gate_title_row or 0) + 1, (corn_oil_gate_title_row or 0) + 10)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "AMS 3618 coproduct rows"),
+            None,
+        )
+        price_gate_row = next(
+            (rr for rr in range((corn_oil_gate_title_row or 0) + 1, (corn_oil_gate_title_row or 0) + 10)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "Renewable corn oil price"),
+            None,
+        )
+        ddgs_gate_row = next(
+            (rr for rr in range((corn_oil_gate_title_row or 0) + 1, (corn_oil_gate_title_row or 0) + 10)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "Distillers grains price"),
+            None,
+        )
+        credit_gate_row = next(
+            (rr for rr in range((corn_oil_gate_title_row or 0) + 1, (corn_oil_gate_title_row or 0) + 10)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "Approximate coproduct credit"),
+            None,
+        )
+        activation_gate_row = next(
+            (rr for rr in range((corn_oil_gate_title_row or 0) + 1, (corn_oil_gate_title_row or 0) + 10)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "Overlay activation"),
+            None,
+        )
+        corn_oil_readiness_row = next(
+            (rr for rr in range((coproduct_readiness_title_row or 0) + 1, (coproduct_readiness_title_row or 0) + 12)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "Renewable corn oil price"),
+            None,
+        )
+        nwer_readiness_row = next(
+            (rr for rr in range((coproduct_readiness_title_row or 0) + 1, (coproduct_readiness_title_row or 0) + 12)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "NWER coproduct rows"),
+            None,
+        )
+        ams_3618_readiness_row = next(
+            (rr for rr in range((coproduct_readiness_title_row or 0) + 1, (coproduct_readiness_title_row or 0) + 12)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "AMS 3618 coproduct rows"),
+            None,
+        )
+        ddgs_readiness_row = next(
+            (rr for rr in range((coproduct_readiness_title_row or 0) + 1, (coproduct_readiness_title_row or 0) + 12)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "Distillers grains price"),
+            None,
+        )
+        coproduct_credit_readiness_row = next(
+            (rr for rr in range((coproduct_readiness_title_row or 0) + 1, (coproduct_readiness_title_row or 0) + 12)
+             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "Approximate coproduct credit"),
+            None,
+        )
         assert best_historical_row is not None
         assert best_compromise_row is not None
         assert best_forward_row is not None
         assert role_summary_row is not None
         assert winner_story_title_row is not None
         assert forward_usability_row is not None
+        assert corn_oil_gate_title_row is not None
+        assert nwer_gate_row is not None
+        assert ams_3618_gate_row is not None
+        assert price_gate_row is not None
+        assert ddgs_gate_row is not None
+        assert credit_gate_row is not None
+        assert activation_gate_row is not None
+        assert coproduct_readiness_title_row is not None
+        assert corn_oil_readiness_row is not None
+        assert nwer_readiness_row is not None
+        assert ams_3618_readiness_row is not None
+        assert ddgs_readiness_row is not None
+        assert coproduct_credit_readiness_row is not None
         assert "Production winner = fitted row used in production" in str(ws_basis.cell(row=role_summary_row + 5, column=21).value or "")
         assert "Hybrid" in str(ws_basis.cell(row=best_historical_row, column=22).value or "")
         assert "MAE" in str(ws_basis.cell(row=best_historical_row, column=22).value or "")
@@ -10689,6 +10761,16 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert str(ws_basis.cell(row=best_compromise_row, column=22).value or "").strip()
         assert str(ws_basis.cell(row=best_forward_row, column=22).value or "").strip()
         assert "winner" in str(ws_basis.cell(row=forward_usability_row, column=22).value or "").lower()
+        assert str(ws_basis.cell(row=activation_gate_row, column=6).value or "").strip() == "HOLD"
+        assert "nwer and ams 3618" in str(ws_basis.cell(row=activation_gate_row + 1, column=2).value or "").lower()
+        assert "3511" in str(ws_basis.cell(row=activation_gate_row + 1, column=2).value or "").lower()
+        assert "stage b.1 uses nwer and ams 3618 only" in str(ws_basis.cell(row=coproduct_readiness_title_row + 1, column=2).value or "").lower()
+        assert str(ws_basis.cell(row=corn_oil_readiness_row, column=4).value or "").strip() == "Direct market"
+        assert str(ws_basis.cell(row=ddgs_readiness_row, column=4).value or "").strip() == "Direct market"
+        assert str(ws_basis.cell(row=nwer_readiness_row, column=4).value or "").strip() == "Weekly bioenergy"
+        assert str(ws_basis.cell(row=ams_3618_readiness_row, column=4).value or "").strip() == "Weekly co-products"
+        assert str(ws_basis.cell(row=coproduct_credit_readiness_row, column=4).value or "").strip() == "Derived build-up"
+        assert not any(str(ws_overlay.cell(row=176, column=cc).value or "").strip() for cc in range(1, 22))
 
         ctx.wb.save(out_path)
         with zipfile.ZipFile(out_path) as zf:
@@ -12825,6 +12907,8 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         process_row = _find_row_with_value(ws_overlay, "Unhedged process economics", column=1)
         quarterly_table_row = _find_row_with_value(ws_basis, "Quarterly comparison table", column=2)
         build_up_row = _find_row_with_value(ws_basis, "Approximate market crush build-up ($/gal)", column=2)
+        corn_oil_gate_row = _find_row_with_value(ws_basis, "Coproduct source gate", column=2)
+        coproduct_readiness_title_row = _find_row_with_value(ws_basis, "Coproduct signal readiness", column=2)
         memo_row = _find_row_with_value(ws_basis, "Hedge-adjusted memo tests", column=2)
         official_proxy_row = _find_row_with_value(ws_overlay, "Approximate market crush ($/gal)", column=1)
         fitted_proxy_row = _find_row_with_value(ws_overlay, "GPRE crush proxy ($/gal)", column=1)
@@ -12832,10 +12916,19 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         fitted_bridge_row = _find_row_with_value(ws_overlay, "GPRE crush proxy ($m)", column=1)
         helper_gallons_row = _find_row_with_value(ws_overlay, "Underlying crush margin ($m)", column=1)
         assert process_row is None
-        assert quarterly_table_row is not None and build_up_row is not None and memo_row is not None
+        assert quarterly_table_row is not None and build_up_row is not None and corn_oil_gate_row is not None and coproduct_readiness_title_row is not None and memo_row is not None
         assert official_proxy_row is not None and fitted_proxy_row is not None
         assert approx_bridge_row is not None and fitted_bridge_row is not None and helper_gallons_row is not None
-        assert quarterly_table_row < build_up_row < memo_row
+        assert quarterly_table_row < build_up_row < corn_oil_gate_row < coproduct_readiness_title_row < memo_row
+        assert "hold" in str(ws_basis.cell(row=corn_oil_gate_row + 7, column=6).value or "").lower()
+        assert "nwer and ams 3618" in str(ws_basis.cell(row=corn_oil_gate_row + 8, column=2).value or "").lower()
+        assert "stage b.1 uses nwer and ams 3618 only" in str(ws_basis.cell(row=coproduct_readiness_title_row + 1, column=2).value or "").lower()
+        assert _find_row_with_value(ws_basis, "Renewable corn oil price", column=2) is not None
+        assert _find_row_with_value(ws_basis, "Distillers grains price", column=2) is not None
+        assert _find_row_with_value(ws_basis, "Approximate coproduct credit", column=2) is not None
+        assert _find_row_with_value(ws_basis, "NWER coproduct rows", column=2) is not None
+        assert _find_row_with_value(ws_basis, "AMS 3618 coproduct rows", column=2) is not None
+        assert not any(str(ws_overlay.cell(row=176, column=cc).value or "").strip() for cc in range(1, 22))
 
         build_labels = [
             str(ws_basis.cell(row=rr, column=2).value or "").strip()

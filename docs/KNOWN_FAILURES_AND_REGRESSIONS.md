@@ -100,6 +100,8 @@
 - `Quarter_Notes_Audit` still has a residual `saved_workbook_missing` tail
   - Why it matters: terminal readback stages are restored, but some missing-note rows still remain as a smaller audit-cleanliness watchlist.
   - Current mitigation: duplicate/matched missing rows and obvious blob-like noise are now suppressed when a canonical note already verified into the saved workbook.
+- USDA `viewReport/3616`, `viewReport/3617`, and `viewReport/3618` landing fetches are still flaky in the current local environment
+  - Why it matters: Stage 8 now supports `NWER` coproduct parsing and a live `AMS 3618` provider, but automated refresh is still not reliable enough to replace manual drop + sync when the landing fetch times out.
 
 ## Uncertain / Needs Recheck
 - Some `Tone / expectations` vs `Strategy / segment` placements

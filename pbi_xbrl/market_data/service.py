@@ -245,6 +245,7 @@ def _bootstrap_specs_for_source(source: str, ticker_root: Path) -> List[Tuple[So
         weekly_path = _first_existing_bootstrap_csv(
             ticker_root,
             "data/nwer_weekly.csv",
+            "USDA_bioenergy_reports/nwer_weekly.csv",
             "USDA_weekly_data/nwer_weekly.csv",
         )
         weekly = _safe_read_csv(weekly_path) if weekly_path is not None else None
@@ -265,6 +266,7 @@ def _bootstrap_specs_for_source(source: str, ticker_root: Path) -> List[Tuple[So
         quarterly_path = _first_existing_bootstrap_csv(
             ticker_root,
             "data/nwer_quarterly.csv",
+            "USDA_bioenergy_reports/nwer_quarterly.csv",
             "USDA_weekly_data/nwer_quarterly.csv",
         )
         quarterly = _safe_read_csv(quarterly_path) if quarterly_path is not None else None
