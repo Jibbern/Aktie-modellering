@@ -42,8 +42,7 @@ Active folder:
   - optional `ams_3618_*_data.csv`
 
 Secondary manual folder:
-- [`GPRE/USDA_feedstuffs_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_feedstuffs_reports)
-  - intended for `ams_3511_*.pdf`
+- `GPRE/USDA_feedstuffs_reports` was part of the early local structure but was later removed because it was not used in the active GPRE workflow.
 
 Compatibility rule:
 - legacy `USDA_weekly_data` and `USDA_daily_data` reads still work

@@ -46,6 +46,20 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
 - Source selection should prefer explicit support and safe blanks over contaminated values.
 - Readback validation exists so fixes are measured against the saved workbook, not only in-memory dataframes.
 
+## End-to-End Handoff
+1. `stock_models.py`
+   - chooses the coarse workflow: cache maintenance, market-data-only, or full workbook export.
+2. `pbi_xbrl/pipeline_orchestration.py`
+   - builds the expensive normalized artifact bundle from SEC facts, local materials, and evidence stages.
+3. `pbi_xbrl/pipeline.py`
+   - keeps a stable external API and bridges those artifacts into `WorkbookInputs`.
+4. `pbi_xbrl/excel_writer_context.py`
+   - creates run-scoped writer state and caches, then supplies every sheet writer with one consistent context.
+5. `pbi_xbrl/excel_writer.py`
+   - saves the workbook, reopens it, and validates the delivered file so readback rather than in-memory state decides success.
+6. `pbi_xbrl/market_data/service.py`
+   - maintains the market-data raw/parsed/export layers consumed by GPRE overlay logic and related sandbox diagnostics.
+
 ## Current Workspace Notes
 - The git repo root is [`Code/`](/c:/Users/Jibbe/Aktier/Code), while the active workspace also includes sibling directories such as:
   - [`sec_cache`](/c:/Users/Jibbe/Aktier/sec_cache)

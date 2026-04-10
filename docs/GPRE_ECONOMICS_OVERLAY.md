@@ -18,6 +18,47 @@ It does **not** own:
 - broad writer/runtime performance guidance
   - see [`PERFORMANCE_NOTES.md`](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md)
 
+## Stage C.2: Historical Corn-Bid Retention
+
+### Product rule
+- dated GPRE corn-bid snapshots are no longer only a current / forward convenience
+- if a usable dated GPRE snapshot exists for the relevant quarter or frame, the official corn-basis path should keep using it even after that quarter rolls from:
+  - `next quarter thesis`
+  - to `current`
+  - to `prior quarter`
+  - to historical quarterly rows
+- AMS remains fallback only when the relevant retained GPRE snapshot is unavailable or unusable
+
+### Snapshot selection policy
+- `Current QTD`
+  - latest usable GPRE snapshot on or before `as_of_date`
+- `Quarter-open proxy`
+  - latest usable GPRE snapshot on or before quarter start, while preserving the established freeze/open policy where that policy already exists
+- `Next quarter thesis`
+  - latest usable GPRE snapshot on or before `as_of_date` that still contains forward-delivery rows for the target quarter
+- `Prior quarter`
+  - latest usable retained GPRE snapshot on or before target quarter end
+- `Historical quarter`
+  - latest usable retained GPRE snapshot on or before target quarter end
+  - preference goes to snapshots captured inside the target quarter when such snapshots exist
+
+### Snapshot archive layout
+- retained GPRE corn-bid history is now archived under:
+  - [`GPRE/corn_bids/raw_snapshots`](/c:/Users/Jibbe/Aktier/GPRE/corn_bids/raw_snapshots)
+  - [`GPRE/corn_bids/parsed_snapshots`](/c:/Users/Jibbe/Aktier/GPRE/corn_bids/parsed_snapshots)
+  - [`GPRE/corn_bids/manifest.json`](/c:/Users/Jibbe/Aktier/GPRE/corn_bids/manifest.json)
+- canonical selection input is the parsed snapshot CSV
+- raw HTML is retained for audit / reparsing
+- legacy mutable latest files may still exist, but they are no longer the intended historical source of truth
+
+### Visible wording
+- the workbook note for the official market row should now say, in substance:
+  - `Official corn basis prefers dated GPRE plant bids when available for the relevant frame or quarter, including historical quarters with retained snapshots; otherwise it falls back to active-capacity-weighted AMS basis ...`
+- the `Basis_Proxy_Sandbox` build-up block now also shows:
+  - `Official corn basis snapshot date`
+  - `Official corn basis selection rule`
+  - both are frame-specific auditability rows, not separate policy logic
+
 ## Stage C: Coproduct-Aware Experimental Lenses
 
 ### Product rule
@@ -33,13 +74,18 @@ It does **not** own:
 
 ### Experimental family
 - Stage C adds a separate coproduct-aware experimental family in the same GPRE comparison framework.
-- The current bounded method set is:
-  - `simple_plus_full_credit`
-  - `simple_plus_half_credit`
-  - `simple_plus_coverage_credit`
-  - `winner_plus_full_credit`
-  - `forward_plus_full_credit`
-  - `winner_plus_conservative_credit`
+- The current bounded fractional/netted method set is:
+  - `simple_plus_10pct_credit`
+  - `simple_plus_15pct_credit`
+  - `simple_plus_20pct_credit`
+  - `simple_plus_25pct_credit`
+  - `simple_plus_30pct_credit`
+  - `simple_plus_10pct_coverage_credit`
+  - `simple_plus_20pct_coverage_credit`
+  - `simple_plus_30pct_coverage_credit`
+  - `simple_plus_25pct_credit_less_2c`
+  - `simple_plus_30pct_coverage_credit_less_2c`
+- `simple_plus_half_credit` remains visible only as the prior-family reference in the sandbox summary so the newer fractional/netted family can be compared against the old best coproduct-aware method.
 - All of them are defined in `$/gal`.
 - `Approximate coproduct credit ($/gal)` is the overlay signal.
 - `Coverage` only enters methods that explicitly say so.
@@ -117,8 +163,17 @@ It does **not** own:
   2. unavailable
 
 ### Corn basis
-- actual GPRE plant bids when available
+- actual GPRE plant bids when a usable dated retained snapshot is available for the relevant frame or quarter
 - AMS fallback otherwise
+
+### Quarterly crush chart zero-line policy
+- the quarterly crush chart keeps quarter labels at the bottom
+- the category axis stays at the bottom; it should not visually appear to cross at zero
+- when the visible y-range crosses zero, the chart may add a separate thin neutral `Zero reference line`
+- that zero-reference line is diagnostic only:
+  - not part of winner logic
+  - not a promoted series
+  - not a replacement for bottom quarter labels
 
 ### Natural gas / other thesis inputs
 - preserve the current thesis path unless a pass explicitly changes it
@@ -362,8 +417,6 @@ Verified Stage-8 source decisions:
 Verified local folder policy:
 - active bioenergy working folder:
   - [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
-- secondary manual feedstuffs folder:
-  - [`GPRE/USDA_feedstuffs_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_feedstuffs_reports)
 - legacy folders still read for compatibility:
   - [`GPRE/USDA_weekly_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_weekly_data)
   - [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)

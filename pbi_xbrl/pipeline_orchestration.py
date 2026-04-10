@@ -499,6 +499,13 @@ def run_pipeline_impl(
     ticker: Optional[str] = None,
     cik: Optional[str] = None,
 ) -> PipelineArtifacts:
+    """Build the full artifact bundle consumed by workbook export.
+
+    This is the main assembly boundary for the runtime. Upstream we have SEC cache,
+    local materials, and market/source refresh state; downstream we hand a normalized
+    `PipelineArtifacts` bundle to the thin `pipeline.py` surface and eventually into
+    `WorkbookInputs`.
+    """
     sec = SecClient(cache_dir=config.cache_dir, cfg=sec_config)
     repo_root = (
         Path(config.repo_root).expanduser().resolve()

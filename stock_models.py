@@ -306,6 +306,17 @@ def _timed(label: str, enabled: bool = True, store: Optional[Dict[str, float]] =
 
 
 def main() -> None:
+    """Run the operator CLI and dispatch into one of three coarse workflows.
+
+    Expected modes:
+    - ingest / refresh maintenance (`--step-a-only`, statement download, source refresh)
+    - market-data maintenance (`--refresh-market-data`, `--market-only`)
+    - full pipeline + workbook export
+
+    The CLI is intentionally the outermost orchestration surface. It decides whether
+    we only touch caches, only rebuild market exports, or run the full
+    SEC -> pipeline artifacts -> workbook -> saved-workbook readback path.
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--ticker", default=None, help="Ticker (required unless --cik is provided)")
     ap.add_argument("--cik", default=None, help="CIK as int; overrides ticker lookup")

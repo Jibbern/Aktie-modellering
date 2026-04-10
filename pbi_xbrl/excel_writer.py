@@ -1016,6 +1016,15 @@ def _ensure_partial_debug_sheet(ctx: Any, scope: str) -> None:
 
 
 def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
+    """Render, save, and read back a workbook from one normalized input bundle.
+
+    Expected lifecycle:
+    1. Build a writer context and prepare derived/reusable writer inputs.
+    2. Render visible sheets plus QA/raw-data support sheets.
+    3. Save the workbook.
+    4. Re-open the saved workbook and validate the delivered artifact, because the
+       saved file rather than the in-memory workbook is the product truth.
+    """
     excel_debug_scope = _normalize_excel_debug_scope(getattr(inputs, "excel_debug_scope", "full"))
     partial_debug_scope = excel_debug_scope != "full"
     writer_timings: Dict[str, float] = {}

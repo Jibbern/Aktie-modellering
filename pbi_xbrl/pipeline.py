@@ -11295,6 +11295,12 @@ def run_pipeline(
     ticker: Optional[str] = None,
     cik: Optional[str] = None,
 ) -> Tuple[pd.DataFrame, ...]:
+    """Return the legacy tuple surface backed by the structured artifact runtime.
+
+    `pipeline_orchestration` now builds a `PipelineArtifacts` bundle. This wrapper is
+    the compatibility boundary that keeps older callers and tests working while the
+    internal orchestration/dataflow can stay dataclass-oriented.
+    """
     # The orchestration layer returns a structured artifact bundle. This wrapper keeps
     # the older tuple-based interface intact so existing callers do not need to know
     # about internal artifact classes.
@@ -11360,6 +11366,12 @@ def write_excel(
     capture_saved_workbook_provenance: bool = True,
     excel_debug_scope: str = 'full',
 ) -> Any:
+    """Bridge the legacy writer argument bundle into a single `WorkbookInputs` handoff.
+
+    The rest of the writer stack reasons about one explicit input object. Keeping this
+    adapter here makes the CLI/tests readable without forcing the lower writer layers
+    to keep a wide positional/keyword interface forever.
+    """
     # This wrapper is intentionally mechanical: it documents the dataframe bundle that
     # crosses from pipeline space into workbook-rendering space.
     from .excel_writer import write_excel_from_inputs

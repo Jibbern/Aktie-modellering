@@ -53,6 +53,12 @@
   - Why it matters: one-time capital-markets events should stay tied to the event quarter.
 - GPRE `Economics_Overlay` lacking a clear official/fitted/winner split and fitted quarterly chart
   - Why it matters: users need to see the official simple row, the fitted GPRE row, the guarded production winner, and any separate forward lens without reverse-engineering the sandbox table.
+- GPRE official corn basis degrading prior/historical quarters to AMS despite retained dated GPRE bid snapshots
+  - Why it matters: once dated plant bids exist for a quarter, quarter rollover should not silently rewrite that quarter's official basis history.
+- GPRE corn bids stored only as a mutable latest file
+  - Why it matters: historical quarter retention depends on dated snapshots, not a single overwriteable local file.
+- Quarterly crush chart visually implying a misplaced x-axis at zero
+  - Why it matters: quarter labels should stay anchored at the bottom, while any zero reference should be shown explicitly as a separate line instead of looking like a moved category axis.
 
 ## Still Relevant / Watchlist
 - Delivered workbook artifacts live outside the `Code` git repo root

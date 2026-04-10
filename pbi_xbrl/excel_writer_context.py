@@ -31,6 +31,7 @@ from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.chart import LineChart, Reference, ScatterChart, Series
 from openpyxl.chart.axis import ChartLines, TextAxis
 from openpyxl.chart.data_source import AxDataSource, StrRef
+from openpyxl.chart.legend import LegendEntry
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.shapes import GraphicalProperties, LineProperties
 from openpyxl.comments import Comment
@@ -240,6 +241,7 @@ from .market_data.service import (
     build_simple_crush_history_series,
     build_prior_quarter_simple_crush_snapshot,
     build_next_quarter_thesis_snapshot,
+    download_gpre_corn_bids_snapshot,
     fetch_gpre_corn_bids_snapshot,
     load_market_export_rows,
     persist_gpre_frozen_thesis_snapshot,
@@ -800,6 +802,14 @@ def _quarter_note_runtime_cache_key(
 
 
 def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
+    """Create the run-scoped writer state used by every workbook section.
+
+    This function is the main handoff from pipeline outputs to workbook rendering. It
+    copies the normalized `WorkbookInputs`, initializes the workbook object, and sets
+    up run-local caches/state that later sheet writers reuse so expensive document,
+    valuation, operating-driver, and GPRE economics analysis only happens once per
+    export.
+    """
     out_path = inputs.out_path
     hist = inputs.hist
     audit = inputs.audit
@@ -856,6 +866,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     wb.remove(wb.active)
     state: Dict[str, Any] = {}
     ctx_ref: Optional[WriterContext] = None
+    # Writer runtime caches are intentionally per-export. They help the many sheet
+    # writers share heavy intermediate work inside one workbook build without turning
+    # those intermediates into cross-run persisted state.
     runtime_cache = WriterRuntimeCache()
     operating_driver_history_rows: List[Dict[str, Any]] = []
     economics_market_rows: List[Dict[str, Any]] = []
@@ -67152,10 +67165,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if not str(os.environ.get("PYTEST_CURRENT_TEST") or "").strip():
                 overlay_bids_snapshot_started = time.perf_counter()
                 try:
-                    gpre_bids_snapshot = fetch_gpre_corn_bids_snapshot(
-                        as_of_date=overlay_market_as_of,
-                        timeout_seconds=1.5,
-                    )
+                    if isinstance(gpre_ticker_root_local, Path):
+                        gpre_bids_snapshot = download_gpre_corn_bids_snapshot(
+                            gpre_ticker_root_local,
+                            as_of_date=overlay_market_as_of,
+                            timeout_seconds=1.5,
+                        )
+                    else:
+                        gpre_bids_snapshot = fetch_gpre_corn_bids_snapshot(
+                            as_of_date=overlay_market_as_of,
+                            timeout_seconds=1.5,
+                        )
                 except Exception:
                     gpre_bids_snapshot = {}
                 _record_writer_substage(
@@ -67572,6 +67592,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 for rec in list(model_result.get("coproduct_experimental_method_specs") or [])
                 if isinstance(rec, dict)
             ]
+            coproduct_experimental_legacy_reference_model_key = str(
+                model_result.get("coproduct_experimental_legacy_reference_model_key") or ""
+            )
+            coproduct_experimental_legacy_reference_row = (
+                dict(model_result.get("coproduct_experimental_legacy_reference_row") or {})
+                if isinstance(model_result.get("coproduct_experimental_legacy_reference_row"), dict)
+                else {}
+            )
             best_coproduct_experimental_historical_model_key = str(
                 model_result.get("best_coproduct_experimental_historical_model_key") or ""
             )
@@ -67646,12 +67674,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     "process_prior_disturbance_carryover": "Prior-disturbance carryover",
                     "process_residual_regime_locked_vs_disturbed": "Process residual regime split",
                     "process_gated_incumbent_vs_residual": "Process gated incumbent vs residual",
-                    "simple_plus_full_credit": "Simple + full credit",
+                    "simple_plus_10pct_credit": "Simple + 10% credit",
+                    "simple_plus_15pct_credit": "Simple + 15% credit",
+                    "simple_plus_20pct_credit": "Simple + 20% credit",
+                    "simple_plus_25pct_credit": "Simple + 25% credit",
+                    "simple_plus_30pct_credit": "Simple + 30% credit",
+                    "simple_plus_10pct_coverage_credit": "Simple + 10% coverage credit",
+                    "simple_plus_20pct_coverage_credit": "Simple + 20% coverage credit",
+                    "simple_plus_30pct_coverage_credit": "Simple + 30% coverage credit",
+                    "simple_plus_25pct_credit_less_2c": "Simple + 25% credit less 2c",
+                    "simple_plus_30pct_coverage_credit_less_2c": "Simple + 30% coverage credit less 2c",
                     "simple_plus_half_credit": "Simple + 50% credit",
-                    "simple_plus_coverage_credit": "Simple + coverage-weighted credit",
-                    "winner_plus_full_credit": "Winner + full credit",
-                    "forward_plus_full_credit": "Forward + full credit",
-                    "winner_plus_conservative_credit": "Winner + conservative credit",
                     "process_front_loaded_ops_penalty": "Process front + ops penalty",
                     "process_front_loaded_ethanol_geo": "Process front + ethanol geo",
                     "spot_simple": "Spot simple",
@@ -68928,7 +68961,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 (
                     9,
                     12,
-                    "Official market model\nApproximate market crush uses a weighted ethanol benchmark less delivered corn (CBOT corn + official weighted corn basis) and fixed natural gas burden. Official corn basis uses actual GPRE bids when available for current / forward periods and weighted AMS proxy otherwise. GPRE crush proxy is the only row allowed to add company-specific timing, quarter-open blend, ops penalty, or ethanol geography logic on top of that simple benchmark.",
+                    "Official market model\nApproximate market crush uses a weighted ethanol benchmark less delivered corn (CBOT corn + official weighted corn basis) and fixed natural gas burden. Official corn basis prefers dated GPRE plant bids when available for the relevant frame or quarter, including historical quarters with retained snapshots; otherwise it falls back to active-capacity-weighted AMS basis using mapped state/regional series and deterministic fallbacks. GPRE crush proxy is the only row allowed to add company-specific timing, quarter-open blend, ops penalty, or ethanol geography logic on top of that simple benchmark.",
                 ),
                 (
                     13,
@@ -70435,6 +70468,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     best_coproduct_spec = dict(
                         coproduct_experimental_specs_by_key.get(best_coproduct_experimental_model_key) or {}
                     )
+                    previous_coproduct_reference_label = (
+                        _sandbox_model_label(coproduct_experimental_legacy_reference_model_key)
+                        or str(coproduct_experimental_legacy_reference_row.get("method_label") or "")
+                        or "Simple + 50% credit"
+                    )
                     summary_rows = [
                         ("Best coproduct-aware experimental lens", _sandbox_model_label(best_coproduct_experimental_model_key)),
                         ("Definition", str(best_coproduct_spec.get("rule") or "")),
@@ -70444,6 +70482,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         ("Next quarter thesis ($/gal)", _coproduct_experimental_frame_value(best_coproduct_experimental_model_key, "next_quarter_thesis")),
                         ("Best historical coproduct-aware", _sandbox_model_label(best_coproduct_experimental_historical_model_key)),
                         ("Best forward coproduct-aware", _sandbox_model_label(best_coproduct_experimental_forward_model_key)),
+                        ("Previous best coproduct-aware (reference)", previous_coproduct_reference_label),
                         ("Current production winner (reference)", _sandbox_model_label(production_winner_model_key)),
                         ("Promotion status", "Experimental only"),
                     ]
@@ -72283,13 +72322,29 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         align_left_center_wrap if cc in {1, 6, 10, 12} else align_center if cc in {2, 3, 4, 5, 8, 9} else align_left_center
                     )
                 ws.cell(row=row_idx, column=1, value=rec.get("region_label"))
-                plant_cell = ws.cell(row=row_idx, column=2, value=rec.get("active_capacity_mmgy"))
+                plant_cell = ws.cell(
+                    row=row_idx,
+                    column=2,
+                    value=rec.get("active_capacity_mmgy") if rec.get("active_capacity_mmgy") is not None else rec.get("capacity_mmgy"),
+                )
                 weight_cell = ws.cell(row=row_idx, column=3, value=rec.get("weight"))
-                ethanol_cell = ws.cell(row=row_idx, column=4, value=rec.get("ethanol_value_usd_per_gal"))
+                ethanol_cell = ws.cell(
+                    row=row_idx,
+                    column=4,
+                    value=rec.get("ethanol_value_usd_per_gal") if rec.get("ethanol_value_usd_per_gal") is not None else rec.get("ethanol_usd_per_gal"),
+                )
                 ws.cell(row=row_idx, column=6, value=rec.get("ethanol_series_label"))
-                basis_cents_cell = ws.cell(row=row_idx, column=8, value=rec.get("basis_value_cents_per_bu"))
-                basis_usd_cell = ws.cell(row=row_idx, column=9, value=rec.get("basis_value_usd_per_bu"))
-                ws.cell(row=row_idx, column=10, value=rec.get("basis_series_label"))
+                basis_cents_cell = ws.cell(
+                    row=row_idx,
+                    column=8,
+                    value=rec.get("basis_value_cents_per_bu") if rec.get("basis_value_cents_per_bu") is not None else rec.get("basis_cents_per_bu"),
+                )
+                basis_usd_cell = ws.cell(
+                    row=row_idx,
+                    column=9,
+                    value=rec.get("basis_value_usd_per_bu") if rec.get("basis_value_usd_per_bu") is not None else rec.get("basis_usd_per_bu"),
+                )
+                ws.cell(row=row_idx, column=10, value=rec.get("basis_series_label") or rec.get("proxy_method"))
                 ws.cell(row=row_idx, column=12, value=rec.get("fallback_note") or "Primary mapped series used.")
                 if pd.notna(pd.to_numeric(plant_cell.value, errors="coerce")):
                     plant_cell.number_format = "0.0"
@@ -72564,6 +72619,65 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return ""
             return f"{source_sheet_name}!{ref_txt}" if source_sheet_name else ref_txt
 
+        def _official_corn_basis_snapshot_display(snapshot_in: Optional[Dict[str, Any]]) -> str:
+            meta = _snapshot_market_meta(snapshot_in, "corn_price")
+            snapshot_date_val = (
+                meta.get("official_corn_basis_snapshot_date")
+                if isinstance(meta, dict)
+                else None
+            )
+            if not isinstance(snapshot_date_val, date) and isinstance(snapshot_in, dict):
+                snapshot_date_val = (
+                    snapshot_in.get("official_corn_basis_snapshot_date")
+                    or snapshot_in.get("snapshot_date")
+                )
+            if not isinstance(snapshot_date_val, date):
+                parsed_snapshot_date = pd.to_datetime(snapshot_date_val, errors="coerce")
+                if pd.notna(parsed_snapshot_date):
+                    snapshot_date_val = pd.Timestamp(parsed_snapshot_date).date()
+            if isinstance(snapshot_date_val, date):
+                return snapshot_date_val.isoformat()
+            source_kind_txt = (
+                str(meta.get("official_corn_basis_source_kind") or "").strip()
+                if isinstance(meta, dict)
+                else ""
+            )
+            if not source_kind_txt and isinstance(snapshot_in, dict):
+                source_kind_txt = str(snapshot_in.get("official_corn_basis_source_kind") or "").strip()
+            if source_kind_txt == "weighted_ams_proxy":
+                return "AMS fallback"
+            return ""
+
+        def _official_corn_basis_selection_rule_display(
+            snapshot_in: Optional[Dict[str, Any]],
+            *,
+            fallback_rule: str,
+        ) -> str:
+            meta = _snapshot_market_meta(snapshot_in, "corn_price")
+            selection_rule_txt = (
+                str(meta.get("official_corn_basis_selection_rule") or "").strip()
+                if isinstance(meta, dict)
+                else ""
+            )
+            if not selection_rule_txt and isinstance(snapshot_in, dict):
+                selection_rule_txt = str(
+                    snapshot_in.get("official_corn_basis_selection_rule")
+                    or snapshot_in.get("selection_rule")
+                    or ""
+                ).strip()
+            if not selection_rule_txt:
+                selection_rule_txt = str(fallback_rule or "").strip()
+            source_kind_txt = (
+                str(meta.get("official_corn_basis_source_kind") or "").strip()
+                if isinstance(meta, dict)
+                else ""
+            )
+            if not source_kind_txt and isinstance(snapshot_in, dict):
+                source_kind_txt = str(snapshot_in.get("official_corn_basis_source_kind") or "").strip()
+            if source_kind_txt == "weighted_ams_proxy":
+                return f"{selection_rule_txt} / AMS fallback" if selection_rule_txt else "AMS fallback"
+            return selection_rule_txt
+
         def _write_gpre_approx_market_crush_build_up_section(
             target_ws: Any,
             start_row_in: int,
@@ -72588,6 +72702,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 "natural_gas_burden": subheader_row + 6,
                 "coproduct_credit": subheader_row + 7,
                 "process_margin": subheader_row + 8,
+                "corn_basis_snapshot_date": subheader_row + 9,
+                "corn_basis_selection_rule": subheader_row + 10,
             }
             econ_defs_local = [
                 ("ethanol_revenue", "Ethanol revenue contribution", "$/bushel", "Yield * ethanol price"),
@@ -72598,6 +72714,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 ("natural_gas_burden", "Natural gas burden", "$/bushel", "Natural gas usage * gas price"),
                 ("coproduct_credit", "Approximate coproduct credit", "$/bushel", "Distillers + Ultra-high protein + corn oil contributions"),
                 ("process_margin", "Approximate market crush", "$/gal", "Market crush estimate with natural gas cost and GPRE corn basis, weighted to active capacity, and converted to $/gal."),
+                ("corn_basis_snapshot_date", "Official corn basis snapshot date", "date/text", "Retained GPRE corn-bid snapshot date used by the official corn-basis leg only; AMS fallback when no eligible retained snapshot exists."),
+                ("corn_basis_selection_rule", "Official corn basis selection rule", "rule/text", "Frame-specific retained-snapshot selector used by the official corn-basis leg; AMS fallback appears only when no eligible retained snapshot exists."),
             ]
             source_coeff_ref = {k: _sheet_ref(f"$B${r}", source_sheet_name) for k, r in coeff_rows.items()}
             source_prior_ref = {k: _sheet_ref(f"$B${r}", source_sheet_name) for k, r in market_rows.items()}
@@ -72761,6 +72879,44 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     ),
                 )
 
+            frame_snapshot_display_values = {
+                "prior_quarter": _official_corn_basis_snapshot_display(prior_q_market_snapshot),
+                "quarter_open": _official_corn_basis_snapshot_display(quarter_open_market_snapshot),
+                "current_qtd": _official_corn_basis_snapshot_display(current_qtd_market_snapshot),
+                "next_quarter_thesis": _official_corn_basis_snapshot_display(
+                    next_quarter_thesis_snapshot.get("corn") if isinstance(next_quarter_thesis_snapshot, dict) else None
+                ),
+            }
+            frame_selection_rule_display_values = {
+                "prior_quarter": _official_corn_basis_selection_rule_display(
+                    prior_q_market_snapshot,
+                    fallback_rule="latest_snapshot_on_or_before_quarter_end",
+                ),
+                "quarter_open": _official_corn_basis_selection_rule_display(
+                    quarter_open_market_snapshot,
+                    fallback_rule="latest_snapshot_on_or_before_quarter_start",
+                ),
+                "current_qtd": _official_corn_basis_selection_rule_display(
+                    current_qtd_market_snapshot,
+                    fallback_rule="latest_snapshot_on_or_before_as_of",
+                ),
+                "next_quarter_thesis": _official_corn_basis_selection_rule_display(
+                    next_quarter_thesis_snapshot.get("corn") if isinstance(next_quarter_thesis_snapshot, dict) else None,
+                    fallback_rule="latest_snapshot_on_or_before_as_of_with_target_quarter_rows",
+                ),
+            }
+            for frame_key, value_col in frame_cols.items():
+                build_ws.cell(
+                    row=econ_rows_local["corn_basis_snapshot_date"],
+                    column=value_col,
+                    value=frame_snapshot_display_values.get(frame_key) or "",
+                )
+                build_ws.cell(
+                    row=econ_rows_local["corn_basis_selection_rule"],
+                    column=value_col,
+                    value=frame_selection_rule_display_values.get(frame_key) or "",
+                )
+
             process_margin_refs = {
                 frame_key: f"{build_ws.title}!${get_column_letter(frame_cols[frame_key])}${econ_rows_local['process_margin']}"
                 for frame_key in frame_cols
@@ -72772,7 +72928,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 "subheader_row": subheader_row,
                 "econ_rows": econ_rows_local,
                 "process_margin_refs": process_margin_refs,
-                "next_row": econ_rows_local["process_margin"],
+                "next_row": econ_rows_local["corn_basis_selection_rule"],
             }
 
         _record_writer_substage("write_excel.drivers.render.economics_overlay.market_inputs", overlay_market_inputs_started)
@@ -72942,14 +73098,22 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             history_col_value = 38  # AL
             thesis_col_date = 39  # AM
             thesis_col_value = 40  # AN
-            boundary_col_date = 41  # AO
-            boundary_col_value = 42  # AP
-            label_col_date = 43  # AQ
-            label_col_value = 44  # AR
+            prior_preview_col_date = 41  # AO
+            prior_preview_col_value = 42  # AP
+            current_preview_col_date = 43  # AQ
+            current_preview_col_value = 44  # AR
+            boundary_col_date = 51  # AY
+            boundary_col_value = 52  # AZ
+            label_col_date = 53  # BA
+            label_col_value = 54  # BB
             ws.column_dimensions[get_column_letter(history_col_date)].hidden = True
             ws.column_dimensions[get_column_letter(history_col_value)].hidden = True
             ws.column_dimensions[get_column_letter(thesis_col_date)].hidden = True
             ws.column_dimensions[get_column_letter(thesis_col_value)].hidden = True
+            ws.column_dimensions[get_column_letter(prior_preview_col_date)].hidden = True
+            ws.column_dimensions[get_column_letter(prior_preview_col_value)].hidden = True
+            ws.column_dimensions[get_column_letter(current_preview_col_date)].hidden = True
+            ws.column_dimensions[get_column_letter(current_preview_col_value)].hidden = True
             ws.column_dimensions[get_column_letter(boundary_col_date)].hidden = True
             ws.column_dimensions[get_column_letter(boundary_col_value)].hidden = True
             ws.column_dimensions[get_column_letter(label_col_date)].hidden = True
@@ -72959,6 +73123,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             ws.cell(row=helper_start_row, column=history_col_value, value="Simple crush margin proxy ($/gal)")
             ws.cell(row=helper_start_row, column=thesis_col_date, value="Thesis week ending")
             ws.cell(row=helper_start_row, column=thesis_col_value, value="Thesis crush margin proxy ($/gal)")
+            ws.cell(row=helper_start_row, column=prior_preview_col_date, value="Prior quarter week ending")
+            ws.cell(row=helper_start_row, column=prior_preview_col_value, value="Prior quarter ($/gal)")
+            ws.cell(row=helper_start_row, column=current_preview_col_date, value="Current QTD week ending")
+            ws.cell(row=helper_start_row, column=current_preview_col_value, value="Current QTD ($/gal)")
             ws.cell(row=helper_start_row, column=boundary_col_date, value="Quarter boundary")
             ws.cell(row=helper_start_row, column=boundary_col_value, value="Quarter boundary value")
             ws.cell(row=helper_start_row, column=label_col_date, value="Quarter label date")
@@ -73004,7 +73172,64 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     ws.cell(row=target_row, column=thesis_col_value, value=thesis_formula)
                     ws.cell(row=target_row, column=thesis_col_value).number_format = "$0.000"
 
+                prior_preview_start = None
+                prior_preview_end = None
+                current_preview_start = None
+                current_preview_end = None
+                if isinstance(prior_market_display_quarter, date):
+                    prior_preview_start, prior_preview_end = _quarter_bounds_from_end_date(prior_market_display_quarter)
+                if isinstance(current_market_display_quarter, date):
+                    current_preview_start, current_preview_end = _quarter_bounds_from_end_date(current_market_display_quarter)
+                prior_preview_mid = (
+                    prior_preview_start + timedelta(days=max(((prior_preview_end - prior_preview_start).days // 2), 0))
+                    if isinstance(prior_preview_start, date) and isinstance(prior_preview_end, date)
+                    else None
+                )
+                current_preview_mid = (
+                    current_preview_start + timedelta(days=max(((current_preview_end - current_preview_start).days // 2), 0))
+                    if isinstance(current_preview_start, date) and isinstance(current_preview_end, date)
+                    else None
+                )
+                prior_preview_formula = (
+                    f'=IF(ISNUMBER(B{official_proxy_comp_row}),B{official_proxy_comp_row},NA())'
+                    if official_proxy_comp_row > 0
+                    else '=NA()'
+                )
+                current_preview_formula = (
+                    f'=IF(ISNUMBER(F{official_proxy_comp_row}),F{official_proxy_comp_row},NA())'
+                    if official_proxy_comp_row > 0
+                    else '=NA()'
+                )
+                prior_preview_rows = (
+                    (helper_start_row + 1, prior_preview_start),
+                    (helper_start_row + 2, prior_preview_mid),
+                    (helper_start_row + 3, prior_preview_end),
+                )
+                current_preview_rows = (
+                    (helper_start_row + 1, current_preview_start),
+                    (helper_start_row + 2, current_preview_mid),
+                    (helper_start_row + 3, current_preview_end),
+                )
+                for target_row, target_date in prior_preview_rows:
+                    if isinstance(target_date, date):
+                        ws.cell(row=target_row, column=prior_preview_col_date, value=target_date)
+                        ws.cell(row=target_row, column=prior_preview_col_date).number_format = "yyyy-mm-dd"
+                        ws.cell(row=target_row, column=prior_preview_col_value, value=prior_preview_formula)
+                        ws.cell(row=target_row, column=prior_preview_col_value).number_format = "$0.000"
+                for target_row, target_date in current_preview_rows:
+                    if isinstance(target_date, date):
+                        ws.cell(row=target_row, column=current_preview_col_date, value=target_date)
+                        ws.cell(row=target_row, column=current_preview_col_date).number_format = "yyyy-mm-dd"
+                        ws.cell(row=target_row, column=current_preview_col_value, value=current_preview_formula)
+                        ws.cell(row=target_row, column=current_preview_col_value).number_format = "$0.000"
+
                 y_values = list(history_values)
+                prior_preview_val = _gpre_preview_frame_value("official_frames", "prior_quarter")
+                current_preview_val = _gpre_preview_frame_value("official_frames", "current_qtd")
+                if prior_preview_val is not None:
+                    y_values.append(float(prior_preview_val))
+                if current_preview_val is not None:
+                    y_values.append(float(current_preview_val))
                 next_thesis_preview_val = _gpre_preview_frame_value("official_frames", "next_quarter_thesis")
                 if next_thesis_preview_val is not None:
                     y_values.append(float(next_thesis_preview_val))
@@ -73079,16 +73304,37 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     chart.series[0].marker.symbol = "none"
                 except Exception:
                     pass
+                prior_preview_data_ref = Reference(ws, min_col=prior_preview_col_value, min_row=helper_start_row + 1, max_row=helper_start_row + 3)
+                prior_preview_x_ref = Reference(ws, min_col=prior_preview_col_date, min_row=helper_start_row + 1, max_row=helper_start_row + 3)
+                prior_preview_series = Series(prior_preview_data_ref, xvalues=prior_preview_x_ref, title="Prior quarter ($/gal)")
+                chart.series.append(prior_preview_series)
+                try:
+                    chart.series[1].graphicalProperties.line.solidFill = "2F80ED"
+                    chart.series[1].graphicalProperties.line.width = 25400
+                    chart.series[1].graphicalProperties.line.dashStyle = "sysDash"
+                    chart.series[1].marker.symbol = "none"
+                except Exception:
+                    pass
+                current_preview_data_ref = Reference(ws, min_col=current_preview_col_value, min_row=helper_start_row + 1, max_row=helper_start_row + 3)
+                current_preview_x_ref = Reference(ws, min_col=current_preview_col_date, min_row=helper_start_row + 1, max_row=helper_start_row + 3)
+                current_preview_series = Series(current_preview_data_ref, xvalues=current_preview_x_ref, title="Current QTD ($/gal)")
+                chart.series.append(current_preview_series)
+                try:
+                    chart.series[2].graphicalProperties.line.solidFill = "2F80ED"
+                    chart.series[2].graphicalProperties.line.width = 25400
+                    chart.series[2].graphicalProperties.line.dashStyle = "sysDash"
+                    chart.series[2].marker.symbol = "none"
+                except Exception:
+                    pass
                 thesis_data_ref = Reference(ws, min_col=thesis_col_value, min_row=thesis_start_row, max_row=thesis_end_row)
                 thesis_x_ref = Reference(ws, min_col=thesis_col_date, min_row=thesis_start_row, max_row=thesis_end_row)
                 thesis_series = Series(thesis_data_ref, xvalues=thesis_x_ref, title="Next quarter thesis ($/gal)")
                 chart.series.append(thesis_series)
                 try:
-                    chart.series[1].graphicalProperties.line.solidFill = "2F80ED"
-                    chart.series[1].graphicalProperties.line.width = 31750
-                    chart.series[1].graphicalProperties.line.dashStyle = "sysDash"
-                    chart.series[1].marker.symbol = "diamond"
-                    chart.series[1].marker.size = 11
+                    chart.series[3].graphicalProperties.line.solidFill = "2F80ED"
+                    chart.series[3].graphicalProperties.line.width = 31750
+                    chart.series[3].graphicalProperties.line.dashStyle = "sysDash"
+                    chart.series[3].marker.symbol = "none"
                 except Exception:
                     pass
                 y_span = max(float(y_max) - float(y_min), 0.10)
@@ -73216,11 +73462,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                             "_preview_priority": -1,
                         }
                 preview_priority = {
+                    "prior_quarter": 0,
                     "quarter_open": 1,
                     "current_qtd": 2,
                     "next_quarter_thesis": 3,
                 }
                 preview_quarter_specs = [
+                    ("prior_quarter", prior_market_display_quarter, 2),
                     ("quarter_open", quarter_open_display_quarter, 4),
                     ("current_qtd", current_market_display_quarter, 6),
                     ("next_quarter_thesis", next_thesis_quarter_end, 8),
@@ -73284,11 +73532,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     quarterly_col_official = 46  # AT
                     quarterly_col_fitted = 47  # AU
                     quarterly_col_best_forward = 48  # AV
+                    quarterly_col_zero_ref = 55  # BC
                     for helper_col in (
                         quarterly_col_label,
                         quarterly_col_official,
                         quarterly_col_fitted,
                         quarterly_col_best_forward,
+                        quarterly_col_zero_ref,
                     ):
                         ws.column_dimensions[get_column_letter(helper_col)].hidden = True
                     quarterly_helper_start_row = quarterly_chart_title_row
@@ -73296,6 +73546,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     ws.cell(row=quarterly_helper_start_row, column=quarterly_col_official, value="Approximate market crush ($/gal)")
                     ws.cell(row=quarterly_helper_start_row, column=quarterly_col_fitted, value="GPRE crush proxy ($/gal)")
                     ws.cell(row=quarterly_helper_start_row, column=quarterly_col_best_forward, value="Best forward lens ($/gal)")
+                    ws.cell(row=quarterly_helper_start_row, column=quarterly_col_zero_ref, value="Zero reference line")
                     quarterly_helper_last_row = quarterly_helper_start_row
                     quarterly_y_values: List[float] = []
                     for helper_row, rec in enumerate(quarterly_chart_rows, start=quarterly_helper_start_row + 1):
@@ -73337,6 +73588,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         if pd.notna(best_forward_num):
                             quarterly_y_values.append(float(best_forward_num))
                         quarterly_helper_last_row = helper_row
+                    zero_reference_enabled = (
+                        bool(quarterly_y_values)
+                        and min(float(val) for val in quarterly_y_values) < 0.0
+                        and max(float(val) for val in quarterly_y_values) > 0.0
+                    )
+                    if zero_reference_enabled:
+                        for helper_row in range(quarterly_helper_start_row + 1, quarterly_helper_last_row + 1):
+                            ws.cell(row=helper_row, column=quarterly_col_zero_ref, value=0.0)
+                            ws.cell(row=helper_row, column=quarterly_col_zero_ref).number_format = "#,##0.000"
 
                     ws.merge_cells(start_row=quarterly_chart_title_row, start_column=chart_start_col, end_row=quarterly_chart_title_row, end_column=chart_end_col)
                     quarterly_title_cell = ws.cell(
@@ -73373,7 +73633,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     quarterly_chart.y_axis.minorTickMark = "none"
                     quarterly_chart.visible_cells_only = False
                     try:
-                        quarterly_chart.legend.position = "r"
+                        quarterly_chart.legend.position = "t"
+                        quarterly_chart.legend.overlay = True
                     except Exception:
                         pass
 
@@ -73385,6 +73646,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         max_row=quarterly_helper_last_row,
                     )
                     quarterly_chart.add_data(quarterly_data_ref, titles_from_data=True, from_rows=False)
+                    if zero_reference_enabled:
+                        zero_ref = Reference(
+                            ws,
+                            min_col=quarterly_col_zero_ref,
+                            min_row=quarterly_helper_start_row,
+                            max_row=quarterly_helper_last_row,
+                        )
+                        quarterly_chart.add_data(zero_ref, titles_from_data=True, from_rows=False)
                     _apply_chart_text_categories(
                         quarterly_chart,
                         sheet_name=ws.title,
@@ -73413,6 +73682,28 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         quarterly_chart.series[2].marker.size = 7
                     except Exception:
                         pass
+                    if zero_reference_enabled and len(quarterly_chart.series) >= 4:
+                        try:
+                            quarterly_chart.series[3].graphicalProperties.line.solidFill = "808080"
+                            quarterly_chart.series[3].graphicalProperties.line.width = 6350
+                            quarterly_chart.series[3].graphicalProperties.line.dashStyle = "sysDot"
+                            quarterly_chart.series[3].marker.symbol = "none"
+                            quarterly_chart.legend.legendEntry = [LegendEntry(idx=3, delete=True)]
+                        except Exception:
+                            pass
+                    for series_idx in range(min(len(quarterly_chart.series), 3)):
+                        try:
+                            quarterly_chart.series[series_idx].dLbls = DataLabelList(
+                                showLegendKey=False,
+                                showVal=True,
+                                showSerName=False,
+                                showCatName=False,
+                                showLeaderLines=False,
+                                dLblPos="r",
+                                numFmt="#,##0.000",
+                            )
+                        except Exception:
+                            pass
 
                     if quarterly_y_values:
                         quarterly_y_min = min(quarterly_y_values)
@@ -73591,12 +73882,90 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     credit_value = pd.to_numeric(basis_proxy_ws.cell(row=history_row, column=history_credit_per_gal_col).value, errors="coerce")
                     if isinstance(quarter_end, date) and pd.notna(credit_value):
                         available_credit_rows.append((quarter_end, history_row))
-            chart_credit_rows: List[Tuple[date, int]] = []
+            chart_credit_rows: List[Dict[str, Any]] = []
             if available_credit_rows:
-                chart_floor_quarter = date(2023, 3, 31)
-                last_12_floor = available_credit_rows[max(len(available_credit_rows) - 12, 0)][0]
-                chart_start_quarter = max(chart_floor_quarter, last_12_floor)
-                chart_credit_rows = [(quarter_end, history_row) for quarter_end, history_row in available_credit_rows if quarter_end >= chart_start_quarter]
+                chart_credit_rows_by_end: Dict[date, Dict[str, Any]] = {}
+                historical_credit_quarter_ends: Set[date] = set()
+                frame_credit_col = int(frame_value_col_map.get("coproduct_credit_per_gal") or 0)
+                for quarter_end, history_row in available_credit_rows:
+                    quarter_label_txt = str(basis_proxy_ws.cell(row=history_row, column=history_quarter_col).value or "").strip()
+                    history_credit_formula = f"=Basis_Proxy_Sandbox!${get_column_letter(history_credit_per_gal_col)}${history_row}"
+                    history_credit_num = pd.to_numeric(
+                        basis_proxy_ws.cell(row=history_row, column=history_credit_per_gal_col).value,
+                        errors="coerce",
+                    )
+                    if not quarter_label_txt or pd.isna(history_credit_num):
+                        continue
+                    chart_credit_rows_by_end[quarter_end] = {
+                        "quarter_end": quarter_end,
+                        "quarter_label": quarter_label_txt,
+                        "formula": history_credit_formula,
+                        "value": float(history_credit_num),
+                        "_preview_priority": -1,
+                    }
+                    if isinstance(prior_market_display_quarter, date) and quarter_end < prior_market_display_quarter:
+                        historical_credit_quarter_ends.add(quarter_end)
+                preview_priority = {
+                    "prior_quarter": 0,
+                    "current_qtd": 2,
+                    "next_quarter_thesis": 3,
+                }
+                for frame_key, target_quarter_end in (
+                    ("prior_quarter", prior_market_display_quarter),
+                    ("current_qtd", current_market_display_quarter),
+                    ("next_quarter_thesis", next_thesis_quarter_end),
+                ):
+                    if not isinstance(target_quarter_end, date):
+                        continue
+                    if target_quarter_end in historical_credit_quarter_ends:
+                        continue
+                    frame_row_num = int(frame_rows_by_key.get(frame_key) or 0)
+                    if frame_row_num <= 0 or frame_credit_col <= 0:
+                        continue
+                    frame_credit_num = pd.to_numeric(
+                        basis_proxy_ws.cell(row=frame_row_num, column=frame_credit_col).value,
+                        errors="coerce",
+                    )
+                    if pd.isna(frame_credit_num):
+                        continue
+                    existing_rec = chart_credit_rows_by_end.get(target_quarter_end)
+                    if existing_rec is None:
+                        existing_rec = {
+                            "quarter_end": target_quarter_end,
+                            "quarter_label": _quarter_label_short(target_quarter_end),
+                            "formula": "",
+                            "value": None,
+                            "_preview_priority": -1,
+                        }
+                        chart_credit_rows_by_end[target_quarter_end] = existing_rec
+                    if int(existing_rec.get("_preview_priority") or -1) > int(preview_priority.get(frame_key, 0)):
+                        continue
+                    existing_rec["_preview_priority"] = int(preview_priority.get(frame_key, 0))
+                    existing_rec["quarter_label"] = _quarter_label_short(target_quarter_end)
+                    existing_rec["formula"] = f"=Basis_Proxy_Sandbox!${get_column_letter(frame_credit_col)}${frame_row_num}"
+                    existing_rec["value"] = float(frame_credit_num)
+                resolved_chart_credit_rows = [
+                    {
+                        key: value
+                        for key, value in rec.items()
+                        if key != "_preview_priority"
+                    }
+                    for _, rec in sorted(chart_credit_rows_by_end.items(), key=lambda item: item[0])
+                    if isinstance(rec.get("quarter_end"), date)
+                    and str(rec.get("quarter_label") or "").strip()
+                    and pd.notna(pd.to_numeric(rec.get("value"), errors="coerce"))
+                    and str(rec.get("formula") or "").strip()
+                ]
+                if resolved_chart_credit_rows:
+                    chart_floor_quarter = date(2023, 3, 31)
+                    last_12_floor = resolved_chart_credit_rows[max(len(resolved_chart_credit_rows) - 12, 0)].get("quarter_end")
+                    if isinstance(last_12_floor, date):
+                        chart_floor_quarter = max(chart_floor_quarter, last_12_floor)
+                    chart_credit_rows = [
+                        rec
+                        for rec in resolved_chart_credit_rows
+                        if isinstance(rec.get("quarter_end"), date) and rec.get("quarter_end") >= chart_floor_quarter
+                    ]
             if basis_proxy_ws is not None and len(chart_credit_rows) >= 4:
                 coproduct_chart_title_row = 182
                 coproduct_chart_anchor_row = 183
@@ -73638,19 +74007,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 )
                 coproduct_helper_last_row = coproduct_helper_start_row
                 coproduct_chart_y_values: List[float] = []
-                for helper_row, (_history_quarter_end, history_row) in enumerate(chart_credit_rows, start=coproduct_helper_start_row + 1):
-                    quarter_label_txt = str(basis_proxy_ws.cell(row=history_row, column=history_quarter_col).value or "").strip()
-                    per_gal_num = pd.to_numeric(
-                        basis_proxy_ws.cell(row=history_row, column=history_credit_per_gal_col).value,
-                        errors="coerce",
-                    )
+                for helper_row, rec in enumerate(chart_credit_rows, start=coproduct_helper_start_row + 1):
+                    quarter_label_txt = str(rec.get("quarter_label") or "").strip()
+                    per_gal_num = pd.to_numeric(rec.get("value"), errors="coerce")
+                    helper_formula = str(rec.get("formula") or "").strip()
                     if not quarter_label_txt or pd.isna(per_gal_num):
                         continue
                     ws.cell(row=helper_row, column=coproduct_helper_label_col, value=quarter_label_txt)
                     helper_value_cell = ws.cell(
                         row=helper_row,
                         column=coproduct_helper_value_col,
-                        value=f"=Basis_Proxy_Sandbox!${get_column_letter(history_credit_per_gal_col)}${history_row}",
+                        value=helper_formula or None,
                     )
                     helper_value_cell.number_format = "#,##0.000"
                     coproduct_chart_y_values.append(float(per_gal_num))
@@ -73700,6 +74067,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     coproduct_chart.series[0].graphicalProperties.line.width = 19050
                     coproduct_chart.series[0].marker.symbol = "circle"
                     coproduct_chart.series[0].marker.size = 7
+                    coproduct_chart.series[0].dLbls = DataLabelList(
+                        showLegendKey=False,
+                        showVal=True,
+                        showSerName=False,
+                        showCatName=False,
+                        showLeaderLines=False,
+                        dLblPos="b",
+                        numFmt="#,##0.000",
+                    )
                 except Exception:
                     pass
                 if coproduct_chart_y_values:
@@ -73727,7 +74103,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     (8, 9, "Coverage"),
                     (10, 11, "Source mode"),
                 ]
-                mini_history_rows = list(reversed(chart_credit_rows[-8:]))
+                mini_history_rows = list(reversed(available_credit_rows[-8:]))
                 ws.merge_cells(start_row=mini_history_title_row, start_column=2, end_row=mini_history_title_row, end_column=11)
                 mini_history_title = ws.cell(row=mini_history_title_row, column=2, value="Recent coproduct history")
                 mini_history_title.fill = copy(section_fill)

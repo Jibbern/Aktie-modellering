@@ -45,6 +45,26 @@
 4. `Quarter_Notes_UI`, `SUMMARY`, and `Valuation` are written to the workbook.
 5. The saved workbook is reopened and verified against expected output.
 
+## Data Handoff Boundaries
+- `stock_models.py`
+  - Operator-facing workflow switchboard.
+  - Decides whether the run stops at ingest/refresh, market-data maintenance, or proceeds into workbook export.
+- `pipeline_orchestration.py`
+  - Main artifact assembler.
+  - Produces the normalized intermediate bundle that downstream code should treat as the canonical pipeline output.
+- `pipeline.py`
+  - Compatibility bridge.
+  - Keeps the older tuple/wide-call surfaces alive while internally routing work through `PipelineArtifacts` and `WorkbookInputs`.
+- `excel_writer_context.py`
+  - Run-scoped workbook state boundary.
+  - Initializes the workbook plus the per-export caches that later sheet writers reuse.
+- `excel_writer.py`
+  - Save/readback truth boundary.
+  - Converts a rendered in-memory workbook into a delivered file and validates the saved file, not just the pre-save workbook object.
+- `market_data/service.py`
+  - Market-data cache boundary.
+  - Translates raw source files and local bootstrap inputs into the parsed/export artifacts the workbook consumes.
+
 ## Cache Policy
 - `doc_intel_bundle` and `company_overview` stage-cache keys now include explicit behavior versions plus code signatures.
 - This is intended to keep code patches from being hidden behind stale stage cache.

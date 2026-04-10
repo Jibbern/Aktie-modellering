@@ -109,6 +109,20 @@ For the current `GPRE` economics-overlay source precedence, local ethanol-future
 4. `excel_writer_context` coordinates the workbook write and delegates repeated per-export analysis to the writer runtime helpers.
 5. `excel_writer.py` and `stock_models.py` save, reopen, and validate the delivered workbook.
 
+## What Each Stage Hands To The Next One
+- Ingest / refresh
+  - hands local cache trees, filing metadata, and market-data raw files to the runtime.
+- `pipeline_orchestration`
+  - hands a `PipelineArtifacts` bundle containing normalized history, audit frames, evidence outputs, QA, and workbook-side support frames.
+- `pipeline.py`
+  - hands a single `WorkbookInputs` object to the writer instead of many ad hoc dataframe parameters.
+- `excel_writer_context`
+  - hands a populated `WriterContext` plus run-scoped helper caches to the individual sheet writers.
+- Sheet writers
+  - hand a fully rendered in-memory workbook back to `excel_writer.py`.
+- `excel_writer.py`
+  - hands the saved workbook path plus readback provenance back to `stock_models.py`, which decides whether the export is accepted.
+
 ## Most Important Files To Read First
 1. [`stock_models.py`](/c:/Users/Jibbe/Aktier/Code/stock_models.py)
 2. [`pbi_xbrl/pipeline_orchestration.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/pipeline_orchestration.py)

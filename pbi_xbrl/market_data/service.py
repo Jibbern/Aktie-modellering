@@ -82,6 +82,9 @@ _GPRE_CORN_BIDS_DIRECT_URLS: Tuple[str, ...] = (
 _GPRE_CORN_BIDS_DIRNAME = "corn_bids"
 _GPRE_CORN_BIDS_HTML_FILENAME = "grain_gpre_home.html"
 _GPRE_CORN_BIDS_CSV_FILENAME = "gpre_corn_bids_snapshot.csv"
+_GPRE_CORN_BIDS_RAW_SNAPSHOTS_DIRNAME = "raw_snapshots"
+_GPRE_CORN_BIDS_PARSED_SNAPSHOTS_DIRNAME = "parsed_snapshots"
+_GPRE_CORN_BIDS_MANIFEST_FILENAME = "manifest.json"
 _GPRE_COPRODUCT_SOURCE_PRIORITY: Tuple[str, ...] = ("nwer", "ams_3618")
 _GPRE_COPRODUCT_REGION_SERIES_CANDIDATES: Dict[str, Dict[str, Tuple[str, ...]]] = {
     "renewable_corn_oil_price": {
@@ -105,90 +108,162 @@ _GPRE_COPRODUCT_REGION_SERIES_CANDIDATES: Dict[str, Dict[str, Tuple[str, ...]]] 
 }
 _GPRE_COPRODUCT_EXPERIMENTAL_SPECS: Tuple[Dict[str, Any], ...] = (
     {
-        "model_key": "simple_plus_full_credit",
-        "pred_col": "coproduct_simple_plus_full_credit_usd_per_gal",
-        "method_label": "Simple + full credit",
-        "rule": "Approximate market crush + full approximate coproduct credit",
+        "model_key": "simple_plus_10pct_credit",
+        "pred_col": "coproduct_simple_plus_10pct_credit_usd_per_gal",
+        "method_label": "Simple + 10% credit",
+        "rule": "Approximate market crush + 10% of approximate coproduct credit",
         "base_model_kind": "official",
-        "credit_scale": 1.0,
+        "credit_scale": 0.10,
         "coverage_power": 0.0,
-        "candidate_method_family": "market crush + full credit",
-        "signal_dependency_note": "Adds the full approximate coproduct credit ($/gal) onto the simple official market/process row.",
+        "candidate_method_family": "market crush + fractional credit",
+        "signal_dependency_note": "Adds a deliberately small 10% coproduct credit overlay onto the simple official row.",
         "forward_usability_rating": "high",
         "complexity_rating": "low",
         "preview_supported": True,
     },
     {
-        "model_key": "simple_plus_half_credit",
-        "pred_col": "coproduct_simple_plus_half_credit_usd_per_gal",
-        "method_label": "Simple + 50% credit",
-        "rule": "Approximate market crush + 50% of approximate coproduct credit",
+        "model_key": "simple_plus_15pct_credit",
+        "pred_col": "coproduct_simple_plus_15pct_credit_usd_per_gal",
+        "method_label": "Simple + 15% credit",
+        "rule": "Approximate market crush + 15% of approximate coproduct credit",
         "base_model_kind": "official",
-        "credit_scale": 0.5,
+        "credit_scale": 0.15,
         "coverage_power": 0.0,
-        "candidate_method_family": "market crush + scaled credit",
-        "signal_dependency_note": "Adds a deliberately damped 50% coproduct credit overlay onto the simple official row.",
+        "candidate_method_family": "market crush + fractional credit",
+        "signal_dependency_note": "Adds a deliberately small 15% coproduct credit overlay onto the simple official row.",
         "forward_usability_rating": "high",
         "complexity_rating": "low",
         "preview_supported": True,
     },
     {
-        "model_key": "simple_plus_coverage_credit",
-        "pred_col": "coproduct_simple_plus_coverage_credit_usd_per_gal",
-        "method_label": "Simple + coverage-weighted credit",
-        "rule": "Approximate market crush + coverage x approximate coproduct credit",
+        "model_key": "simple_plus_20pct_credit",
+        "pred_col": "coproduct_simple_plus_20pct_credit_usd_per_gal",
+        "method_label": "Simple + 20% credit",
+        "rule": "Approximate market crush + 20% of approximate coproduct credit",
         "base_model_kind": "official",
-        "credit_scale": 1.0,
+        "credit_scale": 0.20,
+        "coverage_power": 0.0,
+        "candidate_method_family": "market crush + fractional credit",
+        "signal_dependency_note": "Adds a deliberately small 20% coproduct credit overlay onto the simple official row.",
+        "forward_usability_rating": "high",
+        "complexity_rating": "low",
+        "preview_supported": True,
+    },
+    {
+        "model_key": "simple_plus_25pct_credit",
+        "pred_col": "coproduct_simple_plus_25pct_credit_usd_per_gal",
+        "method_label": "Simple + 25% credit",
+        "rule": "Approximate market crush + 25% of approximate coproduct credit",
+        "base_model_kind": "official",
+        "credit_scale": 0.25,
+        "coverage_power": 0.0,
+        "candidate_method_family": "market crush + fractional credit",
+        "signal_dependency_note": "Adds a deliberately small 25% coproduct credit overlay onto the simple official row.",
+        "forward_usability_rating": "high",
+        "complexity_rating": "low",
+        "preview_supported": True,
+    },
+    {
+        "model_key": "simple_plus_30pct_credit",
+        "pred_col": "coproduct_simple_plus_30pct_credit_usd_per_gal",
+        "method_label": "Simple + 30% credit",
+        "rule": "Approximate market crush + 30% of approximate coproduct credit",
+        "base_model_kind": "official",
+        "credit_scale": 0.30,
+        "coverage_power": 0.0,
+        "candidate_method_family": "market crush + fractional credit",
+        "signal_dependency_note": "Adds a deliberately small 30% coproduct credit overlay onto the simple official row.",
+        "forward_usability_rating": "high",
+        "complexity_rating": "low",
+        "preview_supported": True,
+    },
+    {
+        "model_key": "simple_plus_10pct_coverage_credit",
+        "pred_col": "coproduct_simple_plus_10pct_coverage_credit_usd_per_gal",
+        "method_label": "Simple + 10% coverage credit",
+        "rule": "Approximate market crush + 10% x coverage x approximate coproduct credit",
+        "base_model_kind": "official",
+        "credit_scale": 0.10,
         "coverage_power": 1.0,
-        "candidate_method_family": "market crush + coverage-aware credit",
-        "signal_dependency_note": "Scales the coproduct overlay by direct market-leg coverage to damp low-coverage quarters automatically.",
-        "forward_usability_rating": "high",
+        "candidate_method_family": "market crush + fractional coverage credit",
+        "signal_dependency_note": "Adds a small coverage-weighted coproduct overlay so low-coverage quarters damp automatically.",
+        "forward_usability_rating": "medium",
         "complexity_rating": "moderate",
         "preview_supported": True,
     },
     {
-        "model_key": "winner_plus_full_credit",
-        "pred_col": "coproduct_winner_plus_full_credit_usd_per_gal",
-        "method_label": "Winner + full credit",
-        "rule": "Current production winner + full approximate coproduct credit",
-        "base_model_kind": "winner",
-        "credit_scale": 1.0,
+        "model_key": "simple_plus_20pct_coverage_credit",
+        "pred_col": "coproduct_simple_plus_20pct_coverage_credit_usd_per_gal",
+        "method_label": "Simple + 20% coverage credit",
+        "rule": "Approximate market crush + 20% x coverage x approximate coproduct credit",
+        "base_model_kind": "official",
+        "credit_scale": 0.20,
+        "coverage_power": 1.0,
+        "candidate_method_family": "market crush + fractional coverage credit",
+        "signal_dependency_note": "Adds a moderate coverage-weighted coproduct overlay so low-coverage quarters damp automatically.",
+        "forward_usability_rating": "medium",
+        "complexity_rating": "moderate",
+        "preview_supported": True,
+    },
+    {
+        "model_key": "simple_plus_30pct_coverage_credit",
+        "pred_col": "coproduct_simple_plus_30pct_coverage_credit_usd_per_gal",
+        "method_label": "Simple + 30% coverage credit",
+        "rule": "Approximate market crush + 30% x coverage x approximate coproduct credit",
+        "base_model_kind": "official",
+        "credit_scale": 0.30,
+        "coverage_power": 1.0,
+        "candidate_method_family": "market crush + fractional coverage credit",
+        "signal_dependency_note": "Adds a larger coverage-weighted coproduct overlay so low-coverage quarters damp automatically.",
+        "forward_usability_rating": "medium",
+        "complexity_rating": "moderate",
+        "preview_supported": True,
+    },
+    {
+        "model_key": "simple_plus_25pct_credit_less_2c",
+        "pred_col": "coproduct_simple_plus_25pct_credit_less_2c_usd_per_gal",
+        "method_label": "Simple + 25% credit less 2c",
+        "rule": "Approximate market crush + 25% of approximate coproduct credit - $0.02/gal friction",
+        "base_model_kind": "official",
+        "credit_scale": 0.25,
         "coverage_power": 0.0,
-        "candidate_method_family": "production winner + full credit",
-        "signal_dependency_note": "Adds the full coproduct credit overlay to the current production winner as a bounded comparison-only challenger.",
-        "forward_usability_rating": "high",
+        "friction_offset_usd_per_gal": 0.02,
+        "candidate_method_family": "market crush + netted fractional credit",
+        "signal_dependency_note": "Applies a simple fractional coproduct overlay, then subtracts a fixed 2c/gal friction haircut.",
+        "forward_usability_rating": "medium",
         "complexity_rating": "moderate",
         "preview_supported": True,
     },
     {
-        "model_key": "forward_plus_full_credit",
-        "pred_col": "coproduct_forward_plus_full_credit_usd_per_gal",
-        "method_label": "Forward + full credit",
-        "rule": "Best forward lens + full approximate coproduct credit",
-        "base_model_kind": "forward",
-        "credit_scale": 1.0,
-        "coverage_power": 0.0,
-        "candidate_method_family": "forward lens + full credit",
-        "signal_dependency_note": "Applies the full coproduct overlay to the current best forward lens to test a forward-friendly coproduct-aware variant.",
-        "forward_usability_rating": "high",
-        "complexity_rating": "moderate",
-        "preview_supported": True,
-    },
-    {
-        "model_key": "winner_plus_conservative_credit",
-        "pred_col": "coproduct_winner_plus_conservative_credit_usd_per_gal",
-        "method_label": "Winner + conservative credit",
-        "rule": "Current production winner + coverage^2 x approximate coproduct credit",
-        "base_model_kind": "winner",
-        "credit_scale": 1.0,
-        "coverage_power": 2.0,
-        "candidate_method_family": "production winner + conservative coverage damping",
-        "signal_dependency_note": "Uses squared coverage to damp the coproduct overlay aggressively when the direct market-leg footprint is not fully covered.",
+        "model_key": "simple_plus_30pct_coverage_credit_less_2c",
+        "pred_col": "coproduct_simple_plus_30pct_coverage_credit_less_2c_usd_per_gal",
+        "method_label": "Simple + 30% coverage credit less 2c",
+        "rule": "Approximate market crush + 30% x coverage x approximate coproduct credit - $0.02/gal friction",
+        "base_model_kind": "official",
+        "credit_scale": 0.30,
+        "coverage_power": 1.0,
+        "friction_offset_usd_per_gal": 0.02,
+        "candidate_method_family": "market crush + netted fractional coverage credit",
+        "signal_dependency_note": "Applies a coverage-weighted fractional overlay, then subtracts a fixed 2c/gal friction haircut.",
         "forward_usability_rating": "medium",
         "complexity_rating": "moderate",
         "preview_supported": True,
     },
 )
+_GPRE_COPRODUCT_EXPERIMENTAL_LEGACY_REFERENCE_SPEC: Dict[str, Any] = {
+    "model_key": "simple_plus_half_credit",
+    "pred_col": "coproduct_simple_plus_half_credit_usd_per_gal",
+    "method_label": "Simple + 50% credit",
+    "rule": "Approximate market crush + 50% of approximate coproduct credit",
+    "base_model_kind": "official",
+    "credit_scale": 0.50,
+    "coverage_power": 0.0,
+    "candidate_method_family": "legacy coproduct reference",
+    "signal_dependency_note": "Legacy Stage C reference row retained only for comparison against the tighter fractional family.",
+    "forward_usability_rating": "high",
+    "complexity_rating": "low",
+    "preview_supported": True,
+}
 
 
 def _normalize_raw_manifest_entry(entry: Dict[str, Any], *, source: str, provider: Any) -> Optional[Dict[str, Any]]:
@@ -669,6 +744,17 @@ def sync_market_cache(
     refresh: bool = False,
     reparse: bool = False,
 ) -> SyncSummary:
+    """Keep market-data raw, parsed, and export layers aligned for one ticker.
+
+    Output expectations:
+    - `raw/` and raw manifests reflect the currently discoverable source files
+    - `parsed/` observation/quarter parquet files reflect the active parser behavior
+    - `parsed/exports/<TICKER>.parquet` is the workbook-facing flat dataset consumed by
+      the overlay/basis logic
+
+    For GPRE this function is also where ticker-local USDA working folders and retained
+    corn-bid snapshots are folded into the shared cache/export flow.
+    """
     # Sync keeps the raw/index/parsed/export layers aligned. The final export parquet is
     # the workbook-facing artifact; manifests are the bookkeeping layer that lets us
     # reuse parsed outputs when the raw fingerprint has not changed.
@@ -1778,6 +1864,430 @@ def parse_gpre_corn_bids_html(
     return rows
 
 
+def _gpre_corn_bids_storage_root(ticker_root: Optional[Path]) -> Optional[Path]:
+    if not isinstance(ticker_root, Path):
+        return None
+    return ticker_root / _GPRE_CORN_BIDS_DIRNAME
+
+
+def _gpre_corn_bids_manifest_path(storage_root: Path) -> Path:
+    return storage_root / _GPRE_CORN_BIDS_MANIFEST_FILENAME
+
+
+def _gpre_corn_bids_raw_archive_path(storage_root: Path, snapshot_date: date) -> Path:
+    return storage_root / _GPRE_CORN_BIDS_RAW_SNAPSHOTS_DIRNAME / snapshot_date.isoformat() / _GPRE_CORN_BIDS_HTML_FILENAME
+
+
+def _gpre_corn_bids_parsed_archive_path(storage_root: Path, snapshot_date: date) -> Path:
+    return storage_root / _GPRE_CORN_BIDS_PARSED_SNAPSHOTS_DIRNAME / snapshot_date.isoformat() / _GPRE_CORN_BIDS_CSV_FILENAME
+
+
+def _gpre_parse_snapshot_date_like(value: Any) -> Optional[date]:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    txt = str(value or "").strip()
+    if not txt:
+        return None
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(txt, fmt).date()
+        except Exception:
+            continue
+    parsed = pd.to_datetime(txt, errors="coerce")
+    if pd.notna(parsed):
+        return pd.Timestamp(parsed).date()
+    return None
+
+
+def _gpre_infer_snapshot_date_from_rows(rows: Iterable[Dict[str, Any]]) -> Optional[date]:
+    explicit_dates: List[date] = []
+    delivery_dates: List[date] = []
+    for raw_row in rows or []:
+        if not isinstance(raw_row, dict):
+            continue
+        for key in ("snapshot_date", "as_of", "page_last_updated_text"):
+            snap_dt = _gpre_parse_snapshot_date_like(raw_row.get(key))
+            if isinstance(snap_dt, date):
+                explicit_dates.append(snap_dt)
+        delivery_dt = _gpre_parse_snapshot_date_like(raw_row.get("delivery_end"))
+        if isinstance(delivery_dt, date):
+            delivery_dates.append(delivery_dt)
+    if explicit_dates:
+        return max(explicit_dates)
+    # Fixture-support fallback: if a provided snapshot omits archive metadata,
+    # fall back to the latest delivery row date so the snapshot remains visible
+    # in diagnostics. Archived/live paths should provide a true snapshot date.
+    if delivery_dates:
+        return max(delivery_dates)
+    return None
+
+
+def _gpre_corn_bids_page_last_updated_text(html_text: str) -> str:
+    html_blob = str(html_text or "")
+    if not html_blob.strip():
+        return ""
+    match = re.search(
+        r"Last\s+Updated\s+(?P<stamp>\d{1,2}/\d{1,2}/\d{2,4}(?:\s+\d{1,2}:\d{2}\s*[AP]M)?)",
+        html_blob,
+        re.I,
+    )
+    if not match:
+        return ""
+    return str(match.group("stamp") or "").strip()
+
+
+def _gpre_corn_bids_rows_from_csv(csv_path: Path) -> List[Dict[str, Any]]:
+    try:
+        frame = pd.read_csv(csv_path)
+    except Exception:
+        return []
+    rows: List[Dict[str, Any]] = []
+    for rec in frame.to_dict("records"):
+        row = dict(rec)
+        delivery_end = _gpre_parse_snapshot_date_like(row.get("delivery_end"))
+        if isinstance(delivery_end, date):
+            row["delivery_end"] = delivery_end
+        else:
+            row["delivery_end"] = None
+        for key in ("cash_price", "basis_usd_per_bu", "basis_cents_per_bu"):
+            num = pd.to_numeric(row.get(key), errors="coerce")
+            row[key] = None if pd.isna(num) else float(num)
+        if row.get("basis_cents_per_bu") is None and row.get("basis_usd_per_bu") is not None:
+            row["basis_cents_per_bu"] = float(row["basis_usd_per_bu"]) * 100.0
+        rows.append(row)
+    return rows
+
+
+def _gpre_corn_bids_manifest_entries(storage_root: Path) -> List[Dict[str, Any]]:
+    manifest_path = _gpre_corn_bids_manifest_path(storage_root)
+    if not manifest_path.exists():
+        return []
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    raw_entries = payload.get("snapshots") if isinstance(payload, dict) else payload
+    if not isinstance(raw_entries, list):
+        return []
+    out: List[Dict[str, Any]] = []
+    normalized = False
+    for raw_entry in raw_entries:
+        if not isinstance(raw_entry, dict):
+            continue
+        entry = dict(raw_entry)
+        snap_dt = _gpre_parse_snapshot_date_like(entry.get("snapshot_date"))
+        if not isinstance(snap_dt, date):
+            continue
+        for relkey in ("raw_relpath", "parsed_relpath"):
+            relval = str(entry.get(relkey) or "").strip()
+            normalized_relval = relval.replace("\\", "/")
+            if normalized_relval != relval:
+                entry[relkey] = normalized_relval
+                normalized = True
+        entry["snapshot_date"] = snap_dt
+        out.append(entry)
+    if normalized:
+        _write_gpre_corn_bids_manifest(storage_root, out)
+    return sorted(out, key=lambda rec: rec["snapshot_date"])
+
+
+def _write_gpre_corn_bids_manifest(storage_root: Path, entries: Iterable[Dict[str, Any]]) -> Path:
+    manifest_path = _gpre_corn_bids_manifest_path(storage_root)
+    serializable_entries: List[Dict[str, Any]] = []
+    for raw_entry in entries:
+        if not isinstance(raw_entry, dict):
+            continue
+        entry = dict(raw_entry)
+        snap_dt = _gpre_parse_snapshot_date_like(entry.get("snapshot_date"))
+        if not isinstance(snap_dt, date):
+            continue
+        entry["snapshot_date"] = snap_dt.isoformat()
+        serializable_entries.append(entry)
+    manifest_payload = {
+        "snapshots": sorted(serializable_entries, key=lambda rec: str(rec.get("snapshot_date") or "")),
+    }
+    manifest_path.write_text(json.dumps(manifest_payload, indent=2, sort_keys=False), encoding="utf-8")
+    return manifest_path
+
+
+def _gpre_annotated_corn_bids_summary(
+    rows: Iterable[Dict[str, Any]],
+    *,
+    target_date: Optional[date],
+    source_url: str,
+    source_kind: str,
+    snapshot_date: Optional[date],
+    selection_rule: str = "",
+    selection_note: str = "",
+    raw_path: Optional[Path] = None,
+    parsed_path: Optional[Path] = None,
+    manifest_path: Optional[Path] = None,
+    page_last_updated_text: str = "",
+) -> Dict[str, Any]:
+    summary = _summarize_gpre_corn_bids_rows(rows, as_of_date=target_date, source_url=source_url)
+    summary["source_kind"] = str(source_kind or "")
+    summary["snapshot_date"] = snapshot_date
+    summary["selection_rule"] = str(selection_rule or "")
+    summary["selection_note"] = str(selection_note or "")
+    summary["page_last_updated_text"] = str(page_last_updated_text or "")
+    if isinstance(raw_path, Path):
+        summary["raw_path"] = raw_path
+    if isinstance(parsed_path, Path):
+        summary["parsed_path"] = parsed_path
+    if isinstance(manifest_path, Path):
+        summary["manifest_path"] = manifest_path
+    return summary
+
+
+def _archive_gpre_corn_bids_snapshot(
+    storage_root: Path,
+    *,
+    snapshot_date: date,
+    html_text: str,
+    parsed_rows: Iterable[Dict[str, Any]],
+    source_url: str,
+    entry_url: str = _GPRE_CORN_BIDS_ENTRY_URL,
+    source_kind: str = "downloaded_html",
+) -> Dict[str, Any]:
+    storage_root.mkdir(parents=True, exist_ok=True)
+    raw_path = _gpre_corn_bids_raw_archive_path(storage_root, snapshot_date)
+    parsed_path = _gpre_corn_bids_parsed_archive_path(storage_root, snapshot_date)
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    parsed_path.parent.mkdir(parents=True, exist_ok=True)
+    html_blob = str(html_text or "")
+    row_list = [dict(rec) for rec in (parsed_rows or []) if isinstance(rec, dict)]
+    if html_blob.strip():
+        raw_path.write_text(html_blob, encoding="utf-8")
+    pd.DataFrame(row_list).to_csv(parsed_path, index=False)
+    delivery_ends = [rec.get("delivery_end") for rec in row_list if isinstance(rec.get("delivery_end"), date)]
+    manifest_entries = _gpre_corn_bids_manifest_entries(storage_root)
+    entry = {
+        "snapshot_date": snapshot_date,
+        "raw_relpath": (raw_path.relative_to(storage_root).as_posix() if raw_path.exists() else ""),
+        "parsed_relpath": parsed_path.relative_to(storage_root).as_posix(),
+        "source_url": str(source_url or ""),
+        "entry_url": str(entry_url or _GPRE_CORN_BIDS_ENTRY_URL),
+        "source_kind": str(source_kind or ""),
+        "row_count": int(len(row_list)),
+        "delivery_end_min": min(delivery_ends).isoformat() if delivery_ends else "",
+        "delivery_end_max": max(delivery_ends).isoformat() if delivery_ends else "",
+        "page_last_updated_text": _gpre_corn_bids_page_last_updated_text(html_blob),
+        "raw_fingerprint": (file_fingerprint(raw_path) if raw_path.exists() else ""),
+        "parsed_fingerprint": file_fingerprint(parsed_path),
+    }
+    manifest_entries = [
+        rec for rec in manifest_entries
+        if _gpre_parse_snapshot_date_like(rec.get("snapshot_date")) != snapshot_date
+    ]
+    manifest_entries.append(entry)
+    _write_gpre_corn_bids_manifest(storage_root, manifest_entries)
+    return {
+        **entry,
+        "snapshot_date": snapshot_date,
+        "raw_path": raw_path if raw_path.exists() else None,
+        "parsed_path": parsed_path,
+        "manifest_path": _gpre_corn_bids_manifest_path(storage_root),
+    }
+
+
+def _bootstrap_gpre_corn_bids_archive_from_latest(
+    storage_root: Path,
+    *,
+    as_of_date: Optional[date] = None,
+) -> List[Dict[str, Any]]:
+    existing_entries = _gpre_corn_bids_manifest_entries(storage_root)
+    if existing_entries:
+        return existing_entries
+    html_path = storage_root / _GPRE_CORN_BIDS_HTML_FILENAME
+    csv_path = storage_root / _GPRE_CORN_BIDS_CSV_FILENAME
+    html_text = ""
+    rows: List[Dict[str, Any]] = []
+    if html_path.exists() and html_path.is_file():
+        try:
+            html_text = html_path.read_text(encoding="utf-8", errors="ignore")
+            inferred_snapshot_date = (
+                _gpre_parse_snapshot_date_like(_gpre_corn_bids_page_last_updated_text(html_text))
+                or as_of_date
+                or _gpre_parse_snapshot_date_like(datetime.fromtimestamp(html_path.stat().st_mtime))
+                or date.today()
+            )
+            rows = parse_gpre_corn_bids_html(
+                html_text,
+                as_of_date=inferred_snapshot_date,
+                source_url=str(html_path),
+            )
+        except Exception:
+            rows = []
+    if not rows and csv_path.exists() and csv_path.is_file():
+        rows = _gpre_corn_bids_rows_from_csv(csv_path)
+        inferred_snapshot_date = (
+            as_of_date
+            or _gpre_parse_snapshot_date_like(datetime.fromtimestamp(csv_path.stat().st_mtime))
+            or date.today()
+        )
+    else:
+        inferred_snapshot_date = (
+            _gpre_parse_snapshot_date_like(_gpre_corn_bids_page_last_updated_text(html_text))
+            or as_of_date
+            or (_gpre_parse_snapshot_date_like(datetime.fromtimestamp(html_path.stat().st_mtime)) if html_path.exists() else None)
+        ) or as_of_date or date.today()
+    if not rows:
+        return existing_entries
+    _archive_gpre_corn_bids_snapshot(
+        storage_root,
+        snapshot_date=inferred_snapshot_date,
+        html_text=html_text,
+        parsed_rows=rows,
+        source_url=str(html_path if html_path.exists() else csv_path),
+        source_kind="legacy_local_bootstrap",
+    )
+    return _gpre_corn_bids_manifest_entries(storage_root)
+
+
+def _gpre_snapshot_cutoff_date(
+    *,
+    selection_mode: str,
+    target_quarter_end: Optional[date],
+    as_of_date: Optional[date],
+) -> Optional[date]:
+    mode = str(selection_mode or "").strip().lower()
+    if mode in {"prior_quarter", "historical_quarter"} and isinstance(target_quarter_end, date):
+        return target_quarter_end
+    if mode == "quarter_open" and isinstance(target_quarter_end, date):
+        quarter_start = pd.Timestamp(target_quarter_end).to_period("Q").start_time.normalize().date()
+        return quarter_start
+    if isinstance(as_of_date, date):
+        return as_of_date
+    return target_quarter_end
+
+
+def _gpre_snapshot_rows_have_target_quarter_delivery(
+    rows: Iterable[Dict[str, Any]],
+    *,
+    target_quarter_end: Optional[date],
+) -> bool:
+    if not isinstance(target_quarter_end, date):
+        return False
+    for rec in rows:
+        if not isinstance(rec, dict):
+            continue
+        delivery_end = rec.get("delivery_end")
+        if isinstance(delivery_end, date) and quarter_end_from_date(delivery_end) == target_quarter_end:
+            return True
+    return False
+
+
+def _load_gpre_corn_bids_rows_from_manifest_entry(
+    storage_root: Path,
+    entry: Dict[str, Any],
+) -> Tuple[List[Dict[str, Any]], Optional[Path], Optional[Path]]:
+    raw_relpath = str(entry.get("raw_relpath") or "").strip()
+    parsed_relpath = str(entry.get("parsed_relpath") or "").strip()
+    raw_path = (storage_root / raw_relpath).resolve() if raw_relpath else None
+    parsed_path = (storage_root / parsed_relpath).resolve() if parsed_relpath else None
+    rows: List[Dict[str, Any]] = []
+    if isinstance(parsed_path, Path) and parsed_path.exists() and parsed_path.is_file():
+        rows = _gpre_corn_bids_rows_from_csv(parsed_path)
+    if not rows and isinstance(raw_path, Path) and raw_path.exists() and raw_path.is_file():
+        try:
+            html_text = raw_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            html_text = ""
+        rows = parse_gpre_corn_bids_html(
+            html_text,
+            as_of_date=_gpre_parse_snapshot_date_like(entry.get("snapshot_date")),
+            source_url=str(entry.get("source_url") or raw_path),
+        )
+    return rows, raw_path, parsed_path
+
+
+def _gpre_snapshot_selection_rule_name(mode: str) -> str:
+    return {
+        "quarter_open": "latest_snapshot_on_or_before_quarter_start",
+        "next_quarter_thesis": "latest_snapshot_on_or_before_as_of_with_target_quarter_rows",
+        "prior_quarter": "latest_snapshot_on_or_before_quarter_end",
+        "historical_quarter": "latest_snapshot_on_or_before_quarter_end",
+    }.get(str(mode or "").strip().lower(), "latest_snapshot_on_or_before_as_of")
+
+
+def _load_archived_gpre_corn_bids_snapshot(
+    *,
+    ticker_root: Optional[Path],
+    target_date: Optional[date],
+    target_quarter_end: Optional[date],
+    selection_mode: str,
+    as_of_date: Optional[date],
+) -> Dict[str, Any]:
+    storage_root = _gpre_corn_bids_storage_root(ticker_root)
+    if storage_root is None or not storage_root.exists():
+        return {"status": "unavailable", "rows": [], "source_kind": "none"}
+    manifest_entries = _gpre_corn_bids_manifest_entries(storage_root)
+    if not manifest_entries:
+        manifest_entries = _bootstrap_gpre_corn_bids_archive_from_latest(storage_root, as_of_date=as_of_date)
+    if not manifest_entries:
+        return {"status": "unavailable", "rows": [], "source_kind": "none"}
+    cutoff_date = _gpre_snapshot_cutoff_date(
+        selection_mode=selection_mode,
+        target_quarter_end=target_quarter_end,
+        as_of_date=as_of_date,
+    )
+    mode = str(selection_mode or "").strip().lower()
+    target_start = (
+        pd.Timestamp(target_quarter_end).to_period("Q").start_time.normalize().date()
+        if isinstance(target_quarter_end, date)
+        else None
+    )
+    dated_entries: List[Dict[str, Any]] = []
+    for raw_entry in manifest_entries:
+        snap_dt = _gpre_parse_snapshot_date_like(raw_entry.get("snapshot_date"))
+        if not isinstance(snap_dt, date):
+            continue
+        if isinstance(cutoff_date, date) and snap_dt > cutoff_date:
+            continue
+        entry = dict(raw_entry)
+        entry["snapshot_date"] = snap_dt
+        dated_entries.append(entry)
+    if not dated_entries:
+        return {"status": "unavailable", "rows": [], "source_kind": "none"}
+    preferred_entries = sorted(dated_entries, key=lambda rec: rec["snapshot_date"], reverse=True)
+    if mode in {"prior_quarter", "historical_quarter"} and isinstance(target_start, date) and isinstance(target_quarter_end, date):
+        in_quarter = [
+            rec for rec in preferred_entries
+            if target_start <= rec["snapshot_date"] <= target_quarter_end
+        ]
+        older = [rec for rec in preferred_entries if rec not in in_quarter]
+        preferred_entries = [*in_quarter, *older]
+    selection_rule = _gpre_snapshot_selection_rule_name(mode)
+    for entry in preferred_entries:
+        rows, raw_path, parsed_path = _load_gpre_corn_bids_rows_from_manifest_entry(storage_root, entry)
+        if not rows:
+            continue
+        if mode == "next_quarter_thesis" and not _gpre_snapshot_rows_have_target_quarter_delivery(rows, target_quarter_end=target_quarter_end):
+            continue
+        snap_dt = _gpre_parse_snapshot_date_like(entry.get("snapshot_date"))
+        selection_note = (
+            "Retained historical snapshot inside target quarter."
+            if mode in {"prior_quarter", "historical_quarter"} and isinstance(target_start, date) and isinstance(snap_dt, date) and target_start <= snap_dt <= target_quarter_end
+            else ""
+        )
+        return _gpre_annotated_corn_bids_summary(
+            rows,
+            target_date=target_date or as_of_date,
+            source_url=str(entry.get("source_url") or parsed_path or raw_path or ""),
+            source_kind="archived_parsed_csv" if isinstance(parsed_path, Path) and parsed_path.exists() else "archived_raw_html",
+            snapshot_date=snap_dt,
+            selection_rule=selection_rule,
+            selection_note=selection_note,
+            raw_path=raw_path,
+            parsed_path=parsed_path,
+            manifest_path=_gpre_corn_bids_manifest_path(storage_root),
+            page_last_updated_text=str(entry.get("page_last_updated_text") or ""),
+        )
+    return {"status": "unavailable", "rows": [], "source_kind": "none"}
+
+
 def _summarize_gpre_corn_bids_rows(
     rows: Iterable[Dict[str, Any]],
     *,
@@ -1946,6 +2456,7 @@ def download_gpre_corn_bids_snapshot(
     storage_root.mkdir(parents=True, exist_ok=True)
     html_path = storage_root / _GPRE_CORN_BIDS_HTML_FILENAME
     csv_path = storage_root / _GPRE_CORN_BIDS_CSV_FILENAME
+    snapshot_date = as_of_date or date.today()
     payload = _fetch_gpre_corn_bids_html_payload(timeout_seconds=timeout_seconds)
     html_text = str(payload.get("html_text") or "")
     source_url = str(payload.get("source_url") or "")
@@ -1954,6 +2465,7 @@ def download_gpre_corn_bids_snapshot(
             "status": "unavailable",
             "html_path": html_path,
             "csv_path": csv_path,
+            "snapshot_date": snapshot_date,
             "source_url": source_url or _GPRE_CORN_BIDS_DIRECT_URLS[0],
             "entry_url": str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
             "error": str(payload.get("error") or ""),
@@ -1961,22 +2473,35 @@ def download_gpre_corn_bids_snapshot(
     html_path.write_text(html_text, encoding="utf-8")
     parsed_rows = parse_gpre_corn_bids_html(
         html_text,
-        as_of_date=as_of_date,
+        as_of_date=snapshot_date,
         source_url=source_url,
     )
     pd.DataFrame(parsed_rows).to_csv(csv_path, index=False)
     summary = _summarize_gpre_corn_bids_rows(
         parsed_rows,
-        as_of_date=as_of_date,
+        as_of_date=snapshot_date,
         source_url=source_url,
+    )
+    archive_entry = _archive_gpre_corn_bids_snapshot(
+        storage_root,
+        snapshot_date=snapshot_date,
+        html_text=html_text,
+        parsed_rows=parsed_rows,
+        source_url=source_url,
+        entry_url=str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
+        source_kind="downloaded_html",
     )
     summary.update(
         {
             "html_path": html_path,
             "csv_path": csv_path,
+            "snapshot_date": snapshot_date,
             "entry_url": str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
             "html_length": len(html_text),
             "source_kind": "downloaded_html",
+            "archive_raw_path": archive_entry.get("raw_path"),
+            "archive_parsed_path": archive_entry.get("parsed_path"),
+            "manifest_path": archive_entry.get("manifest_path"),
         }
     )
     return summary
@@ -2003,7 +2528,25 @@ def _load_local_gpre_corn_bids_snapshot(
     *,
     ticker_root: Optional[Path],
     as_of_date: Optional[date] = None,
+    target_date: Optional[date] = None,
+    target_quarter_end: Optional[date] = None,
+    selection_mode: str = "current_qtd",
 ) -> Dict[str, Any]:
+    archived_summary = _load_archived_gpre_corn_bids_snapshot(
+        ticker_root=ticker_root,
+        target_date=target_date,
+        target_quarter_end=target_quarter_end,
+        selection_mode=selection_mode,
+        as_of_date=as_of_date,
+    )
+    if str(archived_summary.get("status") or "").strip().lower() == "ok":
+        return archived_summary
+    cutoff_date = _gpre_snapshot_cutoff_date(
+        selection_mode=selection_mode,
+        target_quarter_end=target_quarter_end,
+        as_of_date=as_of_date,
+    )
+    mode = str(selection_mode or "").strip().lower()
     candidate_paths: List[Path] = []
     if isinstance(ticker_root, Path):
         candidate_paths.extend(
@@ -2032,12 +2575,35 @@ def _load_local_gpre_corn_bids_snapshot(
             continue
         try:
             html_text = path.read_text(encoding="utf-8", errors="ignore")
-            rows = parse_gpre_corn_bids_html(html_text, as_of_date=as_of_date, source_url=str(path))
+            ref_date = target_date or as_of_date
+            rows = parse_gpre_corn_bids_html(html_text, as_of_date=ref_date, source_url=str(path))
             if not rows:
                 continue
-            summary = _summarize_gpre_corn_bids_rows(rows, as_of_date=as_of_date, source_url=str(path))
+            summary = _gpre_annotated_corn_bids_summary(
+                rows,
+                target_date=ref_date,
+                source_url=str(path),
+                source_kind="local_html",
+                snapshot_date=(
+                    _gpre_parse_snapshot_date_like(_gpre_corn_bids_page_last_updated_text(html_text))
+                    or _gpre_parse_snapshot_date_like(datetime.fromtimestamp(path.stat().st_mtime))
+                ),
+                selection_rule="legacy_latest_file",
+                raw_path=path,
+                page_last_updated_text=_gpre_corn_bids_page_last_updated_text(html_text),
+            )
+            snap_dt = _gpre_parse_snapshot_date_like(summary.get("snapshot_date"))
+            if mode == "next_quarter_thesis" and not _gpre_snapshot_rows_have_target_quarter_delivery(
+                rows,
+                target_quarter_end=target_quarter_end,
+            ):
+                continue
+            if mode in {"prior_quarter", "historical_quarter", "quarter_open"}:
+                if not isinstance(snap_dt, date):
+                    continue
+                if isinstance(cutoff_date, date) and snap_dt > cutoff_date:
+                    continue
             summary["html_length"] = len(html_text)
-            summary["source_kind"] = "local_html"
             return summary
         except Exception:
             continue
@@ -2046,6 +2612,7 @@ def _load_local_gpre_corn_bids_snapshot(
         "rows": [],
         "source_url": "",
         "source_kind": "none",
+        "selection_rule": _gpre_snapshot_selection_rule_name(selection_mode),
     }
 
 
@@ -2054,14 +2621,56 @@ def _resolve_gpre_corn_bids_snapshot(
     *,
     ticker_root: Optional[Path],
     as_of_date: Optional[date] = None,
+    target_date: Optional[date] = None,
+    target_quarter_end: Optional[date] = None,
+    selection_mode: str = "current_qtd",
 ) -> Dict[str, Any]:
     effective = bids_snapshot if isinstance(bids_snapshot, dict) else {}
+    cutoff_date = _gpre_snapshot_cutoff_date(
+        selection_mode=selection_mode,
+        target_quarter_end=target_quarter_end,
+        as_of_date=as_of_date,
+    )
+    ref_date = target_date or as_of_date
     if str(effective.get("status") or "").strip().lower() == "ok":
-        return effective
+        row_list = effective.get("rows")
+        if not isinstance(row_list, list) or not row_list:
+            row_list = effective.get("nearest_rows")
+        if isinstance(row_list, list) and row_list:
+            explicit_snapshot_date = _gpre_parse_snapshot_date_like(
+                effective.get("snapshot_date")
+                or effective.get("as_of")
+                or effective.get("page_last_updated_text")
+            ) or _gpre_infer_snapshot_date_from_rows(row_list)
+            mode = str(selection_mode or "").strip().lower()
+            explicit_ok = mode in {"current_qtd", "next_quarter_thesis"}
+            if mode == "next_quarter_thesis":
+                explicit_ok = _gpre_snapshot_rows_have_target_quarter_delivery(
+                    row_list,
+                    target_quarter_end=target_quarter_end,
+                )
+            elif mode in {"prior_quarter", "historical_quarter", "quarter_open"}:
+                explicit_ok = isinstance(explicit_snapshot_date, date) and (
+                    not isinstance(cutoff_date, date) or explicit_snapshot_date <= cutoff_date
+                )
+            if explicit_ok:
+                return _gpre_annotated_corn_bids_summary(
+                    row_list,
+                    target_date=ref_date,
+                    source_url=str(effective.get("source_url") or ""),
+                    source_kind=str(effective.get("source_kind") or "provided_snapshot"),
+                    snapshot_date=explicit_snapshot_date,
+                    selection_rule="provided_snapshot",
+                    selection_note=str(effective.get("selection_note") or ""),
+                    page_last_updated_text=str(effective.get("page_last_updated_text") or ""),
+                )
     if isinstance(ticker_root, Path):
         return _load_local_gpre_corn_bids_snapshot(
             ticker_root=ticker_root,
             as_of_date=as_of_date,
+            target_date=target_date,
+            target_quarter_end=target_quarter_end,
+            selection_mode=selection_mode,
         )
     return effective
 
@@ -2115,8 +2724,16 @@ def _gpre_official_current_forward_basis_payload(
     as_of_date: Optional[date],
     ticker_root: Optional[Path],
     bids_snapshot: Optional[Dict[str, Any]],
+    selection_mode: str = "current_qtd",
     plant_capacity_history: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    """Resolve the official GPRE corn-basis leg for one frame or historical quarter.
+
+    The payload is intentionally richer than the final weighted basis number. It also
+    carries component rows, retained-snapshot provenance, fallback counts, and the
+    selection rule so the workbook can explain *why* a quarter used retained GPRE bids
+    or AMS fallback rather than only showing the final weighted result.
+    """
     rows_df = _market_rows_df(rows)
     active_plants = _gpre_active_plants_for_quarter(
         target_quarter_end,
@@ -2161,6 +2778,9 @@ def _gpre_official_current_forward_basis_payload(
         bids_snapshot,
         ticker_root=ticker_root,
         as_of_date=as_of_date,
+        target_date=target_date,
+        target_quarter_end=target_quarter_end,
+        selection_mode=selection_mode,
     )
     snapshot_rows = effective_snapshot.get("rows")
     if not isinstance(snapshot_rows, list) or not snapshot_rows:
@@ -2198,6 +2818,7 @@ def _gpre_official_current_forward_basis_payload(
         plant_weight = (plant_capacity / total_capacity) if total_capacity > 0.0 else 0.0
         bid_rec = _gpre_select_bid_row_for_target(snapshot_rows, location=location, target_date=target_date)
         bid_basis = pd.to_numeric((bid_rec or {}).get("basis_usd_per_bu"), errors="coerce")
+        delivery_label = str((bid_rec or {}).get("delivery_label") or "").strip()
         proxy_basis = None
         proxy_region = ""
         proxy_method = ""
@@ -2219,17 +2840,21 @@ def _gpre_official_current_forward_basis_payload(
         source_kind = "missing"
         note_bits: List[str] = []
         chosen_basis = None
+        basis_series_label = ""
+        basis_series_key = ""
         if pd.notna(bid_basis):
             chosen_basis = float(bid_basis)
             source_kind = "actual_gpre_bid"
             actual_count += 1
-            delivery_label = str((bid_rec or {}).get("delivery_label") or "").strip()
+            basis_series_label = "GPRE plant bid"
             if delivery_label:
                 note_bits.append(f"actual bid {delivery_label}")
         elif proxy_basis is not None:
             chosen_basis = float(proxy_basis)
             source_kind = "ams_proxy_fallback"
             fallback_count += 1
+            basis_series_key = f"corn_basis_{proxy_region or region}"
+            basis_series_label = _gpre_market_series_label(basis_series_key)
             if proxy_note:
                 note_bits.append(proxy_note)
             if proxy_method:
@@ -2244,15 +2869,21 @@ def _gpre_official_current_forward_basis_payload(
             {
                 "location": location,
                 "region": region,
+                "region_label": region.replace("_", " ").title(),
+                "active_capacity_mmgy": plant_capacity,
                 "weight": plant_weight,
                 "source_kind": source_kind,
                 "basis_usd_per_bu": chosen_basis,
                 "basis_cents_per_bu": (None if chosen_basis is None else float(chosen_basis) * 100.0),
+                "basis_value_usd_per_bu": chosen_basis,
+                "basis_value_cents_per_bu": (None if chosen_basis is None else float(chosen_basis) * 100.0),
+                "basis_series_key": basis_series_key,
+                "basis_series_label": basis_series_label,
                 "proxy_basis_usd_per_bu": proxy_basis,
                 "proxy_basis_cents_per_bu": (None if proxy_basis is None else float(proxy_basis) * 100.0),
                 "proxy_region": proxy_region,
                 "proxy_method": proxy_method,
-                "delivery_label": str((bid_rec or {}).get("delivery_label") or "").strip(),
+                "delivery_label": delivery_label,
                 "fallback_note": " | ".join(bit for bit in note_bits if bit),
             }
         )
@@ -2269,15 +2900,27 @@ def _gpre_official_current_forward_basis_payload(
         basis_source_label = "weighted AMS basis proxy"
     source_kind_txt = str(effective_snapshot.get("source_kind") or "").strip() or "live_html"
     source_url_txt = str(effective_snapshot.get("source_url") or "").strip()
+    snapshot_date_txt = ""
+    snapshot_date = _gpre_parse_snapshot_date_like(effective_snapshot.get("snapshot_date"))
+    if isinstance(snapshot_date, date):
+        snapshot_date_txt = snapshot_date.isoformat()
+    selection_rule_txt = str(effective_snapshot.get("selection_rule") or "").strip()
+    selection_note_txt = str(effective_snapshot.get("selection_note") or "").strip()
     provenance = (
         f"{basis_source_label.title()} for {actual_count}/{int(len(active_plants))} plants"
         if actual_count > 0
-        else "No actual current GPRE bids available; using weighted AMS basis proxy"
+        else "No usable retained GPRE bids available; using weighted AMS basis proxy"
     )
     if fallback_count > 0:
         provenance += f"; AMS fallback for {fallback_count}/{int(len(active_plants))} plants"
     if missing_count > 0:
         provenance += f"; missing basis for {missing_count}/{int(len(active_plants))} plants"
+    if snapshot_date_txt:
+        provenance += f"; retained snapshot {snapshot_date_txt}"
+    if selection_rule_txt:
+        provenance += f"; selection {selection_rule_txt}"
+    if selection_note_txt:
+        provenance += f"; {selection_note_txt}"
     if source_url_txt:
         provenance += f". Source: {source_kind_txt}."
     else:
@@ -2291,10 +2934,14 @@ def _gpre_official_current_forward_basis_payload(
         "official_actual_bid_plant_count": int(actual_count),
         "official_fallback_plant_count": int(fallback_count),
         "official_missing_plant_count": int(missing_count),
+        "official_basis_coverage_ratio": float(official_cov),
         "official_active_capacity_mmgy": total_capacity,
         "component_rows": component_rows,
         "source_url": source_url_txt,
         "source_kind": source_kind_txt,
+        "snapshot_date": snapshot_date,
+        "selection_rule": selection_rule_txt,
+        "selection_note": selection_note_txt,
     }
 
 
@@ -2911,6 +3558,15 @@ def build_gpre_official_proxy_snapshot(
     bids_snapshot: Optional[Dict[str, Any]] = None,
     plant_capacity_history: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    """Build the official/simple GPRE market snapshot used by visible workbook rows.
+
+    This is the main bridge from flat export rows into the `Approximate market crush`
+    product surface. It combines:
+    - weighted corn-basis selection/provenance
+    - weekly process observations inside the selected calendar window
+    - averaged current or prior-quarter market/process values
+    - workbook-facing metadata used by Economics_Overlay and Basis_Proxy_Sandbox
+    """
     rows_df = _market_rows_df(rows)
     if prior_quarter:
         _, current_q_end = calendar_quarter_bounds(as_of_date=as_of_date)
@@ -2925,18 +3581,18 @@ def build_gpre_official_proxy_snapshot(
         no_data_message = "No current-quarter market observations available."
         calendar_quarter = window_end
         display_quarter = window_end
-    basis_payload = None
-    if not prior_quarter:
-        target_date = as_of_date if isinstance(as_of_date, date) else window_end
-        basis_payload = _gpre_official_current_forward_basis_payload(
-            rows_df,
-            target_date=target_date,
-            target_quarter_end=window_end,
-            as_of_date=as_of_date,
-            ticker_root=ticker_root,
-            bids_snapshot=bids_snapshot,
-            plant_capacity_history=plant_capacity_history,
-        )
+    target_date = window_end if prior_quarter else (as_of_date if isinstance(as_of_date, date) else window_end)
+    basis_as_of_date = window_end if prior_quarter else as_of_date
+    basis_payload = _gpre_official_current_forward_basis_payload(
+        rows_df,
+        target_date=target_date,
+        target_quarter_end=window_end,
+        as_of_date=basis_as_of_date,
+        ticker_root=ticker_root,
+        bids_snapshot=bids_snapshot,
+        selection_mode="prior_quarter" if prior_quarter else "current_qtd",
+        plant_capacity_history=plant_capacity_history,
+    )
     weekly_rows = _gpre_official_proxy_weekly_rows(
         rows_df,
         ethanol_yield=ethanol_yield,
@@ -3007,6 +3663,20 @@ def build_gpre_official_proxy_snapshot(
                     str((basis_payload or {}).get("official_corn_basis_provenance") or "").strip()
                     or str(next((rec.get("corn_basis_provenance") for rec in weekly_rows if str(rec.get("corn_basis_provenance") or "").strip()), "") or "")
                 ),
+                "official_corn_basis_snapshot_date": (
+                    _gpre_parse_snapshot_date_like((basis_payload or {}).get("snapshot_date"))
+                    or _gpre_parse_snapshot_date_like(
+                        next(
+                            (
+                                rec.get("corn_basis_snapshot_date")
+                                for rec in weekly_rows
+                                if _gpre_parse_snapshot_date_like(rec.get("corn_basis_snapshot_date"))
+                            ),
+                            None,
+                        )
+                    )
+                ),
+                "official_corn_basis_selection_rule": str((basis_payload or {}).get("selection_rule") or "").strip(),
                 "official_actual_bid_plant_count": int((basis_payload or {}).get("official_actual_bid_plant_count") or 0),
                 "official_fallback_plant_count": int((basis_payload or {}).get("official_fallback_plant_count") or 0),
                 "weighted_ams_basis_proxy_usd_per_bu": pd.to_numeric(
@@ -3058,6 +3728,8 @@ def build_gpre_official_proxy_snapshot(
         "official_corn_basis_source_kind": market_meta["corn_price"].get("official_corn_basis_source_kind"),
         "official_corn_basis_source_label": market_meta["corn_price"].get("official_corn_basis_source_label"),
         "official_corn_basis_provenance": market_meta["corn_price"].get("official_corn_basis_provenance"),
+        "official_corn_basis_snapshot_date": market_meta["corn_price"].get("official_corn_basis_snapshot_date"),
+        "official_corn_basis_selection_rule": market_meta["corn_price"].get("official_corn_basis_selection_rule"),
         "official_actual_bid_plant_count": market_meta["corn_price"].get("official_actual_bid_plant_count"),
         "official_fallback_plant_count": market_meta["corn_price"].get("official_fallback_plant_count"),
     }
@@ -3442,6 +4114,7 @@ def build_next_quarter_thesis_snapshot(
         as_of_date=as_of_date,
         ticker_root=ticker_root,
         bids_snapshot=bids_snapshot,
+        selection_mode="next_quarter_thesis",
         plant_capacity_history=plant_capacity_history,
     )
     if isinstance(corn_ref, dict):
@@ -3452,6 +4125,8 @@ def build_next_quarter_thesis_snapshot(
                 "official_corn_basis_source_kind": corn_basis_payload.get("official_corn_basis_source_kind"),
                 "official_corn_basis_source_label": corn_basis_payload.get("official_corn_basis_source_label"),
                 "official_corn_basis_provenance": corn_basis_payload.get("official_corn_basis_provenance"),
+                "official_corn_basis_snapshot_date": corn_basis_payload.get("snapshot_date"),
+                "official_corn_basis_selection_rule": corn_basis_payload.get("selection_rule"),
                 "official_actual_bid_plant_count": corn_basis_payload.get("official_actual_bid_plant_count"),
                 "official_fallback_plant_count": corn_basis_payload.get("official_fallback_plant_count"),
                 "weighted_ams_basis_proxy_usd_per_bu": corn_basis_payload.get("weighted_ams_basis_proxy_usd_per_bu"),
@@ -3648,6 +4323,33 @@ def _resolve_local_manual_gpre_quarter_open_snapshot(
         plant_capacity_history=plant_capacity_history,
     )
     thesis_snapshot = dict(thesis_snapshot or {})
+    quarter_open_basis_payload = _gpre_official_current_forward_basis_payload(
+        rows,
+        target_date=current_quarter_start,
+        target_quarter_end=current_quarter_end,
+        as_of_date=prior_quarter_end,
+        ticker_root=ticker_root,
+        bids_snapshot=bids_snapshot,
+        selection_mode="quarter_open",
+        plant_capacity_history=plant_capacity_history,
+    )
+    corn_ref = thesis_snapshot.get("corn")
+    if isinstance(corn_ref, dict):
+        corn_ref = dict(corn_ref)
+        corn_ref.update(
+            {
+                "official_weighted_corn_basis_usd_per_bu": quarter_open_basis_payload.get("official_weighted_corn_basis_usd_per_bu"),
+                "official_corn_basis_source_kind": quarter_open_basis_payload.get("official_corn_basis_source_kind"),
+                "official_corn_basis_source_label": quarter_open_basis_payload.get("official_corn_basis_source_label"),
+                "official_corn_basis_provenance": quarter_open_basis_payload.get("official_corn_basis_provenance"),
+                "official_corn_basis_snapshot_date": quarter_open_basis_payload.get("snapshot_date"),
+                "official_corn_basis_selection_rule": quarter_open_basis_payload.get("selection_rule"),
+                "official_actual_bid_plant_count": quarter_open_basis_payload.get("official_actual_bid_plant_count"),
+                "official_fallback_plant_count": quarter_open_basis_payload.get("official_fallback_plant_count"),
+                "weighted_ams_basis_proxy_usd_per_bu": quarter_open_basis_payload.get("weighted_ams_basis_proxy_usd_per_bu"),
+            }
+        )
+        thesis_snapshot["corn"] = corn_ref
     thesis_snapshot["ethanol"] = dict(quarter_open_ethanol_ref)
     official_market_snapshot = build_gpre_next_quarter_preview_snapshot(
         rows,
@@ -3854,6 +4556,8 @@ def build_gpre_next_quarter_preview_snapshot(
             "official_corn_basis_source_kind": str((corn_ref or {}).get("official_corn_basis_source_kind") or "").strip(),
             "official_corn_basis_source_label": corn_basis_label,
             "official_corn_basis_provenance": corn_basis_provenance,
+            "official_corn_basis_snapshot_date": _gpre_parse_snapshot_date_like((corn_ref or {}).get("official_corn_basis_snapshot_date") or (corn_ref or {}).get("snapshot_date")),
+            "official_corn_basis_selection_rule": str((corn_ref or {}).get("official_corn_basis_selection_rule") or (corn_ref or {}).get("selection_rule") or "").strip(),
             "cbot_corn_front_price_usd_per_bu": (None if pd.isna(corn_price) else float(corn_price)),
         },
         "ethanol_price": {
@@ -3918,6 +4622,8 @@ def build_gpre_next_quarter_preview_snapshot(
         "official_corn_basis_source_kind": str((corn_ref or {}).get("official_corn_basis_source_kind") or "").strip(),
         "official_corn_basis_source_label": corn_basis_label,
         "official_corn_basis_provenance": corn_basis_provenance,
+        "official_corn_basis_snapshot_date": _gpre_parse_snapshot_date_like((corn_ref or {}).get("official_corn_basis_snapshot_date") or (corn_ref or {}).get("snapshot_date")),
+        "official_corn_basis_selection_rule": str((corn_ref or {}).get("official_corn_basis_selection_rule") or (corn_ref or {}).get("selection_rule") or "").strip(),
         "official_actual_bid_plant_count": int((corn_ref or {}).get("official_actual_bid_plant_count") or 0),
         "official_fallback_plant_count": int((corn_ref or {}).get("official_fallback_plant_count") or 0),
         "ethanol_strip_method": ethanol_strip_method or None,
@@ -3965,6 +4671,7 @@ def build_gpre_overlay_proxy_preview_bundle(
             as_of_date=today_ref,
             prior_quarter=True,
             ticker_root=ticker_root,
+            bids_snapshot=bids_snapshot,
             plant_capacity_history=plant_capacity_history,
         )
     )
@@ -5981,6 +6688,17 @@ _GPRE_UNSUPPORTED_CAPACITY_MGY: Dict[str, float] = {
 }
 
 
+def _gpre_market_series_label(series_key: Any) -> str:
+    key = str(series_key or "").strip().lower()
+    if not key:
+        return ""
+    if key.startswith("ethanol_"):
+        return f"Ethanol {key.removeprefix('ethanol_').replace('_', ' ').title()}"
+    if key.startswith("corn_basis_"):
+        return f"AMS basis {key.removeprefix('corn_basis_').replace('_', ' ').title()}"
+    return key.replace("_", " ").title()
+
+
 def _safe_int_from_numeric(raw_value: Any) -> int:
     num = pd.to_numeric(raw_value, errors="coerce")
     return int(num) if pd.notna(num) else 0
@@ -6363,6 +7081,8 @@ def _gpre_official_quarter_component_records(
     quarters: Iterable[date],
     *,
     ticker_root: Optional[Path] = None,
+    bids_snapshot: Optional[Dict[str, Any]] = None,
+    as_of_date: Optional[date] = None,
     plant_capacity_history: Optional[Dict[str, Any]] = None,
 ) -> Dict[date, Dict[str, Any]]:
     ethanol_series_maps = {
@@ -6392,11 +7112,29 @@ def _gpre_official_quarter_component_records(
             ticker_root=ticker_root,
             plant_capacity_history=plant_capacity_history,
         )
+        basis_payload = _gpre_official_current_forward_basis_payload(
+            rows,
+            target_date=qd,
+            target_quarter_end=qd,
+            as_of_date=qd,
+            ticker_root=ticker_root,
+            bids_snapshot=bids_snapshot,
+            selection_mode="historical_quarter",
+            plant_capacity_history=plant_capacity_history,
+        )
         ethanol_sum = 0.0
         ethanol_cov = 0.0
-        basis_sum = 0.0
-        basis_cov = 0.0
+        basis_component_rows: List[Dict[str, Any]] = list((basis_payload or {}).get("component_rows") or [])
+        basis_rows_by_region: Dict[str, List[Dict[str, Any]]] = {}
+        for raw_component_row in basis_component_rows:
+            if not isinstance(raw_component_row, dict):
+                continue
+            region_txt = str(raw_component_row.get("region") or "").strip().lower()
+            if not region_txt:
+                continue
+            basis_rows_by_region.setdefault(region_txt, []).append(dict(raw_component_row))
         component_rows: List[Dict[str, Any]] = []
+        ethanol_component_map: Dict[str, Dict[str, Any]] = {}
         for region in _GPRE_OFFICIAL_MARKET_REGION_ORDER:
             plant_count = max(float(region_counts.get(region) or 0.0), 0.0)
             active_capacity = max(float(pd.to_numeric(region_capacities.get(region), errors="coerce") or 0.0), 0.0)
@@ -6414,37 +7152,100 @@ def _gpre_official_quarter_component_records(
                     anchor_value=anchor_value,
                 ),
             )
-            basis_value, basis_series_key, basis_note = _gpre_select_candidate_quarter_value(
-                basis_series_maps,
-                _GPRE_OFFICIAL_BASIS_SERIES_CANDIDATES.get(region, tuple()),
-                qd,
-            )
             if weight > 0.0 and ethanol_value is not None:
                 ethanol_sum += weight * float(ethanol_value)
                 ethanol_cov += weight
-            if weight > 0.0 and basis_value is not None:
-                basis_sum += weight * float(basis_value)
-                basis_cov += weight
-            note_parts = [part for part in (ethanol_note, basis_note) if str(part or "").strip()]
-            component_rows.append(
-                {
-                    "quarter": qd,
-                    "quarter_label": _quarter_label(qd),
-                    "region": region,
-                    "region_label": region.replace("_", " ").title(),
-                    "plant_count": plant_count,
-                    "active_capacity_mmgy": active_capacity,
-                    "weight": weight,
-                    "ethanol_series_key": ethanol_series_key,
-                    "ethanol_series_label": ethanol_series_key.replace("_", " ") if ethanol_series_key else "",
-                    "ethanol_value_usd_per_gal": ethanol_value,
-                    "basis_series_key": basis_series_key,
-                    "basis_series_label": basis_series_key.replace("_", " ") if basis_series_key else "",
-                    "basis_value_usd_per_bu": basis_value,
-                    "basis_value_cents_per_bu": (None if basis_value is None else float(basis_value) * 100.0),
-                    "fallback_note": " | ".join(note_parts),
-                }
-            )
+            ethanol_component_map[region] = {
+                "ethanol_value_usd_per_gal": ethanol_value,
+                "ethanol_series_key": str(ethanol_series_key or ""),
+                "ethanol_series_label": _gpre_market_series_label(ethanol_series_key),
+                "ethanol_note": str(ethanol_note or "").strip(),
+            }
+            region_basis_rows = list(basis_rows_by_region.get(region) or [])
+            weighted_basis_num = 0.0
+            weighted_basis_den = 0.0
+            basis_series_keys: List[str] = []
+            fallback_notes: List[str] = []
+            actual_bid_count = 0
+            fallback_bid_count = 0
+            missing_basis_count = 0
+            for basis_row in region_basis_rows:
+                basis_value_num = pd.to_numeric(basis_row.get("basis_usd_per_bu"), errors="coerce")
+                basis_capacity_num = pd.to_numeric(basis_row.get("active_capacity_mmgy"), errors="coerce")
+                if pd.notna(basis_value_num) and pd.notna(basis_capacity_num) and float(basis_capacity_num) > 0.0:
+                    weighted_basis_num += float(basis_value_num) * float(basis_capacity_num)
+                    weighted_basis_den += float(basis_capacity_num)
+                source_kind = str(basis_row.get("source_kind") or "").strip()
+                if source_kind == "actual_gpre_bid":
+                    actual_bid_count += 1
+                elif source_kind == "ams_proxy_fallback":
+                    fallback_bid_count += 1
+                else:
+                    missing_basis_count += 1
+                basis_series_key = str(basis_row.get("basis_series_key") or "").strip()
+                if basis_series_key:
+                    basis_series_keys.append(basis_series_key)
+                note_txt = str(basis_row.get("fallback_note") or "").strip()
+                if note_txt and note_txt not in fallback_notes:
+                    fallback_notes.append(note_txt)
+            basis_value_usd_per_bu = (weighted_basis_num / weighted_basis_den) if weighted_basis_den > 0.0 else None
+            basis_series_key = ""
+            basis_series_label = ""
+            if actual_bid_count > 0:
+                basis_series_key = "gpre_plant_bids"
+                basis_series_label = "GPRE plant bids"
+            else:
+                unique_basis_series_keys = [key for key in dict.fromkeys(basis_series_keys) if key]
+                if len(unique_basis_series_keys) == 1:
+                    basis_series_key = unique_basis_series_keys[0]
+                    basis_series_label = _gpre_market_series_label(basis_series_key)
+                elif len(unique_basis_series_keys) > 1:
+                    basis_series_key = "ams_basis_mixed"
+                    basis_series_label = "Mixed AMS basis"
+            basis_note_parts: List[str] = []
+            if actual_bid_count > 0 and fallback_bid_count == 0 and missing_basis_count == 0:
+                basis_note_parts.append(f"Actual GPRE plant bids for {actual_bid_count}/{int(max(plant_count, len(region_basis_rows)))} plants")
+            elif actual_bid_count > 0:
+                basis_note_parts.append(
+                    f"Actual GPRE bids for {actual_bid_count}/{int(max(plant_count, len(region_basis_rows)))} plants; "
+                    f"AMS fallback for {fallback_bid_count}/{int(max(plant_count, len(region_basis_rows)))} plants"
+                )
+                if missing_basis_count > 0:
+                    basis_note_parts[-1] += f"; missing basis for {missing_basis_count}/{int(max(plant_count, len(region_basis_rows)))} plants"
+            basis_note_parts.extend(fallback_notes[:2])
+            component_row = {
+                "quarter": qd,
+                "quarter_label": _quarter_label(qd),
+                "region": region,
+                "region_label": region.replace("_", " ").title(),
+                "plant_count": plant_count,
+                "active_capacity_mmgy": active_capacity,
+                "weight": weight,
+                "basis_series_key": basis_series_key,
+                "basis_series_label": basis_series_label,
+                "basis_usd_per_bu": basis_value_usd_per_bu,
+                "basis_cents_per_bu": (None if basis_value_usd_per_bu is None else float(basis_value_usd_per_bu) * 100.0),
+                "basis_value_usd_per_bu": basis_value_usd_per_bu,
+                "basis_value_cents_per_bu": (None if basis_value_usd_per_bu is None else float(basis_value_usd_per_bu) * 100.0),
+                "actual_bid_plant_count": actual_bid_count,
+                "fallback_plant_count": fallback_bid_count,
+                "missing_basis_plant_count": missing_basis_count,
+            }
+            ethanol_component = dict(ethanol_component_map.get(region) or {})
+            ethanol_note = str(ethanol_component.get("ethanol_note") or "").strip()
+            fallback_note = " | ".join(bit for bit in basis_note_parts if str(bit or "").strip())
+            if ethanol_note:
+                fallback_note = " | ".join(
+                    bit
+                    for bit in [fallback_note, f"Ethanol: {ethanol_note}"]
+                    if str(bit or "").strip()
+                )
+            component_row["fallback_note"] = fallback_note
+            component_row["ethanol_value_usd_per_gal"] = ethanol_component.get("ethanol_value_usd_per_gal")
+            component_row["ethanol_series_key"] = str(ethanol_component.get("ethanol_series_key") or "")
+            component_row["ethanol_series_label"] = ethanol_component.get("ethanol_series_label")
+            component_rows.append(component_row)
+        basis_cov = pd.to_numeric((basis_payload or {}).get("official_basis_coverage_ratio"), errors="coerce")
         out[qd] = {
             "quarter": qd,
             "quarter_label": _quarter_label(qd),
@@ -6454,8 +7255,16 @@ def _gpre_official_quarter_component_records(
             "component_rows": component_rows,
             "weighted_ethanol_benchmark_usd_per_gal": (ethanol_sum / ethanol_cov) if ethanol_cov > 0 else None,
             "ethanol_coverage_ratio": ethanol_cov,
-            "weighted_ams_basis_usd_per_bu": (basis_sum / basis_cov) if basis_cov > 0 else None,
-            "basis_coverage_ratio": basis_cov,
+            "weighted_ams_basis_usd_per_bu": pd.to_numeric(
+                (basis_payload or {}).get("official_weighted_corn_basis_usd_per_bu"),
+                errors="coerce",
+            ),
+            "basis_coverage_ratio": (None if pd.isna(basis_cov) else float(basis_cov)),
+            "official_corn_basis_source_kind": str((basis_payload or {}).get("official_corn_basis_source_kind") or ""),
+            "official_corn_basis_source_label": str((basis_payload or {}).get("official_corn_basis_source_label") or ""),
+            "official_corn_basis_provenance": str((basis_payload or {}).get("official_corn_basis_provenance") or ""),
+            "official_corn_basis_snapshot_date": (basis_payload or {}).get("snapshot_date"),
+            "official_corn_basis_selection_rule": str((basis_payload or {}).get("selection_rule") or ""),
         }
     return out
 
@@ -10912,6 +11721,8 @@ def build_gpre_basis_proxy_model(
             "experimental_candidate_comparison_df": pd.DataFrame(),
             "coproduct_experimental_candidate_comparison_df": pd.DataFrame(),
             "coproduct_experimental_method_specs": [dict(spec) for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS],
+            "coproduct_experimental_legacy_reference_model_key": str(_GPRE_COPRODUCT_EXPERIMENTAL_LEGACY_REFERENCE_SPEC.get("model_key") or ""),
+            "coproduct_experimental_legacy_reference_row": {},
             "best_coproduct_experimental_historical_model_key": "",
             "best_coproduct_experimental_compromise_model_key": "",
             "best_coproduct_experimental_forward_model_key": "",
@@ -10950,10 +11761,17 @@ def build_gpre_basis_proxy_model(
         reported_margin_by_quarter,
         underlying_margin_by_quarter,
     )
+    effective_bids_snapshot = _resolve_gpre_corn_bids_snapshot(
+        bids_snapshot,
+        ticker_root=ticker_root,
+        as_of_date=as_of_date,
+    )
     official_components_by_quarter = _gpre_official_quarter_component_records(
         rows_df,
         target_quarters,
         ticker_root=ticker_root,
+        bids_snapshot=effective_bids_snapshot,
+        as_of_date=as_of_date,
         plant_capacity_history=effective_plant_capacity_history,
     )
     baseline_ethanol = {
@@ -10996,6 +11814,8 @@ def build_gpre_basis_proxy_model(
             "experimental_candidate_comparison_df": pd.DataFrame(),
             "coproduct_experimental_candidate_comparison_df": pd.DataFrame(),
             "coproduct_experimental_method_specs": [dict(spec) for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS],
+            "coproduct_experimental_legacy_reference_model_key": str(_GPRE_COPRODUCT_EXPERIMENTAL_LEGACY_REFERENCE_SPEC.get("model_key") or ""),
+            "coproduct_experimental_legacy_reference_row": {},
             "best_coproduct_experimental_historical_model_key": "",
             "best_coproduct_experimental_compromise_model_key": "",
             "best_coproduct_experimental_forward_model_key": "",
@@ -11004,11 +11824,6 @@ def build_gpre_basis_proxy_model(
             "coproduct_experimental_summary_markdown": "",
         }
 
-    effective_bids_snapshot = _resolve_gpre_corn_bids_snapshot(
-        bids_snapshot,
-        ticker_root=ticker_root,
-        as_of_date=as_of_date,
-    )
     bid_region_rows = _gpre_bid_region_basis_rows(effective_bids_snapshot)
     bid_region_map = {
         str(rec.get("region") or "").strip().lower(): rec
@@ -12791,9 +13606,18 @@ def build_gpre_basis_proxy_model(
         if best_forward_pred_col and best_forward_pred_col in quarterly_df.columns
         else pd.Series(index=quarterly_df.index, dtype=float)
     )
+    def _coproduct_spec_num(spec_in: Dict[str, Any], field_in: str, default_in: float = 0.0) -> float:
+        value_num = pd.to_numeric(spec_in.get(field_in), errors="coerce")
+        if pd.isna(value_num):
+            return float(default_in)
+        return float(value_num)
+
     coproduct_credit_series = pd.to_numeric(quarterly_df["coproduct_approximate_credit_usd_per_gal"], errors="coerce")
     coproduct_coverage_series = pd.to_numeric(quarterly_df["coproduct_credit_coverage_ratio"], errors="coerce")
-    for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS:
+    coproduct_experimental_all_specs = _GPRE_COPRODUCT_EXPERIMENTAL_SPECS + (
+        _GPRE_COPRODUCT_EXPERIMENTAL_LEGACY_REFERENCE_SPEC,
+    )
+    for spec in coproduct_experimental_all_specs:
         pred_col = str(spec.get("pred_col") or "")
         if not pred_col:
             continue
@@ -12804,13 +13628,14 @@ def build_gpre_basis_proxy_model(
             base_series = forward_base_series
         else:
             base_series = winner_base_series
-        credit_scale = float(pd.to_numeric(spec.get("credit_scale"), errors="coerce") or 0.0)
-        coverage_power = float(pd.to_numeric(spec.get("coverage_power"), errors="coerce") or 0.0)
+        credit_scale = _coproduct_spec_num(spec, "credit_scale")
+        coverage_power = _coproduct_spec_num(spec, "coverage_power")
+        friction_offset = _coproduct_spec_num(spec, "friction_offset_usd_per_gal")
         if coverage_power == 0.0:
             adjusted_credit_series = coproduct_credit_series * credit_scale
         else:
             adjusted_credit_series = coproduct_credit_series * (coproduct_coverage_series.pow(coverage_power)) * credit_scale
-        quarterly_df[pred_col] = base_series + adjusted_credit_series
+        quarterly_df[pred_col] = base_series + adjusted_credit_series - friction_offset
 
     quarterly_df["simple_market_proxy_error_usd_per_gal"] = quarterly_df["simple_market_proxy_usd_per_gal"] - quarterly_df["evaluation_target_margin_usd_per_gal"]
     quarterly_df["bridge_baseline_error_usd_per_gal"] = quarterly_df["bridge_baseline_market_proxy_usd_per_gal"] - quarterly_df["evaluation_target_margin_usd_per_gal"]
@@ -12842,6 +13667,7 @@ def build_gpre_basis_proxy_model(
         as_of_date=as_of_date,
         ticker_root=ticker_root,
         bids_snapshot=effective_bids_snapshot,
+        selection_mode="current_qtd",
         plant_capacity_history=effective_plant_capacity_history,
     )
     next_target_start, next_target_end = next_calendar_quarter_bounds(as_of_date=as_of_date)
@@ -12852,6 +13678,7 @@ def build_gpre_basis_proxy_model(
         as_of_date=as_of_date,
         ticker_root=ticker_root,
         bids_snapshot=effective_bids_snapshot,
+        selection_mode="next_quarter_thesis",
         plant_capacity_history=effective_plant_capacity_history,
     )
     official_market_rows = list(latest_official_components.get("component_rows") or [])
@@ -12917,7 +13744,7 @@ def build_gpre_basis_proxy_model(
 
     recent_quarter_comparison_df = _recent_quarter_comp_records()
     coproduct_experimental_metrics_rows: List[Dict[str, Any]] = []
-    for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS:
+    for spec in coproduct_experimental_all_specs:
         pred_col = str(spec.get("pred_col") or "")
         model_key = str(spec.get("model_key") or "")
         if not pred_col or not model_key:
@@ -12934,12 +13761,12 @@ def build_gpre_basis_proxy_model(
             )
     coproduct_experimental_metrics_df = pd.DataFrame(coproduct_experimental_metrics_rows)
     winner_hybrid_num = pd.to_numeric(chosen_row.get("hybrid_score"), errors="coerce")
-    coproduct_experimental_rows: List[Dict[str, Any]] = []
-    for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS:
+
+    def _build_coproduct_experimental_row(spec: Dict[str, Any]) -> Dict[str, Any]:
         model_key = str(spec.get("model_key") or "")
         pred_col = str(spec.get("pred_col") or "")
         if not model_key or not pred_col:
-            continue
+            return {}
         clean_mae = _gpre_leaderboard_metric_pick(coproduct_experimental_metrics_df, model_key, "clean_reported_window", "mae")
         underlying_mae = _gpre_leaderboard_metric_pick(coproduct_experimental_metrics_df, model_key, "diag_underlying", "mae")
         hybrid_score = (
@@ -12966,47 +13793,57 @@ def build_gpre_basis_proxy_model(
             candidate_col=pred_col,
             incumbent_col=gpre_proxy_pred_col,
         )
-        coproduct_experimental_rows.append(
-            {
-                "model_key": model_key,
-                "pred_col": pred_col,
-                "method_label": str(spec.get("method_label") or model_key),
-                "rule": str(spec.get("rule") or ""),
-                "base_model_kind": str(spec.get("base_model_kind") or ""),
-                "candidate_method_family": str(spec.get("candidate_method_family") or ""),
-                "signal_dependency_note": str(spec.get("signal_dependency_note") or ""),
-                "clean_window_mae": clean_mae,
-                "underlying_window_mae": underlying_mae,
-                "hybrid_score": hybrid_score,
-                "hard_quarter_mae": pd.to_numeric(hard_stats.get("hard_quarter_mae"), errors="coerce"),
-                "sign_accuracy": _gpre_leaderboard_metric_pick(coproduct_experimental_metrics_df, model_key, "test", "sign_hit_rate"),
-                "avg_abs_diff_vs_official": diff_stats.get("avg_abs_diff_vs_official"),
-                "walk_forward_tail_mae": _gpre_walk_forward_tail_mae(quarterly_df, pred_col=pred_col),
-                "forward_usability_rating": str(spec.get("forward_usability_rating") or "medium"),
-                "complexity_rating": str(spec.get("complexity_rating") or "moderate"),
-                "low_coverage_mae": low_coverage_mae,
-                "coverage_sensitivity_delta": (
-                    None
-                    if low_coverage_mae is None or pd.isna(clean_mae)
-                    else float(low_coverage_mae) - float(clean_mae)
-                ),
-                "low_coverage_note": str(low_coverage_note or ""),
-                "signal_coverage_quarters": coverage_quarters,
-                "signal_coverage_ratio": coverage_ratio,
-                "top_improved_quarters_vs_incumbent": delta_quarters.get("top_improved_quarters_vs_incumbent"),
-                "top_worsened_quarters_vs_incumbent": delta_quarters.get("top_worsened_quarters_vs_incumbent"),
-                "comparison_only": True,
-                "eligible_official": False,
-                "preview_supported": bool(spec.get("preview_supported")),
-                "delta_vs_current_winner": (
-                    None
-                    if pd.isna(winner_hybrid_num) or pd.isna(hybrid_score)
-                    else float(hybrid_score) - float(winner_hybrid_num)
-                ),
-                "status": "comparison only",
-            }
-        )
+        return {
+            "model_key": model_key,
+            "pred_col": pred_col,
+            "method_label": str(spec.get("method_label") or model_key),
+            "rule": str(spec.get("rule") or ""),
+            "base_model_kind": str(spec.get("base_model_kind") or ""),
+            "candidate_method_family": str(spec.get("candidate_method_family") or ""),
+            "signal_dependency_note": str(spec.get("signal_dependency_note") or ""),
+            "credit_scale": _coproduct_spec_num(spec, "credit_scale"),
+            "coverage_power": _coproduct_spec_num(spec, "coverage_power"),
+            "friction_offset_usd_per_gal": _coproduct_spec_num(spec, "friction_offset_usd_per_gal"),
+            "clean_window_mae": clean_mae,
+            "underlying_window_mae": underlying_mae,
+            "hybrid_score": hybrid_score,
+            "hard_quarter_mae": pd.to_numeric(hard_stats.get("hard_quarter_mae"), errors="coerce"),
+            "sign_accuracy": _gpre_leaderboard_metric_pick(coproduct_experimental_metrics_df, model_key, "test", "sign_hit_rate"),
+            "avg_abs_diff_vs_official": diff_stats.get("avg_abs_diff_vs_official"),
+            "walk_forward_tail_mae": _gpre_walk_forward_tail_mae(quarterly_df, pred_col=pred_col),
+            "forward_usability_rating": str(spec.get("forward_usability_rating") or "medium"),
+            "complexity_rating": str(spec.get("complexity_rating") or "moderate"),
+            "low_coverage_mae": low_coverage_mae,
+            "coverage_sensitivity_delta": (
+                None
+                if low_coverage_mae is None or pd.isna(clean_mae)
+                else float(low_coverage_mae) - float(clean_mae)
+            ),
+            "low_coverage_note": str(low_coverage_note or ""),
+            "signal_coverage_quarters": coverage_quarters,
+            "signal_coverage_ratio": coverage_ratio,
+            "top_improved_quarters_vs_incumbent": delta_quarters.get("top_improved_quarters_vs_incumbent"),
+            "top_worsened_quarters_vs_incumbent": delta_quarters.get("top_worsened_quarters_vs_incumbent"),
+            "comparison_only": True,
+            "eligible_official": False,
+            "preview_supported": bool(spec.get("preview_supported")),
+            "delta_vs_current_winner": (
+                None
+                if pd.isna(winner_hybrid_num) or pd.isna(hybrid_score)
+                else float(hybrid_score) - float(winner_hybrid_num)
+            ),
+            "status": "comparison only",
+        }
+
+    coproduct_experimental_rows: List[Dict[str, Any]] = []
+    for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS:
+        row = _build_coproduct_experimental_row(spec)
+        if row:
+            coproduct_experimental_rows.append(row)
     coproduct_experimental_candidate_comparison_df = pd.DataFrame(coproduct_experimental_rows)
+    coproduct_experimental_legacy_reference_row = _build_coproduct_experimental_row(
+        _GPRE_COPRODUCT_EXPERIMENTAL_LEGACY_REFERENCE_SPEC
+    )
 
     def _pick_coproduct_role_row(
         frame_in: pd.DataFrame,
@@ -13114,6 +13951,12 @@ def build_gpre_basis_proxy_model(
             f"Best forward coproduct-aware: {best_coproduct_experimental_forward_model_key or 'n/a'} | "
             f"tail {_fmt_coproduct_metric(best_coproduct_experimental_forward_row.get('walk_forward_tail_mae'))} | "
             f"forward usability {str(best_coproduct_experimental_forward_row.get('forward_usability_rating') or 'n/a')}."
+        ),
+        (
+            f"Previous best coproduct-aware reference: {str(coproduct_experimental_legacy_reference_row.get('model_key') or 'n/a')} | "
+            f"hybrid {_fmt_coproduct_metric(coproduct_experimental_legacy_reference_row.get('hybrid_score'))} | "
+            f"clean {_fmt_coproduct_metric(coproduct_experimental_legacy_reference_row.get('clean_window_mae'))} | "
+            f"hard-quarter MAE {_fmt_coproduct_metric(coproduct_experimental_legacy_reference_row.get('hard_quarter_mae'))}."
         ),
         (
             f"Current production winner reference: {gpre_proxy_model_key or 'n/a'} | "
@@ -13320,7 +14163,7 @@ def build_gpre_basis_proxy_model(
             "",
             "## Methodology",
             "Approximate market crush uses an active-capacity-weighted GPRE ethanol benchmark, front-month CBOT corn, official weighted corn basis, fixed 2.9 gal/bu yield, and fixed natural-gas burden.",
-            "Official corn basis uses actual GPRE plant bids for current / forward periods when available, and weighted AMS basis proxy otherwise; historical quarterly model rows remain AMS-backed unless true historical bid history exists.",
+            "Official corn basis prefers dated GPRE plant bids when available for the relevant frame or quarter, including historical quarters with retained snapshots; otherwise it falls back to active-capacity-weighted AMS basis using mapped state/regional series and deterministic fallbacks.",
             "GPRE proxy candidates are scored across bridge timing, process timing, quarter-open/current blend, severe execution overlays, sold-produced timing-gap overlays, utilization-regime overlays, residual-regime splits, simple gated ensembles, ethanol-geography, and hedge-memo families using the same quarterly target set.",
             "Official weighting now uses quarter-aware active plant capacity from filing-backed footprint metadata; bid-offset remains comparison-only unless it clearly wins in the fitted competition.",
             "",
@@ -13606,7 +14449,7 @@ def build_gpre_basis_proxy_model(
         "winner": winner_frame_map,
         "forward": forward_frame_map,
     }
-    for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS:
+    for spec in coproduct_experimental_all_specs:
         model_key = str(spec.get("model_key") or "")
         base_kind = str(spec.get("base_model_kind") or "winner").strip().lower()
         base_frames = dict(base_frame_groups.get(base_kind) or {})
@@ -13617,8 +14460,9 @@ def build_gpre_basis_proxy_model(
             base_value_num = pd.to_numeric(base_frame.get("value"), errors="coerce")
             credit_value_num = pd.to_numeric(credit_frame.get("approximate_coproduct_credit_per_gal"), errors="coerce")
             coverage_num = pd.to_numeric(credit_frame.get("coverage_ratio"), errors="coerce")
-            coverage_power = float(pd.to_numeric(spec.get("coverage_power"), errors="coerce") or 0.0)
-            credit_scale = float(pd.to_numeric(spec.get("credit_scale"), errors="coerce") or 0.0)
+            coverage_power = _coproduct_spec_num(spec, "coverage_power")
+            credit_scale = _coproduct_spec_num(spec, "credit_scale")
+            friction_offset = _coproduct_spec_num(spec, "friction_offset_usd_per_gal")
             adjusted_credit: Optional[float]
             if pd.isna(base_value_num) or pd.isna(credit_value_num):
                 adjusted_credit = None
@@ -13629,7 +14473,7 @@ def build_gpre_basis_proxy_model(
                     coverage_factor = float(coverage_num) ** coverage_power if pd.notna(coverage_num) else float("nan")
                 adjusted_credit_val = float(credit_value_num) * float(credit_scale) * float(coverage_factor)
                 adjusted_credit = adjusted_credit_val if np.isfinite(adjusted_credit_val) else None
-                value_out = None if adjusted_credit is None else float(base_value_num) + float(adjusted_credit)
+                value_out = None if adjusted_credit is None else float(base_value_num) + float(adjusted_credit) - float(friction_offset)
             frame_values[frame_key] = {
                 "frame_key": frame_key,
                 "frame_label": str(credit_frame.get("frame_label") or frame_key.replace("_", " ").title()),
@@ -13637,6 +14481,7 @@ def build_gpre_basis_proxy_model(
                 "base_value_usd_per_gal": (None if pd.isna(base_value_num) else float(base_value_num)),
                 "credit_value_usd_per_gal": (None if pd.isna(credit_value_num) else float(credit_value_num)),
                 "adjusted_credit_value_usd_per_gal": adjusted_credit,
+                "friction_offset_usd_per_gal": friction_offset,
                 "coverage_ratio": (None if pd.isna(coverage_num) else float(coverage_num)),
                 "resolved_source_mode": str(credit_frame.get("resolved_source_mode") or "Unknown/blank"),
                 "base_model_kind": base_kind,
@@ -13714,6 +14559,8 @@ def build_gpre_basis_proxy_model(
         "experimental_candidate_comparison_df": experimental_candidate_comparison_df,
         "coproduct_experimental_candidate_comparison_df": coproduct_experimental_candidate_comparison_df,
         "coproduct_experimental_method_specs": [dict(spec) for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS],
+        "coproduct_experimental_legacy_reference_model_key": str(_GPRE_COPRODUCT_EXPERIMENTAL_LEGACY_REFERENCE_SPEC.get("model_key") or ""),
+        "coproduct_experimental_legacy_reference_row": coproduct_experimental_legacy_reference_row,
         "best_coproduct_experimental_historical_model_key": best_coproduct_experimental_historical_model_key,
         "best_coproduct_experimental_compromise_model_key": best_coproduct_experimental_compromise_model_key,
         "best_coproduct_experimental_forward_model_key": best_coproduct_experimental_forward_model_key,
@@ -13726,8 +14573,9 @@ def build_gpre_basis_proxy_model(
             "mapped state/regional ethanol series, Midwest-anchor plausibility screens, and deterministic fallbacks"
         ),
         "official_basis_method": (
-            "Official corn basis uses actual GPRE plant bids when available for current / forward periods; "
-            "otherwise it falls back to active-capacity-weighted AMS basis using mapped state/regional series and deterministic fallbacks"
+            "Official corn basis prefers dated GPRE plant bids when available for the relevant frame or quarter, "
+            "including historical quarters with retained snapshots; otherwise it falls back to active-capacity-weighted "
+            "AMS basis using mapped state/regional series and deterministic fallbacks"
         ),
         "official_gas_method": f"Fixed {gas_usage_mmbtu_per_gal:.3f} MMBtu/gal burden multiplied by benchmark gas",
         "official_fallback_policy": (

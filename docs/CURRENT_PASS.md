@@ -7,6 +7,56 @@
 - Document the runtime layout and clarify which workspace artifacts are source-like, rebuildable, or disposable.
 - Freeze the current runtime/correctness baseline before new feature work in [BASELINE_FREEZE_2026-03-20.md](/c:/Users/Jibbe/Aktier/Code/docs/BASELINE_FREEZE_2026-03-20.md).
 
+## Architecture / Handoff Documentation Polish (2026-04-10)
+- Clarified the central runtime boundaries directly in code:
+  - `stock_models.py`
+  - `pipeline.py`
+  - `pipeline_orchestration.py`
+  - `excel_writer.py`
+  - `excel_writer_context.py`
+  - `market_data/service.py`
+- The added docstrings/comments focus on:
+  - what enters each boundary
+  - what artifact leaves it
+  - which layer downstream code is expected to consume
+  - why saved-workbook readback remains the final truth boundary
+- Synced high-level docs so the handoff chain is explicit:
+  - CLI/operator mode
+  - pipeline artifact assembly
+  - workbook input normalization
+  - run-scoped writer caches
+  - market-data raw/parsed/export layering
+
+## GPRE Stage C.2: Historical Corn-Bid Retention, Snapshot Archive, and Quarterly Zero-Line Cleanup (2026-04-10)
+- Verified source-selection change:
+  - `Official corn basis` no longer degrades historical or prior-quarter quarters to AMS just because the quarter has rolled forward
+  - when a usable dated GPRE corn-bid snapshot exists for the relevant quarter/frame, the official basis path now prefers that retained GPRE snapshot
+  - AMS remains fallback only when the relevant retained GPRE snapshot is unavailable or unusable
+- Verified quarter/frame snapshot policy:
+  - `Current QTD`
+    - latest usable GPRE snapshot on or before `as_of_date`
+  - `Quarter-open proxy`
+    - latest usable GPRE snapshot on or before quarter start, while preserving the established quarter-open/freeze policy where it already applies
+  - `Next quarter thesis`
+    - latest usable GPRE snapshot on or before `as_of_date` that actually contains forward-delivery rows for the target quarter
+  - `Prior quarter`
+    - latest usable retained GPRE snapshot on or before target quarter end
+  - `Historical quarter`
+    - same as `Prior quarter`, with preference for snapshots captured inside the target quarter
+- Verified archive layout:
+  - `GPRE/corn_bids/raw_snapshots/YYYY-MM-DD/grain_gpre_home.html`
+  - `GPRE/corn_bids/parsed_snapshots/YYYY-MM-DD/gpre_corn_bids_snapshot.csv`
+  - `GPRE/corn_bids/manifest.json`
+  - legacy latest files still remain for compatibility, but retained snapshots are now the canonical history-selection source
+- Verified workbook wording:
+  - the official market note now states that `Official corn basis prefers dated GPRE plant bids when available for the relevant frame or quarter, including historical quarters with retained snapshots; otherwise it falls back to active-capacity-weighted AMS basis ...`
+- Verified sandbox auditability:
+  - `Basis_Proxy_Sandbox` now surfaces both `Official corn basis snapshot date` and `Official corn basis selection rule` frame by frame in the `Approximate market crush build-up ($/gal)` block
+- Verified quarterly chart cleanup:
+  - the quarterly crush chart keeps quarter labels at the bottom
+  - the visual midline is no longer left ambiguous as an axis-placement problem
+  - when the visible range crosses zero, a separate neutral `Zero reference line` is added instead of relying on axis-crossing-at-zero behavior
+
 ## GPRE Stage C: Coproduct-Aware Crush Experiments (2026-04-09)
 - Verified scope:
   - this is a comparison-only experimental modeling pass on top of Stage B.8
@@ -20,12 +70,18 @@
   - all ranking and role-picks happen in `$/gal`
   - `$m` remains bridge/support only
 - Verified candidate set:
-  - `simple_plus_full_credit`
-  - `simple_plus_half_credit`
-  - `simple_plus_coverage_credit`
-  - `winner_plus_full_credit`
-  - `forward_plus_full_credit`
-  - `winner_plus_conservative_credit`
+  - `simple_plus_10pct_credit`
+  - `simple_plus_15pct_credit`
+  - `simple_plus_20pct_credit`
+  - `simple_plus_25pct_credit`
+  - `simple_plus_30pct_credit`
+  - `simple_plus_10pct_coverage_credit`
+  - `simple_plus_20pct_coverage_credit`
+  - `simple_plus_30pct_coverage_credit`
+  - `simple_plus_25pct_credit_less_2c`
+  - `simple_plus_30pct_coverage_credit_less_2c`
+- Verified legacy reference:
+  - `simple_plus_half_credit` remains available as a comparison-only reference row in the sandbox summary, but it is no longer part of the ranked coproduct experimental table
 - Verified coproduct experimental roles:
   - `Best historical coproduct-aware`
   - `Best forward coproduct-aware`
@@ -329,7 +385,6 @@
   - `AMS 3618` is now wired as a new provider and enabled for `GPRE`
   - new ticker-local folders now exist:
     - [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
-    - [`GPRE/USDA_feedstuffs_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_feedstuffs_reports)
   - the bioenergy folder is now the active working folder for `NWER` and `AMS 3618`
   - legacy `USDA_weekly_data` / `USDA_daily_data` reads remain accepted for compatibility
 - Verified live source/readback outcome at Stage B.1:

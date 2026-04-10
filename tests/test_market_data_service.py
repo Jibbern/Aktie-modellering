@@ -103,6 +103,59 @@ def _write_manual_quarter_open_snapshot(
     return path
 
 
+def _write_gpre_corn_bids_archive_snapshot(
+    ticker_root: Path,
+    *,
+    snapshot_date: date,
+    rows: list[dict[str, object]],
+    html_text: str = "<html><body>Last Updated 03/20/2026</body></html>",
+    source_url: str = "fixture://gpre-bids",
+) -> Path:
+    storage_root = ticker_root / "corn_bids"
+    raw_path = storage_root / "raw_snapshots" / snapshot_date.isoformat() / "grain_gpre_home.html"
+    parsed_path = storage_root / "parsed_snapshots" / snapshot_date.isoformat() / "gpre_corn_bids_snapshot.csv"
+    manifest_path = storage_root / "manifest.json"
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    parsed_path.parent.mkdir(parents=True, exist_ok=True)
+    storage_root.mkdir(parents=True, exist_ok=True)
+    raw_path.write_text(str(html_text or ""), encoding="utf-8")
+    pd.DataFrame(list(rows or [])).to_csv(parsed_path, index=False)
+    delivery_dates = [
+        dt.isoformat()
+        for dt in (
+            market_service._gpre_parse_snapshot_date_like(rec.get("delivery_end"))
+            for rec in rows
+            if isinstance(rec, dict)
+        )
+        if isinstance(dt, date)
+    ]
+    payload = {"snapshots": []}
+    if manifest_path.exists():
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            payload = {"snapshots": []}
+    snapshots = [rec for rec in list(payload.get("snapshots") or []) if str(rec.get("snapshot_date") or "") != snapshot_date.isoformat()]
+    snapshots.append(
+        {
+            "snapshot_date": snapshot_date.isoformat(),
+            "raw_relpath": str(raw_path.relative_to(storage_root)),
+            "parsed_relpath": str(parsed_path.relative_to(storage_root)),
+            "source_url": source_url,
+            "entry_url": "https://gpreinc.com/corn-bids/",
+            "source_kind": "fixture_archive",
+            "row_count": len(rows),
+            "delivery_end_min": min(delivery_dates) if delivery_dates else "",
+            "delivery_end_max": max(delivery_dates) if delivery_dates else "",
+            "page_last_updated_text": "",
+            "raw_fingerprint": "",
+            "parsed_fingerprint": "",
+        }
+    )
+    payload["snapshots"] = sorted(snapshots, key=lambda rec: str(rec.get("snapshot_date") or ""))
+    manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return manifest_path
+
+
 def _diagnostic_text_stub(fetch_fn):
     def _wrapped(url: str, *, extra_headers: dict[str, str] | None = None):
         return fetch_fn(url, extra_headers=extra_headers), [
@@ -1479,7 +1532,7 @@ def test_fetch_gpre_corn_bids_snapshot_falls_back_gracefully(monkeypatch: pytest
     assert "network blocked" in str(snap.get("error") or "")
 
 
-def test_download_gpre_corn_bids_snapshot_writes_html_and_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_download_gpre_corn_bids_snapshot_writes_html_csv_and_archive_manifest(monkeypatch: pytest.MonkeyPatch) -> None:
     tmp_path = _local_test_dir("gpre_corn_bids_download")
     html_blob = """
     <html><body>
@@ -1529,11 +1582,58 @@ def test_download_gpre_corn_bids_snapshot_writes_html_and_csv(monkeypatch: pytes
         assert {"location", "delivery_label", "basis_usd_per_bu"} <= set(saved_df.columns)
         assert "Madison" in set(saved_df["location"].astype(str))
         assert "Wood River" in set(saved_df["location"].astype(str))
+        manifest_path = Path(summary["manifest_path"])
+        archive_raw_path = Path(summary["archive_raw_path"])
+        archive_parsed_path = Path(summary["archive_parsed_path"])
+        assert manifest_path.exists()
+        assert archive_raw_path.exists()
+        assert archive_parsed_path.exists()
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        snapshots = list(manifest_payload.get("snapshots") or [])
+        assert len(snapshots) == 1
+        assert snapshots[0]["snapshot_date"] == "2026-04-02"
+        assert snapshots[0]["raw_relpath"].startswith("raw_snapshots/2026-04-02/")
+        assert snapshots[0]["parsed_relpath"].startswith("parsed_snapshots/2026-04-02/")
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
-def test_load_local_gpre_corn_bids_snapshot_prefers_corn_bids_subdir() -> None:
+def test_gpre_corn_bids_manifest_entries_normalize_windows_relpaths() -> None:
+    tmp_path = _local_test_dir("gpre_corn_bids_manifest_normalize")
+    try:
+        bids_dir = tmp_path / "corn_bids"
+        bids_dir.mkdir(parents=True, exist_ok=True)
+        (bids_dir / "raw_snapshots" / "2026-04-09").mkdir(parents=True, exist_ok=True)
+        (bids_dir / "parsed_snapshots" / "2026-04-09").mkdir(parents=True, exist_ok=True)
+        manifest_path = bids_dir / "manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "snapshots": [
+                        {
+                            "snapshot_date": "2026-04-09",
+                            "raw_relpath": "raw_snapshots\\2026-04-09\\grain_gpre_home.html",
+                            "parsed_relpath": "parsed_snapshots\\2026-04-09\\gpre_corn_bids_snapshot.csv",
+                            "source_kind": "legacy_local_bootstrap",
+                        }
+                    ]
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        entries = market_service._gpre_corn_bids_manifest_entries(bids_dir)
+        assert len(entries) == 1
+        assert entries[0]["raw_relpath"] == "raw_snapshots/2026-04-09/grain_gpre_home.html"
+        assert entries[0]["parsed_relpath"] == "parsed_snapshots/2026-04-09/gpre_corn_bids_snapshot.csv"
+        rewritten = json.loads(manifest_path.read_text(encoding="utf-8"))
+        assert rewritten["snapshots"][0]["raw_relpath"] == "raw_snapshots/2026-04-09/grain_gpre_home.html"
+        assert rewritten["snapshots"][0]["parsed_relpath"] == "parsed_snapshots/2026-04-09/gpre_corn_bids_snapshot.csv"
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_load_local_gpre_corn_bids_snapshot_bootstraps_archive_from_latest() -> None:
     tmp_path = _local_test_dir("gpre_corn_bids_local")
     html_blob = """
     <html><body>
@@ -1559,7 +1659,47 @@ def test_load_local_gpre_corn_bids_snapshot_prefers_corn_bids_subdir() -> None:
             as_of_date=date(2026, 4, 2),
         )
         assert str(snap.get("status") or "") == "ok"
-        assert Path(str(snap.get("source_url") or "")).parent.name == "corn_bids"
+        manifest_path = tmp_path / "corn_bids" / "manifest.json"
+        assert manifest_path.exists()
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        snapshots = list(manifest_payload.get("snapshots") or [])
+        assert len(snapshots) == 1
+        assert snapshots[0]["snapshot_date"] == "2026-04-02"
+        assert str(snap.get("selection_rule") or "") in {"latest_snapshot_on_or_before_as_of", "legacy_latest_file"}
+        assert str(snap.get("source_kind") or "") in {"archived_parsed_csv", "archived_raw_html", "local_html"}
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_load_local_gpre_corn_bids_snapshot_does_not_use_late_legacy_file_for_historical_quarter() -> None:
+    tmp_path = _local_test_dir("gpre_corn_bids_late_legacy_file")
+    try:
+        bids_dir = tmp_path / "corn_bids"
+        bids_dir.mkdir(parents=True, exist_ok=True)
+        html_path = bids_dir / "grain_gpre_home.html"
+        html_path.write_text(
+            """
+            <html><body>
+            <div>Last Updated 4/9/26</div>
+            <table>
+              <tr><td><b>Central City</b></td></tr>
+              <tr>
+                <td>Corn</td><td>Apr 2026</td>
+                <td>4.00</td><td>@C6K</td><td title="Basis Month: @C6K">-0.20</td>
+              </tr>
+            </table>
+            </body></html>
+            """.strip(),
+            encoding="utf-8",
+        )
+        snap = market_service._load_local_gpre_corn_bids_snapshot(
+            ticker_root=tmp_path,
+            as_of_date=date(2026, 4, 10),
+            target_date=date(2026, 3, 31),
+            target_quarter_end=date(2026, 3, 31),
+            selection_mode="historical_quarter",
+        )
+        assert str(snap.get("status") or "") == "unavailable"
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
@@ -1762,7 +1902,7 @@ def test_build_gpre_basis_proxy_model_returns_quarterly_table_weights_and_metric
     )
     assert "Active-capacity weighted" in str(result["official_weighting_method"] or "")
     assert "Weighted ethanol benchmark" in str(result["official_ethanol_method"] or "")
-    assert "actual GPRE plant bids" in str(result["official_basis_method"] or "")
+    assert "dated GPRE plant bids" in str(result["official_basis_method"] or "")
     assert "0.028" in str(result["official_gas_method"] or "")
     assert "fallback" in str(result["official_fallback_policy"] or "").lower()
     assert np.allclose(
@@ -1790,6 +1930,9 @@ def test_build_gpre_basis_proxy_model_returns_quarterly_table_weights_and_metric
     official_market_rows_df = pd.DataFrame(result["official_market_rows"])
     assert not official_market_rows_df.empty
     assert pd.to_numeric(official_market_rows_df["active_capacity_mmgy"], errors="coerce").notna().any()
+    assert pd.to_numeric(official_market_rows_df["ethanol_value_usd_per_gal"], errors="coerce").notna().any()
+    assert pd.to_numeric(official_market_rows_df["basis_value_cents_per_bu"], errors="coerce").notna().any()
+    assert official_market_rows_df["basis_series_label"].astype(str).str.strip().ne("").any()
     latest_official_quarter = official_weight_rows["quarter"].astype(str).max()
     latest_official_weights = official_weight_rows[official_weight_rows["quarter"].astype(str) == latest_official_quarter].copy()
     latest_official_weights["weight_num"] = pd.to_numeric(latest_official_weights["weight"], errors="coerce")
@@ -1883,19 +2026,28 @@ def test_build_gpre_basis_proxy_model_returns_quarterly_table_weights_and_metric
         "status",
     } <= set(coproduct_experimental_candidate_comparison_df.columns)
     assert set(coproduct_experimental_candidate_comparison_df["model_key"].astype(str)) == {
-        "simple_plus_full_credit",
-        "simple_plus_half_credit",
-        "simple_plus_coverage_credit",
-        "winner_plus_full_credit",
-        "forward_plus_full_credit",
-        "winner_plus_conservative_credit",
+        "simple_plus_10pct_credit",
+        "simple_plus_15pct_credit",
+        "simple_plus_20pct_credit",
+        "simple_plus_25pct_credit",
+        "simple_plus_30pct_credit",
+        "simple_plus_10pct_coverage_credit",
+        "simple_plus_20pct_coverage_credit",
+        "simple_plus_30pct_coverage_credit",
+        "simple_plus_25pct_credit_less_2c",
+        "simple_plus_30pct_coverage_credit_less_2c",
     }
-    assert len(coproduct_experimental_candidate_comparison_df) == 6
+    assert len(coproduct_experimental_candidate_comparison_df) == 10
     assert coproduct_experimental_candidate_comparison_df["comparison_only"].eq(True).all()
     assert coproduct_experimental_candidate_comparison_df["eligible_official"].eq(False).all()
     assert coproduct_experimental_candidate_comparison_df["status"].astype(str).eq("comparison only").all()
     assert coproduct_experimental_candidate_comparison_df["forward_usability_rating"].astype(str).isin({"high", "medium", "low"}).all()
     assert coproduct_experimental_candidate_comparison_df["complexity_rating"].astype(str).isin({"low", "moderate", "high"}).all()
+    legacy_coproduct_reference_row = result.get("coproduct_experimental_legacy_reference_row")
+    assert isinstance(legacy_coproduct_reference_row, dict)
+    assert str(result.get("coproduct_experimental_legacy_reference_model_key") or "") == "simple_plus_half_credit"
+    assert str(legacy_coproduct_reference_row.get("model_key") or "") == "simple_plus_half_credit"
+    assert "simple_plus_half_credit" not in set(coproduct_experimental_candidate_comparison_df["model_key"].astype(str))
     assert str(result.get("best_coproduct_experimental_historical_model_key") or "").strip()
     assert str(result.get("best_coproduct_experimental_compromise_model_key") or "").strip()
     assert str(result.get("best_coproduct_experimental_forward_model_key") or "").strip()
@@ -1907,13 +2059,44 @@ def test_build_gpre_basis_proxy_model_returns_quarterly_table_weights_and_metric
     assert isinstance(coproduct_experimental_frame_values, dict)
     best_coproduct_model_key = str(result.get("best_coproduct_experimental_model_key") or "")
     assert best_coproduct_model_key in coproduct_experimental_frame_values
+    assert "simple_plus_half_credit" in coproduct_experimental_frame_values
     assert {
         "prior_quarter",
         "quarter_open",
         "current_qtd",
         "next_quarter_thesis",
     } <= set((coproduct_experimental_frame_values.get(best_coproduct_model_key) or {}).keys())
+    fractional_row = coproduct_experimental_candidate_comparison_df[
+        coproduct_experimental_candidate_comparison_df["model_key"].astype(str) == "simple_plus_25pct_credit_less_2c"
+    ].iloc[0].to_dict()
+    assert pd.to_numeric(fractional_row.get("friction_offset_usd_per_gal"), errors="coerce") == pytest.approx(0.02)
+    formula_check_df = quarterly_df[
+        pd.to_numeric(quarterly_df.get("official_simple_proxy_usd_per_gal"), errors="coerce").notna()
+        & pd.to_numeric(quarterly_df.get("coproduct_approximate_credit_usd_per_gal"), errors="coerce").notna()
+        & pd.to_numeric(quarterly_df.get("coproduct_simple_plus_25pct_credit_less_2c_usd_per_gal"), errors="coerce").notna()
+        & pd.to_numeric(quarterly_df.get("coproduct_credit_coverage_ratio"), errors="coerce").notna()
+        & pd.to_numeric(quarterly_df.get("coproduct_simple_plus_30pct_coverage_credit_less_2c_usd_per_gal"), errors="coerce").notna()
+    ].copy()
+    if not formula_check_df.empty:
+        formula_rec = formula_check_df.iloc[0].to_dict()
+        official_val = float(pd.to_numeric(formula_rec.get("official_simple_proxy_usd_per_gal"), errors="coerce"))
+        credit_val = float(pd.to_numeric(formula_rec.get("coproduct_approximate_credit_usd_per_gal"), errors="coerce"))
+        coverage_val = float(pd.to_numeric(formula_rec.get("coproduct_credit_coverage_ratio"), errors="coerce"))
+        assert float(pd.to_numeric(formula_rec.get("coproduct_simple_plus_25pct_credit_less_2c_usd_per_gal"), errors="coerce")) == pytest.approx(
+            official_val + (0.25 * credit_val) - 0.02
+        )
+        assert float(pd.to_numeric(formula_rec.get("coproduct_simple_plus_30pct_coverage_credit_less_2c_usd_per_gal"), errors="coerce")) == pytest.approx(
+            official_val + (0.30 * coverage_val * credit_val) - 0.02
+        )
+    else:
+        assert "25% of approximate coproduct credit - $0.02/gal friction" in str(fractional_row.get("rule") or "")
+        coverage_netted_row = coproduct_experimental_candidate_comparison_df[
+            coproduct_experimental_candidate_comparison_df["model_key"].astype(str) == "simple_plus_30pct_coverage_credit_less_2c"
+        ].iloc[0].to_dict()
+        assert pd.to_numeric(coverage_netted_row.get("friction_offset_usd_per_gal"), errors="coerce") == pytest.approx(0.02)
+        assert "30% x coverage x approximate coproduct credit - $0.02/gal friction" in str(coverage_netted_row.get("rule") or "")
     assert "coproduct-aware experimental lenses" in str(result.get("coproduct_experimental_summary_markdown") or "").lower()
+    assert "previous best coproduct-aware reference" in str(result.get("coproduct_experimental_summary_markdown") or "").lower()
     assert "experimental signal audit" in summary_lower
     assert "experimental realization / regime comparison" in summary_lower
     assert "best experimental candidate" in summary_lower
@@ -4455,9 +4638,9 @@ def test_gpre_official_component_records_surface_deterministic_fallbacks() -> No
     assert str(indiana_row["ethanol_series_key"]) == "ethanol_iowa"
     assert "ethanol_indiana implausible" in str(indiana_row["fallback_note"] or "")
     assert str(tennessee_row["basis_series_key"]) == "corn_basis_indiana"
-    assert "corn_basis_illinois unavailable; fallback to corn_basis_indiana" in str(tennessee_row["fallback_note"] or "")
+    assert "tennessee uses AMS fallback indiana" in str(tennessee_row["fallback_note"] or "")
     assert str(illinois_row["basis_series_key"] or "") == ""
-    assert "Missing corn_basis_illinois" in str(illinois_row["fallback_note"] or "")
+    assert "No actual bid or AMS proxy available" in str(illinois_row["fallback_note"] or "")
     assert float(pd.to_numeric(components[qd]["ethanol_coverage_ratio"], errors="coerce")) == pytest.approx(1.0, abs=1e-9)
     assert 0.0 < float(pd.to_numeric(components[qd]["basis_coverage_ratio"], errors="coerce")) < 1.0
 
@@ -4673,6 +4856,8 @@ def test_gpre_current_snapshot_prefers_actual_bids_for_official_basis() -> None:
     meta = snapshot["market_meta"]["corn_price"]
     assert snapshot["status"] == "ok_current"
     assert str(meta["official_corn_basis_source_kind"]) == "actual_gpre_bids"
+    assert meta["official_corn_basis_snapshot_date"] == date(2026, 4, 30)
+    assert snapshot["official_corn_basis_snapshot_date"] == date(2026, 4, 30)
     basis_payload = market_service._gpre_official_current_forward_basis_payload(
         rows,
         target_date=date(2026, 4, 15),
@@ -4700,7 +4885,7 @@ def test_gpre_current_snapshot_prefers_actual_bids_for_official_basis() -> None:
     assert "actual gpre plant-bid basis" in str(meta["official_corn_basis_provenance"] or "").lower()
 
 
-def test_gpre_prior_quarter_snapshot_stays_ams_backed_even_when_current_bids_exist() -> None:
+def test_gpre_historical_quarter_uses_retained_snapshot_when_eligible() -> None:
     obs_dt = date(2026, 3, 20)
     qd = date(2026, 3, 31)
     rows = [
@@ -4717,38 +4902,42 @@ def test_gpre_prior_quarter_snapshot_stays_ams_backed_even_when_current_bids_exi
         _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_iowa_west", instrument="Corn basis", region="iowa_west", price_value=-0.15, unit="$/bushel", source_type="ams_3617_pdf"),
         _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_minnesota", instrument="Corn basis", region="minnesota", price_value=-0.25, unit="$/bushel", source_type="ams_3617_pdf"),
     ]
-    bids_snapshot = {
-        "status": "ok",
-        "source_kind": "fixture",
-        "source_url": "fixture://gpre-bids",
-        "rows": [
-            {"location": "Central City", "region": "nebraska", "delivery_label": "Apr 2026", "delivery_end": date(2026, 4, 30), "basis_usd_per_bu": -0.20},
-            {"location": "Wood River", "region": "nebraska", "delivery_label": "Apr 2026", "delivery_end": date(2026, 4, 30), "basis_usd_per_bu": -0.24},
-            {"location": "York", "region": "nebraska", "delivery_label": "Apr 2026", "delivery_end": date(2026, 4, 30), "basis_usd_per_bu": -0.22},
-        ],
-    }
+    tmp_path = _local_test_dir("gpre_prior_quarter_snapshot_retained")
+    try:
+        _write_gpre_corn_bids_archive_snapshot(
+            tmp_path,
+            snapshot_date=date(2026, 3, 20),
+            rows=[
+                {"location": "Central City", "region": "nebraska", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.20},
+                {"location": "Wood River", "region": "nebraska", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.24},
+                {"location": "York", "region": "nebraska", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.22},
+                {"location": "Madison", "region": "illinois", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": 0.10},
+                {"location": "Mount Vernon", "region": "indiana", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": 0.12},
+                {"location": "Shenandoah", "region": "iowa_west", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.08},
+                {"location": "Superior", "region": "iowa_west", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.18},
+                {"location": "Otter Tail", "region": "minnesota", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.35},
+            ],
+        )
 
-    snapshot = build_gpre_official_proxy_snapshot(
-        rows,
-        ethanol_yield=2.9,
-        natural_gas_usage=28000.0,
-        as_of_date=date(2026, 4, 15),
-        prior_quarter=True,
-        bids_snapshot=bids_snapshot,
-    )
+        snapshot = build_gpre_official_proxy_snapshot(
+            rows,
+            ethanol_yield=2.9,
+            natural_gas_usage=28000.0,
+            as_of_date=date(2026, 4, 15),
+            prior_quarter=True,
+            ticker_root=tmp_path,
+        )
 
-    meta = snapshot["market_meta"]["corn_price"]
-    assert str(meta["official_corn_basis_source_kind"]) == "weighted_ams_proxy"
-    official_weights = market_service._gpre_official_market_weights_for_quarter(qd)
-    weighted_basis = (
-        (float(official_weights["nebraska"]) * -0.30)
-        + (float(official_weights["illinois"]) * -0.05)
-        + (float(official_weights["indiana"]) * -0.06)
-        + (float(official_weights["iowa_west"]) * -0.15)
-        + (float(official_weights["minnesota"]) * -0.25)
-    )
-    assert float(pd.to_numeric(meta["official_weighted_corn_basis_usd_per_bu"], errors="coerce")) == pytest.approx(weighted_basis, abs=1e-9)
-    assert float(pd.to_numeric(snapshot["current_market"]["corn_price"], errors="coerce")) == pytest.approx(4.40 + weighted_basis, abs=1e-9)
+        meta = snapshot["market_meta"]["corn_price"]
+        assert str(meta["official_corn_basis_source_kind"]) == "actual_gpre_bids"
+        assert meta["official_corn_basis_snapshot_date"] == date(2026, 3, 20)
+        assert snapshot["official_corn_basis_snapshot_date"] == date(2026, 3, 20)
+        assert str(meta["official_corn_basis_selection_rule"] or "") == "latest_snapshot_on_or_before_quarter_end"
+        assert str(snapshot["official_corn_basis_selection_rule"] or "") == "latest_snapshot_on_or_before_quarter_end"
+        assert str(meta["official_corn_basis_provenance"] or "").lower().find("2026-03-20") >= 0
+        assert str(meta["official_corn_basis_provenance"] or "").lower().find("latest_snapshot_on_or_before_quarter_end") >= 0
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
 
 def test_gpre_current_snapshot_partial_actual_bids_are_deterministic_and_explicit() -> None:
@@ -4814,6 +5003,135 @@ def test_gpre_current_snapshot_partial_actual_bids_are_deterministic_and_explici
     )
     assert float(pd.to_numeric(meta["official_weighted_corn_basis_usd_per_bu"], errors="coerce")) == pytest.approx(weighted_basis, abs=1e-9)
     assert "AMS fallback" in str(meta["official_corn_basis_provenance"] or "")
+
+
+def test_gpre_historical_quarter_falls_back_to_ams_when_no_eligible_snapshot_exists() -> None:
+    obs_dt = date(2026, 3, 20)
+    qd = date(2026, 3, 31)
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_futures", series_key="cbot_corn_usd_per_bu", instrument="Corn futures", price_value=4.40, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="natural_gas_price", series_key="nymex_gas", instrument="Natural gas", price_value=3.00, unit="$/MMBtu", source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_nebraska", instrument="Ethanol", price_value=1.60, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_illinois", instrument="Ethanol", price_value=1.62, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_indiana", instrument="Ethanol", price_value=1.61, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_iowa", instrument="Ethanol", price_value=1.59, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_south_dakota", instrument="Ethanol", price_value=1.58, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_nebraska", instrument="Corn basis", region="nebraska", price_value=-0.30, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_illinois", instrument="Corn basis", region="illinois", price_value=-0.05, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_indiana", instrument="Corn basis", region="indiana", price_value=-0.06, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_iowa_west", instrument="Corn basis", region="iowa_west", price_value=-0.15, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_minnesota", instrument="Corn basis", region="minnesota", price_value=-0.25, unit="$/bushel", source_type="ams_3617_pdf"),
+    ]
+    tmp_path = _local_test_dir("gpre_prior_quarter_snapshot_missing")
+    try:
+        _write_gpre_corn_bids_archive_snapshot(
+            tmp_path,
+            snapshot_date=date(2026, 4, 9),
+            rows=[
+                {"location": "Central City", "region": "nebraska", "delivery_label": "Apr 2026", "delivery_end": date(2026, 4, 30), "basis_usd_per_bu": -0.20},
+                {"location": "Wood River", "region": "nebraska", "delivery_label": "Apr 2026", "delivery_end": date(2026, 4, 30), "basis_usd_per_bu": -0.24},
+                {"location": "York", "region": "nebraska", "delivery_label": "Apr 2026", "delivery_end": date(2026, 4, 30), "basis_usd_per_bu": -0.22},
+            ],
+        )
+        snapshot = build_gpre_official_proxy_snapshot(
+            rows,
+            ethanol_yield=2.9,
+            natural_gas_usage=28000.0,
+            as_of_date=date(2026, 4, 15),
+            prior_quarter=True,
+            ticker_root=tmp_path,
+        )
+        meta = snapshot["market_meta"]["corn_price"]
+        assert str(meta["official_corn_basis_source_kind"]) == "weighted_ams_proxy"
+        assert meta["official_corn_basis_snapshot_date"] is None
+        assert snapshot["official_corn_basis_snapshot_date"] is None
+        assert str(meta["official_corn_basis_selection_rule"] or "") == "latest_snapshot_on_or_before_quarter_end"
+        assert str(snapshot["official_corn_basis_selection_rule"] or "") == "latest_snapshot_on_or_before_quarter_end"
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_load_local_gpre_corn_bids_snapshot_prefers_latest_snapshot_on_or_before_quarter_end() -> None:
+    tmp_path = _local_test_dir("gpre_corn_bids_history_selection")
+    try:
+        _write_gpre_corn_bids_archive_snapshot(
+            tmp_path,
+            snapshot_date=date(2026, 2, 14),
+            rows=[
+                {"location": "Central City", "region": "nebraska", "delivery_label": "Feb 2026", "delivery_end": date(2026, 2, 28), "basis_usd_per_bu": -0.11},
+            ],
+        )
+        _write_gpre_corn_bids_archive_snapshot(
+            tmp_path,
+            snapshot_date=date(2026, 3, 20),
+            rows=[
+                {"location": "Central City", "region": "nebraska", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.21},
+            ],
+        )
+        _write_gpre_corn_bids_archive_snapshot(
+            tmp_path,
+            snapshot_date=date(2026, 4, 9),
+            rows=[
+                {"location": "Central City", "region": "nebraska", "delivery_label": "Apr 2026", "delivery_end": date(2026, 4, 30), "basis_usd_per_bu": -0.31},
+            ],
+        )
+        snap = market_service._load_local_gpre_corn_bids_snapshot(
+            ticker_root=tmp_path,
+            as_of_date=date(2026, 4, 15),
+            target_date=date(2026, 3, 31),
+            target_quarter_end=date(2026, 3, 31),
+            selection_mode="historical_quarter",
+        )
+        assert str(snap.get("status") or "") == "ok"
+        assert snap.get("snapshot_date") == date(2026, 3, 20)
+        nearest_rows = list(snap.get("nearest_rows") or [])
+        assert nearest_rows
+        assert float(pd.to_numeric(nearest_rows[0].get("basis_usd_per_bu"), errors="coerce")) == pytest.approx(-0.21, abs=1e-9)
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_gpre_official_quarter_component_records_use_retained_snapshot_for_historical_quarter() -> None:
+    qd = date(2026, 3, 31)
+    rows = [
+        _parsed_row(aggregation_level="quarter_avg", observation_date=qd.isoformat(), publication_date=qd.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_nebraska", instrument="Ethanol", price_value=1.60, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="quarter_avg", observation_date=qd.isoformat(), publication_date=qd.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_illinois", instrument="Ethanol", price_value=1.62, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="quarter_avg", observation_date=qd.isoformat(), publication_date=qd.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_indiana", instrument="Ethanol", price_value=1.61, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="quarter_avg", observation_date=qd.isoformat(), publication_date=qd.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_iowa", instrument="Ethanol", price_value=1.59, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="quarter_avg", observation_date=qd.isoformat(), publication_date=qd.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_south_dakota", instrument="Ethanol", price_value=1.58, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="quarter_avg", observation_date=qd.isoformat(), publication_date=qd.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_nebraska", instrument="Corn basis", region="nebraska", price_value=-0.30, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="quarter_avg", observation_date=qd.isoformat(), publication_date=qd.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_illinois", instrument="Corn basis", region="illinois", price_value=-0.05, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="quarter_avg", observation_date=qd.isoformat(), publication_date=qd.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_indiana", instrument="Corn basis", region="indiana", price_value=-0.06, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="quarter_avg", observation_date=qd.isoformat(), publication_date=qd.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_iowa_west", instrument="Corn basis", region="iowa_west", price_value=-0.15, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="quarter_avg", observation_date=qd.isoformat(), publication_date=qd.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_minnesota", instrument="Corn basis", region="minnesota", price_value=-0.25, unit="$/bushel", source_type="ams_3617_pdf"),
+    ]
+    tmp_path = _local_test_dir("gpre_historical_quarter_component_retained")
+    try:
+        _write_gpre_corn_bids_archive_snapshot(
+            tmp_path,
+            snapshot_date=date(2026, 3, 20),
+            rows=[
+                {"location": "Central City", "region": "nebraska", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.20},
+                {"location": "Wood River", "region": "nebraska", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.24},
+                {"location": "York", "region": "nebraska", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.22},
+                {"location": "Madison", "region": "illinois", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": 0.10},
+                {"location": "Mount Vernon", "region": "indiana", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": 0.12},
+                {"location": "Shenandoah", "region": "iowa_west", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.08},
+                {"location": "Superior", "region": "iowa_west", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.18},
+                {"location": "Otter Tail", "region": "minnesota", "delivery_label": "Mar 2026", "delivery_end": date(2026, 3, 31), "basis_usd_per_bu": -0.35},
+            ],
+        )
+        records = market_service._gpre_official_quarter_component_records(
+            rows,
+            [qd],
+            ticker_root=tmp_path,
+        )
+        rec = dict(records.get(qd) or {})
+        assert str(rec.get("official_corn_basis_source_kind") or "") == "actual_gpre_bids"
+        assert rec.get("official_corn_basis_snapshot_date") == date(2026, 3, 20)
+        assert float(pd.to_numeric(rec.get("weighted_ams_basis_usd_per_bu"), errors="coerce")) == pytest.approx(-0.11821917808219182, abs=1e-9)
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
 
 def test_gpre_current_snapshot_actual_bid_change_moves_basis_in_expected_direction() -> None:
@@ -5277,15 +5595,18 @@ def test_manual_quarter_open_strip_backfills_current_quarter_when_frozen_missing
         )
 
         expected_strip = ((2.0025 * 30.0) + (2.0050 * 31.0) + (1.9825 * 30.0)) / 91.0
-        expected_proxy = expected_strip - ((4.62 - 0.20) / 2.9) - ((28000.0 / 1_000_000.0) * 3.18)
+        expected_proxy = expected_strip - (4.62 / 2.9) - ((28000.0 / 1_000_000.0) * 3.18)
         quarter_open_meta = dict((bundle.get("quarter_open_market_snapshot") or {}).get("market_meta") or {})
+        corn_meta = dict(quarter_open_meta.get("corn_price") or {})
         ethanol_meta = dict(quarter_open_meta.get("ethanol_price") or {})
 
         assert bundle["quarter_open_snapshot_status"] == "ok"
         assert bundle["quarter_open_provenance"] == "manual_local_snapshot"
         assert float(pd.to_numeric(bundle["quarter_open_official_proxy_usd_per_gal"], errors="coerce")) == pytest.approx(expected_proxy, abs=1e-9)
-        assert float(pd.to_numeric(bundle["quarter_open_gpre_proxy_usd_per_gal"], errors="coerce")) == pytest.approx(expected_proxy, abs=1e-9)
+        assert pd.isna(pd.to_numeric(bundle["quarter_open_gpre_proxy_usd_per_gal"], errors="coerce"))
         assert float(pd.to_numeric(((bundle.get("quarter_open_market_snapshot") or {}).get("current_market") or {}).get("ethanol_price"), errors="coerce")) == pytest.approx(expected_strip, abs=1e-9)
+        assert corn_meta.get("official_corn_basis_source_kind") == "weighted_ams_proxy"
+        assert corn_meta.get("official_corn_basis_snapshot_date") is None
         assert ethanol_meta.get("source_type") == "manual_local_snapshot"
         assert ethanol_meta.get("quarter_open_provenance") == "manual_local_snapshot"
         assert ethanol_meta.get("contract_tenors") == ["apr26", "may26", "jun26"]
