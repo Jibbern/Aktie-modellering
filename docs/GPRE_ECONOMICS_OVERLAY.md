@@ -59,6 +59,20 @@ It does **not** own:
   - `Official corn basis selection rule`
   - both are frame-specific auditability rows, not separate policy logic
 
+### Visual readability polish
+- `Basis_Proxy_Sandbox` now uses a clearer visual hierarchy without changing row order or logic:
+  - primary analysis blocks are styled more prominently
+  - secondary support blocks are still readable but slightly less dominant
+  - experimental / diagnostic blocks remain visible but visually separated from the main decision path
+- longer policy / provenance / interpretation rows are now intentionally styled as note boxes instead of blending into nearby data tables
+- frame-based areas keep the same four-frame content:
+  - `Prior quarter`
+  - `Quarter-open proxy`
+  - `Current QTD`
+  - `Next quarter thesis`
+  - but now use clearer widths, alignment, and borders so source selection and frame values can be scanned faster
+- `Coproduct quarterly history` and the coproduct experimental table keep all rows and methods, but now read more like tables and less like raw dumps through stronger headers, lighter striping, and better wrap/alignment
+
 ## Stage C: Coproduct-Aware Experimental Lenses
 
 ### Product rule

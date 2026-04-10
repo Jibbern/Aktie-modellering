@@ -27,6 +27,38 @@
   - run-scoped writer caches
   - market-data raw/parsed/export layering
 
+## GPRE Basis_Proxy_Sandbox Visual / Readability Polish (2026-04-10)
+- Verified scope:
+  - this is a workbook-surface-only pass for `Basis_Proxy_Sandbox`
+  - it does not change service logic, model selection, formulas, or section order
+  - it keeps all rows, sections, methods, provenance details, coverage details, and comparison tables
+- Verified hierarchy change:
+  - primary analysis blocks now stand out more clearly:
+    - `Approximate market crush build-up ($/gal)`
+    - `Official corn basis snapshot date`
+    - `Official corn basis selection rule`
+    - `Coproduct source gate`
+    - `Coproduct frame summary`
+  - secondary support blocks remain fully visible but slightly calmer:
+    - `Coproduct quarterly history`
+    - `Coproduct volume support audit`
+  - experimental / diagnostic blocks remain intact but visually lighter:
+    - `Coproduct-aware experimental lenses`
+    - hedge / memo / right-rail support areas
+- Verified note-box treatment:
+  - longer policy, provenance, and interpretation rows now use explicit note-box styling instead of looking like ordinary data rows
+  - note rows keep their workbook text but now use lighter fills, wrap text, top alignment, and slightly taller row heights where needed
+- Verified frame readability change:
+  - frame-oriented blocks still use the same `Prior quarter / Quarter-open proxy / Current QTD / Next quarter thesis` content
+  - label columns, frame columns, and summary rows now use clearer widths, alignment, and borders so the frame board reads more like an analyst workbench than a flat dump
+- Verified table readability change:
+  - `Coproduct quarterly history` and the coproduct experimental metrics table now use clearer header contrast and light row striping
+  - numeric cells are aligned more consistently for easier scanning
+- Verified geometry constraints:
+  - section anchors remain unchanged
+  - freeze panes remain `B5`
+  - existing merge/range assumptions stay intact so readback and workbook tests remain stable
+
 ## GPRE Stage C.2: Historical Corn-Bid Retention, Snapshot Archive, and Quarterly Zero-Line Cleanup (2026-04-10)
 - Verified source-selection change:
   - `Official corn basis` no longer degrades historical or prior-quarter quarters to AMS just because the quarter has rolled forward

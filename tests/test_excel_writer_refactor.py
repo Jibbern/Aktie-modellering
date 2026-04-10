@@ -10698,6 +10698,7 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         best_compromise_row = _find_row_with_value(ws_basis, "Best compromise", column=21)
         best_forward_row = _find_row_with_value(ws_basis, "Best forward lens", column=21)
         forward_usability_row = _find_row_with_value(ws_basis, "Forward usability", column=21)
+        build_up_row = _find_row_with_value(ws_basis, "Approximate market crush build-up ($/gal)", column=2)
         corn_oil_gate_title_row = _find_row_with_value(ws_basis, "Coproduct source gate", column=2)
         coproduct_readiness_title_row = _find_row_with_value(ws_basis, "Coproduct signal readiness", column=2)
         nwer_gate_row = next(
@@ -10766,6 +10767,7 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert role_summary_row is not None
         assert winner_story_title_row is not None
         assert forward_usability_row is not None
+        assert build_up_row is not None
         assert corn_oil_gate_title_row is not None
         assert nwer_gate_row is not None
         assert ams_3618_gate_row is not None
@@ -10813,6 +10815,22 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert coproduct_experimental_method_header_row is not None
         assert memo_row is not None
         assert coproduct_frame_summary_title_row < coproduct_history_title_row < coproduct_volume_support_title_row < coproduct_experimental_title_row < memo_row
+        assert _fill_rgb(ws_basis.cell(row=build_up_row, column=2)) == "00D9E7F3"
+        assert _fill_rgb(ws_basis.cell(row=corn_oil_gate_title_row, column=2)) == "00D9E7F3"
+        assert _fill_rgb(ws_basis.cell(row=coproduct_frame_summary_title_row, column=2)) == "00D9E7F3"
+        assert _fill_rgb(ws_basis.cell(row=coproduct_history_title_row, column=2)) == "00EAF3FB"
+        assert _fill_rgb(ws_basis.cell(row=coproduct_volume_support_title_row, column=2)) == "00EAF3FB"
+        assert _fill_rgb(ws_basis.cell(row=coproduct_experimental_title_row, column=2)) == "00F7F9FC"
+        assert _fill_rgb(ws_basis.cell(row=build_up_row + 1, column=2)) == "00F4F8FC"
+        assert _fill_rgb(ws_basis.cell(row=coproduct_history_title_row + 1, column=2)) == "00F4F8FC"
+        assert _fill_rgb(ws_basis.cell(row=coproduct_experimental_title_row + 1, column=2)) == "00F8FBFD"
+        assert _fill_rgb(ws_basis.cell(row=winner_story_title_row, column=21)) == "00F7F9FC"
+        assert float(ws_basis.column_dimensions["B"].width or 0.0) >= 16.0
+        assert float(ws_basis.column_dimensions["S"].width or 0.0) >= 36.0
+        assert float(ws_basis.column_dimensions["U"].width or 0.0) >= 21.0
+        assert float(ws_basis.column_dimensions["X"].width or 0.0) >= 14.0
+        assert float(ws_basis.row_dimensions[build_up_row + 1].height or 0.0) == pytest.approx(28.0, abs=0.1)
+        assert float(ws_basis.row_dimensions[coproduct_frame_summary_title_row + 1].height or 0.0) == pytest.approx(64.0, abs=0.1)
         assert "Production winner = fitted row used in production" in str(ws_basis.cell(row=role_summary_row + 5, column=21).value or "")
         assert "Hybrid" in str(ws_basis.cell(row=best_historical_row, column=22).value or "")
         assert "MAE" in str(ws_basis.cell(row=best_historical_row, column=22).value or "")
@@ -14681,9 +14699,28 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         basis_merged_ranges = {str(rng) for rng in ws_basis.merged_cells.ranges}
         assert str(ws_basis["B1"].value or "").strip() == "Exploratory GPRE basis proxy sandbox (test)"
         assert "B1:O1" in basis_merged_ranges
+        sandbox_build_row = _find_row_with_value(ws_basis, "Approximate market crush build-up ($/gal)", column=2)
+        coproduct_history_title_row = _find_row_with_value(ws_basis, "Coproduct quarterly history", column=2)
+        coproduct_volume_support_title_row = _find_row_with_value(ws_basis, "Coproduct volume support audit", column=2)
+        coproduct_experimental_title_row = _find_row_with_value(ws_basis, "Coproduct-aware experimental lenses", column=2)
+        winner_story_title_row = _find_row_with_value(ws_basis, "Winner story", column=21)
+        assert sandbox_build_row is not None
+        assert coproduct_history_title_row is not None
+        assert coproduct_volume_support_title_row is not None
+        assert coproduct_experimental_title_row is not None
+        assert winner_story_title_row is not None
         assert float(ws_basis.column_dimensions["D"].width or 0.0) >= 20.0
-        assert float(ws_basis.column_dimensions["S"].width or 0.0) >= 30.0
-        assert float(ws_basis.column_dimensions["U"].width or 0.0) >= 18.0
+        assert float(ws_basis.column_dimensions["B"].width or 0.0) >= 16.0
+        assert float(ws_basis.column_dimensions["S"].width or 0.0) >= 36.0
+        assert float(ws_basis.column_dimensions["U"].width or 0.0) >= 21.0
+        assert float(ws_basis.column_dimensions["X"].width or 0.0) >= 14.0
+        assert _fill_rgb(ws_basis.cell(row=sandbox_build_row, column=2)) == "00D9E7F3"
+        assert _fill_rgb(ws_basis.cell(row=coproduct_history_title_row, column=2)) == "00EAF3FB"
+        assert _fill_rgb(ws_basis.cell(row=coproduct_volume_support_title_row, column=2)) == "00EAF3FB"
+        assert _fill_rgb(ws_basis.cell(row=coproduct_experimental_title_row, column=2)) == "00F7F9FC"
+        assert _fill_rgb(ws_basis.cell(row=sandbox_build_row + 1, column=2)) == "00F4F8FC"
+        assert _fill_rgb(ws_basis.cell(row=coproduct_experimental_title_row + 1, column=2)) == "00F8FBFD"
+        assert _fill_rgb(ws_basis.cell(row=winner_story_title_row, column=21)) == "00F7F9FC"
         assert str(ws_basis["U4"].value or "").strip() == "How to read this sheet"
         assert "Conclusion" in str(ws_basis["U5"].value or "")
         assert "incumbent baseline" in str(ws_basis["U5"].value or "").lower()
