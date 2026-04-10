@@ -21,6 +21,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ..company_profiles import get_company_profile
 from ..debt_parser import read_html_tables_any
 from .aggregations import aggregate_quarterly, parse_quarter_like, quarter_end_from_date
 from .cache import (
@@ -81,6 +82,113 @@ _GPRE_CORN_BIDS_DIRECT_URLS: Tuple[str, ...] = (
 _GPRE_CORN_BIDS_DIRNAME = "corn_bids"
 _GPRE_CORN_BIDS_HTML_FILENAME = "grain_gpre_home.html"
 _GPRE_CORN_BIDS_CSV_FILENAME = "gpre_corn_bids_snapshot.csv"
+_GPRE_COPRODUCT_SOURCE_PRIORITY: Tuple[str, ...] = ("nwer", "ams_3618")
+_GPRE_COPRODUCT_REGION_SERIES_CANDIDATES: Dict[str, Dict[str, Tuple[str, ...]]] = {
+    "renewable_corn_oil_price": {
+        "nebraska": ("corn_oil_nebraska",),
+        "illinois": ("corn_oil_illinois",),
+        "indiana": ("corn_oil_indiana",),
+        "iowa_east": ("corn_oil_iowa_east", "corn_oil_iowa_avg", "corn_oil_eastern_cornbelt"),
+        "iowa_west": ("corn_oil_iowa_west", "corn_oil_iowa_avg"),
+        "minnesota": ("corn_oil_minnesota",),
+        "tennessee": tuple(),
+    },
+    "distillers_grains_price": {
+        "nebraska": ("ddgs_10_nebraska",),
+        "illinois": ("ddgs_10_illinois",),
+        "indiana": ("ddgs_10_indiana",),
+        "iowa_east": ("ddgs_10_iowa_east", "ddgs_10_iowa"),
+        "iowa_west": ("ddgs_10_iowa_west", "ddgs_10_iowa"),
+        "minnesota": ("ddgs_10_minnesota",),
+        "tennessee": tuple(),
+    },
+}
+_GPRE_COPRODUCT_EXPERIMENTAL_SPECS: Tuple[Dict[str, Any], ...] = (
+    {
+        "model_key": "simple_plus_full_credit",
+        "pred_col": "coproduct_simple_plus_full_credit_usd_per_gal",
+        "method_label": "Simple + full credit",
+        "rule": "Approximate market crush + full approximate coproduct credit",
+        "base_model_kind": "official",
+        "credit_scale": 1.0,
+        "coverage_power": 0.0,
+        "candidate_method_family": "market crush + full credit",
+        "signal_dependency_note": "Adds the full approximate coproduct credit ($/gal) onto the simple official market/process row.",
+        "forward_usability_rating": "high",
+        "complexity_rating": "low",
+        "preview_supported": True,
+    },
+    {
+        "model_key": "simple_plus_half_credit",
+        "pred_col": "coproduct_simple_plus_half_credit_usd_per_gal",
+        "method_label": "Simple + 50% credit",
+        "rule": "Approximate market crush + 50% of approximate coproduct credit",
+        "base_model_kind": "official",
+        "credit_scale": 0.5,
+        "coverage_power": 0.0,
+        "candidate_method_family": "market crush + scaled credit",
+        "signal_dependency_note": "Adds a deliberately damped 50% coproduct credit overlay onto the simple official row.",
+        "forward_usability_rating": "high",
+        "complexity_rating": "low",
+        "preview_supported": True,
+    },
+    {
+        "model_key": "simple_plus_coverage_credit",
+        "pred_col": "coproduct_simple_plus_coverage_credit_usd_per_gal",
+        "method_label": "Simple + coverage-weighted credit",
+        "rule": "Approximate market crush + coverage x approximate coproduct credit",
+        "base_model_kind": "official",
+        "credit_scale": 1.0,
+        "coverage_power": 1.0,
+        "candidate_method_family": "market crush + coverage-aware credit",
+        "signal_dependency_note": "Scales the coproduct overlay by direct market-leg coverage to damp low-coverage quarters automatically.",
+        "forward_usability_rating": "high",
+        "complexity_rating": "moderate",
+        "preview_supported": True,
+    },
+    {
+        "model_key": "winner_plus_full_credit",
+        "pred_col": "coproduct_winner_plus_full_credit_usd_per_gal",
+        "method_label": "Winner + full credit",
+        "rule": "Current production winner + full approximate coproduct credit",
+        "base_model_kind": "winner",
+        "credit_scale": 1.0,
+        "coverage_power": 0.0,
+        "candidate_method_family": "production winner + full credit",
+        "signal_dependency_note": "Adds the full coproduct credit overlay to the current production winner as a bounded comparison-only challenger.",
+        "forward_usability_rating": "high",
+        "complexity_rating": "moderate",
+        "preview_supported": True,
+    },
+    {
+        "model_key": "forward_plus_full_credit",
+        "pred_col": "coproduct_forward_plus_full_credit_usd_per_gal",
+        "method_label": "Forward + full credit",
+        "rule": "Best forward lens + full approximate coproduct credit",
+        "base_model_kind": "forward",
+        "credit_scale": 1.0,
+        "coverage_power": 0.0,
+        "candidate_method_family": "forward lens + full credit",
+        "signal_dependency_note": "Applies the full coproduct overlay to the current best forward lens to test a forward-friendly coproduct-aware variant.",
+        "forward_usability_rating": "high",
+        "complexity_rating": "moderate",
+        "preview_supported": True,
+    },
+    {
+        "model_key": "winner_plus_conservative_credit",
+        "pred_col": "coproduct_winner_plus_conservative_credit_usd_per_gal",
+        "method_label": "Winner + conservative credit",
+        "rule": "Current production winner + coverage^2 x approximate coproduct credit",
+        "base_model_kind": "winner",
+        "credit_scale": 1.0,
+        "coverage_power": 2.0,
+        "candidate_method_family": "production winner + conservative coverage damping",
+        "signal_dependency_note": "Uses squared coverage to damp the coproduct overlay aggressively when the direct market-leg footprint is not fully covered.",
+        "forward_usability_rating": "medium",
+        "complexity_rating": "moderate",
+        "preview_supported": True,
+    },
+)
 
 
 def _normalize_raw_manifest_entry(entry: Dict[str, Any], *, source: str, provider: Any) -> Optional[Dict[str, Any]]:
@@ -10084,6 +10192,540 @@ def _gpre_experimental_candidate_comparison(
     return pd.DataFrame(out_rows)
 
 
+def _gpre_coproduct_source_bucket(source_type_in: Any) -> str:
+    low = str(source_type_in or "").strip().lower()
+    if low.startswith("nwer"):
+        return "nwer"
+    if low.startswith("ams_3618"):
+        return "ams_3618"
+    return ""
+
+
+def _gpre_coproduct_source_label(source_bucket_in: Any) -> str:
+    bucket = str(source_bucket_in or "").strip().lower()
+    if bucket == "nwer":
+        return "NWER"
+    if bucket == "ams_3618":
+        return "AMS 3618"
+    return ""
+
+
+def _gpre_classify_coproduct_resolved_source(*source_texts_in: Any) -> str:
+    labels: List[str] = []
+    for source_txt in source_texts_in:
+        low = str(source_txt or "").strip().lower()
+        if not low:
+            continue
+        if "ams_3618" in low:
+            label = "AMS 3618"
+        elif "nwer" in low:
+            label = "NWER"
+        else:
+            continue
+        if label not in labels:
+            labels.append(label)
+    if not labels:
+        return "Unknown/blank"
+    if len(labels) == 1:
+        return labels[0]
+    return "Mixed"
+
+
+def _gpre_convert_coproduct_market_price_value(
+    value: Any,
+    unit_from: Any,
+    unit_to: Any,
+) -> Tuple[Optional[float], bool]:
+    value_num = pd.to_numeric(value, errors="coerce")
+    if pd.isna(value_num):
+        return None, False
+    val = float(value_num)
+    from_u = str(unit_from or "").strip()
+    to_u = str(unit_to or "").strip()
+    if not to_u or from_u == to_u:
+        return val, False
+    if from_u == "$/ton" and to_u == "$/lb":
+        return val / 2000.0, True
+    if from_u == "c/lb" and to_u == "$/lb":
+        return val / 100.0, True
+    if from_u == "c/lb" and to_u == "c/lb":
+        return val, False
+    return None, False
+
+
+def _gpre_coproduct_market_quality_rank(txt: Any) -> int:
+    low = str(txt or "").strip().lower()
+    return 3 if low == "high" else 2 if low == "medium" else 1 if low == "low" else 0
+
+
+def _gpre_coproduct_best_aggregate_candidate(
+    rows_in: List[Dict[str, Any]],
+    *,
+    target_unit: str,
+    agg_preference: str,
+) -> Optional[Dict[str, Any]]:
+    def _best_non_obs(agg_level_txt: str) -> Optional[Dict[str, Any]]:
+        best_score: Optional[Tuple[Any, ...]] = None
+        best_rec: Optional[Dict[str, Any]] = None
+        for rec in rows_in:
+            if str(rec.get("aggregation_level") or "").strip().lower() != agg_level_txt:
+                continue
+            converted_val, converted = _gpre_convert_coproduct_market_price_value(
+                rec.get("price_value"),
+                rec.get("unit"),
+                target_unit,
+            )
+            if converted_val is None:
+                continue
+            obs_dt = pd.to_datetime(rec.get("observation_date"), errors="coerce")
+            score = (
+                _gpre_coproduct_market_quality_rank(rec.get("quality")),
+                int(pd.to_numeric(rec.get("_obs_count"), errors="coerce") or 0),
+                (pd.Timestamp(obs_dt).date().toordinal() if pd.notna(obs_dt) else 0),
+            )
+            if best_score is None or score > best_score:
+                chosen = dict(rec)
+                chosen["_converted_value"] = float(converted_val)
+                chosen["_converted"] = bool(converted)
+                chosen["_selection_rule"] = agg_level_txt
+                best_score = score
+                best_rec = chosen
+        return best_rec
+
+    for agg_level_txt in (
+        str(agg_preference or "").strip().lower() or "quarter_avg",
+        "quarter_end",
+    ):
+        chosen = _best_non_obs(agg_level_txt)
+        if isinstance(chosen, dict):
+            return chosen
+    observation_vals: List[float] = []
+    representative_rec: Optional[Dict[str, Any]] = None
+    for rec in rows_in:
+        if str(rec.get("aggregation_level") or "").strip().lower() != "observation":
+            continue
+        converted_val, converted = _gpre_convert_coproduct_market_price_value(
+            rec.get("price_value"),
+            rec.get("unit"),
+            target_unit,
+        )
+        if converted_val is None:
+            continue
+        observation_vals.append(float(converted_val))
+        if representative_rec is None:
+            representative_rec = dict(rec)
+            representative_rec["_converted"] = bool(converted)
+    if observation_vals and representative_rec is not None:
+        representative_rec["_converted_value"] = float(sum(observation_vals) / len(observation_vals))
+        representative_rec["_selection_rule"] = "observation_avg"
+        representative_rec["_obs_count"] = len(observation_vals)
+        return representative_rec
+    return None
+
+
+def _gpre_coproduct_quarter_open_candidate(
+    rows_in: List[Dict[str, Any]],
+    *,
+    target_unit: str,
+) -> Optional[Dict[str, Any]]:
+    earliest_by_day: Dict[date, List[Tuple[Tuple[Any, ...], Dict[str, Any]]]] = {}
+    for rec in rows_in:
+        if str(rec.get("aggregation_level") or "").strip().lower() != "observation":
+            continue
+        obs_dt = pd.to_datetime(rec.get("observation_date"), errors="coerce")
+        if pd.isna(obs_dt):
+            continue
+        converted_val, converted = _gpre_convert_coproduct_market_price_value(
+            rec.get("price_value"),
+            rec.get("unit"),
+            target_unit,
+        )
+        if converted_val is None:
+            continue
+        obs_date = pd.Timestamp(obs_dt).date()
+        score = (
+            -_gpre_coproduct_market_quality_rank(rec.get("quality")),
+            -int(pd.to_numeric(rec.get("_obs_count"), errors="coerce") or 0),
+        )
+        chosen = dict(rec)
+        chosen["_converted_value"] = float(converted_val)
+        chosen["_converted"] = bool(converted)
+        chosen["_selection_rule"] = "quarter_open_observation"
+        earliest_by_day.setdefault(obs_date, []).append((score, chosen))
+    if not earliest_by_day:
+        return None
+    first_obs_date = min(earliest_by_day)
+    day_candidates = sorted(earliest_by_day.get(first_obs_date) or [], key=lambda item: item[0])
+    if not day_candidates:
+        return None
+    return dict(day_candidates[0][1])
+
+
+def _gpre_shift_quarter(quarter_end_in: Any, delta_quarters: int) -> Optional[date]:
+    if not isinstance(quarter_end_in, date):
+        return None
+    try:
+        return (pd.Timestamp(quarter_end_in).to_period("Q") + int(delta_quarters)).end_time.normalize().date()
+    except Exception:
+        return None
+
+
+def _gpre_build_weighted_coproduct_record(
+    rows_in: List[Dict[str, Any]],
+    quarter_end: Any,
+    *,
+    ticker_root: Optional[Path],
+    plant_capacity_history: Optional[Dict[str, Any]],
+    reported_gallons_produced_by_quarter: Optional[Dict[date, float]] = None,
+    mode: str = "quarter_avg",
+) -> Dict[str, Any]:
+    if not isinstance(quarter_end, date):
+        return {}
+    profile = get_company_profile("GPRE")
+    input_templates_by_key = {
+        str(tpl.key or "").strip(): tpl
+        for tpl in tuple(getattr(profile, "economics_overlay_market_inputs", ()) or ())
+        if str(getattr(tpl, "key", "") or "").strip()
+    }
+    coefficient_values = {
+        str(coef.key or "").strip(): pd.to_numeric(getattr(coef, "default_value", None), errors="coerce")
+        for coef in tuple(getattr(profile, "economics_overlay_coefficients", ()) or ())
+        if str(getattr(coef, "key", "") or "").strip()
+    }
+    ethanol_yield_num = pd.to_numeric(coefficient_values.get("ethanol_yield"), errors="coerce")
+    distillers_yield_num = pd.to_numeric(coefficient_values.get("distillers_yield"), errors="coerce")
+    uhp_yield_num = pd.to_numeric(coefficient_values.get("uhp_yield"), errors="coerce")
+    corn_oil_yield_num = pd.to_numeric(coefficient_values.get("renewable_corn_oil_yield"), errors="coerce")
+    raw_gallons = pd.to_numeric(dict(reported_gallons_produced_by_quarter or {}).get(quarter_end), errors="coerce")
+    gallons_million_display = (
+        None
+        if pd.isna(raw_gallons) or float(raw_gallons) <= 0.0
+        else float(raw_gallons) / 1_000_000.0
+    )
+
+    def _series_candidates(input_key: str, region_in: Any) -> Tuple[str, ...]:
+        region_txt = str(region_in or "").strip().lower()
+        return tuple((_GPRE_COPRODUCT_REGION_SERIES_CANDIDATES.get(str(input_key or "").strip()) or {}).get(region_txt) or ())
+
+    def _weighted_input_value(input_key: str) -> Dict[str, Any]:
+        tpl = input_templates_by_key.get(str(input_key or "").strip())
+        if tpl is None:
+            return {"value": None, "coverage_ratio": None, "source_mode": "Unknown/blank", "region_hits": []}
+        target_unit = str(getattr(tpl, "unit", "") or "").strip()
+        agg_preference = str(getattr(tpl, "aggregation_preference", "") or "quarter_avg").strip().lower()
+        weights = {
+            str(region or "").strip().lower(): float(pd.to_numeric(raw_weight, errors="coerce") or 0.0)
+            for region, raw_weight in dict(
+                _gpre_official_market_weights_for_quarter(
+                    quarter_end,
+                    ticker_root=ticker_root,
+                    plant_capacity_history=plant_capacity_history,
+                ) or {}
+            ).items()
+            if float(pd.to_numeric(raw_weight, errors="coerce") or 0.0) > 0.0
+        }
+        total_weight = float(sum(weights.values()))
+        if total_weight <= 0.0:
+            return {"value": None, "coverage_ratio": None, "source_mode": "Unknown/blank", "region_hits": []}
+        covered_weight = 0.0
+        weighted_total = 0.0
+        source_labels: List[str] = []
+        region_hits: List[str] = []
+        for region, region_weight in sorted(weights.items()):
+            candidate: Optional[Dict[str, Any]] = None
+            for source_bucket in _GPRE_COPRODUCT_SOURCE_PRIORITY:
+                for series_key in _series_candidates(input_key, region):
+                    matching_rows = [
+                        rec
+                        for rec in rows_in
+                        if rec.get("quarter") == quarter_end
+                        and str(rec.get("series_key") or "").strip() == series_key
+                        and _gpre_coproduct_source_bucket(rec.get("source_type")) == source_bucket
+                    ]
+                    if not matching_rows:
+                        continue
+                    if str(mode or "").strip().lower() == "quarter_open":
+                        chosen = _gpre_coproduct_quarter_open_candidate(
+                            matching_rows,
+                            target_unit=target_unit,
+                        )
+                    else:
+                        chosen = _gpre_coproduct_best_aggregate_candidate(
+                            matching_rows,
+                            target_unit=target_unit,
+                            agg_preference=agg_preference,
+                        )
+                    if isinstance(chosen, dict):
+                        candidate = dict(chosen)
+                        candidate["_series_key"] = series_key
+                        candidate["_source_bucket"] = source_bucket
+                        break
+                if candidate is not None:
+                    break
+            if candidate is None:
+                continue
+            value_num = pd.to_numeric(candidate.get("_converted_value"), errors="coerce")
+            if pd.isna(value_num):
+                continue
+            covered_weight += float(region_weight)
+            weighted_total += float(region_weight) * float(value_num)
+            source_label = _gpre_coproduct_source_label(candidate.get("_source_bucket"))
+            if source_label:
+                source_labels.append(source_label)
+            region_hits.append(f"{region}:{candidate.get('_series_key')}:{source_label or 'Unknown'}")
+        coverage_ratio = (covered_weight / total_weight) if total_weight > 0 else None
+        value_out = (weighted_total / covered_weight) if covered_weight > 0 else None
+        return {
+            "value": value_out,
+            "coverage_ratio": coverage_ratio,
+            "source_mode": _gpre_classify_coproduct_resolved_source(*source_labels),
+            "region_hits": list(region_hits),
+        }
+
+    def _resolved_uhp_value() -> Dict[str, Any]:
+        tpl = input_templates_by_key.get("uhp_price")
+        if tpl is None:
+            return {"value": None, "source_mode": "Unknown/blank"}
+        target_unit = str(getattr(tpl, "unit", "") or "").strip()
+        series_keys = tuple(str(item or "").strip() for item in (getattr(tpl, "source_series_keys", ()) or ()) if str(item or "").strip())
+        candidates: List[Tuple[Tuple[Any, ...], Dict[str, Any]]] = []
+        for rec in rows_in:
+            if rec.get("quarter") != quarter_end or str(rec.get("series_key") or "").strip() not in series_keys:
+                continue
+            source_bucket = _gpre_coproduct_source_bucket(rec.get("source_type"))
+            source_rank = (
+                _GPRE_COPRODUCT_SOURCE_PRIORITY.index(source_bucket)
+                if source_bucket in _GPRE_COPRODUCT_SOURCE_PRIORITY
+                else len(_GPRE_COPRODUCT_SOURCE_PRIORITY)
+            )
+            chosen = (
+                _gpre_coproduct_quarter_open_candidate([rec], target_unit=target_unit)
+                if str(mode or "").strip().lower() == "quarter_open"
+                else _gpre_coproduct_best_aggregate_candidate(
+                    [rec],
+                    target_unit=target_unit,
+                    agg_preference=str(getattr(tpl, "aggregation_preference", "") or "quarter_avg"),
+                )
+            )
+            if not isinstance(chosen, dict):
+                continue
+            candidates.append(((source_rank,), chosen))
+        if not candidates:
+            return {"value": None, "source_mode": "Unknown/blank"}
+        picked = sorted(candidates, key=lambda item: item[0])[0][1]
+        value_num = pd.to_numeric(picked.get("_converted_value"), errors="coerce")
+        return {
+            "value": None if pd.isna(value_num) else float(value_num),
+            "source_mode": _gpre_coproduct_source_label(_gpre_coproduct_source_bucket(picked.get("source_type"))) or "Unknown/blank",
+        }
+
+    corn_oil_rec = _weighted_input_value("renewable_corn_oil_price")
+    distillers_rec = _weighted_input_value("distillers_grains_price")
+    uhp_rec = _resolved_uhp_value()
+    corn_oil_price = pd.to_numeric(corn_oil_rec.get("value"), errors="coerce")
+    distillers_price = pd.to_numeric(distillers_rec.get("value"), errors="coerce")
+    uhp_price = pd.to_numeric(uhp_rec.get("value"), errors="coerce")
+    distillers_contribution = (
+        float(distillers_yield_num) * float(distillers_price)
+        if pd.notna(distillers_yield_num) and pd.notna(distillers_price)
+        else None
+    )
+    uhp_contribution = (
+        float(uhp_yield_num) * float(uhp_price)
+        if pd.notna(uhp_yield_num) and pd.notna(uhp_price)
+        else None
+    )
+    corn_oil_contribution = (
+        float(corn_oil_yield_num) * float(corn_oil_price)
+        if pd.notna(corn_oil_yield_num) and pd.notna(corn_oil_price)
+        else None
+    )
+    contribution_values = [
+        float(val)
+        for val in (distillers_contribution, uhp_contribution, corn_oil_contribution)
+        if val is not None and pd.notna(val)
+    ]
+    approximate_coproduct_credit = sum(contribution_values) if contribution_values else None
+    approximate_coproduct_credit_per_gal = (
+        float(approximate_coproduct_credit) / float(ethanol_yield_num)
+        if approximate_coproduct_credit is not None
+        and pd.notna(ethanol_yield_num)
+        and abs(float(ethanol_yield_num)) > 1e-9
+        else None
+    )
+    approximate_coproduct_credit_usd_m = (
+        float(approximate_coproduct_credit_per_gal) * float(gallons_million_display)
+        if approximate_coproduct_credit_per_gal is not None
+        and gallons_million_display is not None
+        and abs(float(gallons_million_display)) > 1e-9
+        else None
+    )
+    coverage_candidates = [
+        float(val)
+        for val in (
+            pd.to_numeric(corn_oil_rec.get("coverage_ratio"), errors="coerce"),
+            pd.to_numeric(distillers_rec.get("coverage_ratio"), errors="coerce"),
+        )
+        if pd.notna(val)
+    ]
+    coverage_ratio = min(coverage_candidates) if coverage_candidates else None
+    return {
+        "quarter_end": quarter_end,
+        "quarter_label": _quarter_label(quarter_end),
+        "renewable_corn_oil_price": (None if pd.isna(corn_oil_price) else float(corn_oil_price)),
+        "distillers_grains_price": (None if pd.isna(distillers_price) else float(distillers_price)),
+        "uhp_price": (None if pd.isna(uhp_price) else float(uhp_price)),
+        "approximate_coproduct_credit": approximate_coproduct_credit,
+        "approximate_coproduct_credit_per_gal": approximate_coproduct_credit_per_gal,
+        "approximate_coproduct_credit_usd_m": approximate_coproduct_credit_usd_m,
+        "resolved_source_mode": _gpre_classify_coproduct_resolved_source(
+            corn_oil_rec.get("source_mode"),
+            distillers_rec.get("source_mode"),
+        ),
+        "coverage_ratio": coverage_ratio,
+        "rule": (
+            "Weighted exact-quarter averages using quarter-aware active-capacity footprint; corn oil uses the all-active-footprint approximation."
+            if str(mode or "").strip().lower() != "quarter_open"
+            else "Weighted early-quarter observation snapshot using quarter-aware active-capacity footprint; missing legs stay blank for carry-forward handling."
+        ),
+        "renewable_corn_oil_source_mode": str(corn_oil_rec.get("source_mode") or "Unknown/blank"),
+        "distillers_grains_source_mode": str(distillers_rec.get("source_mode") or "Unknown/blank"),
+        "renewable_corn_oil_coverage_ratio": pd.to_numeric(corn_oil_rec.get("coverage_ratio"), errors="coerce"),
+        "distillers_grains_coverage_ratio": pd.to_numeric(distillers_rec.get("coverage_ratio"), errors="coerce"),
+    }
+
+
+def _gpre_coproduct_frame_record(
+    frame_key: str,
+    *,
+    target_quarter_end: Optional[date],
+    base_record: Optional[Dict[str, Any]],
+    fallback_record: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    frame_label = {
+        "prior_quarter": "Prior quarter",
+        "quarter_open": "Quarter-open proxy",
+        "current_qtd": "Current QTD",
+        "next_quarter_thesis": "Next quarter thesis",
+    }.get(str(frame_key or "").strip(), str(frame_key or "").replace("_", " ").title())
+    primary = dict(base_record or {})
+    fallback = dict(fallback_record or {})
+
+    def _choose(field_name: str) -> Tuple[Optional[float], str, Optional[float], bool]:
+        primary_val = pd.to_numeric(primary.get(field_name), errors="coerce")
+        if pd.notna(primary_val):
+            return (
+                float(primary_val),
+                str(primary.get(f"{field_name}_source_mode") or primary.get("resolved_source_mode") or "Unknown/blank"),
+                pd.to_numeric(primary.get(f"{field_name}_coverage_ratio") or primary.get("coverage_ratio"), errors="coerce"),
+                False,
+            )
+        fallback_val = pd.to_numeric(fallback.get(field_name), errors="coerce")
+        if pd.notna(fallback_val):
+            return (
+                float(fallback_val),
+                str(fallback.get(f"{field_name}_source_mode") or fallback.get("resolved_source_mode") or "Unknown/blank"),
+                pd.to_numeric(fallback.get(f"{field_name}_coverage_ratio") or fallback.get("coverage_ratio"), errors="coerce"),
+                True,
+            )
+        return None, "Unknown/blank", None, False
+
+    corn_price, corn_source_mode, corn_coverage_ratio, corn_carried = _choose("renewable_corn_oil_price")
+    distillers_price, distillers_source_mode, distillers_coverage_ratio, ddgs_carried = _choose("distillers_grains_price")
+    uhp_value_num = pd.to_numeric(primary.get("uhp_price"), errors="coerce")
+    if pd.isna(uhp_value_num):
+        uhp_value_num = pd.to_numeric(fallback.get("uhp_price"), errors="coerce")
+    if str(frame_key or "").strip() == "quarter_open":
+        rule_text = (
+            "Early-quarter weighted observation snapshot where available; prior-quarter carry-forward fills missing coproduct legs."
+            if (corn_carried or ddgs_carried)
+            else "Early-quarter weighted observation snapshot using the active-capacity footprint."
+        )
+    elif str(frame_key or "").strip() == "next_quarter_thesis":
+        rule_text = "Carry-forward latest resolved weighted coproduct value; no direct forward coproduct curve exists."
+    elif str(frame_key or "").strip() == "current_qtd":
+        rule_text = "Weighted current-quarter averages using the active-capacity footprint."
+    else:
+        rule_text = "Weighted prior-quarter averages using the active-capacity footprint."
+    out = {
+        "frame_key": str(frame_key or ""),
+        "frame_label": frame_label,
+        "quarter_end": target_quarter_end,
+        "renewable_corn_oil_price": corn_price,
+        "distillers_grains_price": distillers_price,
+        "uhp_price": (None if pd.isna(uhp_value_num) else float(uhp_value_num)),
+        "resolved_source_mode": _gpre_classify_coproduct_resolved_source(corn_source_mode, distillers_source_mode),
+        "renewable_corn_oil_source_mode": corn_source_mode,
+        "distillers_grains_source_mode": distillers_source_mode,
+        "renewable_corn_oil_coverage_ratio": corn_coverage_ratio,
+        "distillers_grains_coverage_ratio": distillers_coverage_ratio,
+        "rule": rule_text,
+    }
+    profile = get_company_profile("GPRE")
+    coefficient_values = {
+        str(coef.key or "").strip(): pd.to_numeric(getattr(coef, "default_value", None), errors="coerce")
+        for coef in tuple(getattr(profile, "economics_overlay_coefficients", ()) or ())
+        if str(getattr(coef, "key", "") or "").strip()
+    }
+    ethanol_yield_num = pd.to_numeric(coefficient_values.get("ethanol_yield"), errors="coerce")
+    distillers_yield_num = pd.to_numeric(coefficient_values.get("distillers_yield"), errors="coerce")
+    uhp_yield_num = pd.to_numeric(coefficient_values.get("uhp_yield"), errors="coerce")
+    corn_oil_yield_num = pd.to_numeric(coefficient_values.get("renewable_corn_oil_yield"), errors="coerce")
+    contribution_values = [
+        float(val)
+        for val in (
+            (float(distillers_yield_num) * float(distillers_price) if pd.notna(distillers_yield_num) and distillers_price is not None else None),
+            (float(uhp_yield_num) * float(uhp_value_num) if pd.notna(uhp_yield_num) and pd.notna(uhp_value_num) else None),
+            (float(corn_oil_yield_num) * float(corn_price) if pd.notna(corn_oil_yield_num) and corn_price is not None else None),
+        )
+        if val is not None and pd.notna(val)
+    ]
+    out["approximate_coproduct_credit"] = sum(contribution_values) if contribution_values else None
+    out["approximate_coproduct_credit_per_gal"] = (
+        float(out["approximate_coproduct_credit"]) / float(ethanol_yield_num)
+        if out["approximate_coproduct_credit"] is not None
+        and pd.notna(ethanol_yield_num)
+        and abs(float(ethanol_yield_num)) > 1e-9
+        else None
+    )
+    coverage_candidates = [
+        float(val)
+        for val in (corn_coverage_ratio, distillers_coverage_ratio)
+        if pd.notna(pd.to_numeric(val, errors="coerce"))
+    ]
+    out["coverage_ratio"] = min(coverage_candidates) if coverage_candidates else None
+    return out
+
+
+def _gpre_low_coverage_mae(
+    quarterly_df: pd.DataFrame,
+    *,
+    pred_col: str,
+    coverage_col: str,
+    actual_col: str = "evaluation_target_margin_usd_per_gal",
+    coverage_threshold: float = 0.95,
+) -> Tuple[Optional[float], str]:
+    if (
+        quarterly_df is None
+        or quarterly_df.empty
+        or pred_col not in quarterly_df.columns
+        or coverage_col not in quarterly_df.columns
+        or actual_col not in quarterly_df.columns
+    ):
+        return None, "insufficient low-coverage quarters"
+    sub = pd.DataFrame(
+        {
+            "pred": pd.to_numeric(quarterly_df[pred_col], errors="coerce"),
+            "actual": pd.to_numeric(quarterly_df[actual_col], errors="coerce"),
+            "coverage": pd.to_numeric(quarterly_df[coverage_col], errors="coerce"),
+        }
+    )
+    sub = sub[sub["pred"].notna() & sub["actual"].notna() & sub["coverage"].notna()].copy()
+    sub = sub[sub["coverage"] < float(coverage_threshold)].copy()
+    if len(sub) < 2:
+        return None, "insufficient low-coverage quarters"
+    return float((sub["pred"] - sub["actual"]).abs().mean()), ""
+
 def _choose_gpre_proxy_winner_with_promotion(
     expanded_leaderboard_df: pd.DataFrame,
     *,
@@ -10268,6 +10910,14 @@ def build_gpre_basis_proxy_model(
             "proxy_implied_results": {},
             "experimental_signal_audit": {"signal_rows": [], "interpretation_lines": []},
             "experimental_candidate_comparison_df": pd.DataFrame(),
+            "coproduct_experimental_candidate_comparison_df": pd.DataFrame(),
+            "coproduct_experimental_method_specs": [dict(spec) for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS],
+            "best_coproduct_experimental_historical_model_key": "",
+            "best_coproduct_experimental_compromise_model_key": "",
+            "best_coproduct_experimental_forward_model_key": "",
+            "best_coproduct_experimental_model_key": "",
+            "coproduct_experimental_frame_values": {},
+            "coproduct_experimental_summary_markdown": "",
         }
 
     footprint_df = _gpre_quarterly_footprint(
@@ -10344,6 +10994,14 @@ def build_gpre_basis_proxy_model(
             "proxy_implied_results": {},
             "experimental_signal_audit": {"signal_rows": [], "interpretation_lines": []},
             "experimental_candidate_comparison_df": pd.DataFrame(),
+            "coproduct_experimental_candidate_comparison_df": pd.DataFrame(),
+            "coproduct_experimental_method_specs": [dict(spec) for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS],
+            "best_coproduct_experimental_historical_model_key": "",
+            "best_coproduct_experimental_compromise_model_key": "",
+            "best_coproduct_experimental_forward_model_key": "",
+            "best_coproduct_experimental_model_key": "",
+            "coproduct_experimental_frame_values": {},
+            "coproduct_experimental_summary_markdown": "",
         }
 
     effective_bids_snapshot = _resolve_gpre_corn_bids_snapshot(
@@ -12092,6 +12750,67 @@ def build_gpre_basis_proxy_model(
     quarterly_df["bridge_official_model_key"] = gpre_proxy_model_key
     quarterly_df["bridge_official_proxy_usd_per_gal"] = quarterly_df["gpre_proxy_official_usd_per_gal"]
     quarterly_df["official_proxy_usd_per_gal"] = quarterly_df["official_simple_proxy_usd_per_gal"]
+    coproduct_history_quarters = [
+        qd
+        for qd in (
+            parse_quarter_like(item)
+            for item in list(pd.to_datetime(quarterly_df.get("quarter"), errors="coerce").dt.date)
+        )
+        if isinstance(qd, date)
+    ]
+    coproduct_history_records = [
+        _gpre_build_weighted_coproduct_record(
+            row_list,
+            qd,
+            ticker_root=ticker_root,
+            plant_capacity_history=effective_plant_capacity_history,
+            reported_gallons_produced_by_quarter=reported_gallons_produced_by_quarter,
+            mode="quarter_avg",
+        )
+        for qd in sorted(set(coproduct_history_quarters))
+    ]
+    coproduct_history_map = {
+        rec.get("quarter_end"): dict(rec)
+        for rec in coproduct_history_records
+        if isinstance(rec, dict) and isinstance(rec.get("quarter_end"), date)
+    }
+    quarterly_df["coproduct_approximate_credit_usd_per_gal"] = quarterly_df["quarter"].map(
+        lambda qd: (coproduct_history_map.get(parse_quarter_like(qd)) or {}).get("approximate_coproduct_credit_per_gal")
+    )
+    quarterly_df["coproduct_credit_coverage_ratio"] = quarterly_df["quarter"].map(
+        lambda qd: (coproduct_history_map.get(parse_quarter_like(qd)) or {}).get("coverage_ratio")
+    )
+    quarterly_df["coproduct_credit_source_mode"] = quarterly_df["quarter"].map(
+        lambda qd: str((coproduct_history_map.get(parse_quarter_like(qd)) or {}).get("resolved_source_mode") or "Unknown/blank")
+    )
+    best_forward_pred_col = str(model_key_to_pred_col.get(best_forward_lens_model_key, "") or "")
+    official_base_series = pd.to_numeric(quarterly_df["official_simple_proxy_usd_per_gal"], errors="coerce")
+    winner_base_series = pd.to_numeric(quarterly_df[gpre_proxy_pred_col], errors="coerce")
+    forward_base_series = (
+        pd.to_numeric(quarterly_df[best_forward_pred_col], errors="coerce")
+        if best_forward_pred_col and best_forward_pred_col in quarterly_df.columns
+        else pd.Series(index=quarterly_df.index, dtype=float)
+    )
+    coproduct_credit_series = pd.to_numeric(quarterly_df["coproduct_approximate_credit_usd_per_gal"], errors="coerce")
+    coproduct_coverage_series = pd.to_numeric(quarterly_df["coproduct_credit_coverage_ratio"], errors="coerce")
+    for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS:
+        pred_col = str(spec.get("pred_col") or "")
+        if not pred_col:
+            continue
+        base_kind = str(spec.get("base_model_kind") or "").strip().lower()
+        if base_kind == "official":
+            base_series = official_base_series
+        elif base_kind == "forward":
+            base_series = forward_base_series
+        else:
+            base_series = winner_base_series
+        credit_scale = float(pd.to_numeric(spec.get("credit_scale"), errors="coerce") or 0.0)
+        coverage_power = float(pd.to_numeric(spec.get("coverage_power"), errors="coerce") or 0.0)
+        if coverage_power == 0.0:
+            adjusted_credit_series = coproduct_credit_series * credit_scale
+        else:
+            adjusted_credit_series = coproduct_credit_series * (coproduct_coverage_series.pow(coverage_power)) * credit_scale
+        quarterly_df[pred_col] = base_series + adjusted_credit_series
 
     quarterly_df["simple_market_proxy_error_usd_per_gal"] = quarterly_df["simple_market_proxy_usd_per_gal"] - quarterly_df["evaluation_target_margin_usd_per_gal"]
     quarterly_df["bridge_baseline_error_usd_per_gal"] = quarterly_df["bridge_baseline_market_proxy_usd_per_gal"] - quarterly_df["evaluation_target_margin_usd_per_gal"]
@@ -12197,6 +12916,211 @@ def build_gpre_basis_proxy_model(
         return pd.DataFrame(records)
 
     recent_quarter_comparison_df = _recent_quarter_comp_records()
+    coproduct_experimental_metrics_rows: List[Dict[str, Any]] = []
+    for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS:
+        pred_col = str(spec.get("pred_col") or "")
+        model_key = str(spec.get("model_key") or "")
+        if not pred_col or not model_key:
+            continue
+        for split_name, split_mask in metrics_splits:
+            coproduct_experimental_metrics_rows.append(
+                _metrics_for_prediction(
+                    quarterly_df[split_mask].copy(),
+                    pred_col,
+                    label=model_key,
+                    split=split_name,
+                    actual_col="evaluation_target_margin_usd_per_gal",
+                )
+            )
+    coproduct_experimental_metrics_df = pd.DataFrame(coproduct_experimental_metrics_rows)
+    winner_hybrid_num = pd.to_numeric(chosen_row.get("hybrid_score"), errors="coerce")
+    coproduct_experimental_rows: List[Dict[str, Any]] = []
+    for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS:
+        model_key = str(spec.get("model_key") or "")
+        pred_col = str(spec.get("pred_col") or "")
+        if not model_key or not pred_col:
+            continue
+        clean_mae = _gpre_leaderboard_metric_pick(coproduct_experimental_metrics_df, model_key, "clean_reported_window", "mae")
+        underlying_mae = _gpre_leaderboard_metric_pick(coproduct_experimental_metrics_df, model_key, "diag_underlying", "mae")
+        hybrid_score = (
+            (0.50 * clean_mae) + (0.50 * underlying_mae)
+            if np.isfinite(clean_mae) and np.isfinite(underlying_mae)
+            else float("nan")
+        )
+        hard_stats = _gpre_hard_quarter_stats(quarterly_df, pred_col)
+        coverage_quarters, coverage_ratio = _gpre_signal_coverage_stats(
+            quarterly_df,
+            pred_col=pred_col,
+        )
+        low_coverage_mae, low_coverage_note = _gpre_low_coverage_mae(
+            quarterly_df,
+            pred_col=pred_col,
+            coverage_col="coproduct_credit_coverage_ratio",
+        )
+        diff_stats = _gpre_diff_vs_official_stats(
+            pd.to_numeric(quarterly_df[pred_col], errors="coerce"),
+            pd.to_numeric(quarterly_df["official_simple_proxy_usd_per_gal"], errors="coerce"),
+        )
+        delta_quarters = _gpre_candidate_delta_quarters_vs_incumbent(
+            quarterly_df,
+            candidate_col=pred_col,
+            incumbent_col=gpre_proxy_pred_col,
+        )
+        coproduct_experimental_rows.append(
+            {
+                "model_key": model_key,
+                "pred_col": pred_col,
+                "method_label": str(spec.get("method_label") or model_key),
+                "rule": str(spec.get("rule") or ""),
+                "base_model_kind": str(spec.get("base_model_kind") or ""),
+                "candidate_method_family": str(spec.get("candidate_method_family") or ""),
+                "signal_dependency_note": str(spec.get("signal_dependency_note") or ""),
+                "clean_window_mae": clean_mae,
+                "underlying_window_mae": underlying_mae,
+                "hybrid_score": hybrid_score,
+                "hard_quarter_mae": pd.to_numeric(hard_stats.get("hard_quarter_mae"), errors="coerce"),
+                "sign_accuracy": _gpre_leaderboard_metric_pick(coproduct_experimental_metrics_df, model_key, "test", "sign_hit_rate"),
+                "avg_abs_diff_vs_official": diff_stats.get("avg_abs_diff_vs_official"),
+                "walk_forward_tail_mae": _gpre_walk_forward_tail_mae(quarterly_df, pred_col=pred_col),
+                "forward_usability_rating": str(spec.get("forward_usability_rating") or "medium"),
+                "complexity_rating": str(spec.get("complexity_rating") or "moderate"),
+                "low_coverage_mae": low_coverage_mae,
+                "coverage_sensitivity_delta": (
+                    None
+                    if low_coverage_mae is None or pd.isna(clean_mae)
+                    else float(low_coverage_mae) - float(clean_mae)
+                ),
+                "low_coverage_note": str(low_coverage_note or ""),
+                "signal_coverage_quarters": coverage_quarters,
+                "signal_coverage_ratio": coverage_ratio,
+                "top_improved_quarters_vs_incumbent": delta_quarters.get("top_improved_quarters_vs_incumbent"),
+                "top_worsened_quarters_vs_incumbent": delta_quarters.get("top_worsened_quarters_vs_incumbent"),
+                "comparison_only": True,
+                "eligible_official": False,
+                "preview_supported": bool(spec.get("preview_supported")),
+                "delta_vs_current_winner": (
+                    None
+                    if pd.isna(winner_hybrid_num) or pd.isna(hybrid_score)
+                    else float(hybrid_score) - float(winner_hybrid_num)
+                ),
+                "status": "comparison only",
+            }
+        )
+    coproduct_experimental_candidate_comparison_df = pd.DataFrame(coproduct_experimental_rows)
+
+    def _pick_coproduct_role_row(
+        frame_in: pd.DataFrame,
+        *,
+        role_name: str,
+    ) -> Dict[str, Any]:
+        if frame_in is None or frame_in.empty:
+            return {}
+        sub = frame_in.copy()
+        sub["complexity_rank"] = sub["complexity_rating"].astype(str).map({"low": 0, "moderate": 1, "high": 2}).fillna(9)
+        if role_name == "historical":
+            sort_cols = ["clean_window_mae", "hybrid_score", "walk_forward_tail_mae", "complexity_rank", "model_key"]
+        elif role_name == "compromise":
+            sub = sub[
+                (sub["preview_supported"] == True)
+                & sub["forward_usability_rating"].astype(str).ne("low")
+                & sub["complexity_rating"].astype(str).ne("high")
+            ].copy()
+            sort_cols = ["hybrid_score", "hard_quarter_mae", "walk_forward_tail_mae", "clean_window_mae", "complexity_rank", "model_key"]
+        elif role_name == "forward":
+            sub = sub[
+                (sub["preview_supported"] == True)
+                & sub["forward_usability_rating"].astype(str).eq("high")
+            ].copy()
+            sort_cols = ["walk_forward_tail_mae", "hybrid_score", "complexity_rank", "clean_window_mae", "model_key"]
+        else:
+            return {}
+        sub = sub[sub["model_key"].astype(str).str.strip().ne("")].copy()
+        if sub.empty:
+            return {}
+        return sub.sort_values(sort_cols, na_position="last").iloc[0].to_dict()
+
+    best_coproduct_experimental_historical_row = _pick_coproduct_role_row(
+        coproduct_experimental_candidate_comparison_df,
+        role_name="historical",
+    )
+    best_coproduct_experimental_compromise_row = _pick_coproduct_role_row(
+        coproduct_experimental_candidate_comparison_df,
+        role_name="compromise",
+    )
+    best_coproduct_experimental_forward_row = _pick_coproduct_role_row(
+        coproduct_experimental_candidate_comparison_df,
+        role_name="forward",
+    )
+    if not best_coproduct_experimental_historical_row and not coproduct_experimental_candidate_comparison_df.empty:
+        hist_fallback = coproduct_experimental_candidate_comparison_df[
+            pd.to_numeric(coproduct_experimental_candidate_comparison_df.get("clean_window_mae"), errors="coerce").notna()
+        ].copy()
+        if not hist_fallback.empty:
+            best_coproduct_experimental_historical_row = hist_fallback.sort_values(
+                ["clean_window_mae", "hybrid_score"],
+                na_position="last",
+            ).iloc[0].to_dict()
+    if not best_coproduct_experimental_compromise_row and not coproduct_experimental_candidate_comparison_df.empty:
+        compromise_fallback = coproduct_experimental_candidate_comparison_df[
+            coproduct_experimental_candidate_comparison_df["preview_supported"] == True
+        ].copy()
+        if not compromise_fallback.empty:
+            best_coproduct_experimental_compromise_row = compromise_fallback.sort_values(
+                ["hybrid_score", "clean_window_mae"],
+                na_position="last",
+            ).iloc[0].to_dict()
+    if not best_coproduct_experimental_forward_row:
+        best_coproduct_experimental_forward_row = dict(
+            best_coproduct_experimental_compromise_row or best_coproduct_experimental_historical_row or {}
+        )
+    best_coproduct_experimental_historical_model_key = str(best_coproduct_experimental_historical_row.get("model_key") or "")
+    best_coproduct_experimental_compromise_model_key = str(best_coproduct_experimental_compromise_row.get("model_key") or "")
+    best_coproduct_experimental_forward_model_key = str(best_coproduct_experimental_forward_row.get("model_key") or "")
+    best_coproduct_experimental_model_key = str(
+        best_coproduct_experimental_compromise_model_key
+        or best_coproduct_experimental_historical_model_key
+        or best_coproduct_experimental_forward_model_key
+    )
+    best_coproduct_experimental_spec = next(
+        (
+            dict(spec)
+            for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS
+            if str(spec.get("model_key") or "") == best_coproduct_experimental_model_key
+        ),
+        {},
+    )
+
+    def _fmt_coproduct_metric(value: Any, *, digits: int = 4) -> str:
+        value_num = pd.to_numeric(value, errors="coerce")
+        if pd.isna(value_num):
+            return "n/a"
+        return f"{float(value_num):.{int(digits)}f}"
+
+    coproduct_experimental_summary_lines = [
+        "## Coproduct-aware experimental lenses",
+        "Promotion status: Experimental only. Comparison-only coproduct overlays do not participate in production winner selection.",
+        (
+            f"Best coproduct-aware experimental lens: {best_coproduct_experimental_model_key or 'n/a'} | "
+            f"rule {str(best_coproduct_experimental_spec.get('rule') or 'n/a')} | "
+            f"hybrid {_fmt_coproduct_metric(best_coproduct_experimental_compromise_row.get('hybrid_score'))} | "
+            f"clean {_fmt_coproduct_metric(best_coproduct_experimental_compromise_row.get('clean_window_mae'))} | "
+            f"hard-quarter MAE {_fmt_coproduct_metric(best_coproduct_experimental_compromise_row.get('hard_quarter_mae'))}."
+        ),
+        (
+            f"Best historical coproduct-aware: {best_coproduct_experimental_historical_model_key or 'n/a'} | "
+            f"clean {_fmt_coproduct_metric(best_coproduct_experimental_historical_row.get('clean_window_mae'))}."
+        ),
+        (
+            f"Best forward coproduct-aware: {best_coproduct_experimental_forward_model_key or 'n/a'} | "
+            f"tail {_fmt_coproduct_metric(best_coproduct_experimental_forward_row.get('walk_forward_tail_mae'))} | "
+            f"forward usability {str(best_coproduct_experimental_forward_row.get('forward_usability_rating') or 'n/a')}."
+        ),
+        (
+            f"Current production winner reference: {gpre_proxy_model_key or 'n/a'} | "
+            f"hybrid {_fmt_coproduct_metric(chosen_row.get('hybrid_score'))}."
+        ),
+    ]
+    coproduct_experimental_summary_markdown = "\n".join(coproduct_experimental_summary_lines)
     hedge_style_study = _build_gpre_hedge_style_study(quarterly_df)
     hedge_candidate_leaderboard_df = (
         hedge_style_study.get("candidate_leaderboard_df")
@@ -12462,6 +13386,8 @@ def build_gpre_basis_proxy_model(
             "## Experimental interpretation",
             *experimental_interpretation_lines,
             "",
+            *coproduct_experimental_summary_lines,
+            "",
             "## Results",
             f"Simple market test MAE: {simple_market_test_mae:.4f} $/gal" if np.isfinite(simple_market_test_mae) else "Simple market test MAE: n/a",
             f"Chosen GPRE proxy test MAE: {gpre_proxy_test_mae:.4f} $/gal" if np.isfinite(gpre_proxy_test_mae) else "Chosen GPRE proxy test MAE: n/a",
@@ -12563,6 +13489,160 @@ def build_gpre_basis_proxy_model(
     )
     overlay_preview_bundle = dict(overlay_preview_bundle or {})
     overlay_preview_bundle["proxy_implied_results"] = proxy_implied_results
+    coproduct_experimental_frame_values: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    best_forward_preview_bundle: Dict[str, Any] = {}
+    if best_forward_lens_model_key:
+        if best_forward_lens_model_key == gpre_proxy_model_key:
+            best_forward_preview_bundle = dict(overlay_preview_bundle or {})
+        else:
+            best_forward_preview_bundle = dict(
+                build_gpre_overlay_proxy_preview_bundle(
+                    rows_df,
+                    ethanol_yield=yield_per_bushel,
+                    natural_gas_usage=natural_gas_usage_num,
+                    as_of_date=as_of_date,
+                    ticker_root=ticker_root,
+                    bids_snapshot=effective_bids_snapshot,
+                    plant_capacity_history=effective_plant_capacity_history,
+                    prior_market_snapshot=prior_market_snapshot,
+                    current_qtd_market_snapshot=current_qtd_market_snapshot,
+                    next_quarter_thesis_snapshot=next_quarter_thesis_snapshot,
+                    simple_crush_history_rows=simple_crush_history_rows,
+                    gpre_basis_model_result={
+                        "quarterly_df": quarterly_df,
+                        "gpre_proxy_model_key": best_forward_lens_model_key,
+                        "gpre_proxy_family": str(best_forward_lens_row.get("family") or ""),
+                        "gpre_proxy_family_label": str(best_forward_lens_row.get("family_label") or ""),
+                        "gpre_proxy_timing_rule": str(best_forward_lens_row.get("timing_rule") or ""),
+                    },
+                )
+            )
+    official_frame_map = dict((overlay_preview_bundle or {}).get("official_frames") or {})
+    winner_frame_map = dict((overlay_preview_bundle or {}).get("gpre_proxy_frames") or {})
+    forward_frame_map = dict((best_forward_preview_bundle or {}).get("gpre_proxy_frames") or {})
+    prior_coproduct_quarter = parse_quarter_like((official_frame_map.get("prior_quarter") or {}).get("quarter_end"))
+    current_coproduct_quarter = parse_quarter_like((official_frame_map.get("current_qtd") or {}).get("quarter_end"))
+    quarter_open_coproduct_quarter = parse_quarter_like(
+        (overlay_preview_bundle or {}).get("quarter_open_target_quarter_end")
+        or (official_frame_map.get("quarter_open") or {}).get("quarter_end")
+    )
+    next_coproduct_quarter = parse_quarter_like((official_frame_map.get("next_quarter_thesis") or {}).get("quarter_end"))
+    prior_coproduct_record = (
+        dict(coproduct_history_map.get(prior_coproduct_quarter) or {})
+        if isinstance(prior_coproduct_quarter, date)
+        else {}
+    )
+    if not prior_coproduct_record and isinstance(prior_coproduct_quarter, date):
+        prior_coproduct_record = _gpre_build_weighted_coproduct_record(
+            row_list,
+            prior_coproduct_quarter,
+            ticker_root=ticker_root,
+            plant_capacity_history=effective_plant_capacity_history,
+            reported_gallons_produced_by_quarter=reported_gallons_produced_by_quarter,
+            mode="quarter_avg",
+        )
+    current_coproduct_record = (
+        dict(coproduct_history_map.get(current_coproduct_quarter) or {})
+        if isinstance(current_coproduct_quarter, date)
+        else {}
+    )
+    if not current_coproduct_record and isinstance(current_coproduct_quarter, date):
+        current_coproduct_record = _gpre_build_weighted_coproduct_record(
+            row_list,
+            current_coproduct_quarter,
+            ticker_root=ticker_root,
+            plant_capacity_history=effective_plant_capacity_history,
+            reported_gallons_produced_by_quarter=reported_gallons_produced_by_quarter,
+            mode="quarter_avg",
+        )
+    quarter_open_coproduct_record = (
+        _gpre_build_weighted_coproduct_record(
+            row_list,
+            quarter_open_coproduct_quarter,
+            ticker_root=ticker_root,
+            plant_capacity_history=effective_plant_capacity_history,
+            reported_gallons_produced_by_quarter=reported_gallons_produced_by_quarter,
+            mode="quarter_open",
+        )
+        if isinstance(quarter_open_coproduct_quarter, date)
+        else {}
+    )
+    latest_resolved_coproduct_record = current_coproduct_record if any(
+        pd.notna(pd.to_numeric((current_coproduct_record or {}).get(field_name), errors="coerce"))
+        for field_name in ("renewable_corn_oil_price", "distillers_grains_price", "approximate_coproduct_credit_per_gal")
+    ) else prior_coproduct_record
+    coproduct_frame_summary_records = [
+        _gpre_coproduct_frame_record(
+            "prior_quarter",
+            target_quarter_end=prior_coproduct_quarter,
+            base_record=prior_coproduct_record,
+        ),
+        _gpre_coproduct_frame_record(
+            "quarter_open",
+            target_quarter_end=quarter_open_coproduct_quarter,
+            base_record=quarter_open_coproduct_record,
+            fallback_record=prior_coproduct_record,
+        ),
+        _gpre_coproduct_frame_record(
+            "current_qtd",
+            target_quarter_end=current_coproduct_quarter,
+            base_record=current_coproduct_record,
+            fallback_record=prior_coproduct_record,
+        ),
+        _gpre_coproduct_frame_record(
+            "next_quarter_thesis",
+            target_quarter_end=next_coproduct_quarter,
+            base_record=latest_resolved_coproduct_record,
+            fallback_record=prior_coproduct_record,
+        ),
+    ]
+    coproduct_frame_map = {
+        str(rec.get("frame_key") or ""): dict(rec)
+        for rec in coproduct_frame_summary_records
+        if isinstance(rec, dict) and str(rec.get("frame_key") or "").strip()
+    }
+    base_frame_groups = {
+        "official": official_frame_map,
+        "winner": winner_frame_map,
+        "forward": forward_frame_map,
+    }
+    for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS:
+        model_key = str(spec.get("model_key") or "")
+        base_kind = str(spec.get("base_model_kind") or "winner").strip().lower()
+        base_frames = dict(base_frame_groups.get(base_kind) or {})
+        frame_values: Dict[str, Dict[str, Any]] = {}
+        for frame_key in ("prior_quarter", "quarter_open", "current_qtd", "next_quarter_thesis"):
+            base_frame = dict(base_frames.get(frame_key) or {})
+            credit_frame = dict(coproduct_frame_map.get(frame_key) or {})
+            base_value_num = pd.to_numeric(base_frame.get("value"), errors="coerce")
+            credit_value_num = pd.to_numeric(credit_frame.get("approximate_coproduct_credit_per_gal"), errors="coerce")
+            coverage_num = pd.to_numeric(credit_frame.get("coverage_ratio"), errors="coerce")
+            coverage_power = float(pd.to_numeric(spec.get("coverage_power"), errors="coerce") or 0.0)
+            credit_scale = float(pd.to_numeric(spec.get("credit_scale"), errors="coerce") or 0.0)
+            adjusted_credit: Optional[float]
+            if pd.isna(base_value_num) or pd.isna(credit_value_num):
+                adjusted_credit = None
+                value_out = None
+            else:
+                coverage_factor = 1.0
+                if coverage_power != 0.0:
+                    coverage_factor = float(coverage_num) ** coverage_power if pd.notna(coverage_num) else float("nan")
+                adjusted_credit_val = float(credit_value_num) * float(credit_scale) * float(coverage_factor)
+                adjusted_credit = adjusted_credit_val if np.isfinite(adjusted_credit_val) else None
+                value_out = None if adjusted_credit is None else float(base_value_num) + float(adjusted_credit)
+            frame_values[frame_key] = {
+                "frame_key": frame_key,
+                "frame_label": str(credit_frame.get("frame_label") or frame_key.replace("_", " ").title()),
+                "value_usd_per_gal": value_out,
+                "base_value_usd_per_gal": (None if pd.isna(base_value_num) else float(base_value_num)),
+                "credit_value_usd_per_gal": (None if pd.isna(credit_value_num) else float(credit_value_num)),
+                "adjusted_credit_value_usd_per_gal": adjusted_credit,
+                "coverage_ratio": (None if pd.isna(coverage_num) else float(coverage_num)),
+                "resolved_source_mode": str(credit_frame.get("resolved_source_mode") or "Unknown/blank"),
+                "base_model_kind": base_kind,
+                "status": "ok" if value_out is not None else "missing_input",
+            }
+        coproduct_experimental_frame_values[model_key] = frame_values
     return {
         "quarterly_df": quarterly_df,
         "metrics_df": metrics_df,
@@ -12632,6 +13712,14 @@ def build_gpre_basis_proxy_model(
         "next_thesis_frozen_snapshot_entry": (overlay_preview_bundle or {}).get("next_thesis_frozen_snapshot_entry"),
         "experimental_signal_audit": experimental_signal_audit,
         "experimental_candidate_comparison_df": experimental_candidate_comparison_df,
+        "coproduct_experimental_candidate_comparison_df": coproduct_experimental_candidate_comparison_df,
+        "coproduct_experimental_method_specs": [dict(spec) for spec in _GPRE_COPRODUCT_EXPERIMENTAL_SPECS],
+        "best_coproduct_experimental_historical_model_key": best_coproduct_experimental_historical_model_key,
+        "best_coproduct_experimental_compromise_model_key": best_coproduct_experimental_compromise_model_key,
+        "best_coproduct_experimental_forward_model_key": best_coproduct_experimental_forward_model_key,
+        "best_coproduct_experimental_model_key": best_coproduct_experimental_model_key,
+        "coproduct_experimental_frame_values": coproduct_experimental_frame_values,
+        "coproduct_experimental_summary_markdown": coproduct_experimental_summary_markdown,
         "official_weighting_method": "Active-capacity weighted GPRE footprint by quarter-aware plant metadata",
         "official_ethanol_method": (
             "Weighted ethanol benchmark using quarter-aware active-capacity footprint weights, "

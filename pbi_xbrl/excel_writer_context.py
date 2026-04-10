@@ -29,7 +29,10 @@ import pandas as pd
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.chart import LineChart, Reference, ScatterChart, Series
+from openpyxl.chart.axis import ChartLines, TextAxis
+from openpyxl.chart.data_source import AxDataSource, StrRef
 from openpyxl.chart.label import DataLabelList
+from openpyxl.chart.shapes import GraphicalProperties, LineProperties
 from openpyxl.comments import Comment
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, TwoCellAnchor
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
@@ -225,6 +228,8 @@ from .legacy_support import (
     _source_tier,
 )
 from .market_data.service import (
+    _gpre_footprint_for_quarter,
+    _gpre_official_market_weights_for_quarter,
     _gpre_phase_preview_story as market_gpre_phase_preview_story,
     build_current_qtd_simple_crush_snapshot,
     build_gpre_basis_proxy_model,
@@ -254,6 +259,49 @@ from .period_resolver import (
     quarter_ends_for_fy,
     self_check_period_logic,
 )
+
+
+def _excel_string_ref(sheet_name: str, col_idx: int, start_row: int, end_row: int) -> str:
+    safe_sheet = str(sheet_name or "").replace("'", "''")
+    col_letter = get_column_letter(int(col_idx))
+    return f"'{safe_sheet}'!${col_letter}${int(start_row)}:${col_letter}${int(end_row)}"
+
+
+def _apply_chart_text_categories(chart_in: Any, *, sheet_name: str, col_idx: int, start_row: int, end_row: int) -> None:
+    if chart_in is None or int(end_row) < int(start_row):
+        return
+    formula = _excel_string_ref(sheet_name, col_idx, start_row, end_row)
+    try:
+        if not isinstance(getattr(chart_in, "x_axis", None), TextAxis):
+            chart_in.x_axis = TextAxis()
+    except Exception:
+        pass
+    try:
+        chart_in.x_axis.auto = False
+        chart_in.x_axis.axPos = "b"
+        chart_in.x_axis.delete = False
+        chart_in.x_axis.tickLblPos = "low"
+        chart_in.x_axis.majorTickMark = "out"
+        chart_in.x_axis.minorTickMark = "none"
+        chart_in.x_axis.tickLblSkip = 1
+        chart_in.x_axis.tickMarkSkip = 1
+        chart_in.x_axis.noMultiLvlLbl = True
+        chart_in.x_axis.lblOffset = 100
+        chart_in.x_axis.majorGridlines = ChartLines(
+            spPr=GraphicalProperties(
+                ln=LineProperties(
+                    w=6350,
+                    solidFill="D0D0D0",
+                )
+            )
+        )
+    except Exception:
+        pass
+    for series_in in list(getattr(chart_in, "series", ()) or ()):
+        try:
+            series_in.cat = AxDataSource(strRef=StrRef(f=formula))
+        except Exception:
+            continue
 from .pipeline_types import WorkbookInputs
 from .quarter_notes_lexicon import (
     compact_snippet as qn_compact_snippet,
@@ -66871,7 +66919,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             low = str(txt or "").strip().lower()
             return 3 if low == "high" else 2 if low == "medium" else 1 if low == "low" else 0
 
-        def _pick_market_reference(tpl: Any, target_quarter: Optional[date] = None) -> Optional[Dict[str, Any]]:
+        def _pick_market_reference(
+            tpl: Any,
+            target_quarter: Optional[date] = None,
+            *,
+            exact_quarter: bool = False,
+        ) -> Optional[Dict[str, Any]]:
             if not economics_market_rows:
                 return None
             series_keys = tuple(str(x or "").strip() for x in (getattr(tpl, "source_series_keys", ()) or ()) if str(x or "").strip())
@@ -66884,7 +66937,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             candidates: List[Tuple[Tuple[Any, ...], Dict[str, Any]]] = []
             for rec in economics_market_rows:
                 rec_q = rec.get("quarter")
-                if not isinstance(rec_q, date) or rec_q > quarter_cutoff:
+                if not isinstance(rec_q, date):
+                    continue
+                if exact_quarter:
+                    if rec_q != quarter_cutoff:
+                        continue
+                elif rec_q > quarter_cutoff:
                     continue
                 if str(rec.get("series_key") or "") not in series_keys:
                     continue
@@ -66904,7 +66962,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     series_rank = 99
                 agg_rank = 0 if agg_level == agg_pref else 1 if agg_level == "quarter_end" else 2
                 score = (
-                    -int(rec_q.strftime("%Y%m%d")),
+                    0 if exact_quarter else -int(rec_q.strftime("%Y%m%d")),
                     agg_rank,
                     region_rank,
                     series_rank,
@@ -66919,6 +66977,36 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return None
             return sorted(candidates, key=lambda item: item[0])[0][1]
 
+        def _gpre_proxy_implied_frame_record(frame_key: str) -> Dict[str, Any]:
+            if not (is_gpre_profile and gpre_commercial_setup_rows):
+                return {}
+            frame_map = (gpre_proxy_implied_results_bundle or {}).get("frames") or {}
+            frame = frame_map.get(str(frame_key or "")) if isinstance(frame_map, dict) else {}
+            return dict(frame) if isinstance(frame, dict) else {}
+
+        def _parse_quarter_label_text(value_in: Any) -> Optional[date]:
+            if isinstance(value_in, date):
+                return value_in
+            txt = str(value_in or "").strip()
+            match = re.fullmatch(r"(\d{4})-Q([1-4])", txt)
+            if not match:
+                return None
+            year_num = int(match.group(1))
+            quarter_num = int(match.group(2))
+            quarter_end_map = {
+                1: date(year_num, 3, 31),
+                2: date(year_num, 6, 30),
+                3: date(year_num, 9, 30),
+                4: date(year_num, 12, 31),
+            }
+            return quarter_end_map.get(quarter_num)
+
+        market_input_templates = list(getattr(company_profile, "economics_overlay_market_inputs", ()) or [])
+        market_input_templates_by_key = {
+            str(getattr(tpl, "key", "") or "").strip(): tpl
+            for tpl in market_input_templates
+            if str(getattr(tpl, "key", "") or "").strip()
+        }
         coefficient_templates = list(getattr(company_profile, "economics_overlay_coefficients", ()) or [])
         coefficient_templates_by_key = {
             str(getattr(tpl, "key", "") or "").strip(): tpl
@@ -67474,6 +67562,38 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 if isinstance(model_result.get("experimental_candidate_comparison_df"), pd.DataFrame)
                 else pd.DataFrame()
             )
+            coproduct_experimental_candidate_comparison_df = (
+                model_result.get("coproduct_experimental_candidate_comparison_df")
+                if isinstance(model_result.get("coproduct_experimental_candidate_comparison_df"), pd.DataFrame)
+                else pd.DataFrame()
+            )
+            coproduct_experimental_method_specs = [
+                dict(rec)
+                for rec in list(model_result.get("coproduct_experimental_method_specs") or [])
+                if isinstance(rec, dict)
+            ]
+            best_coproduct_experimental_historical_model_key = str(
+                model_result.get("best_coproduct_experimental_historical_model_key") or ""
+            )
+            best_coproduct_experimental_compromise_model_key = str(
+                model_result.get("best_coproduct_experimental_compromise_model_key") or ""
+            )
+            best_coproduct_experimental_forward_model_key = str(
+                model_result.get("best_coproduct_experimental_forward_model_key") or ""
+            )
+            best_coproduct_experimental_model_key = str(
+                model_result.get("best_coproduct_experimental_model_key")
+                or best_coproduct_experimental_compromise_model_key
+                or ""
+            )
+            coproduct_experimental_frame_values = (
+                dict(model_result.get("coproduct_experimental_frame_values") or {})
+                if isinstance(model_result.get("coproduct_experimental_frame_values"), dict)
+                else {}
+            )
+            coproduct_experimental_summary_md = str(
+                model_result.get("coproduct_experimental_summary_markdown") or ""
+            ).strip()
             ws = target_ws
             overlay_source_ws = (
                 target_ws.parent["Economics_Overlay"]
@@ -67482,7 +67602,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             )
             approx_market_crush_build_up_layout: Dict[str, Any] = {}
             corn_oil_gate_check_layout: Dict[str, Any] = {}
+            coproduct_frame_summary_layout: Dict[str, Any] = {}
             coproduct_signal_readiness_layout: Dict[str, Any] = {}
+            coproduct_volume_support_layout: Dict[str, Any] = {}
+            coproduct_experimental_layout: Dict[str, Any] = {}
 
             def _sandbox_model_label(model_key_in: Any) -> str:
                 key_txt = str(model_key_in or "").strip()
@@ -67523,6 +67646,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     "process_prior_disturbance_carryover": "Prior-disturbance carryover",
                     "process_residual_regime_locked_vs_disturbed": "Process residual regime split",
                     "process_gated_incumbent_vs_residual": "Process gated incumbent vs residual",
+                    "simple_plus_full_credit": "Simple + full credit",
+                    "simple_plus_half_credit": "Simple + 50% credit",
+                    "simple_plus_coverage_credit": "Simple + coverage-weighted credit",
+                    "winner_plus_full_credit": "Winner + full credit",
+                    "forward_plus_full_credit": "Forward + full credit",
+                    "winner_plus_conservative_credit": "Winner + conservative credit",
                     "process_front_loaded_ops_penalty": "Process front + ops penalty",
                     "process_front_loaded_ethanol_geo": "Process front + ethanol geo",
                     "spot_simple": "Spot simple",
@@ -67715,6 +67844,780 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     elif rec_q > quarter_anchor:
                         out["next"] = True
                 return out
+
+            def _overlay_source_mode_text(row_in: Any) -> str:
+                if overlay_source_ws is None or not isinstance(row_in, int) or row_in <= 0:
+                    return ""
+                return str(overlay_source_ws.cell(row=row_in, column=11).value or "").strip()
+
+            def _classify_coproduct_resolved_source(*source_texts_in: Any) -> str:
+                labels: List[str] = []
+                for source_txt in source_texts_in:
+                    low = str(source_txt or "").strip().lower()
+                    if not low:
+                        continue
+                    if "ams_3618" in low:
+                        label = "AMS 3618"
+                    elif "nwer" in low:
+                        label = "NWER"
+                    else:
+                        continue
+                    if label not in labels:
+                        labels.append(label)
+                if not labels:
+                    return "Unknown/blank"
+                if len(labels) == 1:
+                    return labels[0]
+                return "Mixed"
+
+            def _gpre_proxy_implied_frame_record(frame_key: str) -> Dict[str, Any]:
+                if not (is_gpre_profile and gpre_commercial_setup_rows):
+                    return {}
+                frame_map = (gpre_proxy_implied_results_bundle or {}).get("frames") or {}
+                frame = frame_map.get(str(frame_key or "")) if isinstance(frame_map, dict) else {}
+                return dict(frame) if isinstance(frame, dict) else {}
+
+            def _parse_quarter_label_text(value_in: Any) -> Optional[date]:
+                if isinstance(value_in, date):
+                    return value_in
+                txt = str(value_in or "").strip()
+                match = re.fullmatch(r"(\d{4})-Q([1-4])", txt)
+                if not match:
+                    return None
+                year_num = int(match.group(1))
+                quarter_num = int(match.group(2))
+                quarter_end_map = {
+                    1: date(year_num, 3, 31),
+                    2: date(year_num, 6, 30),
+                    3: date(year_num, 9, 30),
+                    4: date(year_num, 12, 31),
+                }
+                return quarter_end_map.get(quarter_num)
+
+            def _safe_int_like(value_in: Any, default: int = 0) -> int:
+                numeric = pd.to_numeric(value_in, errors="coerce")
+                if pd.isna(numeric):
+                    return int(default)
+                return int(numeric)
+
+            coproduct_region_series_candidates: Dict[str, Dict[str, Tuple[str, ...]]] = {
+                "renewable_corn_oil_price": {
+                    "nebraska": ("corn_oil_nebraska",),
+                    "illinois": ("corn_oil_illinois",),
+                    "indiana": ("corn_oil_indiana",),
+                    "iowa_east": ("corn_oil_iowa_east", "corn_oil_iowa_avg", "corn_oil_eastern_cornbelt"),
+                    "iowa_west": ("corn_oil_iowa_west", "corn_oil_iowa_avg"),
+                    "minnesota": ("corn_oil_minnesota",),
+                    "tennessee": tuple(),
+                },
+                "distillers_grains_price": {
+                    "nebraska": ("ddgs_10_nebraska",),
+                    "illinois": ("ddgs_10_illinois",),
+                    "indiana": ("ddgs_10_indiana",),
+                    "iowa_east": ("ddgs_10_iowa_east", "ddgs_10_iowa"),
+                    "iowa_west": ("ddgs_10_iowa_west", "ddgs_10_iowa"),
+                    "minnesota": ("ddgs_10_minnesota",),
+                    "tennessee": tuple(),
+                },
+            }
+            coproduct_source_priority = ("nwer", "ams_3618")
+            distillers_yield_num = pd.to_numeric((_overlay_coefficient_detail("distillers_yield") or {}).get("value"), errors="coerce")
+            uhp_yield_num = pd.to_numeric((_overlay_coefficient_detail("uhp_yield") or {}).get("value"), errors="coerce")
+            corn_oil_yield_num = pd.to_numeric((_overlay_coefficient_detail("renewable_corn_oil_yield") or {}).get("value"), errors="coerce")
+            ethanol_yield_num = pd.to_numeric((_overlay_coefficient_detail("ethanol_yield") or {}).get("value"), errors="coerce")
+            historical_gallons_million_map: Dict[date, float] = {}
+            for raw_qd, raw_val in dict(gpre_reported_gallons_by_quarter or {}).items():
+                qd = _parse_quarter_label_text(raw_qd)
+                gallons_num = pd.to_numeric(raw_val, errors="coerce")
+                if qd is None or pd.isna(gallons_num):
+                    continue
+                gallons_float = float(gallons_num)
+                if not math.isfinite(gallons_float) or gallons_float <= 0.0:
+                    continue
+                historical_gallons_million_map[qd] = gallons_float
+            coproduct_volume_support_specs: Dict[str, Dict[str, str]] = {
+                "distillers_grains": {
+                    "label": "Distillers grains volume",
+                    "source_path": "Operating_Drivers exact filing-text parse (k tons)",
+                    "historical_usable": "YES",
+                    "current_usable": "NO",
+                    "next_usable": "NO",
+                    "best_use": "QA only",
+                },
+                "renewable_corn_oil": {
+                    "label": "Renewable corn oil volume",
+                    "source_path": "Operating_Drivers exact filing-text parse (million lbs)",
+                    "historical_usable": "YES",
+                    "current_usable": "NO",
+                    "next_usable": "NO",
+                    "best_use": "QA only",
+                },
+                "ultra_high_protein": {
+                    "label": "Ultra-high protein volume",
+                    "source_path": "Operating_Drivers exact filing-text parse (k tons)",
+                    "historical_usable": "YES",
+                    "current_usable": "NO",
+                    "next_usable": "NO",
+                    "best_use": "Secondary QA only",
+                },
+                "protein_coproduct_mix": {
+                    "label": "Protein / coproduct mix commentary",
+                    "source_path": "Operating_Drivers commentary extract",
+                    "historical_usable": "Commentary only",
+                    "current_usable": "NO",
+                    "next_usable": "NO",
+                    "best_use": "Context only",
+                },
+            }
+            operating_driver_volume_rows_cache: Dict[str, Dict[date, Dict[str, Any]]] = {}
+            operating_driver_volume_ratio_cache: Dict[str, Dict[str, Any]] = {}
+            coproduct_volume_support_records_cache: Optional[List[Dict[str, Any]]] = None
+
+            def _operating_driver_volume_rows(driver_key: str) -> Dict[date, Dict[str, Any]]:
+                cache_key = str(driver_key or "").strip().lower()
+                cached = operating_driver_volume_rows_cache.get(cache_key)
+                if isinstance(cached, dict):
+                    return {qd: dict(rec) for qd, rec in cached.items()}
+                template_by_key = dict((_load_operating_driver_template_index() or {}).get("template_by_key") or {})
+                tpl = template_by_key.get(cache_key)
+                if tpl is None:
+                    operating_driver_volume_rows_cache[cache_key] = {}
+                    return {}
+                source_records_by_quarter = _load_operating_driver_source_records_by_quarter()
+                out: Dict[date, Dict[str, Any]] = {}
+                for qd in _operating_driver_quarters():
+                    quarter_records = source_records_by_quarter.get(qd, [])
+                    extracted_rows = list(_extract_operating_driver_rows_for_template(qd, tpl, quarter_records=quarter_records) or [])
+                    if not extracted_rows:
+                        continue
+                    chosen = next(
+                        (
+                            dict(row)
+                            for row in extracted_rows
+                            if pd.notna(pd.to_numeric(row.get("Value"), errors="coerce"))
+                        ),
+                        dict(extracted_rows[0]),
+                    )
+                    out[qd] = chosen
+                operating_driver_volume_rows_cache[cache_key] = {qd: dict(rec) for qd, rec in out.items()}
+                return out
+
+            def _operating_driver_volume_ratio_summary(driver_key: str) -> Dict[str, Any]:
+                cache_key = str(driver_key or "").strip().lower()
+                cached = operating_driver_volume_ratio_cache.get(cache_key)
+                if isinstance(cached, dict):
+                    return dict(cached)
+                history_rows = _operating_driver_volume_rows(cache_key)
+                ratio_map: Dict[date, float] = {}
+                ratio_unit = ""
+                for qd, rec in history_rows.items():
+                    value_num = pd.to_numeric(rec.get("Value"), errors="coerce")
+                    gallons_num = pd.to_numeric(historical_gallons_million_map.get(qd), errors="coerce")
+                    if pd.isna(value_num) or pd.isna(gallons_num) or float(gallons_num) <= 0.0:
+                        continue
+                    if cache_key in {"distillers_grains", "ultra_high_protein"}:
+                        ratio_map[qd] = float(value_num) * 1000.0 / float(gallons_num)
+                        ratio_unit = "tons/mm gal"
+                    elif cache_key == "renewable_corn_oil":
+                        ratio_map[qd] = float(value_num) / float(gallons_num)
+                        ratio_unit = "lbs/gal"
+                ordered_quarters = sorted(ratio_map)
+                trailing_quarters = ordered_quarters[-8:] if len(ordered_quarters) > 8 else ordered_quarters
+                trailing_values = [float(ratio_map[qd]) for qd in trailing_quarters]
+                latest_quarter = trailing_quarters[-1] if trailing_quarters else None
+                latest_ratio = ratio_map.get(latest_quarter) if isinstance(latest_quarter, date) else None
+                out = {
+                    "ratio_unit": ratio_unit,
+                    "latest_quarter": latest_quarter,
+                    "latest_quarter_label": (_quarter_label_short(latest_quarter) if isinstance(latest_quarter, date) else ""),
+                    "latest_ratio": latest_ratio,
+                    "recent_min": (min(trailing_values) if trailing_values else None),
+                    "recent_max": (max(trailing_values) if trailing_values else None),
+                    "recent_count": len(trailing_values),
+                }
+                operating_driver_volume_ratio_cache[cache_key] = dict(out)
+                return out
+
+            def _coproduct_volume_audit_note(driver_key: str) -> str:
+                key_txt = str(driver_key or "").strip().lower()
+                if key_txt == "protein_coproduct_mix":
+                    return "Commentary only; distillers/UHP mentions provide mix context, not a numeric volume curve."
+                ratio_summary = _operating_driver_volume_ratio_summary(key_txt)
+                ratio_unit = str(ratio_summary.get("ratio_unit") or "").strip()
+                recent_count = int(ratio_summary.get("recent_count") or 0)
+                latest_label = str(ratio_summary.get("latest_quarter_label") or "").strip()
+                latest_ratio = pd.to_numeric(ratio_summary.get("latest_ratio"), errors="coerce")
+                recent_min = pd.to_numeric(ratio_summary.get("recent_min"), errors="coerce")
+                recent_max = pd.to_numeric(ratio_summary.get("recent_max"), errors="coerce")
+                if recent_count >= 4 and ratio_unit and pd.notna(latest_ratio) and pd.notna(recent_min) and pd.notna(recent_max):
+                    prefix = "Secondary QA anchor" if key_txt == "ultra_high_protein" else "QA anchor"
+                    return (
+                        f"Latest 12q actuals only. {prefix} {latest_label} {float(latest_ratio):.3f} {ratio_unit} "
+                        f"vs recent 8q range {float(recent_min):.3f}-{float(recent_max):.3f}."
+                    )
+                if key_txt == "ultra_high_protein":
+                    return "Latest 12q actuals only. Secondary QA / mix context; not frame-ready for weighting or $m."
+                return "Latest 12q actuals only. Historical QA support exists, but not enough for live weighting or $m."
+
+            def _coproduct_volume_support_audit_records() -> List[Dict[str, Any]]:
+                nonlocal coproduct_volume_support_records_cache
+                if isinstance(coproduct_volume_support_records_cache, list):
+                    return [dict(rec) for rec in coproduct_volume_support_records_cache]
+                records: List[Dict[str, Any]] = []
+                for driver_key, spec in coproduct_volume_support_specs.items():
+                    records.append(
+                        {
+                            "driver_key": driver_key,
+                            "label": str(spec.get("label") or ""),
+                            "source_path": str(spec.get("source_path") or ""),
+                            "historical_usable": str(spec.get("historical_usable") or ""),
+                            "current_usable": str(spec.get("current_usable") or ""),
+                            "next_usable": str(spec.get("next_usable") or ""),
+                            "best_use": str(spec.get("best_use") or ""),
+                            "note": _coproduct_volume_audit_note(driver_key),
+                        }
+                    )
+                coproduct_volume_support_records_cache = [dict(rec) for rec in records]
+                return records
+            weighted_coproduct_input_cache: Dict[Tuple[str, date, str], Dict[str, Any]] = {}
+            weighted_coproduct_quarter_cache: Dict[Tuple[date, str], Dict[str, Any]] = {}
+
+            def _quarter_shift(quarter_end_in: Any, delta_quarters: int) -> Optional[date]:
+                if not isinstance(quarter_end_in, date):
+                    return None
+                try:
+                    return (pd.Timestamp(quarter_end_in).to_period("Q") + int(delta_quarters)).end_time.normalize().date()
+                except Exception:
+                    return None
+
+            def _coproduct_source_bucket(source_type_in: Any) -> str:
+                low = str(source_type_in or "").strip().lower()
+                if low.startswith("nwer"):
+                    return "nwer"
+                if low.startswith("ams_3618"):
+                    return "ams_3618"
+                return ""
+
+            def _coproduct_source_label(source_bucket_in: Any) -> str:
+                source_bucket_txt = str(source_bucket_in or "").strip().lower()
+                return (
+                    "NWER" if source_bucket_txt == "nwer"
+                    else "AMS 3618" if source_bucket_txt == "ams_3618"
+                    else ""
+                )
+
+            def _coproduct_series_candidates(input_key: str, region_in: Any) -> Tuple[str, ...]:
+                region_txt = str(region_in or "").strip().lower()
+                return tuple((coproduct_region_series_candidates.get(str(input_key or "").strip()) or {}).get(region_txt) or ())
+
+            def _coproduct_target_unit(input_key: str) -> str:
+                tpl = market_input_templates_by_key.get(str(input_key or "").strip())
+                return str(getattr(tpl, "unit", "") or "").strip()
+
+            def _coproduct_best_aggregate_candidate(
+                rows_in: List[Dict[str, Any]],
+                *,
+                target_unit: str,
+                agg_preference: str,
+            ) -> Optional[Dict[str, Any]]:
+                def _best_non_obs(agg_level_txt: str) -> Optional[Dict[str, Any]]:
+                    best_score: Optional[Tuple[Any, ...]] = None
+                    best_rec: Optional[Dict[str, Any]] = None
+                    for rec in rows_in:
+                        if str(rec.get("aggregation_level") or "").strip().lower() != agg_level_txt:
+                            continue
+                        converted_val, converted = _convert_market_price_value(
+                            rec.get("price_value"),
+                            str(rec.get("unit") or ""),
+                            target_unit,
+                        )
+                        if converted_val is None:
+                            continue
+                        score = (
+                            _market_quality_rank(rec.get("quality")),
+                            _safe_int_like(rec.get("_obs_count")),
+                            _safe_int_like(rec.get("observation_date_ord")),
+                        )
+                        if best_score is None or score > best_score:
+                            chosen = dict(rec)
+                            chosen["_converted_value"] = float(converted_val)
+                            chosen["_converted"] = bool(converted)
+                            chosen["_selection_rule"] = agg_level_txt
+                            best_score = score
+                            best_rec = chosen
+                    return best_rec
+
+                for agg_level_txt in (str(agg_preference or "").strip().lower() or "quarter_avg", "quarter_end"):
+                    chosen = _best_non_obs(agg_level_txt)
+                    if isinstance(chosen, dict):
+                        return chosen
+                observation_vals: List[float] = []
+                representative_rec: Optional[Dict[str, Any]] = None
+                for rec in rows_in:
+                    if str(rec.get("aggregation_level") or "").strip().lower() != "observation":
+                        continue
+                    converted_val, converted = _convert_market_price_value(
+                        rec.get("price_value"),
+                        str(rec.get("unit") or ""),
+                        target_unit,
+                    )
+                    if converted_val is None:
+                        continue
+                    observation_vals.append(float(converted_val))
+                    if representative_rec is None:
+                        representative_rec = dict(rec)
+                        representative_rec["_converted"] = bool(converted)
+                if observation_vals and representative_rec is not None:
+                    representative_rec["_converted_value"] = float(sum(observation_vals) / len(observation_vals))
+                    representative_rec["_selection_rule"] = "observation_avg"
+                    representative_rec["_obs_count"] = len(observation_vals)
+                    return representative_rec
+                return None
+
+            def _coproduct_quarter_open_candidate(
+                rows_in: List[Dict[str, Any]],
+                *,
+                target_unit: str,
+            ) -> Optional[Dict[str, Any]]:
+                earliest_by_day: Dict[date, List[Tuple[Tuple[Any, ...], Dict[str, Any]]]] = {}
+                for rec in rows_in:
+                    if str(rec.get("aggregation_level") or "").strip().lower() != "observation":
+                        continue
+                    obs_dt = pd.to_datetime(rec.get("observation_date"), errors="coerce")
+                    if pd.isna(obs_dt):
+                        continue
+                    converted_val, converted = _convert_market_price_value(
+                        rec.get("price_value"),
+                        str(rec.get("unit") or ""),
+                        target_unit,
+                    )
+                    if converted_val is None:
+                        continue
+                    obs_date = pd.Timestamp(obs_dt).date()
+                    score = (
+                        -_market_quality_rank(rec.get("quality")),
+                        -_safe_int_like(rec.get("_obs_count")),
+                    )
+                    chosen = dict(rec)
+                    chosen["_converted_value"] = float(converted_val)
+                    chosen["_converted"] = bool(converted)
+                    chosen["_selection_rule"] = "quarter_open_observation"
+                    earliest_by_day.setdefault(obs_date, []).append((score, chosen))
+                if not earliest_by_day:
+                    return None
+                first_obs_date = min(earliest_by_day)
+                day_candidates = sorted(earliest_by_day.get(first_obs_date) or [], key=lambda item: item[0])
+                if not day_candidates:
+                    return None
+                return dict(day_candidates[0][1])
+
+            def _resolved_uhp_value_for_quarter(quarter_end: date, *, mode: str) -> Dict[str, Any]:
+                tpl = market_input_templates_by_key.get("uhp_price")
+                if tpl is None or not isinstance(quarter_end, date):
+                    return {"value": None, "source_mode": "Unknown/blank"}
+                target_unit = str(getattr(tpl, "unit", "") or "").strip()
+                series_keys = tuple(
+                    str(item or "").strip()
+                    for item in (getattr(tpl, "source_series_keys", ()) or ())
+                    if str(item or "").strip()
+                )
+                candidates: List[Tuple[Tuple[Any, ...], Dict[str, Any]]] = []
+                for rec in economics_market_rows:
+                    if rec.get("quarter") != quarter_end or str(rec.get("series_key") or "").strip() not in series_keys:
+                        continue
+                    source_bucket = _coproduct_source_bucket(rec.get("source_type"))
+                    source_rank = coproduct_source_priority.index(source_bucket) if source_bucket in coproduct_source_priority else len(coproduct_source_priority)
+                    if str(mode or "").strip().lower() == "quarter_open":
+                        chosen = _coproduct_quarter_open_candidate([rec], target_unit=target_unit)
+                    else:
+                        chosen = _coproduct_best_aggregate_candidate(
+                            [rec],
+                            target_unit=target_unit,
+                            agg_preference=str(getattr(tpl, "aggregation_preference", "") or "quarter_avg"),
+                        )
+                    if not isinstance(chosen, dict):
+                        continue
+                    candidates.append(((source_rank,), chosen))
+                if not candidates:
+                    return {"value": None, "source_mode": "Unknown/blank"}
+                picked = sorted(candidates, key=lambda item: item[0])[0][1]
+                value_num = pd.to_numeric(picked.get("_converted_value"), errors="coerce")
+                return {
+                    "value": None if pd.isna(value_num) else float(value_num),
+                    "source_mode": _coproduct_source_label(_coproduct_source_bucket(picked.get("source_type"))) or "Unknown/blank",
+                }
+
+            def _weighted_coproduct_input_value(
+                input_key: str,
+                quarter_end: date,
+                *,
+                mode: str = "quarter_avg",
+            ) -> Dict[str, Any]:
+                cache_key = (str(input_key or "").strip(), quarter_end, str(mode or "").strip())
+                cached = weighted_coproduct_input_cache.get(cache_key)
+                if isinstance(cached, dict):
+                    return dict(cached)
+                if not isinstance(quarter_end, date):
+                    out = {"value": None, "coverage_ratio": None, "source_mode": "Unknown/blank", "region_hits": []}
+                    weighted_coproduct_input_cache[cache_key] = dict(out)
+                    return out
+                tpl = market_input_templates_by_key.get(str(input_key or "").strip())
+                if tpl is None:
+                    out = {"value": None, "coverage_ratio": None, "source_mode": "Unknown/blank", "region_hits": []}
+                    weighted_coproduct_input_cache[cache_key] = dict(out)
+                    return out
+                target_unit = _coproduct_target_unit(input_key)
+                agg_preference = str(getattr(tpl, "aggregation_preference", "") or "quarter_avg").strip().lower()
+                weights = {
+                    str(region or "").strip().lower(): float(pd.to_numeric(raw_weight, errors="coerce") or 0.0)
+                    for region, raw_weight in dict(
+                        _gpre_official_market_weights_for_quarter(
+                            quarter_end,
+                            ticker_root=gpre_ticker_root_local,
+                            plant_capacity_history=gpre_plant_capacity_history,
+                        )
+                        or {}
+                    ).items()
+                    if float(pd.to_numeric(raw_weight, errors="coerce") or 0.0) > 0.0
+                }
+                total_weight = float(sum(weights.values()))
+                if total_weight <= 0.0:
+                    out = {"value": None, "coverage_ratio": None, "source_mode": "Unknown/blank", "region_hits": []}
+                    weighted_coproduct_input_cache[cache_key] = dict(out)
+                    return out
+                covered_weight = 0.0
+                weighted_total = 0.0
+                source_labels: List[str] = []
+                region_hits: List[str] = []
+                for region, region_weight in sorted(weights.items()):
+                    candidate: Optional[Dict[str, Any]] = None
+                    for source_bucket in coproduct_source_priority:
+                        for series_key in _coproduct_series_candidates(input_key, region):
+                            matching_rows = [
+                                rec
+                                for rec in economics_market_rows
+                                if rec.get("quarter") == quarter_end
+                                and str(rec.get("series_key") or "").strip() == series_key
+                                and _coproduct_source_bucket(rec.get("source_type")) == source_bucket
+                            ]
+                            if not matching_rows:
+                                continue
+                            if str(mode or "").strip().lower() == "quarter_open":
+                                chosen = _coproduct_quarter_open_candidate(matching_rows, target_unit=target_unit)
+                            else:
+                                chosen = _coproduct_best_aggregate_candidate(
+                                    matching_rows,
+                                    target_unit=target_unit,
+                                    agg_preference=agg_preference,
+                                )
+                            if isinstance(chosen, dict):
+                                candidate = dict(chosen)
+                                candidate["_series_key"] = series_key
+                                candidate["_source_bucket"] = source_bucket
+                                break
+                        if candidate is not None:
+                            break
+                    if candidate is None:
+                        continue
+                    value_num = pd.to_numeric(candidate.get("_converted_value"), errors="coerce")
+                    if pd.isna(value_num):
+                        continue
+                    covered_weight += float(region_weight)
+                    weighted_total += float(region_weight) * float(value_num)
+                    source_label = _coproduct_source_label(candidate.get("_source_bucket"))
+                    if source_label:
+                        source_labels.append(source_label)
+                    region_hits.append(f"{region}:{candidate.get('_series_key')}:{source_label or 'Unknown'}")
+                coverage_ratio = (covered_weight / total_weight) if total_weight > 0 else None
+                value_out = (weighted_total / covered_weight) if covered_weight > 0 else None
+                out = {
+                    "value": value_out,
+                    "coverage_ratio": coverage_ratio,
+                    "source_mode": _classify_coproduct_resolved_source(*source_labels),
+                    "region_hits": list(region_hits),
+                }
+                weighted_coproduct_input_cache[cache_key] = dict(out)
+                return out
+
+            def _derive_coproduct_credit_record(
+                *,
+                quarter_end: Optional[date],
+                quarter_label: str,
+                corn_oil_price: Optional[float],
+                distillers_price: Optional[float],
+                uhp_price: Optional[float],
+                corn_oil_source_mode: str,
+                distillers_source_mode: str,
+                corn_oil_coverage_ratio: Optional[float],
+                distillers_coverage_ratio: Optional[float],
+                gallons_million_display: Optional[float],
+                rule_text: str,
+            ) -> Dict[str, Any]:
+                distillers_contribution = (
+                    float(distillers_yield_num) * float(distillers_price)
+                    if pd.notna(distillers_yield_num) and distillers_price is not None
+                    else None
+                )
+                uhp_contribution = (
+                    float(uhp_yield_num) * float(uhp_price)
+                    if pd.notna(uhp_yield_num) and uhp_price is not None
+                    else None
+                )
+                corn_oil_contribution = (
+                    float(corn_oil_yield_num) * float(corn_oil_price)
+                    if pd.notna(corn_oil_yield_num) and corn_oil_price is not None
+                    else None
+                )
+                contribution_values = [
+                    float(val)
+                    for val in (distillers_contribution, uhp_contribution, corn_oil_contribution)
+                    if val is not None and pd.notna(val)
+                ]
+                approximate_coproduct_credit = sum(contribution_values) if contribution_values else None
+                approximate_coproduct_credit_per_gal = (
+                    float(approximate_coproduct_credit) / float(ethanol_yield_num)
+                    if approximate_coproduct_credit is not None
+                    and pd.notna(ethanol_yield_num)
+                    and abs(float(ethanol_yield_num)) > 1e-9
+                    else None
+                )
+                gallons_num = pd.to_numeric(gallons_million_display, errors="coerce")
+                approximate_coproduct_credit_usd_m = (
+                    float(approximate_coproduct_credit_per_gal) * float(gallons_num)
+                    if approximate_coproduct_credit_per_gal is not None
+                    and pd.notna(gallons_num)
+                    and abs(float(gallons_num)) > 1e-9
+                    else None
+                )
+                coverage_candidates = [
+                    float(val)
+                    for val in (corn_oil_coverage_ratio, distillers_coverage_ratio)
+                    if pd.notna(pd.to_numeric(val, errors="coerce"))
+                ]
+                coverage_ratio = min(coverage_candidates) if coverage_candidates else None
+                return {
+                    "quarter_end": quarter_end,
+                    "quarter_label": quarter_label,
+                    "renewable_corn_oil_price": corn_oil_price,
+                    "distillers_grains_price": distillers_price,
+                    "uhp_price": uhp_price,
+                    "approximate_coproduct_credit": approximate_coproduct_credit,
+                    "approximate_coproduct_credit_per_gal": approximate_coproduct_credit_per_gal,
+                    "approximate_coproduct_credit_usd_m": approximate_coproduct_credit_usd_m,
+                    "resolved_source_mode": _classify_coproduct_resolved_source(
+                        corn_oil_source_mode,
+                        distillers_source_mode,
+                    ),
+                    "coverage_ratio": coverage_ratio,
+                    "rule": rule_text,
+                    "renewable_corn_oil_source_mode": corn_oil_source_mode or "Unknown/blank",
+                    "renewable_corn_oil_price_source_mode": corn_oil_source_mode or "Unknown/blank",
+                    "distillers_grains_source_mode": distillers_source_mode or "Unknown/blank",
+                    "distillers_grains_price_source_mode": distillers_source_mode or "Unknown/blank",
+                    "renewable_corn_oil_coverage_ratio": corn_oil_coverage_ratio,
+                    "renewable_corn_oil_price_coverage_ratio": corn_oil_coverage_ratio,
+                    "distillers_grains_coverage_ratio": distillers_coverage_ratio,
+                    "distillers_grains_price_coverage_ratio": distillers_coverage_ratio,
+                }
+
+            def _weighted_coproduct_quarter_record(
+                quarter_end: date,
+                *,
+                mode: str = "quarter_avg",
+            ) -> Dict[str, Any]:
+                cache_key = (quarter_end, str(mode or "").strip())
+                cached = weighted_coproduct_quarter_cache.get(cache_key)
+                if isinstance(cached, dict):
+                    return dict(cached)
+                if not isinstance(quarter_end, date):
+                    return {}
+                corn_oil_rec = _weighted_coproduct_input_value("renewable_corn_oil_price", quarter_end, mode=mode)
+                distillers_rec = _weighted_coproduct_input_value("distillers_grains_price", quarter_end, mode=mode)
+                uhp_rec = _resolved_uhp_value_for_quarter(quarter_end, mode=mode)
+                out = _derive_coproduct_credit_record(
+                    quarter_end=quarter_end,
+                    quarter_label=_quarter_label_short(quarter_end),
+                    corn_oil_price=pd.to_numeric(corn_oil_rec.get("value"), errors="coerce"),
+                    distillers_price=pd.to_numeric(distillers_rec.get("value"), errors="coerce"),
+                    uhp_price=pd.to_numeric(uhp_rec.get("value"), errors="coerce"),
+                    corn_oil_source_mode=str(corn_oil_rec.get("source_mode") or "Unknown/blank"),
+                    distillers_source_mode=str(distillers_rec.get("source_mode") or "Unknown/blank"),
+                    corn_oil_coverage_ratio=pd.to_numeric(corn_oil_rec.get("coverage_ratio"), errors="coerce"),
+                    distillers_coverage_ratio=pd.to_numeric(distillers_rec.get("coverage_ratio"), errors="coerce"),
+                    gallons_million_display=historical_gallons_million_map.get(quarter_end),
+                    rule_text=(
+                        "Weighted exact-quarter averages using quarter-aware active-capacity footprint; corn oil uses the all-active-footprint approximation."
+                        if str(mode or "").strip().lower() != "quarter_open"
+                        else "Weighted early-quarter observation snapshot using quarter-aware active-capacity footprint; missing legs stay blank for carry-forward handling."
+                    ),
+                )
+                weighted_coproduct_quarter_cache[cache_key] = dict(out)
+                return out
+
+            def _coproduct_frame_record(
+                frame_key: str,
+                *,
+                target_quarter_end: Optional[date],
+                base_record: Optional[Dict[str, Any]],
+                fallback_record: Optional[Dict[str, Any]] = None,
+                gallons_million_display: Optional[float] = None,
+            ) -> Dict[str, Any]:
+                frame_label = {
+                    "prior_quarter": "Prior quarter",
+                    "quarter_open": "Quarter-open proxy",
+                    "current_qtd": "Current QTD",
+                    "next_quarter_thesis": "Next quarter thesis",
+                }.get(str(frame_key or "").strip(), str(frame_key or "").replace("_", " ").title())
+                primary = dict(base_record or {})
+                fallback = dict(fallback_record or {})
+
+                def _choose(field_name: str) -> Tuple[Optional[float], str, Optional[float], bool]:
+                    primary_val = pd.to_numeric(primary.get(field_name), errors="coerce")
+                    if pd.notna(primary_val):
+                        return (
+                            float(primary_val),
+                            str(primary.get(f"{field_name}_source_mode") or primary.get("resolved_source_mode") or "Unknown/blank"),
+                            pd.to_numeric(primary.get(f"{field_name}_coverage_ratio") or primary.get("coverage_ratio"), errors="coerce"),
+                            False,
+                        )
+                    fallback_val = pd.to_numeric(fallback.get(field_name), errors="coerce")
+                    if pd.notna(fallback_val):
+                        return (
+                            float(fallback_val),
+                            str(fallback.get(f"{field_name}_source_mode") or fallback.get("resolved_source_mode") or "Unknown/blank"),
+                            pd.to_numeric(fallback.get(f"{field_name}_coverage_ratio") or fallback.get("coverage_ratio"), errors="coerce"),
+                            True,
+                        )
+                    return None, "Unknown/blank", None, False
+
+                corn_price, corn_source_mode, corn_coverage_ratio, corn_carried = _choose("renewable_corn_oil_price")
+                distillers_price, distillers_source_mode, distillers_coverage_ratio, ddgs_carried = _choose("distillers_grains_price")
+                uhp_value_num = pd.to_numeric(primary.get("uhp_price"), errors="coerce")
+                if pd.isna(uhp_value_num):
+                    uhp_value_num = pd.to_numeric(fallback.get("uhp_price"), errors="coerce")
+                if str(frame_key or "").strip() == "quarter_open":
+                    rule_text = (
+                        "Early-quarter weighted observation snapshot where available; prior-quarter carry-forward fills missing coproduct legs."
+                        if (corn_carried or ddgs_carried)
+                        else "Early-quarter weighted observation snapshot using the active-capacity footprint."
+                    )
+                elif str(frame_key or "").strip() == "next_quarter_thesis":
+                    rule_text = "Carry-forward latest resolved weighted coproduct value; no direct forward coproduct curve exists."
+                elif str(frame_key or "").strip() == "current_qtd":
+                    rule_text = "Weighted current-quarter averages using the active-capacity footprint."
+                else:
+                    rule_text = "Weighted prior-quarter averages using the active-capacity footprint."
+                out = _derive_coproduct_credit_record(
+                    quarter_end=target_quarter_end,
+                    quarter_label=str(frame_label or ""),
+                    corn_oil_price=corn_price,
+                    distillers_price=distillers_price,
+                    uhp_price=(None if pd.isna(uhp_value_num) else float(uhp_value_num)),
+                    corn_oil_source_mode=corn_source_mode,
+                    distillers_source_mode=distillers_source_mode,
+                    corn_oil_coverage_ratio=corn_coverage_ratio,
+                    distillers_coverage_ratio=distillers_coverage_ratio,
+                    gallons_million_display=gallons_million_display,
+                    rule_text=rule_text,
+                )
+                out["frame_key"] = str(frame_key or "")
+                out["frame_label"] = frame_label
+                out["quarter_end"] = target_quarter_end
+                return out
+
+            def _quarterly_coproduct_history_records() -> List[Dict[str, Any]]:
+                history_cutoff = current_market_display_quarter if isinstance(current_market_display_quarter, date) else as_of_market_quarter
+                if not economics_market_rows or not isinstance(history_cutoff, date):
+                    return []
+                relevant_series_keys: Set[str] = set()
+                for input_key in ("renewable_corn_oil_price", "distillers_grains_price", "uhp_price"):
+                    tpl = market_input_templates_by_key.get(input_key)
+                    if tpl is None:
+                        continue
+                    relevant_series_keys.update(
+                        str(item or "").strip()
+                        for item in (getattr(tpl, "source_series_keys", ()) or ())
+                        if str(item or "").strip()
+                    )
+                if not relevant_series_keys:
+                    return []
+                history_quarters = sorted(
+                    {
+                        rec_q
+                        for rec_q in (
+                            rec.get("quarter")
+                            for rec in economics_market_rows
+                            if str(rec.get("series_key") or "").strip() in relevant_series_keys
+                        )
+                        if isinstance(rec_q, date) and rec_q <= history_cutoff
+                    }
+                )
+                return [_weighted_coproduct_quarter_record(quarter_end) for quarter_end in history_quarters]
+
+            def _coproduct_frame_summary_records(
+                history_records_in: List[Dict[str, Any]],
+            ) -> List[Dict[str, Any]]:
+                history_map = {
+                    rec.get("quarter_end"): dict(rec)
+                    for rec in list(history_records_in or [])
+                    if isinstance(rec, dict) and isinstance(rec.get("quarter_end"), date)
+                }
+                current_q = current_market_display_quarter if isinstance(current_market_display_quarter, date) else None
+                prior_q = (
+                    prior_market_display_quarter
+                    if isinstance(prior_market_display_quarter, date)
+                    else _quarter_shift(current_q, -1)
+                )
+                quarter_open_q = quarter_open_display_quarter if isinstance(quarter_open_display_quarter, date) else current_q
+                next_q = next_thesis_quarter_end if isinstance(next_thesis_quarter_end, date) else _quarter_shift(current_q, 1)
+                prior_record = history_map.get(prior_q) or (_weighted_coproduct_quarter_record(prior_q) if isinstance(prior_q, date) else {})
+                current_record = history_map.get(current_q) or (_weighted_coproduct_quarter_record(current_q) if isinstance(current_q, date) else {})
+                open_base_record = _weighted_coproduct_quarter_record(quarter_open_q, mode="quarter_open") if isinstance(quarter_open_q, date) else {}
+                latest_resolved_record = current_record if any(
+                    pd.notna(pd.to_numeric((current_record or {}).get(field_name), errors="coerce"))
+                    for field_name in ("renewable_corn_oil_price", "distillers_grains_price", "approximate_coproduct_credit_per_gal")
+                ) else prior_record
+                return [
+                    _coproduct_frame_record(
+                        "prior_quarter",
+                        target_quarter_end=prior_q,
+                        base_record=prior_record,
+                        gallons_million_display=pd.to_numeric(
+                            (_gpre_proxy_implied_frame_record("prior_quarter") or {}).get("implied_gallons_million_display"),
+                            errors="coerce",
+                        ),
+                    ),
+                    _coproduct_frame_record(
+                        "quarter_open",
+                        target_quarter_end=quarter_open_q,
+                        base_record=open_base_record,
+                        fallback_record=prior_record,
+                        gallons_million_display=pd.to_numeric(
+                            (_gpre_proxy_implied_frame_record("quarter_open") or {}).get("implied_gallons_million_display"),
+                            errors="coerce",
+                        ),
+                    ),
+                    _coproduct_frame_record(
+                        "current_qtd",
+                        target_quarter_end=current_q,
+                        base_record=current_record,
+                        fallback_record=prior_record,
+                        gallons_million_display=pd.to_numeric(
+                            (_gpre_proxy_implied_frame_record("current_qtd") or {}).get("implied_gallons_million_display"),
+                            errors="coerce",
+                        ),
+                    ),
+                    _coproduct_frame_record(
+                        "next_quarter_thesis",
+                        target_quarter_end=next_q,
+                        base_record=latest_resolved_record,
+                        fallback_record=prior_record,
+                        gallons_million_display=pd.to_numeric(
+                            (_gpre_proxy_implied_frame_record("next_quarter_thesis") or {}).get("implied_gallons_million_display"),
+                            errors="coerce",
+                        ),
+                    ),
+                ]
 
             def _coproduct_filled_now_text(state_in: Dict[str, bool]) -> str:
                 bits: List[str] = []
@@ -68733,6 +69636,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 source_sheet_name="Economics_Overlay",
             )
             coproduct_section_row = int(approx_market_crush_build_up_layout.get("next_row") or process_build_section_row) + 2
+            coproduct_history_layout: Dict[str, Any] = {}
             if overlay_source_ws is not None:
                 distillers_price_state = _overlay_row_readiness_state(market_rows.get("distillers_grains_price"))
                 direct_corn_oil_price_state = _overlay_row_readiness_state(market_rows.get("renewable_corn_oil_price"))
@@ -68756,6 +69660,25 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     source_type_prefix="ams_3618",
                     series_prefixes=("corn_oil_", "ddgs_10_"),
                 )
+                corn_oil_source_mode_text = _overlay_source_mode_text(market_rows.get("renewable_corn_oil_price"))
+                distillers_source_mode_text = _overlay_source_mode_text(market_rows.get("distillers_grains_price"))
+                current_resolved_workbook_source = _classify_coproduct_resolved_source(
+                    corn_oil_source_mode_text,
+                    distillers_source_mode_text,
+                )
+                coproduct_history_records = _quarterly_coproduct_history_records()
+                coproduct_frame_summary_records = _coproduct_frame_summary_records(coproduct_history_records)
+                current_frame_summary_record = next(
+                    (
+                        dict(rec)
+                        for rec in list(coproduct_frame_summary_records or [])
+                        if str((rec or {}).get("frame_key") or "").strip() == "current_qtd"
+                    ),
+                    {},
+                )
+                current_resolved_workbook_source = str(
+                    current_frame_summary_record.get("resolved_source_mode") or current_resolved_workbook_source or "Unknown/blank"
+                )
                 nwer_coproduct_gate_pass = any(bool(nwer_coproduct_source_state.get(bucket)) for bucket in ("historical", "current", "next"))
                 ams_3618_coproduct_gate_pass = any(bool(ams_3618_coproduct_source_state.get(bucket)) for bucket in ("historical", "current", "next"))
                 resolved_corn_oil_price_gate_pass = any(bool(resolved_corn_oil_price_state.get(bucket)) for bucket in ("historical", "current", "next"))
@@ -68765,19 +69688,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 )
                 overlay_activation_gate_pass = bool(
                     nwer_coproduct_gate_pass
-                    and ams_3618_coproduct_gate_pass
-                    and resolved_corn_oil_price_gate_pass
-                    and distillers_price_gate_pass
-                    and approximate_coproduct_credit_gate_pass
-                    and resolved_corn_oil_price_state.get("historical")
-                    and resolved_corn_oil_price_state.get("current")
-                    and resolved_corn_oil_price_state.get("next")
-                    and distillers_price_state.get("historical")
-                    and distillers_price_state.get("current")
-                    and distillers_price_state.get("next")
-                    and approximate_coproduct_credit_state.get("historical")
-                    and approximate_coproduct_credit_state.get("current")
-                    and approximate_coproduct_credit_state.get("next")
+                    and bool(resolved_corn_oil_price_state.get("current"))
+                    and bool(distillers_price_state.get("current"))
+                    and bool(approximate_coproduct_credit_state.get("current"))
                 )
                 corn_oil_gate_specs = [
                     (
@@ -68793,9 +69706,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         "AMS 3618 coproduct rows",
                         "YES" if ams_3618_coproduct_gate_pass else "NO",
                         (
-                            "Parsed AMS 3618 export rows now include direct corn-oil or DDGS coproduct series."
+                            "Parsed AMS 3618 export rows now include direct corn-oil or DDGS coproduct series. Secondary/corroborating manual fallback/backfill source; not required for visible activation."
                             if ams_3618_coproduct_gate_pass
-                            else "No parsed AMS 3618 coproduct rows were found in the current GPRE export."
+                            else "No parsed AMS 3618 coproduct rows were found in the current GPRE export. Secondary/corroborating manual fallback/backfill only; not required for the first NWER-backed visible block."
                         ),
                     ),
                     (
@@ -68829,10 +69742,27 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         "Overlay activation",
                         "GO" if overlay_activation_gate_pass else "HOLD",
                         (
-                            "Economics_Overlay row 176 can host a compact coproduct block."
+                            "NWER current-quarter sufficiency is enough for visible activation; AMS 3618 remains secondary and may still be the current resolved workbook source."
                             if overlay_activation_gate_pass
-                            else "Keep Economics_Overlay row 176 blank until the Stage B.1 source gate passes end-to-end."
+                            else "Keep the visible block deferred until NWER-backed current corn-oil, DDGS, and coproduct-credit cells are all non-blank."
                         ),
+                    ),
+                ]
+                coproduct_provenance_specs = [
+                    (
+                        "Primary live activation source",
+                        "NWER",
+                        "Current-quarter NWER sufficiency controls GO/HOLD for the first visible block.",
+                    ),
+                    (
+                        "Secondary corroborating source",
+                        "AMS 3618",
+                        "Manual fallback/backfill and corroboration; not required for visible activation.",
+                    ),
+                    (
+                        "Current resolved workbook source",
+                        current_resolved_workbook_source,
+                        "Shows which source currently feeds the visible price rows.",
                     ),
                 ]
                 corn_oil_gate_section_row = coproduct_section_row
@@ -68897,8 +69827,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     row=corn_oil_gate_note_row,
                     column=2,
                     value=(
-                        "Stage B.1 uses NWER and AMS 3618 only; soybean and AMS 3511 remain deferred/manual. "
-                        "If USDA landing fetches stay flaky, manual drop + sync remains the fallback."
+                        "Stage B.4 keeps NWER as the primary live activation source for the first visible coproduct block. "
+                        "AMS 3618 remains secondary/corroborating and is best used as a manual fallback/backfill source. "
+                        "Current resolved workbook price rows may come from either source without changing the activation rule. "
+                        "AMS 3511 remains deferred/manual."
                     ),
                 )
                 corn_oil_gate_note.fill = copy(intro_fill)
@@ -68915,8 +69847,67 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     "gate_rows": corn_oil_gate_rows,
                     "note_row": corn_oil_gate_note_row,
                     "next_row": corn_oil_gate_note_row,
+                    "overlay_activation_pass": overlay_activation_gate_pass,
                 }
-                coproduct_section_row = corn_oil_gate_note_row + 2
+                coproduct_provenance_section_row = corn_oil_gate_note_row + 1
+                ws.merge_cells(start_row=coproduct_provenance_section_row, start_column=2, end_row=coproduct_provenance_section_row, end_column=15)
+                provenance_title = ws.cell(row=coproduct_provenance_section_row, column=2, value="Source provenance")
+                provenance_title.fill = copy(section_fill)
+                provenance_title.font = copy(bold_font)
+                provenance_title.alignment = Alignment(horizontal="center", vertical="center")
+                provenance_title.border = copy(thin_border)
+                for cc in range(2, 16):
+                    ws.cell(row=coproduct_provenance_section_row, column=cc).fill = copy(section_fill)
+                    ws.cell(row=coproduct_provenance_section_row, column=cc).font = copy(bold_font)
+                    ws.cell(row=coproduct_provenance_section_row, column=cc).alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=coproduct_provenance_section_row, column=cc).border = copy(thin_border)
+                ws.row_dimensions[coproduct_provenance_section_row].height = 22.0
+
+                coproduct_provenance_header_row = coproduct_provenance_section_row + 1
+                provenance_spans = [
+                    (2, 5, "Role"),
+                    (6, 7, "Source"),
+                    (8, 15, "Meaning"),
+                ]
+                for start_col, end_col, header_txt in provenance_spans:
+                    if end_col > start_col:
+                        ws.merge_cells(start_row=coproduct_provenance_header_row, start_column=start_col, end_row=coproduct_provenance_header_row, end_column=end_col)
+                    for cc in range(start_col, end_col + 1):
+                        ws.cell(row=coproduct_provenance_header_row, column=cc).fill = copy(header_fill)
+                        ws.cell(row=coproduct_provenance_header_row, column=cc).font = copy(bold_font)
+                        ws.cell(row=coproduct_provenance_header_row, column=cc).border = copy(thin_border)
+                        ws.cell(row=coproduct_provenance_header_row, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                    ws.cell(row=coproduct_provenance_header_row, column=start_col, value=header_txt)
+                ws.row_dimensions[coproduct_provenance_header_row].height = 24.0
+
+                coproduct_provenance_row = coproduct_provenance_header_row + 1
+                provenance_rows: Dict[str, int] = {}
+                for role_label, source_label, source_reason in coproduct_provenance_specs:
+                    row_fill = copy(zebra_fill_light if ((coproduct_provenance_row - coproduct_provenance_header_row) % 2) else zebra_fill_dark)
+                    provenance_spans_and_values = [
+                        (2, 5, role_label),
+                        (6, 7, source_label),
+                        (8, 15, source_reason),
+                    ]
+                    for start_col, end_col, value_txt in provenance_spans_and_values:
+                        if end_col > start_col:
+                            ws.merge_cells(start_row=coproduct_provenance_row, start_column=start_col, end_row=coproduct_provenance_row, end_column=end_col)
+                        cell = ws.cell(row=coproduct_provenance_row, column=start_col, value=value_txt)
+                        cell.fill = copy(row_fill)
+                        cell.font = copy(body_font)
+                        cell.border = copy(thin_border)
+                        cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                        for cc in range(start_col, end_col + 1):
+                            ws.cell(row=coproduct_provenance_row, column=cc).fill = copy(row_fill)
+                            ws.cell(row=coproduct_provenance_row, column=cc).border = copy(thin_border)
+                            ws.cell(row=coproduct_provenance_row, column=cc).alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                    ws.row_dimensions[coproduct_provenance_row].height = 28.0
+                    provenance_rows[str(role_label or "")] = coproduct_provenance_row
+                    coproduct_provenance_row += 1
+                corn_oil_gate_check_layout["provenance_rows"] = provenance_rows
+                corn_oil_gate_check_layout["current_resolved_workbook_source"] = current_resolved_workbook_source
+                corn_oil_gate_check_layout["next_row"] = coproduct_provenance_row - 1
+                coproduct_section_row = coproduct_provenance_row + 1
                 coproduct_specs = [
                     (
                         "Renewable corn oil price",
@@ -68973,8 +69964,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     row=coproduct_note_row,
                     column=2,
                     value=(
-                        "Stage B.1 uses NWER and AMS 3618 only; soybean and 3511 remain deferred/manual. "
-                        "Keep the visible Economics_Overlay coproduct block deferred until the direct source gate passes."
+                        "Stage B.4 keeps NWER as the sufficient first visible coproduct source. "
+                        "AMS 3618 remains secondary/corroborating/manual fallback-backfill, current resolved price rows may come from either source, and 3511 remains deferred/manual."
                     ),
                 )
                 coproduct_note.fill = copy(intro_fill)
@@ -69042,7 +70033,521 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     "signal_rows": coproduct_signal_rows,
                     "next_row": coproduct_row - 1,
                 }
-            memo_section_row = int(coproduct_signal_readiness_layout.get("next_row") or approx_market_crush_build_up_layout.get("next_row") or process_build_section_row) + 2
+                if coproduct_frame_summary_records:
+                    frame_section_row = int(coproduct_signal_readiness_layout.get("next_row") or (coproduct_row - 1)) + 2
+                    frame_start_col = 2  # B
+                    frame_end_col = 10  # J
+                    frame_note_row = frame_section_row + 1
+                    frame_header_row = frame_section_row + 2
+                    ws.merge_cells(start_row=frame_section_row, start_column=frame_start_col, end_row=frame_section_row, end_column=frame_end_col)
+                    frame_title = ws.cell(row=frame_section_row, column=frame_start_col, value="Coproduct frame summary")
+                    frame_title.fill = copy(section_fill)
+                    frame_title.font = copy(bold_font)
+                    frame_title.alignment = Alignment(horizontal="center", vertical="center")
+                    frame_title.border = copy(thin_border)
+                    for cc in range(frame_start_col, frame_end_col + 1):
+                        ws.cell(row=frame_section_row, column=cc).fill = copy(section_fill)
+                        ws.cell(row=frame_section_row, column=cc).font = copy(bold_font)
+                        ws.cell(row=frame_section_row, column=cc).alignment = Alignment(horizontal="center", vertical="center")
+                        ws.cell(row=frame_section_row, column=cc).border = copy(thin_border)
+                    ws.row_dimensions[frame_section_row].height = 22.0
+
+                    ws.merge_cells(start_row=frame_note_row, start_column=frame_start_col, end_row=frame_note_row, end_column=frame_end_col)
+                    frame_note = ws.cell(
+                        row=frame_note_row,
+                        column=frame_start_col,
+                        value=(
+                            "Frame values use quarter-aware active-capacity weighting across the active GPRE footprint. "
+                            "DDGS uses all active plants; corn oil uses the same active-footprint weighting as a producer-subset approximation because plant-level corn-oil flags are not available. "
+                            "Quarter-open uses early-quarter observations when present and otherwise carries prior-quarter values; next-quarter thesis carries forward the latest resolved weighted value. "
+                            "Coverage is covered active-capacity share, and $m keeps the existing implied company-gallons scaling rather than a covered-footprint-only $m."
+                        ),
+                    )
+                    frame_note.fill = copy(intro_fill)
+                    frame_note.font = copy(body_font)
+                    frame_note.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                    frame_note.border = copy(thin_border)
+                    for cc in range(frame_start_col, frame_end_col + 1):
+                        ws.cell(row=frame_note_row, column=cc).fill = copy(intro_fill)
+                        ws.cell(row=frame_note_row, column=cc).border = copy(thin_border)
+                    ws.row_dimensions[frame_note_row].height = 58.0
+
+                    frame_headers = {
+                        2: "Frame",
+                        3: "Renewable corn oil price",
+                        4: "Distillers grains price",
+                        5: "Approximate coproduct credit ($/bushel)",
+                        6: "Approximate coproduct credit ($/gal)",
+                        7: "Approximate coproduct credit ($m)",
+                        8: "Resolved source mode",
+                        9: "Coverage",
+                        10: "Rule",
+                    }
+                    for cc in range(frame_start_col, frame_end_col + 1):
+                        header_cell = ws.cell(row=frame_header_row, column=cc, value=frame_headers.get(cc, ""))
+                        header_cell.fill = copy(header_fill)
+                        header_cell.font = copy(bold_font)
+                        header_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                        header_cell.border = copy(thin_border)
+                    ws.row_dimensions[frame_header_row].height = 36.0
+
+                    frame_row = frame_header_row + 1
+                    frame_rows_by_key: Dict[str, int] = {}
+                    for rec in coproduct_frame_summary_records:
+                        row_fill = copy(zebra_fill_light if ((frame_row - frame_header_row) % 2) else zebra_fill_dark)
+                        row_values = {
+                            2: str(rec.get("frame_label") or ""),
+                            3: rec.get("renewable_corn_oil_price"),
+                            4: rec.get("distillers_grains_price"),
+                            5: rec.get("approximate_coproduct_credit"),
+                            6: rec.get("approximate_coproduct_credit_per_gal"),
+                            7: rec.get("approximate_coproduct_credit_usd_m"),
+                            8: str(rec.get("resolved_source_mode") or "Unknown/blank"),
+                            9: rec.get("coverage_ratio"),
+                            10: str(rec.get("rule") or ""),
+                        }
+                        for cc in range(frame_start_col, frame_end_col + 1):
+                            cell = ws.cell(row=frame_row, column=cc, value=row_values.get(cc))
+                            cell.fill = copy(row_fill)
+                            cell.font = copy(body_font)
+                            cell.border = copy(thin_border)
+                            cell.alignment = Alignment(horizontal="center" if cc in {2, 3, 4, 5, 6, 7, 9} else "left", vertical="center", wrap_text=cc in {8, 10})
+                            if cc in {3, 4, 5, 6, 7} and pd.notna(pd.to_numeric(row_values.get(cc), errors="coerce")):
+                                cell.number_format = "#,##0.000"
+                            if cc == 9 and pd.notna(pd.to_numeric(row_values.get(cc), errors="coerce")):
+                                cell.number_format = "0%"
+                        ws.row_dimensions[frame_row].height = 34.0
+                        frame_rows_by_key[str(rec.get("frame_key") or "")] = frame_row
+                        frame_row += 1
+                    coproduct_frame_summary_layout = {
+                        "title_row": frame_section_row,
+                        "note_row": frame_note_row,
+                        "header_row": frame_header_row,
+                        "frame_rows": frame_rows_by_key,
+                        "renewable_corn_oil_col": 3,
+                        "distillers_grains_col": 4,
+                        "approximate_coproduct_credit_col": 5,
+                        "approximate_coproduct_credit_per_gal_col": 6,
+                        "approximate_coproduct_credit_usd_m_col": 7,
+                        "resolved_source_mode_col": 8,
+                        "coverage_col": 9,
+                        "rule_col": 10,
+                        "next_row": frame_row - 1,
+                    }
+                if coproduct_history_records:
+                    coproduct_history_section_row = int(
+                        coproduct_frame_summary_layout.get("next_row")
+                        or coproduct_signal_readiness_layout.get("next_row")
+                        or (coproduct_row - 1)
+                    ) + 2
+                    history_start_col = 2  # B
+                    history_end_col = 9  # I
+                    history_note_row = coproduct_history_section_row + 1
+                    history_header_row = coproduct_history_section_row + 2
+                    ws.merge_cells(
+                        start_row=coproduct_history_section_row,
+                        start_column=history_start_col,
+                        end_row=coproduct_history_section_row,
+                        end_column=history_end_col,
+                    )
+                    history_title = ws.cell(row=coproduct_history_section_row, column=history_start_col, value="Coproduct quarterly history")
+                    history_title.fill = copy(section_fill)
+                    history_title.font = copy(bold_font)
+                    history_title.alignment = Alignment(horizontal="center", vertical="center")
+                    history_title.border = copy(thin_border)
+                    for cc in range(history_start_col, history_end_col + 1):
+                        ws.cell(row=coproduct_history_section_row, column=cc).fill = copy(section_fill)
+                        ws.cell(row=coproduct_history_section_row, column=cc).font = copy(bold_font)
+                        ws.cell(row=coproduct_history_section_row, column=cc).alignment = Alignment(horizontal="center", vertical="center")
+                        ws.cell(row=coproduct_history_section_row, column=cc).border = copy(thin_border)
+                    ws.row_dimensions[coproduct_history_section_row].height = 22.0
+
+                    ws.merge_cells(
+                        start_row=history_note_row,
+                        start_column=history_start_col,
+                        end_row=history_note_row,
+                        end_column=history_end_col,
+                    )
+                    history_note = ws.cell(
+                        row=history_note_row,
+                        column=history_start_col,
+                        value=(
+                            "Historical price legs use quarter-aware active-capacity weighting across the active GPRE footprint. "
+                            "DDGS uses all active plants, while corn oil uses the same active-footprint weighting as a producer-subset approximation because exact plant-level corn-oil coverage is not available. "
+                            "$/gal = $/bushel divided by ethanol yield, coverage is covered active-capacity share, and the visible chart stays focused on approximate coproduct credit ($/gal) to avoid mixing price units."
+                        ),
+                    )
+                    history_note.fill = copy(intro_fill)
+                    history_note.font = copy(body_font)
+                    history_note.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                    history_note.border = copy(thin_border)
+                    for cc in range(history_start_col, history_end_col + 1):
+                        ws.cell(row=history_note_row, column=cc).fill = copy(intro_fill)
+                        ws.cell(row=history_note_row, column=cc).border = copy(thin_border)
+                    ws.row_dimensions[history_note_row].height = 52.0
+
+                    history_headers = {
+                        2: "Quarter",
+                        3: "Renewable corn oil price",
+                        4: "Distillers grains price",
+                        5: "Approximate coproduct credit ($/bushel)",
+                        6: "Approximate coproduct credit ($/gal)",
+                        7: "Approximate coproduct credit ($m)",
+                        8: "Resolved source mode",
+                        9: "Coverage",
+                    }
+                    for cc in range(history_start_col, history_end_col + 1):
+                        header_cell = ws.cell(row=history_header_row, column=cc, value=history_headers.get(cc, ""))
+                        header_cell.fill = copy(header_fill)
+                        header_cell.font = copy(bold_font)
+                        header_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                        header_cell.border = copy(thin_border)
+                    ws.row_dimensions[history_header_row].height = 30.0
+
+                    history_row = history_header_row + 1
+                    first_history_data_row = history_row
+                    for rec in coproduct_history_records:
+                        row_fill = copy(zebra_fill_light if ((history_row - history_header_row) % 2) else zebra_fill_dark)
+                        row_values = {
+                            2: str(rec.get("quarter_label") or ""),
+                            3: rec.get("renewable_corn_oil_price"),
+                            4: rec.get("distillers_grains_price"),
+                            5: rec.get("approximate_coproduct_credit"),
+                            6: rec.get("approximate_coproduct_credit_per_gal"),
+                            7: rec.get("approximate_coproduct_credit_usd_m"),
+                            8: str(rec.get("resolved_source_mode") or "Unknown/blank"),
+                            9: rec.get("coverage_ratio"),
+                        }
+                        for cc in range(history_start_col, history_end_col + 1):
+                            cell = ws.cell(row=history_row, column=cc, value=row_values.get(cc))
+                            cell.fill = copy(row_fill)
+                            cell.font = copy(body_font)
+                            cell.border = copy(thin_border)
+                            cell.alignment = Alignment(horizontal="center" if cc in {2, 3, 4, 5, 6, 7, 9} else "left", vertical="center", wrap_text=cc == 8)
+                            if cc in {3, 4, 5, 6, 7} and pd.notna(pd.to_numeric(row_values.get(cc), errors="coerce")):
+                                cell.number_format = "#,##0.000"
+                            if cc == 9 and pd.notna(pd.to_numeric(row_values.get(cc), errors="coerce")):
+                                cell.number_format = "0%"
+                        ws.row_dimensions[history_row].height = 24.0
+                        history_row += 1
+
+                    coproduct_history_layout = {
+                        "title_row": coproduct_history_section_row,
+                        "note_row": history_note_row,
+                        "header_row": history_header_row,
+                        "first_data_row": first_history_data_row,
+                        "last_data_row": history_row - 1,
+                        "quarter_col": 2,
+                        "renewable_corn_oil_col": 3,
+                        "distillers_grains_col": 4,
+                        "approximate_coproduct_credit_col": 5,
+                        "approximate_coproduct_credit_per_gal_col": 6,
+                        "approximate_coproduct_credit_usd_m_col": 7,
+                        "resolved_source_mode_col": 8,
+                        "coverage_col": 9,
+                        "next_row": history_row - 1,
+                    }
+                coproduct_volume_support_records = _coproduct_volume_support_audit_records()
+                if coproduct_volume_support_records:
+                    volume_section_row = int(
+                        coproduct_history_layout.get("next_row")
+                        or coproduct_frame_summary_layout.get("next_row")
+                        or coproduct_signal_readiness_layout.get("next_row")
+                        or (coproduct_row - 1)
+                    ) + 2
+                    volume_note_row = volume_section_row + 1
+                    volume_header_row = volume_section_row + 2
+                    volume_start_col = 2  # B
+                    volume_end_col = 15  # O
+                    volume_spans = [
+                        (2, 3, "Series"),
+                        (4, 5, "Source/path"),
+                        (6, 6, "Historical usable"),
+                        (7, 7, "Current usable"),
+                        (8, 8, "Next usable"),
+                        (9, 10, "Best use"),
+                        (11, 15, "Note"),
+                    ]
+                    ws.merge_cells(start_row=volume_section_row, start_column=volume_start_col, end_row=volume_section_row, end_column=volume_end_col)
+                    volume_title = ws.cell(row=volume_section_row, column=volume_start_col, value="Coproduct volume support audit")
+                    volume_title.fill = copy(section_fill)
+                    volume_title.font = copy(bold_font)
+                    volume_title.alignment = Alignment(horizontal="center", vertical="center")
+                    volume_title.border = copy(thin_border)
+                    for cc in range(volume_start_col, volume_end_col + 1):
+                        ws.cell(row=volume_section_row, column=cc).fill = copy(section_fill)
+                        ws.cell(row=volume_section_row, column=cc).font = copy(bold_font)
+                        ws.cell(row=volume_section_row, column=cc).alignment = Alignment(horizontal="center", vertical="center")
+                        ws.cell(row=volume_section_row, column=cc).border = copy(thin_border)
+                    ws.row_dimensions[volume_section_row].height = 22.0
+
+                    ws.merge_cells(start_row=volume_note_row, start_column=volume_start_col, end_row=volume_note_row, end_column=volume_end_col)
+                    volume_note = ws.cell(
+                        row=volume_note_row,
+                        column=volume_start_col,
+                        value=(
+                            "Operating_Drivers coproduct volumes are historical actuals only. "
+                            "They support QA/context, not live weighting, coverage, or frame $m."
+                        ),
+                    )
+                    volume_note.fill = copy(intro_fill)
+                    volume_note.font = copy(body_font)
+                    volume_note.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                    volume_note.border = copy(thin_border)
+                    for cc in range(volume_start_col, volume_end_col + 1):
+                        ws.cell(row=volume_note_row, column=cc).fill = copy(intro_fill)
+                        ws.cell(row=volume_note_row, column=cc).border = copy(thin_border)
+                    ws.row_dimensions[volume_note_row].height = 32.0
+
+                    for start_col, end_col, header_txt in volume_spans:
+                        if end_col > start_col:
+                            ws.merge_cells(start_row=volume_header_row, start_column=start_col, end_row=volume_header_row, end_column=end_col)
+                        for cc in range(start_col, end_col + 1):
+                            ws.cell(row=volume_header_row, column=cc).fill = copy(header_fill)
+                            ws.cell(row=volume_header_row, column=cc).font = copy(bold_font)
+                            ws.cell(row=volume_header_row, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                            ws.cell(row=volume_header_row, column=cc).border = copy(thin_border)
+                        ws.cell(row=volume_header_row, column=start_col, value=header_txt)
+                    ws.row_dimensions[volume_header_row].height = 28.0
+
+                    volume_row = volume_header_row + 1
+                    volume_rows_by_key: Dict[str, int] = {}
+                    for rec in coproduct_volume_support_records:
+                        row_fill = copy(zebra_fill_light if ((volume_row - volume_header_row) % 2) else zebra_fill_dark)
+                        row_values = {
+                            2: str(rec.get("label") or ""),
+                            4: str(rec.get("source_path") or ""),
+                            6: str(rec.get("historical_usable") or ""),
+                            7: str(rec.get("current_usable") or ""),
+                            8: str(rec.get("next_usable") or ""),
+                            9: str(rec.get("best_use") or ""),
+                            11: str(rec.get("note") or ""),
+                        }
+                        for start_col, end_col, _header_txt in volume_spans:
+                            if end_col > start_col:
+                                ws.merge_cells(start_row=volume_row, start_column=start_col, end_row=volume_row, end_column=end_col)
+                            for cc in range(start_col, end_col + 1):
+                                ws.cell(row=volume_row, column=cc).fill = copy(row_fill)
+                                ws.cell(row=volume_row, column=cc).font = copy(body_font)
+                                ws.cell(row=volume_row, column=cc).border = copy(thin_border)
+                                ws.cell(row=volume_row, column=cc).alignment = Alignment(
+                                    horizontal="center" if start_col in {6, 7, 8, 9} else "left",
+                                    vertical="top",
+                                    wrap_text=True,
+                                )
+                            ws.cell(row=volume_row, column=start_col, value=row_values.get(start_col, ""))
+                        ws.row_dimensions[volume_row].height = 34.0
+                        volume_rows_by_key[str(rec.get("driver_key") or "")] = volume_row
+                        volume_row += 1
+                    coproduct_volume_support_layout = {
+                        "title_row": volume_section_row,
+                        "note_row": volume_note_row,
+                        "header_row": volume_header_row,
+                        "rows_by_key": volume_rows_by_key,
+                        "next_row": volume_row - 1,
+                    }
+                if (
+                    not coproduct_experimental_candidate_comparison_df.empty
+                    or best_coproduct_experimental_model_key
+                ):
+                    coproduct_experimental_specs_by_key = {
+                        str(rec.get("model_key") or ""): dict(rec)
+                        for rec in coproduct_experimental_method_specs
+                        if str(rec.get("model_key") or "").strip()
+                    }
+
+                    def _coproduct_experimental_frame_value(model_key_in: Any, frame_key_in: str) -> Optional[float]:
+                        model_frames = coproduct_experimental_frame_values.get(str(model_key_in or "")) if isinstance(coproduct_experimental_frame_values, dict) else {}
+                        frame = model_frames.get(str(frame_key_in or "")) if isinstance(model_frames, dict) else {}
+                        value_num = pd.to_numeric((frame or {}).get("value_usd_per_gal"), errors="coerce")
+                        if pd.isna(value_num):
+                            return None
+                        return float(value_num)
+
+                    experimental_section_row = int(
+                        coproduct_volume_support_layout.get("next_row")
+                        or coproduct_history_layout.get("next_row")
+                        or coproduct_frame_summary_layout.get("next_row")
+                        or coproduct_signal_readiness_layout.get("next_row")
+                        or (coproduct_row - 1)
+                    ) + 2
+                    experimental_note_row = experimental_section_row + 1
+                    experimental_start_col = 2  # B
+                    experimental_end_col = 15  # O
+                    ws.merge_cells(
+                        start_row=experimental_section_row,
+                        start_column=experimental_start_col,
+                        end_row=experimental_section_row,
+                        end_column=experimental_end_col,
+                    )
+                    experimental_title = ws.cell(
+                        row=experimental_section_row,
+                        column=experimental_start_col,
+                        value="Coproduct-aware experimental lenses",
+                    )
+                    experimental_title.fill = copy(section_fill)
+                    experimental_title.font = copy(bold_font)
+                    experimental_title.alignment = Alignment(horizontal="center", vertical="center")
+                    experimental_title.border = copy(thin_border)
+                    for cc in range(experimental_start_col, experimental_end_col + 1):
+                        ws.cell(row=experimental_section_row, column=cc).fill = copy(section_fill)
+                        ws.cell(row=experimental_section_row, column=cc).font = copy(bold_font)
+                        ws.cell(row=experimental_section_row, column=cc).alignment = Alignment(horizontal="center", vertical="center")
+                        ws.cell(row=experimental_section_row, column=cc).border = copy(thin_border)
+                    ws.row_dimensions[experimental_section_row].height = 22.0
+
+                    ws.merge_cells(
+                        start_row=experimental_note_row,
+                        start_column=experimental_start_col,
+                        end_row=experimental_note_row,
+                        end_column=experimental_end_col,
+                    )
+                    experimental_note = ws.cell(
+                        row=experimental_note_row,
+                        column=experimental_start_col,
+                        value=(
+                            "Comparison only. Coproduct-aware overlays are sandbox lenses and do not compete for production promotion."
+                        ),
+                    )
+                    experimental_note.fill = copy(intro_fill)
+                    experimental_note.font = copy(body_font)
+                    experimental_note.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                    experimental_note.border = copy(thin_border)
+                    for cc in range(experimental_start_col, experimental_end_col + 1):
+                        ws.cell(row=experimental_note_row, column=cc).fill = copy(intro_fill)
+                        ws.cell(row=experimental_note_row, column=cc).border = copy(thin_border)
+                    ws.row_dimensions[experimental_note_row].height = 30.0
+
+                    summary_header_row = experimental_note_row + 1
+                    ws.cell(row=summary_header_row, column=2, value="Summary").fill = copy(header_fill)
+                    ws.cell(row=summary_header_row, column=2).font = copy(bold_font)
+                    ws.cell(row=summary_header_row, column=2).alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=summary_header_row, column=2).border = copy(thin_border)
+                    for cc in range(3, 16):
+                        ws.cell(row=summary_header_row, column=cc).fill = copy(header_fill)
+                        ws.cell(row=summary_header_row, column=cc).font = copy(bold_font)
+                        ws.cell(row=summary_header_row, column=cc).alignment = Alignment(horizontal="center", vertical="center")
+                        ws.cell(row=summary_header_row, column=cc).border = copy(thin_border)
+                    ws.merge_cells(start_row=summary_header_row, start_column=3, end_row=summary_header_row, end_column=15)
+                    ws.cell(row=summary_header_row, column=3, value="Value")
+                    ws.row_dimensions[summary_header_row].height = 22.0
+
+                    best_coproduct_spec = dict(
+                        coproduct_experimental_specs_by_key.get(best_coproduct_experimental_model_key) or {}
+                    )
+                    summary_rows = [
+                        ("Best coproduct-aware experimental lens", _sandbox_model_label(best_coproduct_experimental_model_key)),
+                        ("Definition", str(best_coproduct_spec.get("rule") or "")),
+                        ("Prior quarter ($/gal)", _coproduct_experimental_frame_value(best_coproduct_experimental_model_key, "prior_quarter")),
+                        ("Quarter-open proxy ($/gal)", _coproduct_experimental_frame_value(best_coproduct_experimental_model_key, "quarter_open")),
+                        ("Current QTD ($/gal)", _coproduct_experimental_frame_value(best_coproduct_experimental_model_key, "current_qtd")),
+                        ("Next quarter thesis ($/gal)", _coproduct_experimental_frame_value(best_coproduct_experimental_model_key, "next_quarter_thesis")),
+                        ("Best historical coproduct-aware", _sandbox_model_label(best_coproduct_experimental_historical_model_key)),
+                        ("Best forward coproduct-aware", _sandbox_model_label(best_coproduct_experimental_forward_model_key)),
+                        ("Current production winner (reference)", _sandbox_model_label(production_winner_model_key)),
+                        ("Promotion status", "Experimental only"),
+                    ]
+                    summary_row = summary_header_row + 1
+                    summary_rows_by_label: Dict[str, int] = {}
+                    for label_txt, value_obj in summary_rows:
+                        row_fill = copy(zebra_fill_light if ((summary_row - summary_header_row) % 2) else zebra_fill_dark)
+                        label_cell = ws.cell(row=summary_row, column=2, value=label_txt)
+                        label_cell.fill = copy(row_fill)
+                        label_cell.font = copy(body_font)
+                        label_cell.border = copy(thin_border)
+                        label_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                        for cc in range(3, 16):
+                            ws.cell(row=summary_row, column=cc).fill = copy(row_fill)
+                            ws.cell(row=summary_row, column=cc).border = copy(thin_border)
+                            ws.cell(row=summary_row, column=cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                        ws.merge_cells(start_row=summary_row, start_column=3, end_row=summary_row, end_column=15)
+                        value_cell = ws.cell(row=summary_row, column=3, value=value_obj)
+                        value_cell.fill = copy(row_fill)
+                        value_cell.font = copy(body_font)
+                        value_cell.border = copy(thin_border)
+                        value_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                        if label_txt.endswith("($/gal)") and pd.notna(pd.to_numeric(value_obj, errors="coerce")):
+                            value_cell.number_format = "#,##0.000"
+                        ws.row_dimensions[summary_row].height = 28.0 if label_txt != "Definition" else 34.0
+                        summary_rows_by_label[label_txt] = summary_row
+                        summary_row += 1
+
+                    comparison_header_row = summary_row + 1
+                    comparison_headers = {
+                        2: "Method",
+                        3: "Rule",
+                        4: "Clean MAE",
+                        5: "Hybrid",
+                        6: "Hard-Q MAE",
+                        7: "Sign accuracy",
+                        8: "Forward",
+                        9: "Complexity",
+                        10: "Low-coverage MAE",
+                        11: "Δ vs current winner",
+                        12: "Status",
+                    }
+                    for cc in range(2, 13):
+                        header_cell = ws.cell(row=comparison_header_row, column=cc, value=comparison_headers.get(cc, ""))
+                        header_cell.fill = copy(header_fill)
+                        header_cell.font = copy(bold_font)
+                        header_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                        header_cell.border = copy(thin_border)
+                    ws.row_dimensions[comparison_header_row].height = 34.0
+
+                    comparison_rows_by_key: Dict[str, int] = {}
+                    comparison_row = comparison_header_row + 1
+                    sorted_coproduct_candidates = coproduct_experimental_candidate_comparison_df.sort_values(
+                        ["hybrid_score", "clean_window_mae"],
+                        na_position="last",
+                    )
+                    for rec in sorted_coproduct_candidates.to_dict("records"):
+                        row_fill = copy(zebra_fill_light if ((comparison_row - comparison_header_row) % 2) else zebra_fill_dark)
+                        row_values = {
+                            2: _sandbox_model_label(rec.get("model_key")),
+                            3: str(rec.get("rule") or ""),
+                            4: rec.get("clean_window_mae"),
+                            5: rec.get("hybrid_score"),
+                            6: rec.get("hard_quarter_mae"),
+                            7: rec.get("sign_accuracy"),
+                            8: str(rec.get("forward_usability_rating") or ""),
+                            9: str(rec.get("complexity_rating") or ""),
+                            10: rec.get("low_coverage_mae"),
+                            11: rec.get("delta_vs_current_winner"),
+                            12: str(rec.get("status") or "comparison only"),
+                        }
+                        for cc in range(2, 13):
+                            cell = ws.cell(row=comparison_row, column=cc, value=row_values.get(cc))
+                            cell.fill = copy(row_fill)
+                            cell.font = copy(body_font)
+                            cell.border = copy(thin_border)
+                            cell.alignment = Alignment(horizontal="center" if cc != 3 else "left", vertical="center", wrap_text=cc in {2, 3, 12})
+                            if cc in {4, 5, 6, 10, 11} and pd.notna(pd.to_numeric(row_values.get(cc), errors="coerce")):
+                                cell.number_format = "#,##0.000"
+                            if cc == 7 and pd.notna(pd.to_numeric(row_values.get(cc), errors="coerce")):
+                                cell.number_format = "0.0%"
+                        ws.row_dimensions[comparison_row].height = 32.0
+                        comparison_rows_by_key[str(rec.get("model_key") or "")] = comparison_row
+                        comparison_row += 1
+
+                    coproduct_experimental_layout = {
+                        "title_row": experimental_section_row,
+                        "note_row": experimental_note_row,
+                        "summary_header_row": summary_header_row,
+                        "summary_rows_by_label": summary_rows_by_label,
+                        "comparison_header_row": comparison_header_row,
+                        "comparison_rows_by_key": comparison_rows_by_key,
+                        "next_row": comparison_row - 1,
+                        "summary_markdown": coproduct_experimental_summary_md,
+                    }
+            memo_section_row = int(
+                coproduct_experimental_layout.get("next_row")
+                or coproduct_volume_support_layout.get("next_row")
+                or coproduct_history_layout.get("next_row")
+                or coproduct_frame_summary_layout.get("next_row")
+                or coproduct_signal_readiness_layout.get("next_row")
+                or approx_market_crush_build_up_layout.get("next_row")
+                or process_build_section_row
+            ) + 2
             ws.merge_cells(start_row=memo_section_row, start_column=2, end_row=memo_section_row, end_column=15)
             memo_title = ws.cell(row=memo_section_row, column=2, value="Hedge-adjusted memo tests")
             memo_title.fill = copy(section_fill)
@@ -69343,7 +70848,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             return {
                 "approx_market_crush_build_up": approx_market_crush_build_up_layout,
                 "corn_oil_gate_check": corn_oil_gate_check_layout,
+                "coproduct_frame_summary": coproduct_frame_summary_layout,
                 "coproduct_signal_readiness": coproduct_signal_readiness_layout,
+                "coproduct_quarterly_history": coproduct_history_layout,
+                "coproduct_volume_support_audit": coproduct_volume_support_layout,
+                "coproduct_experimental_lenses": coproduct_experimental_layout,
+                "coproduct_visible_block_allowed": bool((corn_oil_gate_check_layout or {}).get("overlay_activation_pass")),
             }
 
         def _market_override_for_frame(
@@ -71537,11 +73047,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 chart.x_axis.title = None
                 chart.x_axis.axPos = "b"
                 chart.x_axis.delete = False
-                chart.x_axis.number_format = "yyyy-mm-dd"
-                chart.x_axis.tickLblPos = "nextTo"
+                chart.x_axis.number_format = ";;;"
+                chart.x_axis.tickLblPos = "low"
                 chart.x_axis.majorUnit = 120
                 chart.x_axis.crosses = "min"
-                chart.x_axis.majorTickMark = "out"
+                chart.x_axis.majorTickMark = "none"
                 chart.x_axis.minorTickMark = "none"
                 try:
                     chart.x_axis.majorGridlines = None
@@ -71583,11 +73093,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     pass
                 y_span = max(float(y_max) - float(y_min), 0.10)
                 y_pad = max(y_span * 0.05, 0.03)
-                boundary_min = float(y_min) - y_pad
+                boundary_min = float(y_min) - (y_pad * 0.35)
                 label_band = max(y_span * 0.12, 0.08)
                 boundary_max = float(y_max) + (y_pad * 0.35)
-                label_y = float(y_max) + y_pad + (label_band * 0.55)
-                chart_y_max = float(y_max) + y_pad + label_band
+                label_y = boundary_min - (label_band * 0.45)
+                chart_y_min = boundary_min - label_band
+                chart_y_max = boundary_max
                 boundary_dates = [item.get("quarter_start") for item in visible_quarter_labels[1:]]
                 boundary_dates = [bd for bd in boundary_dates if isinstance(bd, date)]
                 boundary_start_row = max(helper_last_row, thesis_end_row) + 2
@@ -71612,7 +73123,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     try:
                         series_idx = len(chart.series) - 1
                         chart.series[series_idx].graphicalProperties.line.solidFill = "A0A0A0"
-                        chart.series[series_idx].graphicalProperties.line.width = 6350
+                        chart.series[series_idx].graphicalProperties.line.width = 8250
                         chart.series[series_idx].marker.symbol = "none"
                     except Exception:
                         pass
@@ -71651,7 +73162,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     except Exception:
                         pass
                 try:
-                    chart.y_axis.scaling.min = float(boundary_min)
+                    chart.y_axis.scaling.min = float(chart_y_min)
                     chart.y_axis.scaling.max = float(chart_y_max)
                 except Exception:
                     pass
@@ -71754,6 +73265,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     }
                     for _, rec in sorted(quarterly_chart_rows_by_end.items(), key=lambda item: item[0])
                 ]
+                if quarterly_chart_rows:
+                    quarterly_floor_quarter = date(2023, 3, 31)
+                    visible_window_floor = quarterly_chart_rows[max(len(quarterly_chart_rows) - 12, 0)].get("quarter_end")
+                    if isinstance(visible_window_floor, date):
+                        quarterly_floor_quarter = max(quarterly_floor_quarter, visible_window_floor)
+                    quarterly_chart_rows = [
+                        rec for rec in quarterly_chart_rows
+                        if isinstance(rec.get("quarter_end"), date) and rec.get("quarter_end") >= quarterly_floor_quarter
+                    ]
                 if len(quarterly_chart_rows) >= 2:
                     quarterly_chart_title_row = chart_end_row + 2
                     while bool(ws.row_dimensions[quarterly_chart_title_row].hidden):
@@ -71853,16 +73373,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     quarterly_chart.y_axis.minorTickMark = "none"
                     quarterly_chart.visible_cells_only = False
                     try:
-                        quarterly_chart.legend.position = "t"
+                        quarterly_chart.legend.position = "r"
                     except Exception:
                         pass
 
-                    quarterly_categories_ref = Reference(
-                        ws,
-                        min_col=quarterly_col_label,
-                        min_row=quarterly_helper_start_row + 1,
-                        max_row=quarterly_helper_last_row,
-                    )
                     quarterly_data_ref = Reference(
                         ws,
                         min_col=quarterly_col_official,
@@ -71871,7 +73385,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         max_row=quarterly_helper_last_row,
                     )
                     quarterly_chart.add_data(quarterly_data_ref, titles_from_data=True, from_rows=False)
-                    quarterly_chart.set_categories(quarterly_categories_ref)
+                    _apply_chart_text_categories(
+                        quarterly_chart,
+                        sheet_name=ws.title,
+                        col_idx=quarterly_col_label,
+                        start_row=quarterly_helper_start_row + 1,
+                        end_row=quarterly_helper_last_row,
+                    )
                     try:
                         quarterly_chart.series[0].graphicalProperties.line.solidFill = "2F80ED"
                         quarterly_chart.series[0].graphicalProperties.line.width = 12700
@@ -71916,6 +73436,360 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     ws.add_chart(quarterly_chart)
                     row_idx = max(row_idx, quarterly_chart_end_row + 1)
         _record_writer_substage("write_excel.drivers.render.economics_overlay.charts_helpers", overlay_charts_started)
+
+        overlay_coproduct_block_started = time.perf_counter()
+        if is_gpre_profile and gpre_commercial_setup_rows and bool(gpre_basis_sandbox_layout.get("coproduct_visible_block_allowed")):
+            visible_coproduct_start_row = 176
+            visible_coproduct_header_row = visible_coproduct_start_row
+            visible_coproduct_rows = {
+                "corn_oil_price": visible_coproduct_start_row + 1,
+                "distillers_price": visible_coproduct_start_row + 2,
+                "coproduct_credit_per_gal": visible_coproduct_start_row + 3,
+                "coproduct_credit_usd_m": visible_coproduct_start_row + 4,
+            }
+            source_mode_start_col = 11  # K
+            source_mode_end_col = 21  # U
+            quarter_spans = [
+                (2, 3, "Prior quarter"),
+                (4, 5, "Quarter-open proxy"),
+                (6, 7, "Current QTD"),
+                (8, 9, "Next quarter thesis"),
+            ]
+            for start_col, end_col, header_txt in quarter_spans:
+                ws.merge_cells(
+                    start_row=visible_coproduct_header_row,
+                    start_column=start_col,
+                    end_row=visible_coproduct_header_row,
+                    end_column=end_col,
+                )
+            ws.merge_cells(
+                start_row=visible_coproduct_header_row,
+                start_column=source_mode_start_col,
+                end_row=visible_coproduct_header_row,
+                end_column=source_mode_end_col,
+            )
+            for cc in range(1, source_mode_end_col + 1):
+                ws.cell(row=visible_coproduct_header_row, column=cc).fill = copy(header_fill)
+                ws.cell(row=visible_coproduct_header_row, column=cc).font = copy(bold_font)
+                ws.cell(row=visible_coproduct_header_row, column=cc).border = copy(thin_border)
+                ws.cell(row=visible_coproduct_header_row, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            ws.cell(row=visible_coproduct_header_row, column=1, value="Coproduct economics")
+            for start_col, _end_col, header_txt in quarter_spans:
+                ws.cell(row=visible_coproduct_header_row, column=start_col, value=header_txt)
+            ws.cell(row=visible_coproduct_header_row, column=10, value="Unit")
+            ws.cell(row=visible_coproduct_header_row, column=source_mode_start_col, value="Source mode")
+            ws.row_dimensions[visible_coproduct_header_row].height = overlay_header_row_height
+
+            build_up_rows = dict(((gpre_basis_sandbox_layout.get("approx_market_crush_build_up") or {}).get("econ_rows")) or {})
+            corn_oil_source_row = int(market_rows.get("renewable_corn_oil_price") or 0)
+            distillers_source_row = int(market_rows.get("distillers_grains_price") or 0)
+            coproduct_credit_source_row = int(build_up_rows.get("coproduct_credit") or 0)
+            ethanol_yield_row = int(coeff_rows.get("ethanol_yield") or 0)
+            ethanol_yield_ref = f"$B${ethanol_yield_row}" if ethanol_yield_row > 0 else ""
+            coproduct_frame_key_by_col = {
+                2: "prior_quarter",
+                4: "quarter_open",
+                6: "current_qtd",
+                8: "next_quarter_thesis",
+            }
+            coproduct_frame_layout = dict(gpre_basis_sandbox_layout.get("coproduct_frame_summary") or {})
+            frame_rows_by_key = dict(coproduct_frame_layout.get("frame_rows") or {})
+            frame_value_col_map = {
+                "corn_oil_price": int(coproduct_frame_layout.get("renewable_corn_oil_col") or 0),
+                "distillers_price": int(coproduct_frame_layout.get("distillers_grains_col") or 0),
+                "coproduct_credit_per_gal": int(coproduct_frame_layout.get("approximate_coproduct_credit_per_gal_col") or 0),
+                "coproduct_credit_usd_m": int(coproduct_frame_layout.get("approximate_coproduct_credit_usd_m_col") or 0),
+            }
+
+            visible_coproduct_specs = [
+                {
+                    "row": visible_coproduct_rows["corn_oil_price"],
+                    "label": "Renewable corn oil price",
+                    "frame_value_key": "corn_oil_price",
+                    "unit": "$/lb",
+                    "source_formula": "Weighted active-capacity quarterly resolver; NWER first, AMS 3618 second. See sandbox frame summary for source mode, coverage, and carry-forward rule.",
+                },
+                {
+                    "row": visible_coproduct_rows["distillers_price"],
+                    "label": "Distillers grains price",
+                    "frame_value_key": "distillers_price",
+                    "unit": "$/lb",
+                    "source_formula": "Weighted active-capacity quarterly resolver; NWER first, AMS 3618 second. See sandbox frame summary for source mode, coverage, and carry-forward rule.",
+                },
+                {
+                    "row": visible_coproduct_rows["coproduct_credit_per_gal"],
+                    "label": "Approximate coproduct credit ($/gal)",
+                    "frame_value_key": "coproduct_credit_per_gal",
+                    "unit": "$/gal",
+                    "source_formula": "Weighted sandbox build-up divided by ethanol yield; visible activation remains NWER-sufficient while resolved price legs may come from NWER or AMS 3618. See sandbox frame summary for source mode, coverage, and carry-forward rule.",
+                    "row_height": 28.0,
+                },
+                {
+                    "row": visible_coproduct_rows["coproduct_credit_usd_m"],
+                    "label": "Approximate coproduct credit ($m)",
+                    "frame_value_key": "coproduct_credit_usd_m",
+                    "unit": "$m",
+                    "source_formula": "Derived from weighted coproduct credit ($/gal) times the frame-specific implied gallons basis already used by the crush $m rows; coverage shows direct market-leg footprint coverage, so $m remains a compact full-footprint approximation and stays blank when gallons basis is unavailable.",
+                    "row_height": 28.0,
+                },
+            ]
+
+            def _coproduct_frame_formula(frame_key: str, frame_value_key: str) -> str:
+                frame_row_num = int(frame_rows_by_key.get(str(frame_key or "")) or 0)
+                frame_col_num = int(frame_value_col_map.get(str(frame_value_key or "")) or 0)
+                if frame_row_num <= 0 or frame_col_num <= 0:
+                    return '=""'
+                return f'=IF(ISNUMBER(Basis_Proxy_Sandbox!${get_column_letter(frame_col_num)}${frame_row_num}),Basis_Proxy_Sandbox!${get_column_letter(frame_col_num)}${frame_row_num},"")'
+
+            for spec_idx, spec in enumerate(visible_coproduct_specs, start=1):
+                row_num = int(spec["row"])
+                row_fill = copy(zebra_fill_light if (spec_idx % 2 == 1) else zebra_fill_dark)
+                for start_col, end_col, _header_txt in quarter_spans:
+                    ws.merge_cells(start_row=row_num, start_column=start_col, end_row=row_num, end_column=end_col)
+                ws.merge_cells(
+                    start_row=row_num,
+                    start_column=source_mode_start_col,
+                    end_row=row_num,
+                    end_column=source_mode_end_col,
+                )
+                for cc in range(1, source_mode_end_col + 1):
+                    ws.cell(row=row_num, column=cc).fill = copy(row_fill)
+                    ws.cell(row=row_num, column=cc).font = copy(body_font)
+                    ws.cell(row=row_num, column=cc).border = copy(thin_border)
+                    ws.cell(row=row_num, column=cc).alignment = (
+                        Alignment(horizontal="left", vertical="center", wrap_text=True)
+                        if cc in {1, source_mode_start_col}
+                        else align_center
+                    )
+                ws.cell(row=row_num, column=1, value=str(spec["label"] or ""))
+                for target_col, frame_key in coproduct_frame_key_by_col.items():
+                    value_cell = ws.cell(
+                        row=row_num,
+                        column=target_col,
+                        value=_coproduct_frame_formula(frame_key, str(spec.get("frame_value_key") or "")),
+                    )
+                    value_cell.number_format = "#,##0.000"
+                ws.cell(row=row_num, column=10, value=str(spec["unit"] or ""))
+                ws.cell(row=row_num, column=source_mode_start_col, value=str(spec["source_formula"] or ""))
+                ws.row_dimensions[row_num].height = float(spec.get("row_height") or (24.0 if spec_idx < 3 else 28.0))
+            row_idx = max(row_idx, visible_coproduct_rows["coproduct_credit_usd_m"] + 2)
+
+            coproduct_history_layout = dict(gpre_basis_sandbox_layout.get("coproduct_quarterly_history") or {})
+            basis_proxy_ws = wb["Basis_Proxy_Sandbox"] if "Basis_Proxy_Sandbox" in wb.sheetnames else None
+            history_first_row = int(coproduct_history_layout.get("first_data_row") or 0)
+            history_last_row = int(coproduct_history_layout.get("last_data_row") or 0)
+            history_quarter_col = int(coproduct_history_layout.get("quarter_col") or 0)
+            history_credit_per_gal_col = int(coproduct_history_layout.get("approximate_coproduct_credit_per_gal_col") or 0)
+            history_credit_usd_m_col = int(coproduct_history_layout.get("approximate_coproduct_credit_usd_m_col") or 0)
+            history_source_mode_col = int(coproduct_history_layout.get("resolved_source_mode_col") or 0)
+            history_coverage_col = int(coproduct_history_layout.get("coverage_col") or 0)
+            available_credit_rows: List[Tuple[date, int]] = []
+            if basis_proxy_ws is not None and history_first_row > 0 and history_last_row >= history_first_row and history_quarter_col > 0 and history_credit_per_gal_col > 0:
+                for history_row in range(history_first_row, history_last_row + 1):
+                    quarter_label_txt = str(basis_proxy_ws.cell(row=history_row, column=history_quarter_col).value or "").strip()
+                    quarter_end = _parse_quarter_label_text(quarter_label_txt)
+                    credit_value = pd.to_numeric(basis_proxy_ws.cell(row=history_row, column=history_credit_per_gal_col).value, errors="coerce")
+                    if isinstance(quarter_end, date) and pd.notna(credit_value):
+                        available_credit_rows.append((quarter_end, history_row))
+            chart_credit_rows: List[Tuple[date, int]] = []
+            if available_credit_rows:
+                chart_floor_quarter = date(2023, 3, 31)
+                last_12_floor = available_credit_rows[max(len(available_credit_rows) - 12, 0)][0]
+                chart_start_quarter = max(chart_floor_quarter, last_12_floor)
+                chart_credit_rows = [(quarter_end, history_row) for quarter_end, history_row in available_credit_rows if quarter_end >= chart_start_quarter]
+            if basis_proxy_ws is not None and len(chart_credit_rows) >= 4:
+                coproduct_chart_title_row = 182
+                coproduct_chart_anchor_row = 183
+                coproduct_chart_end_row = 201
+                chart_start_col = 2  # B
+                chart_end_col = 21  # U
+                coproduct_helper_label_col = 49  # AW
+                coproduct_helper_value_col = 50  # AX
+                ws.column_dimensions[get_column_letter(coproduct_helper_label_col)].hidden = True
+                ws.column_dimensions[get_column_letter(coproduct_helper_value_col)].hidden = True
+                ws.merge_cells(
+                    start_row=coproduct_chart_title_row,
+                    start_column=chart_start_col,
+                    end_row=coproduct_chart_title_row,
+                    end_column=chart_end_col,
+                )
+                coproduct_chart_title = ws.cell(
+                    row=coproduct_chart_title_row,
+                    column=2,
+                    value="Approximate coproduct credit ($/gal, quarterly history)",
+                )
+                coproduct_chart_title.fill = title_fill
+                coproduct_chart_title.font = title_font
+                coproduct_chart_title.alignment = align_center
+                coproduct_chart_title.border = thin_border
+                for cc in range(chart_start_col, chart_end_col + 1):
+                    ws.cell(row=coproduct_chart_title_row, column=cc).fill = title_fill
+                    ws.cell(row=coproduct_chart_title_row, column=cc).font = title_font
+                    ws.cell(row=coproduct_chart_title_row, column=cc).alignment = align_center
+                    ws.cell(row=coproduct_chart_title_row, column=cc).border = thin_border
+                ws.row_dimensions[coproduct_chart_title_row].height = 18.0
+
+                coproduct_helper_start_row = coproduct_chart_title_row
+                ws.cell(row=coproduct_helper_start_row, column=coproduct_helper_label_col, value="Quarter")
+                ws.cell(
+                    row=coproduct_helper_start_row,
+                    column=coproduct_helper_value_col,
+                    value="Approximate coproduct credit ($/gal)",
+                )
+                coproduct_helper_last_row = coproduct_helper_start_row
+                coproduct_chart_y_values: List[float] = []
+                for helper_row, (_history_quarter_end, history_row) in enumerate(chart_credit_rows, start=coproduct_helper_start_row + 1):
+                    quarter_label_txt = str(basis_proxy_ws.cell(row=history_row, column=history_quarter_col).value or "").strip()
+                    per_gal_num = pd.to_numeric(
+                        basis_proxy_ws.cell(row=history_row, column=history_credit_per_gal_col).value,
+                        errors="coerce",
+                    )
+                    if not quarter_label_txt or pd.isna(per_gal_num):
+                        continue
+                    ws.cell(row=helper_row, column=coproduct_helper_label_col, value=quarter_label_txt)
+                    helper_value_cell = ws.cell(
+                        row=helper_row,
+                        column=coproduct_helper_value_col,
+                        value=f"=Basis_Proxy_Sandbox!${get_column_letter(history_credit_per_gal_col)}${history_row}",
+                    )
+                    helper_value_cell.number_format = "#,##0.000"
+                    coproduct_chart_y_values.append(float(per_gal_num))
+                    coproduct_helper_last_row = helper_row
+
+                coproduct_chart = LineChart()
+                coproduct_chart.title = None
+                coproduct_chart.height = 13.0
+                coproduct_chart.width = 34.0
+                coproduct_chart.x_axis.title = None
+                coproduct_chart.x_axis.tickLblPos = "low"
+                coproduct_chart.x_axis.majorTickMark = "out"
+                coproduct_chart.x_axis.minorTickMark = "none"
+                coproduct_chart.y_axis.title = None
+                coproduct_chart.y_axis.axPos = "l"
+                coproduct_chart.y_axis.delete = False
+                coproduct_chart.y_axis.number_format = "$0.000"
+                coproduct_chart.y_axis.tickLblPos = "nextTo"
+                coproduct_chart.y_axis.crosses = "min"
+                coproduct_chart.y_axis.majorTickMark = "out"
+                coproduct_chart.y_axis.minorTickMark = "none"
+                coproduct_chart.visible_cells_only = False
+                coproduct_chart.legend = None
+
+                categories_ref = Reference(
+                    ws,
+                    min_col=coproduct_helper_label_col,
+                    min_row=coproduct_helper_start_row + 1,
+                    max_row=coproduct_helper_last_row,
+                )
+                values_ref = Reference(
+                    ws,
+                    min_col=coproduct_helper_value_col,
+                    min_row=coproduct_helper_start_row,
+                    max_row=coproduct_helper_last_row,
+                )
+                coproduct_chart.add_data(values_ref, titles_from_data=True, from_rows=False)
+                _apply_chart_text_categories(
+                    coproduct_chart,
+                    sheet_name=ws.title,
+                    col_idx=coproduct_helper_label_col,
+                    start_row=coproduct_helper_start_row + 1,
+                    end_row=coproduct_helper_last_row,
+                )
+                try:
+                    coproduct_chart.series[0].graphicalProperties.line.solidFill = "2F80ED"
+                    coproduct_chart.series[0].graphicalProperties.line.width = 19050
+                    coproduct_chart.series[0].marker.symbol = "circle"
+                    coproduct_chart.series[0].marker.size = 7
+                except Exception:
+                    pass
+                if coproduct_chart_y_values:
+                    coproduct_y_min = min(coproduct_chart_y_values)
+                    coproduct_y_max = max(coproduct_chart_y_values)
+                    coproduct_span = max(float(coproduct_y_max) - float(coproduct_y_min), 0.10)
+                    coproduct_pad = max(coproduct_span * 0.08, 0.03)
+                    try:
+                        coproduct_chart.y_axis.scaling.min = float(coproduct_y_min) - coproduct_pad
+                        coproduct_chart.y_axis.scaling.max = float(coproduct_y_max) + coproduct_pad
+                    except Exception:
+                        pass
+                coproduct_chart.anchor = TwoCellAnchor(
+                    _from=AnchorMarker(col=1, row=coproduct_chart_anchor_row - 1),
+                    to=AnchorMarker(col=chart_end_col, row=coproduct_chart_end_row),
+                )
+                ws.add_chart(coproduct_chart)
+                mini_history_title_row = 203
+                mini_history_header_row = 204
+                mini_history_first_data_row = 205
+                mini_history_col_spans = [
+                    (2, 3, "Quarter"),
+                    (4, 5, "Approximate coproduct credit ($/gal)"),
+                    (6, 7, "Approximate coproduct credit ($m)"),
+                    (8, 9, "Coverage"),
+                    (10, 11, "Source mode"),
+                ]
+                mini_history_rows = list(reversed(chart_credit_rows[-8:]))
+                ws.merge_cells(start_row=mini_history_title_row, start_column=2, end_row=mini_history_title_row, end_column=11)
+                mini_history_title = ws.cell(row=mini_history_title_row, column=2, value="Recent coproduct history")
+                mini_history_title.fill = copy(section_fill)
+                mini_history_title.font = copy(bold_font)
+                mini_history_title.alignment = Alignment(horizontal="center", vertical="center")
+                mini_history_title.border = copy(thin_border)
+                for cc in range(2, 12):
+                    ws.cell(row=mini_history_title_row, column=cc).fill = copy(section_fill)
+                    ws.cell(row=mini_history_title_row, column=cc).font = copy(bold_font)
+                    ws.cell(row=mini_history_title_row, column=cc).alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=mini_history_title_row, column=cc).border = copy(thin_border)
+                ws.row_dimensions[mini_history_title_row].height = 20.0
+
+                for start_col, end_col, header_txt in mini_history_col_spans:
+                    if end_col > start_col:
+                        ws.merge_cells(start_row=mini_history_header_row, start_column=start_col, end_row=mini_history_header_row, end_column=end_col)
+                    for cc in range(start_col, end_col + 1):
+                        ws.cell(row=mini_history_header_row, column=cc).fill = copy(header_fill)
+                        ws.cell(row=mini_history_header_row, column=cc).font = copy(bold_font)
+                        ws.cell(row=mini_history_header_row, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                        ws.cell(row=mini_history_header_row, column=cc).border = copy(thin_border)
+                    ws.cell(row=mini_history_header_row, column=start_col, value=header_txt)
+                ws.row_dimensions[mini_history_header_row].height = 26.0
+
+                for row_offset, (_history_quarter_end, history_row) in enumerate(mini_history_rows):
+                    target_row = mini_history_first_data_row + row_offset
+                    row_fill = copy(zebra_fill_light if ((target_row - mini_history_header_row) % 2) else zebra_fill_dark)
+                    for start_col, end_col, _header_txt in mini_history_col_spans:
+                        if end_col > start_col:
+                            ws.merge_cells(start_row=target_row, start_column=start_col, end_row=target_row, end_column=end_col)
+                        for cc in range(start_col, end_col + 1):
+                            ws.cell(row=target_row, column=cc).fill = copy(row_fill)
+                            ws.cell(row=target_row, column=cc).font = copy(body_font)
+                            ws.cell(row=target_row, column=cc).border = copy(thin_border)
+                            ws.cell(row=target_row, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=start_col == 10)
+                    ws.cell(row=target_row, column=2, value=f"=Basis_Proxy_Sandbox!${get_column_letter(history_quarter_col)}${history_row}")
+                    ws.cell(row=target_row, column=4, value=f"=Basis_Proxy_Sandbox!${get_column_letter(history_credit_per_gal_col)}${history_row}").number_format = "#,##0.000"
+                    if history_credit_usd_m_col > 0:
+                        ws.cell(row=target_row, column=6, value=f"=Basis_Proxy_Sandbox!${get_column_letter(history_credit_usd_m_col)}${history_row}").number_format = "#,##0.000"
+                    if history_coverage_col > 0:
+                        coverage_cell = ws.cell(row=target_row, column=8, value=f"=Basis_Proxy_Sandbox!${get_column_letter(history_coverage_col)}${history_row}")
+                        coverage_cell.number_format = "0%"
+                    if history_source_mode_col > 0:
+                        ws.cell(row=target_row, column=10, value=f"=Basis_Proxy_Sandbox!${get_column_letter(history_source_mode_col)}${history_row}")
+                    ws.row_dimensions[target_row].height = 22.0
+                coverage_note_row = mini_history_first_data_row + max(len(mini_history_rows), 1) + 1
+                ws.merge_cells(start_row=coverage_note_row, start_column=2, end_row=coverage_note_row, end_column=11)
+                coverage_note_cell = ws.cell(
+                    row=coverage_note_row,
+                    column=2,
+                    value="Coverage reflects covered active-capacity footprint; values are covered-footprint weighted averages.",
+                )
+                coverage_note_cell.fill = copy(intro_fill)
+                coverage_note_cell.font = copy(body_font)
+                coverage_note_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                coverage_note_cell.border = copy(thin_border)
+                for cc in range(2, 12):
+                    ws.cell(row=coverage_note_row, column=cc).fill = copy(intro_fill)
+                    ws.cell(row=coverage_note_row, column=cc).border = copy(thin_border)
+                ws.row_dimensions[coverage_note_row].height = 22.0
+                row_idx = max(row_idx, coverage_note_row + 1)
+        _record_writer_substage("write_excel.drivers.render.economics_overlay.coproduct_block", overlay_coproduct_block_started)
 
         overlay_final_formatting_started = time.perf_counter()
         if is_gpre_profile and gpre_commercial_setup_rows:

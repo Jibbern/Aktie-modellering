@@ -61,7 +61,10 @@ def _safe_pdf_text(pdf_path: Path) -> str:
 
 
 def _ams3618_report_date(text: str, fallback: Optional[pd.Timestamp]) -> Optional[date]:
-    match = re.search(r"Livestock,\s+Poultry,\s+and\s+Grain\s+Market\s+News\s+([A-Za-z]+\s+\d{1,2},\s+20\d{2})", str(text or ""))
+    match = re.search(
+        r"Livestock,\s*Poultry(?:,\s*|\s+)and\s+Grain\s+Market\s+News\s+([A-Za-z]+\s+\d{1,2},\s+20\d{2})",
+        str(text or ""),
+    )
     if match:
         ts = pd.to_datetime(match.group(1), errors="coerce")
         if not pd.isna(ts):
@@ -217,7 +220,7 @@ def parse_ams_3618_pdf_text(text: str, *, fallback_date: Optional[pd.Timestamp],
 
 class AMS3618Provider(BaseMarketProvider):
     source = "ams_3618"
-    provider_parse_version = "v1"
+    provider_parse_version = "v2"
     local_patterns = (
         "USDA_bioenergy_reports/*",
         "USDA_bioenergy_reports/**/*",
@@ -234,8 +237,6 @@ class AMS3618Provider(BaseMarketProvider):
         rows: List[Dict[str, Any]] = []
         for entry in raw_entries:
             report_ts = self._date_from_value(entry.get("report_date"))
-            if report_ts is None:
-                continue
             local_path = Path(str(entry.get("local_path") or "")).expanduser()
             if local_path.suffix.lower() != ".pdf" or not local_path.exists():
                 continue

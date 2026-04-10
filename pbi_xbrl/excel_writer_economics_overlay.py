@@ -385,7 +385,8 @@ def write_gpre_basis_proxy_overlay_support(
         "Official row = Approximate market crush | "
         "Fitted row = GPRE crush proxy | "
         f"Production winner = {_overlay_model_label(production_winner_model_key)} | "
-        f"Best forward lens = {_overlay_model_label(best_forward_lens_model_key)}"
+        f"Best forward lens = {_overlay_model_label(best_forward_lens_model_key)} | "
+        "Coproduct-aware experimental lenses live in Basis_Proxy_Sandbox and are comparison-only."
     )
     proxy_note_fill = PatternFill(fill_type="solid", fgColor="EDF4FA")
     proxy_note_cell = ws.cell(row=proxy_comp_note_row, column=1, value=proxy_note_text)
@@ -398,7 +399,7 @@ def write_gpre_basis_proxy_overlay_support(
         ws.cell(row=proxy_comp_note_row, column=cc).font = copy(inputs.body_font)
         ws.cell(row=proxy_comp_note_row, column=cc).border = copy(inputs.thin_border)
         ws.cell(row=proxy_comp_note_row, column=cc).alignment = inputs.align_left_center_wrap
-    ws.row_dimensions[proxy_comp_note_row].height = 24.0
+    ws.row_dimensions[proxy_comp_note_row].height = 32.0
     proxy_header_spans = [
         (1, 1, "Proxy row"),
         (2, 3, "Prior quarter"),

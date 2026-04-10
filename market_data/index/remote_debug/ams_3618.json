@@ -1,0 +1,14 @@
+{
+  "latest_parse": {
+    "input_entries": 1,
+    "parsed_rows": 4,
+    "rows_by_source_file": [
+      {
+        "parsed_rows": 4,
+        "source_file": "ams_3618_00183.pdf"
+      }
+    ],
+    "status": "success"
+  },
+  "source": "ams_3618"
+}

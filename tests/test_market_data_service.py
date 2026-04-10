@@ -552,6 +552,78 @@ Distillers Grain Wet 65-70%
     assert str(rows.loc[rows["series_key"] == "ddgs_10_nebraska", "unit"].iloc[0]) == "$/ton"
 
 
+def test_ams_3618_provider_parse_raw_to_rows_uses_report_date_from_pdf_when_filename_is_undated(monkeypatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_market_ams3618_undated_")
+    try:
+        provider = AMS3618Provider()
+        pdf_path = tmp_path / "ams_3618_00183.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 demo 3618")
+        text = """
+National Weekly Grain Co-Products Report
+Agricultural Marketing Service
+Livestock, Poultry, and Grain Market News March 30, 2026
+Corn Values
+Distillers Corn Oil
+Region/Location
+Price (c/Lb)
+Value ($/Bu)
+Value Change
+Week Ago
+Year Ago
+Iowa
+57.19
+0.34
+UNCH
+0.34
+0.28
+Nebraska
+57.19
+0.34
+UNCH
+0.34
+0.28
+Distillers Grain Dried 10%
+Region/Location
+Price ($/Ton)
+Value ($/Bu)
+Value Change
+Week Ago
+Year Ago
+Iowa
+145.00
+1.20
+0.01
+1.19
+1.23
+Nebraska
+163.50
+1.35
+UNCH
+1.35
+1.40
+Distillers Grain Wet 65-70%
+""".strip()
+        monkeypatch.setattr(ams_3618_module, "_safe_pdf_text", lambda _: text)
+
+        df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [
+                {
+                    "report_date": "",
+                    "local_path": str(pdf_path),
+                }
+            ],
+        )
+
+        assert not df.empty
+        assert set(df["series_key"].astype(str)) >= {"corn_oil_iowa_avg", "corn_oil_nebraska", "ddgs_10_iowa", "ddgs_10_nebraska"}
+        assert set(pd.to_datetime(df["observation_date"], errors="coerce").dt.date) == {date(2026, 3, 30)}
+        assert set(pd.to_datetime(df["quarter"], errors="coerce").dt.date) == {date(2026, 3, 31)}
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_nwer_sync_raw_discovers_current_quarter_pdf_and_data_assets(monkeypatch) -> None:
     provider = NWERProvider()
     landing_html = """
@@ -1015,6 +1087,97 @@ def test_sync_market_cache_ingests_manually_added_local_usda_pdfs(monkeypatch: p
         assert {"nwer_2026-03-30.pdf", "ams_3617_2026-04-03.pdf"} <= set(export_df["source_file"].astype(str))
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_sync_market_cache_exports_manually_added_undated_ams_3618_pdf(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_market_ams3618_manual_sync_")
+    try:
+        cache_dir = tmp_path / "sec_cache" / "GPRE"
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ticker_root = tmp_path / "GPRE"
+        bioenergy_dir = ticker_root / "USDA_bioenergy_reports"
+        bioenergy_dir.mkdir(parents=True, exist_ok=True)
+        ensure_market_cache_dirs(cache_root)
+
+        ams_pdf = bioenergy_dir / "ams_3618_00183.pdf"
+        ams_pdf.write_bytes(b"%PDF-1.4 ams 3618 manual")
+
+        text = """
+National Weekly Grain Co-Products Report
+Agricultural Marketing Service
+Livestock, Poultry, and Grain Market News March 30, 2026
+Corn Values
+Distillers Corn Oil
+Region/Location
+Price (c/Lb)
+Value ($/Bu)
+Value Change
+Week Ago
+Year Ago
+Iowa
+57.19
+0.34
+UNCH
+0.34
+0.28
+Nebraska
+57.19
+0.34
+UNCH
+0.34
+0.28
+Distillers Grain Dried 10%
+Region/Location
+Price ($/Ton)
+Value ($/Bu)
+Value Change
+Week Ago
+Year Ago
+Iowa
+145.00
+1.20
+0.01
+1.19
+1.23
+Nebraska
+163.50
+1.35
+UNCH
+1.35
+1.40
+Distillers Grain Wet 65-70%
+""".strip()
+
+        monkeypatch.setattr(ams_3618_module, "_safe_pdf_text", lambda _: text)
+        monkeypatch.setattr(market_service, "_refresh_gpre_corn_bids_download", lambda *args, **kwargs: None)
+
+        class _Profile:
+            enabled_market_sources = ("ams_3618",)
+
+        summary = sync_market_cache(cache_dir, "GPRE", profile=_Profile(), sync_raw=True, refresh=False, reparse=True)
+
+        assert summary.raw_added >= 1
+        raw_ams = cache_root / "raw" / "ams_3618" / "2026"
+        assert any(path.name == "ams_3618_00183.pdf" for path in raw_ams.glob("*.pdf"))
+        export_df = pd.read_parquet(cache_root / "parsed" / "exports" / "GPRE.parquet")
+        export_source_types = set(export_df["source_type"].astype(str))
+        export_series = set(export_df["series_key"].astype(str))
+        assert "ams_3618_pdf" in export_source_types
+        assert {"corn_oil_iowa_avg", "corn_oil_nebraska", "ddgs_10_iowa", "ddgs_10_nebraska"} <= export_series
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_gpre_bioenergy_manual_folder_policy_keeps_nwer_primary_path_and_ams_3618_manual_support() -> None:
+    nwer_provider = NWERProvider()
+    ams_provider = AMS3618Provider()
+
+    assert nwer_provider.local_dir_name == "USDA_bioenergy_reports"
+    assert ams_provider.local_dir_name == "USDA_bioenergy_reports"
+    assert "USDA_bioenergy_reports/*" in set(nwer_provider.local_patterns)
+    assert "USDA_bioenergy_reports/*" in set(ams_provider.local_patterns)
+    assert "USDA_weekly_data/*" in set(nwer_provider.local_patterns)
+    assert "ams_3618_pdfs/*" in set(ams_provider.local_patterns)
 
 
 def test_nwer_provider_parse_raw_to_rows_keeps_historical_pdf_entries(monkeypatch) -> None:
@@ -1697,6 +1860,60 @@ def test_build_gpre_basis_proxy_model_returns_quarterly_table_weights_and_metric
     assert experimental_candidate_comparison_df["concentration_note"].astype(str).isin({"broad", "mixed", "mostly_1_2_quarters"}).all()
     assert experimental_candidate_comparison_df["forward_usability_rating"].astype(str).isin({"high", "medium", "low"}).all()
     assert experimental_candidate_comparison_df["complexity_rating"].astype(str).isin({"low", "moderate", "high"}).all()
+    coproduct_experimental_candidate_comparison_df = result.get("coproduct_experimental_candidate_comparison_df")
+    assert isinstance(coproduct_experimental_candidate_comparison_df, pd.DataFrame)
+    assert not coproduct_experimental_candidate_comparison_df.empty
+    assert {
+        "model_key",
+        "method_label",
+        "rule",
+        "clean_window_mae",
+        "underlying_window_mae",
+        "hybrid_score",
+        "hard_quarter_mae",
+        "sign_accuracy",
+        "avg_abs_diff_vs_official",
+        "walk_forward_tail_mae",
+        "forward_usability_rating",
+        "complexity_rating",
+        "low_coverage_mae",
+        "coverage_sensitivity_delta",
+        "comparison_only",
+        "eligible_official",
+        "status",
+    } <= set(coproduct_experimental_candidate_comparison_df.columns)
+    assert set(coproduct_experimental_candidate_comparison_df["model_key"].astype(str)) == {
+        "simple_plus_full_credit",
+        "simple_plus_half_credit",
+        "simple_plus_coverage_credit",
+        "winner_plus_full_credit",
+        "forward_plus_full_credit",
+        "winner_plus_conservative_credit",
+    }
+    assert len(coproduct_experimental_candidate_comparison_df) == 6
+    assert coproduct_experimental_candidate_comparison_df["comparison_only"].eq(True).all()
+    assert coproduct_experimental_candidate_comparison_df["eligible_official"].eq(False).all()
+    assert coproduct_experimental_candidate_comparison_df["status"].astype(str).eq("comparison only").all()
+    assert coproduct_experimental_candidate_comparison_df["forward_usability_rating"].astype(str).isin({"high", "medium", "low"}).all()
+    assert coproduct_experimental_candidate_comparison_df["complexity_rating"].astype(str).isin({"low", "moderate", "high"}).all()
+    assert str(result.get("best_coproduct_experimental_historical_model_key") or "").strip()
+    assert str(result.get("best_coproduct_experimental_compromise_model_key") or "").strip()
+    assert str(result.get("best_coproduct_experimental_forward_model_key") or "").strip()
+    assert str(result.get("best_coproduct_experimental_model_key") or "").strip()
+    assert str(result.get("best_coproduct_experimental_model_key") or "") == str(
+        result.get("best_coproduct_experimental_compromise_model_key") or ""
+    )
+    coproduct_experimental_frame_values = result.get("coproduct_experimental_frame_values")
+    assert isinstance(coproduct_experimental_frame_values, dict)
+    best_coproduct_model_key = str(result.get("best_coproduct_experimental_model_key") or "")
+    assert best_coproduct_model_key in coproduct_experimental_frame_values
+    assert {
+        "prior_quarter",
+        "quarter_open",
+        "current_qtd",
+        "next_quarter_thesis",
+    } <= set((coproduct_experimental_frame_values.get(best_coproduct_model_key) or {}).keys())
+    assert "coproduct-aware experimental lenses" in str(result.get("coproduct_experimental_summary_markdown") or "").lower()
     assert "experimental signal audit" in summary_lower
     assert "experimental realization / regime comparison" in summary_lower
     assert "best experimental candidate" in summary_lower
@@ -1763,6 +1980,25 @@ def test_gpre_utilization_overlay_penalty_is_bounded_and_small_near_full_utiliza
     assert market_service._gpre_utilization_overlay_penalty(95.0) == pytest.approx(0.0, abs=1e-12)
     assert market_service._gpre_utilization_overlay_penalty(90.0) == pytest.approx(0.0125, abs=1e-12)
     assert market_service._gpre_utilization_overlay_penalty(70.0) == pytest.approx(0.035, abs=1e-12)
+
+
+def test_gpre_low_coverage_mae_requires_at_least_two_low_coverage_quarters() -> None:
+    quarterly_df = pd.DataFrame(
+        {
+            "pred_col": [0.10, 0.20, 0.30],
+            "coverage_col": [0.96, 0.94, 0.97],
+            "evaluation_target_margin_usd_per_gal": [0.11, 0.18, 0.29],
+        }
+    )
+
+    low_coverage_mae, low_coverage_note = market_service._gpre_low_coverage_mae(
+        quarterly_df,
+        pred_col="pred_col",
+        coverage_col="coverage_col",
+    )
+
+    assert low_coverage_mae is None
+    assert low_coverage_note == "insufficient low-coverage quarters"
 
 
 def test_gpre_maintenance_delay_penalty_only_moves_on_explicit_ops_terms() -> None:

@@ -18,6 +18,87 @@ It does **not** own:
 - broad writer/runtime performance guidance
   - see [`PERFORMANCE_NOTES.md`](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md)
 
+## Stage C: Coproduct-Aware Experimental Lenses
+
+### Product rule
+- coproduct-aware crush methods are now allowed as a first experimental lens
+- they are intentionally:
+  - `comparison only`
+  - `eligible_official = False`
+  - GPRE-only
+- they do **not** replace:
+  - `Approximate market crush`
+  - `GPRE crush proxy`
+  - `Best forward lens`
+
+### Experimental family
+- Stage C adds a separate coproduct-aware experimental family in the same GPRE comparison framework.
+- The current bounded method set is:
+  - `simple_plus_full_credit`
+  - `simple_plus_half_credit`
+  - `simple_plus_coverage_credit`
+  - `winner_plus_full_credit`
+  - `forward_plus_full_credit`
+  - `winner_plus_conservative_credit`
+- All of them are defined in `$/gal`.
+- `Approximate coproduct credit ($/gal)` is the overlay signal.
+- `Coverage` only enters methods that explicitly say so.
+- `Source mode` remains diagnostic, not a model input.
+
+### Workbook surface
+- `Economics_Overlay`
+  - keeps the existing production/reference rows untouched
+  - adds only one short discoverability note in `Proxy comparison ($/gal)`:
+    - `Coproduct-aware experimental lenses live in Basis_Proxy_Sandbox and are comparison-only.`
+- `Basis_Proxy_Sandbox`
+  - adds a dedicated `Coproduct-aware experimental lenses` section
+  - the section is intentionally separate from the current winner-story so comparison rows are not confused with promotion candidates
+
+### Ranking policy
+- coproduct-aware experimental methods are ranked in `$/gal`, not `$m`
+- Stage C tracks:
+  - `Best historical coproduct-aware`
+  - `Best forward coproduct-aware`
+  - `Best coproduct-aware experimental lens`
+- `Best coproduct-aware experimental lens` intentionally follows the coproduct-family compromise role
+- a strong experimental result does not auto-promote; promotion remains a separate decision
+
+## Stage B.8 Coverage And Volume-Support Guardrails
+
+### Coverage meaning
+- `Coverage` means covered active-capacity footprint, not confidence and not imputed full-footprint truth.
+- The visible coproduct note is intentionally short:
+  - `Coverage reflects covered active-capacity footprint; values are covered-footprint weighted averages.`
+
+### Weighting truth
+- DDGS uses quarter-aware active-capacity weighting across the active GPRE footprint.
+- Corn oil currently uses the same active-footprint weighting as a practical producer-subset approximation.
+- Important limitation:
+  - repo metadata still does not expose plant-level corn-oil producer flags
+  - corn-oil weighting is therefore still an approximation, not proven exact producer-subset weighting
+
+### `$m` interpretation
+- `Approximate coproduct credit ($m)` is not redefined in Stage B.8.
+- It continues to mean:
+  - weighted coproduct credit `($/gal)`
+  - multiplied by the existing implied gallons basis already used by the crush `$m` rows
+- That means the current coproduct `$m` remains a compact full-company approximation rather than a strict covered-footprint-only `$m`.
+
+### Operating_Drivers volume support
+- Historical Operating_Drivers coproduct volumes are useful for QA / reasonableness checks:
+  - `Distillers grains (k tons)`
+  - `Renewable corn oil (million lbs)`
+  - `Ultra-high protein (k tons)`
+- They are **not** currently used for:
+  - live weighting
+  - live coverage
+  - `Prior/Open/Current/Next` frame building
+  - live `$m` replacement
+- Reason:
+  - they are historical actuals only
+  - they are not plant-level or region-level
+  - they do not provide frame-ready current / next-quarter support
+
 ## Current Source Precedence
 
 ### Ethanol
@@ -287,7 +368,7 @@ Verified local folder policy:
   - [`GPRE/USDA_weekly_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_weekly_data)
   - [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
 
-Verified workbook-facing Stage-8 behavior:
+Verified workbook-facing Stage-8 behavior at that point:
 - `Basis_Proxy_Sandbox` now shows:
   - `Coproduct source gate`
   - `Coproduct signal readiness`
@@ -305,6 +386,311 @@ Source reliability note:
 - the `viewReport/...` pages remain the canonical automated landing pages
 - in the current local environment, USDA landing fetches are still flaky enough that
   manual drop + sync must remain the official fallback for `NWER` / `AMS 3618`
+
+## Stage 14 Frames, Weighted History, and Readable Quarterly Charts
+Stage 14 is a broader but still focused coproduct-economics pass on top of Stage 13.
+It does not add a new sheet or a new gate panel, but it makes the coproduct lens
+meaningfully more usable across frames and history.
+
+Verified quarter-label fix:
+- both quarterly charts now use same-sheet helper ranges on `Economics_Overlay`
+- both quarterly charts now bind their x-axis categories through explicit `strRef`
+  quarter labels
+- both quarterly charts now also serialize the category axis explicitly as visible:
+  - `delete = 0`
+  - `auto = 0`
+- the intended visible labels are `YYYY-Q#`, for example:
+  - `2023-Q1`
+  - `2023-Q2`
+- the coproduct quarterly chart no longer depends on direct sandbox category refs
+- this is meant to make the charts readable in Excel itself, not just structurally
+  correct in the backing cells
+
+Verified frame expansion:
+- `Basis_Proxy_Sandbox` now includes `Coproduct frame summary`
+- it summarizes:
+  - `Prior quarter`
+  - `Quarter-open proxy`
+  - `Current QTD`
+  - `Next quarter thesis`
+- for each frame it shows:
+  - `Renewable corn oil price`
+  - `Distillers grains price`
+  - `Approximate coproduct credit ($/bushel)`
+  - `Approximate coproduct credit ($/gal)`
+  - `Approximate coproduct credit ($m)`
+  - `Resolved source mode`
+  - `Coverage`
+  - `Rule`
+- the visible rows at `176:180` now read from this frame summary instead of the older
+  current-heavy hidden-row path
+
+Verified weighting rule:
+- coproduct history and frame values now use quarter-aware active-capacity weighting
+- DDGS is modeled across the active ethanol plant footprint
+- corn oil uses the same active-footprint weighting as an explicit approximation,
+  because repo metadata does not yet prove the exact corn-oil-producing subset at the
+  plant level
+- unsupported active-footprint share remains visible through `Coverage`
+
+Verified history change:
+- `Coproduct quarterly history` now stores:
+  - `Quarter`
+  - `Renewable corn oil price`
+  - `Distillers grains price`
+  - `Approximate coproduct credit ($/bushel)`
+  - `Approximate coproduct credit ($/gal)`
+  - `Approximate coproduct credit ($m)`
+  - `Resolved source mode`
+  - `Coverage`
+- the same weighted resolver now drives both the frame summary and the quarterly
+  history table
+
+Verified visible addition:
+- the visible block at rows `176:180` stays compact
+- a compact mini-history table now appears below the coproduct chart:
+  - title row `203`
+    - `Recent coproduct history`
+  - header row `204`
+  - data rows `205:212`
+- it shows the latest `8` quarters for:
+  - `Quarter`
+  - `Approximate coproduct credit ($/gal)`
+  - `Approximate coproduct credit ($m)`
+  - `Coverage`
+  - `Source mode`
+- the visible mini-history table is newest-first:
+  - the top visible row is the most recent available quarter
+  - the bottom visible row is the oldest quarter in the visible `8`-quarter window
+
+## Stage 13 Comparable Units + Quarter-Safe Credit Lens
+Stage 13 is a narrow writer/readback pass on top of Stage 12. It keeps the current
+coproduct surface compact, but makes the credit lens more comparable to crush.
+
+Verified visible block change:
+- the visible coproduct block now uses:
+  - row `176`
+    - `Coproduct economics`
+  - row `177`
+    - `Renewable corn oil price`
+  - row `178`
+    - `Distillers grains price`
+  - row `179`
+    - `Approximate coproduct credit ($/gal)`
+  - row `180`
+    - `Approximate coproduct credit ($m)`
+- the older visible `$ / bushel` credit row is no longer shown in the overlay
+- the visible chart title now sits at row `182`:
+  - `Approximate coproduct credit ($/gal, quarterly history)`
+
+Verified sandbox/backing change:
+- `Coproduct quarterly history` now stores:
+  - `Quarter`
+  - `Renewable corn oil price`
+  - `Distillers grains price`
+  - `Approximate coproduct credit ($/bushel)`
+  - `Approximate coproduct credit ($/gal)`
+  - `Approximate coproduct credit ($m)`
+  - `Resolved source mode`
+- `Approximate coproduct credit ($/gal)` is derived from:
+  - `Approximate coproduct credit ($/bushel) / ethanol yield`
+- `Approximate coproduct credit ($m)` is derived from:
+  - `Approximate coproduct credit ($/gal) * quarter-aware implied gallons basis`
+- the `($m)` row remains intentionally blank when that gallons basis is unavailable
+
+Comparison rule:
+- corn-oil and DDGS price legs remain visible in `$ / lb`
+- the crush-comparable coproduct lens is the credit surface, not the price-leg surface
+- the first visible coproduct chart therefore now uses `Approximate coproduct credit ($/gal)`,
+  not `$ / bushel`
+
+Quarter-label rule:
+- both quarterly charts now use same-sheet helper-backed `YYYY-Q#` labels
+- the coproduct chart no longer points directly at sandbox categories for its x-axis
+- generic date labels like `2023-03-31` are intentionally avoided
+
+## Stage 12 History + First Coproduct Chart
+Stage 12 is a narrow writer/readback pass on top of Stage 11. It keeps the visible
+coproduct block shape unchanged and adds historical backing plus a first compact
+chart.
+
+Verified sandbox additions:
+- `Basis_Proxy_Sandbox` now includes `Coproduct quarterly history`
+- the history table stores:
+  - `Quarter`
+  - `Renewable corn oil price`
+  - `Distillers grains price`
+  - `Approximate coproduct credit`
+  - `Resolved source mode`
+- the history rows use the same resolved quarterly source precedence as the visible
+  current price rows
+- `Resolved source mode` is compact provenance only:
+  - `NWER`
+  - `AMS 3618`
+  - `Mixed`
+  - `Unknown/blank`
+
+Verified visible-history surface:
+- rows `176:179` remain the only visible coproduct rows
+- a new chart title sits below them:
+  - row `181`
+    - `Approximate coproduct credit (quarterly history)`
+- the first visible coproduct chart is a single-series line chart for
+  `Approximate coproduct credit`
+- corn-oil and DDGS price history stay in the sandbox as backing data and are not
+  mixed into the first visible chart
+
+Policy continuity:
+- `NWER` remains the primary live activation source
+- `AMS 3618` remains secondary/corroborating/manual fallback-backfill
+- Stage 12 adds history and a first chart, not a new gate or a broader coproduct
+  panel
+
+## Stage 11 Provenance + Manual Workflow Clarity
+Stage 11 is a very narrow clarity/provenance/manual-workflow pass on top of Stage 10.
+It does not add any new visible coproduct rows.
+
+Verified workbook-facing clarification:
+- the visible block stays at rows `176:179`
+- row `176` is now labeled:
+  - `Coproduct economics`
+- the visible price rows still link to their real hidden source strings
+- the credit-row source note is now neutral and truthful:
+  - visible activation is `NWER`-sufficient
+  - resolved price legs may come from `NWER` or `AMS 3618`
+
+Verified sandbox-facing clarification:
+- `Coproduct source gate` still treats `NWER` as the primary live activation source
+- `AMS 3618` remains visible, but not blocking
+- a compact `Source provenance` block now makes the role split explicit:
+  - `Primary live activation source`
+    - `NWER`
+  - `Secondary corroborating source`
+    - `AMS 3618`
+  - `Current resolved workbook source`
+    - `NWER`
+    - `AMS 3618`
+    - or `Mixed`, depending on the linked visible price-row source strings
+
+Official manual workflow:
+1. place manual PDFs in [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
+2. keep legacy folders only for compatibility:
+   - [`GPRE/USDA_weekly_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_weekly_data)
+   - [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
+3. run:
+   - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE --refresh-market-data`
+4. verify ingestion:
+   - `GPRE.parquet` contains `nwer_pdf` and/or `ams_3618_pdf`
+   - `Coproduct source gate` shows the relevant rows as `YES`
+   - `Source provenance` shows which source currently feeds the visible price rows
+
+Locked role interpretation:
+- `NWER`
+  - primary live activation source
+- `AMS 3618`
+  - secondary
+  - corroborating
+  - manual fallback / backfill source
+- `3511`
+  - deferred / manual
+
+## Stage 9 First Visible NWER-Backed Block
+Stage 9 is a narrow workbook/gating pass on top of Stage 8.
+
+Verified gate change:
+- the first visible coproduct block is now allowed with `NWER` as the sufficient
+  primary source
+- `AMS 3618` remains visible in the sandbox as:
+  - secondary
+  - corroborating
+  - future improvement
+- `AMS 3618 = NO` no longer blocks the first visible block by itself
+
+Verified saved-workbook gate result at Stage-9 activation time:
+- `NWER coproduct rows = YES`
+- `AMS 3618 coproduct rows = NO`
+- `Renewable corn oil price = YES`
+- `Distillers grains price = YES`
+- `Approximate coproduct credit = YES`
+- `Overlay activation = GO`
+
+Verified visible workbook surface:
+- `Economics_Overlay` now uses rows `176:179` for a compact quarter-grid block:
+  - row `176`
+    - `Coproduct economics (NWER-backed)`
+  - row `177`
+    - `Renewable corn oil price`
+  - row `178`
+    - `Distillers grains price`
+  - row `179`
+    - `Approximate coproduct credit`
+
+Verified source wiring:
+- `Renewable corn oil price`
+  - links to the existing hidden/live market row
+- `Distillers grains price`
+  - links to the existing hidden/live market row
+- `Approximate coproduct credit`
+  - links to the sandbox build-up row
+  - uses the intended quarter cells `C / E / G / I` from `Basis_Proxy_Sandbox`
+
+Boundary note:
+- this visible block is economic only
+- no new physical/yield rows are mirrored into the overlay
+- `Operating_Drivers` remains the home for physical / yield / mix
+
+## Stage 10 AMS 3618 Secondary Manual Source
+Stage 10 is a very narrow manual-ingest pass on top of Stage 9. It does not change
+the visible block shape and does not make `AMS 3618` a blocker again.
+
+Verified manual-ingest fix:
+- `AMS3618Provider` now accepts manual raw entries even when `report_date` is blank
+- undated manual filenames like `ams_3618_00183.pdf` are now supported
+- the parser now accepts the real USDA report-date line:
+  - `Livestock, Poultry and Grain Market News ...`
+
+Verified current manual-source behavior:
+- manually dropped PDFs in [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
+  now flow through raw -> parsed -> export
+- current `GPRE` export now contains `ams_3618_pdf` coproduct rows for:
+  - corn oil:
+    - `corn_oil_eastern_cornbelt`
+    - `corn_oil_iowa_avg`
+    - `corn_oil_kansas`
+    - `corn_oil_minnesota`
+    - `corn_oil_missouri`
+    - `corn_oil_nebraska`
+    - `corn_oil_south_dakota`
+    - `corn_oil_wisconsin`
+  - DDGS:
+    - `ddgs_10_illinois`
+    - `ddgs_10_indiana`
+    - `ddgs_10_iowa`
+    - `ddgs_10_kansas`
+    - `ddgs_10_michigan`
+    - `ddgs_10_minnesota`
+    - `ddgs_10_missouri`
+    - `ddgs_10_nebraska`
+    - `ddgs_10_ohio`
+    - `ddgs_10_south_dakota`
+    - `ddgs_10_wisconsin`
+
+Verified current workbook-facing result:
+- `Basis_Proxy_Sandbox` now shows:
+  - `NWER coproduct rows = YES`
+  - `AMS 3618 coproduct rows = YES`
+  - `Overlay activation = GO`
+- the visible `Economics_Overlay` coproduct block at rows `176:179` remains unchanged
+
+Locked product role:
+- `NWER`
+  - primary live source
+  - first visible block source
+- `AMS 3618`
+  - secondary
+  - corroborating
+  - manual fallback / backfill source
+  - not a blocker
 
 ## Owner Earnings + Economics QA Pass
 This was a selective QA-/presentation-pass on top of the stage-5 overlay work. It
