@@ -264,6 +264,215 @@ def _fill_rgb(cell) -> str:
     return str(cell.fill.fgColor.rgb or "")
 
 
+def _assert_gpre_qtd_tracking_upper_block(ws_overlay) -> None:
+    qtd_tracking_title_row = _find_row_with_value(ws_overlay, "Current QTD trend tracking ($/gal, crush margin lens)", column=1)
+    assert qtd_tracking_title_row is not None
+    qtd_tracking_today_row = qtd_tracking_title_row + 1
+    qtd_tracking_quarter_open_row = qtd_tracking_title_row + 2
+    qtd_tracking_compare_header_row = qtd_tracking_title_row + 3
+    qtd_tracking_compare_subheader_row = qtd_tracking_title_row + 4
+    qtd_tracking_compare_body_row = qtd_tracking_title_row + 5
+    qtd_tracking_hidden_row = qtd_tracking_title_row + 6
+    qtd_tracking_driver_title_row = qtd_tracking_title_row + 7
+    qtd_tracking_driver_header_row = qtd_tracking_title_row + 8
+    qtd_tracking_driver_first_row = qtd_tracking_title_row + 9
+    qtd_tracking_driver_last_row = qtd_tracking_title_row + 12
+    qtd_tracking_note_row = qtd_tracking_title_row + 13
+    coproducts_row = qtd_tracking_title_row + 14
+    merged_ranges = {str(rng) for rng in ws_overlay.merged_cells.ranges}
+    expected_merged_ranges = {
+        f"A{qtd_tracking_title_row}:U{qtd_tracking_title_row}",
+        f"A{qtd_tracking_driver_title_row}:U{qtd_tracking_driver_title_row}",
+        f"A{coproducts_row}:U{coproducts_row}",
+        f"B{qtd_tracking_today_row}:C{qtd_tracking_today_row}",
+        f"D{qtd_tracking_today_row}:U{qtd_tracking_today_row}",
+        f"B{qtd_tracking_quarter_open_row}:C{qtd_tracking_quarter_open_row}",
+        f"D{qtd_tracking_quarter_open_row}:U{qtd_tracking_quarter_open_row}",
+        f"B{qtd_tracking_compare_header_row}:C{qtd_tracking_compare_header_row}",
+        f"D{qtd_tracking_compare_header_row}:E{qtd_tracking_compare_header_row}",
+        f"F{qtd_tracking_compare_header_row}:G{qtd_tracking_compare_header_row}",
+        f"H{qtd_tracking_compare_header_row}:I{qtd_tracking_compare_header_row}",
+        f"B{qtd_tracking_compare_subheader_row}:C{qtd_tracking_compare_subheader_row}",
+        f"D{qtd_tracking_compare_subheader_row}:E{qtd_tracking_compare_subheader_row}",
+        f"F{qtd_tracking_compare_subheader_row}:G{qtd_tracking_compare_subheader_row}",
+        f"H{qtd_tracking_compare_subheader_row}:I{qtd_tracking_compare_subheader_row}",
+        f"B{qtd_tracking_compare_body_row}:C{qtd_tracking_compare_body_row}",
+        f"D{qtd_tracking_compare_body_row}:E{qtd_tracking_compare_body_row}",
+        f"F{qtd_tracking_compare_body_row}:G{qtd_tracking_compare_body_row}",
+        f"H{qtd_tracking_compare_body_row}:I{qtd_tracking_compare_body_row}",
+        f"B{qtd_tracking_driver_header_row}:C{qtd_tracking_driver_header_row}",
+        f"D{qtd_tracking_driver_header_row}:E{qtd_tracking_driver_header_row}",
+        f"F{qtd_tracking_driver_header_row}:G{qtd_tracking_driver_header_row}",
+        f"H{qtd_tracking_driver_header_row}:I{qtd_tracking_driver_header_row}",
+    }
+    assert expected_merged_ranges.issubset(merged_ranges)
+    assert f"A{qtd_tracking_today_row}:U{qtd_tracking_today_row}" not in merged_ranges
+    assert f"B{qtd_tracking_note_row}:U{qtd_tracking_note_row}" not in merged_ranges
+
+    assert str(ws_overlay.cell(row=qtd_tracking_today_row, column=1).value or "").strip() == "Today"
+    assert str(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=1).value or "").strip() == "Quarter-open"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=1).value or "").strip() == "Approximate market crush"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=2).value or "").strip() == "QTD vs quarter-open"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=4).value or "").strip() == "QTD vs 1 week ago"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=6).value or "").strip() == "QTD vs 4 weeks ago"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=8).value or "").strip() == "QTD vs 8 weeks ago"
+    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_today_row, column=4).value or "").strip())
+    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=4).value or "").strip())
+    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=2).value or "").strip())
+    one_week_subheader = str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=4).value or "").strip()
+    assert one_week_subheader == "—" or re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", one_week_subheader)
+    assert str(ws_overlay.cell(row=180, column=6).value or "").strip() == "—"
+    assert str(ws_overlay.cell(row=180, column=8).value or "").strip() == "—"
+    assert pd.notna(pd.to_numeric(ws_overlay.cell(row=177, column=2).value, errors="coerce"))
+    assert pd.notna(pd.to_numeric(ws_overlay.cell(row=178, column=2).value, errors="coerce"))
+    assert pd.notna(pd.to_numeric(ws_overlay.cell(row=181, column=2).value, errors="coerce"))
+    one_week_delta = pd.to_numeric(ws_overlay.cell(row=181, column=4).value, errors="coerce")
+    if one_week_subheader == "—":
+        assert str(ws_overlay.cell(row=181, column=4).value or "").strip() == "—"
+    else:
+        assert pd.notna(one_week_delta)
+    assert str(ws_overlay.cell(row=181, column=6).value or "").strip() == "—"
+    assert str(ws_overlay.cell(row=181, column=8).value or "").strip() == "—"
+
+    upper_block_values = {
+        str(ws_overlay.cell(row=rr, column=cc).value or "").strip()
+        for rr in range(177, 182)
+        for cc in range(1, 22)
+        if str(ws_overlay.cell(row=rr, column=cc).value or "").strip()
+    }
+    assert "Reference date" not in upper_block_values
+    assert "Delta ($/gal)" not in upper_block_values
+    assert "Note" not in upper_block_values
+    assert "insufficient history" not in {value.lower() for value in upper_block_values}
+    assert str(ws_overlay.cell(row=179, column=1).value or "").strip() == ""
+    assert str(ws_overlay.cell(row=180, column=1).value or "").strip() == ""
+    row_182_height = ws_overlay.row_dimensions[182].height
+    assert row_182_height is None or row_182_height == pytest.approx(0.0, abs=0.01)
+    assert bool(ws_overlay.row_dimensions[182].hidden)
+    assert str(ws_overlay.cell(row=182, column=1).value or "").strip() == ""
+
+    assert str(ws_overlay.cell(row=178, column=1).alignment.horizontal or "") == "center"
+    assert str(ws_overlay.cell(row=179, column=1).alignment.horizontal or "") == "center"
+    assert str(ws_overlay.cell(row=181, column=1).alignment.horizontal or "") == "left"
+    assert str(ws_overlay.cell(row=183, column=1).value or "").strip() == "Driver attribution of Current QTD move ($/gal)"
+    assert str(ws_overlay.cell(row=183, column=1).alignment.horizontal or "") == "left"
+    assert str(ws_overlay.cell(row=184, column=2).value or "").strip() == "QTD vs quarter-open"
+    assert str(ws_overlay.cell(row=184, column=4).value or "").strip() == "QTD vs 1 week ago"
+    assert str(ws_overlay.cell(row=184, column=6).value or "").strip() == "QTD vs 4 weeks ago"
+    assert str(ws_overlay.cell(row=184, column=8).value or "").strip() == "QTD vs 8 weeks ago"
+    assert _fill_rgb(ws_overlay.cell(row=183, column=1)) == _fill_rgb(ws_overlay.cell(row=184, column=2))
+    assert _fill_rgb(ws_overlay.cell(row=183, column=1)) != _fill_rgb(ws_overlay.cell(row=180, column=2))
+    for data_row in range(185, 189):
+        assert ws_overlay.row_dimensions[data_row].height == pytest.approx(20.0, abs=0.01)
+    assert str(ws_overlay.cell(row=195, column=1).value or "").strip() == ""
+
+
+def _assert_gpre_qtd_tracking_upper_block_dynamic(ws_overlay) -> None:
+    qtd_tracking_title_row = _find_row_with_value(ws_overlay, "Current QTD trend tracking ($/gal, crush margin lens)", column=1)
+    assert qtd_tracking_title_row is not None
+    qtd_tracking_today_row = qtd_tracking_title_row + 1
+    qtd_tracking_quarter_open_row = qtd_tracking_title_row + 2
+    qtd_tracking_compare_header_row = qtd_tracking_title_row + 3
+    qtd_tracking_compare_subheader_row = qtd_tracking_title_row + 4
+    qtd_tracking_compare_body_row = qtd_tracking_title_row + 5
+    qtd_tracking_hidden_row = qtd_tracking_title_row + 6
+    qtd_tracking_driver_title_row = qtd_tracking_title_row + 7
+    qtd_tracking_driver_header_row = qtd_tracking_title_row + 8
+    qtd_tracking_driver_first_row = qtd_tracking_title_row + 9
+    qtd_tracking_driver_last_row = qtd_tracking_title_row + 12
+    qtd_tracking_note_row = qtd_tracking_title_row + 13
+    coproducts_row = qtd_tracking_title_row + 14
+    merged_ranges = {str(rng) for rng in ws_overlay.merged_cells.ranges}
+    expected_merged_ranges = {
+        f"A{qtd_tracking_title_row}:U{qtd_tracking_title_row}",
+        f"A{qtd_tracking_driver_title_row}:U{qtd_tracking_driver_title_row}",
+        f"A{coproducts_row}:U{coproducts_row}",
+        f"B{qtd_tracking_today_row}:C{qtd_tracking_today_row}",
+        f"D{qtd_tracking_today_row}:U{qtd_tracking_today_row}",
+        f"B{qtd_tracking_quarter_open_row}:C{qtd_tracking_quarter_open_row}",
+        f"D{qtd_tracking_quarter_open_row}:U{qtd_tracking_quarter_open_row}",
+        f"B{qtd_tracking_compare_header_row}:C{qtd_tracking_compare_header_row}",
+        f"D{qtd_tracking_compare_header_row}:E{qtd_tracking_compare_header_row}",
+        f"F{qtd_tracking_compare_header_row}:G{qtd_tracking_compare_header_row}",
+        f"H{qtd_tracking_compare_header_row}:I{qtd_tracking_compare_header_row}",
+        f"B{qtd_tracking_compare_subheader_row}:C{qtd_tracking_compare_subheader_row}",
+        f"D{qtd_tracking_compare_subheader_row}:E{qtd_tracking_compare_subheader_row}",
+        f"F{qtd_tracking_compare_subheader_row}:G{qtd_tracking_compare_subheader_row}",
+        f"H{qtd_tracking_compare_subheader_row}:I{qtd_tracking_compare_subheader_row}",
+        f"B{qtd_tracking_compare_body_row}:C{qtd_tracking_compare_body_row}",
+        f"D{qtd_tracking_compare_body_row}:E{qtd_tracking_compare_body_row}",
+        f"F{qtd_tracking_compare_body_row}:G{qtd_tracking_compare_body_row}",
+        f"H{qtd_tracking_compare_body_row}:I{qtd_tracking_compare_body_row}",
+        f"B{qtd_tracking_driver_header_row}:C{qtd_tracking_driver_header_row}",
+        f"D{qtd_tracking_driver_header_row}:E{qtd_tracking_driver_header_row}",
+        f"F{qtd_tracking_driver_header_row}:G{qtd_tracking_driver_header_row}",
+        f"H{qtd_tracking_driver_header_row}:I{qtd_tracking_driver_header_row}",
+    }
+    assert expected_merged_ranges.issubset(merged_ranges)
+    assert f"A{qtd_tracking_today_row}:U{qtd_tracking_today_row}" not in merged_ranges
+    assert f"B{qtd_tracking_note_row}:U{qtd_tracking_note_row}" not in merged_ranges
+
+    assert str(ws_overlay.cell(row=qtd_tracking_today_row, column=1).value or "").strip() == "Today"
+    assert str(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=1).value or "").strip() == "Quarter-open"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=1).value or "").strip() == "Approximate market crush"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=2).value or "").strip() == "QTD vs quarter-open"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=4).value or "").strip() == "QTD vs 1 week ago"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=6).value or "").strip() == "QTD vs 4 weeks ago"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=8).value or "").strip() == "QTD vs 8 weeks ago"
+
+    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_today_row, column=4).value or "").strip())
+    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=4).value or "").strip())
+    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=2).value or "").strip())
+    one_week_subheader = str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=4).value or "").strip()
+    assert one_week_subheader in {"—", "â€”"} or re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", one_week_subheader)
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=6).value or "").strip() in {"—", "â€”"}
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=8).value or "").strip() in {"—", "â€”"}
+
+    assert pd.notna(pd.to_numeric(ws_overlay.cell(row=qtd_tracking_today_row, column=2).value, errors="coerce"))
+    assert pd.notna(pd.to_numeric(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=2).value, errors="coerce"))
+    assert pd.notna(pd.to_numeric(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=2).value, errors="coerce"))
+    one_week_delta = pd.to_numeric(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=4).value, errors="coerce")
+    if one_week_subheader in {"—", "â€”"}:
+        assert str(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=4).value or "").strip() in {"—", "â€”"}
+    else:
+        assert pd.notna(one_week_delta)
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=6).value or "").strip() in {"—", "â€”"}
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=8).value or "").strip() in {"—", "â€”"}
+
+    upper_block_values = {
+        str(ws_overlay.cell(row=rr, column=cc).value or "").strip()
+        for rr in range(qtd_tracking_today_row, qtd_tracking_compare_body_row + 1)
+        for cc in range(1, 22)
+        if str(ws_overlay.cell(row=rr, column=cc).value or "").strip()
+    }
+    assert "Reference date" not in upper_block_values
+    assert "Delta ($/gal)" not in upper_block_values
+    assert "Note" not in upper_block_values
+    assert "insufficient history" not in {value.lower() for value in upper_block_values}
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=1).value or "").strip() == ""
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=1).value or "").strip() == ""
+    hidden_row_height = ws_overlay.row_dimensions[qtd_tracking_hidden_row].height
+    assert hidden_row_height is None or hidden_row_height == pytest.approx(0.0, abs=0.01)
+    assert bool(ws_overlay.row_dimensions[qtd_tracking_hidden_row].hidden)
+    assert str(ws_overlay.cell(row=qtd_tracking_hidden_row, column=1).value or "").strip() == ""
+
+    assert str(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=1).alignment.horizontal or "") == "center"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=1).alignment.horizontal or "") == "center"
+    assert str(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=1).alignment.horizontal or "") == "left"
+    assert str(ws_overlay.cell(row=qtd_tracking_driver_title_row, column=1).value or "").strip() == "Driver attribution of Current QTD move ($/gal)"
+    assert str(ws_overlay.cell(row=qtd_tracking_driver_title_row, column=1).alignment.horizontal or "") == "left"
+    assert str(ws_overlay.cell(row=qtd_tracking_driver_header_row, column=2).value or "").strip() == "QTD vs quarter-open"
+    assert str(ws_overlay.cell(row=qtd_tracking_driver_header_row, column=4).value or "").strip() == "QTD vs 1 week ago"
+    assert str(ws_overlay.cell(row=qtd_tracking_driver_header_row, column=6).value or "").strip() == "QTD vs 4 weeks ago"
+    assert str(ws_overlay.cell(row=qtd_tracking_driver_header_row, column=8).value or "").strip() == "QTD vs 8 weeks ago"
+    assert _fill_rgb(ws_overlay.cell(row=qtd_tracking_driver_title_row, column=1)) == _fill_rgb(ws_overlay.cell(row=qtd_tracking_driver_header_row, column=2))
+    assert _fill_rgb(ws_overlay.cell(row=qtd_tracking_driver_title_row, column=1)) != _fill_rgb(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=2))
+    for data_row in range(qtd_tracking_driver_first_row, qtd_tracking_driver_last_row + 1):
+        assert ws_overlay.row_dimensions[data_row].height == pytest.approx(20.0, abs=0.01)
+    assert ws_overlay.row_dimensions[qtd_tracking_note_row].height == pytest.approx(15.0, abs=0.01)
+    assert str(ws_overlay.cell(row=qtd_tracking_note_row, column=1).value or "").strip() == ""
+
+
 def _sheet_data_row_count(ws) -> int:
     return max(int(ws.max_row) - 1, 0)
 
@@ -1010,21 +1219,29 @@ def test_write_driver_sheets_restores_gpre_basis_proxy_sandbox_and_overlay_links
                             "quarter": pd.Timestamp("2025-03-31").date(),
                             "official_simple_proxy_usd_per_gal": 0.100,
                             "gpre_proxy_official_usd_per_gal": 0.120,
+                            "reported_consolidated_crush_margin_usd_per_gal": 0.210,
+                            "underlying_crush_margin_usd_per_gal": 0.310,
                         },
                         {
                             "quarter": pd.Timestamp("2025-06-30").date(),
                             "official_simple_proxy_usd_per_gal": 0.110,
                             "gpre_proxy_official_usd_per_gal": 0.130,
+                            "reported_consolidated_crush_margin_usd_per_gal": 0.220,
+                            "underlying_crush_margin_usd_per_gal": 0.320,
                         },
                         {
                             "quarter": pd.Timestamp("2025-09-30").date(),
                             "official_simple_proxy_usd_per_gal": 0.125,
                             "gpre_proxy_official_usd_per_gal": 0.145,
+                            "reported_consolidated_crush_margin_usd_per_gal": 0.225,
+                            "underlying_crush_margin_usd_per_gal": 0.325,
                         },
                         {
                             "quarter": pd.Timestamp("2025-12-31").date(),
                             "official_simple_proxy_usd_per_gal": 0.140,
                             "gpre_proxy_official_usd_per_gal": 0.160,
+                            "reported_consolidated_crush_margin_usd_per_gal": 0.240,
+                            "underlying_crush_margin_usd_per_gal": 0.340,
                         },
                     ]
                 )
@@ -1123,7 +1340,7 @@ def test_write_driver_sheets_restores_gpre_basis_proxy_sandbox_and_overlay_links
                             "next_quarter_thesis": {"slope": 0.05, "intercept": 0.04},
                         },
                         "quarter_open_market_snapshot": {
-                            **_stub_market_snapshot(label="Quarter-open proxy", quarter_end=date(2026, 6, 30)),
+                            **_stub_market_snapshot(label="Quarter-open outlook", quarter_end=date(2026, 6, 30)),
                             "quarter_open_provenance": "manual_local_snapshot",
                         },
                         "quarter_open_snapshot_status": "available",
@@ -1342,7 +1559,8 @@ def test_write_driver_sheets_does_not_leak_gpre_overlay_surface_to_non_gpre_prof
         assert _find_row_with_value(ws_overlay, "Approximate coproduct credit (quarterly history)", column=2) is None
         assert _find_row_with_value(ws_overlay, "Approximate coproduct credit ($/gal, quarterly history)", column=2) is None
         assert _find_row_with_value(ws_overlay, "Recent coproduct history", column=2) is None
-        assert _find_row_with_value(ws_overlay, "Approximate market crush vs Fitted models (quarterly)", column=2) is None
+        assert _find_row_with_value(ws_overlay, "Current QTD trend tracking ($/gal, crush margin lens)", column=1) is None
+        assert _find_row_with_value(ws_overlay, "Approximate market crush, fitted models, and real GPRE crush margin (quarterly)", column=2) is None
         assert _find_row_with_value(
             ws_overlay,
             "Coverage reflects covered active-capacity footprint; values are covered-footprint weighted averages.",
@@ -10653,8 +10871,8 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         bridge_row = _find_row_with_value(ws_overlay, "Bridge to reported", column=1)
         forward_proxy_row = _find_row_with_value(ws_overlay, "Best forward lens ($/gal)", column=1)
         forward_bridge_row = _find_row_with_value(ws_overlay, "Best forward lens ($m)", column=1)
-        weekly_chart_title_row = _find_row_with_value(ws_overlay, "Simple crush margin proxy (weekly)", column=2)
-        quarterly_chart_title_row = _find_row_with_value(ws_overlay, "Approximate market crush vs Fitted models (quarterly)", column=2)
+        weekly_chart_title_row = _find_row_with_value(ws_overlay, "Approximate market crush (weekly)", column=2)
+        quarterly_chart_title_row = _find_row_with_value(ws_overlay, "Approximate market crush, fitted models, and real GPRE crush margin (quarterly)", column=2)
 
         assert proxy_compare_row is not None
         assert bridge_row is not None
@@ -10675,7 +10893,7 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
             for rng in ws_overlay.merged_cells.ranges
         )
         assert _fill_rgb(ws_overlay.cell(row=proxy_compare_row + 1, column=1)) == "00EDF4FA"
-        assert float(ws_overlay.row_dimensions[proxy_compare_row + 1].height or 0.0) == pytest.approx(32.0, abs=0.1)
+        assert float(ws_overlay.row_dimensions[proxy_compare_row + 1].height or 0.0) == pytest.approx(18.0, abs=0.1)
         assert str(ws_overlay.cell(row=proxy_compare_row + 2, column=1).value or "").strip() == "Proxy row"
         assert forward_proxy_row == _find_row_with_value(ws_overlay, "GPRE crush proxy ($/gal)", column=1) + 1
         assert forward_bridge_row == _find_row_with_value(ws_overlay, "GPRE crush proxy ($m)", column=1) + 1
@@ -10684,13 +10902,38 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         weekly_chart = ws_overlay._charts[0]
         quarterly_chart = ws_overlay._charts[1]
         coproduct_history_chart = ws_overlay._charts[2]
+        coproduct_chart_title_row = _find_row_with_value(ws_overlay, "Approximate coproduct credit ($/gal, quarterly history)", column=2)
         assert len(weekly_chart.series) >= 6
         assert len(quarterly_chart.series) == 4
         assert getattr(getattr(quarterly_chart, "legend", None), "position", None) == "t"
         assert bool(getattr(getattr(quarterly_chart, "legend", None), "overlay", False))
+        assert str(getattr(getattr(quarterly_chart.series[0].graphicalProperties.line, "solidFill", None), "srgbClr", "") or "") == "2F80ED"
+        assert str(getattr(getattr(quarterly_chart.series[1].graphicalProperties.line, "solidFill", None), "srgbClr", "") or "") == "E67E22"
+        assert str(getattr(getattr(quarterly_chart.series[2].graphicalProperties.line, "solidFill", None), "srgbClr", "") or "") == "2A9D8F"
+        assert str(getattr(getattr(quarterly_chart.series[3].graphicalProperties.line, "solidFill", None), "srgbClr", "") or "") == "36454F"
+        assert int(getattr(quarterly_chart.series[3].graphicalProperties.line, "width", 0) or 0) == 19050
+        assert float(getattr(weekly_chart, "width", 0.0) or 0.0) == pytest.approx(34.0, abs=0.01)
+        assert float(getattr(weekly_chart, "height", 0.0) or 0.0) == pytest.approx(16.0, abs=0.01)
+        assert float(getattr(quarterly_chart, "width", 0.0) or 0.0) == pytest.approx(34.0, abs=0.01)
+        assert float(getattr(quarterly_chart, "height", 0.0) or 0.0) == pytest.approx(16.0, abs=0.01)
+        assert float(getattr(coproduct_history_chart, "width", 0.0) or 0.0) == pytest.approx(34.0, abs=0.01)
+        assert float(getattr(coproduct_history_chart, "height", 0.0) or 0.0) == pytest.approx(16.0, abs=0.01)
         assert int(getattr(weekly_chart.anchor._from, "row", -1)) + 1 == weekly_chart_title_row + 1
         assert int(getattr(quarterly_chart.anchor._from, "row", -1)) + 1 == quarterly_chart_title_row + 1
-        assert int(getattr(coproduct_history_chart.anchor._from, "row", -1)) + 1 == 183
+        assert int(getattr(coproduct_history_chart.anchor._from, "row", -1)) + 1 == (coproduct_chart_title_row or 0) + 1
+        assert int(getattr(quarterly_chart.anchor.to, "row", -1)) + 1 >= quarterly_chart_title_row + 26
+        assert int(getattr(coproduct_history_chart.anchor.to, "row", -1)) + 1 >= (coproduct_chart_title_row or 0) + 26
+        assert str(ws_overlay.cell(row=quarterly_chart_title_row, column=49).value or "").strip() == "Realized GPRE crush margin ($/gal)"
+        q1_realized_row = next(
+            rr for rr in range(quarterly_chart_title_row + 1, quarterly_chart_title_row + 12)
+            if str(ws_overlay.cell(row=rr, column=45).value or "").strip() == "2025-Q1"
+        )
+        q2_realized_row = next(
+            rr for rr in range(quarterly_chart_title_row + 1, quarterly_chart_title_row + 12)
+            if str(ws_overlay.cell(row=rr, column=45).value or "").strip() == "2025-Q2"
+        )
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q1_realized_row, column=49).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q2_realized_row, column=49).value, errors="coerce"))
 
         role_summary_row = _find_row_with_value(ws_basis, "Role summary", column=21)
         winner_story_title_row = _find_row_with_value(ws_basis, "Winner story", column=21)
@@ -10786,9 +11029,9 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert coproduct_credit_readiness_row is not None
         coproduct_frame_summary_title_row = _find_row_with_value(ws_basis, "Coproduct frame summary", column=2)
         prior_frame_row = _find_row_with_value(ws_basis, "Prior quarter", column=2)
-        quarter_open_frame_row = _find_row_with_value(ws_basis, "Quarter-open proxy", column=2)
+        quarter_open_frame_row = _find_row_with_value(ws_basis, "Quarter-open outlook", column=2)
         current_frame_row = _find_row_with_value(ws_basis, "Current QTD", column=2)
-        next_frame_row = _find_row_with_value(ws_basis, "Next quarter thesis", column=2)
+        next_frame_row = _find_row_with_value(ws_basis, "Next quarter outlook", column=2)
         coproduct_volume_support_title_row = _find_row_with_value(ws_basis, "Coproduct volume support audit", column=2)
         coproduct_experimental_title_row = _find_row_with_value(ws_basis, "Coproduct-aware experimental lenses", column=2)
         best_coproduct_experimental_row = _find_row_with_value(ws_basis, "Best coproduct-aware experimental lens", column=2)
@@ -10943,30 +11186,69 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         ]
         assert len(coproduct_experimental_status_rows) == 10
         assert all(str(ws_basis.cell(row=rr, column=12).value or "").strip() == "comparison only" for rr in coproduct_experimental_status_rows)
-        assert str(ws_overlay.cell(row=176, column=1).value or "").strip() == "Coproduct economics"
-        assert str(ws_overlay.cell(row=176, column=2).value or "").strip() == "Prior quarter"
-        assert str(ws_overlay.cell(row=176, column=4).value or "").strip() == "Quarter-open proxy"
-        assert str(ws_overlay.cell(row=176, column=6).value or "").strip() == "Current QTD"
-        assert str(ws_overlay.cell(row=176, column=8).value or "").strip() == "Next quarter thesis"
-        assert str(ws_overlay.cell(row=176, column=10).value or "").strip() == "Unit"
-        assert str(ws_overlay.cell(row=176, column=11).value or "").strip() == "Source mode"
-        assert str(ws_overlay.cell(row=177, column=1).value or "").strip() == "Renewable corn oil price"
-        assert str(ws_overlay.cell(row=178, column=1).value or "").strip() == "Distillers grains price"
-        assert str(ws_overlay.cell(row=179, column=1).value or "").strip() == "Approximate coproduct credit ($/gal)"
-        assert str(ws_overlay.cell(row=180, column=1).value or "").strip() == "Approximate coproduct credit ($m)"
-        assert str(ws_overlay.cell(row=177, column=10).value or "").strip() == "$/lb"
-        assert str(ws_overlay.cell(row=178, column=10).value or "").strip() == "$/lb"
-        assert str(ws_overlay.cell(row=179, column=10).value or "").strip() == "$/gal"
-        assert str(ws_overlay.cell(row=180, column=10).value or "").strip() == "$m"
-        assert str(ws_overlay.cell(row=177, column=6).value or "").strip()
-        assert str(ws_overlay.cell(row=178, column=6).value or "").strip()
-        assert str(ws_overlay.cell(row=179, column=6).value or "").strip()
-        assert str(ws_overlay.cell(row=180, column=6).value or "").strip()
+        qtd_tracking_title_row = _find_row_with_value(ws_overlay, "Current QTD trend tracking ($/gal, crush margin lens)", column=1)
+        assert qtd_tracking_title_row is not None
+        _assert_gpre_qtd_tracking_upper_block_dynamic(ws_overlay)
+        assert _find_row_with_value(ws_overlay, "Ethanol", column=1) is not None
+        assert _find_row_with_value(ws_overlay, "Flat corn", column=1) is not None
+        assert _find_row_with_value(ws_overlay, "Corn basis", column=1) is not None
+        assert _find_row_with_value(ws_overlay, "Gas", column=1) is not None
+        coproducts_row = _find_row_with_value(ws_overlay, "Coproducts", column=1)
+        assert coproducts_row == qtd_tracking_title_row + 14
+        assert _find_row_with_value(ws_overlay, "Residual", column=1) is None
+        assert _find_row_containing(
+            ws_overlay,
+            "Same-point-last-quarter is intentionally not a primary tracking metric here",
+            column=2,
+        ) is None
+        assert ws_overlay.row_dimensions[82].height == pytest.approx(18.0, abs=0.01)
+        assert ws_overlay.row_dimensions[107].height == pytest.approx(18.0, abs=0.01)
+        assert ws_overlay.row_dimensions[122].height == pytest.approx(18.0, abs=0.01)
+        assert ws_overlay.row_dimensions[qtd_tracking_title_row + 13].height == pytest.approx(15.0, abs=0.01)
+        basis_weighting_row = _find_row_with_value(ws_overlay, "Basis weighting", column=1)
+        assert basis_weighting_row is not None
+        assert str(ws_overlay.cell(row=basis_weighting_row, column=2).value or "").strip() == (
+            "Official corn basis prefers dated GPRE plant bids when available; otherwise it falls back to "
+            "active-capacity-weighted AMS basis using mapped state/regional series and deterministic fallbacks"
+        )
+        assert ws_overlay.row_dimensions[coproducts_row].height == pytest.approx(18.0, abs=0.01)
+        assert str(ws_overlay.cell(row=coproducts_row, column=1).fill.fgColor.rgb or "").strip().upper() == str(ws_overlay.cell(row=qtd_tracking_title_row, column=1).fill.fgColor.rgb or "").strip().upper()
+        assert ws_overlay.row_dimensions[coproducts_row + 5].height == pytest.approx(8.0, abs=0.01)
+        assert str(ws_overlay.cell(row=coproducts_row + 5, column=1).value or "").strip() == ""
+        assert str(ws_overlay.cell(row=coproducts_row + 5, column=1).fill.fgColor.rgb or "").strip().upper() == str(ws_overlay.cell(row=qtd_tracking_title_row + 4, column=2).fill.fgColor.rgb or "").strip().upper()
+
+        visible_coproduct_header_row = _find_row_with_value(ws_overlay, "Coproduct economics", column=1)
+        assert visible_coproduct_header_row is not None and visible_coproduct_header_row > qtd_tracking_title_row
+        assert visible_coproduct_header_row == coproducts_row + 1
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row, column=2).value or "").strip() == "Prior quarter"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row, column=4).value or "").strip() == "Quarter-open outlook"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row, column=6).value or "").strip() == "Current QTD"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row, column=8).value or "").strip() == "Next quarter outlook"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row, column=10).value or "").strip() == "Unit"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row, column=11).value or "").strip() == "Source mode"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 1, column=2).value or "").strip() == "2026-Q1"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 1, column=4).value or "").strip() == "As of 2026-03-31"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 1, column=6).value or "").strip().startswith("As of 2026-04-")
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 1, column=8).value or "").strip() == "2026-Q3"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 2, column=1).value or "").strip() == "Renewable corn oil price"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 3, column=1).value or "").strip() == "Distillers grains price"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 4, column=1).value or "").strip() == ""
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 5, column=1).value or "").strip() == "Approximate coproduct credit ($/gal)"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 6, column=1).value or "").strip() == "Approximate coproduct credit ($m)"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 2, column=10).value or "").strip() == "$/lb"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 3, column=10).value or "").strip() == "$/lb"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 5, column=10).value or "").strip() == "$/gal"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 6, column=10).value or "").strip() == "$m"
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 2, column=6).value or "").strip()
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 3, column=6).value or "").strip()
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 5, column=6).value or "").strip()
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 6, column=6).value or "").strip()
+        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 6, column=6).number_format or "").strip() == "#,##0.0"
         expected_visible_frame_refs = {
-            177: 3,
-            178: 4,
-            179: 6,
-            180: 7,
+            visible_coproduct_header_row + 2: 3,
+            visible_coproduct_header_row + 3: 4,
+            visible_coproduct_header_row + 5: 6,
+            visible_coproduct_header_row + 6: 7,
         }
         frame_rows_by_col = {
             2: prior_frame_row,
@@ -10978,38 +11260,57 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
             for cc, frame_row_num in frame_rows_by_col.items():
                 expected_formula = f'=IF(ISNUMBER(Basis_Proxy_Sandbox!${get_column_letter(frame_value_col)}${frame_row_num}),Basis_Proxy_Sandbox!${get_column_letter(frame_value_col)}${frame_row_num},"")'
                 assert str(ws_overlay.cell(row=visible_row, column=cc).value or "").strip() == expected_formula
-        assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=177, column=11).value or "").lower()
-        assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=178, column=11).value or "").lower()
-        credit_per_gal_source_text = str(ws_overlay.cell(row=179, column=11).value or "").lower()
-        credit_usd_m_source_text = str(ws_overlay.cell(row=180, column=11).value or "").lower()
+        assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=visible_coproduct_header_row + 2, column=11).value or "").lower()
+        assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=visible_coproduct_header_row + 3, column=11).value or "").lower()
+        credit_per_gal_source_text = str(ws_overlay.cell(row=visible_coproduct_header_row + 5, column=11).value or "").lower()
+        credit_usd_m_source_text = str(ws_overlay.cell(row=visible_coproduct_header_row + 6, column=11).value or "").lower()
         assert "weighted sandbox build-up divided by ethanol yield" in credit_per_gal_source_text
-        assert "nwer-sufficient" in credit_per_gal_source_text
-        assert "nwer or ams 3618" in credit_per_gal_source_text
+        assert "source mode, coverage, and carry-forward rule" in credit_per_gal_source_text
         assert "frame-specific implied gallons basis" in credit_usd_m_source_text
-        assert "full-footprint approximation" in credit_usd_m_source_text
-        assert "blank when gallons basis is unavailable" in credit_usd_m_source_text
-        assert str(ws_overlay.cell(row=182, column=2).value or "").strip() == "Approximate coproduct credit ($/gal, quarterly history)"
-        assert str(ws_overlay.cell(row=203, column=2).value or "").strip() == "Recent coproduct history"
-        assert str(ws_overlay.cell(row=204, column=2).value or "").strip() == "Quarter"
-        assert str(ws_overlay.cell(row=204, column=4).value or "").strip() == "Approximate coproduct credit ($/gal)"
-        assert str(ws_overlay.cell(row=204, column=6).value or "").strip() == "Approximate coproduct credit ($m)"
-        assert str(ws_overlay.cell(row=204, column=8).value or "").strip() == "Coverage"
-        assert str(ws_overlay.cell(row=204, column=10).value or "").strip() == "Source mode"
-        assert str(ws_overlay.cell(row=214, column=2).value or "").strip() == "Coverage reflects covered active-capacity footprint; values are covered-footprint weighted averages."
+        coproduct_chart_title_row = _find_row_with_value(ws_overlay, "Approximate coproduct credit ($/gal, quarterly history)", column=2)
+        mini_history_title_row = _find_row_with_value(ws_overlay, "Coproduct credit", column=2)
+        assert coproduct_chart_title_row is not None and mini_history_title_row is not None
+        assert coproduct_chart_title_row > visible_coproduct_header_row
+        assert mini_history_title_row > coproduct_chart_title_row
+        assert str(ws_overlay.cell(row=mini_history_title_row + 1, column=2).value or "").strip() == "Quarter"
+        assert str(ws_overlay.cell(row=mini_history_title_row + 1, column=4).value or "").strip() == "$/gal"
+        assert str(ws_overlay.cell(row=mini_history_title_row + 1, column=6).value or "").strip() == "$m"
+        assert str(ws_overlay.cell(row=mini_history_title_row + 1, column=8).value or "").strip() == "Coverage"
+        assert str(ws_overlay.cell(row=mini_history_title_row + 1, column=10).value or "").strip() == "Source mode"
+        assert str(ws_overlay.cell(row=mini_history_title_row, column=13).value or "").strip() == "Corn oil prices"
+        assert str(ws_overlay.cell(row=mini_history_title_row + 1, column=13).value or "").strip() == "Quarter"
+        assert str(ws_overlay.cell(row=mini_history_title_row + 1, column=15).value or "").strip() == "$/lb"
+        assert str(ws_overlay.cell(row=mini_history_title_row + 1, column=17).value or "").strip() == "$/gal"
+        assert str(ws_overlay.cell(row=mini_history_title_row + 1, column=19).value or "").strip() == "$m proxy"
+        coverage_note_row = _find_row_with_value(
+            ws_overlay,
+            "Coverage reflects covered active-capacity footprint; values are covered-footprint weighted averages.",
+            column=2,
+        )
+        assert coverage_note_row is not None and coverage_note_row > mini_history_title_row
         mini_history_rows = [
             rr
-            for rr in range(205, 213)
-            if str(ws_overlay.cell(row=rr, column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$")
+            for rr in range(mini_history_title_row + 2, coverage_note_row)
+            if str(ws_overlay.cell(row=rr, column=4).value or "").strip()
         ]
-        assert len(mini_history_rows) == 8
-        latest_visible_history_row = history_rows[-1]
-        earliest_visible_history_row = history_rows[-8]
-        assert str(ws_overlay.cell(row=205, column=2).value or "").strip() == f"=Basis_Proxy_Sandbox!$B${latest_visible_history_row}"
-        assert str(ws_overlay.cell(row=212, column=2).value or "").strip() == f"=Basis_Proxy_Sandbox!$B${earliest_visible_history_row}"
-        assert str(ws_overlay.cell(row=205, column=8).value or "").strip() == f"=Basis_Proxy_Sandbox!$I${latest_visible_history_row}"
-        assert str(ws_overlay.cell(row=205, column=10).value or "").strip() == f"=Basis_Proxy_Sandbox!$H${latest_visible_history_row}"
-        assert str(ws_overlay.cell(row=212, column=8).value or "").strip() == f"=Basis_Proxy_Sandbox!$I${earliest_visible_history_row}"
-        assert str(ws_overlay.cell(row=212, column=10).value or "").strip() == f"=Basis_Proxy_Sandbox!$H${earliest_visible_history_row}"
+        assert len(mini_history_rows) >= 14
+        assert all(str(ws_overlay.cell(row=rr, column=13).value or "").strip() for rr in mini_history_rows)
+        assert any(pd.notna(pd.to_numeric(ws_overlay.cell(row=rr, column=15).value, errors="coerce")) for rr in mini_history_rows)
+        assert any(pd.notna(pd.to_numeric(ws_overlay.cell(row=rr, column=17).value, errors="coerce")) for rr in mini_history_rows)
+        assert any(pd.notna(pd.to_numeric(ws_overlay.cell(row=rr, column=19).value, errors="coerce")) for rr in mini_history_rows)
+        assert str(ws_overlay.cell(row=mini_history_rows[0], column=2).value or "").strip() == "2026-Q3"
+        assert str(ws_overlay.cell(row=mini_history_rows[-1], column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$")
+        q2_table_row = next(rr for rr in mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$150"))
+        q1_table_row = next(rr for rr in mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$149"))
+        q3_table_row = next(rr for rr in mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip() == "2026-Q3")
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q2_table_row, column=6).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q1_table_row, column=6).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q1_table_row, column=17).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q1_table_row, column=19).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q3_table_row, column=17).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q3_table_row, column=19).value, errors="coerce"))
+        assert str(ws_overlay.cell(row=mini_history_rows[0], column=6).number_format or "").strip() == "#,##0.0"
+        assert str(ws_overlay.cell(row=mini_history_rows[0], column=19).number_format or "").strip() == "#,##0.0"
         quarterly_helper_labels = [
             str(ws_overlay.cell(row=rr, column=45).value or "").strip()
             for rr in range(quarterly_chart_title_row + 1, quarterly_chart_title_row + 10)
@@ -11017,33 +11318,42 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         ]
         assert quarterly_helper_labels
         assert all(re.match(r"^20\d{2}-Q[1-4]$", label) for label in quarterly_helper_labels[:4])
-        assert len([
+        quarterly_helper_full_labels = [
             str(ws_overlay.cell(row=rr, column=45).value or "").strip()
             for rr in range(quarterly_chart_title_row + 1, ws_overlay.max_row + 1)
             if str(ws_overlay.cell(row=rr, column=45).value or "").strip()
-        ]) <= 12
+        ]
+        assert quarterly_helper_full_labels
+        assert "2026-Q3" in quarterly_helper_full_labels
+        assert len(quarterly_helper_full_labels) <= 15
+        assert [_quarter_label_ord(label) for label in quarterly_helper_full_labels] == sorted(
+            [_quarter_label_ord(label) for label in quarterly_helper_full_labels]
+        )
         coproduct_helper_labels = [
             str(ws_overlay.cell(row=rr, column=49).value or "").strip()
-            for rr in range(183, 195)
+            for rr in range(coproduct_chart_title_row + 1, mini_history_title_row)
             if str(ws_overlay.cell(row=rr, column=49).value or "").strip()
         ]
         assert coproduct_helper_labels
-        assert all(re.match(r"^20\d{2}-Q[1-4]$", label) for label in coproduct_helper_labels[:4])
+        assert all(re.match(r"^20\d{2}-Q[1-4]$", label) for label in coproduct_helper_labels[:5])
         assert "2026-Q1" in coproduct_helper_labels
         assert "2026-Q2" in coproduct_helper_labels
         assert "2026-Q3" in coproduct_helper_labels
         assert coproduct_helper_labels.index("2026-Q1") < coproduct_helper_labels.index("2026-Q2") < coproduct_helper_labels.index("2026-Q3")
-        assert len([
-            str(ws_overlay.cell(row=rr, column=49).value or "").strip()
-            for rr in range(183, ws_overlay.max_row + 1)
-            if str(ws_overlay.cell(row=rr, column=49).value or "").strip()
-        ]) <= 12
-        assert str(ws_overlay.cell(row=183, column=50).value or "").startswith("=Basis_Proxy_Sandbox!$F$")
-        coproduct_q1_helper_row = next(rr for rr in range(183, 200) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q1")
-        coproduct_q2_helper_row = next(rr for rr in range(183, 200) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q2")
-        coproduct_q3_helper_row = next(rr for rr in range(183, 200) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q3")
-        assert str(ws_overlay.cell(row=coproduct_q1_helper_row, column=50).value or "").strip() == f"=Basis_Proxy_Sandbox!$F${prior_frame_row}"
-        assert str(ws_overlay.cell(row=coproduct_q2_helper_row, column=50).value or "").strip() == f"=Basis_Proxy_Sandbox!$F${current_frame_row}"
+        assert len(coproduct_helper_labels) <= 15
+        assert [_quarter_label_ord(label) for label in coproduct_helper_labels] == sorted(
+            [_quarter_label_ord(label) for label in coproduct_helper_labels]
+        )
+        assert str(ws_overlay.cell(row=coproduct_chart_title_row + 1, column=50).value or "").startswith("=Basis_Proxy_Sandbox!$F$")
+        q1_history_row = _find_row_with_value(ws_basis, "2026-Q1", column=2)
+        q2_history_row = _find_row_with_value(ws_basis, "2026-Q2", column=2)
+        assert q1_history_row is not None
+        assert q2_history_row is not None
+        coproduct_q1_helper_row = next(rr for rr in range(coproduct_chart_title_row + 1, mini_history_title_row) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q1")
+        coproduct_q2_helper_row = next(rr for rr in range(coproduct_chart_title_row + 1, mini_history_title_row) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q2")
+        coproduct_q3_helper_row = next(rr for rr in range(coproduct_chart_title_row + 1, mini_history_title_row) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q3")
+        assert str(ws_overlay.cell(row=coproduct_q1_helper_row, column=50).value or "").strip() == f"=Basis_Proxy_Sandbox!$F${q1_history_row}"
+        assert str(ws_overlay.cell(row=coproduct_q2_helper_row, column=50).value or "").strip() == f"=Basis_Proxy_Sandbox!$F${q2_history_row}"
         assert str(ws_overlay.cell(row=coproduct_q3_helper_row, column=50).value or "").strip() == f"=Basis_Proxy_Sandbox!$F${next_frame_row}"
 
         ctx.wb.save(out_path)
@@ -11056,7 +11366,7 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         weekly_chart_xml = next(
             xml
             for xml in chart_xmls.values()
-            if "Simple crush margin proxy ($/gal)" in xml and "Next quarter thesis ($/gal)" in xml
+            if "Approximate market crush ($/gal)" in xml and "Next quarter outlook ($/gal)" in xml
         )
         quarterly_chart_xml = next(
             xml
@@ -11070,17 +11380,17 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
             and "'Economics_Overlay'!$AW$" in xml
             and 'legendPos val="t"' not in xml
         )
-        assert "Simple crush margin proxy ($/gal)" in weekly_chart_xml
+        assert "Approximate market crush ($/gal)" in weekly_chart_xml
         assert "Prior quarter ($/gal)" in weekly_chart_xml
         assert "Current QTD ($/gal)" in weekly_chart_xml
-        assert "Next quarter thesis ($/gal)" in weekly_chart_xml
+        assert "Next quarter outlook ($/gal)" in weekly_chart_xml
         assert "Quarter boundary" in weekly_chart_xml
         assert 'symbol val="diamond"' not in weekly_chart_xml
         assert "<lineChart>" in quarterly_chart_xml
         assert "'Economics_Overlay'!AT" in quarterly_chart_xml
         assert "'Economics_Overlay'!AU" in quarterly_chart_xml
         assert "'Economics_Overlay'!AV" in quarterly_chart_xml
-        assert "'Economics_Overlay'!BC" in quarterly_chart_xml
+        assert "'Economics_Overlay'!AW" in quarterly_chart_xml
         assert "'Economics_Overlay'!$AS$" in quarterly_chart_xml
         assert "<strRef>" in quarterly_chart_xml
         assert 'legendPos val="t"' in quarterly_chart_xml
@@ -11093,10 +11403,12 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert re.search(r"<catAx>.*?<delete val=\"0\"/>", quarterly_chart_xml)
         assert re.search(r"<catAx>.*?<auto val=\"0\"/>", quarterly_chart_xml)
         assert re.search(r"<catAx>.*?<axPos val=\"b\"/>", quarterly_chart_xml)
+        assert re.search(r"<catAx>[\s\S]*?<spPr>[\s\S]*?<a:noFill/>[\s\S]*?</spPr>", quarterly_chart_xml)
         assert re.search(r"<valAx>.*?<crosses val=\"min\"/>", quarterly_chart_xml)
-        assert re.search(r"<legendEntry>.*?<idx val=\"3\"/>.*?<delete val=\"1\"/>.*?</legendEntry>", quarterly_chart_xml)
+        assert "'Economics_Overlay'!BC" not in quarterly_chart_xml
+        assert "<legendEntry>" not in quarterly_chart_xml
         assert "Quarter boundary" not in quarterly_chart_xml
-        assert "Next quarter thesis ($/gal)" not in quarterly_chart_xml
+        assert "Next quarter outlook ($/gal)" not in quarterly_chart_xml
         assert "'Economics_Overlay'!$AX$" in coproduct_chart_xml
         assert "'Economics_Overlay'!$AW$" in coproduct_chart_xml
         assert "<strRef>" in coproduct_chart_xml
@@ -13052,8 +13364,8 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         forward_proxy_row = _find_row_with_value(ws, "Best forward lens ($/gal)", column=1)
         ethanol_input_row = _find_row_with_value(ws, "Ethanol price", column=1)
         sandbox_build_row = _find_row_with_value(ws_basis, "Approximate market crush build-up ($/gal)", column=2)
-        chart_title_row = _find_row_with_value(ws, "Simple crush margin proxy (weekly)", column=2)
-        quarterly_chart_title_row = _find_row_with_value(ws, "Approximate market crush vs Fitted models (quarterly)", column=2)
+        chart_title_row = _find_row_with_value(ws, "Approximate market crush (weekly)", column=2)
+        quarterly_chart_title_row = _find_row_with_value(ws, "Approximate market crush, fitted models, and real GPRE crush margin (quarterly)", column=2)
         quarter_compare_row = _find_row_with_value(ws, "Quarter comparisons ($/gal)", column=10)
         bridge_proxy_row = _find_row_with_value(ws, "Approximate market crush ($m)", column=1)
         bridge_gpre_row = _find_row_with_value(ws, "GPRE crush proxy ($m)", column=1)
@@ -13071,17 +13383,17 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         assert chart_title_row is not None and quarter_compare_row is not None
         assert float(ws.row_dimensions[101].height or 0.0) == pytest.approx(22.5, abs=0.1)
         assert float(ws.row_dimensions[106].height or 0.0) == pytest.approx(21.0, abs=0.1)
-        assert str(ws.cell(row=market_row + 3, column=4).value or "").strip() == "Quarter-open proxy"
+        assert str(ws.cell(row=market_row + 3, column=4).value or "").strip() == "Quarter-open outlook"
         assert str(ws.cell(row=market_row + 3, column=6).value or "").strip() == "Current QTD"
-        assert str(ws.cell(row=market_row + 3, column=8).value or "").strip() == "Next quarter thesis"
-        assert str(ws.cell(row=market_row + 4, column=4).value or "").strip() == "Manual for 2026-Q2"
+        assert str(ws.cell(row=market_row + 3, column=8).value or "").strip() == "Next quarter outlook"
+        assert str(ws.cell(row=market_row + 4, column=4).value or "").strip() == "As of 2026-03-31"
         assert str(ws_basis.cell(row=sandbox_build_row + 1, column=2).value or "").strip() == "Official simple row build-up used by Approximate market crush on Economics_Overlay."
         assert str(ws_basis.cell(row=sandbox_build_row + 2, column=3).value or "").strip() == "Prior quarter"
-        assert str(ws_basis.cell(row=sandbox_build_row + 2, column=5).value or "").strip() == "Quarter-open proxy"
+        assert str(ws_basis.cell(row=sandbox_build_row + 2, column=5).value or "").strip() == "Quarter-open outlook"
         assert str(ws_basis.cell(row=sandbox_build_row + 2, column=7).value or "").strip() == "Current QTD"
-        assert str(ws_basis.cell(row=sandbox_build_row + 2, column=9).value or "").strip() == "Next quarter thesis"
+        assert str(ws_basis.cell(row=sandbox_build_row + 2, column=9).value or "").strip() == "Next quarter outlook"
         assert str(ws_basis.cell(row=sandbox_build_row + 3, column=3).value or "").strip() == "2026-Q1"
-        assert str(ws_basis.cell(row=sandbox_build_row + 3, column=5).value or "").strip() == "Manual for 2026-Q2"
+        assert str(ws_basis.cell(row=sandbox_build_row + 3, column=5).value or "").strip() == "As of 2026-03-31"
         assert str(ws_basis.cell(row=sandbox_build_row + 3, column=7).value or "").strip().startswith("As of ")
         assert str(ws_basis.cell(row=sandbox_build_row + 3, column=9).value or "").strip() == "2026-Q3"
         sandbox_basis_snapshot_row = next(
@@ -13096,8 +13408,8 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         )
         assert str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=3).value or "").strip() == "AMS fallback"
         assert str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=5).value or "").strip() == "AMS fallback"
-        assert str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=7).value or "").strip() == "2026-04-10"
-        assert str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=9).value or "").strip() == "2026-04-10"
+        assert re.fullmatch(r"2026-04-\d{2}", str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=7).value or "").strip())
+        assert re.fullmatch(r"2026-04-\d{2}", str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=9).value or "").strip())
         assert str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=11).value or "").strip() == "date/text"
         assert "Retained GPRE corn-bid snapshot date used by the official corn-basis leg only" in str(
             ws_basis.cell(row=sandbox_basis_snapshot_row, column=12).value or ""
@@ -13128,18 +13440,18 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
             for rng in ws.merged_cells.ranges
         )
         assert _fill_rgb(ws.cell(row=proxy_table_row + 1, column=1)) == _fill_rgb(ws.cell(row=market_row + 1, column=1))
-        assert float(ws.row_dimensions[proxy_table_row + 1].height or 0.0) == pytest.approx(32.0, abs=0.1)
+        assert float(ws.row_dimensions[proxy_table_row + 1].height or 0.0) == pytest.approx(18.0, abs=0.1)
         assert str(ws.cell(row=proxy_table_row + 2, column=1).value or "").strip() == "Proxy row"
         assert str(ws.cell(row=proxy_table_row + 2, column=2).value or "").strip() == "Prior quarter"
-        assert str(ws.cell(row=proxy_table_row + 2, column=4).value or "").strip() == "Quarter-open proxy"
+        assert str(ws.cell(row=proxy_table_row + 2, column=4).value or "").strip() == "Quarter-open outlook"
         assert str(ws.cell(row=proxy_table_row + 2, column=6).value or "").strip() == "Current QTD"
-        assert str(ws.cell(row=proxy_table_row + 2, column=8).value or "").strip() == "Next quarter"
+        assert str(ws.cell(row=proxy_table_row + 2, column=8).value or "").strip() == "Next quarter outlook"
         assert fitted_proxy_row == official_proxy_row + 1
         assert forward_proxy_row == fitted_proxy_row + 1
         corn_source_text = str(ws.cell(row=corn_row, column=11).value or "")
-        assert "Quarter-open proxy uses local manual snapshot." in corn_source_text
+        assert "Quarter-open outlook uses local manual snapshot." in corn_source_text
         assert "Current QTD:" in corn_source_text
-        assert "Thesis uses live bids + AMS fallback." in corn_source_text
+        assert "Next quarter outlook uses live bids + AMS fallback." in corn_source_text
         assert bridge_gpre_row == bridge_proxy_row + 1
         assert bridge_forward_row == bridge_gpre_row + 1
         assert bridge_underlying_row == bridge_forward_row + 2
@@ -13221,7 +13533,7 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         weekly_chart_xml = next(
             xml
             for xml in chart_xmls.values()
-            if "Simple crush margin proxy ($/gal)" in xml and "Next quarter thesis ($/gal)" in xml
+            if "Approximate market crush ($/gal)" in xml and "Next quarter outlook ($/gal)" in xml
         )
         quarterly_chart_xml = next(
             xml
@@ -13230,10 +13542,10 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         )
         assert 'srgbClr val="00A0A0A0"' not in weekly_chart_xml
         assert 'srgbClr val="A0A0A0"' in weekly_chart_xml
-        assert "Simple crush margin proxy ($/gal)" in weekly_chart_xml
+        assert "Approximate market crush ($/gal)" in weekly_chart_xml
         assert "Prior quarter ($/gal)" in weekly_chart_xml
         assert "Current QTD ($/gal)" in weekly_chart_xml
-        assert "Next quarter thesis ($/gal)" in weekly_chart_xml
+        assert "Next quarter outlook ($/gal)" in weekly_chart_xml
         assert "Quarter boundary" in weekly_chart_xml
         assert 'symbol val="diamond"' not in weekly_chart_xml
         assert '<showSerName val="1"/>' in weekly_chart_xml
@@ -13244,6 +13556,7 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         assert "'Economics_Overlay'!AT" in quarterly_chart_xml
         assert "'Economics_Overlay'!AU" in quarterly_chart_xml
         assert "'Economics_Overlay'!AV" in quarterly_chart_xml
+        assert "'Economics_Overlay'!AW" in quarterly_chart_xml
         assert "'Economics_Overlay'!$AS$" in quarterly_chart_xml
         assert 'legendPos val="t"' in quarterly_chart_xml
         assert '<overlay val="1"/>' in quarterly_chart_xml
@@ -13259,13 +13572,17 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         assert "2026-Q3" in quarter_label_hits
         future_quarters = [
             str(ws.cell(row=rr, column=45).value or "").strip()
-            for rr in range(quarterly_chart_title_row + 1, quarterly_chart_title_row + 15)
+            for rr in range(quarterly_chart_title_row + 1, quarterly_chart_title_row + 20)
             if str(ws.cell(row=rr, column=45).value or "").strip()
         ]
         assert "2025-Q4" in future_quarters
         assert "2026-Q1" in future_quarters
         assert "2026-Q2" in future_quarters
         assert "2026-Q3" in future_quarters
+        assert len(future_quarters) <= 15
+        assert [_quarter_label_ord(label) for label in future_quarters] == sorted(
+            [_quarter_label_ord(label) for label in future_quarters]
+        )
         assert future_quarters.index("2025-Q4") < future_quarters.index("2026-Q1") < future_quarters.index("2026-Q2")
         q1_helper_row = next(rr for rr in range(quarterly_chart_title_row + 1, quarterly_chart_title_row + 20) if str(ws.cell(row=rr, column=45).value or "").strip() == "2026-Q1")
         q2_helper_row = next(rr for rr in range(quarterly_chart_title_row + 1, quarterly_chart_title_row + 20) if str(ws.cell(row=rr, column=45).value or "").strip() == "2026-Q2")
@@ -13279,9 +13596,9 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         assert str(ws.cell(row=q3_helper_row, column=46).value or "").strip() == f"=H{official_proxy_row}"
         assert str(ws.cell(row=q3_helper_row, column=47).value or "").strip() == f"=H{fitted_proxy_row}"
         assert str(ws.cell(row=q3_helper_row, column=48).value or "").strip() == f"=H{forward_proxy_row}"
-        assert float(pd.to_numeric(ws.cell(row=q1_helper_row, column=55).value, errors="coerce")) == pytest.approx(0.0, abs=1e-9)
-        assert float(pd.to_numeric(ws.cell(row=q2_helper_row, column=55).value, errors="coerce")) == pytest.approx(0.0, abs=1e-9)
-        assert float(pd.to_numeric(ws.cell(row=q3_helper_row, column=55).value, errors="coerce")) == pytest.approx(0.0, abs=1e-9)
+        assert pd.isna(pd.to_numeric(ws.cell(row=q1_helper_row, column=49).value, errors="coerce"))
+        assert pd.isna(pd.to_numeric(ws.cell(row=q2_helper_row, column=49).value, errors="coerce"))
+        assert pd.isna(pd.to_numeric(ws.cell(row=q3_helper_row, column=49).value, errors="coerce"))
     finally:
         wb.close()
 
@@ -13420,42 +13737,109 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         ]
         assert len(delivered_coproduct_experimental_status_rows) == 10
         assert all(str(ws_basis.cell(row=rr, column=12).value or "").strip() == "comparison only" for rr in delivered_coproduct_experimental_status_rows)
-        assert str(ws_overlay.cell(row=176, column=1).value or "").strip() == "Coproduct economics"
-        assert str(ws_overlay.cell(row=177, column=1).value or "").strip() == "Renewable corn oil price"
-        assert str(ws_overlay.cell(row=178, column=1).value or "").strip() == "Distillers grains price"
-        assert str(ws_overlay.cell(row=179, column=1).value or "").strip() == "Approximate coproduct credit ($/gal)"
-        assert str(ws_overlay.cell(row=180, column=1).value or "").strip() == "Approximate coproduct credit ($m)"
-        assert str(ws_overlay.cell(row=182, column=2).value or "").strip() == "Approximate coproduct credit ($/gal, quarterly history)"
-        assert str(ws_overlay.cell(row=203, column=2).value or "").strip() == "Recent coproduct history"
-        assert str(ws_overlay.cell(row=204, column=2).value or "").strip() == "Quarter"
-        assert str(ws_overlay.cell(row=204, column=4).value or "").strip() == "Approximate coproduct credit ($/gal)"
-        assert str(ws_overlay.cell(row=204, column=6).value or "").strip() == "Approximate coproduct credit ($m)"
-        assert str(ws_overlay.cell(row=204, column=8).value or "").strip() == "Coverage"
-        assert str(ws_overlay.cell(row=204, column=10).value or "").strip() == "Source mode"
-        assert str(ws_overlay.cell(row=214, column=2).value or "").strip() == "Coverage reflects covered active-capacity footprint; values are covered-footprint weighted averages."
-        assert str(ws_overlay.cell(row=177, column=6).value or "").strip()
-        assert str(ws_overlay.cell(row=178, column=6).value or "").strip()
-        assert str(ws_overlay.cell(row=179, column=6).value or "").strip()
-        assert str(ws_overlay.cell(row=180, column=6).value or "").strip()
+        delivered_qtd_tracking_title_row = _find_row_with_value(ws_overlay, "Current QTD trend tracking ($/gal, crush margin lens)", column=1)
+        assert delivered_qtd_tracking_title_row is not None
+        _assert_gpre_qtd_tracking_upper_block_dynamic(ws_overlay)
+        assert _find_row_with_value(ws_overlay, "Ethanol", column=1) is not None
+        assert _find_row_with_value(ws_overlay, "Flat corn", column=1) is not None
+        assert _find_row_with_value(ws_overlay, "Corn basis", column=1) is not None
+        assert _find_row_with_value(ws_overlay, "Gas", column=1) is not None
+        delivered_coproducts_row = _find_row_with_value(ws_overlay, "Coproducts", column=1)
+        assert delivered_coproducts_row == delivered_qtd_tracking_title_row + 14
+        assert _find_row_with_value(ws_overlay, "Residual", column=1) is None
+        assert _find_row_containing(
+            ws_overlay,
+            "Same-point-last-quarter is intentionally not a primary tracking metric here",
+            column=2,
+        ) is None
+        assert ws_overlay.row_dimensions[82].height == pytest.approx(18.0, abs=0.01)
+        assert ws_overlay.row_dimensions[107].height == pytest.approx(18.0, abs=0.01)
+        assert ws_overlay.row_dimensions[122].height == pytest.approx(18.0, abs=0.01)
+        assert ws_overlay.row_dimensions[delivered_qtd_tracking_title_row + 13].height == pytest.approx(15.0, abs=0.01)
+        basis_weighting_row = _find_row_with_value(ws_overlay, "Basis weighting", column=1)
+        assert basis_weighting_row is not None
+        assert str(ws_overlay.cell(row=basis_weighting_row, column=2).value or "").strip() == (
+            "Official corn basis prefers dated GPRE plant bids when available; otherwise it falls back to "
+            "active-capacity-weighted AMS basis using mapped state/regional series and deterministic fallbacks"
+        )
+        assert ws_overlay.row_dimensions[delivered_coproducts_row].height == pytest.approx(18.0, abs=0.01)
+        assert str(ws_overlay.cell(row=delivered_coproducts_row, column=1).fill.fgColor.rgb or "").strip().upper() == str(ws_overlay.cell(row=delivered_qtd_tracking_title_row, column=1).fill.fgColor.rgb or "").strip().upper()
+        assert ws_overlay.row_dimensions[delivered_coproducts_row + 5].height == pytest.approx(8.0, abs=0.01)
+        assert str(ws_overlay.cell(row=delivered_coproducts_row + 5, column=1).value or "").strip() == ""
+        assert str(ws_overlay.cell(row=delivered_coproducts_row + 5, column=1).fill.fgColor.rgb or "").strip().upper() == str(ws_overlay.cell(row=delivered_qtd_tracking_title_row + 4, column=2).fill.fgColor.rgb or "").strip().upper()
+        delivered_coproduct_header_row = _find_row_with_value(ws_overlay, "Coproduct economics", column=1)
+        assert delivered_coproduct_header_row is not None and delivered_coproduct_header_row > delivered_qtd_tracking_title_row
+        assert delivered_coproduct_header_row == delivered_coproducts_row + 1
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 1, column=2).value or "").strip() == "2026-Q1"
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 1, column=4).value or "").strip() == "As of 2026-03-31"
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 1, column=6).value or "").strip().startswith("As of 2026-04-")
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 1, column=8).value or "").strip() == "2026-Q3"
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 2, column=1).value or "").strip() == "Renewable corn oil price"
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 3, column=1).value or "").strip() == "Distillers grains price"
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 4, column=1).value or "").strip() == ""
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 5, column=1).value or "").strip() == "Approximate coproduct credit ($/gal)"
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 6, column=1).value or "").strip() == "Approximate coproduct credit ($m)"
+        delivered_coproduct_chart_title_row = _find_row_with_value(ws_overlay, "Approximate coproduct credit ($/gal, quarterly history)", column=2)
+        delivered_mini_history_title_row = _find_row_with_value(ws_overlay, "Coproduct credit", column=2)
+        assert delivered_coproduct_chart_title_row is not None
+        assert delivered_mini_history_title_row is not None
+        assert str(ws_overlay.cell(row=delivered_mini_history_title_row + 1, column=2).value or "").strip() == "Quarter"
+        assert str(ws_overlay.cell(row=delivered_mini_history_title_row + 1, column=4).value or "").strip() == "$/gal"
+        assert str(ws_overlay.cell(row=delivered_mini_history_title_row + 1, column=6).value or "").strip() == "$m"
+        assert str(ws_overlay.cell(row=delivered_mini_history_title_row + 1, column=8).value or "").strip() == "Coverage"
+        assert str(ws_overlay.cell(row=delivered_mini_history_title_row + 1, column=10).value or "").strip() == "Source mode"
+        assert str(ws_overlay.cell(row=delivered_mini_history_title_row, column=13).value or "").strip() == "Corn oil prices"
+        assert str(ws_overlay.cell(row=delivered_mini_history_title_row + 1, column=13).value or "").strip() == "Quarter"
+        assert str(ws_overlay.cell(row=delivered_mini_history_title_row + 1, column=15).value or "").strip() == "$/lb"
+        assert str(ws_overlay.cell(row=delivered_mini_history_title_row + 1, column=17).value or "").strip() == "$/gal"
+        assert str(ws_overlay.cell(row=delivered_mini_history_title_row + 1, column=19).value or "").strip() == "$m proxy"
+        delivered_coverage_note_row = _find_row_with_value(
+            ws_overlay,
+            "Coverage reflects covered active-capacity footprint; values are covered-footprint weighted averages.",
+            column=2,
+        )
+        assert delivered_coverage_note_row is not None
+        delivered_mini_history_rows = [
+            rr
+            for rr in range(delivered_mini_history_title_row + 2, delivered_coverage_note_row)
+            if str(ws_overlay.cell(row=rr, column=4).value or "").strip()
+        ]
+        assert len(delivered_mini_history_rows) >= 14
+        assert all(str(ws_overlay.cell(row=rr, column=13).value or "").strip() for rr in delivered_mini_history_rows)
+        assert any(pd.notna(pd.to_numeric(ws_overlay.cell(row=rr, column=15).value, errors="coerce")) for rr in delivered_mini_history_rows)
+        assert any(pd.notna(pd.to_numeric(ws_overlay.cell(row=rr, column=17).value, errors="coerce")) for rr in delivered_mini_history_rows)
+        assert any(pd.notna(pd.to_numeric(ws_overlay.cell(row=rr, column=19).value, errors="coerce")) for rr in delivered_mini_history_rows)
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 2, column=6).value or "").strip()
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 3, column=6).value or "").strip()
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 5, column=6).value or "").strip()
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 6, column=6).value or "").strip()
+        assert str(ws_overlay.cell(row=delivered_coproduct_header_row + 6, column=6).number_format or "").strip() == "#,##0.0"
         delivered_coproduct_helper_labels = [
             str(ws_overlay.cell(row=rr, column=49).value or "").strip()
-            for rr in range(183, 195)
+            for rr in range(delivered_coproduct_chart_title_row + 1, delivered_mini_history_title_row)
             if str(ws_overlay.cell(row=rr, column=49).value or "").strip()
         ]
         assert "2026-Q1" in delivered_coproduct_helper_labels
         assert "2026-Q2" in delivered_coproduct_helper_labels
         assert "2026-Q3" in delivered_coproduct_helper_labels
         assert delivered_coproduct_helper_labels.index("2026-Q1") < delivered_coproduct_helper_labels.index("2026-Q2") < delivered_coproduct_helper_labels.index("2026-Q3")
+        assert len(delivered_coproduct_helper_labels) <= 15
+        assert [_quarter_label_ord(label) for label in delivered_coproduct_helper_labels] == sorted(
+            [_quarter_label_ord(label) for label in delivered_coproduct_helper_labels]
+        )
         assert len(ws_overlay._charts) == 3
         prior_frame_row = _find_row_with_value(ws_basis, "Prior quarter", column=2)
-        quarter_open_frame_row = _find_row_with_value(ws_basis, "Quarter-open proxy", column=2)
-        next_frame_row = _find_row_with_value(ws_basis, "Next quarter thesis", column=2)
+        quarter_open_frame_row = _find_row_with_value(ws_basis, "Quarter-open outlook", column=2)
+        next_frame_row = _find_row_with_value(ws_basis, "Next quarter outlook", column=2)
+        delivered_q1_history_row = _find_row_with_value(ws_basis, "2026-Q1", column=2)
+        delivered_q2_history_row = _find_row_with_value(ws_basis, "2026-Q2", column=2)
         assert prior_frame_row is not None and quarter_open_frame_row is not None and current_frame_row is not None and next_frame_row is not None
+        assert delivered_q1_history_row is not None and delivered_q2_history_row is not None
         expected_visible_frame_refs = {
-            177: 3,
-            178: 4,
-            179: 6,
-            180: 7,
+            delivered_coproduct_header_row + 2: 3,
+            delivered_coproduct_header_row + 3: 4,
+            delivered_coproduct_header_row + 5: 6,
+            delivered_coproduct_header_row + 6: 7,
         }
         frame_rows_by_col = {
             2: prior_frame_row,
@@ -13467,29 +13851,30 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
             for cc, frame_row_num in frame_rows_by_col.items():
                 expected_formula = f'=IF(ISNUMBER(Basis_Proxy_Sandbox!${get_column_letter(frame_value_col)}${frame_row_num}),Basis_Proxy_Sandbox!${get_column_letter(frame_value_col)}${frame_row_num},"")'
                 assert str(ws_overlay.cell(row=visible_row, column=cc).value or "").strip() == expected_formula
-        delivered_coproduct_q1_helper_row = next(rr for rr in range(183, 195) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q1")
-        delivered_coproduct_q2_helper_row = next(rr for rr in range(183, 195) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q2")
-        delivered_coproduct_q3_helper_row = next(rr for rr in range(183, 195) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q3")
-        assert str(ws_overlay.cell(row=delivered_coproduct_q1_helper_row, column=50).value or "").strip() == f"=Basis_Proxy_Sandbox!$F${prior_frame_row}"
-        assert str(ws_overlay.cell(row=delivered_coproduct_q2_helper_row, column=50).value or "").strip() == f"=Basis_Proxy_Sandbox!$F${current_frame_row}"
+        delivered_coproduct_q1_helper_row = next(rr for rr in range(delivered_coproduct_chart_title_row + 1, delivered_mini_history_title_row) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q1")
+        delivered_coproduct_q2_helper_row = next(rr for rr in range(delivered_coproduct_chart_title_row + 1, delivered_mini_history_title_row) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q2")
+        delivered_coproduct_q3_helper_row = next(rr for rr in range(delivered_coproduct_chart_title_row + 1, delivered_mini_history_title_row) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q3")
+        assert str(ws_overlay.cell(row=delivered_coproduct_q1_helper_row, column=50).value or "").strip() == f"=Basis_Proxy_Sandbox!$F${delivered_q1_history_row}"
+        assert str(ws_overlay.cell(row=delivered_coproduct_q2_helper_row, column=50).value or "").strip() == f"=Basis_Proxy_Sandbox!$F${delivered_q2_history_row}"
         assert str(ws_overlay.cell(row=delivered_coproduct_q3_helper_row, column=50).value or "").strip() == f"=Basis_Proxy_Sandbox!$F${next_frame_row}"
-        assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=177, column=11).value or "").lower()
-        assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=178, column=11).value or "").lower()
-        assert "weighted sandbox build-up divided by ethanol yield" in str(ws_overlay.cell(row=179, column=11).value or "").lower()
-        assert "nwer-sufficient" in str(ws_overlay.cell(row=179, column=11).value or "").lower()
-        assert "nwer or ams 3618" in str(ws_overlay.cell(row=179, column=11).value or "").lower()
-        assert "frame-specific implied gallons basis" in str(ws_overlay.cell(row=180, column=11).value or "").lower()
-        assert "full-footprint approximation" in str(ws_overlay.cell(row=180, column=11).value or "").lower()
-        delivered_mini_history_rows = [
-            rr
-            for rr in range(205, 213)
-            if str(ws_overlay.cell(row=rr, column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$")
-        ]
-        assert len(delivered_mini_history_rows) == 8
-        assert str(ws_overlay.cell(row=205, column=2).value or "").strip() == f"=Basis_Proxy_Sandbox!$B${delivered_history_rows[-1]}"
-        assert str(ws_overlay.cell(row=212, column=2).value or "").strip() == f"=Basis_Proxy_Sandbox!$B${delivered_history_rows[-8]}"
-        assert str(ws_overlay.cell(row=205, column=8).value or "").strip() == f"=Basis_Proxy_Sandbox!$I${delivered_history_rows[-1]}"
-        assert str(ws_overlay.cell(row=205, column=10).value or "").strip() == f"=Basis_Proxy_Sandbox!$H${delivered_history_rows[-1]}"
+        assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 2, column=11).value or "").lower()
+        assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 3, column=11).value or "").lower()
+        assert "weighted sandbox build-up divided by ethanol yield" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 5, column=11).value or "").lower()
+        assert "source mode, coverage, and carry-forward rule" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 5, column=11).value or "").lower()
+        assert "frame-specific implied gallons basis" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 6, column=11).value or "").lower()
+        assert str(ws_overlay.cell(row=delivered_mini_history_rows[0], column=2).value or "").strip() == "2026-Q3"
+        assert str(ws_overlay.cell(row=delivered_mini_history_rows[-1], column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$")
+        delivered_q2_table_row = next(rr for rr in delivered_mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$150"))
+        delivered_q1_table_row = next(rr for rr in delivered_mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$149"))
+        delivered_q3_table_row = next(rr for rr in delivered_mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip() == "2026-Q3")
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q2_table_row, column=6).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q1_table_row, column=6).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q1_table_row, column=17).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q1_table_row, column=19).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q3_table_row, column=17).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q3_table_row, column=19).value, errors="coerce"))
+        assert str(ws_overlay.cell(row=delivered_mini_history_rows[0], column=6).number_format or "").strip() == "#,##0.0"
+        assert str(ws_overlay.cell(row=delivered_mini_history_rows[0], column=19).number_format or "").strip() == "#,##0.0"
 
         build_labels = [
             str(ws_basis.cell(row=rr, column=2).value or "").strip()
@@ -13531,11 +13916,11 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         assert str(ws_overlay.cell(row=fitted_bridge_row, column=14).value or "").strip() == (
             f'=IF(AND(ISNUMBER(B{fitted_proxy_row}),ISNUMBER(N{helper_gallons_row})),B{fitted_proxy_row}*N{helper_gallons_row},"")'
         )
-        weekly_chart_title_row = _find_row_with_value(ws_overlay, "Simple crush margin proxy (weekly)", column=2)
+        weekly_chart_title_row = _find_row_with_value(ws_overlay, "Approximate market crush (weekly)", column=2)
         assert weekly_chart_title_row is not None
         assert str(ws_overlay.cell(row=weekly_chart_title_row + 1, column=42).value or "").strip() == f"=IF(ISNUMBER(B{official_proxy_row}),B{official_proxy_row},NA())"
         assert str(ws_overlay.cell(row=weekly_chart_title_row + 1, column=44).value or "").strip() == f"=IF(ISNUMBER(F{official_proxy_row}),F{official_proxy_row},NA())"
-        assert "Basis_Proxy_Sandbox!$I$" in str(ws_overlay.cell(row=_find_row_with_value(ws_overlay, "Simple crush margin proxy (weekly)", column=2) + 1, column=40).value or "")
+        assert "Basis_Proxy_Sandbox!$I$" in str(ws_overlay.cell(row=_find_row_with_value(ws_overlay, "Approximate market crush (weekly)", column=2) + 1, column=40).value or "")
         relevant_formula_texts = [
             str(cell.value or "").strip()
             for row in ws_overlay.iter_rows(min_row=max(1, official_proxy_row - 2), max_row=ws_overlay.max_row, min_col=1, max_col=26)
@@ -13723,8 +14108,9 @@ def test_current_delivered_gpre_workbook_shows_proxy_implied_results_bridge_pane
             )
         )
 
-        panel_title_row = int(bridge_row) + 2
-        panel_header_row = int(bridge_row) + 3
+        panel_title_row = int(bridge_row) + 1
+        panel_header_row = int(bridge_row) + 2
+        panel_subheader_row = int(bridge_row) + 3
         helper_gallons_row = int(underlying_bridge_row)
         helper_basis_row = int(reported_bridge_row)
         frame_start_cols = {
@@ -13734,6 +14120,8 @@ def test_current_delivered_gpre_workbook_shows_proxy_implied_results_bridge_pane
             "next_quarter_thesis": 20,
         }
 
+        assert any(m.min_row == panel_title_row and m.min_col == 1 and m.max_col == 13 for m in ws.merged_cells.ranges)
+        assert str(ws.cell(row=panel_title_row, column=1).value or "").strip().startswith("Approximate market crush shows simple weighted market/process conditions")
         assert str(ws.cell(row=panel_title_row, column=14).value or "").strip() == "Proxy-implied results ($m)"
         panel_title_comment = ws.cell(row=panel_title_row, column=15).comment
         if panel_title_comment is None:
@@ -13749,10 +14137,19 @@ def test_current_delivered_gpre_workbook_shows_proxy_implied_results_bridge_pane
         assert any(m.min_row == panel_header_row and m.min_col == 20 and m.max_col == 21 for m in ws.merged_cells.ranges)
         assert [str(ws.cell(row=panel_header_row, column=cc).value or "").strip() for cc in (14, 16, 18, 20)] == [
             "Prior quarter",
-            "Quarter-open proxy",
+            "Quarter-open outlook",
             "Current QTD",
-            "Next quarter thesis",
+            "Next quarter outlook",
         ]
+        assert any(m.min_row == panel_subheader_row and m.min_col == 14 and m.max_col == 15 for m in ws.merged_cells.ranges)
+        assert any(m.min_row == panel_subheader_row and m.min_col == 16 and m.max_col == 17 for m in ws.merged_cells.ranges)
+        assert any(m.min_row == panel_subheader_row and m.min_col == 18 and m.max_col == 19 for m in ws.merged_cells.ranges)
+        assert any(m.min_row == panel_subheader_row and m.min_col == 20 and m.max_col == 21 for m in ws.merged_cells.ranges)
+        panel_subheaders = [str(ws.cell(row=panel_subheader_row, column=cc).value or "").strip() for cc in (14, 16, 18, 20)]
+        assert panel_subheaders[0] == "2026-Q1"
+        assert panel_subheaders[1] == "As of 2026-03-31"
+        assert panel_subheaders[2].startswith("As of 2026-04-")
+        assert panel_subheaders[3] == "2026-Q3"
 
         assert str(ws.cell(row=helper_gallons_row, column=22).value or "").strip() == "Implied gallons assumption"
         assert any(m.min_row == helper_gallons_row and m.min_col == 22 and m.max_col == 24 for m in ws.merged_cells.ranges)
@@ -13801,7 +14198,7 @@ def test_current_delivered_gpre_workbook_shows_proxy_implied_results_bridge_pane
             assert str(ws.cell(row=helper_gallons_row, column=cc).value or "").strip() != "0.0"
         assert str(ws.cell(row=helper_gallons_row, column=37).value or "").strip() == ""
         assert str(ws.cell(row=helper_basis_row, column=37).value or "").strip() == ""
-        legacy_helper_labels = {"Prior quarter", "Quarter-open proxy", "Current QTD", "Next quarter thesis"}
+        legacy_helper_labels = {"Prior quarter", "Quarter-open outlook", "Current QTD", "Next quarter outlook"}
         for rr in range(helper_gallons_row, helper_basis_row + 1):
             assert str(ws.cell(row=rr, column=37).value or "").strip() not in legacy_helper_labels
             assert str(ws.cell(row=rr, column=45).value or "").strip() not in legacy_helper_labels
@@ -14128,7 +14525,7 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         ws_overlay = wb_gpre["Economics_Overlay"]
         proxy_table_row = _find_row_with_value(ws_overlay, "Proxy comparison ($/gal)", column=1)
         bridge_row = _find_row_with_value(ws_overlay, "Bridge to reported", column=1)
-        quarterly_chart_title_row = _find_row_with_value(ws_overlay, "Approximate market crush vs Fitted models (quarterly)", column=2)
+        quarterly_chart_title_row = _find_row_with_value(ws_overlay, "Approximate market crush, fitted models, and real GPRE crush margin (quarterly)", column=2)
         best_forward_role_row = _find_row_with_value(ws_basis, "Best forward lens", column=21)
         assert proxy_table_row is not None
         assert bridge_row is not None
@@ -14172,10 +14569,10 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert "<dLbls>" in quarterly_chart_xml
         assert '<showLegendKey val="1"/>' not in quarterly_chart_xml
         assert '<dLblPos val="r"/>' in quarterly_chart_xml
-        assert "'Economics_Overlay'!BC" in quarterly_chart_xml
+        assert "'Economics_Overlay'!BC" not in quarterly_chart_xml
         assert re.search(r"<catAx>.*?<axPos val=\"b\"/>", quarterly_chart_xml)
         assert re.search(r"<valAx>.*?<crosses val=\"min\"/>", quarterly_chart_xml)
-        assert re.search(r"<legendEntry>.*?<idx val=\"3\"/>.*?<delete val=\"1\"/>.*?</legendEntry>", quarterly_chart_xml)
+        assert "<legendEntry>" not in quarterly_chart_xml
         assert "'Economics_Overlay'!$AW$" in coproduct_chart_xml
         assert "<dLbls>" in coproduct_chart_xml
         assert '<showLegendKey val="1"/>' not in coproduct_chart_xml
@@ -14374,17 +14771,17 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert str(ws_overlay.cell(row=base_row + 3, column=4).value or "").strip() == "Status"
         assert str(ws_overlay.cell(row=base_row + 3, column=9).value or "").strip() == "Coverage / note"
         market_intro_text = str(ws_overlay.cell(row=market_row + 1, column=1).value or "").strip()
-        assert market_intro_text == "Prior quarter and Current QTD use observed market data | Quarter-open proxy is current quarter based on futures prices before the quarter started | Next quarter thesis is current futures prices for next quarter."
+        assert market_intro_text == "Prior quarter and Current QTD use observed market data | Quarter-open outlook is current quarter based on futures prices before the quarter started | Next quarter outlook is current futures prices for next quarter."
         assert str(ws_overlay.cell(row=market_row + 3, column=1).value or "").strip() == "Input"
         assert str(ws_overlay.cell(row=market_row + 3, column=2).value or "").strip() == "Prior quarter"
-        assert str(ws_overlay.cell(row=market_row + 3, column=4).value or "").strip() == "Quarter-open proxy"
+        assert str(ws_overlay.cell(row=market_row + 3, column=4).value or "").strip() == "Quarter-open outlook"
         assert str(ws_overlay.cell(row=market_row + 3, column=6).value or "").strip() == "Current QTD"
-        assert str(ws_overlay.cell(row=market_row + 3, column=8).value or "").strip() == "Next quarter thesis"
+        assert str(ws_overlay.cell(row=market_row + 3, column=8).value or "").strip() == "Next quarter outlook"
         assert str(ws_overlay.cell(row=market_row + 3, column=11).value or "").strip() == "Source"
         for cc in (2, 4, 6, 8, 10, 11):
             assert str(getattr(ws_overlay.cell(row=market_row + 3, column=cc).alignment, "horizontal", "") or "") == "center"
         assert str(ws_overlay.cell(row=market_row + 4, column=2).value or "").strip() == "2026-Q1"
-        assert str(ws_overlay.cell(row=market_row + 4, column=4).value or "").strip() == "Manual for 2026-Q2"
+        assert str(ws_overlay.cell(row=market_row + 4, column=4).value or "").strip() == "As of 2026-03-31"
         assert str(ws_overlay.cell(row=market_row + 4, column=6).value or "").strip().startswith("As of ")
         assert str(ws_overlay.cell(row=market_row + 4, column=8).value or "").strip() == "2026-Q3"
         merged_ranges = {str(rng) for rng in ws_overlay.merged_cells.ranges}
@@ -14403,13 +14800,13 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert str(ws_basis.cell(row=sandbox_build_row + 1, column=2).value or "").strip() == "Official simple row build-up used by Approximate market crush on Economics_Overlay."
         assert str(ws_basis.cell(row=sandbox_build_row + 2, column=2).value or "").strip() == "Line item"
         assert str(ws_basis.cell(row=sandbox_build_row + 2, column=3).value or "").strip() == "Prior quarter"
-        assert str(ws_basis.cell(row=sandbox_build_row + 2, column=5).value or "").strip() == "Quarter-open proxy"
+        assert str(ws_basis.cell(row=sandbox_build_row + 2, column=5).value or "").strip() == "Quarter-open outlook"
         assert str(ws_basis.cell(row=sandbox_build_row + 2, column=7).value or "").strip() == "Current QTD"
-        assert str(ws_basis.cell(row=sandbox_build_row + 2, column=9).value or "").strip() == "Next quarter thesis"
+        assert str(ws_basis.cell(row=sandbox_build_row + 2, column=9).value or "").strip() == "Next quarter outlook"
         for cc in (3, 5, 7, 9, 11, 12):
             assert str(getattr(ws_basis.cell(row=sandbox_build_row + 2, column=cc).alignment, "horizontal", "") or "") == "center"
         assert str(ws_basis.cell(row=sandbox_build_row + 3, column=3).value or "").strip() == "2026-Q1"
-        assert str(ws_basis.cell(row=sandbox_build_row + 3, column=5).value or "").strip() == "Manual for 2026-Q2"
+        assert str(ws_basis.cell(row=sandbox_build_row + 3, column=5).value or "").strip() == "As of 2026-03-31"
         assert str(ws_basis.cell(row=sandbox_build_row + 3, column=7).value or "").strip().startswith("As of ")
         assert str(ws_basis.cell(row=sandbox_build_row + 3, column=9).value or "").strip() == "2026-Q3"
         sandbox_basis_snapshot_row = next(
@@ -14517,7 +14914,10 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert f"A{official_model_row}:Q{official_model_row}" in merged_ranges
         official_model_text = str(ws_overlay.cell(row=official_model_row, column=1).value or "").strip()
         assert official_model_text.endswith(".")
-        assert "including historical quarters with retained snapshots" in official_model_text
+        assert official_model_text == (
+            "Official corn basis prefers dated GPRE plant bids when available; otherwise it falls back to "
+            "active-capacity-weighted AMS basis using mapped state/regional series and deterministic fallbacks."
+        )
         assert "active-capacity-weighted AMS basis" in official_model_text
         assert _fill_rgb(ws_overlay.cell(row=official_model_row, column=1)) in {"00EDF4FA", "00EAF3FB"}
         electricity_row = _find_row_with_value(ws_overlay, "Electricity usage", column=1)
@@ -14549,14 +14949,14 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert corn_price_row is not None and ethanol_price_row is not None and gas_price_row is not None
         assert corn_price_row < gas_price_row < ethanol_price_row
         corn_source_text = str(ws_overlay.cell(row=corn_price_row, column=11).value or "")
-        assert "Quarter-open proxy uses local manual snapshot." in corn_source_text
+        assert "Quarter-open outlook uses local manual snapshot." in corn_source_text
         assert "Current QTD:" in corn_source_text
-        assert "Thesis uses live bids + AMS fallback." in corn_source_text
-        assert "Thesis uses NYMEX futures." in str(ws_overlay.cell(row=gas_price_row, column=11).value or "")
+        assert "Next quarter outlook uses live bids + AMS fallback." in corn_source_text
+        assert "Next quarter outlook uses NYMEX futures." in str(ws_overlay.cell(row=gas_price_row, column=11).value or "")
         ethanol_source_text = str(ws_overlay.cell(row=ethanol_price_row, column=11).value or "")
         assert (
-            "Thesis uses local Chicago ethanol futures strip." in ethanol_source_text
-            or "Thesis ethanol unavailable." in ethanol_source_text
+            "Next quarter outlook uses local Chicago ethanol futures strip." in ethanol_source_text
+            or "Next quarter outlook ethanol unavailable." in ethanol_source_text
         )
         assert pd.notna(pd.to_numeric(ws_overlay.cell(row=corn_price_row, column=2).value, errors="coerce"))
         assert pd.notna(pd.to_numeric(ws_overlay.cell(row=corn_price_row, column=4).value, errors="coerce"))
@@ -14604,8 +15004,8 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
                 rows_overlap = not (left.max_row < right.min_row or right.max_row < left.min_row)
                 cols_overlap = not (left.max_col < right.min_col or right.max_col < left.min_col)
                 assert not (rows_overlap and cols_overlap), f"Overlapping merged ranges found: {left} vs {right}"
-        chart_title_row = _find_row_with_value(ws_overlay, "Simple crush margin proxy (weekly)", column=2)
-        quarterly_chart_title_row = _find_row_with_value(ws_overlay, "Approximate market crush vs Fitted models (quarterly)", column=2)
+        chart_title_row = _find_row_with_value(ws_overlay, "Approximate market crush (weekly)", column=2)
+        quarterly_chart_title_row = _find_row_with_value(ws_overlay, "Approximate market crush, fitted models, and real GPRE crush margin (quarterly)", column=2)
         assert chart_title_row is not None
         assert chart_title_row > simple_crush_row
         assert chart_title_row != 100
@@ -14631,10 +15031,10 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert '<scatterChart>' in chart_xml
         assert '<axPos val="b"/>' in chart_xml
         assert 'rot="-2700000"' not in chart_xml
-        assert 'Simple crush margin proxy ($/gal)' in chart_xml
+        assert 'Approximate market crush ($/gal)' in chart_xml
         assert 'Prior quarter ($/gal)' in chart_xml
         assert 'Current QTD ($/gal)' in chart_xml
-        assert 'Next quarter thesis ($/gal)' in chart_xml
+        assert 'Next quarter outlook ($/gal)' in chart_xml
         assert '<a:prstDash val="sysDash"/>' in chart_xml
         assert '<c:marker>' in chart_xml or '<marker>' in chart_xml
         thesis_helper_dates = [ws_overlay.cell(row=rr, column=25).value for rr in (chart_title_row + 1, chart_title_row + 2, chart_title_row + 3)]
@@ -14732,6 +15132,7 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert "preview max error" in str(ws_basis["U5"].value or "").lower()
         assert "hard-quarter" in str(ws_basis["U5"].value or "").lower()
         assert "underlying" in str(ws_basis["U5"].value or "").lower()
+        assert "Realized GPRE crush margin uses reported consolidated before 2025-Q2 and underlying from 2025-Q2 onward." in str(ws_basis["U13"].value or "")
         role_summary_title_row = _find_row_with_value(ws_basis, "Role summary", column=21)
         winner_story_title_row = _find_row_with_value(ws_basis, "Winner story", column=21)
         assert role_summary_title_row is not None

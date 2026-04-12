@@ -1,4 +1,4 @@
-# GPRE Economics Overlay
+﻿# GPRE Economics Overlay
 
 ## Purpose
 This note documents the current `GPRE` economics-overlay workflow so ethanol futures, quarter-open fallback behavior, and crush-proxy expectations are explicit in one place.
@@ -23,7 +23,7 @@ It does **not** own:
 ### Product rule
 - dated GPRE corn-bid snapshots are no longer only a current / forward convenience
 - if a usable dated GPRE snapshot exists for the relevant quarter or frame, the official corn-basis path should keep using it even after that quarter rolls from:
-  - `next quarter thesis`
+  - `next quarter outlook`
   - to `current`
   - to `prior quarter`
   - to historical quarterly rows
@@ -32,9 +32,9 @@ It does **not** own:
 ### Snapshot selection policy
 - `Current QTD`
   - latest usable GPRE snapshot on or before `as_of_date`
-- `Quarter-open proxy`
+- `Quarter-open outlook`
   - latest usable GPRE snapshot on or before quarter start, while preserving the established freeze/open policy where that policy already exists
-- `Next quarter thesis`
+- `Next quarter outlook`
   - latest usable GPRE snapshot on or before `as_of_date` that still contains forward-delivery rows for the target quarter
 - `Prior quarter`
   - latest usable retained GPRE snapshot on or before target quarter end
@@ -72,6 +72,90 @@ It does **not** own:
   - `Next quarter thesis`
   - but now use clearer widths, alignment, and borders so source selection and frame values can be scanned faster
 - `Coproduct quarterly history` and the coproduct experimental table keep all rows and methods, but now read more like tables and less like raw dumps through stronger headers, lighter striping, and better wrap/alignment
+
+## Stage C.3: Current QTD Trend Tracking
+
+### Product rule
+- `Current QTD` now has a retained trend-tracking layer rather than only a static point-in-time display.
+- The tracked top-line is the crush-margin lens:
+  - `Approximate market crush`
+- The workbook remains the compact decision surface, but the canonical history store lives outside the workbook.
+
+### Canonical history store
+- retained `Current QTD` snapshots now persist under:
+  - [`GPRE/basis_proxy/gpre_current_qtd_snapshots.parquet`](/c:/Users/Jibbe/Aktier/GPRE/basis_proxy/gpre_current_qtd_snapshots.parquet)
+  - [`GPRE/basis_proxy/gpre_current_qtd_snapshots.csv`](/c:/Users/Jibbe/Aktier/GPRE/basis_proxy/gpre_current_qtd_snapshots.csv)
+- retention is GPRE-only
+- a retained row is appended only when the current-quarter input fingerprint changes
+- unchanged reruns do not create duplicate retained rows
+- weekly checkpoints are real retained daily rows flagged as the latest successful row in each ISO week, not separate synthetic duplicates
+
+### Stored fields
+- retained rows carry at least:
+  - capture timestamp / as-of date / quarter metadata
+  - current crush-margin `Current QTD`
+  - quarter-open crush-margin reference
+  - component values for:
+    - `Ethanol`
+    - `Flat corn`
+    - `Corn basis`
+    - `Gas`
+  - legacy all-in / coproduct support fields for compatibility and auditability
+  - corn-basis provenance:
+    - source kind
+    - source label
+    - snapshot date
+    - selection rule
+  - checkpoint metadata:
+    - `is_weekly_checkpoint`
+    - ISO week key
+
+### Lookback selection policy
+- `Quarter-open`
+  - existing retained/frozen quarter-open reference for the same quarter
+- `1w`
+  - latest same-quarter weekly checkpoint with `as_of_date <= current_as_of - 7 days`
+- `4w`
+  - latest same-quarter weekly checkpoint with `as_of_date <= current_as_of - 28 days`
+- `8w`
+  - latest same-quarter weekly checkpoint with `as_of_date <= current_as_of - 56 days`
+- no cross-quarter fallback is used
+- missing retained history stays blank / `insufficient history`
+- same-point-last-quarter is intentionally **not** a primary comparison metric because GPRE quarter economics are too cyclical for that to be a stable main tracking lens
+
+### Driver attribution
+- the displayed `Current QTD` move is decomposed into:
+  - `Ethanol`
+  - `Flat corn`
+  - `Corn basis`
+  - `Gas`
+- driver deltas are current component minus reference component
+- no `Coproducts` or `Residual` row is displayed in this crush-only tracker
+
+### Workbook surface
+- `Economics_Overlay` now adds a compact block under
+  `Approximate market crush, fitted models, and real GPRE crush margin (quarterly)`:
+  - `Current QTD trend tracking ($/gal, crush margin lens)`
+- the block contains:
+  - compact status rows for:
+    - `Today`
+    - `Quarter-open`
+  - a compact checkpoint comparison table with:
+    - `QTD vs quarter-open`
+    - `QTD vs 1 week ago`
+    - `QTD vs 4 weeks ago`
+    - `QTD vs 8 weeks ago`
+    - `Approximate market crush`
+  - a driver table for:
+    - `Ethanol`
+    - `Flat corn`
+    - `Corn basis`
+    - `Gas`
+  - a short note explaining why same-point-last-quarter is intentionally not the main lens
+- the quarterly chart also now includes `Realized GPRE crush margin`, using:
+  - reported consolidated crush margin before `2025-Q2`
+  - underlying crush margin from `2025-Q2` onward
+- the visible `Coproduct economics` block remains present and unchanged in substance, but it is shifted lower so this new QTD-tracking area has room
 
 ## Stage C: Coproduct-Aware Experimental Lenses
 
@@ -183,11 +267,8 @@ It does **not** own:
 ### Quarterly crush chart zero-line policy
 - the quarterly crush chart keeps quarter labels at the bottom
 - the category axis stays at the bottom; it should not visually appear to cross at zero
-- when the visible y-range crosses zero, the chart may add a separate thin neutral `Zero reference line`
-- that zero-reference line is diagnostic only:
-  - not part of winner logic
-  - not a promoted series
-  - not a replacement for bottom quarter labels
+- the chart no longer adds a separate zero-reference helper series
+- instead, the category-axis line itself is hidden so bottom quarter labels remain visible without leaving a mid-chart zero line
 
 ### Natural gas / other thesis inputs
 - preserve the current thesis path unless a pass explicitly changes it

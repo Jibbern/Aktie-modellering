@@ -59,6 +59,8 @@
   - Why it matters: historical quarter retention depends on dated snapshots, not a single overwriteable local file.
 - Quarterly crush chart visually implying a misplaced x-axis at zero
   - Why it matters: quarter labels should stay anchored at the bottom, while any zero reference should be shown explicitly as a separate line instead of looking like a moved category axis.
+- GPRE `Current QTD` showing only a static point value with no retained same-quarter lookback history
+  - Why it matters: without real retained snapshots, users cannot tell whether `Current QTD` moved versus quarter-open or recent checkpoints, and any attribution story would be reconstruction rather than auditably retained history.
 
 ## Still Relevant / Watchlist
 - Delivered workbook artifacts live outside the `Code` git repo root
@@ -108,6 +110,8 @@
   - Current mitigation: duplicate/matched missing rows and obvious blob-like noise are now suppressed when a canonical note already verified into the saved workbook.
 - USDA `viewReport/3616`, `viewReport/3617`, and `viewReport/3618` landing fetches are still flaky in the current local environment
   - Why it matters: Stage 8 now supports `NWER` coproduct parsing and a live `AMS 3618` provider, but automated refresh is still not reliable enough to replace manual drop + sync when the landing fetch times out.
+- Early-quarter `Current QTD` lookbacks can stay blank by design
+  - Why it matters: the new tracker only uses retained same-quarter checkpoints for `1w / 4w / 8w`; it will not synthesize or cross-quarter backfill missing history just to fill cells.
 
 ## Uncertain / Needs Recheck
 - Some `Tone / expectations` vs `Strategy / segment` placements

@@ -25,6 +25,10 @@ class GpreOverlaySupportInputs:
     ticker_root: Optional[Path]
     current_ref: Dict[str, str]
     thesis_ref: Dict[str, str]
+    prior_quarter_header_text: str
+    quarter_open_header_text: str
+    current_qtd_header_text: str
+    next_quarter_header_text: str
     title_fill: Any
     title_font: Any
     header_fill: Any
@@ -166,6 +170,7 @@ def _write_proxy_implied_results_panel(
     ws = inputs.ws
     panel_title_row = int(inputs.bridge_panel_rows.get("panel_title_row") or 0)
     panel_header_row = int(inputs.bridge_panel_rows.get("panel_header_row") or 0)
+    panel_subheader_row = int(inputs.bridge_panel_rows.get("panel_subheader_row") or 0)
     approx_bridge_row = int(inputs.bridge_panel_rows.get("approx_market_crush_proxy") or 0)
     fitted_bridge_row = int(inputs.bridge_panel_rows.get("gpre_crush_proxy") or 0)
     forward_bridge_row = int(inputs.bridge_panel_rows.get("best_forward_lens_proxy") or 0)
@@ -174,6 +179,7 @@ def _write_proxy_implied_results_panel(
         for row_val in (
             panel_title_row,
             panel_header_row,
+            panel_subheader_row,
             approx_bridge_row,
             fitted_bridge_row,
         )
@@ -238,6 +244,16 @@ def _write_proxy_implied_results_panel(
         ws.cell(row=panel_header_row, column=cc).font = inputs.bold_font
         ws.cell(row=panel_header_row, column=cc).border = inputs.thin_border
         ws.cell(row=panel_header_row, column=cc).alignment = inputs.align_center_wrap
+        ws.cell(row=panel_subheader_row, column=cc).fill = inputs.header_fill
+        ws.cell(row=panel_subheader_row, column=cc).font = inputs.bold_font
+        ws.cell(row=panel_subheader_row, column=cc).border = inputs.thin_border
+        ws.cell(row=panel_subheader_row, column=cc).alignment = inputs.align_center_wrap
+    header_text_by_frame = {
+        "prior_quarter": inputs.prior_quarter_header_text,
+        "quarter_open": inputs.quarter_open_header_text,
+        "current_qtd": inputs.current_qtd_header_text,
+        "next_quarter_thesis": inputs.next_quarter_header_text,
+    }
     for frame_key, (start_col, end_col) in frame_spans.items():
         ws.merge_cells(
             start_row=panel_header_row,
@@ -245,11 +261,31 @@ def _write_proxy_implied_results_panel(
             end_row=panel_header_row,
             end_column=end_col,
         )
+        ws.merge_cells(
+            start_row=panel_subheader_row,
+            start_column=start_col,
+            end_row=panel_subheader_row,
+            end_column=end_col,
+        )
         ws.cell(
             row=panel_header_row,
             column=start_col,
-            value=str((proxy_implied_frames.get(frame_key) or {}).get("frame_label") or ""),
+            value=str(
+                {
+                    "prior_quarter": "Prior quarter",
+                    "quarter_open": "Quarter-open outlook",
+                    "current_qtd": "Current QTD",
+                    "next_quarter_thesis": "Next quarter outlook",
+                }.get(frame_key, (proxy_implied_frames.get(frame_key) or {}).get("frame_label") or "")
+            ),
         )
+        ws.cell(
+            row=panel_subheader_row,
+            column=start_col,
+            value=str(header_text_by_frame.get(frame_key) or "—"),
+        )
+    ws.row_dimensions[panel_header_row].height = 21.0
+    ws.row_dimensions[panel_subheader_row].height = 21.0
 
     panel_rows = [approx_bridge_row, fitted_bridge_row]
     if forward_bridge_row > 0:
@@ -399,13 +435,13 @@ def write_gpre_basis_proxy_overlay_support(
         ws.cell(row=proxy_comp_note_row, column=cc).font = copy(inputs.body_font)
         ws.cell(row=proxy_comp_note_row, column=cc).border = copy(inputs.thin_border)
         ws.cell(row=proxy_comp_note_row, column=cc).alignment = inputs.align_left_center_wrap
-    ws.row_dimensions[proxy_comp_note_row].height = 32.0
+    ws.row_dimensions[proxy_comp_note_row].height = 18.0
     proxy_header_spans = [
         (1, 1, "Proxy row"),
         (2, 3, "Prior quarter"),
-        (4, 5, "Quarter-open proxy"),
+        (4, 5, "Quarter-open outlook"),
         (6, 7, "Current QTD"),
-        (8, 9, "Next quarter"),
+        (8, 9, "Next quarter outlook"),
     ]
     for start_col, end_col, hdr in proxy_header_spans:
         if end_col > start_col:

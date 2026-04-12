@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 import json
 from pathlib import Path
 import shutil
@@ -154,6 +154,142 @@ def _write_gpre_corn_bids_archive_snapshot(
     payload["snapshots"] = sorted(snapshots, key=lambda rec: str(rec.get("snapshot_date") or ""))
     manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return manifest_path
+
+
+def _gpre_qtd_snapshot_fixture(
+    *,
+    as_of_date: date,
+    quarter_end: date,
+    ethanol_price: float,
+    cbot_corn_price: float,
+    corn_basis_usd_per_bu: float,
+    natural_gas_price: float,
+    coproduct_credit_usd_per_gal: float,
+    ethanol_yield: float = 2.80,
+    natural_gas_usage_btu_per_gal: float = 30_000.0,
+    basis_source_kind: str = "actual_gpre_bids_with_ams_fallback",
+    basis_source_label: str = "Retained GPRE plant bids",
+) -> tuple[dict[str, object], dict[str, object]]:
+    quarter_start, _ = market_service.calendar_quarter_bounds(as_of_date=quarter_end)
+    simple_crush_per_gal = (
+        float(ethanol_price)
+        - ((float(cbot_corn_price) + float(corn_basis_usd_per_bu)) / float(ethanol_yield))
+        - ((float(natural_gas_usage_btu_per_gal) / 1_000_000.0) * float(natural_gas_price))
+    )
+    snapshot = {
+        "quarter_start": quarter_start,
+        "quarter_end": quarter_end,
+        "display_quarter": quarter_end,
+        "as_of": as_of_date,
+        "process_as_of": as_of_date,
+        "snapshot_as_of": as_of_date,
+        "current_market": {
+            "ethanol_price": float(ethanol_price),
+            "cbot_corn_front_price": float(cbot_corn_price),
+            "natural_gas_price": float(natural_gas_price),
+        },
+        "market_meta": {
+            "corn_price": {
+                "official_weighted_corn_basis_usd_per_bu": float(corn_basis_usd_per_bu),
+                "official_corn_basis_source_kind": basis_source_kind,
+                "official_corn_basis_source_label": basis_source_label,
+                "official_corn_basis_snapshot_date": as_of_date,
+                "official_corn_basis_selection_rule": "latest_snapshot_on_or_before_as_of",
+                "official_actual_bid_plant_count": 6,
+                "official_fallback_plant_count": 1,
+                "cbot_corn_front_price_usd_per_bu": float(cbot_corn_price),
+            }
+        },
+        "current_process": {
+            "simple_crush_per_gal": float(simple_crush_per_gal),
+        },
+        "official_simple_proxy_usd_per_gal": float(simple_crush_per_gal),
+    }
+    coproduct_frame = {
+        "approximate_coproduct_credit_per_gal": float(coproduct_credit_usd_per_gal),
+        "resolved_source_mode": "nwer_primary",
+        "coverage_ratio": 0.92,
+    }
+    return snapshot, coproduct_frame
+
+
+def _build_gpre_qtd_tracking_bundle(
+    ticker_root: Path,
+    *,
+    current_as_of: date,
+    current_ethanol_price: float,
+    current_cbot_corn_price: float,
+    current_corn_basis_usd_per_bu: float,
+    current_natural_gas_price: float,
+    current_coproduct_credit_usd_per_gal: float,
+    quarter_open_as_of: date,
+    quarter_open_ethanol_price: float,
+    quarter_open_cbot_corn_price: float,
+    quarter_open_corn_basis_usd_per_bu: float,
+    quarter_open_natural_gas_price: float,
+    quarter_open_coproduct_credit_usd_per_gal: float,
+    quarter_end: date = date(2026, 6, 30),
+    ethanol_yield: float = 2.80,
+    natural_gas_usage_btu_per_gal: float = 30_000.0,
+    rows: list[dict[str, object]] | None = None,
+    plant_capacity_history: dict[str, object] | None = None,
+) -> dict[str, object]:
+    current_snapshot, current_coproduct_frame = _gpre_qtd_snapshot_fixture(
+        as_of_date=current_as_of,
+        quarter_end=quarter_end,
+        ethanol_price=current_ethanol_price,
+        cbot_corn_price=current_cbot_corn_price,
+        corn_basis_usd_per_bu=current_corn_basis_usd_per_bu,
+        natural_gas_price=current_natural_gas_price,
+        coproduct_credit_usd_per_gal=current_coproduct_credit_usd_per_gal,
+        ethanol_yield=ethanol_yield,
+        natural_gas_usage_btu_per_gal=natural_gas_usage_btu_per_gal,
+    )
+    quarter_open_snapshot, quarter_open_coproduct_frame = _gpre_qtd_snapshot_fixture(
+        as_of_date=quarter_open_as_of,
+        quarter_end=quarter_end,
+        ethanol_price=quarter_open_ethanol_price,
+        cbot_corn_price=quarter_open_cbot_corn_price,
+        corn_basis_usd_per_bu=quarter_open_corn_basis_usd_per_bu,
+        natural_gas_price=quarter_open_natural_gas_price,
+        coproduct_credit_usd_per_gal=quarter_open_coproduct_credit_usd_per_gal,
+        ethanol_yield=ethanol_yield,
+        natural_gas_usage_btu_per_gal=natural_gas_usage_btu_per_gal,
+    )
+    return market_service.build_gpre_current_qtd_trend_tracking_bundle(
+        ticker_root=ticker_root,
+        current_snapshot=current_snapshot,
+        quarter_open_snapshot=quarter_open_snapshot,
+        current_coproduct_frame=current_coproduct_frame,
+        quarter_open_coproduct_frame=quarter_open_coproduct_frame,
+        ethanol_yield=ethanol_yield,
+        natural_gas_usage_btu_per_gal=natural_gas_usage_btu_per_gal,
+        rows=rows,
+        plant_capacity_history=plant_capacity_history,
+    )
+
+
+def _gpre_qtd_backfill_rows_fixture() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    rows.extend(
+        _gpre_overlay_fixture_rows(
+            ethanol_base=1.70,
+            corn_front=4.46,
+            gas_front=2.92,
+            qd=date(2026, 6, 30),
+            obs_dt=date(2026, 4, 2),
+        )
+    )
+    rows.extend(
+        _gpre_overlay_fixture_rows(
+            ethanol_base=1.76,
+            corn_front=4.52,
+            gas_front=2.80,
+            qd=date(2026, 6, 30),
+            obs_dt=date(2026, 4, 10),
+        )
+    )
+    return rows
 
 
 def _diagnostic_text_stub(fetch_fn):
@@ -6562,6 +6698,402 @@ def test_qtd_simple_crush_snapshot_uses_partial_current_quarter_observations_but
     assert "natural_gas_price" not in current["current_market"] or current["current_market"]["natural_gas_price"] is None
     assert current["current_process"] == {}
     assert current["weeks_included"] == 0
+
+
+def test_gpre_current_qtd_snapshot_history_dedupes_identical_reruns_and_appends_changed_inputs() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_current_qtd_history_")
+    try:
+        bundle = _build_gpre_qtd_tracking_bundle(
+            ticker_root,
+            current_as_of=date(2026, 6, 10),
+            current_ethanol_price=2.38,
+            current_cbot_corn_price=4.12,
+            current_corn_basis_usd_per_bu=0.28,
+            current_natural_gas_price=3.42,
+            current_coproduct_credit_usd_per_gal=0.44,
+            quarter_open_as_of=date(2026, 3, 31),
+            quarter_open_ethanol_price=2.14,
+            quarter_open_cbot_corn_price=4.02,
+            quarter_open_corn_basis_usd_per_bu=0.23,
+            quarter_open_natural_gas_price=3.25,
+            quarter_open_coproduct_credit_usd_per_gal=0.40,
+        )
+
+        current_row = dict(bundle.get("current_snapshot") or {})
+        required_fields = {
+            "captured_at",
+            "as_of_date",
+            "quarter_label",
+            "quarter_start",
+            "quarter_end",
+            "input_fingerprint",
+            "current_qtd_all_in_usd_per_gal",
+            "current_qtd_official_simple_usd_per_gal",
+            "current_qtd_coproduct_credit_usd_per_gal",
+            "ethanol_component_usd_per_gal",
+            "flat_corn_component_usd_per_gal",
+            "corn_basis_component_usd_per_gal",
+            "gas_component_usd_per_gal",
+            "coproduct_component_usd_per_gal",
+            "quarter_open_all_in_usd_per_gal",
+            "quarter_open_official_simple_usd_per_gal",
+            "corn_basis_source_kind",
+            "corn_basis_source_label",
+            "corn_basis_snapshot_date",
+            "corn_basis_selection_rule",
+        }
+        assert required_fields <= set(current_row.keys())
+        assert pd.notna(pd.to_numeric(current_row.get("current_qtd_official_simple_usd_per_gal"), errors="coerce"))
+        assert pd.notna(pd.to_numeric(current_row.get("quarter_open_official_simple_usd_per_gal"), errors="coerce"))
+        assert market_service.persist_gpre_current_qtd_snapshot_history(
+            ticker_root,
+            bundle["pending_history_write"],
+        )
+
+        history_df = market_service.load_gpre_current_qtd_snapshot_history(ticker_root)
+        assert len(history_df.index) == 1
+        assert bool(history_df.iloc[0]["is_weekly_checkpoint"])
+        assert str(history_df.iloc[0]["input_fingerprint"] or "").strip()
+
+        assert market_service.persist_gpre_current_qtd_snapshot_history(
+            ticker_root,
+            bundle["pending_history_write"],
+        )
+        rerun_history_df = market_service.load_gpre_current_qtd_snapshot_history(ticker_root)
+        assert len(rerun_history_df.index) == 1
+
+        changed_bundle = _build_gpre_qtd_tracking_bundle(
+            ticker_root,
+            current_as_of=date(2026, 6, 10),
+            current_ethanol_price=2.44,
+            current_cbot_corn_price=4.12,
+            current_corn_basis_usd_per_bu=0.28,
+            current_natural_gas_price=3.42,
+            current_coproduct_credit_usd_per_gal=0.44,
+            quarter_open_as_of=date(2026, 3, 31),
+            quarter_open_ethanol_price=2.14,
+            quarter_open_cbot_corn_price=4.02,
+            quarter_open_corn_basis_usd_per_bu=0.23,
+            quarter_open_natural_gas_price=3.25,
+            quarter_open_coproduct_credit_usd_per_gal=0.40,
+        )
+        assert market_service.persist_gpre_current_qtd_snapshot_history(
+            ticker_root,
+            changed_bundle["pending_history_write"],
+        )
+        changed_history_df = market_service.load_gpre_current_qtd_snapshot_history(ticker_root)
+        assert len(changed_history_df.index) == 2
+        assert (
+            str(changed_history_df.iloc[-1]["input_fingerprint"] or "").strip()
+            != str(changed_history_df.iloc[0]["input_fingerprint"] or "").strip()
+        )
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
+
+
+def test_gpre_weighted_coproduct_record_exposes_corn_oil_contribution_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    quarter_end = date(2026, 3, 31)
+    monkeypatch.setattr(
+        market_service,
+        "_gpre_official_market_weights_for_quarter",
+        lambda quarter_end, ticker_root=None, plant_capacity_history=None: {"nebraska": 1.0},
+    )
+    rows = [
+        _parsed_row(
+            observation_date=quarter_end.isoformat(),
+            quarter=quarter_end,
+            aggregation_level="quarter_avg",
+            market_family="renewable_corn_oil_price",
+            series_key="corn_oil_nebraska",
+            instrument="Renewable corn oil",
+            location="Nebraska",
+            region="nebraska",
+            price_value=0.50,
+            unit="$/lb",
+            source_type="nwer_pdf",
+        ),
+        _parsed_row(
+            observation_date=quarter_end.isoformat(),
+            quarter=quarter_end,
+            aggregation_level="quarter_avg",
+            market_family="distillers_grains_price",
+            series_key="ddgs_10_nebraska",
+            instrument="Distillers grains",
+            location="Nebraska",
+            region="nebraska",
+            price_value=0.04,
+            unit="$/lb",
+            source_type="nwer_pdf",
+        ),
+    ]
+    profile = get_company_profile("GPRE")
+    coeff_map = {
+        str(getattr(coef, "key", "") or "").strip(): float(pd.to_numeric(getattr(coef, "default_value", None), errors="coerce"))
+        for coef in tuple(getattr(profile, "economics_overlay_coefficients", ()) or ())
+        if str(getattr(coef, "key", "") or "").strip()
+    }
+    ethanol_yield = float(coeff_map["ethanol_yield"])
+    corn_oil_yield = float(coeff_map["renewable_corn_oil_yield"])
+    expected_per_bushel = corn_oil_yield * 0.50
+    expected_per_gal = expected_per_bushel / ethanol_yield
+    expected_usd_m_proxy = expected_per_gal * 100.0
+
+    record = market_service._gpre_build_weighted_coproduct_record(
+        rows,
+        quarter_end,
+        ticker_root=None,
+        plant_capacity_history=None,
+        reported_gallons_produced_by_quarter={quarter_end: 100_000_000.0},
+    )
+
+    assert float(pd.to_numeric(record.get("renewable_corn_oil_price"), errors="coerce")) == pytest.approx(0.50, abs=1e-9)
+    assert float(pd.to_numeric(record.get("renewable_corn_oil_contribution_per_bushel"), errors="coerce")) == pytest.approx(expected_per_bushel, abs=1e-9)
+    assert float(pd.to_numeric(record.get("renewable_corn_oil_contribution_per_gal"), errors="coerce")) == pytest.approx(expected_per_gal, abs=1e-9)
+    assert float(pd.to_numeric(record.get("renewable_corn_oil_contribution_usd_m_proxy"), errors="coerce")) == pytest.approx(expected_usd_m_proxy, abs=1e-9)
+
+
+def test_gpre_current_qtd_weekly_checkpoints_and_same_quarter_lookbacks_use_retained_history() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_current_qtd_lookbacks_")
+    try:
+        historical_specs = [
+            (date(2026, 3, 28), date(2026, 3, 31), 2.02, 4.03, 0.22, 3.20, 0.39),
+            (date(2026, 4, 10), date(2026, 6, 30), 2.08, 4.04, 0.24, 3.22, 0.40),
+            (date(2026, 4, 12), date(2026, 6, 30), 2.09, 4.04, 0.24, 3.22, 0.40),
+            (date(2026, 5, 8), date(2026, 6, 30), 2.18, 4.08, 0.26, 3.30, 0.42),
+            (date(2026, 5, 10), date(2026, 6, 30), 2.20, 4.08, 0.26, 3.30, 0.42),
+            (date(2026, 6, 2), date(2026, 6, 30), 2.30, 4.10, 0.27, 3.36, 0.43),
+        ]
+        for as_of_date, quarter_end, ethanol_price, cbot_corn_price, corn_basis, gas_price, coproduct_credit in historical_specs:
+            bundle = _build_gpre_qtd_tracking_bundle(
+                ticker_root,
+                current_as_of=as_of_date,
+                current_ethanol_price=ethanol_price,
+                current_cbot_corn_price=cbot_corn_price,
+                current_corn_basis_usd_per_bu=corn_basis,
+                current_natural_gas_price=gas_price,
+                current_coproduct_credit_usd_per_gal=coproduct_credit,
+                quarter_open_as_of=date(2026, 3, 31) if quarter_end == date(2026, 6, 30) else date(2025, 12, 31),
+                quarter_open_ethanol_price=2.14,
+                quarter_open_cbot_corn_price=4.02,
+                quarter_open_corn_basis_usd_per_bu=0.23,
+                quarter_open_natural_gas_price=3.25,
+                quarter_open_coproduct_credit_usd_per_gal=0.40,
+                quarter_end=quarter_end,
+            )
+            assert market_service.persist_gpre_current_qtd_snapshot_history(
+                ticker_root,
+                bundle["pending_history_write"],
+            )
+
+        history_df = market_service.load_gpre_current_qtd_snapshot_history(ticker_root)
+        q2_history = history_df[history_df["quarter_end"] == date(2026, 6, 30)].copy()
+        week_15_rows = q2_history[q2_history["checkpoint_iso_week"] == "2026-W15"].copy()
+        assert len(week_15_rows.index) == 2
+        assert week_15_rows["is_weekly_checkpoint"].astype(bool).tolist() == [False, True]
+
+        current_bundle = _build_gpre_qtd_tracking_bundle(
+            ticker_root,
+            current_as_of=date(2026, 6, 10),
+            current_ethanol_price=2.38,
+            current_cbot_corn_price=4.12,
+            current_corn_basis_usd_per_bu=0.28,
+            current_natural_gas_price=3.42,
+            current_coproduct_credit_usd_per_gal=0.44,
+            quarter_open_as_of=date(2026, 3, 31),
+            quarter_open_ethanol_price=2.14,
+            quarter_open_cbot_corn_price=4.02,
+            quarter_open_corn_basis_usd_per_bu=0.23,
+            quarter_open_natural_gas_price=3.25,
+            quarter_open_coproduct_credit_usd_per_gal=0.40,
+        )
+        refs = dict(current_bundle.get("reference_comparisons") or {})
+        assert refs["1w"]["reference_date"] == date(2026, 6, 2)
+        assert refs["4w"]["reference_date"] == date(2026, 5, 10)
+        assert refs["8w"]["reference_date"] == date(2026, 4, 12)
+        assert refs["8w"]["reference_date"] != date(2026, 3, 28)
+        expected_1w_value = float(pd.to_numeric(history_df.loc[history_df["as_of_date"].eq(date(2026, 6, 2)), "current_qtd_official_simple_usd_per_gal"], errors="coerce").iloc[-1])
+        expected_4w_value = float(pd.to_numeric(history_df.loc[history_df["as_of_date"].eq(date(2026, 5, 10)), "current_qtd_official_simple_usd_per_gal"], errors="coerce").iloc[-1])
+        expected_8w_value = float(pd.to_numeric(history_df.loc[history_df["as_of_date"].eq(date(2026, 4, 12)), "current_qtd_official_simple_usd_per_gal"], errors="coerce").iloc[-1])
+        assert refs["quarter_open"]["reference_value_usd_per_gal"] == pytest.approx(
+            float(pd.to_numeric((current_bundle.get("current_snapshot") or {}).get("quarter_open_official_simple_usd_per_gal"), errors="coerce")),
+            abs=1e-9,
+        )
+        assert refs["1w"]["reference_value_usd_per_gal"] == pytest.approx(expected_1w_value, abs=1e-9)
+        assert refs["4w"]["reference_value_usd_per_gal"] == pytest.approx(expected_4w_value, abs=1e-9)
+        assert refs["8w"]["reference_value_usd_per_gal"] == pytest.approx(expected_8w_value, abs=1e-9)
+        assert refs["1w"]["status"] == "ok"
+        assert refs["4w"]["status"] == "ok"
+        assert refs["8w"]["status"] == "ok"
+        assert refs["quarter_open"]["note"] == ""
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
+
+
+def test_gpre_current_qtd_same_quarter_only_lookbacks_stay_blank_without_retained_history() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_current_qtd_same_quarter_only_")
+    try:
+        previous_quarter_bundle = _build_gpre_qtd_tracking_bundle(
+            ticker_root,
+            current_as_of=date(2026, 3, 28),
+            current_ethanol_price=2.02,
+            current_cbot_corn_price=4.03,
+            current_corn_basis_usd_per_bu=0.22,
+            current_natural_gas_price=3.20,
+            current_coproduct_credit_usd_per_gal=0.39,
+            quarter_open_as_of=date(2025, 12, 31),
+            quarter_open_ethanol_price=1.98,
+            quarter_open_cbot_corn_price=3.96,
+            quarter_open_corn_basis_usd_per_bu=0.20,
+            quarter_open_natural_gas_price=3.18,
+            quarter_open_coproduct_credit_usd_per_gal=0.38,
+            quarter_end=date(2026, 3, 31),
+        )
+        assert market_service.persist_gpre_current_qtd_snapshot_history(
+            ticker_root,
+            previous_quarter_bundle["pending_history_write"],
+        )
+
+        current_bundle = _build_gpre_qtd_tracking_bundle(
+            ticker_root,
+            current_as_of=date(2026, 6, 10),
+            current_ethanol_price=2.38,
+            current_cbot_corn_price=4.12,
+            current_corn_basis_usd_per_bu=0.28,
+            current_natural_gas_price=3.42,
+            current_coproduct_credit_usd_per_gal=0.44,
+            quarter_open_as_of=date(2026, 3, 31),
+            quarter_open_ethanol_price=2.14,
+            quarter_open_cbot_corn_price=4.02,
+            quarter_open_corn_basis_usd_per_bu=0.23,
+            quarter_open_natural_gas_price=3.25,
+            quarter_open_coproduct_credit_usd_per_gal=0.40,
+        )
+        refs = dict(current_bundle.get("reference_comparisons") or {})
+        for ref_key in ("1w", "4w", "8w"):
+            assert refs[ref_key]["status"] == "insufficient_history"
+            assert refs[ref_key]["reference_date"] is None
+            assert refs[ref_key]["reference_value_usd_per_gal"] is None
+            assert refs[ref_key]["delta_usd_per_gal"] is None
+            assert refs[ref_key]["note"] == "insufficient history"
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
+
+
+def test_gpre_current_qtd_same_quarter_backfill_populates_1w_reference_and_drivers() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_current_qtd_backfill_1w_")
+    try:
+        bundle = _build_gpre_qtd_tracking_bundle(
+            ticker_root,
+            current_as_of=date(2026, 4, 10),
+            current_ethanol_price=2.38,
+            current_cbot_corn_price=4.12,
+            current_corn_basis_usd_per_bu=0.28,
+            current_natural_gas_price=3.42,
+            current_coproduct_credit_usd_per_gal=0.44,
+            quarter_open_as_of=date(2026, 3, 31),
+            quarter_open_ethanol_price=2.14,
+            quarter_open_cbot_corn_price=4.02,
+            quarter_open_corn_basis_usd_per_bu=0.23,
+            quarter_open_natural_gas_price=3.25,
+            quarter_open_coproduct_credit_usd_per_gal=0.40,
+            rows=_gpre_qtd_backfill_rows_fixture(),
+        )
+        refs = dict(bundle.get("reference_comparisons") or {})
+        assert refs["1w"]["status"] == "ok"
+        assert refs["1w"]["reference_date"] == date(2026, 4, 2)
+        assert refs["1w"]["history_source_kind"] == "backfilled_weekly_checkpoint"
+        rows_by_driver = {
+            str(rec.get("driver") or ""): dict(rec)
+            for rec in list(bundle.get("driver_attribution_rows") or [])
+            if isinstance(rec, dict)
+        }
+        assert set(rows_by_driver.keys()) == {"Ethanol", "Flat corn", "Corn basis", "Gas"}
+        for driver in ("Ethanol", "Flat corn", "Corn basis", "Gas"):
+            assert pd.notna(pd.to_numeric(rows_by_driver[driver]["1w"], errors="coerce"))
+
+        assert market_service.persist_gpre_current_qtd_snapshot_history(
+            ticker_root,
+            bundle["pending_history_write"],
+        )
+        history_df = market_service.load_gpre_current_qtd_snapshot_history(ticker_root)
+        backfilled_row = history_df.loc[
+            history_df["history_source_kind"].eq("backfilled_weekly_checkpoint")
+            & history_df["as_of_date"].eq(date(2026, 4, 2))
+        ]
+        assert not backfilled_row.empty
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
+
+
+def test_gpre_current_qtd_backfill_skips_incomplete_weeks() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_current_qtd_backfill_incomplete_")
+    try:
+        incomplete_rows = [
+            dict(rec)
+            for rec in _gpre_qtd_backfill_rows_fixture()
+            if not (
+                rec.get("series_key") == "nymex_gas"
+                and rec.get("observation_date") == "2026-04-02"
+            )
+        ]
+        bundle = _build_gpre_qtd_tracking_bundle(
+            ticker_root,
+            current_as_of=date(2026, 4, 10),
+            current_ethanol_price=2.38,
+            current_cbot_corn_price=4.12,
+            current_corn_basis_usd_per_bu=0.28,
+            current_natural_gas_price=3.42,
+            current_coproduct_credit_usd_per_gal=0.44,
+            quarter_open_as_of=date(2026, 3, 31),
+            quarter_open_ethanol_price=2.14,
+            quarter_open_cbot_corn_price=4.02,
+            quarter_open_corn_basis_usd_per_bu=0.23,
+            quarter_open_natural_gas_price=3.25,
+            quarter_open_coproduct_credit_usd_per_gal=0.40,
+            rows=incomplete_rows,
+        )
+        refs = dict(bundle.get("reference_comparisons") or {})
+        assert refs["1w"]["status"] == "insufficient_history"
+        assert refs["1w"]["reference_date"] is None
+        assert refs["1w"]["reference_value_usd_per_gal"] is None
+        assert refs["1w"]["delta_usd_per_gal"] is None
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
+
+
+def test_gpre_current_qtd_driver_attribution_sums_to_displayed_delta() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_current_qtd_attribution_")
+    try:
+        bundle = _build_gpre_qtd_tracking_bundle(
+            ticker_root,
+            current_as_of=date(2026, 6, 10),
+            current_ethanol_price=2.38,
+            current_cbot_corn_price=4.12,
+            current_corn_basis_usd_per_bu=0.28,
+            current_natural_gas_price=3.42,
+            current_coproduct_credit_usd_per_gal=0.44,
+            quarter_open_as_of=date(2026, 3, 31),
+            quarter_open_ethanol_price=2.14,
+            quarter_open_cbot_corn_price=4.02,
+            quarter_open_corn_basis_usd_per_bu=0.23,
+            quarter_open_natural_gas_price=3.25,
+            quarter_open_coproduct_credit_usd_per_gal=0.40,
+        )
+        rows_by_driver = {
+            str(rec.get("driver") or ""): dict(rec)
+            for rec in list(bundle.get("driver_attribution_rows") or [])
+            if isinstance(rec, dict)
+        }
+        refs = dict(bundle.get("reference_comparisons") or {})
+        component_total = sum(
+            float(pd.to_numeric(rows_by_driver[driver]["quarter_open"], errors="coerce"))
+            for driver in ("Ethanol", "Flat corn", "Corn basis", "Gas")
+        )
+        total_delta = float(pd.to_numeric(refs["quarter_open"]["delta_usd_per_gal"], errors="coerce"))
+        assert set(rows_by_driver.keys()) == {"Ethanol", "Flat corn", "Corn basis", "Gas"}
+        assert component_total == pytest.approx(total_delta, abs=1e-9)
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
 
 
 def test_simple_crush_history_series_returns_trailing_weekly_per_gallon_values() -> None:

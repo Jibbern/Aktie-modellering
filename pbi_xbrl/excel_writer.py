@@ -18,6 +18,7 @@ from .excel_writer_core import finalize_workbook, prepare_writer_inputs, timed_w
 from .excel_writer_drivers import write_driver_sheets
 from .excel_writer_financials import write_debt_sheets, write_report_sheets, write_summary_sheets, write_valuation_sheets
 from .excel_writer_ui import write_ui_debug_sheets, write_ui_sheets
+from .market_data.service import persist_gpre_current_qtd_snapshot_history
 from .pipeline_types import WorkbookInputs
 
 
@@ -1106,6 +1107,21 @@ def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
                 )
             except Exception:
                 saved_workbook_provenance = {}
+    history_write_bundle = dict(ctx.state.get("gpre_current_qtd_pending_history_write") or {}) if isinstance(ctx.state, dict) else {}
+    history_write_ticker_root = history_write_bundle.get("ticker_root")
+    if (
+        not partial_debug_scope
+        and Path(inputs.out_path).exists()
+        and isinstance(history_write_ticker_root, Path)
+        and (
+            not bool(inputs.capture_saved_workbook_provenance)
+            or bool(saved_workbook_provenance)
+        )
+    ):
+        persist_gpre_current_qtd_snapshot_history(
+            history_write_ticker_root,
+            history_write_bundle,
+        )
     return WorkbookWriteResult(
         saved_temp_path=Path(inputs.out_path),
         quarter_notes_ui_snapshot=snapshot,

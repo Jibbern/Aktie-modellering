@@ -39,10 +39,14 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
   - [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
   before syncing them into [`sec_cache/market_data/raw`](/c:/Users/Jibbe/Aktier/sec_cache/market_data/raw).
 - For `GPRE`, thesis ethanol is now practical local-market-data driven:
-  - `Next quarter thesis` uses the local Chicago ethanol futures CSVs under [`GPRE/Ethanol_futures`](/c:/Users/Jibbe/Aktier/GPRE/Ethanol_futures)
-  - `Quarter-open proxy` first prefers a real frozen prior-quarter snapshot and then falls back to a local manual quarter-open snapshot file when frozen history is missing
+  - `Next quarter outlook` uses the local Chicago ethanol futures CSVs under [`GPRE/Ethanol_futures`](/c:/Users/Jibbe/Aktier/GPRE/Ethanol_futures)
+  - `Quarter-open outlook` first prefers a real frozen prior-quarter snapshot and then falls back to a local manual quarter-open snapshot file when frozen history is missing
   - current observed ethanol still comes from the observed NWER path and should not be contaminated by those futures files
   - the full overlay/source-precedence note now lives in [`docs/GPRE_ECONOMICS_OVERLAY.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_ECONOMICS_OVERLAY.md)
+- For `GPRE`, `Current QTD` trend tracking now also keeps a canonical retained sidecar under:
+  - [`GPRE/basis_proxy/gpre_current_qtd_snapshots.parquet`](/c:/Users/Jibbe/Aktier/GPRE/basis_proxy/gpre_current_qtd_snapshots.parquet)
+  - [`GPRE/basis_proxy/gpre_current_qtd_snapshots.csv`](/c:/Users/Jibbe/Aktier/GPRE/basis_proxy/gpre_current_qtd_snapshots.csv)
+  - the workbook shows a compact overlay surface; the sidecar is the retained audit/history store
 - Source selection should prefer explicit support and safe blanks over contaminated values.
 - Readback validation exists so fixes are measured against the saved workbook, not only in-memory dataframes.
 

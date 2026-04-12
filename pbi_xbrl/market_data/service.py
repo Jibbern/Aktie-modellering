@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import json
 import calendar
+import hashlib
 import html
 import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -4143,6 +4144,8 @@ def build_next_quarter_thesis_snapshot(
 
 
 _GPRE_FROZEN_THESIS_SNAPSHOTS_FILENAME = "gpre_frozen_thesis_snapshots.json"
+_GPRE_CURRENT_QTD_SNAPSHOTS_PARQUET_FILENAME = "gpre_current_qtd_snapshots.parquet"
+_GPRE_CURRENT_QTD_SNAPSHOTS_CSV_FILENAME = "gpre_current_qtd_snapshots.csv"
 
 
 def _gpre_basis_proxy_dir(ticker_root: Optional[Path]) -> Optional[Path]:
@@ -4156,6 +4159,20 @@ def _gpre_frozen_thesis_snapshots_path(ticker_root: Optional[Path]) -> Optional[
     if sidecar_dir is None:
         return None
     return sidecar_dir / _GPRE_FROZEN_THESIS_SNAPSHOTS_FILENAME
+
+
+def _gpre_current_qtd_snapshots_parquet_path(ticker_root: Optional[Path]) -> Optional[Path]:
+    sidecar_dir = _gpre_basis_proxy_dir(ticker_root)
+    if sidecar_dir is None:
+        return None
+    return sidecar_dir / _GPRE_CURRENT_QTD_SNAPSHOTS_PARQUET_FILENAME
+
+
+def _gpre_current_qtd_snapshots_csv_path(ticker_root: Optional[Path]) -> Optional[Path]:
+    sidecar_dir = _gpre_basis_proxy_dir(ticker_root)
+    if sidecar_dir is None:
+        return None
+    return sidecar_dir / _GPRE_CURRENT_QTD_SNAPSHOTS_CSV_FILENAME
 
 
 def _gpre_json_ready(value: Any) -> Any:
@@ -4253,6 +4270,762 @@ def persist_gpre_frozen_thesis_snapshot(
             json.dumps([_gpre_json_ready(rec) for rec in kept], ensure_ascii=True, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        return True
+    except Exception:
+        return False
+
+
+def _gpre_current_qtd_snapshot_columns() -> List[str]:
+    return [
+        "captured_at",
+        "as_of_date",
+        "quarter_label",
+        "quarter_start",
+        "quarter_end",
+        "input_fingerprint",
+        "is_weekly_checkpoint",
+        "checkpoint_iso_week",
+        "history_source_kind",
+        "current_qtd_all_in_usd_per_gal",
+        "current_qtd_official_simple_usd_per_gal",
+        "current_qtd_coproduct_credit_usd_per_gal",
+        "ethanol_component_usd_per_gal",
+        "flat_corn_component_usd_per_gal",
+        "corn_basis_component_usd_per_gal",
+        "gas_component_usd_per_gal",
+        "coproduct_component_usd_per_gal",
+        "quarter_open_all_in_usd_per_gal",
+        "quarter_open_official_simple_usd_per_gal",
+        "quarter_open_ethanol_component_usd_per_gal",
+        "quarter_open_flat_corn_component_usd_per_gal",
+        "quarter_open_corn_basis_component_usd_per_gal",
+        "quarter_open_gas_component_usd_per_gal",
+        "quarter_open_coproduct_component_usd_per_gal",
+        "quarter_open_reference_date",
+        "quarter_open_snapshot_provenance",
+        "corn_basis_source_kind",
+        "corn_basis_source_label",
+        "corn_basis_snapshot_date",
+        "corn_basis_selection_rule",
+        "official_actual_bid_plant_count",
+        "official_fallback_plant_count",
+        "current_coproduct_source_mode",
+        "current_coproduct_coverage_ratio",
+        "quarter_open_coproduct_source_mode",
+        "quarter_open_coproduct_coverage_ratio",
+    ]
+
+
+def _gpre_current_qtd_history_normalized_df(df_in: Optional[pd.DataFrame]) -> pd.DataFrame:
+    base_cols = _gpre_current_qtd_snapshot_columns()
+    if not isinstance(df_in, pd.DataFrame) or df_in.empty:
+        return pd.DataFrame(columns=base_cols)
+    df_out = df_in.copy()
+    for col in base_cols:
+        if col not in df_out.columns:
+            df_out[col] = None
+    captured_at = pd.to_datetime(df_out.get("captured_at"), errors="coerce", utc=False)
+    df_out["captured_at"] = captured_at
+    for col in ("as_of_date", "quarter_start", "quarter_end", "quarter_open_reference_date", "corn_basis_snapshot_date"):
+        df_out[col] = pd.to_datetime(df_out.get(col), errors="coerce").dt.date
+    if "is_weekly_checkpoint" in df_out.columns:
+        df_out["is_weekly_checkpoint"] = df_out["is_weekly_checkpoint"].fillna(False).astype(bool)
+    else:
+        df_out["is_weekly_checkpoint"] = False
+    if "checkpoint_iso_week" in df_out.columns:
+        df_out["checkpoint_iso_week"] = df_out["checkpoint_iso_week"].astype(str).replace({"nan": "", "NaT": ""})
+    else:
+        df_out["checkpoint_iso_week"] = ""
+    if "history_source_kind" in df_out.columns:
+        df_out["history_source_kind"] = df_out["history_source_kind"].astype(str).replace({"nan": "", "NaT": "", "None": ""})
+        df_out.loc[df_out["history_source_kind"].astype(str).str.len() == 0, "history_source_kind"] = "retained_snapshot"
+    else:
+        df_out["history_source_kind"] = "retained_snapshot"
+
+    def _component_sum(col_names: List[str]) -> pd.Series:
+        parts = [pd.to_numeric(df_out.get(col_name), errors="coerce") for col_name in col_names]
+        if not parts:
+            return pd.Series([np.nan] * len(df_out.index), index=df_out.index, dtype=float)
+        out = pd.Series(0.0, index=df_out.index, dtype=float)
+        valid_mask = pd.Series(True, index=df_out.index, dtype=bool)
+        for part in parts:
+            out = out + part.fillna(0.0)
+            valid_mask = valid_mask & part.notna()
+        out.loc[~valid_mask] = np.nan
+        return out
+
+    current_simple_num = pd.to_numeric(df_out.get("current_qtd_official_simple_usd_per_gal"), errors="coerce")
+    current_simple_from_components = _component_sum(
+        [
+            "ethanol_component_usd_per_gal",
+            "flat_corn_component_usd_per_gal",
+            "corn_basis_component_usd_per_gal",
+            "gas_component_usd_per_gal",
+        ]
+    )
+    df_out["current_qtd_official_simple_usd_per_gal"] = current_simple_num.where(
+        current_simple_num.notna(),
+        current_simple_from_components,
+    )
+
+    quarter_open_simple_num = pd.to_numeric(df_out.get("quarter_open_official_simple_usd_per_gal"), errors="coerce")
+    quarter_open_simple_from_components = _component_sum(
+        [
+            "quarter_open_ethanol_component_usd_per_gal",
+            "quarter_open_flat_corn_component_usd_per_gal",
+            "quarter_open_corn_basis_component_usd_per_gal",
+            "quarter_open_gas_component_usd_per_gal",
+        ]
+    )
+    df_out["quarter_open_official_simple_usd_per_gal"] = quarter_open_simple_num.where(
+        quarter_open_simple_num.notna(),
+        quarter_open_simple_from_components,
+    )
+
+    current_coproduct_num = pd.to_numeric(df_out.get("current_qtd_coproduct_credit_usd_per_gal"), errors="coerce").where(
+        pd.to_numeric(df_out.get("current_qtd_coproduct_credit_usd_per_gal"), errors="coerce").notna(),
+        pd.to_numeric(df_out.get("coproduct_component_usd_per_gal"), errors="coerce"),
+    )
+    df_out["current_qtd_coproduct_credit_usd_per_gal"] = current_coproduct_num
+    current_all_in_num = pd.to_numeric(df_out.get("current_qtd_all_in_usd_per_gal"), errors="coerce")
+    current_all_in_from_parts = df_out["current_qtd_official_simple_usd_per_gal"] + current_coproduct_num
+    current_all_in_from_parts.loc[
+        df_out["current_qtd_official_simple_usd_per_gal"].isna() | current_coproduct_num.isna()
+    ] = np.nan
+    df_out["current_qtd_all_in_usd_per_gal"] = current_all_in_num.where(
+        current_all_in_num.notna(),
+        current_all_in_from_parts,
+    )
+
+    quarter_open_coproduct_num = pd.to_numeric(df_out.get("quarter_open_coproduct_component_usd_per_gal"), errors="coerce")
+    quarter_open_all_in_num = pd.to_numeric(df_out.get("quarter_open_all_in_usd_per_gal"), errors="coerce")
+    quarter_open_all_in_from_parts = df_out["quarter_open_official_simple_usd_per_gal"] + quarter_open_coproduct_num
+    quarter_open_all_in_from_parts.loc[
+        df_out["quarter_open_official_simple_usd_per_gal"].isna() | quarter_open_coproduct_num.isna()
+    ] = np.nan
+    df_out["quarter_open_all_in_usd_per_gal"] = quarter_open_all_in_num.where(
+        quarter_open_all_in_num.notna(),
+        quarter_open_all_in_from_parts,
+    )
+    return df_out[base_cols].copy()
+
+
+def load_gpre_current_qtd_snapshot_history(
+    ticker_root: Optional[Path],
+) -> pd.DataFrame:
+    parquet_path = _gpre_current_qtd_snapshots_parquet_path(ticker_root)
+    csv_path = _gpre_current_qtd_snapshots_csv_path(ticker_root)
+    for candidate_path, loader in (
+        (parquet_path, lambda path: pd.read_parquet(path)),
+        (csv_path, lambda path: pd.read_csv(path)),
+    ):
+        if candidate_path is None or not candidate_path.exists():
+            continue
+        try:
+            return _gpre_current_qtd_history_normalized_df(loader(candidate_path))
+        except Exception:
+            continue
+    return _gpre_current_qtd_history_normalized_df(pd.DataFrame())
+
+
+def _gpre_iso_week_key(value_in: Any) -> str:
+    if not isinstance(value_in, date):
+        return ""
+    iso = value_in.isocalendar()
+    return f"{int(iso.year):04d}-W{int(iso.week):02d}"
+
+
+def _gpre_current_qtd_component_bundle(
+    snapshot: Optional[Dict[str, Any]],
+    *,
+    ethanol_yield: Any,
+    natural_gas_usage_btu_per_gal: Any,
+    coproduct_credit_per_gal: Any,
+) -> Dict[str, Any]:
+    snapshot_map = dict(snapshot or {})
+    market_map = dict(snapshot_map.get("current_market") or {})
+    market_meta = dict(snapshot_map.get("market_meta") or {})
+    corn_meta = dict(market_meta.get("corn_price") or {})
+    yield_num = pd.to_numeric(ethanol_yield, errors="coerce")
+    gas_usage_num = pd.to_numeric(natural_gas_usage_btu_per_gal, errors="coerce")
+    ethanol_price_num = pd.to_numeric(market_map.get("ethanol_price"), errors="coerce")
+    cbot_num = pd.to_numeric(
+        market_map.get("cbot_corn_front_price", corn_meta.get("cbot_corn_front_price_usd_per_bu")),
+        errors="coerce",
+    )
+    basis_num = pd.to_numeric(
+        corn_meta.get("official_weighted_corn_basis_usd_per_bu", snapshot_map.get("official_weighted_corn_basis_usd_per_bu")),
+        errors="coerce",
+    )
+    gas_price_num = pd.to_numeric(market_map.get("natural_gas_price"), errors="coerce")
+    official_simple_num = pd.to_numeric(
+        snapshot_map.get("official_simple_proxy_usd_per_gal", ((snapshot_map.get("current_process") or {}).get("simple_crush_per_gal"))),
+        errors="coerce",
+    )
+    coproduct_num = pd.to_numeric(coproduct_credit_per_gal, errors="coerce")
+    ethanol_component = None if pd.isna(ethanol_price_num) else float(ethanol_price_num)
+    flat_corn_component = (
+        None
+        if pd.isna(cbot_num) or pd.isna(yield_num) or abs(float(yield_num)) <= 1e-9
+        else -(float(cbot_num) / float(yield_num))
+    )
+    corn_basis_component = (
+        None
+        if pd.isna(basis_num) or pd.isna(yield_num) or abs(float(yield_num)) <= 1e-9
+        else -(float(basis_num) / float(yield_num))
+    )
+    gas_component = (
+        None
+        if pd.isna(gas_price_num) or pd.isna(gas_usage_num)
+        else -((float(gas_usage_num) / 1_000_000.0) * float(gas_price_num))
+    )
+    coproduct_component = None if pd.isna(coproduct_num) else float(coproduct_num)
+    all_in_num = (
+        None
+        if pd.isna(official_simple_num) or pd.isna(coproduct_num)
+        else float(official_simple_num) + float(coproduct_num)
+    )
+    return {
+        "official_simple_usd_per_gal": None if pd.isna(official_simple_num) else float(official_simple_num),
+        "all_in_usd_per_gal": all_in_num,
+        "ethanol_component_usd_per_gal": ethanol_component,
+        "flat_corn_component_usd_per_gal": flat_corn_component,
+        "corn_basis_component_usd_per_gal": corn_basis_component,
+        "gas_component_usd_per_gal": gas_component,
+        "coproduct_component_usd_per_gal": coproduct_component,
+        "corn_basis_source_kind": str(corn_meta.get("official_corn_basis_source_kind") or snapshot_map.get("official_corn_basis_source_kind") or "").strip(),
+        "corn_basis_source_label": str(corn_meta.get("official_corn_basis_source_label") or snapshot_map.get("official_corn_basis_source_label") or "").strip(),
+        "corn_basis_snapshot_date": _gpre_parse_snapshot_date_like(
+            corn_meta.get("official_corn_basis_snapshot_date") or snapshot_map.get("official_corn_basis_snapshot_date")
+        ),
+        "corn_basis_selection_rule": str(corn_meta.get("official_corn_basis_selection_rule") or snapshot_map.get("official_corn_basis_selection_rule") or "").strip(),
+        "official_actual_bid_plant_count": int(corn_meta.get("official_actual_bid_plant_count") or snapshot_map.get("official_actual_bid_plant_count") or 0),
+        "official_fallback_plant_count": int(corn_meta.get("official_fallback_plant_count") or snapshot_map.get("official_fallback_plant_count") or 0),
+    }
+
+
+def _gpre_current_qtd_fingerprint(payload_in: Dict[str, Any]) -> str:
+    json_ready = _gpre_json_ready(payload_in)
+    payload_txt = json.dumps(json_ready, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha1(payload_txt.encode("utf-8")).hexdigest()
+
+
+def _gpre_build_current_qtd_snapshot_row(
+    *,
+    current_snapshot: Optional[Dict[str, Any]],
+    quarter_open_snapshot: Optional[Dict[str, Any]],
+    current_coproduct_frame: Optional[Dict[str, Any]],
+    quarter_open_coproduct_frame: Optional[Dict[str, Any]],
+    ethanol_yield: Any,
+    natural_gas_usage_btu_per_gal: Any,
+) -> Dict[str, Any]:
+    current_snapshot_map = dict(current_snapshot or {})
+    quarter_open_snapshot_map = dict(quarter_open_snapshot or {})
+    current_coproduct_map = dict(current_coproduct_frame or {})
+    quarter_open_coproduct_map = dict(quarter_open_coproduct_frame or {})
+    quarter_end = parse_quarter_like(current_snapshot_map.get("display_quarter") or current_snapshot_map.get("quarter_end"))
+    quarter_start = current_snapshot_map.get("quarter_start") if isinstance(current_snapshot_map.get("quarter_start"), date) else None
+    as_of_value = _gpre_parse_snapshot_date_like(current_snapshot_map.get("as_of") or current_snapshot_map.get("process_as_of"))
+    current_bundle = _gpre_current_qtd_component_bundle(
+        current_snapshot_map,
+        ethanol_yield=ethanol_yield,
+        natural_gas_usage_btu_per_gal=natural_gas_usage_btu_per_gal,
+        coproduct_credit_per_gal=current_coproduct_map.get("approximate_coproduct_credit_per_gal"),
+    )
+    quarter_open_bundle = _gpre_current_qtd_component_bundle(
+        quarter_open_snapshot_map,
+        ethanol_yield=ethanol_yield,
+        natural_gas_usage_btu_per_gal=natural_gas_usage_btu_per_gal,
+        coproduct_credit_per_gal=quarter_open_coproduct_map.get("approximate_coproduct_credit_per_gal"),
+    )
+    fingerprint_payload = {
+        "quarter_end": quarter_end,
+        "current_simple": current_bundle.get("official_simple_usd_per_gal"),
+        "current_ethanol": current_bundle.get("ethanol_component_usd_per_gal"),
+        "current_flat_corn": current_bundle.get("flat_corn_component_usd_per_gal"),
+        "current_corn_basis": current_bundle.get("corn_basis_component_usd_per_gal"),
+        "current_gas": current_bundle.get("gas_component_usd_per_gal"),
+        "quarter_open_simple": quarter_open_bundle.get("official_simple_usd_per_gal"),
+        "quarter_open_ethanol": quarter_open_bundle.get("ethanol_component_usd_per_gal"),
+        "quarter_open_flat_corn": quarter_open_bundle.get("flat_corn_component_usd_per_gal"),
+        "quarter_open_corn_basis": quarter_open_bundle.get("corn_basis_component_usd_per_gal"),
+        "quarter_open_gas": quarter_open_bundle.get("gas_component_usd_per_gal"),
+        "corn_basis_snapshot_date": current_bundle.get("corn_basis_snapshot_date"),
+        "corn_basis_selection_rule": current_bundle.get("corn_basis_selection_rule"),
+    }
+    return {
+        "captured_at": datetime.now(timezone.utc),
+        "as_of_date": as_of_value,
+        "quarter_label": _quarter_label(quarter_end) if isinstance(quarter_end, date) else "",
+        "quarter_start": quarter_start,
+        "quarter_end": quarter_end,
+        "input_fingerprint": _gpre_current_qtd_fingerprint(fingerprint_payload),
+        "is_weekly_checkpoint": False,
+        "checkpoint_iso_week": _gpre_iso_week_key(as_of_value),
+        "history_source_kind": "retained_snapshot",
+        "current_qtd_all_in_usd_per_gal": current_bundle.get("all_in_usd_per_gal"),
+        "current_qtd_official_simple_usd_per_gal": current_bundle.get("official_simple_usd_per_gal"),
+        "current_qtd_coproduct_credit_usd_per_gal": current_bundle.get("coproduct_component_usd_per_gal"),
+        "ethanol_component_usd_per_gal": current_bundle.get("ethanol_component_usd_per_gal"),
+        "flat_corn_component_usd_per_gal": current_bundle.get("flat_corn_component_usd_per_gal"),
+        "corn_basis_component_usd_per_gal": current_bundle.get("corn_basis_component_usd_per_gal"),
+        "gas_component_usd_per_gal": current_bundle.get("gas_component_usd_per_gal"),
+        "coproduct_component_usd_per_gal": current_bundle.get("coproduct_component_usd_per_gal"),
+        "quarter_open_all_in_usd_per_gal": quarter_open_bundle.get("all_in_usd_per_gal"),
+        "quarter_open_official_simple_usd_per_gal": quarter_open_bundle.get("official_simple_usd_per_gal"),
+        "quarter_open_ethanol_component_usd_per_gal": quarter_open_bundle.get("ethanol_component_usd_per_gal"),
+        "quarter_open_flat_corn_component_usd_per_gal": quarter_open_bundle.get("flat_corn_component_usd_per_gal"),
+        "quarter_open_corn_basis_component_usd_per_gal": quarter_open_bundle.get("corn_basis_component_usd_per_gal"),
+        "quarter_open_gas_component_usd_per_gal": quarter_open_bundle.get("gas_component_usd_per_gal"),
+        "quarter_open_coproduct_component_usd_per_gal": quarter_open_bundle.get("coproduct_component_usd_per_gal"),
+        "quarter_open_reference_date": _gpre_parse_snapshot_date_like(
+            quarter_open_snapshot_map.get("manual_snapshot_date")
+            or quarter_open_snapshot_map.get("snapshot_as_of")
+            or quarter_open_snapshot_map.get("as_of")
+        ),
+        "quarter_open_snapshot_provenance": str(
+            quarter_open_snapshot_map.get("quarter_open_provenance")
+            or quarter_open_snapshot_map.get("provenance")
+            or ""
+        ).strip(),
+        "corn_basis_source_kind": current_bundle.get("corn_basis_source_kind"),
+        "corn_basis_source_label": current_bundle.get("corn_basis_source_label"),
+        "corn_basis_snapshot_date": current_bundle.get("corn_basis_snapshot_date"),
+        "corn_basis_selection_rule": current_bundle.get("corn_basis_selection_rule"),
+        "official_actual_bid_plant_count": current_bundle.get("official_actual_bid_plant_count"),
+        "official_fallback_plant_count": current_bundle.get("official_fallback_plant_count"),
+        "current_coproduct_source_mode": str(current_coproduct_map.get("resolved_source_mode") or "").strip(),
+        "current_coproduct_coverage_ratio": pd.to_numeric(current_coproduct_map.get("coverage_ratio"), errors="coerce"),
+        "quarter_open_coproduct_source_mode": str(quarter_open_coproduct_map.get("resolved_source_mode") or "").strip(),
+        "quarter_open_coproduct_coverage_ratio": pd.to_numeric(quarter_open_coproduct_map.get("coverage_ratio"), errors="coerce"),
+    }
+
+
+def _gpre_current_qtd_history_with_current(
+    history_df_in: Optional[pd.DataFrame],
+    current_row: Optional[Dict[str, Any]],
+    *,
+    supplemental_rows: Optional[Iterable[Dict[str, Any]]] = None,
+) -> pd.DataFrame:
+    history_df = _gpre_current_qtd_history_normalized_df(history_df_in)
+    appended_rows: List[Dict[str, Any]] = []
+    if isinstance(current_row, dict) and current_row:
+        appended_rows.append(dict(current_row))
+    if supplemental_rows:
+        appended_rows.extend(
+            dict(rec)
+            for rec in supplemental_rows
+            if isinstance(rec, dict) and rec
+        )
+    if appended_rows:
+        history_df = pd.concat([history_df, pd.DataFrame(appended_rows)], ignore_index=True)
+    if history_df.empty:
+        return history_df
+    history_df = _gpre_current_qtd_history_normalized_df(history_df)
+    history_df = history_df.drop_duplicates(subset=["quarter_end", "input_fingerprint"], keep="last")
+    helper_captured = pd.to_datetime(history_df.get("captured_at"), errors="coerce")
+    helper_as_of = pd.to_datetime(history_df.get("as_of_date"), errors="coerce")
+    sort_df = history_df.assign(_captured_sort=helper_captured, _as_of_sort=helper_as_of)
+    sort_df = sort_df.sort_values(["quarter_end", "_as_of_sort", "_captured_sort"], kind="stable").drop(columns=["_captured_sort", "_as_of_sort"])
+    return _gpre_current_qtd_history_apply_weekly_checkpoints(sort_df)
+
+
+def _gpre_current_qtd_history_apply_weekly_checkpoints(df_in: Optional[pd.DataFrame]) -> pd.DataFrame:
+    df = _gpre_current_qtd_history_normalized_df(df_in)
+    if df.empty:
+        return df
+    df["checkpoint_iso_week"] = [
+        _gpre_iso_week_key(val) for val in df["as_of_date"].tolist()
+    ]
+    df["is_weekly_checkpoint"] = False
+    sort_df = df.assign(
+        _captured_sort=pd.to_datetime(df["captured_at"], errors="coerce"),
+        _as_of_sort=pd.to_datetime(df["as_of_date"], errors="coerce"),
+    ).sort_values(["quarter_end", "checkpoint_iso_week", "_as_of_sort", "_captured_sort"], kind="stable")
+    weekly_idx = (
+        sort_df[
+            (sort_df["checkpoint_iso_week"].astype(str).str.len() > 0)
+            & sort_df["quarter_end"].notna()
+        ]
+        .groupby(["quarter_end", "checkpoint_iso_week"], sort=False)
+        .tail(1)
+        .index
+    )
+    df.loc[weekly_idx, "is_weekly_checkpoint"] = True
+    return _gpre_current_qtd_history_normalized_df(df)
+
+
+def _gpre_current_qtd_backfilled_weekly_rows(
+    *,
+    rows: Optional[Iterable[Dict[str, Any]]],
+    ticker_root: Optional[Path],
+    quarter_end: Optional[date],
+    quarter_start: Optional[date],
+    current_as_of: Optional[date],
+    current_row: Optional[Dict[str, Any]],
+    ethanol_yield: Any,
+    natural_gas_usage_btu_per_gal: Any,
+    plant_capacity_history: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    if not isinstance(quarter_end, date) or not isinstance(quarter_start, date) or not isinstance(current_as_of, date):
+        return []
+    row_list = [dict(rec) for rec in (rows or []) if isinstance(rec, dict)]
+    if not row_list:
+        return []
+    ethanol_yield_num = pd.to_numeric(ethanol_yield, errors="coerce")
+    gas_usage_num = pd.to_numeric(natural_gas_usage_btu_per_gal, errors="coerce")
+    if pd.isna(ethanol_yield_num) or abs(float(ethanol_yield_num)) <= 1e-9 or pd.isna(gas_usage_num):
+        return []
+
+    # Reconstruct same-quarter weekly checkpoints from dated local inputs so a young
+    # retained sidecar can still populate 1w/4w/8w comparisons without guessing.
+    weekly_rows = _gpre_official_proxy_weekly_rows(
+        row_list,
+        ethanol_yield=float(ethanol_yield_num),
+        natural_gas_usage=float(gas_usage_num),
+        window_start=quarter_start,
+        window_end=current_as_of,
+        ticker_root=ticker_root,
+        plant_capacity_history=plant_capacity_history,
+    )
+    if not weekly_rows:
+        return []
+
+    current_week_key = _gpre_iso_week_key(current_as_of)
+    quarter_open_map = dict(current_row or {})
+    captured_at = datetime.now(timezone.utc)
+    backfilled_rows: List[Dict[str, Any]] = []
+    for rec in weekly_rows:
+        week_end = rec.get("week_end")
+        if not isinstance(week_end, date) or _gpre_iso_week_key(week_end) == current_week_key:
+            continue
+        ethanol_price_num = pd.to_numeric(rec.get("ethanol_price"), errors="coerce")
+        cbot_num = pd.to_numeric(rec.get("cbot_corn_price"), errors="coerce")
+        gas_price_num = pd.to_numeric(rec.get("natural_gas_price"), errors="coerce")
+        if pd.isna(ethanol_price_num) or pd.isna(cbot_num) or pd.isna(gas_price_num):
+            continue
+
+        basis_payload = _gpre_official_current_forward_basis_payload(
+            row_list,
+            target_date=week_end,
+            target_quarter_end=quarter_end,
+            as_of_date=week_end,
+            ticker_root=ticker_root,
+            bids_snapshot=None,
+            selection_mode="current_qtd",
+            plant_capacity_history=plant_capacity_history,
+        )
+        basis_num = pd.to_numeric(basis_payload.get("official_weighted_corn_basis_usd_per_bu"), errors="coerce")
+        basis_snapshot_date = _gpre_parse_snapshot_date_like(
+            basis_payload.get("snapshot_date") or basis_payload.get("official_corn_basis_snapshot_date")
+        )
+        basis_source_kind = str(basis_payload.get("official_corn_basis_source_kind") or "").strip()
+        basis_source_label = str(basis_payload.get("official_corn_basis_source_label") or "").strip()
+        basis_selection_rule = str(basis_payload.get("selection_rule") or "").strip()
+        actual_bid_plant_count = int(basis_payload.get("official_actual_bid_plant_count") or 0)
+        fallback_plant_count = int(basis_payload.get("official_fallback_plant_count") or 0)
+
+        if isinstance(basis_snapshot_date, date) and basis_snapshot_date > week_end:
+            dated_basis_num = pd.to_numeric(
+                rec.get("official_weighted_corn_basis_usd_per_bu", rec.get("weighted_basis_usd_per_bu")),
+                errors="coerce",
+            )
+            if pd.notna(dated_basis_num):
+                basis_num = dated_basis_num
+                basis_snapshot_date = week_end
+                basis_source_kind = "weighted_ams_proxy"
+                basis_source_label = "weighted AMS basis proxy"
+                basis_selection_rule = "backfilled_weekly_checkpoint_latest_dated_inputs"
+                actual_bid_plant_count = 0
+                fallback_plant_count = 0
+        if pd.isna(basis_num):
+            continue
+
+        ethanol_component = float(ethanol_price_num)
+        flat_corn_component = -(float(cbot_num) / float(ethanol_yield_num))
+        corn_basis_component = -(float(basis_num) / float(ethanol_yield_num))
+        gas_component = -((float(gas_usage_num) / 1_000_000.0) * float(gas_price_num))
+        simple_crush_per_gal = ethanol_component + flat_corn_component + corn_basis_component + gas_component
+        fingerprint_payload = {
+            "quarter_end": quarter_end,
+            "backfilled_week_end": week_end,
+            "ethanol_component": ethanol_component,
+            "flat_corn_component": flat_corn_component,
+            "corn_basis_component": corn_basis_component,
+            "gas_component": gas_component,
+            "corn_basis_snapshot_date": basis_snapshot_date,
+            "corn_basis_selection_rule": basis_selection_rule,
+            "history_source_kind": "backfilled_weekly_checkpoint",
+        }
+        backfilled_rows.append(
+            {
+                "captured_at": captured_at,
+                "as_of_date": week_end,
+                "quarter_label": _quarter_label(quarter_end),
+                "quarter_start": quarter_start,
+                "quarter_end": quarter_end,
+                "input_fingerprint": _gpre_current_qtd_fingerprint(fingerprint_payload),
+                "is_weekly_checkpoint": True,
+                "checkpoint_iso_week": _gpre_iso_week_key(week_end),
+                "history_source_kind": "backfilled_weekly_checkpoint",
+                "current_qtd_all_in_usd_per_gal": None,
+                "current_qtd_official_simple_usd_per_gal": float(simple_crush_per_gal),
+                "current_qtd_coproduct_credit_usd_per_gal": None,
+                "ethanol_component_usd_per_gal": ethanol_component,
+                "flat_corn_component_usd_per_gal": flat_corn_component,
+                "corn_basis_component_usd_per_gal": corn_basis_component,
+                "gas_component_usd_per_gal": gas_component,
+                "coproduct_component_usd_per_gal": None,
+                "quarter_open_all_in_usd_per_gal": quarter_open_map.get("quarter_open_all_in_usd_per_gal"),
+                "quarter_open_official_simple_usd_per_gal": quarter_open_map.get("quarter_open_official_simple_usd_per_gal"),
+                "quarter_open_ethanol_component_usd_per_gal": quarter_open_map.get("quarter_open_ethanol_component_usd_per_gal"),
+                "quarter_open_flat_corn_component_usd_per_gal": quarter_open_map.get("quarter_open_flat_corn_component_usd_per_gal"),
+                "quarter_open_corn_basis_component_usd_per_gal": quarter_open_map.get("quarter_open_corn_basis_component_usd_per_gal"),
+                "quarter_open_gas_component_usd_per_gal": quarter_open_map.get("quarter_open_gas_component_usd_per_gal"),
+                "quarter_open_coproduct_component_usd_per_gal": quarter_open_map.get("quarter_open_coproduct_component_usd_per_gal"),
+                "quarter_open_reference_date": quarter_open_map.get("quarter_open_reference_date"),
+                "quarter_open_snapshot_provenance": quarter_open_map.get("quarter_open_snapshot_provenance"),
+                "corn_basis_source_kind": basis_source_kind,
+                "corn_basis_source_label": basis_source_label,
+                "corn_basis_snapshot_date": basis_snapshot_date,
+                "corn_basis_selection_rule": basis_selection_rule or "backfilled_weekly_checkpoint",
+                "official_actual_bid_plant_count": actual_bid_plant_count,
+                "official_fallback_plant_count": fallback_plant_count,
+                "current_coproduct_source_mode": "",
+                "current_coproduct_coverage_ratio": np.nan,
+                "quarter_open_coproduct_source_mode": quarter_open_map.get("quarter_open_coproduct_source_mode"),
+                "quarter_open_coproduct_coverage_ratio": quarter_open_map.get("quarter_open_coproduct_coverage_ratio"),
+            }
+        )
+    return backfilled_rows
+
+
+def _gpre_current_qtd_history_reference_row(
+    history_df: Optional[pd.DataFrame],
+    *,
+    quarter_end: Optional[date],
+    current_as_of: Optional[date],
+    lookback_days: int,
+) -> Optional[Dict[str, Any]]:
+    if not isinstance(quarter_end, date) or not isinstance(current_as_of, date):
+        return None
+    history_df_norm = _gpre_current_qtd_history_normalized_df(history_df)
+    if history_df_norm.empty:
+        return None
+    cutoff = current_as_of - timedelta(days=max(int(lookback_days or 0), 0))
+    mask = (
+        history_df_norm["quarter_end"].eq(quarter_end)
+        & history_df_norm["is_weekly_checkpoint"].astype(bool)
+        & history_df_norm["as_of_date"].notna()
+        & history_df_norm["as_of_date"].apply(lambda val: isinstance(val, date) and val <= cutoff)
+    )
+    candidates = history_df_norm.loc[mask].copy()
+    if candidates.empty:
+        return None
+    candidates["_captured_sort"] = pd.to_datetime(candidates["captured_at"], errors="coerce")
+    candidates["_as_of_sort"] = pd.to_datetime(candidates["as_of_date"], errors="coerce")
+    picked = candidates.sort_values(["_as_of_sort", "_captured_sort"], kind="stable").iloc[-1].drop(labels=["_captured_sort", "_as_of_sort"])
+    return {str(key): picked[key] for key in picked.index}
+
+
+def _gpre_current_qtd_driver_rows(
+    current_row: Optional[Dict[str, Any]],
+    references: Dict[str, Optional[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    current = dict(current_row or {})
+    driver_specs = [
+        ("Ethanol", "ethanol_component_usd_per_gal"),
+        ("Flat corn", "flat_corn_component_usd_per_gal"),
+        ("Corn basis", "corn_basis_component_usd_per_gal"),
+        ("Gas", "gas_component_usd_per_gal"),
+    ]
+    rows_out: List[Dict[str, Any]] = []
+    for label_txt, field_name in driver_specs:
+        current_num = pd.to_numeric(current.get(field_name), errors="coerce")
+        row_out: Dict[str, Any] = {"driver": label_txt}
+        for ref_key, ref_row in references.items():
+            ref_num = pd.to_numeric((ref_row or {}).get(field_name), errors="coerce")
+            delta_val = None if pd.isna(current_num) or pd.isna(ref_num) else float(current_num) - float(ref_num)
+            row_out[ref_key] = delta_val
+        rows_out.append(row_out)
+    return rows_out
+
+
+def build_gpre_current_qtd_trend_tracking_bundle(
+    *,
+    ticker_root: Optional[Path],
+    current_snapshot: Optional[Dict[str, Any]],
+    quarter_open_snapshot: Optional[Dict[str, Any]],
+    current_coproduct_frame: Optional[Dict[str, Any]],
+    quarter_open_coproduct_frame: Optional[Dict[str, Any]],
+    ethanol_yield: Any,
+    natural_gas_usage_btu_per_gal: Any,
+    rows: Optional[Iterable[Dict[str, Any]]] = None,
+    plant_capacity_history: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    current_row = _gpre_build_current_qtd_snapshot_row(
+        current_snapshot=current_snapshot,
+        quarter_open_snapshot=quarter_open_snapshot,
+        current_coproduct_frame=current_coproduct_frame,
+        quarter_open_coproduct_frame=quarter_open_coproduct_frame,
+        ethanol_yield=ethanol_yield,
+        natural_gas_usage_btu_per_gal=natural_gas_usage_btu_per_gal,
+    )
+    history_df = load_gpre_current_qtd_snapshot_history(ticker_root)
+    quarter_end = parse_quarter_like(current_row.get("quarter_end"))
+    current_as_of = _gpre_parse_snapshot_date_like(current_row.get("as_of_date"))
+    quarter_start = current_row.get("quarter_start") if isinstance(current_row.get("quarter_start"), date) else None
+    backfilled_rows = _gpre_current_qtd_backfilled_weekly_rows(
+        rows=rows,
+        ticker_root=ticker_root,
+        quarter_end=quarter_end,
+        quarter_start=quarter_start,
+        current_as_of=current_as_of,
+        current_row=current_row,
+        ethanol_yield=ethanol_yield,
+        natural_gas_usage_btu_per_gal=natural_gas_usage_btu_per_gal,
+        plant_capacity_history=plant_capacity_history,
+    )
+    # Reference selection always works off one normalized view that includes retained
+    # history, any same-quarter backfilled checkpoints, and the just-built current row.
+    combined_history_df = _gpre_current_qtd_history_with_current(
+        history_df,
+        current_row,
+        supplemental_rows=backfilled_rows,
+    )
+
+    def _reference_payload(ref_key: str, ref_row: Optional[Dict[str, Any]], *, label: str) -> Dict[str, Any]:
+        if ref_key == "quarter_open":
+            reference_value_num = pd.to_numeric(current_row.get("quarter_open_official_simple_usd_per_gal"), errors="coerce")
+            reference_date = _gpre_parse_snapshot_date_like(current_row.get("quarter_open_reference_date"))
+            delta_num = (
+                None
+                if pd.isna(pd.to_numeric(current_row.get("current_qtd_official_simple_usd_per_gal"), errors="coerce")) or pd.isna(reference_value_num)
+                else float(pd.to_numeric(current_row.get("current_qtd_official_simple_usd_per_gal"), errors="coerce")) - float(reference_value_num)
+            )
+            payload = {
+                "reference_key": ref_key,
+                "label": label,
+                "status": "ok" if pd.notna(reference_value_num) else "insufficient_history",
+                "reference_date": reference_date,
+                "reference_value_usd_per_gal": (None if pd.isna(reference_value_num) else float(reference_value_num)),
+                "delta_usd_per_gal": delta_num,
+                "history_source_kind": "quarter_open_reference",
+                "ethanol_component_usd_per_gal": current_row.get("quarter_open_ethanol_component_usd_per_gal"),
+                "flat_corn_component_usd_per_gal": current_row.get("quarter_open_flat_corn_component_usd_per_gal"),
+                "corn_basis_component_usd_per_gal": current_row.get("quarter_open_corn_basis_component_usd_per_gal"),
+                "gas_component_usd_per_gal": current_row.get("quarter_open_gas_component_usd_per_gal"),
+                "coproduct_component_usd_per_gal": current_row.get("quarter_open_coproduct_component_usd_per_gal"),
+                "note": "",
+            }
+            return payload
+        ref_map = dict(ref_row or {})
+        reference_value_num = pd.to_numeric(ref_map.get("current_qtd_official_simple_usd_per_gal"), errors="coerce")
+        current_total_num = pd.to_numeric(current_row.get("current_qtd_official_simple_usd_per_gal"), errors="coerce")
+        delta_num = None if pd.isna(current_total_num) or pd.isna(reference_value_num) else float(current_total_num) - float(reference_value_num)
+        return {
+            "reference_key": ref_key,
+            "label": label,
+            "status": "ok" if ref_row is not None and pd.notna(reference_value_num) else "insufficient_history",
+            "reference_date": _gpre_parse_snapshot_date_like(ref_map.get("as_of_date")),
+            "reference_value_usd_per_gal": (None if pd.isna(reference_value_num) else float(reference_value_num)),
+            "delta_usd_per_gal": delta_num,
+            "history_source_kind": str(ref_map.get("history_source_kind") or ""),
+            "ethanol_component_usd_per_gal": ref_map.get("ethanol_component_usd_per_gal"),
+            "flat_corn_component_usd_per_gal": ref_map.get("flat_corn_component_usd_per_gal"),
+            "corn_basis_component_usd_per_gal": ref_map.get("corn_basis_component_usd_per_gal"),
+            "gas_component_usd_per_gal": ref_map.get("gas_component_usd_per_gal"),
+            "coproduct_component_usd_per_gal": ref_map.get("coproduct_component_usd_per_gal"),
+            "note": "" if ref_row is not None and pd.notna(reference_value_num) else "insufficient history",
+        }
+
+    reference_rows = {
+        "quarter_open": None,
+        "1w": _gpre_current_qtd_history_reference_row(combined_history_df, quarter_end=quarter_end, current_as_of=current_as_of, lookback_days=7),
+        "4w": _gpre_current_qtd_history_reference_row(combined_history_df, quarter_end=quarter_end, current_as_of=current_as_of, lookback_days=28),
+        "8w": _gpre_current_qtd_history_reference_row(combined_history_df, quarter_end=quarter_end, current_as_of=current_as_of, lookback_days=56),
+    }
+    reference_comparisons = {
+        "quarter_open": _reference_payload("quarter_open", None, label="Quarter-open"),
+        "1w": _reference_payload("1w", reference_rows["1w"], label="1w checkpoint"),
+        "4w": _reference_payload("4w", reference_rows["4w"], label="4w checkpoint"),
+        "8w": _reference_payload("8w", reference_rows["8w"], label="8w checkpoint"),
+    }
+    driver_attribution_rows = _gpre_current_qtd_driver_rows(
+        current_row,
+        {
+            "quarter_open": reference_comparisons["quarter_open"],
+            "1w": reference_comparisons["1w"],
+            "4w": reference_comparisons["4w"],
+            "8w": reference_comparisons["8w"],
+        },
+    )
+    sidecar_dir = _gpre_basis_proxy_dir(ticker_root)
+    parquet_path = _gpre_current_qtd_snapshots_parquet_path(ticker_root)
+    csv_path = _gpre_current_qtd_snapshots_csv_path(ticker_root)
+    same_quarter_history_df = combined_history_df.loc[
+        combined_history_df["quarter_end"].eq(quarter_end)
+    ].copy() if isinstance(quarter_end, date) and not combined_history_df.empty else pd.DataFrame()
+    return {
+        "current_snapshot": current_row,
+        "quarter_open_reference": dict(reference_comparisons.get("quarter_open") or {}),
+        "reference_comparisons": reference_comparisons,
+        "driver_attribution_rows": driver_attribution_rows,
+        "history_store_meta": {
+            "sidecar_dir": str(sidecar_dir) if isinstance(sidecar_dir, Path) else "",
+            "parquet_path": str(parquet_path) if isinstance(parquet_path, Path) else "",
+            "csv_path": str(csv_path) if isinstance(csv_path, Path) else "",
+            "existing_row_count": int(len(history_df.index)) if isinstance(history_df, pd.DataFrame) else 0,
+            "combined_row_count": int(len(combined_history_df.index)) if isinstance(combined_history_df, pd.DataFrame) else 0,
+            "backfilled_row_count": int(len(backfilled_rows)),
+            "same_quarter_row_count": int(len(same_quarter_history_df.index)) if isinstance(same_quarter_history_df, pd.DataFrame) else 0,
+            "same_quarter_checkpoint_count": int(
+                same_quarter_history_df["is_weekly_checkpoint"].astype(bool).sum()
+            ) if isinstance(same_quarter_history_df, pd.DataFrame) and "is_weekly_checkpoint" in same_quarter_history_df.columns else 0,
+        },
+        "pending_history_write": {
+            "ticker_root": ticker_root,
+            "current_snapshot_row": current_row,
+            "supplemental_rows": backfilled_rows,
+        },
+    }
+
+
+def persist_gpre_current_qtd_snapshot_history(
+    ticker_root: Optional[Path],
+    pending_write: Optional[Dict[str, Any]],
+) -> bool:
+    if not isinstance(ticker_root, Path) or not isinstance(pending_write, dict):
+        return False
+    current_row = pending_write.get("current_snapshot_row")
+    if not isinstance(current_row, dict) or not current_row:
+        return False
+    if not isinstance(_gpre_parse_snapshot_date_like(current_row.get("as_of_date")), date):
+        return False
+    if not isinstance(parse_quarter_like(current_row.get("quarter_end")), date):
+        return False
+    if pd.isna(pd.to_numeric(current_row.get("current_qtd_official_simple_usd_per_gal"), errors="coerce")):
+        return False
+    parquet_path = _gpre_current_qtd_snapshots_parquet_path(ticker_root)
+    csv_path = _gpre_current_qtd_snapshots_csv_path(ticker_root)
+    if parquet_path is None or csv_path is None:
+        return False
+    history_df = load_gpre_current_qtd_snapshot_history(ticker_root)
+    supplemental_rows = [
+        dict(rec)
+        for rec in list(pending_write.get("supplemental_rows") or [])
+        if isinstance(rec, dict) and rec
+    ]
+    combined_df = _gpre_current_qtd_history_with_current(
+        history_df,
+        current_row,
+        supplemental_rows=supplemental_rows,
+    )
+    try:
+        parquet_path.parent.mkdir(parents=True, exist_ok=True)
+        combined_df.to_parquet(parquet_path, index=False)
+        csv_df = combined_df.copy()
+        csv_df.to_csv(csv_path, index=False)
         return True
     except Exception:
         return False
@@ -4363,7 +5136,7 @@ def _resolve_local_manual_gpre_quarter_open_snapshot(
     official_market_snapshot["manual_snapshot_date"] = quarter_open_ethanol_ref.get("snapshot_date")
     official_market_snapshot["manual_snapshot_source"] = list(quarter_open_ethanol_ref.get("source") or [])
     official_market_snapshot["message"] = str(
-        official_market_snapshot.get("message") or "Quarter-open proxy uses local manual snapshot."
+        official_market_snapshot.get("message") or "Quarter-open outlook uses local manual snapshot."
     )
     market_meta = dict(official_market_snapshot.get("market_meta") or {})
     ethanol_meta = dict(market_meta.get("ethanol_price") or {})
@@ -4392,7 +5165,7 @@ def _resolve_local_manual_gpre_quarter_open_snapshot(
         ),
         "gpre_proxy_official_usd_per_gal": None,
         "gpre_proxy_model_key": "",
-        "message": "Quarter-open proxy uses local manual snapshot.",
+        "message": "Quarter-open outlook uses local manual snapshot.",
     }
 
 
@@ -6374,9 +7147,9 @@ def _build_gpre_proxy_implied_results_bundle(
     frame_order = ("prior_quarter", "quarter_open", "current_qtd", "next_quarter_thesis")
     frame_labels = {
         "prior_quarter": "Prior quarter",
-        "quarter_open": "Quarter-open proxy",
+        "quarter_open": "Quarter-open outlook",
         "current_qtd": "Current QTD",
-        "next_quarter_thesis": "Next quarter thesis",
+        "next_quarter_thesis": "Next quarter outlook",
     }
     official_frames = dict((overlay_preview_bundle or {}).get("official_frames") or {})
     gpre_frames = dict((overlay_preview_bundle or {}).get("gpre_proxy_frames") or {})
@@ -11349,6 +12122,20 @@ def _gpre_build_weighted_coproduct_record(
         if pd.notna(corn_oil_yield_num) and pd.notna(corn_oil_price)
         else None
     )
+    corn_oil_contribution_per_gal = (
+        float(corn_oil_contribution) / float(ethanol_yield_num)
+        if corn_oil_contribution is not None
+        and pd.notna(ethanol_yield_num)
+        and abs(float(ethanol_yield_num)) > 1e-9
+        else None
+    )
+    corn_oil_contribution_usd_m_proxy = (
+        float(corn_oil_contribution_per_gal) * float(gallons_million_display)
+        if corn_oil_contribution_per_gal is not None
+        and gallons_million_display is not None
+        and abs(float(gallons_million_display)) > 1e-9
+        else None
+    )
     contribution_values = [
         float(val)
         for val in (distillers_contribution, uhp_contribution, corn_oil_contribution)
@@ -11382,6 +12169,9 @@ def _gpre_build_weighted_coproduct_record(
         "quarter_end": quarter_end,
         "quarter_label": _quarter_label(quarter_end),
         "renewable_corn_oil_price": (None if pd.isna(corn_oil_price) else float(corn_oil_price)),
+        "renewable_corn_oil_contribution_per_bushel": corn_oil_contribution,
+        "renewable_corn_oil_contribution_per_gal": corn_oil_contribution_per_gal,
+        "renewable_corn_oil_contribution_usd_m_proxy": corn_oil_contribution_usd_m_proxy,
         "distillers_grains_price": (None if pd.isna(distillers_price) else float(distillers_price)),
         "uhp_price": (None if pd.isna(uhp_price) else float(uhp_price)),
         "approximate_coproduct_credit": approximate_coproduct_credit,
@@ -11413,9 +12203,9 @@ def _gpre_coproduct_frame_record(
 ) -> Dict[str, Any]:
     frame_label = {
         "prior_quarter": "Prior quarter",
-        "quarter_open": "Quarter-open proxy",
+        "quarter_open": "Quarter-open outlook",
         "current_qtd": "Current QTD",
-        "next_quarter_thesis": "Next quarter thesis",
+        "next_quarter_thesis": "Next quarter outlook",
     }.get(str(frame_key or "").strip(), str(frame_key or "").replace("_", " ").title())
     primary = dict(base_record or {})
     fallback = dict(fallback_record or {})
@@ -11729,6 +12519,7 @@ def build_gpre_basis_proxy_model(
             "best_coproduct_experimental_model_key": "",
             "coproduct_experimental_frame_values": {},
             "coproduct_experimental_summary_markdown": "",
+            "current_qtd_trend_tracking": {},
         }
 
     footprint_df = _gpre_quarterly_footprint(
@@ -11822,6 +12613,7 @@ def build_gpre_basis_proxy_model(
             "best_coproduct_experimental_model_key": "",
             "coproduct_experimental_frame_values": {},
             "coproduct_experimental_summary_markdown": "",
+            "current_qtd_trend_tracking": {},
         }
 
     bid_region_rows = _gpre_bid_region_basis_rows(effective_bids_snapshot)
@@ -14163,7 +14955,7 @@ def build_gpre_basis_proxy_model(
             "",
             "## Methodology",
             "Approximate market crush uses an active-capacity-weighted GPRE ethanol benchmark, front-month CBOT corn, official weighted corn basis, fixed 2.9 gal/bu yield, and fixed natural-gas burden.",
-            "Official corn basis prefers dated GPRE plant bids when available for the relevant frame or quarter, including historical quarters with retained snapshots; otherwise it falls back to active-capacity-weighted AMS basis using mapped state/regional series and deterministic fallbacks.",
+            "Official corn basis prefers dated GPRE plant bids when available; otherwise it falls back to active-capacity-weighted AMS basis using mapped state/regional series and deterministic fallbacks.",
             "GPRE proxy candidates are scored across bridge timing, process timing, quarter-open/current blend, severe execution overlays, sold-produced timing-gap overlays, utilization-regime overlays, residual-regime splits, simple gated ensembles, ethanol-geography, and hedge-memo families using the same quarterly target set.",
             "Official weighting now uses quarter-aware active plant capacity from filing-backed footprint metadata; bid-offset remains comparison-only unless it clearly wins in the fitted competition.",
             "",
@@ -14444,6 +15236,17 @@ def build_gpre_basis_proxy_model(
         for rec in coproduct_frame_summary_records
         if isinstance(rec, dict) and str(rec.get("frame_key") or "").strip()
     }
+    current_qtd_trend_tracking = build_gpre_current_qtd_trend_tracking_bundle(
+        ticker_root=ticker_root,
+        current_snapshot=current_qtd_market_snapshot,
+        quarter_open_snapshot=dict((overlay_preview_bundle or {}).get("quarter_open_market_snapshot") or {}),
+        current_coproduct_frame=dict(coproduct_frame_map.get("current_qtd") or {}),
+        quarter_open_coproduct_frame=dict(coproduct_frame_map.get("quarter_open") or {}),
+        ethanol_yield=yield_per_bushel,
+        natural_gas_usage_btu_per_gal=natural_gas_usage_num,
+        rows=row_list,
+        plant_capacity_history=effective_plant_capacity_history,
+    )
     base_frame_groups = {
         "official": official_frame_map,
         "winner": winner_frame_map,
@@ -14567,15 +15370,15 @@ def build_gpre_basis_proxy_model(
         "best_coproduct_experimental_model_key": best_coproduct_experimental_model_key,
         "coproduct_experimental_frame_values": coproduct_experimental_frame_values,
         "coproduct_experimental_summary_markdown": coproduct_experimental_summary_markdown,
+        "current_qtd_trend_tracking": current_qtd_trend_tracking,
         "official_weighting_method": "Active-capacity weighted GPRE footprint by quarter-aware plant metadata",
         "official_ethanol_method": (
             "Weighted ethanol benchmark using quarter-aware active-capacity footprint weights, "
             "mapped state/regional ethanol series, Midwest-anchor plausibility screens, and deterministic fallbacks"
         ),
         "official_basis_method": (
-            "Official corn basis prefers dated GPRE plant bids when available for the relevant frame or quarter, "
-            "including historical quarters with retained snapshots; otherwise it falls back to active-capacity-weighted "
-            "AMS basis using mapped state/regional series and deterministic fallbacks"
+            "Official corn basis prefers dated GPRE plant bids when available; otherwise it falls back to "
+            "active-capacity-weighted AMS basis using mapped state/regional series and deterministic fallbacks"
         ),
         "official_gas_method": f"Fixed {gas_usage_mmbtu_per_gal:.3f} MMBtu/gal burden multiplied by benchmark gas",
         "official_fallback_policy": (

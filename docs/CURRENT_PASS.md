@@ -1,4 +1,4 @@
-# Current Pass
+﻿# Current Pass
 
 ## Focus
 - Harden workbook dataflow so fixes reach the saved workbook reliably.
@@ -49,7 +49,7 @@
   - longer policy, provenance, and interpretation rows now use explicit note-box styling instead of looking like ordinary data rows
   - note rows keep their workbook text but now use lighter fills, wrap text, top alignment, and slightly taller row heights where needed
 - Verified frame readability change:
-  - frame-oriented blocks still use the same `Prior quarter / Quarter-open proxy / Current QTD / Next quarter thesis` content
+  - frame-oriented blocks still use the same `Prior quarter / Quarter-open outlook / Current QTD / Next quarter outlook` content
   - label columns, frame columns, and summary rows now use clearer widths, alignment, and borders so the frame board reads more like an analyst workbench than a flat dump
 - Verified table readability change:
   - `Coproduct quarterly history` and the coproduct experimental metrics table now use clearer header contrast and light row striping
@@ -67,9 +67,9 @@
 - Verified quarter/frame snapshot policy:
   - `Current QTD`
     - latest usable GPRE snapshot on or before `as_of_date`
-  - `Quarter-open proxy`
+  - `Quarter-open outlook`
     - latest usable GPRE snapshot on or before quarter start, while preserving the established quarter-open/freeze policy where it already applies
-  - `Next quarter thesis`
+  - `Next quarter outlook`
     - latest usable GPRE snapshot on or before `as_of_date` that actually contains forward-delivery rows for the target quarter
   - `Prior quarter`
     - latest usable retained GPRE snapshot on or before target quarter end
@@ -81,13 +81,78 @@
   - `GPRE/corn_bids/manifest.json`
   - legacy latest files still remain for compatibility, but retained snapshots are now the canonical history-selection source
 - Verified workbook wording:
-  - the official market note now states that `Official corn basis prefers dated GPRE plant bids when available for the relevant frame or quarter, including historical quarters with retained snapshots; otherwise it falls back to active-capacity-weighted AMS basis ...`
+  - the official market note now states that `Official corn basis prefers dated GPRE plant bids when available; otherwise it falls back to active-capacity-weighted AMS basis ...`
 - Verified sandbox auditability:
   - `Basis_Proxy_Sandbox` now surfaces both `Official corn basis snapshot date` and `Official corn basis selection rule` frame by frame in the `Approximate market crush build-up ($/gal)` block
 - Verified quarterly chart cleanup:
   - the quarterly crush chart keeps quarter labels at the bottom
   - the visual midline is no longer left ambiguous as an axis-placement problem
-  - when the visible range crosses zero, a separate neutral `Zero reference line` is added instead of relying on axis-crossing-at-zero behavior
+  - the chart now hides the category-axis line itself instead of adding a separate zero-reference helper series
+
+## GPRE Stage C.3: Current QTD Snapshot Trend Tracking And Driver Attribution (2026-04-11)
+- Verified scope:
+  - this is a GPRE-only tracking pass for `Current QTD`
+  - it does not change production winner selection, the official/simple row, or best-forward logic
+  - it does not add a new workbook sheet
+- Verified tracked lens:
+  - the new tracker uses the crush-margin lens:
+    - `Current QTD crush margin = Approximate market crush`
+  - the overlay surface therefore tracks the official/simple crush path directly rather than an all-in coproduct-inclusive lens
+- Verified realized-series note:
+  - `Basis_Proxy_Sandbox` now carries a short note that `Realized GPRE crush margin` uses reported consolidated before `2025-Q2` and underlying from `2025-Q2` onward
+- Verified canonical retention:
+  - retained snapshot history now lives outside the workbook under:
+    - `GPRE/basis_proxy/gpre_current_qtd_snapshots.parquet`
+    - `GPRE/basis_proxy/gpre_current_qtd_snapshots.csv`
+  - the workbook surface is compact and reads from that sidecar history
+  - identical reruns do not append duplicate retained rows
+  - a new retained row is appended only when the current-quarter input fingerprint changes
+- Verified snapshot fields:
+  - retained rows now carry:
+    - capture timestamp / as-of date / quarter metadata
+    - crush-margin `Current QTD`
+    - crush-margin quarter-open reference
+    - ethanol / flat-corn / corn-basis / gas component values
+    - legacy all-in / coproduct support fields for compatibility and audit support
+    - corn-basis provenance fields
+    - checkpoint metadata
+- Verified checkpoint policy:
+  - daily retention is real snapshot retention, not reconstruction from quarterly history
+  - weekly checkpoints are not duplicated extra rows
+  - instead, the latest retained daily row in each ISO week is flagged as the official weekly checkpoint for that week
+- Verified reference-selection rule:
+  - `Quarter-open`
+    - existing quarter-open retained/frozen reference for the same quarter
+  - `1w`
+    - latest same-quarter weekly checkpoint with `as_of_date <= current_as_of - 7 days`
+  - `4w`
+    - latest same-quarter weekly checkpoint with `as_of_date <= current_as_of - 28 days`
+  - `8w`
+    - latest same-quarter weekly checkpoint with `as_of_date <= current_as_of - 56 days`
+  - no cross-quarter fallback is used for these lookbacks
+  - missing history stays blank / `insufficient history` rather than being synthesized
+- Verified driver attribution:
+  - displayed deltas are decomposed into:
+    - `Ethanol`
+    - `Flat corn`
+    - `Corn basis`
+    - `Gas`
+  - no `Coproducts` or `Residual` row is displayed in the trend tracker
+  - the visible delta now sums directly from the four crush-margin drivers
+- Verified overlay surface:
+  - `Economics_Overlay` now adds `Current QTD trend tracking ($/gal, crush margin lens)` directly under `Approximate market crush, fitted models, and real GPRE crush margin (quarterly)`
+  - the compact block contains:
+    - `Today`
+    - `Quarter-open`
+    - `QTD vs quarter-open`
+    - `QTD vs 1 week ago`
+    - `QTD vs 4 weeks ago`
+    - `QTD vs 8 weeks ago`
+    - driver attribution table for `Ethanol / Flat corn / Corn basis / Gas`
+  - the overlay also states explicitly that same-point-last-quarter is intentionally not used as a primary tracking lens because GPRE quarter economics are too cyclical
+- Verified visible layout shift:
+  - the visible `Coproduct economics` block remains intact in substance
+  - it now starts lower in the sheet so the new QTD tracking area has dedicated space above it
 
 ## GPRE Stage C: Coproduct-Aware Crush Experiments (2026-04-09)
 - Verified scope:
@@ -196,9 +261,9 @@
   - `Basis_Proxy_Sandbox` now includes a compact `Coproduct frame summary` above `Coproduct quarterly history`
   - the frame summary covers:
     - `Prior quarter`
-    - `Quarter-open proxy`
+    - `Quarter-open outlook`
     - `Current QTD`
-    - `Next quarter thesis`
+    - `Next quarter outlook`
   - the frame summary stores:
     - `Renewable corn oil price`
     - `Distillers grains price`
@@ -216,9 +281,9 @@
   - unsupported active-footprint share is not silently absorbed; it appears through the `Coverage` column
 - Verified frame policy:
   - `Prior quarter` uses weighted last-completed-quarter values
-  - `Quarter-open proxy` uses early-quarter weighted observations when available, else prior-quarter carry-forward
+  - `Quarter-open outlook` uses early-quarter weighted observations when available, else prior-quarter carry-forward
   - `Current QTD` uses weighted current-quarter resolved values
-  - `Next quarter thesis` carries forward the latest resolved weighted coproduct value because there is no true forward coproduct curve
+  - `Next quarter outlook` carries forward the latest resolved weighted coproduct value because there is no true forward coproduct curve
   - `Approximate coproduct credit ($m)` remains intentionally blank when the quarter-aware implied gallons basis is unavailable
 - Verified quarter-label policy:
   - both quarterly charts now bind x-axis categories through same-sheet helper ranges on `Economics_Overlay`
@@ -544,7 +609,7 @@
   - `Implied gallons assumption` and `Volume basis` now span `V:X` on `Economics_Overlay`
   - the `Proxy comparison ($/gal)` note now spans `A:U` and keeps the same compact role order
   - the quarterly chart title is now:
-    - `Approximate market crush vs Fitted models (quarterly)`
+    - `Approximate market crush, fitted models, and real GPRE crush margin (quarterly)`
   - the quarterly chart now extends beyond historical quarterly rows and shows preview / future-quarter values from the existing proxy-comparison path
   - the quarterly chart is now a simple 3-series quarter-labeled line chart with visible `YYYY-Q#` labels and no quarterly `Quarter boundary` helper clutter
   - fitted / forward proxy-comparison comments are now writer-compacted to max 12 words for workbook readability
@@ -643,8 +708,8 @@
   - quarter labels live inside the chart on the same date axis as the plotted series
   - worksheet merged-cell quarter ribbons are no longer the primary source of truth
 - GPRE thesis ethanol is now local-file driven:
-  - `Next quarter thesis` uses the local Chicago ethanol futures EOD CSVs in [`GPRE/Ethanol_futures`](/c:/Users/Jibbe/Aktier/GPRE/Ethanol_futures)
-  - `Quarter-open proxy` keeps strict-frozen precedence but can fall back to a local manual quarter-open snapshot when frozen prior-quarter history is missing
+  - `Next quarter outlook` uses the local Chicago ethanol futures EOD CSVs in [`GPRE/Ethanol_futures`](/c:/Users/Jibbe/Aktier/GPRE/Ethanol_futures)
+  - `Quarter-open outlook` keeps strict-frozen precedence but can fall back to a local manual quarter-open snapshot when frozen prior-quarter history is missing
   - visible overlay wording stays concise and does not dump full provenance into the status line
 - The latest runtime pass materially changed the GPRE write-path profile without changing workbook outputs:
   - `Economics_Overlay` is no longer the dominant hotspot
@@ -712,9 +777,9 @@
     - `Operating_Drivers > Utilization (%)` now resolves the current-quarter official utilization values for the affected historical actuals quarters
     - the current local delivered workbook now shows the corrected actuals series after the `2026-04-08` artifact refresh
   - `Economics_Overlay` quarter and thesis columns now use the local ethanol-files workflow:
-    - `Quarter-open proxy` may show `uses local manual snapshot` when no real frozen prior-quarter thesis snapshot exists
+    - `Quarter-open outlook` may show `uses local manual snapshot` when no real frozen prior-quarter outlook snapshot exists
     - `Current QTD` remains observed-only
-    - `Next quarter thesis` uses the local Chicago ethanol futures strip
+    - `Next quarter outlook` uses the local Chicago ethanol futures strip
   - `Economics_Overlay` proxy comparison is intentionally split:
     - official row = `Approximate market crush`
     - fitted row = `GPRE crush proxy`
