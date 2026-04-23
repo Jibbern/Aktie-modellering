@@ -6,6 +6,7 @@ scope in this pass even though the report contains them.
 """
 from __future__ import annotations
 
+import json
 import re
 from datetime import date
 from pathlib import Path
@@ -85,6 +86,7 @@ def _obs_row(
     market_family: str,
     instrument: str,
     unit: str,
+    source_type: str = "ams_3618_pdf",
 ) -> Dict[str, Any]:
     return {
         "observation_date": report_date,
@@ -92,8 +94,8 @@ def _obs_row(
         "aggregation_level": "observation",
         "publication_date": report_date,
         "source": "ams_3618",
-        "report_type": "ams_3618_pdf",
-        "source_type": "ams_3618_pdf",
+        "report_type": source_type,
+        "source_type": source_type,
         "market_family": market_family,
         "series_key": series_key,
         "instrument": instrument,
@@ -218,9 +220,95 @@ def parse_ams_3618_pdf_text(text: str, *, fallback_date: Optional[pd.Timestamp],
     return rows
 
 
+def _float_value(value: Any) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    try:
+        out = float(value)
+    except Exception:
+        return None
+    if pd.isna(out):
+        return None
+    return out
+
+
+def _public_trade_location(row: Dict[str, Any]) -> str:
+    for key in ("trade_loc", "state/Province", "region"):
+        value = str(row.get(key) or "").strip()
+        if value and value.upper() != "N/A":
+            return value
+    return ""
+
+
+def parse_ams_3618_public_data_payload(payload: Dict[str, Any], *, source_file: str) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    corn_oil_map = {label: series_key for label, series_key in _AMS3618_CORN_OIL_SERIES}
+    ddgs_map = {label: series_key for label, series_key in _AMS3618_DDGS_SERIES}
+    for item in list((payload or {}).get("results") or []):
+        if not isinstance(item, dict):
+            continue
+        report_ts = pd.to_datetime(item.get("report_end_date") or item.get("report_date") or item.get("report_begin_date"), errors="coerce")
+        if pd.isna(report_ts):
+            continue
+        commodity = str(item.get("commodity") or "").strip()
+        variety = str(item.get("variety") or "").strip()
+        application = str(item.get("application") or "").strip()
+        location = _public_trade_location(item)
+        price_value = _float_value(item.get("price"))
+        if price_value is None:
+            price_value = _float_value(item.get("avg_price"))
+        if price_value is None or not location:
+            continue
+        if commodity == "Distillers Corn Oil" and application.lower() == "feed grade":
+            series_key = corn_oil_map.get(location)
+            if not series_key:
+                continue
+            rows.append(
+                _obs_row(
+                    report_date=report_ts.date(),
+                    source_file=source_file,
+                    series_key=series_key,
+                    region=location.lower().replace(" ", "_"),
+                    price_value=price_value,
+                    parsed_note=f"AMS 3618 public_data distillers corn oil feed-grade price for {location}.",
+                    market_family="renewable_corn_oil_price",
+                    instrument="Renewable corn oil price",
+                    unit="c/lb",
+                    source_type="ams_3618_public_data",
+                )
+            )
+            continue
+        if commodity == "Distillers Grain" and variety.lower() == "dried 10%":
+            series_key = ddgs_map.get(location)
+            if not series_key:
+                continue
+            rows.append(
+                _obs_row(
+                    report_date=report_ts.date(),
+                    source_file=source_file,
+                    series_key=series_key,
+                    region=location.lower().replace(" ", "_"),
+                    price_value=price_value,
+                    parsed_note=f"AMS 3618 public_data distillers grain dried 10% price for {location}.",
+                    market_family="ddgs_price",
+                    instrument="DDGS price",
+                    unit="$/ton",
+                    source_type="ams_3618_public_data",
+                )
+            )
+    return rows
+
+
+def _public_payload_slug_id(payload: Dict[str, Any]) -> str:
+    for item in list((payload or {}).get("results") or []):
+        if isinstance(item, dict) and str(item.get("slug_id") or "").strip():
+            return str(item.get("slug_id") or "").strip()
+    return ""
+
+
 class AMS3618Provider(BaseMarketProvider):
     source = "ams_3618"
-    provider_parse_version = "v2"
+    provider_parse_version = "v4"
     local_patterns = (
         "USDA_bioenergy_reports/*",
         "USDA_bioenergy_reports/**/*",
@@ -228,6 +316,8 @@ class AMS3618Provider(BaseMarketProvider):
         "ams_3618_pdfs/**/*",
     )
     landing_page_url = "https://mymarketnews.ams.usda.gov/viewReport/3618"
+    public_data_url = "https://mymarketnews.ams.usda.gov/public_data?slug_id=3618"
+    public_data_slug_id = "3618"
     report_token = "/3618/"
     stable_name_prefix = "ams_3618"
     local_dir_name = "USDA_bioenergy_reports"
@@ -238,6 +328,17 @@ class AMS3618Provider(BaseMarketProvider):
         for entry in raw_entries:
             report_ts = self._date_from_value(entry.get("report_date"))
             local_path = Path(str(entry.get("local_path") or "")).expanduser()
+            if local_path.suffix.lower() == ".json" and local_path.exists():
+                try:
+                    payload = json.loads(local_path.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                if isinstance(payload, dict):
+                    slug_id = _public_payload_slug_id(payload)
+                    if slug_id and slug_id != "3618":
+                        continue
+                    rows.extend(parse_ams_3618_public_data_payload(payload, source_file=local_path.name))
+                continue
             if local_path.suffix.lower() != ".pdf" or not local_path.exists():
                 continue
             text = _safe_pdf_text(local_path)

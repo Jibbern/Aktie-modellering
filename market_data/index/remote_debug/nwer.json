@@ -1,18 +1,9 @@
 {
   "latest_parse": {
-    "input_entries": 2,
-    "parsed_rows": 2,
-    "rows_by_source_file": [
-      {
-        "parsed_rows": 1,
-        "source_file": "nwer_2024-01-12.pdf"
-      },
-      {
-        "parsed_rows": 1,
-        "source_file": "nwer_2026-01-23.pdf"
-      }
-    ],
-    "status": "success"
+    "input_entries": 1,
+    "parsed_rows": 0,
+    "rows_by_source_file": [],
+    "status": "no_rows"
   },
   "source": "nwer"
 }

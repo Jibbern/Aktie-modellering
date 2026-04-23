@@ -34,7 +34,7 @@ from pbi_xbrl.excel_writer import (
     validate_saved_workbook_export,
     write_quarter_notes_audit_sheet,
 )
-from pbi_xbrl.market_data import sync_market_cache
+from pbi_xbrl.market_data import market_input_fingerprint, sync_market_cache
 from pbi_xbrl.metrics import get_income_statement_rules
 from pbi_xbrl.source_material_refresh import format_refresh_summary, refresh_source_materials
 from pbi_xbrl.excel_vba import MacroInjectionError, inject_valuation_macros
@@ -229,6 +229,12 @@ def _sec_cache_signature(cache_dir: Path) -> str:
 # that is ready for workbook rendering, while finer-grained persistence happens in the
 # stage-cache layer inside `pipeline_orchestration.py`.
 def _pipeline_bundle_cache_key(args: argparse.Namespace, cfg: PipelineConfig, repo_root: Path) -> str:
+    market_fp = market_input_fingerprint(
+        cfg.cache_dir,
+        str(args.ticker or ""),
+        profile=get_company_profile(str(args.ticker or "")),
+        include_sidecars=True,
+    )
     return "|".join(
         [
             f"v{PIPELINE_BUNDLE_CACHE_VERSION}",
@@ -246,6 +252,7 @@ def _pipeline_bundle_cache_key(args: argparse.Namespace, cfg: PipelineConfig, re
             f"sec={_sec_cache_signature(cfg.cache_dir)}",
             f"materials={_material_signature(repo_root, args.ticker)}",
             f"code={_code_signature(repo_root)}",
+            f"market={str(market_fp.get('fingerprint') or 'none')}",
         ]
     )
 

@@ -19,9 +19,10 @@ These are treated as active runtime/source inputs unless a specific audit shows 
 ## Ticker-Local USDA Working Folders
 - [`GPRE/USDA_weekly_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_weekly_data)
 - [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
+- [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
 
 These sit outside `sec_cache`, but they are now part of the active market-data workflow:
-- live USDA refresh writes newly downloaded NWER / AMS PDFs there first
+- live USDA refresh writes newly downloaded `public_data` JSON and fallback USDA PDFs there first
 - `sync_market_cache()` then copies those files into [`sec_cache/market_data/raw`](/c:/Users/Jibbe/Aktier/sec_cache/market_data/raw)
 - workbook fallback logic can also read curated bootstrap CSVs from these folders if the export parquet is missing
 

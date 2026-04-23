@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 import sys
@@ -12,6 +13,7 @@ import requests
 import pbi_xbrl.source_material_refresh as smr
 
 from pbi_xbrl.company_profiles import CompanyProfile, SourceMaterialSeed
+from pbi_xbrl.pipeline_types import PipelineConfig
 from pbi_xbrl.source_material_refresh import (
     MaterialCandidate,
     SourceMaterialRefreshSummary,
@@ -21,9 +23,11 @@ from pbi_xbrl.source_material_refresh import (
     _detect_filing_package_presence,
     _destination_name,
     _discover_ir_candidates_for_seed,
+    _inspect_manual_local_file,
     _list_recent_filings_with_legacy_support,
     _manifest_key,
     _materialize_candidate,
+    _looks_preliminary_results_guidance_update,
     _prune_stale_manifest_entries,
     _quarter_match_text,
     _resolved_destination_dir,
@@ -230,6 +234,51 @@ def test_earnings_press_release_stays_earnings_release() -> None:
         filing_is_earnings_relevant=True,
     )
     assert family == "earnings_release"
+
+
+def test_pbi_preliminary_results_guidance_update_stays_press_release() -> None:
+    text = (
+        "Pitney Bowes Announces Strong Preliminary Results for Q1 2026 and Raises Full-Year Financial Guidance. "
+        "Company Will Issue Complete Q1 2026 Results Post-Market on May 5, 2026. "
+        "Preliminary, Unaudited Financial Results for Q1 2026. "
+        "Updated Full-Year 2026 Guidance Revenue $1,800 - $1,860."
+    )
+    assert _looks_preliminary_results_guidance_update(text)
+
+    family = _classify_material_family(
+        nm="pitney-bowes-announces-strong-preliminary-results-q1-2026.htm",
+        title="Pitney Bowes Announces Strong Preliminary Results for Q1 2026 and Raises Full-Year Financial Guidance",
+        sec_type="",
+        seed_family_hint="press_release",
+        text_excerpt=text,
+        source_url="https://www.investorrelations.pitneybowes.com/news-releases/news-release-details/pitney-bowes-announces-strong-preliminary-results-q1-2026",
+    )
+
+    assert family == "press_release"
+
+
+def test_manual_pbi_preliminary_results_guidance_update_keeps_canonical_press_release_name() -> None:
+    case_dir = _make_case_dir()
+    try:
+        path_in = case_dir / "Pitney Bowes Announces Strong Preliminary Results for Q1 2026 and Raises Guidance.txt"
+        path_in.write_text(
+            "2026-04-21 15:28 Pitney Bowes Announces Strong Preliminary Results for Q1 2026 and Raises Full-Year Financial Guidance\n"
+            "Company Will Issue Complete Q1 2026 Results Post-Market on May 5, 2026.\n"
+            "Preliminary, Unaudited Financial Results for Q1 2026.\n"
+            "Updated Full-Year 2026 Guidance\n"
+            "Revenue $1,800 - $1,860 $1,760 - $1,860\n",
+            encoding="utf-8",
+        )
+
+        got = _inspect_manual_local_file(path_in=path_in, ticker="PBI", family_hint="press_release")
+
+        assert got["canonical_family"] == "press_release"
+        assert got["quarter_assignment_status"] == "non_quarter_event"
+        assert str(got["quarter"]) == "2026-04-21"
+        assert got["desired_name"] == "PBI_2026-04-21_preliminary_q1_2026_results_and_raised_fy2026_guidance.txt"
+        assert got["desired_name"] != "PBI_Q1_2026_earnings_release.txt"
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
 
 
 def test_explicit_release_url_is_not_misclassified_as_presentation() -> None:
@@ -725,6 +774,38 @@ def test_stock_models_cli_refresh_source_materials_branch(monkeypatch, capsys) -
         assert "ticker=PBI" in out
         assert "material_added=1" in out
         assert "coverage ticker=PBI" in out
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
+def test_pipeline_bundle_cache_key_changes_when_gpre_market_sidecars_change(monkeypatch) -> None:
+    import stock_models as sm
+
+    case_dir = _make_case_dir()
+    try:
+        repo_root = case_dir
+        cache_dir = case_dir / "sec_cache" / "GPRE"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        ticker_root = case_dir / "GPRE"
+        ticker_root.mkdir(parents=True, exist_ok=True)
+
+        monkeypatch.setattr(sm, "_material_signature", lambda *_args, **_kwargs: "materials")
+        monkeypatch.setattr(sm, "_code_signature", lambda *_args, **_kwargs: "code")
+        monkeypatch.setattr(sm, "_sec_cache_signature", lambda *_args, **_kwargs: "sec")
+
+        args = argparse.Namespace(ticker="GPRE", cik="", user_agent="")
+        cfg = PipelineConfig(cache_dir=cache_dir, repo_root=repo_root)
+
+        base_key = sm._pipeline_bundle_cache_key(args, cfg, repo_root)
+
+        basis_proxy_dir = ticker_root / "basis_proxy"
+        basis_proxy_dir.mkdir(parents=True, exist_ok=True)
+        sidecar_path = basis_proxy_dir / "gpre_current_qtd_snapshots.csv"
+        sidecar_path.write_text("as_of_date,current_qtd_official_simple_usd_per_gal\n2026-04-10,0.207\n", encoding="utf-8")
+
+        updated_key = sm._pipeline_bundle_cache_key(args, cfg, repo_root)
+
+        assert base_key != updated_key
     finally:
         shutil.rmtree(case_dir, ignore_errors=True)
 

@@ -12,6 +12,7 @@ import calendar
 import hashlib
 import html
 import re
+import shutil
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -28,6 +29,7 @@ from .aggregations import aggregate_quarterly, parse_quarter_like, quarter_end_f
 from .cache import (
     batch_fingerprint,
     ensure_market_cache_dirs,
+    export_inputs_manifest_path,
     export_rows_path,
     file_fingerprint,
     load_manifest,
@@ -47,7 +49,10 @@ from .contracts import (
 from .mappings import series_meta_from_key
 from .models import SourceFrameSpec, SyncSummary
 from .providers import PROVIDERS
-from .providers.cme_ethanol_platts import load_local_manual_ethanol_quarter_open_snapshot_rows
+from .providers.cme_ethanol_platts import (
+    find_local_manual_ethanol_quarter_open_files,
+    load_local_manual_ethanol_quarter_open_snapshot_rows,
+)
 
 
 PARSED_SCHEMA_COLUMNS = [
@@ -86,7 +91,11 @@ _GPRE_CORN_BIDS_CSV_FILENAME = "gpre_corn_bids_snapshot.csv"
 _GPRE_CORN_BIDS_RAW_SNAPSHOTS_DIRNAME = "raw_snapshots"
 _GPRE_CORN_BIDS_PARSED_SNAPSHOTS_DIRNAME = "parsed_snapshots"
 _GPRE_CORN_BIDS_MANIFEST_FILENAME = "manifest.json"
+_GPRE_CURRENT_QTD_BIDS_MAX_AGE_DAYS = 7
+_GPRE_NONCURRENT_BIDS_MAX_AGE_DAYS = 14
+_GPRE_AMS_BASIS_DEFAULT_STRATEGY = "exact1"
 _GPRE_COPRODUCT_SOURCE_PRIORITY: Tuple[str, ...] = ("nwer", "ams_3618")
+_MARKET_INPUT_FINGERPRINT_VERSION = "v1"
 _GPRE_COPRODUCT_REGION_SERIES_CANDIDATES: Dict[str, Dict[str, Tuple[str, ...]]] = {
     "renewable_corn_oil_price": {
         "nebraska": ("corn_oil_nebraska",),
@@ -390,6 +399,117 @@ def _enabled_sources_for_profile(profile: Any) -> Tuple[str, ...]:
     if enabled:
         return enabled
     return tuple(PROVIDERS.keys())
+
+
+def _market_export_inputs_manifest_path(cache_root: Path, ticker: str) -> Path:
+    return export_inputs_manifest_path(cache_root, ticker)
+
+
+def _sorted_unique_existing_files(paths: Iterable[Path]) -> List[Path]:
+    resolved: Dict[str, Path] = {}
+    for raw_path in paths or ():
+        try:
+            path = Path(raw_path).expanduser().resolve()
+        except Exception:
+            path = Path(raw_path)
+        if not path.exists() or not path.is_file():
+            continue
+        resolved[str(path).lower()] = path
+    return [resolved[key] for key in sorted(resolved.keys())]
+
+
+def _collect_recursive_files(root: Optional[Path]) -> List[Path]:
+    if not isinstance(root, Path) or not root.exists() or not root.is_dir():
+        return []
+    return _sorted_unique_existing_files(path for path in root.rglob("*") if path.is_file())
+
+
+def _market_input_file_candidates(
+    ticker_root: Optional[Path],
+    *,
+    enabled_sources: Iterable[str],
+    include_sidecars: bool,
+) -> List[Path]:
+    if not isinstance(ticker_root, Path):
+        return []
+    enabled = {str(src or "").strip().lower() for src in enabled_sources}
+    candidates: List[Path] = []
+    for dirname in ("USDA_daily_data", "USDA_weekly_data", "USDA_bioenergy_reports"):
+        candidates.extend(_collect_recursive_files(ticker_root / dirname))
+    if "nwer" in enabled:
+        candidates.extend(
+            _sorted_unique_existing_files(
+                ticker_root / rel
+                for rel in (
+                    "data/nwer_weekly.csv",
+                    "data/nwer_quarterly.csv",
+                    "USDA_bioenergy_reports/nwer_weekly.csv",
+                    "USDA_bioenergy_reports/nwer_quarterly.csv",
+                    "USDA_weekly_data/nwer_weekly.csv",
+                    "USDA_weekly_data/nwer_quarterly.csv",
+                )
+            )
+        )
+    if "ams_3617" in enabled:
+        candidates.extend(
+            _sorted_unique_existing_files(
+                ticker_root / rel
+                for rel in (
+                    "data/ams_3617_daily_corn.csv",
+                    "data/ams_3617_weekly_corn.csv",
+                    "USDA_daily_data/ams_3617_daily_corn.csv",
+                    "USDA_daily_data/ams_3617_weekly_corn.csv",
+                )
+            )
+        )
+    candidates.extend(find_local_manual_ethanol_quarter_open_files(ticker_root))
+    canonical_bids_root = _gpre_corn_bids_storage_root(ticker_root)
+    legacy_bids_root = _gpre_legacy_corn_bids_storage_root(ticker_root)
+    candidates.extend(_collect_recursive_files(canonical_bids_root))
+    candidates.extend(_collect_recursive_files(legacy_bids_root))
+    if include_sidecars:
+        candidates.extend(
+            _sorted_unique_existing_files(
+                path
+                for path in (
+                    _gpre_current_qtd_snapshots_csv_path(ticker_root),
+                    _gpre_current_qtd_snapshots_parquet_path(ticker_root),
+                )
+                if isinstance(path, Path)
+            )
+        )
+    return _sorted_unique_existing_files(candidates)
+
+
+def market_input_fingerprint(
+    cache_dir: Path,
+    ticker: str,
+    profile: Any = None,
+    *,
+    include_sidecars: bool = True,
+) -> Dict[str, Any]:
+    ticker_u = str(ticker or "").strip().upper()
+    ticker_root = _ticker_root_from_cache_dir(Path(cache_dir), ticker_u)
+    enabled_sources = tuple(src for src in _enabled_sources_for_profile(profile) if src in PROVIDERS)
+    tracked_files = _market_input_file_candidates(
+        ticker_root,
+        enabled_sources=enabled_sources,
+        include_sidecars=bool(include_sidecars),
+    )
+    tokens = [file_fingerprint(path) for path in tracked_files]
+    tokens.append(f"ver={_MARKET_INPUT_FINGERPRINT_VERSION}")
+    tokens.append(f"ticker={ticker_u}")
+    tokens.append(f"sidecars={int(bool(include_sidecars))}")
+    tokens.extend(f"src={src}" for src in enabled_sources)
+    return {
+        "ticker": ticker_u,
+        "ticker_root": ticker_root,
+        "enabled_sources": enabled_sources,
+        "include_sidecars": bool(include_sidecars),
+        "fingerprint_version": _MARKET_INPUT_FINGERPRINT_VERSION,
+        "fingerprint": batch_fingerprint(tokens),
+        "tracked_paths": [str(path) for path in tracked_files],
+    }
 
 
 def _safe_read_csv(path: Path) -> Optional[pd.DataFrame]:
@@ -765,11 +885,13 @@ def sync_market_cache(
     cache_root = resolve_market_cache_root(Path(cache_dir))
     ensure_market_cache_dirs(cache_root)
     ticker_root = _ticker_root_from_cache_dir(Path(cache_dir), ticker_u)
-    if ticker_u == "GPRE" and (sync_raw or refresh):
-        _refresh_gpre_corn_bids_download(
-            ticker_root,
-            refresh=bool(refresh),
-        )
+    if ticker_u == "GPRE":
+        _ensure_gpre_corn_bids_archive_migrated(ticker_root, as_of_date=date.today())
+        if sync_raw or refresh:
+            _refresh_gpre_corn_bids_download(
+                ticker_root,
+                refresh=bool(refresh),
+            )
     enabled_sources = tuple(src for src in _enabled_sources_for_profile(profile) if src in PROVIDERS)
     raw_manifest = load_manifest(raw_manifest_path(cache_root))
     parsed_manifest = load_manifest(parsed_manifest_path(cache_root))
@@ -874,6 +996,23 @@ def sync_market_cache(
         ).to_parquet(export_path, index=False)
     else:
         export_df.to_parquet(export_path, index=False)
+    export_input_payload = market_input_fingerprint(
+        cache_dir,
+        ticker_u,
+        profile=profile,
+        include_sidecars=False,
+    )
+    save_manifest(
+        _market_export_inputs_manifest_path(cache_root, ticker_u),
+        {
+            "ticker": ticker_u,
+            "generated_at": pd.Timestamp.now("UTC").isoformat(),
+            "sources_enabled": list(enabled_sources),
+            "input_fingerprint": str(export_input_payload.get("fingerprint") or ""),
+            "tracked_paths": list(export_input_payload.get("tracked_paths") or []),
+            "fingerprint_version": str(export_input_payload.get("fingerprint_version") or _MARKET_INPUT_FINGERPRINT_VERSION),
+        },
+    )
 
     return SyncSummary(
         sources_enabled=enabled_sources,
@@ -1749,9 +1888,17 @@ def _decode_gpre_display_number(raw_value: Any, offset: Optional[float]) -> Opti
 
 def _extract_gpre_display_number_from_html(cell_html: str, *, offset: Optional[float]) -> Optional[float]:
     match = re.search(r"displayNumber\(\s*([+-]?\d+(?:\.\d+)?)\s*,\s*\d+\s*\)", str(cell_html or ""), re.I)
-    if not match:
+    if match:
+        return _decode_gpre_display_number(match.group(1), offset)
+    plain_text = html.unescape(re.sub(r"<[^>]+>", " ", str(cell_html or ""))).replace("\xa0", " ")
+    plain_text = re.sub(r"\s+", " ", plain_text).strip()
+    plain_match = re.search(r"([+-]?\d+(?:\.\d+)?)", plain_text)
+    if not plain_match:
         return None
-    return _decode_gpre_display_number(match.group(1), offset)
+    try:
+        return float(plain_match.group(1))
+    except Exception:
+        return None
 
 
 def parse_gpre_corn_bids_text(
@@ -1801,6 +1948,187 @@ def parse_gpre_corn_bids_text(
     return rows
 
 
+def _gpre_bid_location_alias_map() -> Dict[str, str]:
+    aliases: Dict[str, str] = {}
+    state_abbrev = {
+        "illinois": "IL",
+        "indiana": "IN",
+        "iowa": "IA",
+        "minnesota": "MN",
+        "nebraska": "NE",
+        "tennessee": "TN",
+    }
+
+    def _register(alias_in: Any, canonical_in: Any) -> None:
+        alias_txt = re.sub(r"\s+", " ", str(alias_in or "").replace("\xa0", " ").strip(" ,:;")).strip()
+        canonical_txt = str(canonical_in or "").strip()
+        if not alias_txt or not canonical_txt:
+            return
+        aliases.setdefault(alias_txt.lower(), canonical_txt)
+
+    for location in _GPRE_BID_LOCATION_REGION:
+        _register(location, location)
+    for plant in _GPRE_PLANT_REGISTRY:
+        location = str(plant.get("location") or "").strip()
+        state = str(plant.get("state") or "").strip()
+        if not location:
+            continue
+        _register(location, location)
+        if not state:
+            continue
+        _register(f"{location}, {state}", location)
+        _register(f"{location} {state}", location)
+        state_code = state_abbrev.get(state.lower(), "")
+        if state_code:
+            _register(f"{location}, {state_code}", location)
+            _register(f"{location} {state_code}", location)
+    return aliases
+
+
+def _gpre_normalize_bid_location_label(value: Any) -> str:
+    txt = html.unescape(str(value or ""))
+    txt = re.sub(r"<[^>]+>", " ", txt)
+    txt = re.sub(r"\(\d+\)", "", txt)
+    txt = re.sub(r"\s+", " ", txt.replace("\xa0", " ")).strip(" ,:;")
+    if not txt:
+        return ""
+    alias_map = _gpre_bid_location_alias_map()
+    return str(alias_map.get(txt.lower()) or "")
+
+
+def _gpre_corn_bids_source_rank(value: Any) -> int:
+    txt = str(value or "").strip().lower()
+    if not txt:
+        return 0
+    if "thelocation=" in txt or "/location/" in txt:
+        return 3
+    if "grain.gpreinc.com" in txt:
+        return 2
+    if "gpreinc.com/corn-bids" in txt:
+        return 1
+    return 0
+
+
+def _dedupe_gpre_corn_bids_rows(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    deduped: Dict[Tuple[str, Optional[date], str, str], Dict[str, Any]] = {}
+    for raw_rec in rows or []:
+        if not isinstance(raw_rec, dict):
+            continue
+        rec = dict(raw_rec)
+        location = str(rec.get("location") or "").strip()
+        delivery_end = rec.get("delivery_end") if isinstance(rec.get("delivery_end"), date) else _gpre_parse_snapshot_date_like(rec.get("delivery_end"))
+        delivery_label = str(rec.get("delivery_label") or "").strip()
+        symbol = str(rec.get("symbol") or "").strip()
+        if not location:
+            continue
+        key = (location, delivery_end, symbol, (delivery_label if delivery_end is None else ""))
+        existing = deduped.get(key)
+        if existing is None:
+            deduped[key] = rec
+            continue
+        existing_sources = [str(item).strip() for item in list(existing.get("candidate_source_urls") or []) if str(item).strip()]
+        incoming_sources = [str(item).strip() for item in list(rec.get("candidate_source_urls") or []) if str(item).strip()]
+        merged_sources = sorted({*existing_sources, *incoming_sources, str(existing.get("source_url") or "").strip(), str(rec.get("source_url") or "").strip()} - {""})
+        existing_rank = max(_gpre_corn_bids_source_rank(existing.get("source_url")), *[_gpre_corn_bids_source_rank(item) for item in existing_sources], 0)
+        incoming_rank = max(_gpre_corn_bids_source_rank(rec.get("source_url")), *[_gpre_corn_bids_source_rank(item) for item in incoming_sources], 0)
+        chosen = rec if incoming_rank > existing_rank else existing
+        chosen["candidate_source_urls"] = merged_sources
+        if merged_sources:
+            preferred_sources = sorted(merged_sources, key=lambda item: (-_gpre_corn_bids_source_rank(item), item))
+            chosen["source_url"] = preferred_sources[0]
+        deduped[key] = chosen
+    return sorted(
+        deduped.values(),
+        key=lambda rec: (
+            str(rec.get("location") or ""),
+            _gpre_parse_snapshot_date_like(rec.get("delivery_end")) or date.min,
+            str(rec.get("delivery_label") or ""),
+        ),
+    )
+
+
+def _gpre_selected_bid_location_from_soup(soup: Any) -> str:
+    for select_tag in list(soup.find_all("select") or []):
+        select_name = str(select_tag.get("name") or select_tag.get("id") or "").strip().lower()
+        if "location" not in select_name:
+            continue
+        selected_option = select_tag.find("option", selected=True)
+        if selected_option is None:
+            options = list(select_tag.find_all("option") or [])
+            selected_option = next((opt for opt in options if opt.has_attr("selected")), None)
+        selected_label = (
+            re.sub(r"\s+", " ", selected_option.get_text(" ", strip=True)).replace("\xa0", " ").strip()
+            if selected_option is not None
+            else ""
+        )
+        normalized = _gpre_normalize_bid_location_label(selected_label)
+        if normalized:
+            return normalized
+    return ""
+
+
+def _gpre_extract_location_specific_delivery_label(value: Any) -> str:
+    txt = re.sub(r"\s+", " ", str(value or "").replace("\xa0", " ")).strip()
+    if not txt:
+        return ""
+    match = re.search(
+        r"((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},\s+\d{4})",
+        txt,
+        re.I,
+    )
+    if match:
+        return str(match.group(1) or "").strip()
+    return txt
+
+
+def _parse_gpre_location_specific_cashbids_rows(
+    soup: Any,
+    *,
+    as_of_date: Optional[date] = None,
+    source_url: str = "",
+    offset: Optional[float] = None,
+) -> List[Dict[str, Any]]:
+    current_location = _gpre_selected_bid_location_from_soup(soup)
+    if not current_location:
+        return []
+    table_tag = soup.find("table", attrs={"name": re.compile(r"cashbids-data-table", re.I)})
+    if table_tag is None:
+        return []
+    rows: List[Dict[str, Any]] = []
+    for row_tag in list(table_tag.find_all("tr") or []):
+        cells = list(row_tag.find_all(["td", "th"]) or [])
+        if len(cells) < 4:
+            continue
+        cell_texts = [
+            re.sub(r"\s+", " ", cell.get_text(" ", strip=True)).replace("\xa0", " ").strip()
+            for cell in cells
+        ]
+        delivery_txt = _gpre_extract_location_specific_delivery_label(cell_texts[0] if cell_texts else "")
+        if not delivery_txt or delivery_txt.lower().startswith("delivery"):
+            continue
+        cash_val = _extract_gpre_display_number_from_html(str(cells[1]), offset=offset)
+        basis_val = _extract_gpre_display_number_from_html(str(cells[2]), offset=offset)
+        if cash_val is None or basis_val is None:
+            continue
+        rows.append(
+            {
+                "location": current_location,
+                "region": _GPRE_BID_LOCATION_REGION.get(current_location, ""),
+                "delivery_label": delivery_txt,
+                "delivery_end": _gpre_bid_delivery_date(delivery_txt, as_of_date=as_of_date),
+                "cash_price": float(cash_val),
+                "basis_usd_per_bu": float(basis_val),
+                "basis_cents_per_bu": float(basis_val) * 100.0,
+                "symbol": str(cell_texts[3] if len(cell_texts) > 3 else "").strip(),
+                "futures_price_text": "",
+                "change_text": "",
+                "source_url": source_url,
+                "candidate_source_urls": [source_url] if str(source_url or "").strip() else [],
+            }
+        )
+    return rows
+
+
 def parse_gpre_corn_bids_html(
     html_text: str,
     *,
@@ -1816,59 +2144,110 @@ def parse_gpre_corn_bids_html(
     offset_match = re.search(r"NoScrapeOffset:\s*([+-]?\d+(?:\.\d+)?)", str(html_text or ""), re.I)
     offset = float(offset_match.group(1)) if offset_match else None
     soup = BeautifulSoup(str(html_text or ""), "html.parser")
-    known_locations = set(_GPRE_BID_LOCATION_REGION.keys())
     rows: List[Dict[str, Any]] = []
-    for header_tag in soup.find_all("b"):
-        location = re.sub(r"\s+", " ", header_tag.get_text(" ", strip=True)).strip()
-        if location not in known_locations:
+    current_location = ""
+    commodity = ""
+    for row_tag in soup.find_all("tr"):
+        cells = row_tag.find_all(["td", "th"])
+        cell_texts = [
+            re.sub(r"\s+", " ", cell.get_text(" ", strip=True)).replace("\xa0", " ").strip()
+            for cell in cells
+        ]
+        location_candidates = [
+            *[
+                re.sub(r"\s+", " ", tag.get_text(" ", strip=True)).replace("\xa0", " ").strip()
+                for tag in row_tag.find_all(["b", "strong"])
+            ],
+            *(cell_texts[:1] if cell_texts else []),
+        ]
+        row_location = next(
+            (normalized for normalized in (_gpre_normalize_bid_location_label(candidate) for candidate in location_candidates) if normalized),
+            "",
+        )
+        if row_location:
+            current_location = row_location
+            commodity = ""
+        if len(cells) < 5 or not current_location:
             continue
-        header_row = header_tag.find_parent("tr")
-        if header_row is None:
+        left_txt = cell_texts[0] if cell_texts else ""
+        left_location = _gpre_normalize_bid_location_label(left_txt)
+        if left_location:
+            current_location = left_location
+            commodity = ""
+            if len(cells) < 6:
+                continue
+            left_txt = cell_texts[1]
+            delivery_txt = cell_texts[2]
+            value_offset = 1
+        else:
+            delivery_txt = cell_texts[1] if len(cell_texts) > 1 else ""
+            value_offset = 0
+        if left_txt:
+            commodity = left_txt
+        if commodity.lower() != "corn" or not delivery_txt:
             continue
-        commodity = ""
-        for row_tag in header_row.find_next_siblings("tr"):
-            next_loc = row_tag.find("b")
-            if next_loc is not None:
-                next_loc_txt = re.sub(r"\s+", " ", next_loc.get_text(" ", strip=True)).strip()
-                if next_loc_txt in known_locations:
-                    break
-            cells = row_tag.find_all("td")
-            if len(cells) < 5:
-                continue
-            left_txt = re.sub(r"\s+", " ", cells[0].get_text(" ", strip=True)).replace("\xa0", " ").strip()
-            delivery_txt = re.sub(r"\s+", " ", cells[1].get_text(" ", strip=True)).replace("\xa0", " ").strip()
-            if left_txt:
-                commodity = left_txt
-            if commodity.lower() != "corn" or not delivery_txt:
-                continue
-            cash_val = _extract_gpre_display_number_from_html(str(cells[2]), offset=offset)
-            basis_val = _extract_gpre_display_number_from_html(str(cells[4]), offset=offset)
-            if cash_val is None or basis_val is None:
-                continue
-            basis_title = str(cells[4].get("title") or "")
-            symbol_match = re.search(r"Basis Month:\s*([@A-Z0-9]+)", basis_title, re.I)
-            rows.append(
-                {
-                    "location": location,
-                    "region": _GPRE_BID_LOCATION_REGION.get(location, ""),
-                    "delivery_label": delivery_txt.title(),
-                    "delivery_end": _gpre_bid_delivery_date(delivery_txt, as_of_date=as_of_date),
-                    "cash_price": float(cash_val),
-                    "basis_usd_per_bu": float(basis_val),
-                    "basis_cents_per_bu": float(basis_val) * 100.0,
-                    "symbol": str(symbol_match.group(1) or "").strip() if symbol_match else "",
-                    "futures_price_text": "",
-                    "change_text": "",
-                    "source_url": source_url,
-                }
-            )
-    return rows
+        cash_cell_idx = 2 + value_offset
+        basis_cell_idx = 4 + value_offset
+        if basis_cell_idx >= len(cells):
+            continue
+        cash_val = _extract_gpre_display_number_from_html(str(cells[cash_cell_idx]), offset=offset)
+        basis_val = _extract_gpre_display_number_from_html(str(cells[basis_cell_idx]), offset=offset)
+        if cash_val is None or basis_val is None:
+            continue
+        basis_title = str(cells[basis_cell_idx].get("title") or "")
+        symbol_match = re.search(r"Basis Month:\s*([@A-Z0-9]+)", basis_title, re.I)
+        rows.append(
+            {
+                "location": current_location,
+                "region": _GPRE_BID_LOCATION_REGION.get(current_location, ""),
+                "delivery_label": delivery_txt.title(),
+                "delivery_end": _gpre_bid_delivery_date(delivery_txt, as_of_date=as_of_date),
+                "cash_price": float(cash_val),
+                "basis_usd_per_bu": float(basis_val),
+                "basis_cents_per_bu": float(basis_val) * 100.0,
+                "symbol": str(symbol_match.group(1) or "").strip() if symbol_match else "",
+                "futures_price_text": "",
+                "change_text": "",
+                "source_url": source_url,
+                "candidate_source_urls": [source_url] if str(source_url or "").strip() else [],
+            }
+        )
+    if not rows:
+        rows = _parse_gpre_location_specific_cashbids_rows(
+            soup,
+            as_of_date=as_of_date,
+            source_url=source_url,
+            offset=offset,
+        )
+    if not rows:
+        text_rows = parse_gpre_corn_bids_text(
+            soup.get_text("\n", strip=True),
+            as_of_date=as_of_date,
+            source_url=source_url,
+        )
+        for rec in text_rows:
+            rec["candidate_source_urls"] = [source_url] if str(source_url or "").strip() else []
+        rows = text_rows
+    return _dedupe_gpre_corn_bids_rows(rows)
 
 
 def _gpre_corn_bids_storage_root(ticker_root: Optional[Path]) -> Optional[Path]:
     if not isinstance(ticker_root, Path):
         return None
     return ticker_root / _GPRE_CORN_BIDS_DIRNAME
+
+
+def _gpre_legacy_corn_bids_storage_root(ticker_root: Optional[Path]) -> Optional[Path]:
+    if not isinstance(ticker_root, Path):
+        return None
+    try:
+        legacy_root = ticker_root.parent / _GPRE_CORN_BIDS_DIRNAME
+        canonical_root = ticker_root / _GPRE_CORN_BIDS_DIRNAME
+        if legacy_root.resolve() == canonical_root.resolve():
+            return None
+        return legacy_root
+    except Exception:
+        return None
 
 
 def _gpre_corn_bids_manifest_path(storage_root: Path) -> Path:
@@ -2013,6 +2392,206 @@ def _write_gpre_corn_bids_manifest(storage_root: Path, entries: Iterable[Dict[st
     return manifest_path
 
 
+def _gpre_snapshot_max_age_days(mode: str) -> int:
+    mode_txt = str(mode or "").strip().lower()
+    if mode_txt == "current_qtd":
+        return _GPRE_CURRENT_QTD_BIDS_MAX_AGE_DAYS
+    return _GPRE_NONCURRENT_BIDS_MAX_AGE_DAYS
+
+
+def _gpre_snapshot_age_days(
+    snapshot_date: Optional[date],
+    cutoff_date: Optional[date],
+) -> Optional[int]:
+    if not isinstance(snapshot_date, date) or not isinstance(cutoff_date, date):
+        return None
+    return int((cutoff_date - snapshot_date).days)
+
+
+def _gpre_snapshot_staleness_payload(
+    *,
+    snapshot_date: Optional[date],
+    cutoff_date: Optional[date],
+    selection_mode: str,
+) -> Dict[str, Any]:
+    max_age_days = _gpre_snapshot_max_age_days(selection_mode)
+    age_days = _gpre_snapshot_age_days(snapshot_date, cutoff_date)
+    is_stale = isinstance(age_days, int) and age_days > max_age_days
+    return {
+        "max_age_days": max_age_days,
+        "age_days": age_days,
+        "is_stale": bool(is_stale),
+    }
+
+
+def _gpre_stale_snapshot_note(
+    *,
+    snapshot_date: Optional[date],
+    cutoff_date: Optional[date],
+    selection_mode: str,
+    staleness: Dict[str, Any],
+) -> str:
+    age_days = staleness.get("age_days")
+    max_age_days = staleness.get("max_age_days")
+    if not isinstance(snapshot_date, date) or not isinstance(cutoff_date, date) or not isinstance(age_days, int):
+        return ""
+    return (
+        f"Retained snapshot {snapshot_date.isoformat()} is stale for {str(selection_mode or '').strip() or 'gpre_basis'}: "
+        f"age {age_days} days versus {int(max_age_days)}-day max at cutoff {cutoff_date.isoformat()}; "
+        "falling back to AMS."
+    )
+
+
+def _gpre_snapshot_fallback_summary(
+    *,
+    status: str,
+    source_kind: str,
+    source_url: str,
+    snapshot_date: Optional[date],
+    selection_rule: str,
+    selection_note: str,
+    raw_path: Optional[Path] = None,
+    parsed_path: Optional[Path] = None,
+    manifest_path: Optional[Path] = None,
+    page_last_updated_text: str = "",
+    storage_root: Optional[Path] = None,
+    legacy_storage_root: Optional[Path] = None,
+    migrated_snapshot_dates: Optional[Iterable[date]] = None,
+    conflicting_snapshot_dates: Optional[Iterable[date]] = None,
+    snapshot_age_days: Optional[int] = None,
+    max_snapshot_age_days: Optional[int] = None,
+    fallback_reason: str = "",
+) -> Dict[str, Any]:
+    out: Dict[str, Any] = {
+        "status": str(status or "unavailable"),
+        "rows": [],
+        "nearest_rows": [],
+        "source_kind": str(source_kind or ""),
+        "source_url": str(source_url or ""),
+        "snapshot_date": snapshot_date,
+        "selection_rule": str(selection_rule or ""),
+        "selection_note": str(selection_note or ""),
+        "page_last_updated_text": str(page_last_updated_text or ""),
+        "fallback_reason": str(fallback_reason or ""),
+        "snapshot_age_days": snapshot_age_days,
+        "max_snapshot_age_days": max_snapshot_age_days,
+    }
+    if isinstance(raw_path, Path):
+        out["raw_path"] = raw_path
+    if isinstance(parsed_path, Path):
+        out["parsed_path"] = parsed_path
+    if isinstance(manifest_path, Path):
+        out["manifest_path"] = manifest_path
+    if isinstance(storage_root, Path):
+        out["archive_storage_root"] = storage_root
+    if isinstance(legacy_storage_root, Path):
+        out["legacy_archive_storage_root"] = legacy_storage_root
+    migrated = [dt for dt in (migrated_snapshot_dates or []) if isinstance(dt, date)]
+    conflicts = [dt for dt in (conflicting_snapshot_dates or []) if isinstance(dt, date)]
+    out["migrated_snapshot_dates"] = migrated
+    out["conflicting_snapshot_dates"] = conflicts
+    out["legacy_archive_detected"] = bool(isinstance(legacy_storage_root, Path) and legacy_storage_root.exists())
+    return out
+
+
+def _ensure_gpre_corn_bids_archive_migrated(
+    ticker_root: Optional[Path],
+    *,
+    as_of_date: Optional[date] = None,
+) -> Dict[str, Any]:
+    canonical_root = _gpre_corn_bids_storage_root(ticker_root)
+    legacy_root = _gpre_legacy_corn_bids_storage_root(ticker_root)
+    result: Dict[str, Any] = {
+        "archive_storage_root": canonical_root,
+        "legacy_archive_storage_root": legacy_root,
+        "legacy_archive_detected": bool(isinstance(legacy_root, Path) and legacy_root.exists()),
+        "migrated_snapshot_dates": [],
+        "conflicting_snapshot_dates": [],
+    }
+    if not isinstance(canonical_root, Path):
+        return result
+    canonical_root.mkdir(parents=True, exist_ok=True)
+    canonical_entries = _gpre_corn_bids_manifest_entries(canonical_root)
+    if not canonical_entries:
+        canonical_entries = _bootstrap_gpre_corn_bids_archive_from_latest(canonical_root, as_of_date=as_of_date)
+    if not isinstance(legacy_root, Path) or not legacy_root.exists():
+        return result
+    legacy_entries = _gpre_corn_bids_manifest_entries(legacy_root)
+    if not legacy_entries:
+        legacy_entries = _bootstrap_gpre_corn_bids_archive_from_latest(legacy_root, as_of_date=as_of_date)
+    if not legacy_entries:
+        return result
+    canonical_by_date = {
+        _gpre_parse_snapshot_date_like(entry.get("snapshot_date")): dict(entry)
+        for entry in canonical_entries
+        if isinstance(_gpre_parse_snapshot_date_like(entry.get("snapshot_date")), date)
+    }
+    migrated_dates: List[date] = []
+    conflict_dates: List[date] = []
+    for legacy_entry in legacy_entries:
+        snapshot_date = _gpre_parse_snapshot_date_like(legacy_entry.get("snapshot_date"))
+        if not isinstance(snapshot_date, date):
+            continue
+        if snapshot_date in canonical_by_date:
+            legacy_rows, legacy_raw_path, legacy_parsed_path = _load_gpre_corn_bids_rows_from_manifest_entry(legacy_root, legacy_entry)
+            canonical_rows, canonical_raw_path, canonical_parsed_path = _load_gpre_corn_bids_rows_from_manifest_entry(
+                canonical_root,
+                canonical_by_date[snapshot_date],
+            )
+            legacy_fp = batch_fingerprint(
+                [
+                    file_fingerprint(path)
+                    for path in (legacy_raw_path, legacy_parsed_path)
+                    if isinstance(path, Path) and path.exists()
+                ]
+            )
+            canonical_fp = batch_fingerprint(
+                [
+                    file_fingerprint(path)
+                    for path in (canonical_raw_path, canonical_parsed_path)
+                    if isinstance(path, Path) and path.exists()
+                ]
+            )
+            if legacy_fp != canonical_fp and legacy_rows != canonical_rows:
+                conflict_dates.append(snapshot_date)
+            continue
+        legacy_rows, legacy_raw_path, _legacy_parsed_path = _load_gpre_corn_bids_rows_from_manifest_entry(legacy_root, legacy_entry)
+        if not legacy_rows:
+            continue
+        html_text = ""
+        if isinstance(legacy_raw_path, Path) and legacy_raw_path.exists():
+            try:
+                html_text = legacy_raw_path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                html_text = ""
+        _archive_gpre_corn_bids_snapshot(
+            canonical_root,
+            snapshot_date=snapshot_date,
+            html_text=html_text,
+            parsed_rows=legacy_rows,
+            source_url=str(legacy_entry.get("source_url") or ""),
+            entry_url=str(legacy_entry.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
+            source_kind=f"migrated_{str(legacy_entry.get('source_kind') or 'legacy_archive')}",
+        )
+        migrated_dates.append(snapshot_date)
+    result["migrated_snapshot_dates"] = sorted(migrated_dates)
+    result["conflicting_snapshot_dates"] = sorted(conflict_dates)
+    if migrated_dates:
+        print(
+            "[gpre_corn_bids] migrated legacy snapshots "
+            f"{', '.join(dt.isoformat() for dt in sorted(migrated_dates))} "
+            f"into canonical archive {canonical_root}",
+            flush=True,
+        )
+    if conflict_dates:
+        print(
+            "[gpre_corn_bids] kept canonical snapshots for conflicting dates "
+            f"{', '.join(dt.isoformat() for dt in sorted(conflict_dates))}",
+            flush=True,
+        )
+    return result
+
+
 def _gpre_annotated_corn_bids_summary(
     rows: Iterable[Dict[str, Any]],
     *,
@@ -2051,6 +2630,7 @@ def _archive_gpre_corn_bids_snapshot(
     source_url: str,
     entry_url: str = _GPRE_CORN_BIDS_ENTRY_URL,
     source_kind: str = "downloaded_html",
+    candidate_source_urls: Optional[Iterable[str]] = None,
 ) -> Dict[str, Any]:
     storage_root.mkdir(parents=True, exist_ok=True)
     raw_path = _gpre_corn_bids_raw_archive_path(storage_root, snapshot_date)
@@ -2069,6 +2649,11 @@ def _archive_gpre_corn_bids_snapshot(
         "raw_relpath": (raw_path.relative_to(storage_root).as_posix() if raw_path.exists() else ""),
         "parsed_relpath": parsed_path.relative_to(storage_root).as_posix(),
         "source_url": str(source_url or ""),
+        "candidate_source_urls": [
+            str(item).strip()
+            for item in list(candidate_source_urls or [])
+            if str(item).strip()
+        ],
         "entry_url": str(entry_url or _GPRE_CORN_BIDS_ENTRY_URL),
         "source_kind": str(source_kind or ""),
         "row_count": int(len(row_list)),
@@ -2221,14 +2806,40 @@ def _load_archived_gpre_corn_bids_snapshot(
     selection_mode: str,
     as_of_date: Optional[date],
 ) -> Dict[str, Any]:
+    migration_info = _ensure_gpre_corn_bids_archive_migrated(ticker_root, as_of_date=as_of_date)
     storage_root = _gpre_corn_bids_storage_root(ticker_root)
+    legacy_storage_root = _gpre_legacy_corn_bids_storage_root(ticker_root)
+    selection_rule = _gpre_snapshot_selection_rule_name(selection_mode)
     if storage_root is None or not storage_root.exists():
-        return {"status": "unavailable", "rows": [], "source_kind": "none"}
+        return _gpre_snapshot_fallback_summary(
+            status="unavailable",
+            source_kind="none",
+            source_url="",
+            snapshot_date=None,
+            selection_rule=selection_rule,
+            selection_note="",
+            storage_root=storage_root,
+            legacy_storage_root=legacy_storage_root,
+            migrated_snapshot_dates=migration_info.get("migrated_snapshot_dates"),
+            conflicting_snapshot_dates=migration_info.get("conflicting_snapshot_dates"),
+        )
     manifest_entries = _gpre_corn_bids_manifest_entries(storage_root)
     if not manifest_entries:
         manifest_entries = _bootstrap_gpre_corn_bids_archive_from_latest(storage_root, as_of_date=as_of_date)
     if not manifest_entries:
-        return {"status": "unavailable", "rows": [], "source_kind": "none"}
+        return _gpre_snapshot_fallback_summary(
+            status="unavailable",
+            source_kind="none",
+            source_url="",
+            snapshot_date=None,
+            selection_rule=selection_rule,
+            selection_note="",
+            manifest_path=_gpre_corn_bids_manifest_path(storage_root),
+            storage_root=storage_root,
+            legacy_storage_root=legacy_storage_root,
+            migrated_snapshot_dates=migration_info.get("migrated_snapshot_dates"),
+            conflicting_snapshot_dates=migration_info.get("conflicting_snapshot_dates"),
+        )
     cutoff_date = _gpre_snapshot_cutoff_date(
         selection_mode=selection_mode,
         target_quarter_end=target_quarter_end,
@@ -2251,7 +2862,19 @@ def _load_archived_gpre_corn_bids_snapshot(
         entry["snapshot_date"] = snap_dt
         dated_entries.append(entry)
     if not dated_entries:
-        return {"status": "unavailable", "rows": [], "source_kind": "none"}
+        return _gpre_snapshot_fallback_summary(
+            status="unavailable",
+            source_kind="none",
+            source_url="",
+            snapshot_date=None,
+            selection_rule=selection_rule,
+            selection_note="",
+            manifest_path=_gpre_corn_bids_manifest_path(storage_root),
+            storage_root=storage_root,
+            legacy_storage_root=legacy_storage_root,
+            migrated_snapshot_dates=migration_info.get("migrated_snapshot_dates"),
+            conflicting_snapshot_dates=migration_info.get("conflicting_snapshot_dates"),
+        )
     preferred_entries = sorted(dated_entries, key=lambda rec: rec["snapshot_date"], reverse=True)
     if mode in {"prior_quarter", "historical_quarter"} and isinstance(target_start, date) and isinstance(target_quarter_end, date):
         in_quarter = [
@@ -2260,7 +2883,6 @@ def _load_archived_gpre_corn_bids_snapshot(
         ]
         older = [rec for rec in preferred_entries if rec not in in_quarter]
         preferred_entries = [*in_quarter, *older]
-    selection_rule = _gpre_snapshot_selection_rule_name(mode)
     for entry in preferred_entries:
         rows, raw_path, parsed_path = _load_gpre_corn_bids_rows_from_manifest_entry(storage_root, entry)
         if not rows:
@@ -2273,7 +2895,38 @@ def _load_archived_gpre_corn_bids_snapshot(
             if mode in {"prior_quarter", "historical_quarter"} and isinstance(target_start, date) and isinstance(snap_dt, date) and target_start <= snap_dt <= target_quarter_end
             else ""
         )
-        return _gpre_annotated_corn_bids_summary(
+        staleness = _gpre_snapshot_staleness_payload(
+            snapshot_date=snap_dt,
+            cutoff_date=cutoff_date,
+            selection_mode=selection_mode,
+        )
+        if staleness.get("is_stale"):
+            stale_note = _gpre_stale_snapshot_note(
+                snapshot_date=snap_dt,
+                cutoff_date=cutoff_date,
+                selection_mode=selection_mode,
+                staleness=staleness,
+            )
+            return _gpre_snapshot_fallback_summary(
+                status="stale",
+                source_kind="stale_archived_snapshot",
+                source_url=str(entry.get("source_url") or parsed_path or raw_path or ""),
+                snapshot_date=snap_dt,
+                selection_rule=selection_rule,
+                selection_note=stale_note or selection_note,
+                raw_path=raw_path,
+                parsed_path=parsed_path,
+                manifest_path=_gpre_corn_bids_manifest_path(storage_root),
+                page_last_updated_text=str(entry.get("page_last_updated_text") or ""),
+                storage_root=storage_root,
+                legacy_storage_root=legacy_storage_root,
+                migrated_snapshot_dates=migration_info.get("migrated_snapshot_dates"),
+                conflicting_snapshot_dates=migration_info.get("conflicting_snapshot_dates"),
+                snapshot_age_days=staleness.get("age_days"),
+                max_snapshot_age_days=staleness.get("max_age_days"),
+                fallback_reason="stale_snapshot",
+            )
+        summary = _gpre_annotated_corn_bids_summary(
             rows,
             target_date=target_date or as_of_date,
             source_url=str(entry.get("source_url") or parsed_path or raw_path or ""),
@@ -2286,7 +2939,27 @@ def _load_archived_gpre_corn_bids_snapshot(
             manifest_path=_gpre_corn_bids_manifest_path(storage_root),
             page_last_updated_text=str(entry.get("page_last_updated_text") or ""),
         )
-    return {"status": "unavailable", "rows": [], "source_kind": "none"}
+        summary["archive_storage_root"] = storage_root
+        summary["legacy_archive_storage_root"] = legacy_storage_root
+        summary["legacy_archive_detected"] = bool(isinstance(legacy_storage_root, Path) and legacy_storage_root.exists())
+        summary["migrated_snapshot_dates"] = list(migration_info.get("migrated_snapshot_dates") or [])
+        summary["conflicting_snapshot_dates"] = list(migration_info.get("conflicting_snapshot_dates") or [])
+        summary["snapshot_age_days"] = staleness.get("age_days")
+        summary["max_snapshot_age_days"] = staleness.get("max_age_days")
+        return summary
+    return _gpre_snapshot_fallback_summary(
+        status="unavailable",
+        source_kind="none",
+        source_url="",
+        snapshot_date=None,
+        selection_rule=selection_rule,
+        selection_note="",
+        manifest_path=_gpre_corn_bids_manifest_path(storage_root),
+        storage_root=storage_root,
+        legacy_storage_root=legacy_storage_root,
+        migrated_snapshot_dates=migration_info.get("migrated_snapshot_dates"),
+        conflicting_snapshot_dates=migration_info.get("conflicting_snapshot_dates"),
+    )
 
 
 def _summarize_gpre_corn_bids_rows(
@@ -2341,7 +3014,8 @@ def _gpre_corn_bids_candidate_urls(entry_html: str) -> List[str]:
         if not href:
             continue
         abs_url = urllib.parse.urljoin(_GPRE_CORN_BIDS_ENTRY_URL, href)
-        if "grain.gpreinc.com" not in abs_url.lower():
+        abs_url_low = abs_url.lower()
+        if "grain.gpreinc.com" not in abs_url_low and "/location/" not in abs_url_low:
             continue
         if abs_url not in urls:
             urls.append(abs_url)
@@ -2351,8 +3025,49 @@ def _gpre_corn_bids_candidate_urls(entry_html: str) -> List[str]:
     return urls
 
 
+def _gpre_corn_bids_entry_script_urls(entry_html: str) -> List[str]:
+    urls: List[str] = []
+    for match in re.finditer(r'<script[^>]+src=["\'](?P<src>[^"\']+)["\']', str(entry_html or ""), re.I):
+        src = html.unescape(str(match.group("src") or "").strip())
+        if not src:
+            continue
+        abs_url = urllib.parse.urljoin(_GPRE_CORN_BIDS_ENTRY_URL, src)
+        abs_url_low = abs_url.lower()
+        path_low = urllib.parse.urlparse(abs_url).path.lower()
+        if "gpreinc.com" not in abs_url_low or not path_low.endswith(".js"):
+            continue
+        if "child-theme" not in abs_url_low and "corn-bids" not in abs_url_low:
+            continue
+        if abs_url not in urls:
+            urls.append(abs_url)
+    return urls
+
+
+def _gpre_corn_bids_location_specific_urls_from_text(source_text: str) -> List[str]:
+    urls: List[str] = []
+    for match in re.finditer(
+        r"https?://grain\.gpreinc\.com/index\.cfm\?show=11&mid=3&theLocation=\d+&layout=19",
+        str(source_text or ""),
+        re.I,
+    ):
+        url = str(match.group(0) or "").strip()
+        if url and url not in urls:
+            urls.append(url)
+    return urls
+
+
+def _gpre_corn_bids_candidate_score(candidate: Dict[str, Any]) -> Tuple[int, int, int]:
+    rows = [dict(rec) for rec in list(candidate.get("rows") or []) if isinstance(rec, dict)]
+    location_count = len({str(rec.get("location") or "").strip() for rec in rows if str(rec.get("location") or "").strip()})
+    row_count = len(rows)
+    updated_dt = _gpre_parse_snapshot_date_like(candidate.get("page_last_updated_text"))
+    updated_ord = updated_dt.toordinal() if isinstance(updated_dt, date) else 0
+    return (location_count, row_count, updated_ord)
+
+
 def _fetch_gpre_corn_bids_html_payload(
     *,
+    as_of_date: Optional[date] = None,
     timeout_seconds: float = 8.0,
 ) -> Dict[str, Any]:
     entry_html = ""
@@ -2370,10 +3085,47 @@ def _fetch_gpre_corn_bids_html_payload(
             entry_html = resp.read().decode("utf-8", errors="ignore")
     except Exception as exc:
         entry_error = f"{type(exc).__name__}: {exc}"
+    # GPRE's public entry page can expose only part of the grain-site surface.
+    # Treat it as a discovery root, then prefer the grain candidate/union with
+    # the widest known plant coverage so Central City-style location pages are
+    # not lost just because the first parsable document is incomplete.
     candidate_urls = _gpre_corn_bids_candidate_urls(entry_html)
+    for script_url in _gpre_corn_bids_entry_script_urls(entry_html):
+        try:
+            script_req = urllib.request.Request(
+                script_url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; Codex GPRE bids fetch)",
+                    "Accept": "application/javascript,text/javascript,*/*",
+                    "Referer": _GPRE_CORN_BIDS_ENTRY_URL,
+                },
+            )
+            with opener.open(script_req, timeout=float(timeout_seconds)) as resp:
+                script_text = resp.read().decode("utf-8", errors="ignore")
+            for candidate_url in _gpre_corn_bids_location_specific_urls_from_text(script_text):
+                if candidate_url not in candidate_urls:
+                    candidate_urls.append(candidate_url)
+        except Exception:
+            continue
     if not candidate_urls:
         candidate_urls = list(_GPRE_CORN_BIDS_DIRECT_URLS)
     last_error = entry_error
+    candidate_payloads: List[Dict[str, Any]] = []
+    if entry_html.strip():
+        entry_rows = parse_gpre_corn_bids_html(
+            entry_html,
+            as_of_date=as_of_date,
+            source_url=_GPRE_CORN_BIDS_ENTRY_URL,
+        )
+        if entry_rows:
+            candidate_payloads.append(
+                {
+                    "source_url": _GPRE_CORN_BIDS_ENTRY_URL,
+                    "html_text": entry_html,
+                    "rows": entry_rows,
+                    "page_last_updated_text": _gpre_corn_bids_page_last_updated_text(entry_html),
+                }
+            )
     for url in candidate_urls:
         try:
             req = urllib.request.Request(
@@ -2386,20 +3138,67 @@ def _fetch_gpre_corn_bids_html_payload(
             )
             with opener.open(req, timeout=float(timeout_seconds)) as resp:
                 html_text = resp.read().decode("utf-8", errors="ignore")
-            rows = parse_gpre_corn_bids_html(html_text, source_url=url)
+            rows = parse_gpre_corn_bids_html(html_text, as_of_date=as_of_date, source_url=url)
             if rows:
-                return {
-                    "status": "ok",
-                    "source_url": url,
-                    "entry_url": _GPRE_CORN_BIDS_ENTRY_URL,
-                    "entry_html_length": len(entry_html),
-                    "html_text": html_text,
-                    "rows": rows,
-                }
+                candidate_payloads.append(
+                    {
+                        "source_url": url,
+                        "html_text": html_text,
+                        "rows": rows,
+                        "page_last_updated_text": _gpre_corn_bids_page_last_updated_text(html_text),
+                    }
+                )
+                continue
             last_error = f"ValueError: no parsable corn bid rows at {url}"
         except Exception as exc:
             last_error = f"{type(exc).__name__}: {exc}"
             continue
+    if candidate_payloads:
+        ranked_candidates = sorted(candidate_payloads, key=_gpre_corn_bids_candidate_score, reverse=True)
+        best_candidate = dict(ranked_candidates[0])
+        union_rows = _dedupe_gpre_corn_bids_rows(
+            rec
+            for candidate in ranked_candidates
+            for rec in list(candidate.get("rows") or [])
+        )
+        ranked_updated_dates = [
+            updated_dt
+            for updated_dt in (
+                _gpre_parse_snapshot_date_like(candidate.get("page_last_updated_text"))
+                for candidate in ranked_candidates
+            )
+            if isinstance(updated_dt, date)
+        ]
+        union_candidate = {
+            "rows": union_rows,
+            "page_last_updated_text": max(ranked_updated_dates, default=None),
+        }
+        use_union = _gpre_corn_bids_candidate_score(union_candidate) > _gpre_corn_bids_candidate_score(best_candidate)
+        chosen_rows = union_rows if use_union else list(best_candidate.get("rows") or [])
+        chosen_source_url = str(best_candidate.get("source_url") or _GPRE_CORN_BIDS_ENTRY_URL)
+        chosen_html = str(best_candidate.get("html_text") or "")
+        candidate_source_urls = sorted(
+            {
+                str(candidate.get("source_url") or "").strip()
+                for candidate in ranked_candidates
+                if str(candidate.get("source_url") or "").strip()
+            }
+        )
+        return {
+            "status": "ok",
+            "source_url": chosen_source_url,
+            "candidate_source_urls": candidate_source_urls,
+            "entry_url": _GPRE_CORN_BIDS_ENTRY_URL,
+            "entry_html_length": len(entry_html),
+            "html_text": chosen_html,
+            "rows": chosen_rows,
+            "page_last_updated_text": (
+                max(ranked_updated_dates).isoformat()
+                if ranked_updated_dates
+                else str(best_candidate.get("page_last_updated_text") or "")
+            ),
+            "selected_from_union": bool(use_union),
+        }
     return {
         "status": "unavailable",
         "source_url": candidate_urls[0] if candidate_urls else _GPRE_CORN_BIDS_DIRECT_URLS[0],
@@ -2415,7 +3214,7 @@ def fetch_gpre_corn_bids_snapshot(
     as_of_date: Optional[date] = None,
     timeout_seconds: float = 8.0,
 ) -> Dict[str, Any]:
-    payload = _fetch_gpre_corn_bids_html_payload(timeout_seconds=timeout_seconds)
+    payload = _fetch_gpre_corn_bids_html_payload(as_of_date=as_of_date, timeout_seconds=timeout_seconds)
     row_list = [
         dict(rec)
         for rec in list(payload.get("rows") or [])
@@ -2429,11 +3228,6 @@ def fetch_gpre_corn_bids_snapshot(
             "entry_url": str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
             "error": str(payload.get("error") or ""),
         }
-    row_list = parse_gpre_corn_bids_html(
-        str(payload.get("html_text") or ""),
-        as_of_date=as_of_date,
-        source_url=str(payload.get("source_url") or _GPRE_CORN_BIDS_DIRECT_URLS[0]),
-    )
     summary = _summarize_gpre_corn_bids_rows(
         row_list,
         as_of_date=as_of_date,
@@ -2442,6 +3236,7 @@ def fetch_gpre_corn_bids_snapshot(
     summary["html_length"] = len(str(payload.get("html_text") or ""))
     summary["entry_url"] = str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL)
     summary["source_kind"] = "remote_html"
+    summary["candidate_source_urls"] = list(payload.get("candidate_source_urls") or [])
     return summary
 
 
@@ -2453,12 +3248,13 @@ def download_gpre_corn_bids_snapshot(
 ) -> Dict[str, Any]:
     root = Path(ticker_root).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
-    storage_root = root / _GPRE_CORN_BIDS_DIRNAME
+    migration_info = _ensure_gpre_corn_bids_archive_migrated(root, as_of_date=as_of_date)
+    storage_root = _gpre_corn_bids_storage_root(root) or (root / _GPRE_CORN_BIDS_DIRNAME)
     storage_root.mkdir(parents=True, exist_ok=True)
     html_path = storage_root / _GPRE_CORN_BIDS_HTML_FILENAME
     csv_path = storage_root / _GPRE_CORN_BIDS_CSV_FILENAME
     snapshot_date = as_of_date or date.today()
-    payload = _fetch_gpre_corn_bids_html_payload(timeout_seconds=timeout_seconds)
+    payload = _fetch_gpre_corn_bids_html_payload(as_of_date=snapshot_date, timeout_seconds=timeout_seconds)
     html_text = str(payload.get("html_text") or "")
     source_url = str(payload.get("source_url") or "")
     if str(payload.get("status") or "") != "ok" or not html_text.strip():
@@ -2472,11 +3268,11 @@ def download_gpre_corn_bids_snapshot(
             "error": str(payload.get("error") or ""),
         }
     html_path.write_text(html_text, encoding="utf-8")
-    parsed_rows = parse_gpre_corn_bids_html(
-        html_text,
-        as_of_date=snapshot_date,
-        source_url=source_url,
-    )
+    parsed_rows = [
+        dict(rec)
+        for rec in list(payload.get("rows") or [])
+        if isinstance(rec, dict)
+    ]
     pd.DataFrame(parsed_rows).to_csv(csv_path, index=False)
     summary = _summarize_gpre_corn_bids_rows(
         parsed_rows,
@@ -2491,6 +3287,7 @@ def download_gpre_corn_bids_snapshot(
         source_url=source_url,
         entry_url=str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
         source_kind="downloaded_html",
+        candidate_source_urls=list(payload.get("candidate_source_urls") or []),
     )
     summary.update(
         {
@@ -2503,6 +3300,11 @@ def download_gpre_corn_bids_snapshot(
             "archive_raw_path": archive_entry.get("raw_path"),
             "archive_parsed_path": archive_entry.get("parsed_path"),
             "manifest_path": archive_entry.get("manifest_path"),
+            "archive_storage_root": migration_info.get("archive_storage_root") or storage_root,
+            "legacy_archive_detected": bool(migration_info.get("legacy_archive_detected")),
+            "migrated_snapshot_dates": list(migration_info.get("migrated_snapshot_dates") or []),
+            "conflicting_snapshot_dates": list(migration_info.get("conflicting_snapshot_dates") or []),
+            "candidate_source_urls": list(payload.get("candidate_source_urls") or []),
         }
     )
     return summary
@@ -2540,8 +3342,10 @@ def _load_local_gpre_corn_bids_snapshot(
         selection_mode=selection_mode,
         as_of_date=as_of_date,
     )
-    if str(archived_summary.get("status") or "").strip().lower() == "ok":
+    archived_status = str(archived_summary.get("status") or "").strip().lower()
+    if archived_status == "ok":
         return archived_summary
+    fallback_summary = archived_summary if archived_status == "stale" else None
     cutoff_date = _gpre_snapshot_cutoff_date(
         selection_mode=selection_mode,
         target_quarter_end=target_quarter_end,
@@ -2599,15 +3403,48 @@ def _load_local_gpre_corn_bids_snapshot(
                 target_quarter_end=target_quarter_end,
             ):
                 continue
+            if isinstance(snap_dt, date) and isinstance(cutoff_date, date) and snap_dt > cutoff_date:
+                continue
             if mode in {"prior_quarter", "historical_quarter", "quarter_open"}:
                 if not isinstance(snap_dt, date):
                     continue
-                if isinstance(cutoff_date, date) and snap_dt > cutoff_date:
-                    continue
+            staleness = _gpre_snapshot_staleness_payload(
+                snapshot_date=snap_dt,
+                cutoff_date=cutoff_date,
+                selection_mode=selection_mode,
+            )
+            if staleness.get("is_stale"):
+                fallback_summary = _gpre_snapshot_fallback_summary(
+                    status="stale",
+                    source_kind="stale_local_html",
+                    source_url=str(path),
+                    snapshot_date=snap_dt,
+                    selection_rule="legacy_latest_file",
+                    selection_note=_gpre_stale_snapshot_note(
+                        snapshot_date=snap_dt,
+                        cutoff_date=cutoff_date,
+                        selection_mode=selection_mode,
+                        staleness=staleness,
+                    ),
+                    raw_path=path,
+                    page_last_updated_text=_gpre_corn_bids_page_last_updated_text(html_text),
+                    storage_root=_gpre_corn_bids_storage_root(ticker_root),
+                    legacy_storage_root=_gpre_legacy_corn_bids_storage_root(ticker_root),
+                    snapshot_age_days=staleness.get("age_days"),
+                    max_snapshot_age_days=staleness.get("max_age_days"),
+                    fallback_reason="stale_snapshot",
+                )
+                continue
             summary["html_length"] = len(html_text)
+            summary["snapshot_age_days"] = staleness.get("age_days")
+            summary["max_snapshot_age_days"] = staleness.get("max_age_days")
+            summary["archive_storage_root"] = _gpre_corn_bids_storage_root(ticker_root)
+            summary["legacy_archive_storage_root"] = _gpre_legacy_corn_bids_storage_root(ticker_root)
             return summary
         except Exception:
             continue
+    if isinstance(fallback_summary, dict):
+        return fallback_summary
     return {
         "status": "unavailable",
         "rows": [],
@@ -2633,16 +3470,18 @@ def _resolve_gpre_corn_bids_snapshot(
         as_of_date=as_of_date,
     )
     ref_date = target_date or as_of_date
+    provided_stale_summary: Optional[Dict[str, Any]] = None
     if str(effective.get("status") or "").strip().lower() == "ok":
         row_list = effective.get("rows")
         if not isinstance(row_list, list) or not row_list:
             row_list = effective.get("nearest_rows")
         if isinstance(row_list, list) and row_list:
-            explicit_snapshot_date = _gpre_parse_snapshot_date_like(
+            dated_snapshot_date = _gpre_parse_snapshot_date_like(
                 effective.get("snapshot_date")
                 or effective.get("as_of")
                 or effective.get("page_last_updated_text")
-            ) or _gpre_infer_snapshot_date_from_rows(row_list)
+            )
+            explicit_snapshot_date = dated_snapshot_date or _gpre_infer_snapshot_date_from_rows(row_list)
             mode = str(selection_mode or "").strip().lower()
             explicit_ok = mode in {"current_qtd", "next_quarter_thesis"}
             if mode == "next_quarter_thesis":
@@ -2651,28 +3490,63 @@ def _resolve_gpre_corn_bids_snapshot(
                     target_quarter_end=target_quarter_end,
                 )
             elif mode in {"prior_quarter", "historical_quarter", "quarter_open"}:
-                explicit_ok = isinstance(explicit_snapshot_date, date) and (
-                    not isinstance(cutoff_date, date) or explicit_snapshot_date <= cutoff_date
+                explicit_ok = isinstance(dated_snapshot_date, date) and (
+                    not isinstance(cutoff_date, date) or dated_snapshot_date <= cutoff_date
                 )
+            if isinstance(dated_snapshot_date, date) and isinstance(cutoff_date, date) and dated_snapshot_date > cutoff_date:
+                explicit_ok = False
             if explicit_ok:
-                return _gpre_annotated_corn_bids_summary(
-                    row_list,
-                    target_date=ref_date,
-                    source_url=str(effective.get("source_url") or ""),
-                    source_kind=str(effective.get("source_kind") or "provided_snapshot"),
-                    snapshot_date=explicit_snapshot_date,
-                    selection_rule="provided_snapshot",
-                    selection_note=str(effective.get("selection_note") or ""),
-                    page_last_updated_text=str(effective.get("page_last_updated_text") or ""),
+                staleness = _gpre_snapshot_staleness_payload(
+                    snapshot_date=dated_snapshot_date,
+                    cutoff_date=cutoff_date,
+                    selection_mode=selection_mode,
                 )
+                if staleness.get("is_stale"):
+                    provided_stale_summary = _gpre_snapshot_fallback_summary(
+                        status="stale",
+                        source_kind="stale_provided_snapshot",
+                        source_url=str(effective.get("source_url") or ""),
+                        snapshot_date=dated_snapshot_date,
+                        selection_rule="provided_snapshot",
+                        selection_note=_gpre_stale_snapshot_note(
+                            snapshot_date=dated_snapshot_date,
+                            cutoff_date=cutoff_date,
+                            selection_mode=selection_mode,
+                            staleness=staleness,
+                        ),
+                        page_last_updated_text=str(effective.get("page_last_updated_text") or ""),
+                        storage_root=_gpre_corn_bids_storage_root(ticker_root),
+                        legacy_storage_root=_gpre_legacy_corn_bids_storage_root(ticker_root),
+                        snapshot_age_days=staleness.get("age_days"),
+                        max_snapshot_age_days=staleness.get("max_age_days"),
+                        fallback_reason="stale_snapshot",
+                    )
+                else:
+                    summary = _gpre_annotated_corn_bids_summary(
+                        row_list,
+                        target_date=ref_date,
+                        source_url=str(effective.get("source_url") or ""),
+                        source_kind=str(effective.get("source_kind") or "provided_snapshot"),
+                        snapshot_date=explicit_snapshot_date,
+                        selection_rule="provided_snapshot",
+                        selection_note=str(effective.get("selection_note") or ""),
+                        page_last_updated_text=str(effective.get("page_last_updated_text") or ""),
+                    )
+                    summary["snapshot_age_days"] = staleness.get("age_days")
+                    summary["max_snapshot_age_days"] = staleness.get("max_age_days")
+                    return summary
     if isinstance(ticker_root, Path):
-        return _load_local_gpre_corn_bids_snapshot(
+        local_summary = _load_local_gpre_corn_bids_snapshot(
             ticker_root=ticker_root,
             as_of_date=as_of_date,
             target_date=target_date,
             target_quarter_end=target_quarter_end,
             selection_mode=selection_mode,
         )
+        if str(local_summary.get("status") or "").strip().lower() != "unavailable":
+            return local_summary
+    if isinstance(provided_stale_summary, dict):
+        return provided_stale_summary
     return effective
 
 
@@ -2717,25 +3591,221 @@ def _gpre_select_bid_row_for_target(
     return sorted(location_rows, key=_sort_key)[0]
 
 
-def _gpre_official_current_forward_basis_payload(
+def _gpre_ams_basis_strategy_spec(strategy_in: Optional[str]) -> Dict[str, Any]:
+    strategy_key = str(strategy_in or _GPRE_AMS_BASIS_DEFAULT_STRATEGY).strip().lower()
+    specs = {
+        "avg21": {"strategy_key": "avg21", "mode": "avg", "lookback_days": 21, "nearest_prior_days": 0},
+        "avg5": {"strategy_key": "avg5", "mode": "avg", "lookback_days": 5, "nearest_prior_days": 0},
+        "exact1": {"strategy_key": "exact1", "mode": "exact", "lookback_days": 1, "nearest_prior_days": 0},
+        "same_date": {"strategy_key": "exact1", "mode": "exact", "lookback_days": 1, "nearest_prior_days": 0},
+        "same_or_prior3": {"strategy_key": "same_or_prior3", "mode": "nearest", "lookback_days": 0, "nearest_prior_days": 3},
+        "same_or_prior7": {"strategy_key": "same_or_prior7", "mode": "nearest", "lookback_days": 0, "nearest_prior_days": 7},
+        "same_or_prior3_then_avg5": {
+            "strategy_key": "same_or_prior3_then_avg5",
+            "mode": "hybrid",
+            "lookback_days": 5,
+            "nearest_prior_days": 3,
+        },
+        "same_or_prior7_then_avg5": {
+            "strategy_key": "same_or_prior7_then_avg5",
+            "mode": "hybrid",
+            "lookback_days": 5,
+            "nearest_prior_days": 7,
+        },
+    }
+    return dict(specs.get(strategy_key) or specs[_GPRE_AMS_BASIS_DEFAULT_STRATEGY])
+
+
+def _gpre_default_ams_basis_strategy_for_frame(frame_key: Optional[str]) -> str:
+    frame = str(frame_key or "").strip().lower()
+    if frame in {"historical_quarter", "prior_quarter"}:
+        return "exact1"
+    if frame in {"quarter_open", "current_qtd", "next_quarter_thesis"}:
+        return "same_or_prior3_then_avg5"
+    return _GPRE_AMS_BASIS_DEFAULT_STRATEGY
+
+
+def _gpre_ams_basis_quarter_fallback(
+    *,
+    region: str,
+    ref_date: date,
+    quarter_avg_maps: Optional[Dict[str, Dict[date, float]]],
+) -> Dict[str, Any]:
+    quarter_limit = quarter_end_from_date(ref_date) if isinstance(ref_date, date) else None
+    valid_quarters = [
+        (qd, pd.to_numeric(val, errors="coerce"))
+        for qd, val in ((quarter_avg_maps or {}).get(region) or {}).items()
+        if isinstance(qd, date)
+        and (quarter_limit is None or qd <= quarter_limit)
+    ]
+    valid_quarters = [(qd, float(val)) for qd, val in valid_quarters if pd.notna(val)]
+    if valid_quarters:
+        qd, basis_usd = max(valid_quarters, key=lambda item: item[0])
+        return {
+            "region": region,
+            "basis_usd_per_bu": basis_usd,
+            "basis_cents_per_bu": basis_usd * 100.0,
+            "reference_as_of": qd,
+            "anchor_date": ref_date,
+            "reference_method": f"Latest quarter-average AMS basis ({_quarter_label(qd)})",
+        }
+    return {
+        "region": region,
+        "basis_usd_per_bu": None,
+        "basis_cents_per_bu": None,
+        "reference_as_of": None,
+        "anchor_date": ref_date,
+        "reference_method": "No AMS reference available",
+    }
+
+
+def _gpre_ams_basis_mean_row(
+    *,
+    region: str,
+    ref_date: date,
+    selection_df: pd.DataFrame,
+    reference_as_of: date,
+    reference_method: str,
+) -> Optional[Dict[str, Any]]:
+    vals = pd.to_numeric(selection_df.get("price_value"), errors="coerce").dropna()
+    if vals.empty:
+        return None
+    basis_usd = float(vals.mean())
+    return {
+        "region": region,
+        "basis_usd_per_bu": basis_usd,
+        "basis_cents_per_bu": basis_usd * 100.0,
+        "reference_as_of": reference_as_of,
+        "anchor_date": ref_date,
+        "reference_method": reference_method,
+    }
+
+
+def _gpre_ams_basis_reference_row(
+    rows_df: pd.DataFrame,
+    *,
+    region: str,
+    anchor_date: Optional[date],
+    quarter_avg_maps: Optional[Dict[str, Dict[date, float]]] = None,
+    lookback_days: int = 21,
+    strategy: Optional[str] = None,
+) -> Dict[str, Any]:
+    ref_date = anchor_date or date.today()
+    strategy_spec = _gpre_ams_basis_strategy_spec(strategy)
+    obs_df = _series_observation_df(rows_df, f"corn_basis_{region}")
+    if not obs_df.empty:
+        obs_df = obs_df[obs_df["observation_date"].dt.date <= ref_date].copy()
+    if not obs_df.empty:
+        mode = str(strategy_spec.get("mode") or "avg")
+        avg_days = max(int(strategy_spec.get("lookback_days") or lookback_days or 1), 1)
+        prior_days = max(int(strategy_spec.get("nearest_prior_days") or 0), 0)
+        if mode == "exact":
+            same_day = obs_df[obs_df["observation_date"].dt.date == ref_date].copy()
+            picked = _gpre_ams_basis_mean_row(
+                region=region,
+                ref_date=ref_date,
+                selection_df=same_day,
+                reference_as_of=ref_date,
+                reference_method=f"Exact same-date AMS basis {ref_date.isoformat()}",
+            )
+            if picked is not None:
+                return picked
+        elif mode == "nearest":
+            if prior_days > 0:
+                cutoff = ref_date - timedelta(days=prior_days - 1)
+                nearest_df = obs_df[obs_df["observation_date"].dt.date >= cutoff].copy()
+                if not nearest_df.empty:
+                    latest_obs = pd.Timestamp(nearest_df["observation_date"].max()).date()
+                    same_latest = nearest_df[nearest_df["observation_date"].dt.date == latest_obs].copy()
+                    picked = _gpre_ams_basis_mean_row(
+                        region=region,
+                        ref_date=ref_date,
+                        selection_df=same_latest,
+                        reference_as_of=latest_obs,
+                        reference_method=f"Nearest prior AMS basis within {prior_days} days ending {latest_obs.isoformat()}",
+                    )
+                    if picked is not None:
+                        return picked
+        elif mode == "hybrid":
+            same_day = obs_df[obs_df["observation_date"].dt.date == ref_date].copy()
+            picked = _gpre_ams_basis_mean_row(
+                region=region,
+                ref_date=ref_date,
+                selection_df=same_day,
+                reference_as_of=ref_date,
+                reference_method=f"Exact same-date AMS basis {ref_date.isoformat()}",
+            )
+            if picked is not None:
+                return picked
+            if prior_days > 0:
+                cutoff = ref_date - timedelta(days=prior_days - 1)
+                nearest_df = obs_df[obs_df["observation_date"].dt.date >= cutoff].copy()
+                if not nearest_df.empty:
+                    latest_obs = pd.Timestamp(nearest_df["observation_date"].max()).date()
+                    same_latest = nearest_df[nearest_df["observation_date"].dt.date == latest_obs].copy()
+                    picked = _gpre_ams_basis_mean_row(
+                        region=region,
+                        ref_date=ref_date,
+                        selection_df=same_latest,
+                        reference_as_of=latest_obs,
+                        reference_method=f"Nearest prior AMS basis within {prior_days} days ending {latest_obs.isoformat()}",
+                    )
+                    if picked is not None:
+                        return picked
+            latest_obs = pd.Timestamp(obs_df["observation_date"].max()).date()
+            window_start = latest_obs - timedelta(days=avg_days - 1)
+            window = obs_df[
+                (obs_df["observation_date"].dt.date >= window_start)
+                & (obs_df["observation_date"].dt.date <= latest_obs)
+            ].copy()
+            picked = _gpre_ams_basis_mean_row(
+                region=region,
+                ref_date=ref_date,
+                selection_df=window,
+                reference_as_of=latest_obs,
+                reference_method=f"Latest {avg_days}-day AMS basis average ending {latest_obs.isoformat()}",
+            )
+            if picked is not None:
+                return picked
+        else:
+            latest_obs = pd.Timestamp(obs_df["observation_date"].max()).date()
+            window_start = latest_obs - timedelta(days=avg_days - 1)
+            window = obs_df[
+                (obs_df["observation_date"].dt.date >= window_start)
+                & (obs_df["observation_date"].dt.date <= latest_obs)
+            ].copy()
+            picked = _gpre_ams_basis_mean_row(
+                region=region,
+                ref_date=ref_date,
+                selection_df=window,
+                reference_as_of=latest_obs,
+                reference_method=f"Latest {avg_days}-day AMS basis average ending {latest_obs.isoformat()}",
+            )
+            if picked is not None:
+                return picked
+    return _gpre_ams_basis_quarter_fallback(
+        region=region,
+        ref_date=ref_date,
+        quarter_avg_maps=quarter_avg_maps,
+    )
+
+
+def weighted_corn_basis_context(
     rows: Iterable[Dict[str, Any]],
     *,
     target_date: date,
     target_quarter_end: date,
-    as_of_date: Optional[date],
+    anchor_date: Optional[date],
     ticker_root: Optional[Path],
     bids_snapshot: Optional[Dict[str, Any]],
-    selection_mode: str = "current_qtd",
+    frame_key: str = "current_qtd",
     plant_capacity_history: Optional[Dict[str, Any]] = None,
+    ams_basis_strategy: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Resolve the official GPRE corn-basis leg for one frame or historical quarter.
-
-    The payload is intentionally richer than the final weighted basis number. It also
-    carries component rows, retained-snapshot provenance, fallback counts, and the
-    selection rule so the workbook can explain *why* a quarter used retained GPRE bids
-    or AMS fallback rather than only showing the final weighted result.
-    """
     rows_df = _market_rows_df(rows)
+    ams_basis_strategy_for_call = str(
+        ams_basis_strategy or _gpre_default_ams_basis_strategy_for_frame(frame_key)
+    ).strip()
     active_plants = _gpre_active_plants_for_quarter(
         target_quarter_end,
         plant_capacity_history=plant_capacity_history,
@@ -2744,13 +3814,16 @@ def _gpre_official_current_forward_basis_payload(
     if not active_plants:
         return {
             "official_weighted_corn_basis_usd_per_bu": None,
+            "official_weighted_corn_cash_price_usd_per_bu": None,
             "weighted_ams_basis_proxy_usd_per_bu": None,
             "official_corn_basis_source_kind": "weighted_ams_proxy",
             "official_corn_basis_source_label": "weighted AMS basis proxy",
             "official_corn_basis_provenance": "No active GPRE plants resolved for the target quarter.",
             "official_actual_bid_plant_count": 0,
+            "official_actual_cash_price_plant_count": 0,
             "official_fallback_plant_count": 0,
             "official_missing_plant_count": 0,
+            "official_corn_cash_coverage_ratio": 0.0,
             "component_rows": [],
             "source_url": "",
             "source_kind": "none",
@@ -2764,13 +3837,16 @@ def _gpre_official_current_forward_basis_payload(
     if total_capacity <= 0.0:
         return {
             "official_weighted_corn_basis_usd_per_bu": None,
+            "official_weighted_corn_cash_price_usd_per_bu": None,
             "weighted_ams_basis_proxy_usd_per_bu": None,
             "official_corn_basis_source_kind": "weighted_ams_proxy",
             "official_corn_basis_source_label": "weighted AMS basis proxy",
             "official_corn_basis_provenance": "No active GPRE plant capacity resolved for the target quarter.",
             "official_actual_bid_plant_count": 0,
+            "official_actual_cash_price_plant_count": 0,
             "official_fallback_plant_count": 0,
             "official_missing_plant_count": 0,
+            "official_corn_cash_coverage_ratio": 0.0,
             "component_rows": [],
             "source_url": "",
             "source_kind": "none",
@@ -2778,10 +3854,10 @@ def _gpre_official_current_forward_basis_payload(
     effective_snapshot = _resolve_gpre_corn_bids_snapshot(
         bids_snapshot,
         ticker_root=ticker_root,
-        as_of_date=as_of_date,
+        as_of_date=anchor_date,
         target_date=target_date,
         target_quarter_end=target_quarter_end,
-        selection_mode=selection_mode,
+        selection_mode=frame_key,
     )
     snapshot_rows = effective_snapshot.get("rows")
     if not isinstance(snapshot_rows, list) or not snapshot_rows:
@@ -2792,13 +3868,17 @@ def _gpre_official_current_forward_basis_payload(
         region: _quarter_avg_map(rows_df, f"corn_basis_{region}")
         for region in _GPRE_BASIS_REGIONS
     }
-    reference_rows = _latest_ams_basis_reference_rows(
-        rows_df,
-        regions=_GPRE_BASIS_REGIONS,
-        as_of_date=as_of_date,
-        quarter_avg_maps=quarter_avg_maps,
-        lookback_days=21,
-    )
+    reference_rows = [
+        _gpre_ams_basis_reference_row(
+            rows_df,
+            region=region,
+            anchor_date=anchor_date,
+            quarter_avg_maps=quarter_avg_maps,
+            lookback_days=21,
+            strategy=ams_basis_strategy_for_call,
+        )
+        for region in _GPRE_BASIS_REGIONS
+    ]
     reference_map = {
         str(rec.get("region") or "").strip().lower(): dict(rec)
         for rec in reference_rows
@@ -2807,9 +3887,12 @@ def _gpre_official_current_forward_basis_payload(
     component_rows: List[Dict[str, Any]] = []
     official_sum = 0.0
     official_cov = 0.0
+    cash_sum = 0.0
+    cash_cov = 0.0
     proxy_sum = 0.0
     proxy_cov = 0.0
     actual_count = 0
+    actual_cash_count = 0
     fallback_count = 0
     missing_count = 0
     for plant in active_plants:
@@ -2819,11 +3902,18 @@ def _gpre_official_current_forward_basis_payload(
         plant_weight = (plant_capacity / total_capacity) if total_capacity > 0.0 else 0.0
         bid_rec = _gpre_select_bid_row_for_target(snapshot_rows, location=location, target_date=target_date)
         bid_basis = pd.to_numeric((bid_rec or {}).get("basis_usd_per_bu"), errors="coerce")
+        bid_cash = pd.to_numeric((bid_rec or {}).get("cash_price"), errors="coerce")
         delivery_label = str((bid_rec or {}).get("delivery_label") or "").strip()
+        implied_futures = (
+            None
+            if pd.isna(bid_cash) or pd.isna(bid_basis)
+            else float(bid_cash) - float(bid_basis)
+        )
         proxy_basis = None
         proxy_region = ""
         proxy_method = ""
         proxy_note = ""
+        proxy_reference_as_of = None
         for fallback_region in _gpre_basis_fallback_regions(region):
             ref_rec = dict(reference_map.get(fallback_region) or {})
             ref_basis = pd.to_numeric(ref_rec.get("basis_usd_per_bu"), errors="coerce")
@@ -2832,6 +3922,7 @@ def _gpre_official_current_forward_basis_payload(
             proxy_basis = float(ref_basis)
             proxy_region = fallback_region
             proxy_method = str(ref_rec.get("reference_method") or "")
+            proxy_reference_as_of = ref_rec.get("reference_as_of")
             if fallback_region != region:
                 proxy_note = f"{region} uses AMS fallback {fallback_region}"
             break
@@ -2866,6 +3957,10 @@ def _gpre_official_current_forward_basis_payload(
         if chosen_basis is not None and plant_weight > 0.0:
             official_sum += plant_weight * float(chosen_basis)
             official_cov += plant_weight
+        if pd.notna(bid_cash) and plant_weight > 0.0:
+            cash_sum += plant_weight * float(bid_cash)
+            cash_cov += plant_weight
+            actual_cash_count += 1
         component_rows.append(
             {
                 "location": location,
@@ -2880,15 +3975,20 @@ def _gpre_official_current_forward_basis_payload(
                 "basis_value_cents_per_bu": (None if chosen_basis is None else float(chosen_basis) * 100.0),
                 "basis_series_key": basis_series_key,
                 "basis_series_label": basis_series_label,
+                "cash_price_usd_per_bu": (None if pd.isna(bid_cash) else float(bid_cash)),
+                "cash_price_value_usd_per_bu": (None if pd.isna(bid_cash) else float(bid_cash)),
+                "bid_implied_futures_usd_per_bu": implied_futures,
                 "proxy_basis_usd_per_bu": proxy_basis,
                 "proxy_basis_cents_per_bu": (None if proxy_basis is None else float(proxy_basis) * 100.0),
                 "proxy_region": proxy_region,
                 "proxy_method": proxy_method,
+                "proxy_reference_as_of": proxy_reference_as_of,
                 "delivery_label": delivery_label,
                 "fallback_note": " | ".join(bit for bit in note_bits if bit),
             }
         )
     official_basis = (official_sum / official_cov) if official_cov > 0.0 else None
+    official_cash_price = (cash_sum / cash_cov) if cash_cov > 0.0 else None
     weighted_proxy_basis = (proxy_sum / proxy_cov) if proxy_cov > 0.0 else None
     if actual_count > 0 and fallback_count == 0 and missing_count == 0:
         basis_source_kind = "actual_gpre_bids"
@@ -2899,14 +3999,22 @@ def _gpre_official_current_forward_basis_payload(
     else:
         basis_source_kind = "weighted_ams_proxy"
         basis_source_label = "weighted AMS basis proxy"
+        snapshot_date = None
+        snapshot_date_txt = ""
     source_kind_txt = str(effective_snapshot.get("source_kind") or "").strip() or "live_html"
     source_url_txt = str(effective_snapshot.get("source_url") or "").strip()
     snapshot_date_txt = ""
     snapshot_date = _gpre_parse_snapshot_date_like(effective_snapshot.get("snapshot_date"))
+    attempted_snapshot_date = snapshot_date
     if isinstance(snapshot_date, date):
         snapshot_date_txt = snapshot_date.isoformat()
     selection_rule_txt = str(effective_snapshot.get("selection_rule") or "").strip()
     selection_note_txt = str(effective_snapshot.get("selection_note") or "").strip()
+    snapshot_age_days = pd.to_numeric(effective_snapshot.get("snapshot_age_days"), errors="coerce")
+    max_snapshot_age_days = pd.to_numeric(effective_snapshot.get("max_snapshot_age_days"), errors="coerce")
+    ams_basis_strategy_key = str((_gpre_ams_basis_strategy_spec(ams_basis_strategy_for_call) or {}).get("strategy_key") or _GPRE_AMS_BASIS_DEFAULT_STRATEGY)
+    anchor_date_txt = anchor_date.isoformat() if isinstance(anchor_date, date) else ""
+    target_date_txt = target_date.isoformat() if isinstance(target_date, date) else ""
     provenance = (
         f"{basis_source_label.title()} for {actual_count}/{int(len(active_plants))} plants"
         if actual_count > 0
@@ -2918,32 +4026,78 @@ def _gpre_official_current_forward_basis_payload(
         provenance += f"; missing basis for {missing_count}/{int(len(active_plants))} plants"
     if snapshot_date_txt:
         provenance += f"; retained snapshot {snapshot_date_txt}"
+    if target_date_txt:
+        provenance += f"; target {target_date_txt}"
+    if anchor_date_txt:
+        provenance += f"; anchor {anchor_date_txt}"
     if selection_rule_txt:
         provenance += f"; selection {selection_rule_txt}"
     if selection_note_txt:
         provenance += f"; {selection_note_txt}"
+    if pd.notna(snapshot_age_days) and pd.notna(max_snapshot_age_days):
+        provenance += f"; snapshot age {int(snapshot_age_days)}d/{int(max_snapshot_age_days)}d max"
+    if basis_source_kind == "weighted_ams_proxy" or fallback_count > 0:
+        provenance += f"; AMS strategy {ams_basis_strategy_key}"
     if source_url_txt:
         provenance += f". Source: {source_kind_txt}."
     else:
         provenance += "."
     return {
         "official_weighted_corn_basis_usd_per_bu": official_basis,
+        "official_weighted_corn_cash_price_usd_per_bu": official_cash_price,
         "weighted_ams_basis_proxy_usd_per_bu": weighted_proxy_basis,
         "official_corn_basis_source_kind": basis_source_kind,
         "official_corn_basis_source_label": basis_source_label,
         "official_corn_basis_provenance": provenance,
         "official_actual_bid_plant_count": int(actual_count),
+        "official_actual_cash_price_plant_count": int(actual_cash_count),
         "official_fallback_plant_count": int(fallback_count),
         "official_missing_plant_count": int(missing_count),
         "official_basis_coverage_ratio": float(official_cov),
+        "official_corn_cash_coverage_ratio": float(cash_cov),
         "official_active_capacity_mmgy": total_capacity,
         "component_rows": component_rows,
         "source_url": source_url_txt,
         "source_kind": source_kind_txt,
         "snapshot_date": snapshot_date,
+        "attempted_snapshot_date": attempted_snapshot_date,
+        "target_date": target_date,
+        "anchor_date": anchor_date,
+        "frame_key": str(frame_key or "").strip(),
+        "ams_reference_rows": reference_rows,
+        "snapshot_age_days": (None if pd.isna(snapshot_age_days) else int(snapshot_age_days)),
+        "max_snapshot_age_days": (None if pd.isna(max_snapshot_age_days) else int(max_snapshot_age_days)),
+        "fallback_reason": str(effective_snapshot.get("fallback_reason") or "").strip(),
         "selection_rule": selection_rule_txt,
         "selection_note": selection_note_txt,
+        "ams_basis_strategy": ams_basis_strategy_key,
     }
+
+
+def _gpre_official_current_forward_basis_payload(
+    rows: Iterable[Dict[str, Any]],
+    *,
+    target_date: date,
+    target_quarter_end: date,
+    as_of_date: Optional[date],
+    ticker_root: Optional[Path],
+    bids_snapshot: Optional[Dict[str, Any]],
+    selection_mode: str = "current_qtd",
+    plant_capacity_history: Optional[Dict[str, Any]] = None,
+    ams_basis_strategy: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Resolve the official GPRE corn-basis leg for one frame or historical quarter."""
+    return weighted_corn_basis_context(
+        rows,
+        target_date=target_date,
+        target_quarter_end=target_quarter_end,
+        anchor_date=as_of_date,
+        ticker_root=ticker_root,
+        bids_snapshot=bids_snapshot,
+        frame_key=selection_mode,
+        plant_capacity_history=plant_capacity_history,
+        ams_basis_strategy=ams_basis_strategy,
+    )
 
 
 def _gpre_bid_region_basis_rows(snapshot: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -2988,63 +4142,141 @@ def _latest_ams_basis_reference_rows(
     as_of_date: Optional[date] = None,
     quarter_avg_maps: Optional[Dict[str, Dict[date, float]]] = None,
     lookback_days: int = 21,
+    strategy: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     df = _market_rows_df(rows)
-    ref_date = as_of_date or date.today()
-    out_rows: List[Dict[str, Any]] = []
-    quarter_avg_maps = dict(quarter_avg_maps or {})
-    for region in regions:
-        obs_df = _series_observation_df(df, f"corn_basis_{region}")
-        if not obs_df.empty:
-            obs_df = obs_df[obs_df["observation_date"].dt.date <= ref_date].copy()
-        if not obs_df.empty:
-            latest_obs = pd.Timestamp(obs_df["observation_date"].max()).date()
-            window_start = latest_obs - timedelta(days=max(int(lookback_days), 1) - 1)
-            window = obs_df[
-                (obs_df["observation_date"].dt.date >= window_start)
-                & (obs_df["observation_date"].dt.date <= latest_obs)
-            ].copy()
-            vals = pd.to_numeric(window.get("price_value"), errors="coerce").dropna()
-            if not vals.empty:
-                basis_usd = float(vals.mean())
-                out_rows.append(
-                    {
-                        "region": region,
-                        "basis_usd_per_bu": basis_usd,
-                        "basis_cents_per_bu": basis_usd * 100.0,
-                        "reference_as_of": latest_obs,
-                        "reference_method": f"Latest {max(int(lookback_days), 1)}-day AMS basis average ending {latest_obs.isoformat()}",
-                    }
-                )
-                continue
-        valid_quarters = [
-            (qd, pd.to_numeric(val, errors="coerce"))
-            for qd, val in (quarter_avg_maps.get(region) or {}).items()
-            if isinstance(qd, date)
-        ]
-        valid_quarters = [(qd, float(val)) for qd, val in valid_quarters if pd.notna(val)]
-        if valid_quarters:
-            qd, basis_usd = max(valid_quarters, key=lambda item: item[0])
-            out_rows.append(
+    return [
+        _gpre_ams_basis_reference_row(
+            df,
+            region=str(region or "").strip().lower(),
+            anchor_date=as_of_date,
+            quarter_avg_maps=dict(quarter_avg_maps or {}),
+            lookback_days=lookback_days,
+            strategy=strategy,
+        )
+        for region in regions
+        if str(region or "").strip()
+    ]
+
+
+def _gpre_ams_basis_strategy_error_rows(
+    rows: Iterable[Dict[str, Any]],
+    actual_by_quarter: Dict[Any, Any],
+    *,
+    strategies: Optional[Iterable[str]] = None,
+    ticker_root: Optional[Path] = None,
+    bids_snapshot: Optional[Dict[str, Any]] = None,
+    plant_capacity_history: Optional[Dict[str, Any]] = None,
+) -> pd.DataFrame:
+    profile = get_company_profile("GPRE")
+    coefficient_values = {
+        str(coef.key or "").strip(): pd.to_numeric(getattr(coef, "default_value", None), errors="coerce")
+        for coef in tuple(getattr(profile, "economics_overlay_coefficients", ()) or ())
+        if str(getattr(coef, "key", "") or "").strip()
+    }
+    ethanol_yield_num = pd.to_numeric(coefficient_values.get("ethanol_yield"), errors="coerce")
+    natural_gas_usage_num = pd.to_numeric(coefficient_values.get("natural_gas_usage"), errors="coerce")
+    cbot_quarter_map = _quarter_avg_map(rows, "cbot_corn_usd_per_bu")
+    gas_quarter_map = _quarter_avg_map(rows, "nymex_gas")
+    actual_map: Dict[date, float] = {}
+    for raw_key, raw_value in (dict(actual_by_quarter or {}) or {}).items():
+        quarter_end = raw_key if isinstance(raw_key, date) else parse_quarter_like(raw_key)
+        actual_num = pd.to_numeric(raw_value, errors="coerce")
+        if not isinstance(quarter_end, date) or pd.isna(actual_num):
+            continue
+        actual_map[quarter_end] = float(actual_num)
+    if not actual_map:
+        return pd.DataFrame()
+    quarter_ends = sorted(actual_map)
+    strategy_list = tuple(
+        str(item or "").strip()
+        for item in (strategies or ("avg21", "avg5", "exact1", "same_or_prior3", "same_or_prior3_then_avg5", "same_or_prior7", "same_or_prior7_then_avg5"))
+        if str(item or "").strip()
+    )
+    comparison_rows: List[Dict[str, Any]] = []
+    for strategy_key in strategy_list:
+        predicted_map = _gpre_official_quarter_component_records(
+            rows,
+            quarter_ends,
+            ticker_root=ticker_root,
+            bids_snapshot=bids_snapshot,
+            as_of_date=max(quarter_ends),
+            plant_capacity_history=plant_capacity_history,
+            ams_basis_strategy=strategy_key,
+        )
+        for quarter_end in quarter_ends:
+            predicted_rec = dict(predicted_map.get(quarter_end) or {})
+            predicted_num = pd.to_numeric(predicted_rec.get("official_simple_usd_per_gal"), errors="coerce")
+            if pd.isna(predicted_num):
+                ethanol_num = pd.to_numeric(predicted_rec.get("weighted_ethanol_benchmark_usd_per_gal"), errors="coerce")
+                basis_num = pd.to_numeric(predicted_rec.get("weighted_ams_basis_usd_per_bu"), errors="coerce")
+                cbot_num = pd.to_numeric(cbot_quarter_map.get(quarter_end), errors="coerce")
+                gas_num = pd.to_numeric(gas_quarter_map.get(quarter_end), errors="coerce")
+                if (
+                    pd.notna(ethanol_num)
+                    and pd.notna(basis_num)
+                    and pd.notna(cbot_num)
+                    and pd.notna(gas_num)
+                    and pd.notna(ethanol_yield_num)
+                    and abs(float(ethanol_yield_num)) > 1e-9
+                    and pd.notna(natural_gas_usage_num)
+                ):
+                    predicted_num = (
+                        float(ethanol_num)
+                        - ((float(cbot_num) + float(basis_num)) / float(ethanol_yield_num))
+                        - ((float(natural_gas_usage_num) / 1_000_000.0) * float(gas_num))
+                    )
+            actual_num = pd.to_numeric(actual_map.get(quarter_end), errors="coerce")
+            comparison_rows.append(
                 {
-                    "region": region,
-                    "basis_usd_per_bu": basis_usd,
-                    "basis_cents_per_bu": basis_usd * 100.0,
-                    "reference_as_of": qd,
-                    "reference_method": f"Latest quarter-average AMS basis ({_quarter_label(qd)})",
+                    "strategy_key": strategy_key,
+                    "quarter_end": quarter_end,
+                    "quarter_label": _quarter_label(quarter_end),
+                    "predicted_usd_per_gal": (None if pd.isna(predicted_num) else float(predicted_num)),
+                    "actual_usd_per_gal": (None if pd.isna(actual_num) else float(actual_num)),
+                    "abs_error": (
+                        None
+                        if pd.isna(predicted_num) or pd.isna(actual_num)
+                        else abs(float(predicted_num) - float(actual_num))
+                    ),
+                    "signed_error": (
+                        None
+                        if pd.isna(predicted_num) or pd.isna(actual_num)
+                        else float(predicted_num) - float(actual_num)
+                    ),
                 }
             )
-            continue
-        out_rows.append(
-            {
-                "region": region,
-                "basis_usd_per_bu": None,
-                "basis_cents_per_bu": None,
-                "reference_as_of": None,
-                "reference_method": "No AMS reference available",
-            }
-        )
-    return out_rows
+    return pd.DataFrame(comparison_rows)
+
+
+def _gpre_ams_basis_strategy_leaderboard(error_rows_df: pd.DataFrame) -> pd.DataFrame:
+    if error_rows_df is None or error_rows_df.empty:
+        return pd.DataFrame()
+    df = error_rows_df.copy()
+    df["abs_error"] = pd.to_numeric(df.get("abs_error"), errors="coerce")
+    df["signed_error"] = pd.to_numeric(df.get("signed_error"), errors="coerce")
+    df["quarter_end"] = pd.to_datetime(df.get("quarter_end"), errors="coerce")
+    df = df[df["abs_error"].notna()].copy()
+    if df.empty:
+        return pd.DataFrame()
+    df["quarter_number"] = df["quarter_end"].dt.quarter
+    leaderboard_rows: List[Dict[str, Any]] = []
+    for strategy_key, sub in df.groupby("strategy_key", dropna=False):
+        row: Dict[str, Any] = {
+            "strategy_key": str(strategy_key or ""),
+            "mae": float(sub["abs_error"].mean()),
+            "mean_error": float(sub["signed_error"].mean()) if sub["signed_error"].notna().any() else np.nan,
+            "quarters_evaluated": int(len(sub.index)),
+        }
+        for qnum in (1, 2, 3, 4):
+            qsub = sub[sub["quarter_number"] == qnum].copy()
+            row[f"q{qnum}_mae"] = float(qsub["abs_error"].mean()) if not qsub.empty else np.nan
+        leaderboard_rows.append(row)
+    return pd.DataFrame(leaderboard_rows).sort_values(
+        ["mae", "quarters_evaluated", "strategy_key"],
+        ascending=[True, False, True],
+        na_position="last",
+    ).reset_index(drop=True)
 
 
 def _matched_process_snapshot_for_bounds(
@@ -3323,6 +4555,81 @@ def build_simple_crush_history_series(
     return out_rows
 
 
+def _gpre_delivered_corn_from_context(
+    basis_payload: Optional[Dict[str, Any]],
+    *,
+    cbot_corn_price: Any,
+) -> Dict[str, Any]:
+    """Resolve all-in delivered corn from GPRE cash bids when valid, else CBOT+basis."""
+    if not isinstance(basis_payload, dict):
+        return {}
+    cbot_num = pd.to_numeric(cbot_corn_price, errors="coerce")
+    component_rows = basis_payload.get("component_rows")
+    if not isinstance(component_rows, list) or not component_rows:
+        return {}
+    total_weight = 0.0
+    covered_weight = 0.0
+    weighted_sum = 0.0
+    cash_weight = 0.0
+    cash_sum = 0.0
+    cash_count = 0
+    fallback_count = 0
+    missing_count = 0
+    for raw_rec in component_rows:
+        if not isinstance(raw_rec, dict):
+            continue
+        weight_num = pd.to_numeric(raw_rec.get("weight"), errors="coerce")
+        if pd.isna(weight_num) or float(weight_num) <= 0.0:
+            continue
+        weight = float(weight_num)
+        total_weight += weight
+        cash_num = pd.to_numeric(raw_rec.get("cash_price_usd_per_bu"), errors="coerce")
+        if pd.notna(cash_num):
+            delivered = float(cash_num)
+            weighted_sum += weight * delivered
+            covered_weight += weight
+            cash_sum += weight * delivered
+            cash_weight += weight
+            cash_count += 1
+            continue
+        basis_num = pd.to_numeric(raw_rec.get("basis_usd_per_bu"), errors="coerce")
+        if pd.notna(cbot_num) and pd.notna(basis_num):
+            weighted_sum += weight * (float(cbot_num) + float(basis_num))
+            covered_weight += weight
+            fallback_count += 1
+            continue
+        missing_count += 1
+    if cash_count <= 0 or covered_weight <= 0.0:
+        return {}
+    avg_delivered = float(weighted_sum / covered_weight)
+    avg_cash = float(cash_sum / cash_weight) if cash_weight > 0.0 else None
+    coverage_ratio = covered_weight / total_weight if total_weight > 0.0 else 1.0
+    if fallback_count > 0:
+        source_kind = "actual_gpre_cash_prices_with_cbot_basis_fallback"
+        source_label = "actual GPRE plant-bid cash price with CBOT+basis fallback"
+    else:
+        source_kind = "actual_gpre_cash_prices"
+        source_label = "actual GPRE plant-bid cash price"
+    provenance = (
+        f"{source_label} for delivered corn; cash for {cash_count} plants"
+        + (f", CBOT+basis fallback for {fallback_count} plants" if fallback_count else "")
+        + (f", missing {missing_count} plants" if missing_count else "")
+        + "."
+    )
+    return {
+        "delivered_corn_price": avg_delivered,
+        "coverage_ratio": float(coverage_ratio),
+        "gpre_cash_price_usd_per_bu": avg_cash,
+        "gpre_cash_coverage_ratio": float(cash_weight / total_weight) if total_weight > 0.0 else 0.0,
+        "source_kind": source_kind,
+        "source_label": source_label,
+        "provenance": provenance,
+        "actual_cash_price_plant_count": int(cash_count),
+        "fallback_formula_plant_count": int(fallback_count),
+        "missing_plant_count": int(missing_count),
+    }
+
+
 def _gpre_official_proxy_weekly_rows(
     rows: Iterable[Dict[str, Any]],
     *,
@@ -3332,6 +4639,7 @@ def _gpre_official_proxy_weekly_rows(
     window_end: date,
     ticker_root: Optional[Path] = None,
     basis_override_payload: Optional[Dict[str, Any]] = None,
+    basis_context_resolver: Optional[Callable[[date], Optional[Dict[str, Any]]]] = None,
     plant_capacity_history: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     try:
@@ -3425,6 +4733,7 @@ def _gpre_official_proxy_weekly_rows(
     basis_override_provenance = str((basis_override_payload or {}).get("official_corn_basis_provenance") or "").strip()
     actual_bid_plant_count = int((basis_override_payload or {}).get("official_actual_bid_plant_count") or 0)
     fallback_plant_count = int((basis_override_payload or {}).get("official_fallback_plant_count") or 0)
+    dynamic_basis_by_week = bool(callable(basis_context_resolver))
     ethanol_candidate_dates = sorted(
         {
             dt
@@ -3486,12 +4795,40 @@ def _gpre_official_proxy_weekly_rows(
             if east_avg is None or ethanol_price is None
             else float(east_avg) - float(ethanol_price)
         )
-        if pd.notna(basis_override_num):
+        week_basis_payload = None
+        if dynamic_basis_by_week and callable(basis_context_resolver):
+            try:
+                week_basis_payload = dict(basis_context_resolver(week_end) or {})
+            except Exception:
+                week_basis_payload = None
+        week_basis_num = pd.to_numeric(
+            (week_basis_payload or {}).get("official_weighted_corn_basis_usd_per_bu"),
+            errors="coerce",
+        )
+        if pd.notna(week_basis_num):
+            weighted_basis = float(week_basis_num)
+            basis_cov = float(
+                pd.to_numeric((week_basis_payload or {}).get("official_basis_coverage_ratio"), errors="coerce")
+                if pd.notna(pd.to_numeric((week_basis_payload or {}).get("official_basis_coverage_ratio"), errors="coerce"))
+                else 1.0
+            )
+            basis_source_kind = str((week_basis_payload or {}).get("official_corn_basis_source_kind") or "weighted_ams_proxy")
+            basis_source_label = str((week_basis_payload or {}).get("official_corn_basis_source_label") or "weighted AMS basis proxy")
+            basis_provenance = str((week_basis_payload or {}).get("official_corn_basis_provenance") or "")
+            actual_bid_plant_count_row = int((week_basis_payload or {}).get("official_actual_bid_plant_count") or 0)
+            fallback_plant_count_row = int((week_basis_payload or {}).get("official_fallback_plant_count") or 0)
+        elif pd.notna(basis_override_num):
             weighted_basis = float(basis_override_num)
-            basis_cov = 1.0
+            basis_cov = float(
+                pd.to_numeric((basis_override_payload or {}).get("official_basis_coverage_ratio"), errors="coerce")
+                if pd.notna(pd.to_numeric((basis_override_payload or {}).get("official_basis_coverage_ratio"), errors="coerce"))
+                else 1.0
+            )
             basis_source_kind = basis_override_source_kind or "weighted_ams_proxy"
             basis_source_label = basis_override_source_label or "weighted AMS basis proxy"
             basis_provenance = basis_override_provenance
+            actual_bid_plant_count_row = actual_bid_plant_count
+            fallback_plant_count_row = fallback_plant_count
         else:
             weighted_basis, basis_cov = _weighted_value_for_date(
                 week_end,
@@ -3503,7 +4840,28 @@ def _gpre_official_proxy_weekly_rows(
             basis_source_kind = "weighted_ams_proxy"
             basis_source_label = "weighted AMS basis proxy"
             basis_provenance = "Weighted AMS basis proxy using mapped state/regional basis series and deterministic fallbacks."
-        delivered_corn = None if pd.isna(cbot_corn) or weighted_basis is None else float(cbot_corn) + float(weighted_basis)
+            actual_bid_plant_count_row = 0
+            fallback_plant_count_row = 0
+        delivered_context = _gpre_delivered_corn_from_context(
+            week_basis_payload if isinstance(week_basis_payload, dict) and week_basis_payload else basis_override_payload,
+            cbot_corn_price=cbot_corn,
+        )
+        if delivered_context:
+            delivered_corn = float(delivered_context["delivered_corn_price"])
+            delivered_corn_source_kind = str(delivered_context.get("source_kind") or "")
+            delivered_corn_source_label = str(delivered_context.get("source_label") or "")
+            delivered_corn_provenance = str(delivered_context.get("provenance") or "")
+            delivered_corn_coverage = float(pd.to_numeric(delivered_context.get("coverage_ratio"), errors="coerce"))
+            gpre_cash_price = delivered_context.get("gpre_cash_price_usd_per_bu")
+            gpre_cash_coverage = delivered_context.get("gpre_cash_coverage_ratio")
+        else:
+            delivered_corn = None if pd.isna(cbot_corn) or weighted_basis is None else float(cbot_corn) + float(weighted_basis)
+            delivered_corn_source_kind = "cbot_plus_official_weighted_basis" if delivered_corn is not None else ""
+            delivered_corn_source_label = "CBOT corn + official weighted corn basis" if delivered_corn is not None else ""
+            delivered_corn_provenance = basis_provenance
+            delivered_corn_coverage = basis_cov
+            gpre_cash_price = None
+            gpre_cash_coverage = None
         ethanol_revenue = None if ethanol_price is None else float(ethanol_yield_num) * float(ethanol_price)
         feedstock_cost = None if delivered_corn is None else -float(delivered_corn)
         natural_gas_burden = None
@@ -3529,9 +4887,21 @@ def _gpre_official_proxy_weekly_rows(
                 "cbot_corn_price": (None if pd.isna(cbot_corn) else float(cbot_corn)),
                 "weighted_basis_usd_per_bu": (None if weighted_basis is None else float(weighted_basis)),
                 "official_weighted_corn_basis_usd_per_bu": (None if weighted_basis is None else float(weighted_basis)),
+                "gpre_cash_price_usd_per_bu": (
+                    None if pd.isna(pd.to_numeric(gpre_cash_price, errors="coerce"))
+                    else float(pd.to_numeric(gpre_cash_price, errors="coerce"))
+                ),
+                "gpre_cash_coverage_ratio": (
+                    None if pd.isna(pd.to_numeric(gpre_cash_coverage, errors="coerce"))
+                    else float(pd.to_numeric(gpre_cash_coverage, errors="coerce"))
+                ),
                 "ethanol_coverage_ratio": float(ethanol_cov),
                 "basis_coverage_ratio": float(basis_cov),
+                "delivered_corn_coverage_ratio": float(delivered_corn_coverage),
                 "delivered_corn_price": delivered_corn,
+                "delivered_corn_source_kind": delivered_corn_source_kind,
+                "delivered_corn_source_label": delivered_corn_source_label,
+                "delivered_corn_provenance": delivered_corn_provenance,
                 "natural_gas_price": (None if pd.isna(gas_price) else float(gas_price)),
                 "ethanol_revenue": ethanol_revenue,
                 "feedstock_cost": feedstock_cost,
@@ -3541,8 +4911,8 @@ def _gpre_official_proxy_weekly_rows(
                 "corn_basis_source_kind": basis_source_kind,
                 "corn_basis_source_label": basis_source_label,
                 "corn_basis_provenance": basis_provenance,
-                "actual_bid_plant_count": actual_bid_plant_count,
-                "fallback_plant_count": fallback_plant_count,
+                "actual_bid_plant_count": actual_bid_plant_count_row,
+                "fallback_plant_count": fallback_plant_count_row,
             }
         )
     return out
@@ -3558,6 +4928,7 @@ def build_gpre_official_proxy_snapshot(
     ticker_root: Optional[Path] = None,
     bids_snapshot: Optional[Dict[str, Any]] = None,
     plant_capacity_history: Optional[Dict[str, Any]] = None,
+    ams_basis_strategy: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the official/simple GPRE market snapshot used by visible workbook rows.
 
@@ -3593,7 +4964,25 @@ def build_gpre_official_proxy_snapshot(
         bids_snapshot=bids_snapshot,
         selection_mode="prior_quarter" if prior_quarter else "current_qtd",
         plant_capacity_history=plant_capacity_history,
+        ams_basis_strategy=ams_basis_strategy,
     )
+    selection_mode = "prior_quarter" if prior_quarter else "current_qtd"
+
+    def _weekly_basis_context(week_end_in: date) -> Optional[Dict[str, Any]]:
+        if not isinstance(week_end_in, date):
+            return None
+        return weighted_corn_basis_context(
+            rows_df,
+            target_date=week_end_in,
+            target_quarter_end=window_end,
+            anchor_date=week_end_in,
+            ticker_root=ticker_root,
+            bids_snapshot=bids_snapshot,
+            frame_key=selection_mode,
+            plant_capacity_history=plant_capacity_history,
+            ams_basis_strategy=ams_basis_strategy,
+        )
+
     weekly_rows = _gpre_official_proxy_weekly_rows(
         rows_df,
         ethanol_yield=ethanol_yield,
@@ -3602,6 +4991,7 @@ def build_gpre_official_proxy_snapshot(
         window_end=window_end,
         ticker_root=ticker_root,
         basis_override_payload=basis_payload,
+        basis_context_resolver=_weekly_basis_context,
         plant_capacity_history=plant_capacity_history,
     )
     def _avg(key: str) -> Optional[float]:
@@ -3641,17 +5031,62 @@ def build_gpre_official_proxy_snapshot(
         "natural_gas_price": _avg("natural_gas_price"),
         "cbot_corn_front_price": _avg("cbot_corn_price"),
     }
+    delivered_source_kinds = [
+        str(rec.get("delivered_corn_source_kind") or "").strip()
+        for rec in weekly_rows
+        if str(rec.get("delivered_corn_source_kind") or "").strip()
+    ]
+    uses_gpre_cash_price = any(kind.startswith("actual_gpre_cash") for kind in delivered_source_kinds)
+    delivered_source_kind = (
+        "mixed_gpre_cash_and_cbot_basis"
+        if uses_gpre_cash_price and any(kind == "cbot_plus_official_weighted_basis" for kind in delivered_source_kinds)
+        else (delivered_source_kinds[0] if delivered_source_kinds else "")
+    )
+    delivered_source_label = (
+        "GPRE cash price where date-valid, otherwise CBOT corn + official weighted basis"
+        if delivered_source_kind == "mixed_gpre_cash_and_cbot_basis"
+        else str(
+            next((rec.get("delivered_corn_source_label") for rec in weekly_rows if str(rec.get("delivered_corn_source_label") or "").strip()), "")
+            or ""
+        )
+    )
+    delivered_provenance = (
+        "GPRE cash price was used only for weekly rows whose retained bid snapshot was on or before that week and inside the staleness window; other rows used CBOT corn plus date-matched official weighted basis."
+        if delivered_source_kind == "mixed_gpre_cash_and_cbot_basis"
+        else str(
+            next((rec.get("delivered_corn_provenance") for rec in weekly_rows if str(rec.get("delivered_corn_provenance") or "").strip()), "")
+            or ""
+        )
+    )
     market_meta = {
         "corn_price": _meta(
             "delivered_corn_price",
             cadence="weekly_delivered_corn",
-            proxy_mode="cbot_plus_official_weighted_basis",
+            proxy_mode=(
+                "gpre_cash_price_with_fallback"
+                if uses_gpre_cash_price
+                else "cbot_plus_official_weighted_basis"
+            ),
             extra={
                 "official_weighted_corn_basis_usd_per_bu": (
                     _avg("official_weighted_corn_basis_usd_per_bu")
                     if _avg("official_weighted_corn_basis_usd_per_bu") is not None
                     else pd.to_numeric((basis_payload or {}).get("official_weighted_corn_basis_usd_per_bu"), errors="coerce")
                 ),
+                "official_weighted_corn_cash_price_usd_per_bu": (
+                    _avg("gpre_cash_price_usd_per_bu")
+                    if _avg("gpre_cash_price_usd_per_bu") is not None
+                    else pd.to_numeric((basis_payload or {}).get("official_weighted_corn_cash_price_usd_per_bu"), errors="coerce")
+                ),
+                "official_corn_cash_coverage_ratio": (
+                    _avg("gpre_cash_coverage_ratio")
+                    if _avg("gpre_cash_coverage_ratio") is not None
+                    else pd.to_numeric((basis_payload or {}).get("official_corn_cash_coverage_ratio"), errors="coerce")
+                ),
+                "official_actual_cash_price_plant_count": int((basis_payload or {}).get("official_actual_cash_price_plant_count") or 0),
+                "official_corn_price_source_kind": delivered_source_kind,
+                "official_corn_price_source_label": delivered_source_label,
+                "official_corn_price_provenance": delivered_provenance,
                 "official_corn_basis_source_kind": (
                     str((basis_payload or {}).get("official_corn_basis_source_kind") or "").strip()
                     or str(next((rec.get("corn_basis_source_kind") for rec in weekly_rows if str(rec.get("corn_basis_source_kind") or "").strip()), "") or "")
@@ -3666,7 +5101,10 @@ def build_gpre_official_proxy_snapshot(
                 ),
                 "official_corn_basis_snapshot_date": (
                     _gpre_parse_snapshot_date_like((basis_payload or {}).get("snapshot_date"))
-                    or _gpre_parse_snapshot_date_like(
+                    if str((basis_payload or {}).get("official_corn_basis_source_kind") or "").strip() != "weighted_ams_proxy"
+                    else None
+                ) or (
+                    _gpre_parse_snapshot_date_like(
                         next(
                             (
                                 rec.get("corn_basis_snapshot_date")
@@ -3676,6 +5114,8 @@ def build_gpre_official_proxy_snapshot(
                             None,
                         )
                     )
+                    if str((basis_payload or {}).get("official_corn_basis_source_kind") or "").strip() != "weighted_ams_proxy"
+                    else None
                 ),
                 "official_corn_basis_selection_rule": str((basis_payload or {}).get("selection_rule") or "").strip(),
                 "official_actual_bid_plant_count": int((basis_payload or {}).get("official_actual_bid_plant_count") or 0),
@@ -3723,9 +5163,15 @@ def build_gpre_official_proxy_snapshot(
         "process_status": "ok" if process_ok else "no_data",
         "status": status_when_available if market_available else "no_data",
         "message": message,
-        "proxy_definition": "weighted ethanol benchmark - delivered corn (cbot + official weighted corn basis) - natural gas",
+        "proxy_definition": "weighted ethanol benchmark - delivered corn (GPRE cash price when valid, otherwise CBOT + official weighted corn basis) - natural gas",
         "official_simple_proxy_usd_per_gal": current_process.get("simple_crush_per_gal"),
         "official_weighted_corn_basis_usd_per_bu": market_meta["corn_price"].get("official_weighted_corn_basis_usd_per_bu"),
+        "official_weighted_corn_cash_price_usd_per_bu": market_meta["corn_price"].get("official_weighted_corn_cash_price_usd_per_bu"),
+        "official_corn_cash_coverage_ratio": market_meta["corn_price"].get("official_corn_cash_coverage_ratio"),
+        "official_actual_cash_price_plant_count": market_meta["corn_price"].get("official_actual_cash_price_plant_count"),
+        "official_corn_price_source_kind": market_meta["corn_price"].get("official_corn_price_source_kind"),
+        "official_corn_price_source_label": market_meta["corn_price"].get("official_corn_price_source_label"),
+        "official_corn_price_provenance": market_meta["corn_price"].get("official_corn_price_provenance"),
         "official_corn_basis_source_kind": market_meta["corn_price"].get("official_corn_basis_source_kind"),
         "official_corn_basis_source_label": market_meta["corn_price"].get("official_corn_basis_source_label"),
         "official_corn_basis_provenance": market_meta["corn_price"].get("official_corn_basis_provenance"),
@@ -4123,6 +5569,9 @@ def build_next_quarter_thesis_snapshot(
         corn_ref.update(
             {
                 "official_weighted_corn_basis_usd_per_bu": corn_basis_payload.get("official_weighted_corn_basis_usd_per_bu"),
+                "official_weighted_corn_cash_price_usd_per_bu": corn_basis_payload.get("official_weighted_corn_cash_price_usd_per_bu"),
+                "official_corn_cash_coverage_ratio": corn_basis_payload.get("official_corn_cash_coverage_ratio"),
+                "official_actual_cash_price_plant_count": corn_basis_payload.get("official_actual_cash_price_plant_count"),
                 "official_corn_basis_source_kind": corn_basis_payload.get("official_corn_basis_source_kind"),
                 "official_corn_basis_source_label": corn_basis_payload.get("official_corn_basis_source_label"),
                 "official_corn_basis_provenance": corn_basis_payload.get("official_corn_basis_provenance"),
@@ -4131,6 +5580,7 @@ def build_next_quarter_thesis_snapshot(
                 "official_actual_bid_plant_count": corn_basis_payload.get("official_actual_bid_plant_count"),
                 "official_fallback_plant_count": corn_basis_payload.get("official_fallback_plant_count"),
                 "weighted_ams_basis_proxy_usd_per_bu": corn_basis_payload.get("weighted_ams_basis_proxy_usd_per_bu"),
+                "official_corn_basis_component_rows": corn_basis_payload.get("component_rows"),
             }
         )
     return {
@@ -4453,6 +5903,15 @@ def _gpre_current_qtd_component_bundle(
         market_map.get("cbot_corn_front_price", corn_meta.get("cbot_corn_front_price_usd_per_bu")),
         errors="coerce",
     )
+    delivered_corn_num = pd.to_numeric(
+        market_map.get("corn_price", corn_meta.get("value")),
+        errors="coerce",
+    )
+    corn_price_source_kind = str(
+        corn_meta.get("official_corn_price_source_kind")
+        or snapshot_map.get("official_corn_price_source_kind")
+        or ""
+    ).strip()
     basis_num = pd.to_numeric(
         corn_meta.get("official_weighted_corn_basis_usd_per_bu", snapshot_map.get("official_weighted_corn_basis_usd_per_bu")),
         errors="coerce",
@@ -4469,11 +5928,18 @@ def _gpre_current_qtd_component_bundle(
         if pd.isna(cbot_num) or pd.isna(yield_num) or abs(float(yield_num)) <= 1e-9
         else -(float(cbot_num) / float(yield_num))
     )
-    corn_basis_component = (
-        None
-        if pd.isna(basis_num) or pd.isna(yield_num) or abs(float(yield_num)) <= 1e-9
-        else -(float(basis_num) / float(yield_num))
-    )
+    if corn_price_source_kind.startswith("actual_gpre_cash") and pd.notna(delivered_corn_num) and pd.notna(yield_num) and abs(float(yield_num)) > 1e-9:
+        if pd.notna(cbot_num):
+            corn_basis_component = -((float(delivered_corn_num) - float(cbot_num)) / float(yield_num))
+        else:
+            flat_corn_component = -(float(delivered_corn_num) / float(yield_num))
+            corn_basis_component = 0.0
+    else:
+        corn_basis_component = (
+            None
+            if pd.isna(basis_num) or pd.isna(yield_num) or abs(float(yield_num)) <= 1e-9
+            else -(float(basis_num) / float(yield_num))
+        )
     gas_component = (
         None
         if pd.isna(gas_price_num) or pd.isna(gas_usage_num)
@@ -4496,7 +5962,12 @@ def _gpre_current_qtd_component_bundle(
         "corn_basis_source_kind": str(corn_meta.get("official_corn_basis_source_kind") or snapshot_map.get("official_corn_basis_source_kind") or "").strip(),
         "corn_basis_source_label": str(corn_meta.get("official_corn_basis_source_label") or snapshot_map.get("official_corn_basis_source_label") or "").strip(),
         "corn_basis_snapshot_date": _gpre_parse_snapshot_date_like(
-            corn_meta.get("official_corn_basis_snapshot_date") or snapshot_map.get("official_corn_basis_snapshot_date")
+            corn_meta.get("official_corn_basis_snapshot_date")
+            or (
+                snapshot_map.get("official_corn_basis_snapshot_date")
+                if str(corn_meta.get("official_corn_basis_source_kind") or snapshot_map.get("official_corn_basis_source_kind") or "").strip() != "weighted_ams_proxy"
+                else None
+            )
         ),
         "corn_basis_selection_rule": str(corn_meta.get("official_corn_basis_selection_rule") or snapshot_map.get("official_corn_basis_selection_rule") or "").strip(),
         "official_actual_bid_plant_count": int(corn_meta.get("official_actual_bid_plant_count") or snapshot_map.get("official_actual_bid_plant_count") or 0),
@@ -5112,6 +6583,9 @@ def _resolve_local_manual_gpre_quarter_open_snapshot(
         corn_ref.update(
             {
                 "official_weighted_corn_basis_usd_per_bu": quarter_open_basis_payload.get("official_weighted_corn_basis_usd_per_bu"),
+                "official_weighted_corn_cash_price_usd_per_bu": quarter_open_basis_payload.get("official_weighted_corn_cash_price_usd_per_bu"),
+                "official_corn_cash_coverage_ratio": quarter_open_basis_payload.get("official_corn_cash_coverage_ratio"),
+                "official_actual_cash_price_plant_count": quarter_open_basis_payload.get("official_actual_cash_price_plant_count"),
                 "official_corn_basis_source_kind": quarter_open_basis_payload.get("official_corn_basis_source_kind"),
                 "official_corn_basis_source_label": quarter_open_basis_payload.get("official_corn_basis_source_label"),
                 "official_corn_basis_provenance": quarter_open_basis_payload.get("official_corn_basis_provenance"),
@@ -5120,6 +6594,7 @@ def _resolve_local_manual_gpre_quarter_open_snapshot(
                 "official_actual_bid_plant_count": quarter_open_basis_payload.get("official_actual_bid_plant_count"),
                 "official_fallback_plant_count": quarter_open_basis_payload.get("official_fallback_plant_count"),
                 "weighted_ams_basis_proxy_usd_per_bu": quarter_open_basis_payload.get("weighted_ams_basis_proxy_usd_per_bu"),
+                "official_corn_basis_component_rows": quarter_open_basis_payload.get("component_rows"),
             }
         )
         thesis_snapshot["corn"] = corn_ref
@@ -5284,8 +6759,20 @@ def build_gpre_next_quarter_preview_snapshot(
     ethanol_price = pd.to_numeric((ethanol_ref or {}).get("price_value"), errors="coerce")
     gas_price = pd.to_numeric((gas_ref or {}).get("price_value"), errors="coerce")
     corn_basis = pd.to_numeric((corn_ref or {}).get("official_weighted_corn_basis_usd_per_bu"), errors="coerce")
+    corn_context = dict(corn_ref or {})
+    if "component_rows" not in corn_context and isinstance(corn_context.get("official_corn_basis_component_rows"), list):
+        corn_context["component_rows"] = list(corn_context.get("official_corn_basis_component_rows") or [])
+    delivered_context = _gpre_delivered_corn_from_context(corn_context, cbot_corn_price=corn_price)
     delivered_corn = None
-    if pd.notna(corn_price):
+    corn_price_source_kind = "cbot_plus_official_weighted_basis"
+    corn_price_source_label = "CBOT corn + official weighted corn basis"
+    corn_price_provenance = str((corn_ref or {}).get("official_corn_basis_provenance") or "").strip()
+    if delivered_context:
+        delivered_corn = float(delivered_context["delivered_corn_price"])
+        corn_price_source_kind = str(delivered_context.get("source_kind") or "")
+        corn_price_source_label = str(delivered_context.get("source_label") or "")
+        corn_price_provenance = str(delivered_context.get("provenance") or "")
+    elif pd.notna(corn_price):
         delivered_corn = float(corn_price)
         if pd.notna(corn_basis):
             delivered_corn += float(corn_basis)
@@ -5324,8 +6811,22 @@ def build_gpre_next_quarter_preview_snapshot(
             "as_of": corn_as_of if isinstance(corn_as_of, date) else None,
             "obs_count": 1 if delivered_corn is not None else 0,
             "cadence": "futures_plus_basis_thesis",
-            "proxy_mode": "cbot_plus_official_weighted_basis",
+            "proxy_mode": "gpre_cash_price_with_fallback" if delivered_context else "cbot_plus_official_weighted_basis",
             "official_weighted_corn_basis_usd_per_bu": (None if pd.isna(corn_basis) else float(corn_basis)),
+            "official_weighted_corn_cash_price_usd_per_bu": (
+                None
+                if pd.isna(pd.to_numeric((corn_ref or {}).get("official_weighted_corn_cash_price_usd_per_bu"), errors="coerce"))
+                else float(pd.to_numeric((corn_ref or {}).get("official_weighted_corn_cash_price_usd_per_bu"), errors="coerce"))
+            ),
+            "official_corn_cash_coverage_ratio": (
+                None
+                if pd.isna(pd.to_numeric((corn_ref or {}).get("official_corn_cash_coverage_ratio"), errors="coerce"))
+                else float(pd.to_numeric((corn_ref or {}).get("official_corn_cash_coverage_ratio"), errors="coerce"))
+            ),
+            "official_actual_cash_price_plant_count": int((corn_ref or {}).get("official_actual_cash_price_plant_count") or 0),
+            "official_corn_price_source_kind": corn_price_source_kind,
+            "official_corn_price_source_label": corn_price_source_label,
+            "official_corn_price_provenance": corn_price_provenance,
             "official_corn_basis_source_kind": str((corn_ref or {}).get("official_corn_basis_source_kind") or "").strip(),
             "official_corn_basis_source_label": corn_basis_label,
             "official_corn_basis_provenance": corn_basis_provenance,
@@ -5389,9 +6890,15 @@ def build_gpre_next_quarter_preview_snapshot(
         "process_status": "ok" if simple_crush_per_gal is not None else "no_data",
         "status": "ok_thesis" if delivered_corn is not None or pd.notna(gas_price) or pd.notna(ethanol_price) else "no_data",
         "message": message,
-        "proxy_definition": "weighted ethanol benchmark - delivered corn (cbot + official weighted corn basis) - natural gas",
+        "proxy_definition": "weighted ethanol benchmark - delivered corn (GPRE cash price when valid, otherwise CBOT + official weighted corn basis) - natural gas",
         "official_simple_proxy_usd_per_gal": simple_crush_per_gal,
         "official_weighted_corn_basis_usd_per_bu": (None if pd.isna(corn_basis) else float(corn_basis)),
+        "official_weighted_corn_cash_price_usd_per_bu": market_meta["corn_price"].get("official_weighted_corn_cash_price_usd_per_bu"),
+        "official_corn_cash_coverage_ratio": market_meta["corn_price"].get("official_corn_cash_coverage_ratio"),
+        "official_actual_cash_price_plant_count": market_meta["corn_price"].get("official_actual_cash_price_plant_count"),
+        "official_corn_price_source_kind": corn_price_source_kind,
+        "official_corn_price_source_label": corn_price_source_label,
+        "official_corn_price_provenance": corn_price_provenance,
         "official_corn_basis_source_kind": str((corn_ref or {}).get("official_corn_basis_source_kind") or "").strip(),
         "official_corn_basis_source_label": corn_basis_label,
         "official_corn_basis_provenance": corn_basis_provenance,
@@ -7857,6 +9364,7 @@ def _gpre_official_quarter_component_records(
     bids_snapshot: Optional[Dict[str, Any]] = None,
     as_of_date: Optional[date] = None,
     plant_capacity_history: Optional[Dict[str, Any]] = None,
+    ams_basis_strategy: Optional[str] = None,
 ) -> Dict[date, Dict[str, Any]]:
     ethanol_series_maps = {
         key: _quarter_avg_map(rows, key)
@@ -7894,6 +9402,7 @@ def _gpre_official_quarter_component_records(
             bids_snapshot=bids_snapshot,
             selection_mode="historical_quarter",
             plant_capacity_history=plant_capacity_history,
+            ams_basis_strategy=ams_basis_strategy,
         )
         ethanol_sum = 0.0
         ethanol_cov = 0.0
@@ -11952,7 +13461,7 @@ def _gpre_shift_quarter(quarter_end_in: Any, delta_quarters: int) -> Optional[da
         return None
 
 
-def _gpre_build_weighted_coproduct_record(
+def weighted_coproduct_context(
     rows_in: List[Dict[str, Any]],
     quarter_end: Any,
     *,
@@ -11963,6 +13472,17 @@ def _gpre_build_weighted_coproduct_record(
 ) -> Dict[str, Any]:
     if not isinstance(quarter_end, date):
         return {}
+    active_plants = _gpre_active_plants_for_quarter(
+        quarter_end,
+        plant_capacity_history=plant_capacity_history,
+        ticker_root=ticker_root,
+    )
+    total_capacity = float(
+        sum(
+            max(float(pd.to_numeric(rec.get("capacity_mmgy"), errors="coerce") or 0.0), 0.0)
+            for rec in active_plants
+        )
+    )
     profile = get_company_profile("GPRE")
     input_templates_by_key = {
         str(tpl.key or "").strip(): tpl
@@ -11984,84 +13504,100 @@ def _gpre_build_weighted_coproduct_record(
         if pd.isna(raw_gallons) or float(raw_gallons) <= 0.0
         else float(raw_gallons) / 1_000_000.0
     )
+    candidate_cache: Dict[Tuple[str, str, str], Optional[Dict[str, Any]]] = {}
 
     def _series_candidates(input_key: str, region_in: Any) -> Tuple[str, ...]:
         region_txt = str(region_in or "").strip().lower()
         return tuple((_GPRE_COPRODUCT_REGION_SERIES_CANDIDATES.get(str(input_key or "").strip()) or {}).get(region_txt) or ())
 
+    def _region_candidate(input_key: str, region_in: Any) -> Optional[Dict[str, Any]]:
+        region_txt = str(region_in or "").strip().lower()
+        cache_key = (str(input_key or "").strip(), region_txt, str(mode or "").strip().lower())
+        if cache_key in candidate_cache:
+            cached = candidate_cache[cache_key]
+            return dict(cached) if isinstance(cached, dict) else None
+        tpl = input_templates_by_key.get(str(input_key or "").strip())
+        if tpl is None:
+            candidate_cache[cache_key] = None
+            return None
+        target_unit = str(getattr(tpl, "unit", "") or "").strip()
+        agg_preference = str(getattr(tpl, "aggregation_preference", "") or "quarter_avg").strip().lower()
+        chosen_candidate: Optional[Dict[str, Any]] = None
+        for source_bucket in _GPRE_COPRODUCT_SOURCE_PRIORITY:
+            for series_key in _series_candidates(input_key, region_txt):
+                matching_rows = [
+                    rec
+                    for rec in rows_in
+                    if rec.get("quarter") == quarter_end
+                    and str(rec.get("series_key") or "").strip() == series_key
+                    and _gpre_coproduct_source_bucket(rec.get("source_type")) == source_bucket
+                ]
+                if not matching_rows:
+                    continue
+                if str(mode or "").strip().lower() == "quarter_open":
+                    chosen = _gpre_coproduct_quarter_open_candidate(
+                        matching_rows,
+                        target_unit=target_unit,
+                    )
+                else:
+                    chosen = _gpre_coproduct_best_aggregate_candidate(
+                        matching_rows,
+                        target_unit=target_unit,
+                        agg_preference=agg_preference,
+                    )
+                if isinstance(chosen, dict):
+                    chosen_candidate = dict(chosen)
+                    chosen_candidate["_series_key"] = series_key
+                    chosen_candidate["_source_bucket"] = source_bucket
+                    break
+            if chosen_candidate is not None:
+                break
+        candidate_cache[cache_key] = dict(chosen_candidate) if isinstance(chosen_candidate, dict) else None
+        return dict(chosen_candidate) if isinstance(chosen_candidate, dict) else None
+
     def _weighted_input_value(input_key: str) -> Dict[str, Any]:
         tpl = input_templates_by_key.get(str(input_key or "").strip())
         if tpl is None:
-            return {"value": None, "coverage_ratio": None, "source_mode": "Unknown/blank", "region_hits": []}
-        target_unit = str(getattr(tpl, "unit", "") or "").strip()
-        agg_preference = str(getattr(tpl, "aggregation_preference", "") or "quarter_avg").strip().lower()
-        weights = {
-            str(region or "").strip().lower(): float(pd.to_numeric(raw_weight, errors="coerce") or 0.0)
-            for region, raw_weight in dict(
-                _gpre_official_market_weights_for_quarter(
-                    quarter_end,
-                    ticker_root=ticker_root,
-                    plant_capacity_history=plant_capacity_history,
-                ) or {}
-            ).items()
-            if float(pd.to_numeric(raw_weight, errors="coerce") or 0.0) > 0.0
-        }
-        total_weight = float(sum(weights.values()))
-        if total_weight <= 0.0:
-            return {"value": None, "coverage_ratio": None, "source_mode": "Unknown/blank", "region_hits": []}
-        covered_weight = 0.0
+            return {"value": None, "coverage_ratio": None, "source_mode": "Unknown/blank", "plant_rows": []}
+        if total_capacity <= 0.0:
+            return {"value": None, "coverage_ratio": None, "source_mode": "Unknown/blank", "plant_rows": []}
+        covered_capacity = 0.0
         weighted_total = 0.0
         source_labels: List[str] = []
-        region_hits: List[str] = []
-        for region, region_weight in sorted(weights.items()):
-            candidate: Optional[Dict[str, Any]] = None
-            for source_bucket in _GPRE_COPRODUCT_SOURCE_PRIORITY:
-                for series_key in _series_candidates(input_key, region):
-                    matching_rows = [
-                        rec
-                        for rec in rows_in
-                        if rec.get("quarter") == quarter_end
-                        and str(rec.get("series_key") or "").strip() == series_key
-                        and _gpre_coproduct_source_bucket(rec.get("source_type")) == source_bucket
-                    ]
-                    if not matching_rows:
-                        continue
-                    if str(mode or "").strip().lower() == "quarter_open":
-                        chosen = _gpre_coproduct_quarter_open_candidate(
-                            matching_rows,
-                            target_unit=target_unit,
-                        )
-                    else:
-                        chosen = _gpre_coproduct_best_aggregate_candidate(
-                            matching_rows,
-                            target_unit=target_unit,
-                            agg_preference=agg_preference,
-                        )
-                    if isinstance(chosen, dict):
-                        candidate = dict(chosen)
-                        candidate["_series_key"] = series_key
-                        candidate["_source_bucket"] = source_bucket
-                        break
-                if candidate is not None:
-                    break
-            if candidate is None:
-                continue
-            value_num = pd.to_numeric(candidate.get("_converted_value"), errors="coerce")
-            if pd.isna(value_num):
-                continue
-            covered_weight += float(region_weight)
-            weighted_total += float(region_weight) * float(value_num)
-            source_label = _gpre_coproduct_source_label(candidate.get("_source_bucket"))
-            if source_label:
-                source_labels.append(source_label)
-            region_hits.append(f"{region}:{candidate.get('_series_key')}:{source_label or 'Unknown'}")
-        coverage_ratio = (covered_weight / total_weight) if total_weight > 0 else None
-        value_out = (weighted_total / covered_weight) if covered_weight > 0 else None
+        plant_rows: List[Dict[str, Any]] = []
+        for plant in active_plants:
+            plant_capacity = max(float(pd.to_numeric(plant.get("capacity_mmgy"), errors="coerce") or 0.0), 0.0)
+            plant_weight = (plant_capacity / total_capacity) if total_capacity > 0.0 else 0.0
+            location = str(plant.get("location") or "").strip()
+            region = str(plant.get("region") or "").strip().lower()
+            candidate = _region_candidate(input_key, region)
+            value_num = pd.to_numeric((candidate or {}).get("_converted_value"), errors="coerce")
+            source_label = _gpre_coproduct_source_label((candidate or {}).get("_source_bucket"))
+            series_key = str((candidate or {}).get("_series_key") or "").strip()
+            if pd.notna(value_num) and plant_capacity > 0.0:
+                covered_capacity += plant_capacity
+                weighted_total += plant_capacity * float(value_num)
+                if source_label:
+                    source_labels.append(source_label)
+            plant_rows.append(
+                {
+                    "location": location,
+                    "region": region,
+                    "capacity_mmgy": plant_capacity,
+                    "weight": plant_weight,
+                    "series_key": series_key,
+                    "source_mode": source_label or "Unknown/blank",
+                    "value": (None if pd.isna(value_num) else float(value_num)),
+                    "coverage_hit": bool(pd.notna(value_num)),
+                }
+            )
+        coverage_ratio = (covered_capacity / total_capacity) if total_capacity > 0.0 else None
+        value_out = (weighted_total / covered_capacity) if covered_capacity > 0.0 else None
         return {
             "value": value_out,
             "coverage_ratio": coverage_ratio,
             "source_mode": _gpre_classify_coproduct_resolved_source(*source_labels),
-            "region_hits": list(region_hits),
+            "plant_rows": plant_rows,
         }
 
     def _resolved_uhp_value() -> Dict[str, Any]:
@@ -12183,15 +13719,37 @@ def _gpre_build_weighted_coproduct_record(
         ),
         "coverage_ratio": coverage_ratio,
         "rule": (
-            "Weighted exact-quarter averages using quarter-aware active-capacity footprint; corn oil uses the all-active-footprint approximation."
+            "Weighted exact-quarter averages using quarter-aware active-capacity plant footprint and plant-to-region coproduct mapping."
             if str(mode or "").strip().lower() != "quarter_open"
-            else "Weighted early-quarter observation snapshot using quarter-aware active-capacity footprint; missing legs stay blank for carry-forward handling."
+            else "Weighted early-quarter observation snapshot using quarter-aware active-capacity plant footprint; missing legs stay blank for carry-forward handling."
         ),
         "renewable_corn_oil_source_mode": str(corn_oil_rec.get("source_mode") or "Unknown/blank"),
         "distillers_grains_source_mode": str(distillers_rec.get("source_mode") or "Unknown/blank"),
         "renewable_corn_oil_coverage_ratio": pd.to_numeric(corn_oil_rec.get("coverage_ratio"), errors="coerce"),
         "distillers_grains_coverage_ratio": pd.to_numeric(distillers_rec.get("coverage_ratio"), errors="coerce"),
+        "renewable_corn_oil_plant_rows": list(corn_oil_rec.get("plant_rows") or []),
+        "distillers_grains_plant_rows": list(distillers_rec.get("plant_rows") or []),
+        "frame_key": ("quarter_open" if str(mode or "").strip().lower() == "quarter_open" else "quarter_avg"),
     }
+
+
+def _gpre_build_weighted_coproduct_record(
+    rows_in: List[Dict[str, Any]],
+    quarter_end: Any,
+    *,
+    ticker_root: Optional[Path],
+    plant_capacity_history: Optional[Dict[str, Any]],
+    reported_gallons_produced_by_quarter: Optional[Dict[date, float]] = None,
+    mode: str = "quarter_avg",
+) -> Dict[str, Any]:
+    return weighted_coproduct_context(
+        rows_in,
+        quarter_end,
+        ticker_root=ticker_root,
+        plant_capacity_history=plant_capacity_history,
+        reported_gallons_produced_by_quarter=reported_gallons_produced_by_quarter,
+        mode=mode,
+    )
 
 
 def _gpre_coproduct_frame_record(
@@ -12241,7 +13799,7 @@ def _gpre_coproduct_frame_record(
             else "Early-quarter weighted observation snapshot using the active-capacity footprint."
         )
     elif str(frame_key or "").strip() == "next_quarter_thesis":
-        rule_text = "Carry-forward latest resolved weighted coproduct value; no direct forward coproduct curve exists."
+        rule_text = "Freeze the resolved quarter-open weighted coproduct frame for next-quarter outlook; fall back to prior quarter only when quarter-open is unavailable."
     elif str(frame_key or "").strip() == "current_qtd":
         rule_text = "Weighted current-quarter averages using the active-capacity footprint."
     else:
@@ -12628,6 +14186,7 @@ def build_gpre_basis_proxy_model(
         as_of_date=as_of_date,
         quarter_avg_maps=basis_maps,
         lookback_days=21,
+        strategy=_gpre_default_ams_basis_strategy_for_frame("current_qtd"),
     )
     ams_reference_map = {
         str(rec.get("region") or "").strip().lower(): rec
@@ -15202,8 +16761,8 @@ def build_gpre_basis_proxy_model(
         if isinstance(quarter_open_coproduct_quarter, date)
         else {}
     )
-    latest_resolved_coproduct_record = current_coproduct_record if any(
-        pd.notna(pd.to_numeric((current_coproduct_record or {}).get(field_name), errors="coerce"))
+    next_quarter_seed_record = quarter_open_coproduct_record if any(
+        pd.notna(pd.to_numeric((quarter_open_coproduct_record or {}).get(field_name), errors="coerce"))
         for field_name in ("renewable_corn_oil_price", "distillers_grains_price", "approximate_coproduct_credit_per_gal")
     ) else prior_coproduct_record
     coproduct_frame_summary_records = [
@@ -15227,7 +16786,7 @@ def build_gpre_basis_proxy_model(
         _gpre_coproduct_frame_record(
             "next_quarter_thesis",
             target_quarter_end=next_coproduct_quarter,
-            base_record=latest_resolved_coproduct_record,
+            base_record=next_quarter_seed_record,
             fallback_record=prior_coproduct_record,
         ),
     ]
@@ -15369,6 +16928,8 @@ def build_gpre_basis_proxy_model(
         "best_coproduct_experimental_forward_model_key": best_coproduct_experimental_forward_model_key,
         "best_coproduct_experimental_model_key": best_coproduct_experimental_model_key,
         "coproduct_experimental_frame_values": coproduct_experimental_frame_values,
+        "coproduct_frame_summary_records": [dict(rec) for rec in coproduct_frame_summary_records],
+        "coproduct_frame_map": {key: dict(value) for key, value in coproduct_frame_map.items()},
         "coproduct_experimental_summary_markdown": coproduct_experimental_summary_markdown,
         "current_qtd_trend_tracking": current_qtd_trend_tracking,
         "official_weighting_method": "Active-capacity weighted GPRE footprint by quarter-aware plant metadata",
@@ -15410,6 +16971,15 @@ def load_market_export_rows(
         sync_market_cache(cache_dir, ticker_u, profile=profile, sync_raw=False, refresh=False, reparse=False)
     if not export_path.exists():
         return []
+    export_inputs_manifest = load_manifest(_market_export_inputs_manifest_path(cache_root, ticker_u))
+    current_input_payload = market_input_fingerprint(
+        cache_dir,
+        ticker_u,
+        profile=profile,
+        include_sidecars=False,
+    )
+    if ensure_cache and str(export_inputs_manifest.get("input_fingerprint") or "") != str(current_input_payload.get("fingerprint") or ""):
+        sync_market_cache(cache_dir, ticker_u, profile=profile, sync_raw=True, refresh=False, reparse=True)
     df = _load_parquet(export_path)
     if ensure_cache and _export_needs_history_repair(df, ticker_root=ticker_root, enabled_sources=enabled_sources):
         sync_market_cache(cache_dir, ticker_u, profile=profile, sync_raw=True, refresh=False, reparse=True)

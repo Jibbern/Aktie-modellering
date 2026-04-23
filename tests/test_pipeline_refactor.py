@@ -155,6 +155,26 @@ def test_local_non_gaap_debt_source_allows_annual_reports_only_when_financial_st
     )
 
 
+def test_preliminary_press_release_is_guidance_only_for_local_fallback_actuals() -> None:
+    text = (
+        "Pitney Bowes Announces Strong Preliminary Results for Q1 2026 and Raises Full-Year Financial Guidance. "
+        "Company Will Issue Complete Q1 2026 Results Post-Market on May 5, 2026. "
+        "Preliminary, Unaudited Financial Results for Q1 2026. "
+        "Adjusted EBIT of approximately $130 million. Updated Full-Year 2026 Guidance Revenue $1,800 - $1,860."
+    )
+
+    assert not pipeline_orchestration._local_non_gaap_actuals_allowed_for_source(
+        "press_release",
+        "PBI_2026-04-21_preliminary_q1_2026_results_and_raised_fy2026_guidance.pdf",
+        text,
+    )
+    assert pipeline_orchestration._local_non_gaap_actuals_allowed_for_source(
+        "earnings_release",
+        "PBI_Q1_2026_earnings_release.pdf",
+        text,
+    )
+
+
 def test_parse_financial_statement_debt_table_html_extracts_modern_debt_rows() -> None:
     with _case_dir() as case_dir:
         path_in = case_dir / "GPRE_FY2025_10K_2025-12-31_financial_statement.htm"

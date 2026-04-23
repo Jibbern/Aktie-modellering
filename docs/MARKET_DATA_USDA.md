@@ -1,7 +1,7 @@
 # USDA Market-Data Flow
 
 ## Purpose
-This note explains exactly how NWER and AMS 3617 USDA files are downloaded, where they land on disk, how they move into `sec_cache`, and what the workbook ultimately reads.
+This note explains exactly how USDA market-data files are downloaded, where they land on disk, how they move into `sec_cache`, and what the workbook ultimately reads.
 
 It is meant to be the single source of truth for the current `GPRE` USDA market-data workflow.
 
@@ -12,9 +12,13 @@ It is meant to be the single source of truth for the current `GPRE` USDA market-
 - `ams_3617`
   - USDA report `3617`
   - National Daily Ethanol Report
+- `ams_3618`
+  - USDA report `3618`
+  - National Weekly Grain Co-Products Report
 
 ## Current Local Working Folders
-- Weekly USDA files:
+- Weekly USDA files and bioenergy/co-product report JSON/PDF working copies:
+  - [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
   - [`GPRE/USDA_weekly_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_weekly_data)
 - Daily USDA files:
   - [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
@@ -57,15 +61,34 @@ This does all of the following:
 - rebuilds the exported parquet rows the workbook consumes
 
 ## What The Current Live USDA Site Looks Like
-The current USDA report pages do **not** expose the freshest report files as plain static links in the landing page HTML.
+The current USDA report pages do **not** reliably expose the freshest report files as plain static links in the landing page HTML.
 
-Instead, the landing page boots a `slugId` and then loads document fragments via AJAX.
+The most reliable current path is the USDA `public_data` app:
+
+- filter endpoint:
+  - `/public_data/ajax-get-conditions-by-report/<slugId>`
+- data endpoint:
+  - `/public_data/ajax-search-data-by-report-section/<slugId>/<base64 section>?q=report_begin_date=MM/DD/YYYY:MM/DD/YYYY`
+
+The `public_data` page itself is still HTML, but the app settings expose the JSON endpoints above. The provider code uses `Report Detail` as the primary section because it contains the normalized row fields needed by the parsers.
+
+The older report page flow still exists and remains a fallback. In that flow, the landing page boots a `slugId` and then loads document fragments via AJAX.
 
 ### Landing pages
 - NWER:
   - [viewReport/3616](https://mymarketnews.ams.usda.gov/viewReport/3616)
 - AMS 3617:
   - [viewReport/3617](https://mymarketnews.ams.usda.gov/viewReport/3617)
+- AMS 3618:
+  - [viewReport/3618](https://mymarketnews.ams.usda.gov/viewReport/3618)
+
+### Primary public_data URLs
+- NWER:
+  - [public_data?slug_id=3616](https://mymarketnews.ams.usda.gov/public_data?slug_id=3616)
+- AMS 3617:
+  - [public_data?slug_id=3617](https://mymarketnews.ams.usda.gov/public_data?slug_id=3617)
+- AMS 3618:
+  - [public_data?slug_id=3618](https://mymarketnews.ams.usda.gov/public_data?slug_id=3618)
 
 ### AJAX fragment endpoints used by the site
 - latest release:
@@ -73,24 +96,33 @@ Instead, the landing page boots a `slugId` and then loads document fragments via
 - previous release navigation:
   - `/get_previous_release/<slugId>`
 
-The code now supports that current AJAX-based latest-release flow.
+The code supports both flows, but the priority order for normal latest refresh is now:
+
+1. `public_data` filter/search JSON for the freshest report date not after today.
+2. `viewReport` landing page plus latest/previous release fragments.
+3. Direct document pages if exposed by the landing page.
+4. Manual local file drop into the ticker USDA folders, followed by cache sync.
 
 ## What The Downloader Does Today
 ### Automatic latest refresh
 The provider layer now:
-- fetches the landing page
-- extracts or reconstructs the `slugId`
-- requests the latest/previous release fragments
-- extracts real file links from those fragment responses
-- downloads the latest matching assets into the USDA working folders
+- calls `public_data` filter JSON for each configured slug
+- chooses the newest date pair in the current quarter with `report_end_date <= today`
+- downloads the `Report Detail` JSON payload to the provider's ticker-local USDA folder
+- falls back to the older landing-page/fragment PDF flow if `public_data` produces no candidates
+- syncs the local working copy into `sec_cache/market_data/raw`
 
 ### What is downloaded automatically
 Current automatic refresh is intended to get the freshest available release files.
 
 In practice, that means:
-- NWER latest PDF
-- AMS 3617 latest PDF
-- any matching direct data asset if USDA exposes it as a direct downloadable file link in the release fragment
+- NWER latest `public_data` JSON:
+  - `nwer_YYYY-MM-DD_data.json`
+- AMS 3617 latest `public_data` JSON:
+  - `ams_3617_YYYY-MM-DD_data.json`
+- AMS 3618 latest `public_data` JSON:
+  - `ams_3618_YYYY-MM-DD_data.json`
+- PDF/data assets from the older release-fragment flow only when `public_data` is unavailable
 
 ### What is not automatically backfilled by default
 The normal latest refresh does **not** walk all archive months automatically.
@@ -127,12 +159,16 @@ Downloaded files are normalized to stable local names:
 
 - NWER PDF:
   - `nwer_YYYY-MM-DD.pdf`
-- NWER direct data file:
+- NWER public_data / direct data file:
   - `nwer_YYYY-MM-DD_data.<ext>`
 - AMS PDF:
   - `ams_3617_YYYY-MM-DD.pdf`
-- AMS direct data file:
+- AMS 3617 public_data / direct data file:
   - `ams_3617_YYYY-MM-DD_data.<ext>`
+- AMS 3618 PDF:
+  - `ams_3618_YYYY-MM-DD.pdf`
+- AMS 3618 public_data / direct data file:
+  - `ams_3618_YYYY-MM-DD_data.<ext>`
 
 The date in the stable name is the inferred report date used by the provider.
 
@@ -175,7 +211,8 @@ The workbook does not parse USDA PDFs directly during normal render.
 
 ## What We Verified In The Current Workspace
 The current live setup has already been validated to:
-- download latest NWER and AMS PDFs into the USDA working folders
+- use USDA `public_data` as the primary latest-refresh route
+- download latest NWER, AMS 3617, and AMS 3618 JSON payloads into USDA working folders
 - sync them into `sec_cache/market_data/raw`
 - rebuild the exported parquet rows
 - support targeted historical backfill for:
@@ -186,12 +223,26 @@ Current local working sets now include:
 - `GPRE/USDA_weekly_data`: 2023+ PDF history
 - `GPRE/USDA_daily_data`: 2023+ PDF history
 
+Most recent verified `public_data` refresh:
+- `ams_3617_2026-04-23_data.json`
+  - landed in [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
+  - parsed to corn cash and corn basis rows through `ams_3617_public_data`
+  - included Iowa East / Iowa West by combining `state/Province=Iowa` with `region=East/West`
+- `nwer_2026-04-17_data.json`
+  - landed in [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
+  - kept as a slug-guarded NWER payload
+- `ams_3618_2026-04-17_data.json`
+  - landed in [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
+  - parsed to AMS 3618 co-product rows through `ams_3618_public_data`
+
 ## Troubleshooting
 ### If `--refresh-market-data` says `raw_added=0`
 Check:
-- whether USDA latest-release pages are reachable from the current network
+- whether USDA `public_data` endpoints are reachable from the current network
 - whether the newest file already exists in the USDA working folder
-- whether the provider extracted any direct asset links from the AJAX fragment
+- whether `sec_cache/market_data/index/remote_debug/<source>.json` shows `final_classification=success`
+- whether `selected_candidates` points to a `public_data/ajax-search-data-by-report-section/...` URL
+- if `public_data` failed, whether the older landing-page fragment flow found PDF candidates
 
 ### If files exist locally but workbook data does not update
 Check:
@@ -206,11 +257,12 @@ Use the archive-month path conceptually:
 That is the correct historical source on the live USDA site.
 
 ## Current Practical Rules
-- Prefer PDF downloads as the main source path.
+- Prefer USDA `public_data` JSON as the main source path for latest refresh.
+- Keep the PDF/fragment path as fallback because it remains useful when JSON is unavailable and for older restored history.
 - Keep USDA working folders on disk.
 - Treat `sec_cache/market_data/raw` as canonical raw cache after sync.
 - Do not assume latest refresh equals full historical backfill.
-- Use bootstrap CSVs only when they add a real need; PDFs are the primary path today.
+- Use bootstrap CSVs only when they add a real need; `public_data` JSON and restored PDFs are the primary machine-readable paths today.
 
 ## Operator Checklist
 Use this as the shortest practical runbook.
@@ -223,8 +275,9 @@ Run:
 ```
 
 Expect:
-- newest NWER PDF lands in [`GPRE/USDA_weekly_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_weekly_data)
-- newest AMS PDF lands in [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
+- newest NWER JSON lands in [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
+- newest AMS 3617 JSON lands in [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
+- newest AMS 3618 JSON lands in [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
 - market-data summary prints `raw_added`, `parsed`, and `export_rows`
 
 ### 2. Backfill historical USDA files when needed

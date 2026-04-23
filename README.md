@@ -35,6 +35,7 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
   - market-data raw/index/parsed/export data
   - small debug/temp subtrees
 - For `GPRE`, live USDA refresh now writes ticker-local working copies into:
+  - [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
   - [`GPRE/USDA_weekly_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_weekly_data)
   - [`GPRE/USDA_daily_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_daily_data)
   before syncing them into [`sec_cache/market_data/raw`](/c:/Users/Jibbe/Aktier/sec_cache/market_data/raw).
@@ -78,7 +79,7 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
   - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE`
 - Refresh market data for a market-enabled ticker:
   - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE --refresh-market-data`
-  - This now supports the current USDA AJAX-based report pages for NWER and AMS 3617 latest releases.
+  - This now prefers USDA `public_data` JSON for NWER `3616`, AMS daily `3617`, and AMS co-products `3618`, then falls back to the older AJAX release-fragment/PDF path if needed.
   - `cme_ethanol_platts` is now effectively local-only in the active GPRE workflow; refresh writes debug artifacts but thesis ethanol comes from the local CSV/manual snapshot files in `GPRE/Ethanol_futures`.
 - Backfill historical USDA gaps:
   - `.\.venv\Scripts\python.exe Code\usda_backfill.py --ticker GPRE --start 2026-01-23 --end 2026-03-31`

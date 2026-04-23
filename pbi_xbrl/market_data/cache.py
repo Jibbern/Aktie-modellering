@@ -62,6 +62,12 @@ def parsed_manifest_path(cache_root: Path) -> Path:
     return cache_root / "index" / "parsed_manifest.json"
 
 
+def export_inputs_manifest_path(cache_root: Path, ticker: str) -> Path:
+    out_dir = cache_root / "index" / "export_inputs"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir / f"{str(ticker or 'DEFAULT').upper()}.json"
+
+
 def remote_debug_path(cache_root: Path, source: str) -> Path:
     root = resolve_market_cache_root(cache_root)
     out_dir = root / "index" / "remote_debug"

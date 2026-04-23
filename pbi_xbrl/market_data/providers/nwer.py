@@ -6,6 +6,7 @@ to reported results.
 """
 from __future__ import annotations
 
+import json
 import re
 from datetime import date
 from pathlib import Path
@@ -116,6 +117,7 @@ def _obs_row(
     price_value: float,
     tenor: str = "",
     parsed_note: str = "",
+    source_type: str = "nwer_pdf",
 ) -> Dict[str, Any]:
     return {
         "observation_date": report_date,
@@ -123,8 +125,8 @@ def _obs_row(
         "aggregation_level": "observation",
         "publication_date": report_date,
         "source": "nwer",
-        "report_type": "nwer_pdf",
-        "source_type": "nwer_pdf",
+        "report_type": source_type,
+        "source_type": source_type,
         "market_family": market_family,
         "series_key": series_key,
         "instrument": instrument,
@@ -381,9 +383,171 @@ def parse_nwer_pdf_text(text: str, *, fallback_date: Optional[pd.Timestamp], sou
     return rows
 
 
+def _float_value(value: Any) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    try:
+        out = float(value)
+    except Exception:
+        return None
+    if pd.isna(out):
+        return None
+    return out
+
+
+def _public_location_label(row: Dict[str, Any]) -> str:
+    # Match the PDF parser's regional keys even though public_data splits Iowa East/West
+    # across `state/Province` and `region`.
+    state_value = str(row.get("state/Province") or "").strip()
+    region_value = str(row.get("region") or "").strip()
+    if state_value == "Iowa" and region_value in {"East", "West"}:
+        return f"Iowa {region_value}"
+    for key in ("state/Province", "region", "trade_loc"):
+        value = str(row.get(key) or "").strip()
+        if value and value.upper() != "N/A":
+            return value
+    return ""
+
+
+def parse_nwer_public_data_payload(payload: Dict[str, Any], *, source_file: str) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    corn_oil_map = {label: series_key for label, series_key in _NWER_CORN_OIL_SERIES}
+    ddgs_map = {label: series_key for label, series_key in _NWER_DDGS_SERIES}
+    ethanol_regions = {label: label.lower().replace(" ", "_") for label in _ETHANOL_REGIONS}
+    for item in list((payload or {}).get("results") or []):
+        if not isinstance(item, dict):
+            continue
+        report_ts = pd.to_datetime(item.get("report_end_date") or item.get("report_date") or item.get("report_begin_date"), errors="coerce")
+        if pd.isna(report_ts):
+            continue
+        commodity = str(item.get("commodity") or "").strip()
+        variety = str(item.get("variety") or "").strip()
+        application = str(item.get("application") or "").strip()
+        location = _public_location_label(item)
+        price_value = _float_value(item.get("avg_price"))
+        if price_value is None:
+            price_value = _float_value(item.get("price"))
+        if price_value is None:
+            price_min = _float_value(item.get("price Min"))
+            price_max = _float_value(item.get("price Max"))
+            if price_min is not None and price_max is not None:
+                price_value = (price_min + price_max) / 2.0
+        if price_value is None:
+            continue
+        if commodity == "Ethanol" and location in ethanol_regions:
+            region_key = ethanol_regions[location]
+            rows.append(
+                _obs_row(
+                    report_date=report_ts.date(),
+                    source_file=source_file,
+                    series_key=f"ethanol_{region_key}",
+                    market_family="ethanol_price",
+                    instrument="Ethanol price",
+                    region=region_key,
+                    unit="$/gal",
+                    price_value=price_value,
+                    parsed_note=f"NWER public_data weekly ethanol average from {location}.",
+                    source_type="nwer_public_data",
+                )
+            )
+            continue
+        if commodity == "Distillers Corn Oil" and application.lower() == "feed grade":
+            series_key = corn_oil_map.get(location)
+            if not series_key:
+                continue
+            rows.append(
+                _obs_row(
+                    report_date=report_ts.date(),
+                    source_file=source_file,
+                    series_key=series_key,
+                    market_family="renewable_corn_oil_price",
+                    instrument="Renewable corn oil price",
+                    region=location.lower().replace(" ", "_"),
+                    unit="c/lb",
+                    price_value=price_value,
+                    parsed_note=f"NWER public_data distillers corn oil feed-grade average for {location}.",
+                    source_type="nwer_public_data",
+                )
+            )
+            continue
+        if commodity == "Distillers Grain" and variety.lower() == "dried 10%":
+            series_key = ddgs_map.get(location)
+            if not series_key:
+                continue
+            rows.append(
+                _obs_row(
+                    report_date=report_ts.date(),
+                    source_file=source_file,
+                    series_key=series_key,
+                    market_family="ddgs_price",
+                    instrument="DDGS price",
+                    region=location.lower().replace(" ", "_"),
+                    unit="$/ton",
+                    price_value=price_value,
+                    parsed_note=f"NWER public_data distillers grain dried 10% average for {location}.",
+                    source_type="nwer_public_data",
+                )
+            )
+            continue
+        commodity_low = commodity.lower()
+        unit_low = str(item.get("price_unit") or "").strip().lower()
+        if "corn" in commodity_low and "bu" in unit_low and "cent" in unit_low:
+            value = price_value / 100.0 if price_value > 20.0 else price_value
+            rows.append(
+                _obs_row(
+                    report_date=report_ts.date(),
+                    source_file=source_file,
+                    series_key="cbot_corn_usd_per_bu",
+                    market_family="corn_price",
+                    instrument="Corn price",
+                    region="cbot",
+                    unit="$/bushel",
+                    price_value=value,
+                    tenor="front",
+                    parsed_note="Front-month corn futures from NWER public_data.",
+                    source_type="nwer_public_data",
+                )
+            )
+            continue
+        if "natural gas" in commodity_low and "mmbtu" in unit_low:
+            rows.append(
+                _obs_row(
+                    report_date=report_ts.date(),
+                    source_file=source_file,
+                    series_key="nymex_gas",
+                    market_family="natural_gas_price",
+                    instrument="Natural gas price",
+                    region="nymex",
+                    unit="$/MMBtu",
+                    price_value=price_value,
+                    tenor="front",
+                    parsed_note="Front-month natural gas futures from NWER public_data.",
+                    source_type="nwer_public_data",
+                )
+            )
+    return rows
+
+
+def _public_payload_slug_id(payload: Dict[str, Any]) -> str:
+    for item in list((payload or {}).get("results") or []):
+        if isinstance(item, dict) and str(item.get("slug_id") or "").strip():
+            return str(item.get("slug_id") or "").strip()
+    return ""
+
+
+def _looks_like_nwer_pdf(*, source_file: str, text: str) -> bool:
+    file_name = str(source_file or "").strip().lower()
+    text_norm = re.sub(r"\s+", " ", str(text or "")).strip().lower()
+    if file_name.startswith("ams_3618") or "national weekly grain co-products report" in text_norm:
+        return False
+    if file_name.startswith(("nwer_", "ams_3616")):
+        return True
+    return "national weekly ethanol report" in text_norm
+
+
 class NWERProvider(BaseMarketProvider):
     source = "nwer"
-    provider_parse_version = "v5"
+    provider_parse_version = "v8"
     # New downloads live in the workbook-facing USDA folder, but we keep reading the
     # legacy provider-specific directory so older local restores continue to work.
     local_patterns = (
@@ -395,6 +559,8 @@ class NWERProvider(BaseMarketProvider):
         "nwer_pdfs/**/*",
     )
     landing_page_url = "https://mymarketnews.ams.usda.gov/viewReport/3616"
+    public_data_url = "https://mymarketnews.ams.usda.gov/public_data?slug_id=3616"
+    public_data_slug_id = "3616"
     report_token = "/3616/"
     stable_name_prefix = "nwer"
     local_dir_name = "USDA_bioenergy_reports"
@@ -407,10 +573,23 @@ class NWERProvider(BaseMarketProvider):
             if report_ts is None:
                 continue
             local_path = Path(str(entry.get("local_path") or "")).expanduser()
+            if local_path.suffix.lower() == ".json" and local_path.exists():
+                try:
+                    payload = json.loads(local_path.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                if isinstance(payload, dict):
+                    slug_id = _public_payload_slug_id(payload)
+                    if slug_id and slug_id != "3616":
+                        continue
+                    rows.extend(parse_nwer_public_data_payload(payload, source_file=local_path.name))
+                continue
             if local_path.suffix.lower() != ".pdf" or not local_path.exists():
                 continue
             text = _safe_pdf_text(local_path)
             if not text:
+                continue
+            if not _looks_like_nwer_pdf(source_file=local_path.name, text=text):
                 continue
             rows.extend(parse_nwer_pdf_text(text, fallback_date=report_ts, source_file=local_path.name))
         self._record_parse_debug(cache_root, raw_entries, rows)

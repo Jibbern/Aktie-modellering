@@ -61,9 +61,10 @@ from .pipeline_runtime import (
     timed_stage,
 )
 from .pipeline_types import PipelineArtifacts, PipelineConfig
+from .source_material_refresh import _looks_preliminary_results_guidance_update
 
 
-LOCAL_NON_GAAP_FALLBACK_VERSION = 12
+LOCAL_NON_GAAP_FALLBACK_VERSION = 14
 LOCAL_NON_GAAP_PDF_PAGE_CACHE_VERSION = 1
 DOC_INTEL_BEHAVIOR_VERSION = "v17_workbook_dataflow_hardening"
 COMPANY_OVERVIEW_BEHAVIOR_VERSION = "v8_topic_aware_summary_dataflow_hardening"
@@ -159,6 +160,12 @@ def _local_non_gaap_debt_source_allowed(src_name: str, *, has_financial_statemen
     if str(src_name or "").strip().lower() == "annual_reports":
         return not has_financial_statement_files
     return True
+
+
+def _local_non_gaap_actuals_allowed_for_source(src_name: str, path_name: str, text: str) -> bool:
+    if str(src_name or "").strip().lower() != "press_release":
+        return True
+    return not _looks_preliminary_results_guidance_update(f"{path_name or ''} {text or ''}")
 
 
 def _limit_recent_financial_statement_debt_rows(
@@ -748,8 +755,8 @@ def run_pipeline_impl(
             ("earnings_release", base_dir / "earnings_release"),
             ("earnings_release", base_dir / "Earnings Release"),
             ("earnings_release", base_dir / "Earnings Releases"),
-            ("earnings_release", base_dir / "press_release"),
-            ("earnings_release", base_dir / "Press Release"),
+            ("press_release", base_dir / "press_release"),
+            ("press_release", base_dir / "Press Release"),
             ("slides", base_dir / "slides"),
             ("slides", base_dir / "earnings_presentation"),
             ("slides", base_dir / "Earnings Presentation"),
@@ -768,6 +775,12 @@ def run_pipeline_impl(
                 ]
             )
         seen_q: set[pd.Timestamp] = set()
+
+        def _allow_actuals_from_local_page(src_name: str, path_in: Path, txt: str) -> bool:
+            # Preliminary press releases can update guidance/narrative, but they
+            # are not complete quarter packages and must not backfill actuals.
+            return _local_non_gaap_actuals_allowed_for_source(src_name, path_in.name, txt)
+
         def _detect_scale_txt(t: str) -> float:
             if re.search(r"\(\s*\$?\s*0{3}s?\s*\)|\$\s*0{3}s?\b|in\s+\$?0{3}s?", t, re.I):
                 return 1000.0
@@ -1172,6 +1185,48 @@ def run_pipeline_impl(
                     out_rows.append((f"{metric_name} guidance {lo_disp} to {hi_disp}{per}", lo_disp, hi_disp, year_hint))
                 return out_rows
 
+            def _extract_metric_range_row(line_txt: str, near_anchor_idx: Optional[int]) -> List[Tuple[str, str, str, Optional[str]]]:
+                line_clean = re.sub(r"[*†‡]", "", str(line_txt or ""))
+                ll = line_clean.lower()
+                metric_map = [
+                    ("Revenue", r"revenue|sales|top line"),
+                    ("Adj EBIT", r"adjusted\s+ebit|adj\.?\s+ebit"),
+                    ("Adj EBITDA", r"adjusted\s+ebitda|adj\.?\s+ebitda"),
+                    ("Adj EPS", r"adjusted\s+eps|adj\.?\s+eps|earnings\s+per\s+share|eps"),
+                    ("FCF", r"free\s+cash\s+flow|\bfcf\b"),
+                    ("Capex", r"capex|capital expenditures|capital spending"),
+                    ("Cost savings", r"cost savings|savings"),
+                ]
+                metric_name = ""
+                for cand_name, mpat in metric_map:
+                    if re.search(rf"\b(?:{mpat})\b", ll, re.I):
+                        metric_name = cand_name
+                        break
+                if not metric_name:
+                    return []
+                range_pat = re.compile(
+                    r"(\$?\s*[0-9]{1,4}(?:,[0-9]{3})*(?:\.[0-9]+)?\s*(?:bn|billion|m|million|%|bps|x)?)"
+                    r"\s*(?:to|through|\-|–|—)\s*"
+                    r"(\$?\s*[0-9]{1,4}(?:,[0-9]{3})*(?:\.[0-9]+)?\s*(?:bn|billion|m|million|%|bps|x)?)",
+                    re.I,
+                )
+                matches = list(range_pat.finditer(line_clean))
+                if not matches:
+                    return []
+                first = matches[0]
+                lo_disp = re.sub(r"\s+", "", str(first.group(1) or ""))
+                hi_disp = re.sub(r"\s+", "", str(first.group(2) or ""))
+                if lo_disp.startswith("$") and not hi_disp.startswith("$") and not re.search(r"%|bps|x$", hi_disp, re.I):
+                    hi_disp = f"${hi_disp}"
+                year_hint = None
+                for probe in [line_clean, lines[near_anchor_idx] if near_anchor_idx is not None and 0 <= near_anchor_idx < len(lines) else ""]:
+                    m_y = re.search(r"\b(20\d{2})\b", str(probe or ""))
+                    if m_y:
+                        year_hint = m_y.group(1)
+                        break
+                per = f" for FY {year_hint}" if year_hint else ""
+                return [(f"{metric_name} guidance {lo_disp} to {hi_disp}{per}", lo_disp, hi_disp, year_hint)]
+
             anchor_idx: List[int] = [i for i, ln in enumerate(lines) if anchor_re.search(ln)]
             seen: set[str] = set()
             for i, ln in enumerate(lines):
@@ -1190,6 +1245,8 @@ def run_pipeline_impl(
 
                 # Handle "Low / High" outlook tables where ranges are listed without "to".
                 table_rows = _extract_low_high_metric_rows(ln, nearest_anchor)
+                if not table_rows:
+                    table_rows = _extract_metric_range_row(ln, nearest_anchor)
                 if table_rows and (near_anchor or has_intent):
                     for row_text, lo_disp, hi_disp, _yh in table_rows:
                         line_disp = row_text[:320]
@@ -1398,7 +1455,8 @@ def run_pipeline_impl(
                                 q_end = _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
                                 if q_end is None:
                                     continue
-                                if scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
+                                actuals_allowed = _allow_actuals_from_local_page(src_name, p, txt)
+                                if actuals_allowed and scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
                                     for q_end_use in _missing_non_gaap_quarters(txt, q_end):
                                         q_ts = pd.Timestamp(q_end_use)
                                         if pages_per_q.get(q_ts, 0) >= 2:
@@ -1435,13 +1493,13 @@ def run_pipeline_impl(
                                             })
                                             seen_q.add(q_ts)
                                             pages_per_q[q_ts] = pages_per_q.get(q_ts, 0) + 1
-                                if scores.get("segment", 0) >= 2:
+                                if actuals_allowed and scores.get("segment", 0) >= 2:
                                     seg_rows = _parse_segment_from_text(txt, q_end)
                                     if seg_rows:
                                         for r0 in seg_rows:
                                             r0.update({"doc": str(p), "page": idx + 1, "source": src_name})
                                         rows_seg.extend(seg_rows)
-                                if scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
+                                if actuals_allowed and scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
                                     src_name,
                                     has_financial_statement_files=has_financial_statement_files,
                                 ):
@@ -1522,10 +1580,11 @@ def run_pipeline_impl(
                                             scores = _local_non_gaap_page_scores(txt)
                                     if max(scores.values()) == 0:
                                         continue
-                                    q_end = _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
+                                q_end = _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
                                 if q_end is None:
                                     continue
-                                if scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
+                                actuals_allowed = _allow_actuals_from_local_page(src_name, p, txt)
+                                if actuals_allowed and scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
                                     for q_end_use in _missing_non_gaap_quarters(txt, q_end):
                                         q_ts = pd.Timestamp(q_end_use)
                                         if pages_per_q.get(q_ts, 0) >= 2:
@@ -1562,13 +1621,13 @@ def run_pipeline_impl(
                                             })
                                             seen_q.add(q_ts)
                                             pages_per_q[q_ts] = pages_per_q.get(q_ts, 0) + 1
-                                if scores.get("segment", 0) >= 2:
+                                if actuals_allowed and scores.get("segment", 0) >= 2:
                                     seg_rows = _parse_segment_from_text(txt, q_end)
                                     if seg_rows:
                                         for r0 in seg_rows:
                                             r0.update({"doc": str(p), "page": idx + 1, "source": src_name})
                                         rows_seg.extend(seg_rows)
-                                if scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
+                                if actuals_allowed and scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
                                     src_name,
                                     has_financial_statement_files=has_financial_statement_files,
                                 ):
@@ -1612,7 +1671,8 @@ def run_pipeline_impl(
                     q_end = _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
                     if q_end is None:
                         continue
-                    if scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
+                    actuals_allowed = _allow_actuals_from_local_page(src_name, p, txt)
+                    if actuals_allowed and scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
                         for q_end_use in _missing_non_gaap_quarters(txt, q_end):
                             q_ts = pd.Timestamp(q_end_use)
                             if pages_per_q.get(q_ts, 0) >= 2:
@@ -1649,13 +1709,13 @@ def run_pipeline_impl(
                                 })
                                 seen_q.add(q_ts)
                                 pages_per_q[q_ts] = pages_per_q.get(q_ts, 0) + 1
-                    if scores.get("segment", 0) >= 2:
+                    if actuals_allowed and scores.get("segment", 0) >= 2:
                         seg_rows = _parse_segment_from_text(txt, q_end)
                         if seg_rows:
                             for r0 in seg_rows:
                                 r0.update({"doc": str(p), "page": None, "source": src_name})
                             rows_seg.extend(seg_rows)
-                    if scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
+                    if actuals_allowed and scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
                         src_name,
                         has_financial_statement_files=has_financial_statement_files,
                     ):

@@ -683,6 +683,8 @@ def _classify_material_family(
 ) -> Optional[str]:
     core_blob = _normalize_material_blob(nm, title, sec_type, source_url=source_url)
     rich_blob = _normalize_material_blob(nm, title, sec_type, text_excerpt=text_excerpt, source_url=source_url)
+    if _looks_preliminary_results_guidance_update(rich_blob):
+        return "press_release"
     explicit_release = _has_explicit_earnings_release_markers(core_blob) or _has_results_quarter_markers(core_blob)
     if _has_transcript_markers(core_blob):
         return "earnings_transcripts"
@@ -821,6 +823,8 @@ def _looks_letter_style_doc(text: str) -> bool:
 
 def _looks_non_results_press_release(text: str) -> bool:
     blob = str(text or "").lower()
+    if _looks_preliminary_results_guidance_update(blob):
+        return True
     if _has_explicit_earnings_release_markers(blob) or _has_results_quarter_markers(blob):
         return False
     return bool(
@@ -829,6 +833,29 @@ def _looks_non_results_press_release(text: str) -> bool:
             blob,
         )
     )
+
+
+def _looks_preliminary_results_guidance_update(text: str) -> bool:
+    blob = re.sub(r"\s+", " ", str(text or "").lower()).strip()
+    if not blob:
+        return False
+    has_preliminary_results = bool(
+        re.search(r"\bpreliminary\b", blob)
+        and re.search(r"\b(unaudited|results?|financial results?)\b", blob)
+        and re.search(r"\b(q[1-4]|first quarter|second quarter|third quarter|fourth quarter)\b", blob)
+    )
+    has_guidance_update = bool(
+        re.search(r"\b(raise[sd]?|raising|raised|updated|increased|increases?|full[- ]year financial guidance|full[- ]year guidance)\b", blob)
+        and re.search(r"\bguidance\b", blob)
+    )
+    has_future_full_release = bool(
+        re.search(
+            r"\b(will issue (?:complete )?(?:its )?results?|complete q[1-4] 20\d{2} results|"
+            r"results? (?:post[- ]market|after market close)|conference call (?:the following day|on))\b",
+            blob,
+        )
+    )
+    return bool(has_preliminary_results and has_guidance_update and has_future_full_release)
 
 
 def _looks_transaction_only_exhibit(text: str) -> bool:
@@ -917,6 +944,20 @@ def _assign_quarter_from_source(
     allow_non_quarter_default: bool,
     canonical_family: str,
 ) -> QuarterAssignment:
+    if canonical_family == "press_release" and _looks_preliminary_results_guidance_update(
+        _normalize_material_blob(title, source_name, source_url, text_excerpt=text_excerpt)
+    ):
+        event_date = _infer_non_quarter_event_date_from_material(
+            source_name=source_name,
+            title=title,
+            text_excerpt=text_excerpt,
+        )
+        if event_date is not None:
+            return QuarterAssignment(
+                quarter=event_date,
+                status="non_quarter_event",
+                reason="preliminary_guidance_update_event_date",
+            )
     title_q = _infer_quarter_signal_from_text(title or "")
     if title_q is not None and _is_quarter_end_date(title_q):
         return QuarterAssignment(quarter=title_q, status="matched_quarter_end", reason="title_quarter_signal")
@@ -1015,6 +1056,46 @@ def _infer_quarter_signal_from_text(text: str) -> Optional[date]:
     if m:
         return date(int(m.group(1)), 12, 31)
     return None
+
+
+def _infer_non_quarter_event_date_from_material(
+    *,
+    source_name: str,
+    title: str,
+    text_excerpt: str,
+) -> Optional[date]:
+    blobs = [str(source_name or ""), str(title or ""), str(text_excerpt or "")[:4000]]
+    for blob in blobs:
+        m = re.search(r"\b(20\d{2})[-_/ ]([01]\d)[-_/ ]([0-3]\d)\b", blob)
+        if m:
+            try:
+                return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except Exception:
+                pass
+        m = re.search(
+            r"\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|"
+            r"Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+"
+            r"([0-3]?\d),?\s+(20\d{2})\b",
+            blob,
+            re.I,
+        )
+        if m:
+            try:
+                month = pd.Timestamp(f"{m.group(1)} 1 {m.group(3)}").month
+                return date(int(m.group(3)), int(month), int(m.group(2)))
+            except Exception:
+                pass
+    return None
+
+
+def _preliminary_guidance_subject_slug(text: str) -> str:
+    qd = _infer_quarter_signal_from_text(text)
+    if qd is not None and _is_quarter_end_date(qd):
+        qnum = ((int(qd.month) - 1) // 3) + 1
+        return f"preliminary_q{qnum}_{int(qd.year)}_results_and_raised_fy{int(qd.year)}_guidance"
+    year_match = re.search(r"\b(20\d{2})\b", str(text or ""))
+    year_txt = year_match.group(1) if year_match else "year"
+    return f"preliminary_results_and_raised_fy{year_txt}_guidance"
 
 
 def _allow_body_quarter_match(
@@ -1551,6 +1632,31 @@ def _inspect_manual_local_file(
     quarter = _infer_quarter_signal_from_text(name_hint) or _infer_quarter_signal_from_text(title)
     if quarter is None and text_excerpt:
         quarter = _infer_quarter_signal_from_text(str(text_excerpt)[:12000])
+    if _looks_preliminary_results_guidance_update(blob):
+        event_date = _infer_non_quarter_event_date_from_material(
+            source_name=name_hint,
+            title=title,
+            text_excerpt=text_excerpt,
+        )
+        if event_date is None:
+            try:
+                event_date = date.fromisoformat(_non_quarter_date_hint(path_in))
+            except Exception:
+                event_date = None
+        assignment = QuarterAssignment(
+            quarter=event_date,
+            status="non_quarter_event" if event_date is not None else "unknown",
+            reason="preliminary_guidance_update_event_date" if event_date is not None else "preliminary_guidance_update_no_event_date",
+        )
+        return _manual_local_inspection_payload(
+            ticker=ticker,
+            path_in=path_in,
+            canonical_family="press_release",
+            title=title,
+            quarter=event_date,
+            assignment=assignment,
+            subject_slug=_preliminary_guidance_subject_slug(blob),
+        )
     if _is_annual_report_material(name_hint=name_hint, title=title, text_excerpt=text_excerpt):
         return _manual_local_inspection_payload(
             ticker=ticker,
@@ -1727,9 +1833,11 @@ def _manual_local_destination_name(
     role_hint = _manual_local_role_hint(path_in)
     if canonical_family == "annual_reports":
         return f"{ticker_txt}_{_manual_local_year_hint(path_in)}_annual_report{ext}"
-    if canonical_family == "press_release" and quarter is None:
-        date_hint = _non_quarter_date_hint(path_in)
-        topic = _collision_qualifier(path_in)
+    if canonical_family == "press_release" and (quarter is None or not _is_quarter_end_date(quarter)):
+        date_hint = quarter.isoformat() if quarter is not None else _non_quarter_date_hint(path_in)
+        topic = subject_slug or _collision_qualifier(path_in)
+        if str(topic or "").startswith("preliminary_"):
+            return f"{ticker_txt}_{date_hint}_{topic}{ext}"
         return f"{ticker_txt}_{date_hint}_press_release_{topic}{ext}"
     if quarter_txt:
         if subject_slug == "ceo_letter":

@@ -139,6 +139,7 @@ def _make_inputs(
     non_gaap_files_relaxed: pd.DataFrame | None = None,
     ocr_log: pd.DataFrame | None = None,
     slides_segments: pd.DataFrame | None = None,
+    slides_guidance: pd.DataFrame | None = None,
     quarter_notes_audit: bool = False,
     capture_saved_workbook_provenance: bool = True,
     excel_debug_scope: str = "full",
@@ -175,7 +176,7 @@ def _make_inputs(
         debt_buckets=empty,
         slides_segments=slides_segments if slides_segments is not None else empty,
         slides_debt=empty,
-        slides_guidance=empty,
+        slides_guidance=slides_guidance if slides_guidance is not None else empty,
         quarter_notes=quarter_notes if quarter_notes is not None else empty,
         promises=promises if promises is not None else empty,
         promise_progress=promise_progress if promise_progress is not None else empty,
@@ -11110,6 +11111,8 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert all(str(ws_basis.cell(row=rr, column=6).value or "").strip() for rr in (prior_frame_row, quarter_open_frame_row, current_frame_row, next_frame_row))
         assert all(str(ws_basis.cell(row=rr, column=7).value or "").strip() for rr in (prior_frame_row, quarter_open_frame_row, current_frame_row, next_frame_row))
         assert all(str(ws_basis.cell(row=rr, column=10).value or "").strip() for rr in (prior_frame_row, quarter_open_frame_row, current_frame_row, next_frame_row))
+        for cc in (3, 4, 5, 6, 8, 9):
+            assert ws_basis.cell(row=next_frame_row, column=cc).value == ws_basis.cell(row=quarter_open_frame_row, column=cc).value
         assert str(ws_basis.cell(row=corn_oil_readiness_row, column=4).value or "").strip() == "Direct market"
         assert str(ws_basis.cell(row=ddgs_readiness_row, column=4).value or "").strip() == "Direct market"
         assert str(ws_basis.cell(row=nwer_readiness_row, column=4).value or "").strip() == "Weekly bioenergy"
@@ -11265,7 +11268,7 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         credit_per_gal_source_text = str(ws_overlay.cell(row=visible_coproduct_header_row + 5, column=11).value or "").lower()
         credit_usd_m_source_text = str(ws_overlay.cell(row=visible_coproduct_header_row + 6, column=11).value or "").lower()
         assert "weighted sandbox build-up divided by ethanol yield" in credit_per_gal_source_text
-        assert "source mode, coverage, and carry-forward rule" in credit_per_gal_source_text
+        assert "source mode, coverage, and frozen next-quarter rule" in credit_per_gal_source_text
         assert "frame-specific implied gallons basis" in credit_usd_m_source_text
         coproduct_chart_title_row = _find_row_with_value(ws_overlay, "Approximate coproduct credit ($/gal, quarterly history)", column=2)
         mini_history_title_row = _find_row_with_value(ws_overlay, "Coproduct credit", column=2)
@@ -11485,6 +11488,115 @@ def test_pbi_live_buybacks_cash_recent_quarters_follow_precompute_truth() -> Non
         assert buyback_map[pd.Timestamp("2025-03-31")] != pytest.approx(150_000_000.0, abs=1e-6)
 
 
+def test_pbi_dividend_ttm_cash_uses_history_q_rolling_four_quarters_not_doc_ytd(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_model_out_path(case_dir, "pbi_dividend_ttm_cash_history_q_truth.xlsx")
+            sec_cache_dir = case_dir / "PBI" / "sec_cache"
+            sec_cache_dir.mkdir(parents=True, exist_ok=True)
+            doc_rows = {
+                "20250331": ("0001628280-25-023713", "10,980", "$0.060"),
+                "20250630": ("0001628280-25-036856", "23,606", "$0.070"),
+                "20250930": ("0001628280-25-047360", "36,905", "$0.070"),
+                "20251231": ("0001628280-26-008604", "51,059", "$0.090"),
+            }
+            for ymd, (accn, ytd_cash_thousands, dps) in doc_rows.items():
+                (sec_cache_dir / f"doc_{accn.replace('-', '')}_pbi-{ymd}.htm").write_text(
+                    "Pitney Bowes Inc. In thousands. Condensed Consolidated Statements of Cash Flows. "
+                    f"Dividends paid {ytd_cash_thousands}. "
+                    f"The Board declared a regular quarterly cash dividend of {dps} per common share.",
+                    encoding="utf-8",
+                )
+            audit = pd.DataFrame(
+                {
+                    "quarter": [pd.Timestamp(f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:]}") for ymd in doc_rows],
+                    "accn": [accn for accn, _, _ in doc_rows.values()],
+                    "form": ["10-Q", "10-Q", "10-Q", "10-K"],
+                    "filed": [
+                        pd.Timestamp("2025-05-08"),
+                        pd.Timestamp("2025-07-31"),
+                        pd.Timestamp("2025-11-06"),
+                        pd.Timestamp("2026-02-20"),
+                    ],
+                }
+            )
+            quarters = pd.date_range("2023-03-31", "2025-12-31", freq="QE")
+            dividend_cash = [
+                8_725_000.0,
+                8_800_000.0,
+                8_805_000.0,
+                8_885_000.0,
+                8_832_000.0,
+                8_953_000.0,
+                9_061_000.0,
+                9_110_000.0,
+                10_980_000.0,
+                12_626_000.0,
+                13_299_000.0,
+                14_154_000.0,
+            ]
+            hist = pd.DataFrame(
+                {
+                    "quarter": quarters,
+                    "revenue": [500_000_000.0] * len(quarters),
+                    "cfo": [50_000_000.0] * len(quarters),
+                    "capex": [10_000_000.0] * len(quarters),
+                    "ebitda": [80_000_000.0] * len(quarters),
+                    "ebit": [60_000_000.0] * len(quarters),
+                    "op_income": [55_000_000.0] * len(quarters),
+                    "cash": [100_000_000.0] * len(quarters),
+                    "debt_core": [300_000_000.0] * len(quarters),
+                    "shares_outstanding": [170_000_000.0] * len(quarters),
+                    "shares_diluted": [170_000_000.0] * len(quarters),
+                    "market_cap": [2_000_000_000.0] * len(quarters),
+                    "interest_expense_net": [12_000_000.0] * len(quarters),
+                    "interest_paid": [10_000_000.0] * len(quarters),
+                    "dividends_cash": dividend_cash,
+                }
+            )
+
+            base_inputs = _make_inputs(out_path, ticker="PBI", hist=hist, audit=audit)
+            inputs = base_inputs.__class__(**{**vars(base_inputs), "cache_dir": sec_cache_dir})
+            ctx = build_writer_context(inputs)
+            ensure_valuation_inputs(ctx)
+            quarter_key = tuple(pd.Timestamp(q).normalize() for q in hist["quarter"].tolist())
+            render_bundle = ctx.state["_ensure_valuation_render_bundle"](quarter_key, ctx.derived.leverage_df)
+            pre = ctx.state["_ensure_valuation_precompute_bundle"](quarter_key, render_bundle)
+
+            q4_2025 = pd.Timestamp("2025-12-31")
+            assert pre["dividend_doc_map"][q4_2025] == pytest.approx(51_059_000.0)
+            assert pre["dividend_cash_facts_map"][q4_2025] == pytest.approx(14_154_000.0)
+            assert pre["dividend_map"][q4_2025] == pytest.approx(14_154_000.0)
+            assert pre["dividend_ttm_resolved_map"][pd.Timestamp("2023-12-31")] == pytest.approx(35_215_000.0)
+            assert pre["dividend_ttm_resolved_map"][pd.Timestamp("2024-12-31")] == pytest.approx(35_956_000.0)
+            assert pre["dividend_ttm_resolved_map"][pd.Timestamp("2025-03-31")] == pytest.approx(38_104_000.0)
+            assert pre["dividend_ttm_resolved_map"][pd.Timestamp("2025-06-30")] == pytest.approx(41_777_000.0)
+            assert pre["dividend_ttm_resolved_map"][pd.Timestamp("2025-09-30")] == pytest.approx(46_015_000.0)
+            assert pre["dividend_ttm_resolved_map"][q4_2025] == pytest.approx(51_059_000.0)
+
+            ctx.callbacks.write_valuation_sheet()
+            ws = ctx.wb["Valuation"]
+            dividend_ttm_row = _find_row_with_value(ws, "Dividends (TTM, cash)")
+            dividend_detail_row = _find_row_with_value(ws, "Dividends ($/share)")
+            assert dividend_ttm_row is not None
+            assert dividend_detail_row is not None
+            values_by_header = {
+                str(ws.cell(row=6, column=cc).value or "").strip(): ws.cell(row=dividend_ttm_row, column=cc).value
+                for cc in range(2, ws.max_column + 1)
+            }
+            assert values_by_header["2023-Q4"] == pytest.approx(35.215)
+            assert values_by_header["2024-Q4"] == pytest.approx(35.956)
+            assert values_by_header["2025-Q1"] == pytest.approx(38.104)
+            assert values_by_header["2025-Q2"] == pytest.approx(41.777)
+            assert values_by_header["2025-Q3"] == pytest.approx(46.015)
+            assert values_by_header["2025-Q4"] == pytest.approx(51.059)
+            assert str(ws.cell(row=dividend_detail_row, column=2).value or "").strip() == (
+                "Latest quarter div/share $0.090 | TTM dividend cash $51.1m"
+            )
+
+
 def test_valuation_filing_docs_filter_out_audit_bucket_quarter_leakage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -11661,6 +11773,103 @@ def test_pbi_capped_call_note_stays_in_origin_quarter_only(
                 for note in q3_rows
             )
             assert not any("capped call transactions" in note.lower() for note in q4_rows)
+
+
+def test_pbi_preliminary_press_release_guidance_renders_as_guidance_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_model_out_path(case_dir, "pbi_preliminary_guidance_only.xlsx")
+            slides_guidance = pd.DataFrame(
+                {
+                    "quarter": [pd.Timestamp("2025-12-31")] * 4 + [pd.Timestamp("2026-03-31")] * 4,
+                    "line": [
+                        "Revenue guidance $1,760 to $1,860 for FY 2026",
+                        "Adj EBIT guidance $410 to $460 for FY 2026",
+                        "Adj EPS guidance $1.40 to $1.60 for FY 2026",
+                        "FCF guidance $340 to $370 for FY 2026",
+                        "Revenue guidance $1,800 to $1,860 for FY 2026",
+                        "Adj EBIT guidance $425 to $465 for FY 2026",
+                        "Adj EPS guidance $1.50 to $1.65 for FY 2026",
+                        "FCF guidance $345 to $380 for FY 2026",
+                    ],
+                    "numbers": [
+                        "$1,760, $1,860",
+                        "$410, $460",
+                        "$1.40, $1.60",
+                        "$340, $370",
+                        "$1,800, $1,860",
+                        "$425, $465",
+                        "$1.50, $1.65",
+                        "$345, $380",
+                    ],
+                    "metric_hint": ["Revenue", "Adj EBIT", "Adj EPS", "FCF"] * 2,
+                    "source": ["earnings_release"] * 4 + ["press_release"] * 4,
+                    "source_type": ["earnings_release"] * 4 + ["press_release"] * 4,
+                    "doc": [
+                        r"C:\Users\Jibbe\Aktier\PBI\earnings_release\PBI_Q4_2025_earnings_release.pdf"
+                    ]
+                    * 4
+                    + [
+                        r"C:\Users\Jibbe\Aktier\PBI\press_release\PBI_2026-04-21_preliminary_q1_2026_results_and_raised_fy2026_guidance.pdf"
+                    ]
+                    * 4,
+                    "page": [1] * 8,
+                }
+            )
+            inputs = _make_inputs(out_path, ticker="PBI", slides_guidance=slides_guidance)
+            ctx = build_writer_context(inputs)
+            ensure_valuation_inputs(ctx)
+            ctx.callbacks.write_valuation_sheet()
+            ws = ctx.wb["Valuation"]
+
+            preliminary_header = next(
+                (
+                    rr
+                    for rr in range(1, ws.max_row + 1)
+                    if str(ws.cell(row=rr, column=15).value or "").startswith("Guidance (As of 2026-03-31)")
+                ),
+                None,
+            )
+            historical_header = next(
+                (
+                    rr
+                    for rr in range(1, ws.max_row + 1)
+                    if str(ws.cell(row=rr, column=15).value or "").startswith("Guidance (As of 2025-12-31)")
+                ),
+                None,
+            )
+            assert preliminary_header is not None
+            assert historical_header is not None
+            assert preliminary_header < historical_header
+
+            panel_text = " ".join(
+                str(ws.cell(row=rr, column=cc).value or "")
+                for rr in range(preliminary_header, min(ws.max_row, preliminary_header + 18) + 1)
+                for cc in range(15, 30)
+            )
+            assert "$1,800.0m-$1,860.0m" in panel_text
+            assert "$425.0m-$465.0m" in panel_text
+            assert "1.50-1.65" in panel_text
+            assert "$345.0m-$380.0m" in panel_text
+            assert "Δ +$20.0m (+1.1%) | L +$40.0m | H +$0.0m" in panel_text
+            assert "Δ +$10.0m (+2.3%) | L +$15.0m | H +$5.0m" in panel_text
+            assert "Δ +0.07 (+5.0%) | L +0.10 | H +0.05" in panel_text
+            assert "Δ +$7.5m (+2.1%) | L +$5.0m | H +$10.0m" in panel_text
+            assert pd.to_datetime(ctx.inputs.hist["quarter"]).max() == pd.Timestamp("2025-12-31")
+
+            ctx.callbacks.write_promise_progress_ui_v2()
+            ws_progress = ctx.wb["Promise_Progress_UI"]
+            progress_header = _find_row_with_value(ws_progress, "Promise progress (As of 2026-03-31)")
+            assert progress_header is not None
+            progress_text = " ".join(
+                str(ws_progress.cell(row=rr, column=cc).value or "")
+                for rr in range(progress_header, min(ws_progress.max_row, progress_header + 8) + 1)
+                for cc in range(1, 9)
+            )
+            assert "$1.8bn-$1.86bn" in progress_text
+            assert "$425m-$465m" in progress_text
 
 
 def test_valuation_keeps_adj_ebitda_and_adj_ebit_distinct_when_inputs_are_distinct() -> None:
@@ -12365,7 +12574,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert dividends_note_row is not None
                 assert str(wb["Valuation"].cell(row=buybacks_row, column=2).value or "").strip() == "Latest quarter +12.614m at $10.04/share for $126.6m"
                 assert str(wb["Valuation"].cell(row=buybacks_note_row, column=2).value or "").strip() == "Remaining capacity $359.0m | Latest increase by $250.0m on 2026-02-13 | Maturity date 2025 | Continuation mentioned."
-                assert str(wb["Valuation"].cell(row=dividends_row, column=2).value or "").strip() == "Latest quarter div/share $0.090 | TTM dividend cash $148.5m"
+                assert str(wb["Valuation"].cell(row=dividends_row, column=2).value or "").strip() == "Latest quarter div/share $0.090 | TTM dividend cash $51.1m"
                 assert str(wb["Valuation"].cell(row=dividends_note_row, column=2).value or "").strip() == "We expect to continue to pay a quarterly dividend."
                 convertible_row = _find_row_with_value(wb["Valuation"], "Convertible notes", column=12)
                 assert convertible_row is not None
@@ -13407,7 +13616,7 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
             if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "Official corn basis selection rule"
         )
         assert str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=3).value or "").strip() == "AMS fallback"
-        assert str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=5).value or "").strip() == "AMS fallback"
+        assert re.fullmatch(r"2026-04-\d{2}", str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=5).value or "").strip())
         assert re.fullmatch(r"2026-04-\d{2}", str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=7).value or "").strip())
         assert re.fullmatch(r"2026-04-\d{2}", str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=9).value or "").strip())
         assert str(ws_basis.cell(row=sandbox_basis_snapshot_row, column=11).value or "").strip() == "date/text"
@@ -13415,7 +13624,7 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
             ws_basis.cell(row=sandbox_basis_snapshot_row, column=12).value or ""
         )
         assert str(ws_basis.cell(row=sandbox_basis_rule_row, column=3).value or "").strip() == "latest_snapshot_on_or_before_quarter_end / AMS fallback"
-        assert str(ws_basis.cell(row=sandbox_basis_rule_row, column=5).value or "").strip() == "latest_snapshot_on_or_before_quarter_start / AMS fallback"
+        assert str(ws_basis.cell(row=sandbox_basis_rule_row, column=5).value or "").strip() == "latest_snapshot_on_or_before_as_of"
         assert str(ws_basis.cell(row=sandbox_basis_rule_row, column=7).value or "").strip() == "latest_snapshot_on_or_before_as_of"
         assert str(ws_basis.cell(row=sandbox_basis_rule_row, column=9).value or "").strip() == "latest_snapshot_on_or_before_as_of_with_target_quarter_rows"
         assert str(ws_basis.cell(row=sandbox_basis_rule_row, column=11).value or "").strip() == "rule/text"
@@ -13451,7 +13660,11 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         corn_source_text = str(ws.cell(row=corn_row, column=11).value or "")
         assert "Quarter-open outlook uses local manual snapshot." in corn_source_text
         assert "Current QTD:" in corn_source_text
-        assert "Next quarter outlook uses live bids + AMS fallback." in corn_source_text
+        assert "Next quarter outlook:" in corn_source_text
+        assert (
+            "Next quarter outlook uses live bids + AMS fallback." in corn_source_text
+            or "Next quarter outlook: CBOT Corn futures" in corn_source_text
+        )
         assert bridge_gpre_row == bridge_proxy_row + 1
         assert bridge_forward_row == bridge_gpre_row + 1
         assert bridge_underlying_row == bridge_forward_row + 2
@@ -13860,7 +14073,7 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 2, column=11).value or "").lower()
         assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 3, column=11).value or "").lower()
         assert "weighted sandbox build-up divided by ethanol yield" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 5, column=11).value or "").lower()
-        assert "source mode, coverage, and carry-forward rule" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 5, column=11).value or "").lower()
+        assert "source mode, coverage, and frozen next-quarter rule" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 5, column=11).value or "").lower()
         assert "frame-specific implied gallons basis" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 6, column=11).value or "").lower()
         assert str(ws_overlay.cell(row=delivered_mini_history_rows[0], column=2).value or "").strip() == "2026-Q3"
         assert str(ws_overlay.cell(row=delivered_mini_history_rows[-1], column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$")

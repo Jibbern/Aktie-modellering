@@ -6,6 +6,7 @@ overlay.
 """
 from __future__ import annotations
 
+import json
 import re
 from datetime import date
 from pathlib import Path
@@ -79,6 +80,7 @@ def _obs_row(
     market_family: str = "corn_price",
     instrument: str = "Corn cash price",
     unit: str = "$/bushel",
+    source_type: str = "ams_3617_pdf",
 ) -> Dict[str, Any]:
     return {
         "observation_date": report_date,
@@ -86,8 +88,8 @@ def _obs_row(
         "aggregation_level": "observation",
         "publication_date": report_date,
         "source": "ams_3617",
-        "report_type": "ams_3617_pdf",
-        "source_type": "ams_3617_pdf",
+        "report_type": source_type,
+        "source_type": source_type,
         "market_family": market_family,
         "series_key": series_key,
         "instrument": instrument,
@@ -215,9 +217,103 @@ def parse_ams_3617_pdf_text(text: str, *, fallback_date: Optional[pd.Timestamp],
     return rows
 
 
+def _float_value(value: Any) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    try:
+        out = float(value)
+    except Exception:
+        return None
+    if pd.isna(out):
+        return None
+    return out
+
+
+def _public_region_label(row: Dict[str, Any]) -> str:
+    # USDA public_data splits Iowa into state + region fields; the legacy PDF parser
+    # already uses `Iowa East` / `Iowa West`, so normalize to the same keys here.
+    state_value = str(row.get("state/Province") or row.get("state_province") or "").strip()
+    region_value = str(row.get("region") or "").strip()
+    if state_value == "Iowa" and region_value in {"East", "West"}:
+        return f"Iowa {region_value}"
+    for key in ("state/Province", "state_province", "region", "trade_loc"):
+        value = str(row.get(key) or "").strip()
+        if value and value.upper() != "N/A":
+            return value
+    return ""
+
+
+def parse_ams_3617_public_data_payload(payload: Dict[str, Any], *, source_file: str) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for item in list((payload or {}).get("results") or []):
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("commodity") or "").strip().lower() != "corn":
+            continue
+        if str(item.get("quote_type") or "").strip().lower() != "basis":
+            continue
+        report_ts = pd.to_datetime(item.get("report_end_date") or item.get("report_date") or item.get("report_begin_date"), errors="coerce")
+        if pd.isna(report_ts):
+            continue
+        region_label = _public_region_label(item)
+        if region_label not in _CORN_REGIONS:
+            continue
+        region_key = region_label.lower().replace(" ", "_")
+        avg_value = _float_value(item.get("avg_price"))
+        if avg_value is None:
+            price_min = _float_value(item.get("price Min"))
+            price_max = _float_value(item.get("price Max"))
+            if price_min is not None and price_max is not None:
+                avg_value = (price_min + price_max) / 2.0
+        if avg_value is not None:
+            rows.append(
+                _obs_row(
+                    report_date=report_ts.date(),
+                    source_file=source_file,
+                    series_key=f"corn_{region_key}",
+                    region=region_key,
+                    price_value=avg_value,
+                    parsed_note=f"US #2 Yellow Corn - Bulk daily average for {region_label} from USDA public_data.",
+                    source_type="ams_3617_public_data",
+                )
+            )
+        basis_min = _float_value(item.get("basis Min"))
+        basis_max = _float_value(item.get("basis Max"))
+        if basis_min is None and basis_max is None:
+            continue
+        if basis_min is None:
+            basis_mid = basis_max
+        elif basis_max is None:
+            basis_mid = basis_min
+        else:
+            basis_mid = (basis_min + basis_max) / 2.0
+        rows.append(
+            _obs_row(
+                report_date=report_ts.date(),
+                source_file=source_file,
+                series_key=f"corn_basis_{region_key}",
+                region=region_key,
+                price_value=float(basis_mid) / 100.0,
+                parsed_note=f"Midpoint of USDA public_data daily corn basis range for {region_label}.",
+                market_family="corn_basis",
+                instrument="Corn basis",
+                unit="$/bushel",
+                source_type="ams_3617_public_data",
+            )
+        )
+    return rows
+
+
+def _public_payload_slug_id(payload: Dict[str, Any]) -> str:
+    for item in list((payload or {}).get("results") or []):
+        if isinstance(item, dict) and str(item.get("slug_id") or "").strip():
+            return str(item.get("slug_id") or "").strip()
+    return ""
+
+
 class AMS3617Provider(BaseMarketProvider):
     source = "ams_3617"
-    provider_parse_version = "v5"
+    provider_parse_version = "v7"
     # New downloads live in the workbook-facing USDA folder, but we keep reading the
     # legacy provider-specific directory so older local restores continue to work.
     local_patterns = (
@@ -227,6 +323,8 @@ class AMS3617Provider(BaseMarketProvider):
         "ams_3617_pdfs/**/*",
     )
     landing_page_url = "https://mymarketnews.ams.usda.gov/viewReport/3617"
+    public_data_url = "https://mymarketnews.ams.usda.gov/public_data?slug_id=3617"
+    public_data_slug_id = "3617"
     report_token = "/3617/"
     stable_name_prefix = "ams_3617"
     local_dir_name = "USDA_daily_data"
@@ -239,6 +337,17 @@ class AMS3617Provider(BaseMarketProvider):
             if report_ts is None:
                 continue
             local_path = Path(str(entry.get("local_path") or "")).expanduser()
+            if local_path.suffix.lower() == ".json" and local_path.exists():
+                try:
+                    payload = json.loads(local_path.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                if isinstance(payload, dict):
+                    slug_id = _public_payload_slug_id(payload)
+                    if slug_id and slug_id != "3617":
+                        continue
+                    rows.extend(parse_ams_3617_public_data_payload(payload, source_file=local_path.name))
+                continue
             if local_path.suffix.lower() != ".pdf" or not local_path.exists():
                 continue
             text = _safe_pdf_text(local_path)

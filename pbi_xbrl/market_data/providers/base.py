@@ -6,6 +6,7 @@ stays in one place.
 """
 from __future__ import annotations
 
+import base64
 import html
 import json
 import re
@@ -36,6 +37,9 @@ class BaseMarketProvider:
     provider_parse_version = "v1"
     local_patterns: tuple[str, ...] = tuple()
     landing_page_url = ""
+    public_data_url = ""
+    public_data_slug_id = ""
+    public_data_sections: tuple[str, ...] = ("Report Detail",)
     report_token = ""
     stable_name_prefix = ""
     local_dir_name = ""
@@ -154,7 +158,12 @@ class BaseMarketProvider:
             return blob.decode("latin-1", errors="ignore"), attempts
 
     def _asset_type_for_name(self, name: str) -> str:
-        return "pdf" if Path(str(name or "")).suffix.lower() == ".pdf" else "data"
+        suffix = Path(str(name or "")).suffix.lower()
+        if suffix == ".pdf":
+            return "pdf"
+        if suffix == ".json":
+            return "json"
+        return "data"
 
     def _looks_like_documents_page(self, url: str, label: str) -> bool:
         url_low = str(url or "").lower()
@@ -365,13 +374,235 @@ class BaseMarketProvider:
         return str(self.source or "").strip().lower() in url_low
 
     def _stable_local_name(self, report_date: pd.Timestamp, asset_type: str, source_url: str) -> str:
-        suffix = Path(urllib.parse.urlparse(str(source_url or "")).path).suffix.lower() or (".pdf" if asset_type == "pdf" else ".bin")
+        suffix = Path(urllib.parse.urlparse(str(source_url or "")).path).suffix.lower()
+        if not suffix:
+            suffix = ".pdf" if asset_type == "pdf" else ".json" if asset_type == "json" else ".bin"
         stem = f"{str(self.stable_name_prefix or self.source).strip()}_{report_date.date().isoformat()}"
         if asset_type != "pdf":
             stem += "_data"
         return f"{stem}{suffix}"
 
+    def _public_data_slug(self) -> str:
+        explicit = str(self.public_data_slug_id or "").strip()
+        if explicit:
+            return explicit
+        token = str(self.report_token or "").strip()
+        match = re.search(r"\d+", token)
+        return str(match.group(0) or "").strip() if match else ""
+
+    def _public_data_base_url(self) -> str:
+        configured = str(self.public_data_url or "").strip()
+        if configured:
+            return configured
+        slug = self._public_data_slug()
+        if not slug:
+            return ""
+        return f"https://mymarketnews.ams.usda.gov/public_data?slug_id={slug}"
+
+    def _public_data_filter_url(self, slug: str) -> str:
+        return urllib.parse.urljoin(
+            self._public_data_base_url() or "https://mymarketnews.ams.usda.gov/",
+            f"/public_data/ajax-get-conditions-by-report/{slug}",
+        )
+
+    def _public_data_search_url(self, slug: str, section: str, begin_date: date, end_date: date) -> str:
+        section_b64 = base64.b64encode(str(section or "").encode("utf-8")).decode("ascii")
+        q = (
+            f"report_begin_date={begin_date.strftime('%m/%d/%Y')}:"
+            f"{end_date.strftime('%m/%d/%Y')}"
+        )
+        return urllib.parse.urljoin(
+            self._public_data_base_url() or "https://mymarketnews.ams.usda.gov/",
+            f"/public_data/ajax-search-data-by-report-section/{slug}/{section_b64}?q={urllib.parse.quote(q, safe='=:/;')}",
+        )
+
+    def _public_data_date_pairs(self, payload: Dict[str, Any], *, as_of: Optional[date]) -> List[tuple[date, date]]:
+        # `public_data` is now the first-choice USDA latest-refresh path. The filter
+        # endpoint exposes every report begin/end pair, so we explicitly keep the
+        # newest current-quarter pair not after `as_of`; this prevents a browser-visible
+        # future report date from being pulled into a workbook build before the run date.
+        begin_values = list(payload.get("reportBeginDates") or [])
+        end_values = list(payload.get("reportEndDates") or [])
+        pairs: List[tuple[date, date]] = []
+        for idx, begin_value in enumerate(begin_values):
+            begin_ts = self._date_from_value(begin_value)
+            if begin_ts is None:
+                continue
+            end_ts = self._date_from_value(end_values[idx] if idx < len(end_values) else begin_value)
+            if end_ts is None:
+                end_ts = begin_ts
+            begin = begin_ts.date()
+            end = end_ts.date()
+            if as_of is not None and end > as_of:
+                continue
+            pairs.append((begin, end))
+        if not pairs:
+            return []
+        q_start, _q_end = self._quarter_bounds(as_of=as_of)
+        current_q = [(begin, end) for begin, end in pairs if end >= q_start]
+        selected_pool = current_q or pairs
+        # Normal refresh only needs the freshest report; archive/backfill code remains
+        # responsible for deliberate multi-period history downloads.
+        return [max(selected_pool, key=lambda item: item[1])]
+
+    def _discover_public_data_assets(self, *, as_of: Optional[date], cache_root: Optional[Path]) -> List[Dict[str, Any]]:
+        # Priority 1: structured USDA public_data JSON. It is more stable than the
+        # viewReport landing-page HTML because the app's filter/search endpoints return
+        # normalized rows directly. If this returns no candidates, `discover_remote_assets`
+        # falls through to the older release-fragment/PDF discovery below.
+        slug = self._public_data_slug()
+        public_url = self._public_data_base_url()
+        if not slug or not public_url:
+            return []
+        debug_payload: Dict[str, Any] = {
+            "source": str(self.source or ""),
+            "latest_refresh": {
+                "as_of": as_of,
+                "public_data_url": public_url,
+                "public_data_slug_id": slug,
+                "public_data_filter_fetch": {"status": "pending"},
+                "public_data_search_fetches": [],
+                "selected_candidates": [],
+                "chosen_url": "",
+                "final_classification": "pending",
+            },
+        }
+        filter_url = self._public_data_filter_url(slug)
+        try:
+            filter_text, filter_attempts = self._fetch_text_diagnostic(
+                filter_url,
+                extra_headers={
+                    "Accept": "application/json,*/*",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Referer": public_url,
+                },
+            )
+            filter_payload = json.loads(filter_text)
+            if not isinstance(filter_payload, dict):
+                filter_payload = {}
+        except RemoteFetchError as exc:
+            failure_class = str(self._classify_remote_error(exc.final_exc) or "public_data_filter_failure")
+            debug_payload["latest_refresh"]["public_data_filter_fetch"] = {
+                "status": "error",
+                "classification": failure_class,
+                "attempts": list(exc.attempts or []),
+                "error": f"{type(exc.final_exc).__name__}: {exc.final_exc}",
+            }
+            debug_payload["latest_refresh"]["final_classification"] = failure_class
+            self._write_remote_debug(cache_root, debug_payload, merge=True)
+            return []
+        except Exception as exc:
+            debug_payload["latest_refresh"]["public_data_filter_fetch"] = {
+                "status": "error",
+                "classification": "public_data_filter_failure",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            debug_payload["latest_refresh"]["final_classification"] = "public_data_filter_failure"
+            self._write_remote_debug(cache_root, debug_payload, merge=True)
+            return []
+
+        debug_payload["latest_refresh"]["public_data_filter_fetch"] = {
+            "status": "ok",
+            "classification": "success",
+            "attempts": list(filter_attempts or []),
+            "report_begin_dates": len(list(filter_payload.get("reportBeginDates") or [])),
+            "report_end_dates": len(list(filter_payload.get("reportEndDates") or [])),
+        }
+        date_pairs = self._public_data_date_pairs(filter_payload, as_of=as_of)
+        if not date_pairs:
+            debug_payload["latest_refresh"]["final_classification"] = "public_data_no_dates"
+            self._write_remote_debug(cache_root, debug_payload, merge=True)
+            return []
+
+        candidates: List[Dict[str, Any]] = []
+        for begin_date, end_date in date_pairs:
+            for section in tuple(self.public_data_sections or ("Report Detail",)):
+                search_url = self._public_data_search_url(slug, section, begin_date, end_date)
+                try:
+                    payload, search_attempts = self._fetch_bytes_diagnostic(
+                        search_url,
+                        extra_headers={
+                            "Accept": "application/json,*/*",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "Referer": public_url,
+                        },
+                    )
+                    parsed = json.loads(payload.decode("utf-8"))
+                    if not isinstance(parsed, dict):
+                        parsed = {}
+                    rows = list(parsed.get("results") or [])
+                    if not rows:
+                        classification = "public_data_no_rows"
+                    else:
+                        classification = "success"
+                    debug_payload["latest_refresh"]["public_data_search_fetches"].append(
+                        {
+                            "url": search_url,
+                            "section": section,
+                            "begin_date": begin_date,
+                            "end_date": end_date,
+                            "status": "ok",
+                            "classification": classification,
+                            "attempts": list(search_attempts or []),
+                            "rows": len(rows),
+                        }
+                    )
+                    if not rows:
+                        continue
+                    candidates.append(
+                        {
+                            "url": search_url,
+                            "label": f"USDA public_data {section} {begin_date.isoformat()} to {end_date.isoformat()}",
+                            "asset_type": "json",
+                            "report_date": pd.Timestamp(end_date),
+                            "prefetched_payload": payload,
+                        }
+                    )
+                except RemoteFetchError as exc:
+                    failure_class = str(self._classify_remote_error(exc.final_exc) or "public_data_search_failure")
+                    debug_payload["latest_refresh"]["public_data_search_fetches"].append(
+                        {
+                            "url": search_url,
+                            "section": section,
+                            "begin_date": begin_date,
+                            "end_date": end_date,
+                            "status": "error",
+                            "classification": failure_class,
+                            "attempts": list(exc.attempts or []),
+                            "error": f"{type(exc.final_exc).__name__}: {exc.final_exc}",
+                        }
+                    )
+                    continue
+                except Exception as exc:
+                    debug_payload["latest_refresh"]["public_data_search_fetches"].append(
+                        {
+                            "url": search_url,
+                            "section": section,
+                            "begin_date": begin_date,
+                            "end_date": end_date,
+                            "status": "error",
+                            "classification": "public_data_search_failure",
+                            "error": f"{type(exc).__name__}: {exc}",
+                        }
+                    )
+                    continue
+
+        if not candidates:
+            debug_payload["latest_refresh"]["final_classification"] = "public_data_no_candidates"
+            self._write_remote_debug(cache_root, debug_payload, merge=True)
+            return []
+        debug_payload["latest_refresh"]["selected_candidates"] = [
+            self._sanitize_candidate_debug(cand) for cand in candidates
+        ]
+        debug_payload["latest_refresh"]["chosen_url"] = str(candidates[0].get("url") or "")
+        debug_payload["latest_refresh"]["final_classification"] = "success"
+        self._write_remote_debug(cache_root, debug_payload, merge=True)
+        return candidates
+
     def discover_remote_assets(self, as_of: Optional[date] = None, cache_root: Optional[Path] = None) -> List[Dict[str, Any]]:
+        public_candidates = self._discover_public_data_assets(as_of=as_of, cache_root=cache_root)
+        if public_candidates:
+            return public_candidates
         landing_url = str(self.landing_page_url or "").strip()
         if not landing_url:
             return []

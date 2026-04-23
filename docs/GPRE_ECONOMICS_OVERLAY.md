@@ -51,6 +51,29 @@ It does **not** own:
 - raw HTML is retained for audit / reparsing
 - legacy mutable latest files may still exist, but they are no longer the intended historical source of truth
 
+### Live download path and success criteria
+- canonical GPRE corn-bid storage is:
+  - [`GPRE/corn_bids`](/c:/Users/Jibbe/Aktier/GPRE/corn_bids)
+- the legacy root-level archive under `C:\Users\Jibbe\Aktier\corn_bids` is not canonical; newer legacy snapshots are migrated into canonical storage before use, but new reads/writes should target the GPRE folder
+- the refresh path is `download_gpre_corn_bids_snapshot(...)`, either directly or through a GPRE market-data refresh
+- source priority for the next download is:
+  - public entry page: `https://gpreinc.com/corn-bids/`
+  - direct grain homepage / index URLs on `grain.gpreinc.com`
+  - location-specific grain URLs discovered from entry-page scripts/text
+  - parsed candidate with the widest known-location coverage and highest row count
+  - unioned candidate rows when complementary documents add more plant coverage
+- a successful download should update:
+  - [`GPRE/corn_bids/manifest.json`](/c:/Users/Jibbe/Aktier/GPRE/corn_bids/manifest.json)
+  - a dated raw HTML archive under `raw_snapshots/YYYY-MM-DD/`
+  - a dated parsed CSV under `parsed_snapshots/YYYY-MM-DD/`
+  - candidate-source provenance in the manifest entry
+- verified 2026-04-23 outcome:
+  - snapshot date: `2026-04-23`
+  - parsed rows: `59`
+  - captured locations: `Central City`, `Wood River`, `York`, `Madison`, `Mount Vernon`, `Shenandoah`, `Superior`, `Otter Tail`
+  - nearby weighted corn basis: about `-12.5c/bu`
+  - nearby weighted cash price: about `$4.436/bu`
+
 ### Visible wording
 - the workbook note for the official market row should now say, in substance:
   - `Official corn basis prefers dated GPRE plant bids when available for the relevant frame or quarter, including historical quarters with retained snapshots; otherwise it falls back to active-capacity-weighted AMS basis ...`

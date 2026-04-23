@@ -109,7 +109,8 @@
   - Why it matters: terminal readback stages are restored, but some missing-note rows still remain as a smaller audit-cleanliness watchlist.
   - Current mitigation: duplicate/matched missing rows and obvious blob-like noise are now suppressed when a canonical note already verified into the saved workbook.
 - USDA `viewReport/3616`, `viewReport/3617`, and `viewReport/3618` landing fetches are still flaky in the current local environment
-  - Why it matters: Stage 8 now supports `NWER` coproduct parsing and a live `AMS 3618` provider, but automated refresh is still not reliable enough to replace manual drop + sync when the landing fetch times out.
+  - Current mitigation: normal latest refresh now tries USDA `public_data` JSON first for slugs `3616`, `3617`, and `3618`; the older landing-page fragment/PDF path is fallback, not the preferred path.
+  - Why it matters: if both network paths fail, manual drop + sync remains the reserve path, but a healthy `public_data` refresh should now update latest daily and weekly/co-product rows without relying on fragile landing HTML.
 - Early-quarter `Current QTD` lookbacks can stay blank by design
   - Why it matters: the new tracker only uses retained same-quarter checkpoints for `1w / 4w / 8w`; it will not synthesize or cross-quarter backfill missing history just to fill cells.
 
