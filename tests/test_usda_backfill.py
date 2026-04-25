@@ -73,10 +73,48 @@ def test_collect_archive_assets_merges_latest_and_month_archive(monkeypatch) -> 
     assets = collect_archive_assets(provider, date(2026, 2, 1), date(2026, 3, 23))
 
     assert [str(item.get("report_date"))[:10] for item in assets] == [
-        "2026-02-16",
-        "2026-02-23",
+        "2026-02-20",
+        "2026-02-27",
         "2026-03-23",
     ]
+
+
+def test_collect_archive_assets_prefers_report_end_date_over_url_folder_date(monkeypatch) -> None:
+    provider = NWERProvider()
+    landing_html = """
+    <html><body>
+      <script>const slugId = 3616;</script>
+    </body></html>
+    """
+    month_payload = json.dumps(
+        {
+            "data": [
+                {
+                    "title": "National Weekly Ethanol Report",
+                    "document_date": "04/24/2026 13:53:01",
+                    "file_extension": "PDF",
+                    "document_url": "/filerepo/sites/default/files/3616/2026-04-20/1319930/ams_3616_00188_01.pdf",
+                    "report_date": "04/20/2026 - Fri, 04/24/2026",
+                    "slug_id": "3616",
+                    "report_end_date": "Fri, 04/24/2026 - 00:00",
+                }
+            ]
+        }
+    )
+
+    def _fake_fetch_text(url: str, *, extra_headers: dict[str, str] | None = None) -> str:
+        del extra_headers
+        if "type=month" in url:
+            return month_payload
+        return landing_html
+
+    monkeypatch.setattr(provider, "_fetch_text", _fake_fetch_text)
+    monkeypatch.setattr(provider, "discover_remote_assets", lambda as_of=None, cache_root=None: [])
+
+    assets = collect_archive_assets(provider, date(2026, 4, 24), date(2026, 4, 24))
+
+    assert len(assets) == 1
+    assert str(assets[0].get("report_date"))[:10] == "2026-04-24"
 
 
 def test_download_archive_assets_writes_stable_files_and_skips_existing(monkeypatch) -> None:

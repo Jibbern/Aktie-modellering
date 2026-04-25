@@ -1,0 +1,14 @@
+{
+  "latest_parse": {
+    "input_entries": 1,
+    "parsed_rows": 2,
+    "rows_by_source_file": [
+      {
+        "parsed_rows": 2,
+        "source_file": "natural-gas-prices-end-of-day-04-23-2026.csv"
+      }
+    ],
+    "status": "success"
+  },
+  "source": "local_barchart_gas_futures"
+}

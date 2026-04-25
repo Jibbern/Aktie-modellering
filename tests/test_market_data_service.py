@@ -17,12 +17,17 @@ from pbi_xbrl.market_data.cache import ensure_market_cache_dirs, remote_debug_pa
 from pbi_xbrl.market_data.providers.ams_3617 import AMS3617Provider, parse_ams_3617_pdf_text, parse_ams_3617_public_data_payload
 from pbi_xbrl.market_data.providers.ams_3618 import AMS3618Provider, parse_ams_3618_pdf_text, parse_ams_3618_public_data_payload
 from pbi_xbrl.market_data.providers.base import BaseMarketProvider
-from pbi_xbrl.market_data.providers.cme_ethanol_platts import (
-    CMEChicagoEthanolPlattsProvider,
+from pbi_xbrl.market_data.providers.local_barchart_futures import (
+    LocalBarchartCornFuturesProvider,
+    LocalBarchartGasFuturesProvider,
+    parse_local_barchart_futures_table,
+)
+from pbi_xbrl.market_data.providers.local_chicago_ethanol_futures import (
+    LocalChicagoEthanolFuturesProvider,
     find_local_manual_ethanol_quarter_open_files,
     load_local_manual_ethanol_quarter_open_snapshot_rows,
     parse_manual_ethanol_quarter_open_snapshot_table,
-    parse_cme_ethanol_settlement_table,
+    parse_local_chicago_ethanol_futures_table,
 )
 from pbi_xbrl.market_data.providers.nwer import NWERProvider, parse_nwer_pdf_text, parse_nwer_public_data_payload
 import pbi_xbrl.market_data.providers.ams_3617 as ams_module
@@ -919,6 +924,69 @@ def test_ams3617_public_data_refresh_writes_latest_json_and_parses_rows(monkeypa
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_ams3617_public_data_refresh_downloads_json_and_pdf_to_daily_folder(monkeypatch) -> None:
+    provider = AMS3617Provider()
+    conditions = {
+        "reportBeginDates": ["2026-04-24"],
+        "reportEndDates": ["2026-04-24"],
+    }
+    detail_payload = {
+        "reportSection": "Report Detail",
+        "results": [
+            {
+                "slug_id": 3617,
+                "report_begin_date": "04/24/2026",
+                "report_end_date": "04/24/2026",
+                "commodity": "Corn",
+                "quote_type": "Basis",
+                "state/Province": "Nebraska",
+                "basis Min": -20,
+                "basis Max": -10,
+                "avg_price": 4.21,
+            }
+        ],
+    }
+    landing_html = "<html><body><div>Slug Id: 3617</div></body></html>"
+    latest_html = """
+    {"html":"<a href=\"/filerepo/sites/default/files/3617/2026-04-24/1300000/ams_3617_01001.pdf\">Apr 24 PDF</a>"}
+    """
+
+    def _fake_text(url: str, *, extra_headers: dict[str, str] | None = None) -> str:
+        del extra_headers
+        if "ajax-get-conditions" in url:
+            return json.dumps(conditions)
+        if "get_latest_release" in url:
+            return latest_html
+        if "get_previous_release" in url:
+            return "{\"html\":\"\"}"
+        return landing_html
+
+    def _fake_bytes(url: str, *, extra_headers: dict[str, str] | None = None) -> bytes:
+        del extra_headers
+        if "ajax-search-data" in url:
+            return json.dumps(detail_payload).encode("utf-8")
+        return b"%PDF-1.4 daily report"
+
+    monkeypatch.setattr(provider, "_today", lambda: date(2026, 4, 24))
+    monkeypatch.setattr(provider, "_fetch_text_diagnostic", _diagnostic_text_stub(_fake_text))
+    monkeypatch.setattr(provider, "_fetch_bytes_diagnostic", _diagnostic_bytes_stub(_fake_bytes))
+
+    tmp_path = _local_test_dir(".pytest_tmp_market_public_data_3617_pdf_")
+    try:
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ensure_market_cache_dirs(cache_root)
+        ticker_root = tmp_path / "GPRE"
+
+        result = provider.sync_raw(cache_root, ticker_root, refresh=True)
+        local_dir = ticker_root / "USDA_daily_data"
+
+        assert (local_dir / "ams_3617_2026-04-24_data.json").exists()
+        assert (local_dir / "ams_3617_2026-04-24.pdf").exists()
+        assert {"json", "pdf"} <= {str(entry.get("asset_type") or "") for entry in result["entries"]}
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_public_data_payload_parsers_map_coproduct_rows_to_existing_series() -> None:
     nwer_rows = parse_nwer_public_data_payload(
         {
@@ -942,6 +1010,13 @@ def test_public_data_payload_parsers_map_coproduct_rows_to_existing_series() -> 
                     "commodity": "Ethanol",
                     "state/Province": "Nebraska",
                     "avg_price": 1.75,
+                },
+                {
+                    "report_end_date": "04/24/2026",
+                    "commodity": "Ethanol",
+                    "state/Province": "South Dakota",
+                    "price Min": 1.80,
+                    "price Max": 1.90,
                 },
             ]
         },
@@ -973,11 +1048,71 @@ def test_public_data_payload_parsers_map_coproduct_rows_to_existing_series() -> 
         "corn_oil_nebraska",
         "ddgs_10_iowa_east",
         "ethanol_nebraska",
+        "ethanol_south_dakota",
     }
+    sd_ethanol = next(row for row in nwer_rows if row["series_key"] == "ethanol_south_dakota")
+    assert float(pd.to_numeric(sd_ethanol["price_value"], errors="coerce")) == pytest.approx(1.85)
     assert {row["series_key"] for row in ams3618_rows} == {
         "corn_oil_eastern_cornbelt",
         "ddgs_10_nebraska",
     }
+
+
+def test_nwer_provider_uses_public_data_ethanol_rows_when_pdf_is_unavailable() -> None:
+    provider = NWERProvider()
+    tmp_path = _local_test_dir(".pytest_tmp_nwer_public_data_no_pdf_")
+    try:
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ensure_market_cache_dirs(cache_root)
+        ticker_root = tmp_path / "GPRE"
+        json_path = ticker_root / "USDA_weekly_data" / "nwer_2026-04-24_data.json"
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(
+            json.dumps(
+                {
+                    "results": [
+                        {
+                            "slug_id": 3616,
+                            "report_end_date": "04/24/2026",
+                            "commodity": "Ethanol",
+                            "state/Province": "Nebraska",
+                            "avg_price": 1.75,
+                        },
+                        {
+                            "slug_id": 3616,
+                            "report_end_date": "04/24/2026",
+                            "commodity": "Distillers Corn Oil",
+                            "application": "Feed Grade",
+                            "state/Province": "Nebraska",
+                            "avg_price": 77.67,
+                        },
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        df = provider.parse_raw_to_rows(
+            cache_root,
+            ticker_root,
+            [
+                {
+                    "report_date": "2026-04-24",
+                    "publication_date": "2026-04-24",
+                    "local_path": str(json_path),
+                    "source": "nwer",
+                    "source_id": "nwer_2026-04-24_data",
+                    "asset_type": "json",
+                }
+            ],
+        )
+
+        assert {"ethanol_nebraska", "corn_oil_nebraska"} <= set(df["series_key"].astype(str))
+        ethanol = df.loc[df["series_key"].astype(str).eq("ethanol_nebraska")].iloc[0]
+        assert pd.Timestamp(ethanol["observation_date"]).date() == date(2026, 4, 24)
+        assert float(pd.to_numeric(ethanol["price_value"], errors="coerce")) == pytest.approx(1.75)
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
 
 def test_shared_bioenergy_public_data_json_is_guarded_by_slug_id() -> None:
@@ -1083,10 +1218,72 @@ def test_nwer_sync_raw_discovers_current_quarter_pdf_and_data_assets(monkeypatch
         result = provider.sync_raw(cache_root, ticker_root, refresh=True)
 
         assert result["raw_added"] >= 6
-        assert (ticker_root / "USDA_bioenergy_reports" / "nwer_2026-01-23.pdf").exists()
-        assert (ticker_root / "USDA_bioenergy_reports" / "nwer_2026-01-23_data.csv").exists()
+        assert (ticker_root / "USDA_weekly_data" / "nwer_2026-01-23.pdf").exists()
+        assert (ticker_root / "USDA_weekly_data" / "nwer_2026-01-23_data.csv").exists()
         assert any(str(entry.get("asset_type") or "") == "pdf" for entry in result["entries"])
         assert any(str(entry.get("asset_type") or "") == "data" for entry in result["entries"])
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_nwer_public_data_refresh_downloads_json_and_pdf_to_weekly_folder(monkeypatch) -> None:
+    provider = NWERProvider()
+    conditions = {
+        "reportBeginDates": ["2026-04-24"],
+        "reportEndDates": ["2026-04-24"],
+    }
+    detail_payload = {
+        "reportSection": "Report Detail",
+        "results": [
+            {
+                "slug_id": 3616,
+                "report_begin_date": "04/24/2026",
+                "report_end_date": "04/24/2026",
+                "commodity": "Ethanol",
+                "state/Province": "Nebraska",
+                "avg_price": 1.75,
+            }
+        ],
+    }
+    landing_html = "<html><body><div>Slug Id: 3616</div></body></html>"
+    latest_html = """
+    {"html":"<a href=\"/filerepo/sites/default/files/3616/2026-04-24/1300000/ams_3616_01001.pdf\">Apr 24 PDF</a>"}
+    """
+
+    def _fake_text(url: str, *, extra_headers: dict[str, str] | None = None) -> str:
+        del extra_headers
+        if "ajax-get-conditions" in url:
+            return json.dumps(conditions)
+        if "get_latest_release" in url:
+            return latest_html
+        if "get_previous_release" in url:
+            return "{\"html\":\"\"}"
+        return landing_html
+
+    def _fake_bytes(url: str, *, extra_headers: dict[str, str] | None = None) -> bytes:
+        del extra_headers
+        if "ajax-search-data" in url:
+            return json.dumps(detail_payload).encode("utf-8")
+        return b"%PDF-1.4 weekly ethanol report"
+
+    monkeypatch.setattr(provider, "_today", lambda: date(2026, 4, 24))
+    monkeypatch.setattr(provider, "_fetch_text_diagnostic", _diagnostic_text_stub(_fake_text))
+    monkeypatch.setattr(provider, "_fetch_bytes_diagnostic", _diagnostic_bytes_stub(_fake_bytes))
+
+    tmp_path = _local_test_dir(".pytest_tmp_market_nwer_public_data_pdf_")
+    try:
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ensure_market_cache_dirs(cache_root)
+        ticker_root = tmp_path / "GPRE"
+
+        result = provider.sync_raw(cache_root, ticker_root, refresh=True)
+        weekly_dir = ticker_root / "USDA_weekly_data"
+        bioenergy_dir = ticker_root / "USDA_bioenergy_reports"
+
+        assert (weekly_dir / "nwer_2026-04-24_data.json").exists()
+        assert (weekly_dir / "nwer_2026-04-24.pdf").exists()
+        assert not (bioenergy_dir / "nwer_2026-04-24_data.json").exists()
+        assert {"json", "pdf"} <= {str(entry.get("asset_type") or "") for entry in result["entries"]}
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
@@ -1255,8 +1452,8 @@ def test_nwer_sync_raw_discovers_current_quarter_pdf_and_data_assets_from_legacy
         result = provider.sync_raw(cache_root, ticker_root, refresh=True)
 
         assert result["raw_added"] >= 6
-        assert (ticker_root / "USDA_bioenergy_reports" / "nwer_2026-01-23.pdf").exists()
-        assert (ticker_root / "USDA_bioenergy_reports" / "nwer_2026-01-23_data.csv").exists()
+        assert (ticker_root / "USDA_weekly_data" / "nwer_2026-01-23.pdf").exists()
+        assert (ticker_root / "USDA_weekly_data" / "nwer_2026-01-23_data.csv").exists()
         assert any(str(entry.get("asset_type") or "") == "pdf" for entry in result["entries"])
         assert any(str(entry.get("asset_type") or "") == "data" for entry in result["entries"])
     finally:
@@ -1299,6 +1496,69 @@ def test_ams_3618_sync_raw_discovers_current_quarter_pdf_asset(monkeypatch) -> N
         assert result["raw_added"] >= 1
         assert (ticker_root / "USDA_bioenergy_reports" / "ams_3618_2026-02-16.pdf").exists()
         assert any(str(entry.get("asset_type") or "") == "pdf" for entry in result["entries"])
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_ams3618_public_data_refresh_downloads_json_and_pdf_to_bioenergy_folder(monkeypatch) -> None:
+    provider = AMS3618Provider()
+    conditions = {
+        "reportBeginDates": ["2026-04-20"],
+        "reportEndDates": ["2026-04-20"],
+    }
+    detail_payload = {
+        "reportSection": "Report Detail",
+        "results": [
+            {
+                "slug_id": 3618,
+                "report_begin_date": "04/20/2026",
+                "report_end_date": "04/20/2026",
+                "commodity": "Distillers Corn Oil",
+                "application": "Feed Grade",
+                "trade_loc": "Nebraska",
+                "price": 74.71,
+            }
+        ],
+    }
+    landing_html = "<html><body><div>Slug Id: 3618</div></body></html>"
+    latest_html = """
+    {"html":"<a href=\"/filerepo/sites/default/files/3618/2026-04-20/1300000/ams_3618_01001.pdf\">Apr 20 PDF</a>"}
+    """
+
+    def _fake_text(url: str, *, extra_headers: dict[str, str] | None = None) -> str:
+        del extra_headers
+        if "ajax-get-conditions" in url:
+            return json.dumps(conditions)
+        if "get_latest_release" in url:
+            return latest_html
+        if "get_previous_release" in url:
+            return "{\"html\":\"\"}"
+        return landing_html
+
+    def _fake_bytes(url: str, *, extra_headers: dict[str, str] | None = None) -> bytes:
+        del extra_headers
+        if "ajax-search-data" in url:
+            return json.dumps(detail_payload).encode("utf-8")
+        return b"%PDF-1.4 weekly grain coproducts report"
+
+    monkeypatch.setattr(provider, "_today", lambda: date(2026, 4, 24))
+    monkeypatch.setattr(provider, "_fetch_text_diagnostic", _diagnostic_text_stub(_fake_text))
+    monkeypatch.setattr(provider, "_fetch_bytes_diagnostic", _diagnostic_bytes_stub(_fake_bytes))
+
+    tmp_path = _local_test_dir(".pytest_tmp_market_ams3618_public_data_pdf_")
+    try:
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ensure_market_cache_dirs(cache_root)
+        ticker_root = tmp_path / "GPRE"
+
+        result = provider.sync_raw(cache_root, ticker_root, refresh=True)
+        bioenergy_dir = ticker_root / "USDA_bioenergy_reports"
+        weekly_dir = ticker_root / "USDA_weekly_data"
+
+        assert (bioenergy_dir / "ams_3618_2026-04-20_data.json").exists()
+        assert (bioenergy_dir / "ams_3618_2026-04-20.pdf").exists()
+        assert not (weekly_dir / "ams_3618_2026-04-20_data.json").exists()
+        assert {"json", "pdf"} <= {str(entry.get("asset_type") or "") for entry in result["entries"]}
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
@@ -1572,8 +1832,11 @@ Distillers Grain Wet 65-70%
         summary = sync_market_cache(cache_dir, "GPRE", profile=_Profile(), sync_raw=True, refresh=False, reparse=True)
 
         assert summary.raw_added >= 1
+        assert not ams_pdf.exists()
+        normalized_pdf = bioenergy_dir / "ams_3618_2026-03-30.pdf"
+        assert normalized_pdf.exists()
         raw_ams = cache_root / "raw" / "ams_3618" / "2026"
-        assert any(path.name == "ams_3618_00183.pdf" for path in raw_ams.glob("*.pdf"))
+        assert any(path.name == "ams_3618_2026-03-30.pdf" for path in raw_ams.glob("*.pdf"))
         export_df = pd.read_parquet(cache_root / "parsed" / "exports" / "GPRE.parquet")
         export_source_types = set(export_df["source_type"].astype(str))
         export_series = set(export_df["series_key"].astype(str))
@@ -1583,16 +1846,354 @@ Distillers Grain Wet 65-70%
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
-def test_gpre_bioenergy_manual_folder_policy_keeps_nwer_primary_path_and_ams_3618_manual_support() -> None:
+def test_gpre_weekly_folder_policy_keeps_nwer_primary_path_and_ams_3618_bioenergy_support() -> None:
     nwer_provider = NWERProvider()
     ams_provider = AMS3618Provider()
 
-    assert nwer_provider.local_dir_name == "USDA_bioenergy_reports"
+    assert nwer_provider.local_dir_name == "USDA_weekly_data"
     assert ams_provider.local_dir_name == "USDA_bioenergy_reports"
     assert "USDA_bioenergy_reports/*" in set(nwer_provider.local_patterns)
     assert "USDA_bioenergy_reports/*" in set(ams_provider.local_patterns)
     assert "USDA_weekly_data/*" in set(nwer_provider.local_patterns)
     assert "ams_3618_pdfs/*" in set(ams_provider.local_patterns)
+
+
+def test_nwer_discover_available_sorts_globally_by_report_date_across_bioenergy_and_weekly_dirs() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_market_nwer_discover_order_")
+    try:
+        ticker_root = tmp_path / "GPRE"
+        bioenergy_dir = ticker_root / "USDA_bioenergy_reports"
+        weekly_dir = ticker_root / "USDA_weekly_data"
+        bioenergy_dir.mkdir(parents=True, exist_ok=True)
+        weekly_dir.mkdir(parents=True, exist_ok=True)
+
+        (weekly_dir / "nwer_2026-04-10.pdf").write_bytes(b"%PDF-1.4 weekly 2026-04-10")
+        (weekly_dir / "nwer_2026-03-30.pdf").write_bytes(b"%PDF-1.4 weekly 2026-03-30")
+        (bioenergy_dir / "nwer_2026-04-17_data.json").write_text(
+            json.dumps(
+                {
+                    "slug_id": "3616",
+                    "report": {"published_date": "2026-04-17"},
+                    "results": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        entries = NWERProvider().discover_available(ticker_root, refresh=False, cache_root=tmp_path / "sec_cache" / "market_data")
+        names = [Path(item.get("path") or "").name for item in entries]
+
+        assert names == [
+            "nwer_2026-03-30.pdf",
+            "nwer_2026-04-10.pdf",
+            "nwer_2026-04-17_data.json",
+        ]
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_sync_market_cache_shared_bioenergy_folder_keeps_provider_assets_separate(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_market_bioenergy_shared_")
+    try:
+        cache_dir = tmp_path / "sec_cache" / "GPRE"
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ticker_root = tmp_path / "GPRE"
+        bioenergy_dir = ticker_root / "USDA_bioenergy_reports"
+        bioenergy_dir.mkdir(parents=True, exist_ok=True)
+        ensure_market_cache_dirs(cache_root)
+
+        nwer_json = bioenergy_dir / "nwer_2026-04-17_data.json"
+        nwer_json.write_text(
+            json.dumps(
+                {
+                    "slug_id": "3616",
+                    "report": {"published_date": "2026-04-17"},
+                    "units": [],
+                    "prices": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        ams_json = bioenergy_dir / "ams_3618_2026-04-17_data.json"
+        ams_json.write_text(
+            json.dumps(
+                {
+                    "slug_id": "3618",
+                    "report": {"published_date": "2026-04-17"},
+                    "results": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        nwer_provider = NWERProvider()
+        ams_provider = AMS3618Provider()
+
+        def _fake_nwer_parse(cache_root_in: Path, ticker_root_in: Path, raw_entries: list[dict[str, object]]) -> pd.DataFrame:
+            del cache_root_in, ticker_root_in
+            source_files = {Path(str(entry.get("local_path") or "")).name for entry in raw_entries}
+            assert source_files == {"nwer_2026-04-17_data.json"}
+            return pd.DataFrame(
+                [
+                    _parsed_row(
+                        source="nwer",
+                        report_type="nwer_public_data",
+                        source_type="nwer_public_data",
+                        market_family="ethanol_price",
+                        series_key="ethanol_nebraska",
+                        instrument="Ethanol",
+                        location="Nebraska",
+                        region="nebraska",
+                        source_file="nwer_2026-04-17_data.json",
+                        observation_date="2026-04-17",
+                        publication_date="2026-04-17",
+                        quarter="2026-06-30",
+                        price_value=1.62,
+                    )
+                ]
+            )
+
+        def _fake_ams_parse(cache_root_in: Path, ticker_root_in: Path, raw_entries: list[dict[str, object]]) -> pd.DataFrame:
+            del cache_root_in, ticker_root_in
+            source_files = {Path(str(entry.get("local_path") or "")).name for entry in raw_entries}
+            assert source_files == {"ams_3618_2026-04-17_data.json"}
+            return pd.DataFrame(
+                [
+                    _parsed_row(
+                        source="ams_3618",
+                        report_type="ams_3618_public_data",
+                        source_type="ams_3618_public_data",
+                        market_family="corn_oil_price",
+                        series_key="corn_oil_nebraska",
+                        instrument="Corn oil",
+                        location="Nebraska",
+                        region="nebraska",
+                        source_file="ams_3618_2026-04-17_data.json",
+                        observation_date="2026-04-17",
+                        publication_date="2026-04-17",
+                        quarter="2026-06-30",
+                        price_value=0.34,
+                    )
+                ]
+            )
+
+        monkeypatch.setitem(market_service.PROVIDERS, "nwer", nwer_provider)
+        monkeypatch.setitem(market_service.PROVIDERS, "ams_3618", ams_provider)
+        monkeypatch.setattr(nwer_provider, "parse_raw_to_rows", _fake_nwer_parse)
+        monkeypatch.setattr(ams_provider, "parse_raw_to_rows", _fake_ams_parse)
+        monkeypatch.setattr(market_service, "_refresh_gpre_corn_bids_download", lambda *args, **kwargs: None)
+
+        class _Profile:
+            enabled_market_sources = ("nwer", "ams_3618")
+
+        summary = sync_market_cache(cache_dir, "GPRE", profile=_Profile(), sync_raw=True, refresh=False, reparse=True)
+
+        assert summary.raw_added >= 2
+        raw_nwer = cache_root / "raw" / "nwer" / "2026"
+        raw_ams = cache_root / "raw" / "ams_3618" / "2026"
+        assert (raw_nwer / "nwer_2026-04-17_data.json").exists()
+        assert not (raw_nwer / "ams_3618_2026-04-17_data.json").exists()
+        assert (raw_ams / "ams_3618_2026-04-17_data.json").exists()
+        assert not (raw_ams / "nwer_2026-04-17_data.json").exists()
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_sync_market_cache_audits_wrong_owner_raw_cache_files_without_moving_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_market_raw_orphans_")
+    try:
+        cache_dir = tmp_path / "sec_cache" / "GPRE"
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ensure_market_cache_dirs(cache_root)
+        raw_nwer_dir = cache_root / "raw" / "nwer" / "2026"
+        raw_nwer_dir.mkdir(parents=True, exist_ok=True)
+        good_pdf = raw_nwer_dir / "nwer_2026-04-17.pdf"
+        orphan_pdf = raw_nwer_dir / "ams_3618_2026-04-17.pdf"
+        good_pdf.write_bytes(b"%PDF-1.4 nwer")
+        orphan_pdf.write_bytes(b"%PDF-1.4 wrong owner")
+
+        provider = NWERProvider()
+
+        def _fake_parse(cache_root_in: Path, ticker_root_in: Path, raw_entries: list[dict[str, object]]) -> pd.DataFrame:
+            del cache_root_in, ticker_root_in
+            source_files = {Path(str(entry.get("local_path") or "")).name for entry in raw_entries}
+            assert source_files == {"nwer_2026-04-17.pdf"}
+            return pd.DataFrame(
+                [
+                    _parsed_row(
+                        source="nwer",
+                        report_type="nwer_pdf",
+                        source_type="nwer_pdf",
+                        market_family="ethanol_price",
+                        series_key="ethanol_nebraska",
+                        instrument="Ethanol",
+                        location="Nebraska",
+                        region="nebraska",
+                        source_file="nwer_2026-04-17.pdf",
+                        observation_date="2026-04-17",
+                        publication_date="2026-04-17",
+                        quarter="2026-06-30",
+                        price_value=1.62,
+                    )
+                ]
+            )
+
+        monkeypatch.setitem(market_service.PROVIDERS, "nwer", provider)
+        monkeypatch.setattr(provider, "parse_raw_to_rows", _fake_parse)
+        monkeypatch.setattr(market_service, "_refresh_gpre_corn_bids_download", lambda *args, **kwargs: None)
+
+        class _Profile:
+            enabled_market_sources = ("nwer",)
+
+        summary = sync_market_cache(cache_dir, "GPRE", profile=_Profile(), reparse=True)
+
+        audit_dirs = sorted((cache_root / "raw_orphan_audit" / "nwer").glob("*"))
+        assert audit_dirs
+        orphan_manifest = audit_dirs[-1] / "orphan_manifest.json"
+        payload = json.loads(orphan_manifest.read_text(encoding="utf-8"))
+        assert summary.raw_orphans_detected == 1
+        assert payload["action"] == "audit_only"
+        assert int(payload.get("orphan_count") or 0) == 1
+        assert payload["entries"][0]["reason"] == "wrong_owner"
+        assert payload["entries"][0]["action"] == "audit_only"
+        assert payload["entries"][0]["original_path"].endswith("ams_3618_2026-04-17.pdf")
+        assert not (cache_root / "raw_orphans" / "nwer").exists()
+        assert orphan_pdf.exists()
+        assert good_pdf.exists()
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_ams3617_provider_prefers_json_over_pdf_on_same_date(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_ams3617_json_first_")
+    try:
+        provider = AMS3617Provider()
+        pdf_path = tmp_path / "ams_3617_2026-04-17.pdf"
+        json_path = tmp_path / "ams_3617_2026-04-17_data.json"
+        pdf_path.write_bytes(b"%PDF-1.4 demo")
+        json_path.write_text(json.dumps({"slug_id": "3617", "results": []}), encoding="utf-8")
+        parse_calls = {"pdf": 0, "json": 0}
+
+        def _fake_pdf_parse(text: str, *, fallback_date: object, source_file: str) -> list[dict[str, object]]:
+            del text, fallback_date
+            parse_calls["pdf"] += 1
+            return [_parsed_row(source="ams_3617", source_type="ams_3617_pdf", source_file=source_file, series_key="corn_nebraska", price_value=4.01)]
+
+        def _fake_json_parse(payload: dict[str, object], *, source_file: str) -> list[dict[str, object]]:
+            del payload
+            parse_calls["json"] += 1
+            return [_parsed_row(source="ams_3617", source_type="ams_3617_public_data", source_file=source_file, series_key="corn_nebraska", price_value=4.21)]
+
+        monkeypatch.setattr(ams_module, "parse_ams_3617_pdf_text", _fake_pdf_parse)
+        monkeypatch.setattr(ams_module, "parse_ams_3617_public_data_payload", _fake_json_parse)
+
+        parsed_df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [
+                {"report_date": "2026-04-17", "local_path": str(pdf_path)},
+                {"report_date": "2026-04-17", "local_path": str(json_path)},
+            ],
+        )
+
+        assert parse_calls == {"pdf": 0, "json": 1}
+        assert set(parsed_df["source_file"].astype(str)) == {"ams_3617_2026-04-17_data.json"}
+        assert set(parsed_df["source_type"].astype(str)) == {"ams_3617_public_data"}
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_ams3618_provider_prefers_json_over_pdf_on_same_date(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_ams3618_json_first_")
+    try:
+        provider = AMS3618Provider()
+        pdf_path = tmp_path / "ams_3618_2026-04-17.pdf"
+        json_path = tmp_path / "ams_3618_2026-04-17_data.json"
+        pdf_path.write_bytes(b"%PDF-1.4 demo")
+        json_path.write_text(json.dumps({"slug_id": "3618", "results": []}), encoding="utf-8")
+        parse_calls = {"pdf": 0, "json": 0}
+
+        def _fake_pdf_parse(text: str, *, fallback_date: object, source_file: str) -> list[dict[str, object]]:
+            del text, fallback_date
+            parse_calls["pdf"] += 1
+            return [_parsed_row(source="ams_3618", source_type="ams_3618_pdf", source_file=source_file, market_family="renewable_corn_oil_price", series_key="corn_oil_nebraska", price_value=0.33)]
+
+        def _fake_json_parse(payload: dict[str, object], *, source_file: str) -> list[dict[str, object]]:
+            del payload
+            parse_calls["json"] += 1
+            return [_parsed_row(source="ams_3618", source_type="ams_3618_public_data", source_file=source_file, market_family="renewable_corn_oil_price", series_key="corn_oil_nebraska", price_value=0.35)]
+
+        monkeypatch.setattr(ams_3618_module, "parse_ams_3618_pdf_text", _fake_pdf_parse)
+        monkeypatch.setattr(ams_3618_module, "parse_ams_3618_public_data_payload", _fake_json_parse)
+
+        parsed_df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [
+                {"report_date": "2026-04-17", "local_path": str(pdf_path)},
+                {"report_date": "2026-04-17", "local_path": str(json_path)},
+            ],
+        )
+
+        assert parse_calls == {"pdf": 0, "json": 1}
+        assert set(parsed_df["source_file"].astype(str)) == {"ams_3618_2026-04-17_data.json"}
+        assert set(parsed_df["source_type"].astype(str)) == {"ams_3618_public_data"}
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_nwer_provider_keeps_pdf_authoritative_but_allows_json_ddgs_and_corn_oil_enrichment(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_nwer_json_selective_")
+    try:
+        provider = NWERProvider()
+        pdf_path = tmp_path / "nwer_2026-04-17.pdf"
+        json_path = tmp_path / "nwer_2026-04-17_data.json"
+        pdf_path.write_bytes(b"%PDF-1.4 demo")
+        json_path.write_text(json.dumps({"slug_id": "3616", "results": []}), encoding="utf-8")
+
+        def _fake_pdf_parse(text: str, *, fallback_date: object, source_file: str) -> list[dict[str, object]]:
+            del text, fallback_date
+            return [
+                _parsed_row(source="nwer", source_type="nwer_pdf", source_file=source_file, market_family="ethanol_price", series_key="ethanol_nebraska", price_value=1.61),
+                _parsed_row(source="nwer", source_type="nwer_pdf", source_file=source_file, market_family="corn_futures", series_key="cbot_corn_sep26_usd", contract_tenor="sep26", price_value=4.72),
+                _parsed_row(source="nwer", source_type="nwer_pdf", source_file=source_file, market_family="ddgs_price", series_key="ddgs_10_nebraska", price_value=155.0, unit="$/Ton"),
+            ]
+
+        def _fake_json_parse(payload: dict[str, object], *, source_file: str) -> list[dict[str, object]]:
+            del payload
+            return [
+                _parsed_row(source="nwer", source_type="nwer_public_data", source_file=source_file, market_family="ethanol_price", series_key="ethanol_nebraska", price_value=1.99),
+                _parsed_row(source="nwer", source_type="nwer_public_data", source_file=source_file, market_family="corn_futures", series_key="cbot_corn_sep26_usd", contract_tenor="sep26", price_value=5.55),
+                _parsed_row(source="nwer", source_type="nwer_public_data", source_file=source_file, market_family="ddgs_price", series_key="ddgs_10_nebraska", price_value=999.0, unit="$/Ton"),
+                _parsed_row(source="nwer", source_type="nwer_public_data", source_file=source_file, market_family="ddgs_price", series_key="ddgs_10_iowa_east", price_value=148.0, unit="$/Ton"),
+                _parsed_row(source="nwer", source_type="nwer_public_data", source_file=source_file, market_family="renewable_corn_oil_price", series_key="corn_oil_iowa_east", price_value=0.34, unit="$/Bu"),
+            ]
+
+        monkeypatch.setattr(nwer_module, "parse_nwer_pdf_text", _fake_pdf_parse)
+        monkeypatch.setattr(nwer_module, "parse_nwer_public_data_payload", _fake_json_parse)
+        monkeypatch.setattr(nwer_module, "_looks_like_nwer_pdf", lambda **kwargs: True)
+        monkeypatch.setattr(nwer_module, "_safe_pdf_text", lambda _: "demo nwer pdf text")
+
+        parsed_df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [
+                {"report_date": "2026-04-17", "local_path": str(pdf_path)},
+                {"report_date": "2026-04-17", "local_path": str(json_path)},
+            ],
+        )
+
+        by_series = {str(rec["series_key"]): rec for rec in parsed_df.to_dict("records")}
+        assert float(pd.to_numeric(by_series["ethanol_nebraska"]["price_value"], errors="coerce")) == pytest.approx(1.61, abs=1e-9)
+        assert str(by_series["ethanol_nebraska"]["source_type"]) == "nwer_pdf"
+        assert float(pd.to_numeric(by_series["cbot_corn_sep26_usd"]["price_value"], errors="coerce")) == pytest.approx(4.72, abs=1e-9)
+        assert str(by_series["cbot_corn_sep26_usd"]["source_type"]) == "nwer_pdf"
+        assert float(pd.to_numeric(by_series["ddgs_10_nebraska"]["price_value"], errors="coerce")) == pytest.approx(155.0, abs=1e-9)
+        assert str(by_series["ddgs_10_nebraska"]["source_type"]) == "nwer_pdf"
+        assert str(by_series["ddgs_10_iowa_east"]["source_type"]) == "nwer_public_data"
+        assert str(by_series["corn_oil_iowa_east"]["source_type"]) == "nwer_public_data"
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
 
 def test_nwer_provider_parse_raw_to_rows_keeps_historical_pdf_entries(monkeypatch) -> None:
@@ -5834,6 +6435,134 @@ def test_gpre_historical_quarter_uses_retained_snapshot_when_eligible() -> None:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_gpre_current_snapshot_does_not_use_local_gas_futures_when_weekly_gas_missing() -> None:
+    obs_dt = date(2026, 4, 24)
+    qd = date(2026, 6, 30)
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_futures", series_key="cbot_corn_usd_per_bu", instrument="Corn futures", price_value=4.50, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=2.52, contract_tenor="may26", unit="$/MMBtu", source_type="local_barchart_gas_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_nebraska", instrument="Ethanol", price_value=1.60, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_illinois", instrument="Ethanol", price_value=1.62, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_indiana", instrument="Ethanol", price_value=1.61, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_iowa", instrument="Ethanol", price_value=1.59, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_south_dakota", instrument="Ethanol", price_value=1.58, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_nebraska", instrument="Corn basis", region="nebraska", price_value=-0.30, unit="$/bushel", source_type="ams_3617_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_illinois", instrument="Corn basis", region="illinois", price_value=-0.05, unit="$/bushel", source_type="ams_3617_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_indiana", instrument="Corn basis", region="indiana", price_value=-0.06, unit="$/bushel", source_type="ams_3617_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_iowa_west", instrument="Corn basis", region="iowa_west", price_value=-0.15, unit="$/bushel", source_type="ams_3617_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_minnesota", instrument="Corn basis", region="minnesota", price_value=-0.25, unit="$/bushel", source_type="ams_3617_public_data"),
+    ]
+
+    snapshot = build_gpre_official_proxy_snapshot(
+        rows,
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=obs_dt,
+        prior_quarter=False,
+    )
+
+    assert snapshot["status"] == "ok_current"
+    assert snapshot["process_status"] == "ok"
+    assert snapshot["as_of"] == obs_dt
+    assert snapshot["process_as_of"] == obs_dt
+    assert snapshot["current_market"]["natural_gas_price"] is None
+    assert snapshot["current_process"]["natural_gas_burden"] is None
+    assert snapshot["current_process"]["simple_crush_per_gal"] is None
+    latest_week = list(snapshot["weekly_rows"])[-1]
+    assert latest_week["week_end"] == obs_dt
+    assert latest_week["natural_gas_price"] is None
+    assert latest_week["natural_gas_source_kind"] == ""
+    assert latest_week["natural_gas_source_type"] == ""
+    assert latest_week["natural_gas_contract_tenor"] == ""
+
+
+def test_gpre_prior_snapshot_does_not_use_local_gas_futures_when_weekly_gas_missing() -> None:
+    obs_dt = date(2026, 3, 27)
+    qd = date(2026, 3, 31)
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_futures", series_key="cbot_corn_usd_per_bu", instrument="Corn futures", price_value=4.45, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="natural_gas_futures", series_key="nymex_gas_apr26_usd", instrument="Natural gas futures", price_value=2.70, contract_tenor="apr26", unit="$/MMBtu", source_type="local_barchart_gas_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_nebraska", instrument="Ethanol", price_value=1.60, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_illinois", instrument="Ethanol", price_value=1.62, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_indiana", instrument="Ethanol", price_value=1.61, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_iowa", instrument="Ethanol", price_value=1.59, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_south_dakota", instrument="Ethanol", price_value=1.58, source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_nebraska", instrument="Corn basis", region="nebraska", price_value=-0.30, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_illinois", instrument="Corn basis", region="illinois", price_value=-0.05, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_indiana", instrument="Corn basis", region="indiana", price_value=-0.06, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_iowa_west", instrument="Corn basis", region="iowa_west", price_value=-0.15, unit="$/bushel", source_type="ams_3617_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="corn_basis", series_key="corn_basis_minnesota", instrument="Corn basis", region="minnesota", price_value=-0.25, unit="$/bushel", source_type="ams_3617_pdf"),
+    ]
+
+    snapshot = build_gpre_official_proxy_snapshot(
+        rows,
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=date(2026, 4, 15),
+        prior_quarter=True,
+    )
+
+    assert snapshot["status"] == "ok_prior"
+    assert snapshot["current_market"]["natural_gas_price"] is None
+    assert snapshot["current_process"]["simple_crush_per_gal"] is None
+    latest_week = list(snapshot["weekly_rows"])[-1]
+    assert latest_week["natural_gas_price"] is None
+    assert latest_week["natural_gas_source_kind"] == ""
+
+
+def test_gpre_official_history_series_uses_cash_bids_for_latest_week_without_cbot() -> None:
+    obs_dt = date(2026, 4, 24)
+    qd = date(2026, 6, 30)
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="natural_gas_price", series_key="nymex_gas", instrument="Natural gas", price_value=2.52, unit="$/MMBtu", source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_nebraska", instrument="Ethanol", price_value=1.60, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_illinois", instrument="Ethanol", price_value=1.62, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_indiana", instrument="Ethanol", price_value=1.61, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_iowa", instrument="Ethanol", price_value=1.59, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_south_dakota", instrument="Ethanol", price_value=1.58, source_type="nwer_public_data"),
+    ]
+
+    history = build_gpre_official_proxy_history_series(
+        rows,
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=obs_dt,
+        start_date=date(2026, 4, 1),
+        ticker_root=None,
+        bids_snapshot=_gpre_bids_snapshot_fixture(date(2026, 4, 30), basis_value=-0.20, cash_price=4.10),
+    )
+
+    assert history[-1]["week_end"] == obs_dt
+    ethanol_price = float(pd.to_numeric(history[-1]["weighted_ethanol_benchmark_usd_per_gal"], errors="coerce"))
+    expected = ethanol_price - (4.10 / 2.9) - (0.028 * 2.52)
+    assert float(pd.to_numeric(history[-1]["simple_crush_per_gal"], errors="coerce")) == pytest.approx(expected, abs=1e-12)
+
+
+def test_gpre_official_history_series_does_not_use_local_gas_futures_when_weekly_gas_missing() -> None:
+    obs_dt = date(2026, 4, 24)
+    qd = date(2026, 6, 30)
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=2.52, contract_tenor="may26", unit="$/MMBtu", source_type="local_barchart_gas_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_nebraska", instrument="Ethanol", price_value=1.60, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_illinois", instrument="Ethanol", price_value=1.62, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_indiana", instrument="Ethanol", price_value=1.61, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_iowa", instrument="Ethanol", price_value=1.59, source_type="nwer_public_data"),
+        _parsed_row(aggregation_level="observation", observation_date=obs_dt.isoformat(), publication_date=obs_dt.isoformat(), quarter=qd.isoformat(), market_family="ethanol_price", series_key="ethanol_south_dakota", instrument="Ethanol", price_value=1.58, source_type="nwer_public_data"),
+    ]
+
+    history = build_gpre_official_proxy_history_series(
+        rows,
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=obs_dt,
+        start_date=date(2026, 4, 1),
+        ticker_root=None,
+        bids_snapshot=_gpre_bids_snapshot_fixture(date(2026, 4, 30), basis_value=-0.20, cash_price=4.10),
+    )
+
+    assert history == []
+
+
 def test_gpre_current_snapshot_uses_cash_price_as_delivered_corn_without_double_counting() -> None:
     obs_dt = date(2026, 4, 10)
     qd = date(2026, 6, 30)
@@ -6885,7 +7614,7 @@ def test_next_quarter_thesis_snapshot_respects_as_of_date_for_frozen_quarter_bou
     assert thesis["natural_gas"]["observation_date"] == date(2026, 3, 31)
 
 
-def test_cme_ethanol_provider_parses_local_barchart_contract_rows_and_ignores_footer() -> None:
+def test_local_chicago_ethanol_provider_parses_local_barchart_contract_rows_and_ignores_footer() -> None:
     tmp_path = _local_test_dir(".pytest_tmp_cme_ethanol_parse_")
     try:
         csv_path = tmp_path / "ethanol-chicago-prices-end-of-day-04-04-2026.csv"
@@ -6898,7 +7627,7 @@ def test_cme_ethanol_provider_parses_local_barchart_contract_rows_and_ignores_fo
             encoding="utf-8",
         )
 
-        rows = parse_cme_ethanol_settlement_table(csv_path, fallback_date=None)
+        rows = parse_local_chicago_ethanol_futures_table(csv_path, fallback_date=None)
 
         assert len(rows) == 3
         assert {str(rec["series_key"]) for rec in rows} == {
@@ -6913,8 +7642,8 @@ def test_cme_ethanol_provider_parses_local_barchart_contract_rows_and_ignores_fo
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
-def test_cme_ethanol_provider_refresh_is_local_only_and_writes_debug() -> None:
-    provider = CMEChicagoEthanolPlattsProvider()
+def test_local_chicago_ethanol_provider_refresh_is_local_only_and_writes_debug() -> None:
+    provider = LocalChicagoEthanolFuturesProvider()
 
     tmp_path = _local_test_dir(".pytest_tmp_cme_ethanol_remote_")
     try:
@@ -6933,11 +7662,11 @@ def test_cme_ethanol_provider_refresh_is_local_only_and_writes_debug() -> None:
         )
 
         sync_result = provider.sync_raw(cache_root, ticker_root, refresh=True)
-        debug_path = remote_debug_path(cache_root, "cme_ethanol_platts")
+        debug_path = remote_debug_path(cache_root, "local_chicago_ethanol_futures")
         debug_payload = json.loads(debug_path.read_text(encoding="utf-8"))
 
         assert sync_result["raw_added"] == 1
-        assert (cache_root / "raw" / "cme_ethanol_platts" / "2026" / "ethanol-chicago-prices-end-of-day-04-04-2026.csv").exists()
+        assert (cache_root / "raw" / "local_chicago_ethanol_futures" / "2026" / "ethanol-chicago-prices-end-of-day-04-04-2026.csv").exists()
         latest_refresh = debug_payload.get("latest_refresh") or {}
         assert str((latest_refresh.get("landing_fetch") or {}).get("classification") or "") == "local_only_source"
         assert str(latest_refresh.get("final_classification") or "") == "local_only_source"
@@ -6953,7 +7682,7 @@ def test_cme_ethanol_provider_refresh_is_local_only_and_writes_debug() -> None:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
-def test_cme_ethanol_provider_maps_contract_codes_across_quarters() -> None:
+def test_local_chicago_ethanol_provider_maps_contract_codes_across_quarters() -> None:
     tmp_path = _local_test_dir(".pytest_tmp_cme_ethanol_contract_map_")
     try:
         csv_path = tmp_path / "manual_cme_ethanol_chicago_eod_2026-04-05.csv"
@@ -6967,7 +7696,7 @@ def test_cme_ethanol_provider_maps_contract_codes_across_quarters() -> None:
             encoding="utf-8",
         )
 
-        rows = parse_cme_ethanol_settlement_table(csv_path, fallback_date=None)
+        rows = parse_local_chicago_ethanol_futures_table(csv_path, fallback_date=None)
         tenors = {str(rec["contract_tenor"]) for rec in rows}
 
         assert {"jul26", "aug26", "sep26", "oct26", "jan27"}.issubset(tenors)
@@ -6980,8 +7709,8 @@ def test_cme_ethanol_provider_maps_contract_codes_across_quarters() -> None:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
-def test_cme_ethanol_provider_prefers_manual_file_deterministically() -> None:
-    provider = CMEChicagoEthanolPlattsProvider()
+def test_local_chicago_ethanol_provider_prefers_manual_file_deterministically() -> None:
+    provider = LocalChicagoEthanolFuturesProvider()
     tmp_path = _local_test_dir(".pytest_tmp_cme_ethanol_manual_priority_")
     try:
         cache_root = tmp_path / "sec_cache" / "market_data"
@@ -7010,6 +7739,118 @@ def test_cme_ethanol_provider_prefers_manual_file_deterministically() -> None:
         assert str(row["source_file"]) == "manual_cme_ethanol_chicago_eod_2026-04-05.csv"
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_local_barchart_corn_provider_parses_contract_rows_and_ignores_cash() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_local_corn_parse_")
+    try:
+        provider = LocalBarchartCornFuturesProvider()
+        csv_path = tmp_path / "corn-prices-end-of-day-04-23-2026.csv"
+        csv_path.write_text(
+            "Contract,Last,Time\n"
+            "\"ZCY00 (Cash)\",4.44,2026-04-23\n"
+            "\"ZCN26 (Jul '26)\",4.6275,2026-04-23\n"
+            "\"ZCU26 (Sep '26)\",4.6700,2026-04-23\n",
+            encoding="utf-8",
+        )
+
+        parsed_df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [{"report_date": "2026-04-23", "local_path": str(csv_path)}],
+        )
+
+        assert set(parsed_df["series_key"].astype(str)) == {"cbot_corn_jul26_usd", "cbot_corn_sep26_usd"}
+        assert set(parsed_df["source_type"].astype(str)) == {"local_barchart_corn_futures_csv"}
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_local_barchart_corn_provider_scales_real_barchart_cents_to_dollars() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_local_barchart_corn_scale_")
+    try:
+        csv_path = tmp_path / "corn-prices-end-of-day-04-23-2026.csv"
+        csv_path.write_text(
+            "Contract,Last,Time\n"
+            "\"ZCY00 (Cash)\",458.75,2026-04-22\n"
+            "\"ZCU26 (Sep '26)\",467,2026-04-22\n",
+            encoding="utf-8",
+        )
+        provider = LocalBarchartCornFuturesProvider()
+        parsed_df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [{"report_date": "2026-04-23", "local_path": str(csv_path)}],
+        )
+        assert len(parsed_df.index) == 1
+        row = parsed_df.iloc[0]
+        assert str(row["series_key"]) == "cbot_corn_sep26_usd"
+        assert float(pd.to_numeric(row["price_value"], errors="coerce")) == pytest.approx(4.67, abs=1e-9)
+        assert str(row["unit"]) == "$/bu"
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_local_barchart_gas_provider_parses_contract_rows() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_local_gas_parse_")
+    try:
+        provider = LocalBarchartGasFuturesProvider()
+        csv_path = tmp_path / "natural-gas-prices-end-of-day-04-23-2026.csv"
+        csv_path.write_text(
+            "Contract,Last,Time\n"
+            "\"NGN26 (Jul '26)\",3.110,2026-04-23\n"
+            "\"NGQ26 (Aug '26)\",3.220,2026-04-23\n",
+            encoding="utf-8",
+        )
+
+        parsed_df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [{"report_date": "2026-04-23", "local_path": str(csv_path)}],
+        )
+
+        assert set(parsed_df["series_key"].astype(str)) == {"nymex_gas_jul26_usd", "nymex_gas_aug26_usd"}
+        assert set(parsed_df["source_type"].astype(str)) == {"local_barchart_gas_futures_csv"}
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_local_barchart_gas_provider_discovers_camelcase_folder_and_intraday_latest() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_local_gas_discover_")
+    try:
+        provider = LocalBarchartGasFuturesProvider()
+        ticker_root = tmp_path / "GPRE"
+        futures_dir = ticker_root / "naturalGas_futures"
+        futures_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = futures_dir / "natural-gas-prices-intraday-04-24-2026.csv"
+        csv_path.write_text(
+            "Contract,Latest,Time\n"
+            "\"NGN26 (Jul '26)\",2.974,\"10:18 CT\"\n"
+            "\"NGQ26 (Aug '26)\",3.056,\"10:18 CT\"\n",
+            encoding="utf-8",
+        )
+
+        sync_result = provider.sync_raw(tmp_path / "cache", ticker_root, refresh=False)
+        parsed_df = provider.parse_raw_to_rows(tmp_path / "cache", ticker_root, sync_result["entries"])
+
+        assert int(sync_result["raw_added"]) == 1
+        assert set(parsed_df["series_key"].astype(str)) == {"nymex_gas_jul26_usd", "nymex_gas_aug26_usd"}
+        assert set(parsed_df["observation_date"].astype(str)) == {"2026-04-24"}
+        assert float(pd.to_numeric(parsed_df.loc[parsed_df["series_key"] == "nymex_gas_aug26_usd", "price_value"].iloc[0], errors="coerce")) == pytest.approx(3.056, abs=1e-9)
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_local_barchart_gas_provider_uses_natural_gas_folder_as_primary_home() -> None:
+    provider = LocalBarchartGasFuturesProvider()
+
+    assert provider.local_dir_name == "naturalGas_futures"
+    assert tuple(provider.local_patterns) == (
+        "naturalGas_futures/*.csv",
+        "naturalGas_futures/**/*.csv",
+    )
+    assert provider.owns_local_asset(Path("GPRE") / "naturalGas_futures" / "natural-gas-prices-end-of-day-04-24-2026.csv")
+    assert not provider.owns_local_asset(Path("GPRE") / "gas_futures" / "natural-gas-prices-end-of-day-04-24-2026.csv")
 
 
 def test_next_quarter_thesis_snapshot_builds_day_weighted_cme_ethanol_strip_for_q2() -> None:
@@ -7076,6 +7917,108 @@ def test_next_quarter_thesis_snapshot_moves_when_one_contract_month_changes() ->
     bumped_thesis = build_next_quarter_thesis_snapshot(bumped_rows, as_of_date=date(2026, 4, 4))
 
     assert float(pd.to_numeric(bumped_thesis["ethanol"]["price_value"], errors="coerce")) > float(pd.to_numeric(base_thesis["ethanol"]["price_value"], errors="coerce"))
+
+
+def test_next_quarter_thesis_snapshot_prefers_local_barchart_corn_and_gas_when_recent() -> None:
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_sep26_usd", instrument="Corn futures", price_value=4.82, contract_tenor="sep26", source_type="local_barchart_corn_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-17", publication_date="2026-04-17", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_sep26_usd", instrument="Corn futures", price_value=4.72, contract_tenor="sep26", source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_aug26_usd", instrument="Natural gas futures", price_value=3.22, contract_tenor="aug26", source_type="local_barchart_gas_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-17", publication_date="2026-04-17", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_aug26_usd", instrument="Natural gas futures", price_value=3.05, contract_tenor="aug26", source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_jul26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.95, contract_tenor="jul26", source_type="local_chicago_ethanol_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_aug26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.92, contract_tenor="aug26", source_type="local_chicago_ethanol_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_sep26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.89, contract_tenor="sep26", source_type="local_chicago_ethanol_futures_csv"),
+    ]
+
+    thesis = build_next_quarter_thesis_snapshot(rows, as_of_date=date(2026, 4, 23))
+
+    assert float(pd.to_numeric(thesis["corn"]["price_value"], errors="coerce")) == pytest.approx(4.82, abs=1e-9)
+    assert str(thesis["corn"]["source_type"]) == "local_barchart_corn_futures_csv"
+    assert float(pd.to_numeric(thesis["natural_gas"]["price_value"], errors="coerce")) == pytest.approx(3.22, abs=1e-9)
+    assert str(thesis["natural_gas"]["source_type"]) == "local_barchart_gas_futures_csv"
+
+
+def test_next_quarter_thesis_snapshot_falls_back_to_nwer_when_local_forward_files_are_stale() -> None:
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-19", publication_date="2026-04-19", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_sep26_usd", instrument="Corn futures", price_value=4.88, contract_tenor="sep26", source_type="local_barchart_corn_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-17", publication_date="2026-04-17", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_sep26_usd", instrument="Corn futures", price_value=4.72, contract_tenor="sep26", source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-19", publication_date="2026-04-19", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_aug26_usd", instrument="Natural gas futures", price_value=3.40, contract_tenor="aug26", source_type="local_barchart_gas_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-17", publication_date="2026-04-17", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_aug26_usd", instrument="Natural gas futures", price_value=3.05, contract_tenor="aug26", source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_jul26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.95, contract_tenor="jul26", source_type="local_chicago_ethanol_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_aug26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.92, contract_tenor="aug26", source_type="local_chicago_ethanol_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_sep26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.89, contract_tenor="sep26", source_type="local_chicago_ethanol_futures_csv"),
+    ]
+
+    thesis = build_next_quarter_thesis_snapshot(rows, as_of_date=date(2026, 4, 23))
+
+    assert float(pd.to_numeric(thesis["corn"]["price_value"], errors="coerce")) == pytest.approx(4.72, abs=1e-9)
+    assert str(thesis["corn"]["source_type"]) == "nwer_pdf"
+    assert float(pd.to_numeric(thesis["natural_gas"]["price_value"], errors="coerce")) == pytest.approx(3.05, abs=1e-9)
+    assert str(thesis["natural_gas"]["source_type"]) == "nwer_pdf"
+
+
+def test_next_quarter_thesis_snapshot_can_use_implied_gpre_futures_as_emergency_corn_fallback() -> None:
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_jul26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.95, contract_tenor="jul26", source_type="local_chicago_ethanol_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_aug26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.92, contract_tenor="aug26", source_type="local_chicago_ethanol_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_sep26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.89, contract_tenor="sep26", source_type="local_chicago_ethanol_futures_csv"),
+    ]
+    bids_snapshot = {
+        "status": "ok",
+        "snapshot_date": date(2026, 4, 23),
+        "rows": [
+            {"location": "Central City", "symbol": "@C6U", "delivery_end": date(2026, 9, 30), "cash_price": 4.47, "basis_usd_per_bu": -0.20},
+        ],
+    }
+
+    thesis = build_next_quarter_thesis_snapshot(rows, as_of_date=date(2026, 4, 23), bids_snapshot=bids_snapshot)
+
+    assert float(pd.to_numeric(thesis["corn"]["price_value"], errors="coerce")) == pytest.approx(4.67, abs=1e-9)
+    assert str(thesis["corn"]["source_type"]) == "gpre_bids_implied_futures"
+
+
+def test_next_quarter_preview_snapshot_does_not_double_count_basis_when_local_barchart_corn_is_used() -> None:
+    thesis_snapshot = {
+        "target_quarter_start": date(2026, 7, 1),
+        "target_quarter_end": date(2026, 9, 30),
+        "corn": {
+            "price_value": 4.82,
+            "observation_date": date(2026, 4, 22),
+            "source_type": "local_barchart_corn_futures_csv",
+            "official_weighted_corn_basis_usd_per_bu": -0.20,
+            "official_corn_basis_provenance": "fixture basis",
+        },
+        "natural_gas": {
+            "price_value": 3.22,
+            "observation_date": date(2026, 4, 22),
+            "source_type": "local_barchart_gas_futures_csv",
+        },
+        "ethanol": {
+            "price_value": 1.92,
+            "observation_date": date(2026, 4, 22),
+            "status": "ok",
+            "contract_tenors": ["jul26", "aug26", "sep26"],
+            "source_type": "local_chicago_ethanol_futures_csv",
+        },
+    }
+
+    preview = market_service.build_gpre_next_quarter_preview_snapshot(
+        [],
+        next_quarter_thesis_snapshot=thesis_snapshot,
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=date(2026, 4, 23),
+    )
+
+    corn_meta = dict((preview.get("market_meta") or {}).get("corn_price") or {})
+    assert float(pd.to_numeric((preview.get("current_market") or {}).get("corn_price"), errors="coerce")) == pytest.approx(4.62, abs=1e-9)
+    assert float(pd.to_numeric(corn_meta.get("cbot_corn_front_price_usd_per_bu"), errors="coerce")) == pytest.approx(4.82, abs=1e-9)
+    assert float(pd.to_numeric(corn_meta.get("official_weighted_corn_basis_usd_per_bu"), errors="coerce")) == pytest.approx(-0.20, abs=1e-9)
+
+
+def test_provider_registry_keeps_legacy_ethanol_alias_while_exposing_canonical_local_provider() -> None:
+    assert "local_chicago_ethanol_futures" in market_service.PROVIDERS
+    assert "cme_ethanol_platts" in market_service.PROVIDERS
 
 
 def test_local_ethanol_futures_do_not_contaminate_current_observed_ethanol_logic() -> None:
@@ -7226,6 +8169,40 @@ def test_manual_quarter_open_strip_backfills_current_quarter_when_frozen_missing
         assert ethanol_meta.get("source_type") == "manual_local_snapshot"
         assert ethanol_meta.get("quarter_open_provenance") == "manual_local_snapshot"
         assert ethanol_meta.get("contract_tenors") == ["apr26", "may26", "jun26"]
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
+
+
+def test_manual_quarter_open_snapshot_prefers_local_corn_and_gas_available_at_quarter_start() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_qopen_local_forward_")
+    try:
+        futures_dir = ticker_root / "Ethanol_futures"
+        futures_dir.mkdir(parents=True, exist_ok=True)
+        _write_manual_quarter_open_snapshot(futures_dir / "ethanol_chicago_futures_2026_Q2.txt")
+        rows = [
+            _parsed_row(aggregation_level="observation", observation_date="2026-03-31", publication_date="2026-03-31", quarter="2026-03-31", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=4.50, contract_tenor="may26", source_type="local_barchart_corn_futures_csv"),
+            _parsed_row(aggregation_level="observation", observation_date="2026-03-27", publication_date="2026-03-27", quarter="2026-03-31", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=4.70, contract_tenor="may26", source_type="nwer_pdf"),
+            _parsed_row(aggregation_level="observation", observation_date="2026-03-31", publication_date="2026-03-31", quarter="2026-03-31", market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=3.00, contract_tenor="may26", source_type="local_barchart_gas_futures_csv"),
+            _parsed_row(aggregation_level="observation", observation_date="2026-03-27", publication_date="2026-03-27", quarter="2026-03-31", market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=3.25, contract_tenor="may26", source_type="nwer_pdf"),
+        ]
+
+        resolved = market_service.resolve_gpre_quarter_open_snapshot(
+            ticker_root,
+            current_quarter_end=date(2026, 6, 30),
+            rows=rows,
+            ethanol_yield=2.9,
+            natural_gas_usage=28000.0,
+        )
+
+        market_snapshot = dict(resolved.get("official_market_snapshot") or {})
+        market_inputs = dict(market_snapshot.get("current_market") or {})
+        market_meta = dict(market_snapshot.get("market_meta") or {})
+        assert resolved["status"] == "ok"
+        assert resolved["provenance"] == "manual_local_snapshot"
+        assert float(pd.to_numeric(market_inputs.get("cbot_corn_front_price"), errors="coerce")) == pytest.approx(4.50, abs=1e-9)
+        assert float(pd.to_numeric(market_inputs.get("natural_gas_price"), errors="coerce")) == pytest.approx(3.00, abs=1e-9)
+        assert (market_meta.get("corn_price") or {}).get("as_of") == date(2026, 3, 31)
+        assert (market_meta.get("natural_gas_price") or {}).get("as_of") == date(2026, 3, 31)
     finally:
         shutil.rmtree(ticker_root, ignore_errors=True)
 
@@ -8691,6 +9668,59 @@ def test_gpre_current_qtd_driver_attribution_sums_to_displayed_delta() -> None:
         total_delta = float(pd.to_numeric(refs["quarter_open"]["delta_usd_per_gal"], errors="coerce"))
         assert set(rows_by_driver.keys()) == {"Ethanol", "Flat corn", "Corn basis", "Gas"}
         assert component_total == pytest.approx(total_delta, abs=1e-9)
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
+
+
+def test_gpre_current_qtd_driver_derives_quarter_open_basis_from_delivered_corn() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_current_qtd_delivered_basis_")
+    try:
+        current_snapshot, current_coproduct_frame = _gpre_qtd_snapshot_fixture(
+            as_of_date=date(2026, 6, 10),
+            quarter_end=date(2026, 6, 30),
+            ethanol_price=2.38,
+            cbot_corn_price=4.12,
+            corn_basis_usd_per_bu=0.28,
+            natural_gas_price=3.42,
+            coproduct_credit_usd_per_gal=0.44,
+        )
+        quarter_open_snapshot, quarter_open_coproduct_frame = _gpre_qtd_snapshot_fixture(
+            as_of_date=date(2026, 3, 31),
+            quarter_end=date(2026, 6, 30),
+            ethanol_price=2.14,
+            cbot_corn_price=4.02,
+            corn_basis_usd_per_bu=0.23,
+            natural_gas_price=3.25,
+            coproduct_credit_usd_per_gal=0.40,
+        )
+        quarter_open_snapshot["current_market"]["corn_price"] = 4.25
+        corn_meta = dict((quarter_open_snapshot.get("market_meta") or {}).get("corn_price") or {})
+        corn_meta.pop("official_weighted_corn_basis_usd_per_bu", None)
+        corn_meta["value"] = 4.25
+        corn_meta["official_corn_basis_source_kind"] = ""
+        quarter_open_snapshot["market_meta"]["corn_price"] = corn_meta
+
+        bundle = market_service.build_gpre_current_qtd_trend_tracking_bundle(
+            ticker_root=ticker_root,
+            current_snapshot=current_snapshot,
+            quarter_open_snapshot=quarter_open_snapshot,
+            current_coproduct_frame=current_coproduct_frame,
+            quarter_open_coproduct_frame=quarter_open_coproduct_frame,
+            ethanol_yield=2.80,
+            natural_gas_usage_btu_per_gal=30_000.0,
+        )
+
+        rows_by_driver = {
+            str(rec.get("driver") or ""): dict(rec)
+            for rec in list(bundle.get("driver_attribution_rows") or [])
+            if isinstance(rec, dict)
+        }
+        expected_current = -(0.28 / 2.80)
+        expected_quarter_open = -((4.25 - 4.02) / 2.80)
+        assert float(pd.to_numeric(rows_by_driver["Corn basis"]["quarter_open"], errors="coerce")) == pytest.approx(
+            expected_current - expected_quarter_open,
+            abs=1e-12,
+        )
     finally:
         shutil.rmtree(ticker_root, ignore_errors=True)
 

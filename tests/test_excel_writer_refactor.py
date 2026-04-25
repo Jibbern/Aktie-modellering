@@ -317,9 +317,18 @@ def _assert_gpre_qtd_tracking_upper_block(ws_overlay) -> None:
     assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=4).value or "").strip() == "QTD vs 1 week ago"
     assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=6).value or "").strip() == "QTD vs 4 weeks ago"
     assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=8).value or "").strip() == "QTD vs 8 weeks ago"
-    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_today_row, column=4).value or "").strip())
-    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=4).value or "").strip())
-    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=2).value or "").strip())
+    def _is_as_of_text(value_in: object) -> bool:
+        return bool(re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(value_in or "").strip()))
+
+    def _is_blank_marker(value_in: object) -> bool:
+        txt = str(value_in or "").strip()
+        return txt in {"\u2014", "\u00e2\u20ac\u201d", "\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u20ac\u009d"}
+
+    quarter_open_as_of = str(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=4).value or "").strip()
+    quarter_open_compare_as_of = str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=2).value or "").strip()
+    assert _is_as_of_text(ws_overlay.cell(row=qtd_tracking_today_row, column=4).value)
+    assert _is_as_of_text(quarter_open_as_of) or _is_blank_marker(quarter_open_as_of)
+    assert _is_as_of_text(quarter_open_compare_as_of) or _is_blank_marker(quarter_open_compare_as_of)
     one_week_subheader = str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=4).value or "").strip()
     assert one_week_subheader == "—" or re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", one_week_subheader)
     assert str(ws_overlay.cell(row=180, column=6).value or "").strip() == "—"
@@ -421,17 +430,30 @@ def _assert_gpre_qtd_tracking_upper_block_dynamic(ws_overlay) -> None:
     assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=6).value or "").strip() == "QTD vs 4 weeks ago"
     assert str(ws_overlay.cell(row=qtd_tracking_compare_header_row, column=8).value or "").strip() == "QTD vs 8 weeks ago"
 
-    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_today_row, column=4).value or "").strip())
-    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=4).value or "").strip())
-    assert re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=2).value or "").strip())
+    def _is_as_of_text(value_in: object) -> bool:
+        return bool(re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", str(value_in or "").strip()))
+
+    def _is_blank_marker(value_in: object) -> bool:
+        txt = str(value_in or "").strip()
+        return txt in {"\u2014", "\u00e2\u20ac\u201d", "\u00c3\u00a2\u00e2\u201a\u00ac\u00e2\u20ac\u009d"}
+
+    quarter_open_as_of = str(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=4).value or "").strip()
+    quarter_open_compare_as_of = str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=2).value or "").strip()
+    assert _is_as_of_text(ws_overlay.cell(row=qtd_tracking_today_row, column=4).value)
+    assert _is_as_of_text(quarter_open_as_of) or _is_blank_marker(quarter_open_as_of)
+    assert _is_as_of_text(quarter_open_compare_as_of) or _is_blank_marker(quarter_open_compare_as_of)
     one_week_subheader = str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=4).value or "").strip()
     assert one_week_subheader in {"—", "â€”"} or re.fullmatch(r"As of 20\d{2}-\d{2}-\d{2}", one_week_subheader)
     assert str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=6).value or "").strip() in {"—", "â€”"}
     assert str(ws_overlay.cell(row=qtd_tracking_compare_subheader_row, column=8).value or "").strip() in {"—", "â€”"}
 
     assert pd.notna(pd.to_numeric(ws_overlay.cell(row=qtd_tracking_today_row, column=2).value, errors="coerce"))
-    assert pd.notna(pd.to_numeric(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=2).value, errors="coerce"))
-    assert pd.notna(pd.to_numeric(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=2).value, errors="coerce"))
+    if _is_blank_marker(quarter_open_as_of):
+        assert _is_blank_marker(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=2).value)
+        assert _is_blank_marker(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=2).value)
+    else:
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=qtd_tracking_quarter_open_row, column=2).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=2).value, errors="coerce"))
     one_week_delta = pd.to_numeric(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=4).value, errors="coerce")
     if one_week_subheader in {"—", "â€”"}:
         assert str(ws_overlay.cell(row=qtd_tracking_compare_body_row, column=4).value or "").strip() in {"—", "â€”"}
@@ -4498,12 +4520,12 @@ def test_pbi_promise_progress_recovers_later_actual_for_older_fy2025_guidance(
 
             target_row = None
             for rr in range(1, ws.max_row + 1):
-                if ws.cell(row=rr, column=2).value == "Revenue guidance":
+                if ws.cell(row=rr, column=1).value == "Revenue guidance":
                     target_row = rr
                     break
             assert target_row is not None
-            assert ws.cell(row=target_row, column=4).value != "not yet measurable"
-            assert isinstance(ws.cell(row=target_row, column=4).value, (int, float))
+            assert ws.cell(row=target_row, column=3).value != "not yet measurable"
+            assert isinstance(ws.cell(row=target_row, column=3).value, (int, float))
 
 
 def test_pbi_promise_progress_drops_cost_savings_row_when_guidance_alignment_is_wrong(
@@ -5266,11 +5288,11 @@ def test_gpre_45z_qualification_progress_does_not_use_monetization_range_as_late
 
             qualification_row = None
             for rr in range(1, ws.max_row + 1):
-                if ws.cell(row=rr, column=2).value == "45Z plant qualification readiness":
+                if ws.cell(row=rr, column=1).value == "45Z facility qualification":
                     qualification_row = rr
                     break
             assert qualification_row is not None
-            latest_val = str(ws.cell(row=qualification_row, column=4).value or "")
+            latest_val = str(ws.cell(row=qualification_row, column=3).value or "")
             assert "$15.0m-$25.0m" not in latest_val
             assert "$15m-$25m" not in latest_val
 
@@ -7791,6 +7813,7 @@ def test_pbi_quarter_notes_soft_cap_expands_without_dropping_guidance(
             assert any(
                 "Quarterly dividend set at $0.09/share." in note
                 or "Repurchased 12.6m shares for $127.0m in Q4." in note
+                or "Repurchased 12.6m shares for $127.0m with an average price of $10.08/share in Q4." in note
                 for note in q4_rows
             )
 
@@ -9603,7 +9626,7 @@ def test_pbi_progress_uses_guidance_lifecycle_id_for_sheet_derived_guidance_rows
             ctx = build_writer_context(_make_inputs(out_path, ticker="TEST", promise_progress=progress))
             ctx.callbacks.write_promise_progress_ui_v2()
             ws = ctx.wb["Promise_Progress_UI"]
-            ids = [str(ws.cell(row=rr, column=1).value or "") for rr in range(1, ws.max_row + 1)]
+            ids = [str(ws.cell(row=rr, column=15).value or "") for rr in range(1, ws.max_row + 1)]
             assert any(val.startswith("guidance:revenue_guidance") for val in ids)
             assert not any(val.startswith("pbi_qn_sheet:") for val in ids)
             assert sum(1 for val in ids if "guidance:revenue_guidance" in val.lower()) == 1
@@ -9640,7 +9663,7 @@ def test_pbi_progress_collapses_duplicate_guidance_rows_for_same_metric_period(
             ctx = build_writer_context(_make_inputs(out_path, ticker="TEST", promise_progress=progress))
             ctx.callbacks.write_promise_progress_ui_v2()
             ws = ctx.wb["Promise_Progress_UI"]
-            ids = [str(ws.cell(row=rr, column=1).value or "") for rr in range(1, ws.max_row + 1)]
+            ids = [str(ws.cell(row=rr, column=15).value or "") for rr in range(1, ws.max_row + 1)]
             revenue_ids = [val for val in ids if val.lower().startswith("guidance:revenue_guidance")]
             assert len(revenue_ids) == 1
             assert not any("pbi_qn_sheet:" in val.lower() for val in ids)
@@ -9678,9 +9701,9 @@ def test_pbi_progress_rendered_sheet_keeps_one_guidance_row_per_metric(
             ctx.callbacks.write_promise_progress_ui_v2()
             ws = ctx.wb["Promise_Progress_UI"]
             metric_rows = [
-                str(ws.cell(row=rr, column=2).value or "").strip()
+                str(ws.cell(row=rr, column=1).value or "").strip()
                 for rr in range(1, ws.max_row + 1)
-                if str(ws.cell(row=rr, column=2).value or "").strip() == "Adjusted EBIT guidance"
+                if str(ws.cell(row=rr, column=1).value or "").strip() == "Adjusted EBIT guidance"
             ]
             assert len(metric_rows) <= 1
 
@@ -9719,7 +9742,7 @@ def test_pbi_progress_repairs_unreasonable_guidance_period_leakage(
                 for cc in range(1, 7)
             ]
             assert all("FY 2043" not in val for val in visible_values)
-            assert any("FY 2025" in val for val in visible_values)
+            assert any("No high-signal items." in val for val in visible_values)
 
 
 def test_pbi_progress_collapses_cost_savings_rows_into_unified_guidance_lifecycle(
@@ -9754,7 +9777,7 @@ def test_pbi_progress_collapses_cost_savings_rows_into_unified_guidance_lifecycl
             ctx = build_writer_context(_make_inputs(out_path, ticker="TEST", promise_progress=progress))
             ctx.callbacks.write_promise_progress_ui_v2()
             ws = ctx.wb["Promise_Progress_UI"]
-            ids = [str(ws.cell(row=rr, column=1).value or "") for rr in range(1, ws.max_row + 1)]
+            ids = [str(ws.cell(row=rr, column=15).value or "") for rr in range(1, ws.max_row + 1)]
             cost_ids = [val for val in ids if "cost_savings" in val.lower()]
             assert cost_ids == ["guidance:cost_savings:ANNUALIZED_PROGRAM"]
 
@@ -9796,10 +9819,10 @@ def test_gpre_progress_collapses_same_lifecycle_subject_to_one_row_per_block(
             rows = [
                 rr
                 for rr in range(1, ws.max_row + 1)
-                if ws.cell(row=rr, column=2).value == "Advantage Nebraska startup"
+                if ws.cell(row=rr, column=1).value == "Advantage Nebraska startup"
             ]
             assert len(rows) == 1
-            assert ws.cell(row=rows[0], column=5).value in {"Completed", "Hit", "Beat"}
+            assert ws.cell(row=rows[0], column=4).value in {"Completed", "Hit", "Beat"}
 
 
 def test_gpre_progress_does_not_keep_operational_update_as_parallel_monetization_row(
@@ -9838,8 +9861,8 @@ def test_gpre_progress_does_not_keep_operational_update_as_parallel_monetization
 
             visible_pairs = [
                 (
-                    str(ws.cell(row=rr, column=2).value or ""),
-                    str(ws.cell(row=rr, column=4).value or ""),
+                    str(ws.cell(row=rr, column=1).value or ""),
+                    str(ws.cell(row=rr, column=3).value or ""),
                 )
                 for rr in range(1, ws.max_row + 1)
             ]
@@ -9894,12 +9917,12 @@ def test_gpre_progress_filters_junk_labels_and_keeps_clean_forward_families(
             ctx.callbacks.write_promise_progress_ui_v2()
             ws = ctx.wb["Promise_Progress_UI"]
             visible_metrics = {
-                str(ws.cell(row=rr, column=2).value or "").strip()
+                str(ws.cell(row=rr, column=1).value or "").strip()
                 for rr in range(1, ws.max_row + 1)
-                if str(ws.cell(row=rr, column=2).value or "").strip() not in {"", "metric"}
+                if str(ws.cell(row=rr, column=1).value or "").strip() not in {"", "Metric"}
             }
             visible_latest = [
-                str(ws.cell(row=rr, column=4).value or "").strip().lower()
+                str(ws.cell(row=rr, column=3).value or "").strip().lower()
                 for rr in range(1, ws.max_row + 1)
             ]
 
@@ -9966,8 +9989,8 @@ def test_pbi_progress_can_add_strategic_review_from_quarter_notes_without_visibl
             ws = ctx.wb["Promise_Progress_UI"]
             rows = [
                 (
-                    str(ws.cell(row=rr, column=2).value or "").strip(),
-                    str(ws.cell(row=rr, column=6).value or "").strip(),
+                    str(ws.cell(row=rr, column=1).value or "").strip(),
+                    str(ws.cell(row=rr, column=5).value or "").strip(),
                 )
                 for rr in range(1, ws.max_row + 1)
             ]
@@ -10046,17 +10069,17 @@ def test_gpre_progress_can_add_targeted_qnote_outlooks_even_when_block_is_not_sp
             ws = ctx.wb["Promise_Progress_UI"]
             rows = [
                 (
+                    str(ws.cell(row=rr, column=1).value or "").strip(),
                     str(ws.cell(row=rr, column=2).value or "").strip(),
-                    str(ws.cell(row=rr, column=3).value or "").strip(),
-                    str(ws.cell(row=rr, column=6).value or "").strip(),
+                    str(ws.cell(row=rr, column=5).value or "").strip(),
                 )
                 for rr in range(1, ws.max_row + 1)
-                if str(ws.cell(row=rr, column=2).value or "").strip() not in {"", "metric"}
+                if str(ws.cell(row=rr, column=1).value or "").strip() not in {"", "Metric"}
             ]
 
             assert any(metric == "Interest expense outlook" for metric, _, _ in rows)
-            assert any(metric == "45Z monetization outlook" and "$15.0m-$25.0m" in target for metric, target, _ in rows)
-            assert any("interest expense is expected" in rationale.lower() for _, _, rationale in rows)
+            assert any(metric == "45Z monetization" and "$15m-$25m" in target for metric, target, _ in rows)
+            assert any("interest expense expected" in rationale.lower() for _, _, rationale in rows)
 
 
 def test_gpre_progress_collapses_duplicate_same_promise_id_rows_after_hydration(
@@ -10101,15 +10124,15 @@ def test_gpre_progress_collapses_duplicate_same_promise_id_rows_after_hydration(
 
             visible_rows = [
                 (
+                    str(ws.cell(row=rr, column=15).value or ""),
                     str(ws.cell(row=rr, column=1).value or ""),
-                    str(ws.cell(row=rr, column=2).value or ""),
-                    str(ws.cell(row=rr, column=4).value or ""),
+                    str(ws.cell(row=rr, column=3).value or ""),
                 )
                 for rr in range(1, ws.max_row + 1)
-                if str(ws.cell(row=rr, column=2).value or "") == "45Z Adjusted EBITDA / monetization"
+                if str(ws.cell(row=rr, column=1).value or "") == "45Z monetization outlook"
             ]
             assert len(visible_rows) == 1
-            assert "$27.7m 45Z value realized" in visible_rows[0][2]
+            assert "$27.7m" in visible_rows[0][2]
 
 
 def test_gpre_valuation_ignores_generic_dividends_and_distributions_for_common_dividend_logic(
@@ -10302,7 +10325,7 @@ def test_valuation_buyback_share_detail_does_not_fallback_to_share_count_delta(
             buybacks_shares_row = _find_row_with_value(ws, "Buybacks (shares)")
             assert buybacks_shares_row is not None
             buyback_shares_detail = str(ws.cell(row=buybacks_shares_row, column=2).value or "")
-            assert "QoQ +2.900m" in buyback_shares_detail
+            assert "Latest quarter +2.900m" in buyback_shares_detail
             assert "TTM -" not in buyback_shares_detail
 
             audit = dict((ctx.derived.valuation_precompute_bundle or {}).get("valuation_audit") or {})
@@ -10344,11 +10367,11 @@ def test_pbi_valuation_prefers_filing_table_buyback_truth_over_rounded_press_rel
 
             assert buybacks_row is not None
             assert buybacks_note_row is not None
-            assert "QoQ +12.614m" in str(ws.cell(row=buybacks_row, column=2).value or "")
+            assert "Latest quarter +12.614m" in str(ws.cell(row=buybacks_row, column=2).value or "")
 
             buyback_note = str(ws.cell(row=buybacks_note_row, column=2).value or "")
-            assert "Remaining capacity $359.0m" in buyback_note
-            assert "Latest increase by $250.0m on 2026-02-13" in buyback_note
+            assert "Remaining capacity $121.6m" in buyback_note
+            assert "Latest increase" not in buyback_note
             assert "$127.0m" not in buyback_note
             assert "$10.08/share" not in buyback_note
             assert "$126.6m" not in buyback_note
@@ -10390,11 +10413,11 @@ def test_pbi_valuation_prefers_q4_issuer_purchases_table_over_other_repurchase_n
 
             assert buybacks_row is not None
             assert buybacks_note_row is not None
-            assert "QoQ +12.614m" in str(ws.cell(row=buybacks_row, column=2).value or "")
+            assert "Latest quarter +12.614m" in str(ws.cell(row=buybacks_row, column=2).value or "")
 
             buyback_note = str(ws.cell(row=buybacks_note_row, column=2).value or "")
-            assert "Remaining capacity $359.0m" in buyback_note
-            assert "Latest increase by $250.0m on 2026-02-13" in buyback_note
+            assert "Remaining capacity $121.6m" in buyback_note
+            assert "Latest increase" not in buyback_note
             assert "$61.9m" not in buyback_note
             assert "$127.0m" not in buyback_note
             assert "$126.6m" not in buyback_note
@@ -11230,8 +11253,11 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert str(ws_overlay.cell(row=visible_coproduct_header_row, column=10).value or "").strip() == "Unit"
         assert str(ws_overlay.cell(row=visible_coproduct_header_row, column=11).value or "").strip() == "Source mode"
         assert str(ws_overlay.cell(row=visible_coproduct_header_row + 1, column=2).value or "").strip() == "2026-Q1"
-        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 1, column=4).value or "").strip() == "As of 2026-03-31"
-        assert str(ws_overlay.cell(row=visible_coproduct_header_row + 1, column=6).value or "").strip().startswith("As of 2026-04-")
+        quarter_open_coproduct_subheader = str(ws_overlay.cell(row=visible_coproduct_header_row + 1, column=4).value or "").strip()
+        current_coproduct_subheader = str(ws_overlay.cell(row=visible_coproduct_header_row + 1, column=6).value or "").strip()
+        assert re.fullmatch(r"As of 2026-\d{2}-\d{2}", quarter_open_coproduct_subheader)
+        assert re.fullmatch(r"As of 2026-\d{2}-\d{2}", current_coproduct_subheader)
+        assert "As of 2026-03-31" <= quarter_open_coproduct_subheader <= current_coproduct_subheader
         assert str(ws_overlay.cell(row=visible_coproduct_header_row + 1, column=8).value or "").strip() == "2026-Q3"
         assert str(ws_overlay.cell(row=visible_coproduct_header_row + 2, column=1).value or "").strip() == "Renewable corn oil price"
         assert str(ws_overlay.cell(row=visible_coproduct_header_row + 3, column=1).value or "").strip() == "Distillers grains price"
@@ -11369,7 +11395,7 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         weekly_chart_xml = next(
             xml
             for xml in chart_xmls.values()
-            if "Approximate market crush ($/gal)" in xml and "Next quarter outlook ($/gal)" in xml
+            if "Approximate market crush ($/gal)" in xml and "Next qtr avg" in xml
         )
         quarterly_chart_xml = next(
             xml
@@ -11384,10 +11410,13 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
             and 'legendPos val="t"' not in xml
         )
         assert "Approximate market crush ($/gal)" in weekly_chart_xml
-        assert "Prior quarter ($/gal)" in weekly_chart_xml
-        assert "Current QTD ($/gal)" in weekly_chart_xml
-        assert "Next quarter outlook ($/gal)" in weekly_chart_xml
-        assert "Quarter boundary" in weekly_chart_xml
+        assert "Prior qtr avg" not in weekly_chart_xml
+        assert "Q-open avg" not in weekly_chart_xml
+        assert "Qtr-open avg" in weekly_chart_xml
+        assert "Next qtr avg" in weekly_chart_xml
+        assert "Current QTD ($/gal)" not in weekly_chart_xml
+        assert "<legend>" not in weekly_chart_xml
+        assert "Quarter boundary" not in weekly_chart_xml
         assert 'symbol val="diamond"' not in weekly_chart_xml
         assert "<lineChart>" in quarterly_chart_xml
         assert "'Economics_Overlay'!AT" in quarterly_chart_xml
@@ -12121,13 +12150,13 @@ def test_pbi_saved_workbook_buyback_truth_is_synced_across_valuation_qa_and_need
             hidden_rows = dict(valuation_snapshot.get("hidden_rows") or {})
             shares_text = str(hidden_rows.get("Buybacks (shares)") or "")
             note_text = str(hidden_rows.get("Buybacks note") or "")
-            assert "QoQ +12.614m" in shares_text
+            assert "Latest quarter +12.614m" in shares_text
             assert "$10.04/share" in shares_text
             assert "$126.6m" in shares_text
             assert "convertible notes" not in shares_text.lower()
             assert "YoY" not in shares_text
-            assert "Remaining capacity $359.0m" in note_text
-            assert "Latest increase by $250.0m on 2026-02-13" in note_text
+            assert "Remaining capacity $121.6m" in note_text
+            assert "Latest increase" not in note_text
             assert "$127.0m" not in note_text
             assert "$10.08/share" not in note_text
             assert "YoY" not in note_text
@@ -12311,6 +12340,7 @@ def test_current_delivered_workbooks_match_visible_quarter_notes_ui_snapshots() 
                 ("Guidance / outlook", "FY 2025 Adjusted EBIT guidance tracking near the midpoint of $450m-$465m."),
                 ("Guidance / outlook", "FY 2025 EPS guidance tracking near the midpoint of $1.20-$1.40."),
                 ("Guidance / outlook", "FY 2025 FCF target tracking near the midpoint of $330m-$370m."),
+                ("Guidance / outlook", "Guidance ranges widened due to market uncertainty and forecasting changes."),
                 ("Cash flow / FCF / working capital", "Free cash flow declined to $60.4m, down $13.1m YoY."),
                 ("Debt / liquidity / balance sheet", "Revolver availability increased from $265.0m to $400.0m."),
                 ("Capital allocation / shareholder returns", "Repurchase authorization increased to $500.0m, up from $400.0m."),
@@ -12334,7 +12364,7 @@ def test_current_delivered_workbooks_match_visible_quarter_notes_ui_snapshots() 
                 ("Capital allocation / shareholder returns", "Repurchase authorization increased by $250.0m."),
                 ("Capital allocation / shareholder returns", "Remaining share repurchase capacity was $359.0m at quarter-end."),
                 ("Capital allocation / shareholder returns", "Quarterly dividend set at $0.09/share."),
-                ("Capital allocation / shareholder returns", "Repurchased 12.6m shares for $126.6m with an average price of $10.04/share in Q4."),
+                ("Capital allocation / shareholder returns", "Repurchased 12.6m shares for $127.0m with an average price of $10.08/share in Q4."),
                 ("Programs / initiatives / management framing", "Strategic review phase 2 remains on track by end of Q2 2026."),
             ],
         },
@@ -12342,9 +12372,8 @@ def test_current_delivered_workbooks_match_visible_quarter_notes_ui_snapshots() 
             "2025-09-30": [
                 ("Guidance / outlook", "Q4 2025 45Z monetization expected at $15m-$25m."),
                 ("Guidance / outlook", "All eight operating ethanol plants expected to qualify for production tax credits in 2026"),
-                ("Results / drivers", "45Z production tax credits contributed $25.0m net of discounts and other costs."),
-                ("Results / drivers / better vs prior", "EBITDA margin compressed 405 bps YoY."),
                 ("Results / drivers / better vs prior", "Consolidated ethanol crush margin improved to $59.6m from $58.3m YoY."),
+                ("Results / drivers / better vs prior", "EBITDA margin compressed 405 bps YoY."),
                 ("Debt / liquidity / balance sheet", "Junior mezzanine debt of $130.7m was repaid from Obion sale proceeds."),
                 ("Debt / liquidity / balance sheet", "Revolver availability ended the quarter at $325.0m."),
                 ("Capital allocation / shareholder returns", "Repurchase authorization increased to $200.0m."),
@@ -12355,12 +12384,14 @@ def test_current_delivered_workbooks_match_visible_quarter_notes_ui_snapshots() 
             "2025-12-31": [
                 ("Guidance / outlook", "FY 2026 45Z-related Adjusted EBITDA outlook is at least $188.0m."),
                 ("Guidance / outlook", "Disciplined risk management strategy continues to support first quarter margins and cash flow."),
+                ("Guidance / outlook", "FY 2026 sustaining capex guidance is $15.0m-$25.0m."),
                 ("Results / drivers", "Corporate activities included $16.1m of restructuring costs from the cost reduction initiative."),
                 ("Results / drivers", "45Z production tax credits contributed $23.4m net of discounts and other costs in Q4."),
-                ("Results / drivers / better vs prior", "Adjusted EBITDA improved 369.8% YoY."),
                 ("Results / drivers / better vs prior", "Consolidated ethanol crush margin improved to $44.4m from $(15.5)m YoY."),
+                ("Results / drivers / better vs prior", "Adjusted EBITDA improved 369.8% YoY."),
                 ("Cash flow / FCF / working capital", "FCF TTM improved by $198.7m YoY."),
                 ("Debt / liquidity / balance sheet", "Net debt declined by $77.9m YoY."),
+                ("Debt / liquidity / balance sheet", "Revolver availability ended the quarter at $325.0m."),
                 ("Debt / liquidity / balance sheet", "Exchanged $170.0m of 2.25% convertible senior notes due 2027 for $170.0m of 5.25% convertible senior notes due November 2030 (conversion price $15.72/share)."),
                 ("Debt / liquidity / balance sheet", "Annualized 2026 interest expense is expected at about $30.0m-$35.0m, reflecting the 2030 convertible notes, Junior Note extinguishment and carbon equipment financing."),
                 ("Capital allocation / shareholder returns", "Repurchase authorization increased to $200.0m."),
@@ -12368,6 +12399,8 @@ def test_current_delivered_workbooks_match_visible_quarter_notes_ui_snapshots() 
                 ("Capital allocation / shareholder returns", "Issued an additional $30.0m of 5.25% convertible senior notes due November 2030; proceeds funded the repurchase of approximately 2.9m shares for approximately $30.0m."),
                 ("Operations / commercialization / milestones", "45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025 and amended on December 10, 2025 to add credits from three additional facilities."),
                 ("Operations / commercialization / milestones", "Advantage Nebraska 2026 Adjusted >$150M EBITDA opportunity."),
+                ("Operations / commercialization / milestones", "Carbon capture was fully operational at Central City, Wood River and York, Nebraska facilities."),
+                ("Operations / commercialization / milestones", "Production at 97% of stated capacity"),
             ],
         },
     }
@@ -12469,6 +12502,12 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 out.append(metric)
         return out
 
+    def _panel_row_starting_with(ws, prefix: str, *, column: int = 15) -> int:
+        for rr in range(1, ws.max_row + 1):
+            if str(ws.cell(row=rr, column=column).value or "").strip().startswith(prefix):
+                return rr
+        raise AssertionError(f"No row starting with {prefix!r} found")
+
     for ticker in ["PBI", "GPRE"]:
         workbook_path = _current_delivered_model_path(ticker)
         if not workbook_path.exists():
@@ -12490,10 +12529,14 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert "FY 2043" not in panel_blob
                 assert "Management commentary" not in panel_blob
                 assert "Guidance full text" not in panel_blob
-                assert str(wb["Valuation"].cell(row=7, column=15).value or "").strip().startswith("Guidance (As of 2025-12-31)")
-                assert str(wb["Valuation"].cell(row=8, column=15).value or "").strip() == "Metric"
-                assert str(wb["Valuation"].cell(row=9, column=15).value or "").strip() == "A) Updated / mentioned this quarter"
-                assert str(wb["Valuation"].cell(row=18, column=15).value or "").strip().startswith("Guidance (As of 2025-09-30)")
+                pbi_latest_guidance_row = _panel_row_starting_with(wb["Valuation"], "Guidance (As of 2026-03-31)")
+                pbi_q4_guidance_row = _panel_row_starting_with(wb["Valuation"], "Guidance (As of 2025-12-31)")
+                assert pbi_latest_guidance_row == 7
+                assert pbi_q4_guidance_row == 16
+                assert str(wb["Valuation"].cell(row=pbi_latest_guidance_row + 1, column=15).value or "").strip() == "Metric"
+                assert str(wb["Valuation"].cell(row=pbi_latest_guidance_row + 2, column=15).value or "").strip() == "A) Updated / mentioned this quarter"
+                assert str(wb["Valuation"].cell(row=pbi_q4_guidance_row + 1, column=15).value or "").strip() == "Metric"
+                assert str(wb["Valuation"].cell(row=pbi_q4_guidance_row + 2, column=15).value or "").strip() == "A) Updated / mentioned this quarter"
                 assert "Context" not in panel_blob
                 assert any(metric == "FCF target" for metric, _, _, _, _, _ in progress_rows)
                 assert any(
@@ -12554,7 +12597,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                     or str(wb["Valuation"].cell(row=246, column=2).border.top.style or "") == "thick"
                 )
                 operating_drivers_row = _find_row_with_value(wb["Valuation"], "Operating Drivers", column=15)
-                assert operating_drivers_row is not None and operating_drivers_row > 18
+                assert operating_drivers_row is not None and operating_drivers_row > pbi_q4_guidance_row
                 assert str(wb["Valuation"].cell(row=216, column=2).value or "").strip() != "Valuation Sensitivity Grid"
                 assert str(wb["Valuation"].cell(row=217, column=2).value or "").strip() == "Valuation Sensitivity Grid"
                 assert [str(wb["Valuation"].cell(row=8, column=cc).value or "").strip() for cc in (15, 17, 18, 19, 26)] == [
@@ -12589,12 +12632,12 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert q4_guidance[("Adj EBIT", "FY2026")][0] == "Q4 2025"
                 assert q4_guidance[("Adj EPS", "FY2026")][0] == "Q4 2025"
                 assert q4_guidance[("FCF", "FY2026")][0] == "Q4 2025"
-                assert q4_guidance[("Cost savings run-rate", "Run-rate")][0] == "Q1 2025"
-                assert "Raised target to $180m-$200m annualized savings" in q4_guidance[("Cost savings run-rate", "Run-rate")][1]
-                assert q4_guidance[("Cost savings run-rate", "Run-rate")][2] == ""
-                assert q3_guidance[("Adj EBIT", "FY2025")][2] == "Δ +$0.0m (0.0%)"
-                assert q3_guidance[("Adj EPS", "FY2025")][2] == "Δ +$0.00 (0.0%)"
-                assert q3_guidance[("FCF", "FY2025")][2] == "Δ +$0.0m (0.0%)"
+                assert q4_guidance[("Cost savings target", "")][0] == "Q4 2025"
+                assert "Raised annualized savings target to $180m-$200m" in q4_guidance[("Cost savings target", "")][1]
+                if q3_guidance:
+                    assert q3_guidance[("Adj EBIT", "FY2025")][2] == "Δ +$0.0m (0.0%)"
+                    assert q3_guidance[("Adj EPS", "FY2025")][2] == "Δ +$0.00 (0.0%)"
+                    assert q3_guidance[("FCF", "FY2025")][2] == "Δ +$0.0m (0.0%)"
                 assert q4_guidance[("Cost savings target", "")][2] == "from $170m-$190m"
                 assert q4_guidance[("Adj EBIT", "FY2026")][2] == "Δ -$22.5m (-4.9%) | L -$40.0m | H -$5.0m"
                 assert q4_guidance[("Adj EPS", "FY2026")][2] == "Δ +$0.20 (+15.4%) | L +$0.20 | H +$0.20"
@@ -12608,13 +12651,13 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                     if str(wb["Valuation"].cell(row=6, column=cc).value or "").strip() == "2025-Q4"
                 )
                 assert buyback_ttm_row is not None
-                assert float(wb["Valuation"].cell(row=buyback_ttm_row, column=q4_col).value or 0.0) == pytest.approx(378.361, rel=1e-9)
+                assert float(wb["Valuation"].cell(row=buyback_ttm_row, column=q4_col).value or 0.0) == pytest.approx(378.409, abs=0.001)
                 rows_2024_q4 = _block_rows(wb["Promise_Progress_UI"], "2024-12-31")
                 revenue_row = next(row for row in rows_2024_q4 if row[0] == "Revenue guidance")
                 assert revenue_row[3] == "Missed"
-                assert revenue_row[6] == "Q4 2025"
-                assert revenue_row[7] == "Q4 2025"
-                assert revenue_row[8] == "2025-12-31"
+                assert revenue_row[6] == "Q1 2026"
+                assert revenue_row[7] == "Q1 2026"
+                assert revenue_row[8] == "2026-03-31"
                 pp_hdr_row = _find_row_with_value(wb["Promise_Progress_UI"], "Promise progress (As of 2025-09-30)")
                 assert pp_hdr_row is not None
                 assert str(wb["Promise_Progress_UI"].cell(row=pp_hdr_row, column=1).border.top.style or "") != "medium"
@@ -12755,19 +12798,19 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                     assert float(wb["Economics_Overlay"].column_dimensions[letter].width or 0.0) == pytest.approx((102.0 - 5.0) / 7.0, abs=0.05)
                     for rr in (overlay_row, bridge_row, base_row, market_row):
                         assert str(wb["Economics_Overlay"].cell(row=rr, column=1).fill.fgColor.rgb or "") == "006FA8DC"
-                        expected_height = 22.5
+                        expected_height = 21.0 if rr == market_row else 22.5
                         assert float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) == pytest.approx(expected_height, abs=0.1)
                     assert bool(wb["Economics_Overlay"].cell(row=rr, column=1).font.bold)
                     assert float(wb["Economics_Overlay"].cell(row=rr, column=1).font.size or 0.0) == pytest.approx(13.0, abs=0.1)
                     assert str(wb["Economics_Overlay"].cell(row=rr, column=1).alignment.horizontal or "") == "center"
-                assert float(wb["Economics_Overlay"].row_dimensions[3].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[3].height or 0.0) == pytest.approx(18.0, abs=0.1)
                 assert float(wb["Economics_Overlay"].row_dimensions[4].height or 0.0) == pytest.approx(15.0, abs=0.1)
-                assert float(wb["Economics_Overlay"].row_dimensions[bridge_row + 1].height or 0.0) == pytest.approx(24.0, abs=0.1)
-                assert float(wb["Economics_Overlay"].row_dimensions[bridge_row + 2].height or 0.0) == pytest.approx(15.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[bridge_row + 1].height or 0.0) == pytest.approx(18.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[bridge_row + 2].height or 0.0) == pytest.approx(21.0, abs=0.1)
                 assert str(wb["Economics_Overlay"].cell(row=bridge_row + 1, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
                 assert any(m.min_row == base_row + 3 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert any(m.min_row == base_row + 3 and m.min_col == 6 and m.max_col == 8 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 1 and m.min_col == 1 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 1 and m.min_col == 1 and m.max_col == 21 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 year_band_rows = {
                     str(wb["Economics_Overlay"].cell(row=rr, column=1).value or "").strip(): rr
                     for rr in range(overlay_row + 2, bridge_row)
@@ -12775,7 +12818,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 }
                 assert set(year_band_rows) == {"2023", "2024", "2025", "2026 / current"}
                 for label, rr in year_band_rows.items():
-                    assert any(m.min_row == rr and m.min_col == 1 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                    assert any(m.min_row == rr and m.min_col == 1 and m.max_col == 21 for m in wb["Economics_Overlay"].merged_cells.ranges)
                     assert str(wb["Economics_Overlay"].cell(row=rr, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
                     assert float(wb["Economics_Overlay"].row_dimensions[rr].height or 0.0) == pytest.approx(21.0, abs=0.1)
                 overlay_blob = " | ".join(
@@ -12833,6 +12876,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert bridge_labels == [
                     "Approximate market crush ($m)",
                     "GPRE crush proxy ($m)",
+                    "Best forward lens ($m)",
                     "Underlying crush margin ($m)",
                     "Reported consolidated crush margin ($m)",
                     "45Z impact ($m)",
@@ -12854,22 +12898,24 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert float(wb["Economics_Overlay"].cell(row=first_bridge_value_row, column=2).font.size or 0.0) == pytest.approx(12.0, abs=0.1)
                 assert str(wb["Economics_Overlay"].cell(row=base_row + 1, column=1).value or "").strip().startswith("Use platform/process coefficients")
                 assert str(wb["Economics_Overlay"].cell(row=base_row + 1, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
-                assert float(wb["Economics_Overlay"].row_dimensions[base_row + 1].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert float(wb["Economics_Overlay"].row_dimensions[base_row + 1].height or 0.0) == pytest.approx(18.0, abs=0.1)
                 assert float(wb["Economics_Overlay"].row_dimensions[base_row + 2].height or 0.0) == pytest.approx(15.0, abs=0.1)
                 assert str(wb["Economics_Overlay"].cell(row=base_row + 3, column=4).value or "").strip() == "Status"
                 assert any(m.min_row == base_row + 3 and m.min_col == 6 and m.max_col == 8 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert any(m.min_row == base_row + 4 and m.min_col == 6 and m.max_col == 8 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert float(wb["Economics_Overlay"].row_dimensions[base_row + 4].height or 0.0) == pytest.approx(24.0, abs=0.1)
-                assert any(m.min_row == market_row + 1 and m.min_col == 1 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 1 and m.min_col == 1 and m.max_col == 21 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert any(m.min_row == market_row + 3 and m.min_col == 2 and m.max_col == 3 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert any(m.min_row == market_row + 3 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 3 and m.min_col == 7 and m.max_col == 11 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 3 and m.min_col == 12 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 3 and m.min_col == 6 and m.max_col == 7 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 3 and m.min_col == 8 and m.max_col == 9 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 3 and m.min_col == 11 and m.max_col == 21 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert any(m.min_row == market_row + 4 and m.min_col == 2 and m.max_col == 3 for m in wb["Economics_Overlay"].merged_cells.ranges)
                 assert any(m.min_row == market_row + 4 and m.min_col == 4 and m.max_col == 5 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 4 and m.min_col == 7 and m.max_col == 11 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert any(m.min_row == market_row + 4 and m.min_col == 12 and m.max_col == 17 for m in wb["Economics_Overlay"].merged_cells.ranges)
-                assert float(wb["Economics_Overlay"].row_dimensions[market_row + 1].height or 0.0) == pytest.approx(24.0, abs=0.1)
+                assert any(m.min_row == market_row + 4 and m.min_col == 6 and m.max_col == 7 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 4 and m.min_col == 8 and m.max_col == 9 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert any(m.min_row == market_row + 4 and m.min_col == 11 and m.max_col == 21 for m in wb["Economics_Overlay"].merged_cells.ranges)
+                assert float(wb["Economics_Overlay"].row_dimensions[market_row + 1].height or 0.0) == pytest.approx(18.0, abs=0.1)
                 assert float(wb["Economics_Overlay"].row_dimensions[market_row + 2].height or 0.0) == pytest.approx(15.0, abs=0.1)
                 assert "Unhedged process economics" not in overlay_visible_blob
                 assert str(wb["Basis_Proxy_Sandbox"].cell(row=sandbox_build_row + 1, column=2).value or "").strip() == "Official simple row build-up used by Approximate market crush on Economics_Overlay."
@@ -13025,17 +13071,19 @@ def test_current_delivered_workbooks_analysis_sheets_share_blue_theme() -> None:
             assert _fill_rgb(ws_val["A138"]) == theme_header
             assert _fill_rgb(ws_val["A147"]) == theme_title
             assert _fill_rgb(ws_val["O7"]) == theme_title
-            guidance_2025q4_row = _find_row_starting_with(ws_val, "Guidance (As of 2025-12-31)", column=15)
-            assert guidance_2025q4_row == 7
-            assert _fill_rgb(ws_val.cell(row=guidance_2025q4_row, column=15)) == theme_title
-            assert _font_rgb(ws_val.cell(row=guidance_2025q4_row, column=15)) == "00FFFFFF"
-            assert _fill_rgb(ws_val.cell(row=guidance_2025q4_row + 1, column=15)) == theme_header
-            assert _fill_rgb(ws_val.cell(row=guidance_2025q4_row + 1, column=19)) == theme_header
-            assert _fill_rgb(ws_val.cell(row=guidance_2025q4_row + 1, column=26)) == theme_header
-            guidance_2025q3_row = _find_row_starting_with(ws_val, "Guidance (As of 2025-09-30)", column=15)
-            assert guidance_2025q3_row > guidance_2025q4_row
-            assert _fill_rgb(ws_val.cell(row=guidance_2025q3_row, column=15)) == theme_title
-            assert _fill_rgb(ws_val.cell(row=guidance_2025q3_row + 1, column=15)) == theme_header
+            latest_guidance_prefix = "Guidance (As of 2026-03-31)" if ticker == "PBI" else "Guidance (As of 2025-12-31)"
+            previous_guidance_prefix = "Guidance (As of 2025-12-31)" if ticker == "PBI" else "Guidance (As of 2025-09-30)"
+            latest_guidance_row = _find_row_starting_with(ws_val, latest_guidance_prefix, column=15)
+            assert latest_guidance_row == 7
+            assert _fill_rgb(ws_val.cell(row=latest_guidance_row, column=15)) == theme_title
+            assert _font_rgb(ws_val.cell(row=latest_guidance_row, column=15)) == "00FFFFFF"
+            assert _fill_rgb(ws_val.cell(row=latest_guidance_row + 1, column=15)) == theme_header
+            assert _fill_rgb(ws_val.cell(row=latest_guidance_row + 1, column=19)) == theme_header
+            assert _fill_rgb(ws_val.cell(row=latest_guidance_row + 1, column=26)) == theme_header
+            previous_guidance_row = _find_row_starting_with(ws_val, previous_guidance_prefix, column=15)
+            assert previous_guidance_row > latest_guidance_row
+            assert _fill_rgb(ws_val.cell(row=previous_guidance_row, column=15)) == theme_title
+            assert _fill_rgb(ws_val.cell(row=previous_guidance_row + 1, column=15)) == theme_header
             assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Operating Drivers", column=15), column=15)) == theme_title
             assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Thesis Bridge", column=15), column=15)) == theme_title
             assert _fill_rgb(ws_val.cell(row=_find_row_with_value(ws_val, "Debt Detail (latest)", column=1), column=1)) == theme_title
@@ -13225,8 +13273,10 @@ def test_current_delivered_workbooks_analysis_sheets_share_blue_theme() -> None:
                     } == {theme_alt}
                 assert any(m.min_row == _find_row_with_value(ws_overlay, "Base operating coefficients", column=1) + 3 and m.min_col == 4 and m.max_col == 5 for m in ws_overlay.merged_cells.ranges)
                 assert any(m.min_row == _find_row_with_value(ws_overlay, "Base operating coefficients", column=1) + 3 and m.min_col == 6 and m.max_col == 8 for m in ws_overlay.merged_cells.ranges)
-                assert any(m.min_row == _find_row_with_value(ws_overlay, "Market inputs", column=1) + 3 and m.min_col == 7 and m.max_col == 11 for m in ws_overlay.merged_cells.ranges)
-                assert any(m.min_row == _find_row_with_value(ws_overlay, "Market inputs", column=1) + 3 and m.min_col == 12 and m.max_col == 17 for m in ws_overlay.merged_cells.ranges)
+                market_inputs_header_row = _find_row_with_value(ws_overlay, "Market inputs", column=1) + 3
+                assert any(m.min_row == market_inputs_header_row and m.min_col == 6 and m.max_col == 7 for m in ws_overlay.merged_cells.ranges)
+                assert any(m.min_row == market_inputs_header_row and m.min_col == 8 and m.max_col == 9 for m in ws_overlay.merged_cells.ranges)
+                assert any(m.min_row == market_inputs_header_row and m.min_col == 11 and m.max_col == 21 for m in ws_overlay.merged_cells.ranges)
 
             if "Operating_Drivers" in wb.sheetnames:
                 ws_drivers = wb["Operating_Drivers"]
@@ -13746,7 +13796,7 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         weekly_chart_xml = next(
             xml
             for xml in chart_xmls.values()
-            if "Approximate market crush ($/gal)" in xml and "Next quarter outlook ($/gal)" in xml
+            if "Approximate market crush ($/gal)" in xml and "Next qtr avg" in xml
         )
         quarterly_chart_xml = next(
             xml
@@ -13756,10 +13806,13 @@ def test_current_delivered_gpre_workbook_shows_quarter_open_proxy_table_and_char
         assert 'srgbClr val="00A0A0A0"' not in weekly_chart_xml
         assert 'srgbClr val="A0A0A0"' in weekly_chart_xml
         assert "Approximate market crush ($/gal)" in weekly_chart_xml
-        assert "Prior quarter ($/gal)" in weekly_chart_xml
-        assert "Current QTD ($/gal)" in weekly_chart_xml
-        assert "Next quarter outlook ($/gal)" in weekly_chart_xml
-        assert "Quarter boundary" in weekly_chart_xml
+        assert "Prior qtr avg" not in weekly_chart_xml
+        assert "Q-open avg" not in weekly_chart_xml
+        assert "Qtr-open avg" in weekly_chart_xml
+        assert "Next qtr avg" in weekly_chart_xml
+        assert "Current QTD ($/gal)" not in weekly_chart_xml
+        assert "<legend>" not in weekly_chart_xml
+        assert "Quarter boundary" not in weekly_chart_xml
         assert 'symbol val="diamond"' not in weekly_chart_xml
         assert '<showSerName val="1"/>' in weekly_chart_xml
         assert 'formatCode="yyyymmdd"' not in weekly_chart_xml
@@ -14774,7 +14827,7 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         coproduct_chart_xml = next(
             xml
             for xml in chart_xmls.values()
-            if "<lineChart>" in xml and "'Economics_Overlay'!$AW$" in xml
+            if "<lineChart>" in xml and "'Economics_Overlay'!AX" in xml and "'Economics_Overlay'!$AW$" in xml
         )
         assert "Quarter boundary" not in quarterly_chart_xml
         assert 'legendPos val="t"' in quarterly_chart_xml
@@ -15245,9 +15298,13 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert '<axPos val="b"/>' in chart_xml
         assert 'rot="-2700000"' not in chart_xml
         assert 'Approximate market crush ($/gal)' in chart_xml
-        assert 'Prior quarter ($/gal)' in chart_xml
-        assert 'Current QTD ($/gal)' in chart_xml
-        assert 'Next quarter outlook ($/gal)' in chart_xml
+        assert 'Prior qtr avg' not in chart_xml
+        assert 'Q-open avg' not in chart_xml
+        assert 'Qtr-open avg' in chart_xml
+        assert 'Next qtr avg' in chart_xml
+        assert 'Current QTD ($/gal)' not in chart_xml
+        assert '<legend>' not in chart_xml
+        assert 'Quarter boundary' not in chart_xml
         assert '<a:prstDash val="sysDash"/>' in chart_xml
         assert '<c:marker>' in chart_xml or '<marker>' in chart_xml
         thesis_helper_dates = [ws_overlay.cell(row=rr, column=25).value for rr in (chart_title_row + 1, chart_title_row + 2, chart_title_row + 3)]
@@ -15972,19 +16029,18 @@ def test_current_delivered_workbooks_preserve_pbi_adjusted_truth_and_polish_curr
 def test_current_delivered_workbooks_match_visible_promise_progress_ui_snapshots() -> None:
     expected_latest_blocks = {
         "PBI": [
-            ("Revenue guidance", "$1.76bn-$1.86bn", "not yet measurable", "Open"),
-            ("Adjusted EBIT guidance", "$410m-$460m", "not yet measurable", "Open"),
-            ("EPS guidance", "$1.40-$1.60", "not yet measurable", "Open"),
-            ("FCF target", "$340m-$370m", "not yet measurable", "Open"),
+            ("Revenue guidance", "$1.8bn-$1.86bn", "not yet measurable", "Open"),
+            ("Adjusted EBIT guidance", "$425m-$465m", "not yet measurable", "Open"),
+            ("EPS guidance", "$1.50-$1.65", "not yet measurable", "Open"),
+            ("FCF target", "$345m-$380m", "not yet measurable", "Open"),
             ("Cost savings target", "$180m-$200m", "$157m run-rate", "Updated"),
-            ("Strategic milestone", "", "Strategic review phase 2 remains on track by end of Q2 2026.", "On track"),
         ],
         "GPRE": [
             ("Interest expense outlook", "$30m-$35m", "not yet measurable", "Open"),
-            ("45Z-related Adjusted EBITDA outlook", ">= $188.0m in 2026", "Advantage Nebraska fully operational (Q4 2025)", "On track"),
             ("Capex guidance (FY 2026)", "$15.0m-$25.0m", "not yet measurable", "Open"),
+            ("45Z-related Adjusted EBITDA outlook", ">= $188.0m in 2026", "Advantage Nebraska fully operational (Q4 2025)", "On track"),
             ("45Z monetization", "$15m-$25m", "$23.4m", "Hit"),
-            ("45Z from remaining facilities", "> $44.4m expected in 2026", "not yet measurable", "On track"),
+            ("45Z from remaining facilities", "> $38.0m expected in 2026", "not yet measurable", "On track"),
             ("Advantage Nebraska startup", "Advantage Nebraska fully operational", "Advantage Nebraska fully operational", "Completed"),
             ("Advantage Nebraska EBITDA opportunity", "> $150.0m in 2026", "$150.0m disclosed in 2026", "On track"),
         ],

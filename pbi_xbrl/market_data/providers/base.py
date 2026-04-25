@@ -67,6 +67,16 @@ class BaseMarketProvider:
         out.mkdir(parents=True, exist_ok=True)
         return out
 
+    def owns_local_asset(self, path: Path) -> bool:
+        return True
+
+    def infer_local_report_date(self, path: Path) -> Optional[pd.Timestamp]:
+        return self._date_from_name(path)
+
+    def normalize_local_filenames(self, ticker_root: Path) -> List[Dict[str, Any]]:
+        del ticker_root
+        return []
+
     def _is_direct_asset_url(self, url: str) -> bool:
         suffix = Path(urllib.parse.urlparse(str(url or "")).path).suffix.lower()
         return suffix == ".pdf" or suffix in self.data_suffixes
@@ -279,7 +289,13 @@ class BaseMarketProvider:
         final_payload = dict(payload)
         if merge:
             existing = self._load_remote_debug(cache_root)
-            existing.update(final_payload)
+            for key, value in final_payload.items():
+                if isinstance(existing.get(key), dict) and isinstance(value, dict):
+                    nested = dict(existing.get(key) or {})
+                    nested.update(value)
+                    existing[key] = nested
+                else:
+                    existing[key] = value
             final_payload = existing
         final_payload.setdefault("source", str(self.source or ""))
         try:
@@ -601,11 +617,9 @@ class BaseMarketProvider:
 
     def discover_remote_assets(self, as_of: Optional[date] = None, cache_root: Optional[Path] = None) -> List[Dict[str, Any]]:
         public_candidates = self._discover_public_data_assets(as_of=as_of, cache_root=cache_root)
-        if public_candidates:
-            return public_candidates
         landing_url = str(self.landing_page_url or "").strip()
         if not landing_url:
-            return []
+            return public_candidates
         debug_payload: Dict[str, Any] = {
             "source": str(self.source or ""),
             "latest_refresh": {
@@ -636,9 +650,18 @@ class BaseMarketProvider:
                 "attempts": list(exc.attempts or []),
                 "error": f"{type(exc.final_exc).__name__}: {exc.final_exc}",
             }
-            debug_payload["latest_refresh"]["final_classification"] = landing_class if landing_class in {"network_timeout", "environment_blocked", "http_forbidden"} else "landing_fetch_failure"
+            debug_payload["latest_refresh"]["final_classification"] = (
+                "success"
+                if public_candidates
+                else landing_class if landing_class in {"network_timeout", "environment_blocked", "http_forbidden"} else "landing_fetch_failure"
+            )
+            if public_candidates:
+                debug_payload["latest_refresh"]["selected_candidates"] = [
+                    self._sanitize_candidate_debug(cand) for cand in public_candidates
+                ]
+                debug_payload["latest_refresh"]["chosen_url"] = str((public_candidates[0] or {}).get("url") or "")
             self._write_remote_debug(cache_root, debug_payload, merge=True)
-            return []
+            return public_candidates
         debug_payload["latest_refresh"]["landing_fetch"] = {
             "status": "ok",
             "classification": "success",
@@ -773,22 +796,40 @@ class BaseMarketProvider:
             self._sanitize_candidate_debug(cand) for cand in candidates
         ]
         if not candidates:
-            if not str(debug_payload["latest_refresh"].get("slug_id") or "").strip() and not fragment_urls:
+            if public_candidates:
+                debug_payload["latest_refresh"]["final_classification"] = "success"
+                debug_payload["latest_refresh"]["selected_candidates"] = [
+                    self._sanitize_candidate_debug(cand) for cand in public_candidates
+                ]
+                debug_payload["latest_refresh"]["chosen_url"] = str((public_candidates[0] or {}).get("url") or "")
+            elif not str(debug_payload["latest_refresh"].get("slug_id") or "").strip() and not fragment_urls:
                 debug_payload["latest_refresh"]["final_classification"] = "slug_not_found"
             elif fragment_urls and fragment_successes == 0:
                 debug_payload["latest_refresh"]["final_classification"] = "fragment_fetch_failure"
             else:
                 debug_payload["latest_refresh"]["final_classification"] = "no_candidates_found"
             self._write_remote_debug(cache_root, debug_payload, merge=True)
-            return []
+            return public_candidates
         selected = self._select_remote_candidates(candidates, as_of=as_of)
+        combined: List[Dict[str, Any]] = []
+        seen_candidates: set[tuple[str, str]] = set()
+        for cand in [*public_candidates, *selected]:
+            url = str(cand.get("url") or "").strip()
+            asset_type = str(cand.get("asset_type") or "").strip()
+            if not url or not asset_type:
+                continue
+            dedupe_key = (url, asset_type)
+            if dedupe_key in seen_candidates:
+                continue
+            seen_candidates.add(dedupe_key)
+            combined.append(cand)
         debug_payload["latest_refresh"]["selected_candidates"] = [
-            self._sanitize_candidate_debug(cand) for cand in selected
+            self._sanitize_candidate_debug(cand) for cand in combined
         ]
-        debug_payload["latest_refresh"]["chosen_url"] = str((selected[0] or {}).get("url") or "") if selected else ""
-        debug_payload["latest_refresh"]["final_classification"] = "success" if selected else "no_candidates_found"
+        debug_payload["latest_refresh"]["chosen_url"] = str((combined[0] or {}).get("url") or "") if combined else ""
+        debug_payload["latest_refresh"]["final_classification"] = "success" if combined else "no_candidates_found"
         self._write_remote_debug(cache_root, debug_payload, merge=True)
-        return selected
+        return combined
 
     def discover_available(self, ticker_root: Path, refresh: bool = False, cache_root: Optional[Path] = None) -> List[Dict[str, Any]]:
         if refresh:
@@ -901,17 +942,27 @@ class BaseMarketProvider:
             elif not str(refresh_payload.get("final_classification") or "").strip() or str(refresh_payload.get("final_classification") or "").strip() == "pending":
                 refresh_payload["final_classification"] = "no_candidates_found"
             self._write_remote_debug(cache_root, {"latest_refresh": refresh_payload}, merge=True)
+        try:
+            # Normalize local working files before scanning them so shared folders
+            # like USDA_bioenergy_reports sort deterministically by report date.
+            self.normalize_local_filenames(ticker_root)
+        except Exception:
+            pass
         out: List[Dict[str, Any]] = []
         seen: set[Path] = set()
         for pattern in self.local_patterns:
             for path in sorted(ticker_root.glob(pattern)):
                 if not path.is_file():
                     continue
+                if not self.owns_local_asset(path):
+                    # Some providers intentionally share a local folder; guard the
+                    # scan so `nwer` and `ams_3618` do not ingest each other's files.
+                    continue
                 resolved = path.resolve()
                 if resolved in seen:
                     continue
                 seen.add(resolved)
-                report_date = self._date_from_name(path)
+                report_date = self.infer_local_report_date(path)
                 out.append(
                     {
                         "source": self.source,
@@ -922,6 +973,14 @@ class BaseMarketProvider:
                         "asset_type": self._asset_type_for_name(path.name),
                     }
                 )
+        out.sort(
+            key=lambda item: (
+                pd.to_datetime(item.get("report_date"), errors="coerce")
+                if str(item.get("report_date") or "").strip()
+                else pd.Timestamp.max,
+                str(Path(item.get("path") or "")).lower(),
+            )
+        )
         return out
 
     def sync_raw(self, cache_root: Path, ticker_root: Path, refresh: bool = False) -> Dict[str, Any]:

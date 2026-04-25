@@ -52,6 +52,8 @@ class SyncSummary:
     raw_added: int = 0
     raw_refreshed: int = 0
     raw_skipped: int = 0
+    raw_orphans_detected: int = 0
+    raw_orphan_results: tuple[dict[str, object], ...] = tuple()
     parsed_sources: tuple[str, ...] = tuple()
     export_rows: int = 0
     export_path: Optional[Path] = None

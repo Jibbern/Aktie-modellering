@@ -311,9 +311,22 @@ def _public_payload_slug_id(payload: Dict[str, Any]) -> str:
     return ""
 
 
+def _public_payload_report_date(payload: Dict[str, Any]) -> Optional[pd.Timestamp]:
+    for item in list((payload or {}).get("results") or []):
+        if not isinstance(item, dict):
+            continue
+        report_ts = pd.to_datetime(
+            item.get("report_end_date") or item.get("report_date") or item.get("report_begin_date"),
+            errors="coerce",
+        )
+        if not pd.isna(report_ts):
+            return pd.Timestamp(report_ts)
+    return None
+
+
 class AMS3617Provider(BaseMarketProvider):
     source = "ams_3617"
-    provider_parse_version = "v7"
+    provider_parse_version = "v8"
     # New downloads live in the workbook-facing USDA folder, but we keep reading the
     # legacy provider-specific directory so older local restores continue to work.
     local_patterns = (
@@ -329,31 +342,64 @@ class AMS3617Provider(BaseMarketProvider):
     stable_name_prefix = "ams_3617"
     local_dir_name = "USDA_daily_data"
 
+    def owns_local_asset(self, path: Path) -> bool:
+        name_low = path.name.lower()
+        return (
+            name_low.startswith("ams_3617")
+            or name_low in {"ams_3617_daily_corn.csv", "ams_3617_weekly_corn.csv"}
+        )
+
+    def infer_local_report_date(self, path: Path) -> Optional[pd.Timestamp]:
+        base = self._date_from_name(path)
+        if base is not None:
+            return base
+        if path.suffix.lower() == ".json" and path.exists():
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                return None
+            if isinstance(payload, dict):
+                return _public_payload_report_date(payload)
+            return None
+        if path.suffix.lower() != ".pdf" or not path.exists():
+            return None
+        text = _safe_pdf_text(path)
+        report_date = _ams3617_report_date(text, fallback=None) if text else None
+        return pd.Timestamp(report_date) if isinstance(report_date, date) else None
+
     def parse_raw_to_rows(self, cache_root: Path, ticker_root: Path, raw_entries: List[Dict[str, Any]]) -> pd.DataFrame:
         del ticker_root
         rows: List[Dict[str, Any]] = []
+        grouped_entries: Dict[str, List[tuple[pd.Timestamp, Path]]] = {}
         for entry in raw_entries:
             report_ts = self._date_from_value(entry.get("report_date"))
-            if report_ts is None:
-                continue
             local_path = Path(str(entry.get("local_path") or "")).expanduser()
-            if local_path.suffix.lower() == ".json" and local_path.exists():
-                try:
-                    payload = json.loads(local_path.read_text(encoding="utf-8"))
-                except Exception:
-                    continue
-                if isinstance(payload, dict):
-                    slug_id = _public_payload_slug_id(payload)
-                    if slug_id and slug_id != "3617":
+            if report_ts is None or not self.owns_local_asset(local_path):
+                continue
+            group_key = report_ts.date().isoformat()
+            grouped_entries.setdefault(group_key, []).append((report_ts, local_path))
+        for group_key in sorted(grouped_entries.keys()):
+            group = list(grouped_entries.get(group_key) or [])
+            json_entries = [(report_ts, path) for report_ts, path in group if path.suffix.lower() == ".json" and path.exists()]
+            eligible_entries = json_entries if json_entries else group
+            for report_ts, local_path in sorted(eligible_entries, key=lambda item: str(item[1]).lower()):
+                if local_path.suffix.lower() == ".json" and local_path.exists():
+                    try:
+                        payload = json.loads(local_path.read_text(encoding="utf-8"))
+                    except Exception:
                         continue
-                    rows.extend(parse_ams_3617_public_data_payload(payload, source_file=local_path.name))
-                continue
-            if local_path.suffix.lower() != ".pdf" or not local_path.exists():
-                continue
-            text = _safe_pdf_text(local_path)
-            if not text:
-                continue
-            rows.extend(parse_ams_3617_pdf_text(text, fallback_date=report_ts, source_file=local_path.name))
+                    if isinstance(payload, dict):
+                        slug_id = _public_payload_slug_id(payload)
+                        if slug_id and slug_id != "3617":
+                            continue
+                        rows.extend(parse_ams_3617_public_data_payload(payload, source_file=local_path.name))
+                    continue
+                if local_path.suffix.lower() != ".pdf" or not local_path.exists():
+                    continue
+                text = _safe_pdf_text(local_path)
+                if not text:
+                    continue
+                rows.extend(parse_ams_3617_pdf_text(text, fallback_date=report_ts, source_file=local_path.name))
         self._record_parse_debug(cache_root, raw_entries, rows)
         if not rows:
             return pd.DataFrame()

@@ -1,11 +1,11 @@
 {
   "latest_parse": {
-    "input_entries": 1,
-    "parsed_rows": 4,
+    "input_entries": 2,
+    "parsed_rows": 1,
     "rows_by_source_file": [
       {
-        "parsed_rows": 4,
-        "source_file": "ams_3618_00183.pdf"
+        "parsed_rows": 1,
+        "source_file": "ams_3618_2026-04-17_data.json"
       }
     ],
     "status": "success"

@@ -781,12 +781,20 @@ def enrich_quarter_notes_audit_rows_with_readback(
     if not audit_rows:
         return []
     snapshot_rows = provenance.get("quarter_notes_ui_snapshot_rows") or {}
+    existing_trace_stages = {
+        (
+            str(row.get("trace_id") or "").strip(),
+            str(row.get("stage") or "").strip(),
+        )
+        for row in audit_rows
+    }
     rows_out: List[Dict[str, Any]] = []
     for row in audit_rows:
         base = dict(row)
         for key in ("workbook_path", "workbook_size", "workbook_sha1", "quarter_notes_header"):
             base[key] = provenance.get(key, base.get(key, ""))
-        if str(base.get("stage") or "") != "final_selected":
+        stage = str(base.get("stage") or "").strip()
+        if stage not in {"final_selected", "routed_to_bucket"}:
             rows_out.append(base)
             continue
         quarter = str(base.get("quarter") or "")
@@ -797,10 +805,29 @@ def enrich_quarter_notes_audit_rows_with_readback(
             continue
         matched_row = None
         for snap_category, snap_note, snap_row_idx in snapshot_rows.get(quarter, []):
-            if _normalize_qnote_cell(snap_category) == category and _normalize_qnote_cell(snap_note) == note:
+            category_matches = (
+                not category
+                or stage == "routed_to_bucket"
+                or _normalize_qnote_cell(snap_category) == category
+            )
+            if category_matches and _normalize_qnote_cell(snap_note) == note:
                 matched_row = snap_row_idx
                 break
         if matched_row is not None:
+            trace_id = str(base.get("trace_id") or "").strip()
+            if trace_id:
+                for lifecycle_stage in ("source_detected", "candidate_created"):
+                    if (trace_id, lifecycle_stage) in existing_trace_stages:
+                        continue
+                    lifecycle_row = dict(base)
+                    lifecycle_row["stage"] = lifecycle_stage
+                    lifecycle_row["saved_workbook_visible"] = ""
+                    lifecycle_row["saved_workbook_missing"] = ""
+                    lifecycle_row["saved_workbook_row"] = ""
+                    lifecycle_row["readback_status"] = ""
+                    lifecycle_row["attrition_class"] = ""
+                    rows_out.append(lifecycle_row)
+                    existing_trace_stages.add((trace_id, lifecycle_stage))
             base["stage"] = "readback_verified"
             base["saved_workbook_visible"] = True
             base["saved_workbook_missing"] = False

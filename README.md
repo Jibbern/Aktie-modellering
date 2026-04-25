@@ -80,7 +80,9 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
 - Refresh market data for a market-enabled ticker:
   - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE --refresh-market-data`
   - This now prefers USDA `public_data` JSON for NWER `3616`, AMS daily `3617`, and AMS co-products `3618`, then falls back to the older AJAX release-fragment/PDF path if needed.
-  - `cme_ethanol_platts` is now effectively local-only in the active GPRE workflow; refresh writes debug artifacts but thesis ethanol comes from the local CSV/manual snapshot files in `GPRE/Ethanol_futures`.
+  - `local_chicago_ethanol_futures` is now the canonical provider in the active GPRE workflow; refresh writes debug artifacts but thesis ethanol comes from the local CSV/manual snapshot files in `GPRE/Ethanol_futures`. The legacy `cme_ethanol_platts` id remains as a compatibility alias during the transition.
+  - Live GPRE forward corn now prefers local Barchart CSVs in `GPRE/corn_futures` before NWER fallback; live forward gas is wired the same way for `GPRE/gas_futures` when local files exist.
+  - The 7/14-day carry-forward rule remains for GPRE cash/basis snapshots only. Forward futures use same-date, then nearest prior local file within 3 calendar days, then NWER fallback on or before the same anchor date.
 - Backfill historical USDA gaps:
   - `.\.venv\Scripts\python.exe Code\usda_backfill.py --ticker GPRE --start 2026-01-23 --end 2026-03-31`
   - Use `--refresh-market-data` for the newest releases and `usda_backfill.py` for targeted historical windows.

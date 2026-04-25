@@ -81,6 +81,16 @@ def _is_blankish_amount_cell(x: Any) -> bool:
     return False
 
 
+def _display_amount_cell_text(x: Any) -> str:
+    raw = str(x or "").strip()
+    if "," in raw:
+        return raw
+    num = coerce_number(x)
+    if num is not None and float(num).is_integer():
+        return f"{int(num):,}"
+    return raw
+
+
 def _is_currency_placeholder_cell(x: Any) -> bool:
     s = str(x or "").replace("\xa0", " ").strip().lower()
     if not s:
@@ -752,7 +762,7 @@ def parse_scheduled_debt_repayments_from_primary_doc(
                     "maturity_label": maturity_label,
                     "amount_total": float(amt) * scale,
                     "source_kind": "scheduled_repayments_fallback",
-                    "row_text": " ".join(str(v) for v in row_vals),
+                    "row_text": f"{label} {_display_amount_cell_text(amt_cell)}".strip(),
                 }
             )
         if rows_local:

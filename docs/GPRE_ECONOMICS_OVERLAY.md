@@ -320,9 +320,15 @@ Interpretation:
 - `Time` is the local as-of / trade date
 
 Provider compatibility note:
-- the active source id remains `cme_ethanol_platts`
+- the canonical active source id is `local_chicago_ethanol_futures` and the legacy `cme_ethanol_platts` id remains as a compatibility alias
 - this is a compatibility label only
 - the active workflow is local-file driven, not live CME download driven
+
+Forward futures priority note:
+- live `Next quarter outlook` corn futures prefer local Barchart CSVs in [`GPRE/corn_futures`](/c:/Users/Jibbe/Aktier/GPRE/corn_futures), then fall back to NWER, with GPRE implied futures kept as emergency-only diagnostics/fallback
+- live `Next quarter outlook` gas futures prefer local Barchart CSVs in [`GPRE/gas_futures`](/c:/Users/Jibbe/Aktier/GPRE/gas_futures) when present, then fall back to NWER
+- the 7/14-day retained-window logic applies to GPRE cash/basis snapshots, not to forward futures strips
+- forward futures use same-date local rows first, then nearest prior local rows within 3 calendar days, then NWER on or before the same anchor date
 
 ### Manual quarter-open snapshot files
 Folder:
@@ -1053,7 +1059,7 @@ Do not dump long provenance strings into the short visible source line.
 
 ## Key Code Ownership
 Main implementation surfaces:
-- [`pbi_xbrl/market_data/providers/cme_ethanol_platts.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/market_data/providers/cme_ethanol_platts.py)
+- [`pbi_xbrl/market_data/providers/local_chicago_ethanol_futures.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/market_data/providers/local_chicago_ethanol_futures.py)
   - local futures CSV parsing
   - manual quarter-open snapshot parsing
 - [`pbi_xbrl/market_data/service.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/market_data/service.py)

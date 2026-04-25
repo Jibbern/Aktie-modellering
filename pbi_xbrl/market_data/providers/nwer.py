@@ -535,6 +535,19 @@ def _public_payload_slug_id(payload: Dict[str, Any]) -> str:
     return ""
 
 
+def _public_payload_report_date(payload: Dict[str, Any]) -> Optional[pd.Timestamp]:
+    for item in list((payload or {}).get("results") or []):
+        if not isinstance(item, dict):
+            continue
+        report_ts = pd.to_datetime(
+            item.get("report_end_date") or item.get("report_date") or item.get("report_begin_date"),
+            errors="coerce",
+        )
+        if not pd.isna(report_ts):
+            return pd.Timestamp(report_ts)
+    return None
+
+
 def _looks_like_nwer_pdf(*, source_file: str, text: str) -> bool:
     file_name = str(source_file or "").strip().lower()
     text_norm = re.sub(r"\s+", " ", str(text or "")).strip().lower()
@@ -547,9 +560,10 @@ def _looks_like_nwer_pdf(*, source_file: str, text: str) -> bool:
 
 class NWERProvider(BaseMarketProvider):
     source = "nwer"
-    provider_parse_version = "v8"
-    # New downloads live in the workbook-facing USDA folder, but we keep reading the
-    # legacy provider-specific directory so older local restores continue to work.
+    provider_parse_version = "v9"
+    # AMS_3616 is the National Weekly Ethanol Report. New downloads belong in
+    # USDA_weekly_data; the bioenergy folder is retained here only as a legacy read
+    # path for older local restores and already-synced raw cache entries.
     local_patterns = (
         "USDA_bioenergy_reports/*",
         "USDA_bioenergy_reports/**/*",
@@ -563,35 +577,87 @@ class NWERProvider(BaseMarketProvider):
     public_data_slug_id = "3616"
     report_token = "/3616/"
     stable_name_prefix = "nwer"
-    local_dir_name = "USDA_bioenergy_reports"
+    local_dir_name = "USDA_weekly_data"
+
+    def owns_local_asset(self, path: Path) -> bool:
+        name_low = path.name.lower()
+        return (
+            name_low.startswith("nwer_")
+            or name_low.startswith("ams_3616")
+            or name_low in {"nwer_weekly.csv", "nwer_quarterly.csv"}
+        )
+
+    def infer_local_report_date(self, path: Path) -> Optional[pd.Timestamp]:
+        base = self._date_from_name(path)
+        if base is not None:
+            return base
+        if path.suffix.lower() == ".json" and path.exists():
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                return None
+            if isinstance(payload, dict):
+                return _public_payload_report_date(payload)
+            return None
+        if path.suffix.lower() != ".pdf" or not path.exists():
+            return None
+        text = _safe_pdf_text(path)
+        report_date = _nwer_report_date(text, fallback=None) if text else None
+        return pd.Timestamp(report_date) if isinstance(report_date, date) else None
 
     def parse_raw_to_rows(self, cache_root: Path, ticker_root: Path, raw_entries: List[Dict[str, Any]]) -> pd.DataFrame:
         del ticker_root
         rows: List[Dict[str, Any]] = []
+        grouped_entries: Dict[str, List[tuple[pd.Timestamp, Path]]] = {}
         for entry in raw_entries:
             report_ts = self._date_from_value(entry.get("report_date"))
             if report_ts is None:
                 continue
             local_path = Path(str(entry.get("local_path") or "")).expanduser()
-            if local_path.suffix.lower() == ".json" and local_path.exists():
-                try:
-                    payload = json.loads(local_path.read_text(encoding="utf-8"))
-                except Exception:
-                    continue
-                if isinstance(payload, dict):
-                    slug_id = _public_payload_slug_id(payload)
-                    if slug_id and slug_id != "3616":
+            if not self.owns_local_asset(local_path):
+                continue
+            grouped_entries.setdefault(report_ts.date().isoformat(), []).append((report_ts, local_path))
+        for group_key in sorted(grouped_entries.keys()):
+            group = list(grouped_entries.get(group_key) or [])
+            pdf_rows: List[Dict[str, Any]] = []
+            json_rows: List[Dict[str, Any]] = []
+            for report_ts, local_path in sorted(group, key=lambda item: str(item[1]).lower()):
+                if local_path.suffix.lower() == ".json" and local_path.exists():
+                    try:
+                        payload = json.loads(local_path.read_text(encoding="utf-8"))
+                    except Exception:
                         continue
-                    rows.extend(parse_nwer_public_data_payload(payload, source_file=local_path.name))
+                    if isinstance(payload, dict):
+                        slug_id = _public_payload_slug_id(payload)
+                        if slug_id and slug_id != "3616":
+                            continue
+                        json_rows.extend(parse_nwer_public_data_payload(payload, source_file=local_path.name))
+                    continue
+                if local_path.suffix.lower() != ".pdf" or not local_path.exists():
+                    continue
+                text = _safe_pdf_text(local_path)
+                if not text:
+                    continue
+                if not _looks_like_nwer_pdf(source_file=local_path.name, text=text):
+                    continue
+                pdf_rows.extend(parse_nwer_pdf_text(text, fallback_date=report_ts, source_file=local_path.name))
+            rows.extend(pdf_rows)
+            if not pdf_rows:
+                rows.extend(json_rows)
                 continue
-            if local_path.suffix.lower() != ".pdf" or not local_path.exists():
-                continue
-            text = _safe_pdf_text(local_path)
-            if not text:
-                continue
-            if not _looks_like_nwer_pdf(source_file=local_path.name, text=text):
-                continue
-            rows.extend(parse_nwer_pdf_text(text, fallback_date=report_ts, source_file=local_path.name))
+            pdf_series_keys = {
+                str(rec.get("series_key") or "").strip()
+                for rec in pdf_rows
+                if str(rec.get("series_key") or "").strip()
+            }
+            for rec in json_rows:
+                market_family = str(rec.get("market_family") or "").strip()
+                series_key = str(rec.get("series_key") or "").strip()
+                if market_family not in {"ddgs_price", "renewable_corn_oil_price"}:
+                    continue
+                if series_key and series_key in pdf_series_keys:
+                    continue
+                rows.append(rec)
         self._record_parse_debug(cache_root, raw_entries, rows)
         if not rows:
             return pd.DataFrame()

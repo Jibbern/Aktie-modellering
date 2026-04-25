@@ -78,12 +78,14 @@ def _normalize_archive_doc(provider: Any, doc: Dict[str, Any]) -> Optional[Dict[
     doc_url = urllib.parse.urljoin(provider.landing_page_url, str(doc.get("document_url") or ""))
     if not doc_url:
         return None
-    report_ts = provider._remote_date_from_text(
-        doc_url,
-        doc.get("report_date"),
-        doc.get("document_date"),
-        doc.get("report_end_date"),
-    )
+    # Archive URLs for weekly reports often carry the report-begin/release folder
+    # date, while JSON public_data is keyed to report_end_date. Prefer the explicit
+    # end date so the downloaded PDF filename aligns with the dated JSON it backs up.
+    report_ts = None
+    for value in (doc.get("report_end_date"), doc.get("report_date"), doc.get("document_date"), doc_url):
+        report_ts = provider._remote_date_from_text(value)
+        if report_ts is not None:
+            break
     if report_ts is None:
         return None
     return {

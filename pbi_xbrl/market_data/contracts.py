@@ -34,6 +34,14 @@ MARKET_ROWS_EMPTY_COLUMNS: List[str] = [
 def normalize_market_rows_df(rows: Iterable[Dict[str, Any]] | pd.DataFrame) -> pd.DataFrame:
     """Normalize market rows into the shared empty/schema-stable frame contract."""
 
+    def _typed_empty_frame() -> pd.DataFrame:
+        empty = pd.DataFrame(columns=MARKET_ROWS_EMPTY_COLUMNS)
+        empty["observation_date"] = pd.to_datetime(empty["observation_date"], errors="coerce")
+        empty["quarter"] = pd.to_datetime(empty["quarter"], errors="coerce")
+        empty["price_value"] = pd.to_numeric(empty["price_value"], errors="coerce")
+        empty.attrs[MARKET_ROWS_DF_NORMALIZED_ATTR] = True
+        return empty
+
     if isinstance(rows, pd.DataFrame):
         if bool(rows.attrs.get(MARKET_ROWS_DF_NORMALIZED_ATTR)):
             return rows
@@ -41,9 +49,7 @@ def normalize_market_rows_df(rows: Iterable[Dict[str, Any]] | pd.DataFrame) -> p
     else:
         df = pd.DataFrame(list(rows or []))
     if df.empty:
-        empty = pd.DataFrame(columns=MARKET_ROWS_EMPTY_COLUMNS)
-        empty.attrs[MARKET_ROWS_DF_NORMALIZED_ATTR] = True
-        return empty
+        return _typed_empty_frame()
     for col, default in MARKET_ROWS_SCHEMA_DEFAULTS.items():
         if col not in df.columns:
             df[col] = default

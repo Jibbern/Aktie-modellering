@@ -46,7 +46,8 @@ def dedupe_audit_like_rows(
     key_cols: Sequence[str] = AUDIT_LIKE_DEDUPE_KEY,
 ) -> pd.DataFrame:
     if df is None or df.empty:
-        return pd.DataFrame(columns=list(getattr(df, "columns", []) or []))
+        columns = list(df.columns) if isinstance(df, pd.DataFrame) else []
+        return pd.DataFrame(columns=columns)
     out = df.copy()
     missing = [col for col in key_cols if col not in out.columns]
     for col in missing:

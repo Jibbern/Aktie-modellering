@@ -79,7 +79,7 @@ This map explains which modules own each major stage of the runtime so the hando
   - Heavy GPRE snapshot/history helpers now accept normalized market-row `DataFrame` inputs so the writer can reuse one prepared frame instead of rebuilding it repeatedly.
 - [`pbi_xbrl/market_data/providers/`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/market_data/providers)
   - Source-specific discovery and parsing.
-  - In the active GPRE workflow, `cme_ethanol_platts` is now effectively local-only:
+  - In the active GPRE workflow, `local_chicago_ethanol_futures` is the canonical local ethanol strip provider:
     - local Chicago ethanol futures CSVs feed `Next quarter thesis`
     - local manual snapshot files can seed `Quarter-open proxy` when frozen prior-quarter history is missing
   - Current USDA providers now handle Drupal/AJAX “latest/previous release” fragments instead of relying only on static landing-page links.

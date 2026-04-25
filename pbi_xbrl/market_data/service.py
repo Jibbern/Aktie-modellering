@@ -49,7 +49,7 @@ from .contracts import (
 from .mappings import series_meta_from_key
 from .models import SourceFrameSpec, SyncSummary
 from .providers import PROVIDERS
-from .providers.cme_ethanol_platts import (
+from .providers.local_chicago_ethanol_futures import (
     find_local_manual_ethanol_quarter_open_files,
     load_local_manual_ethanol_quarter_open_snapshot_rows,
 )
@@ -93,9 +93,12 @@ _GPRE_CORN_BIDS_PARSED_SNAPSHOTS_DIRNAME = "parsed_snapshots"
 _GPRE_CORN_BIDS_MANIFEST_FILENAME = "manifest.json"
 _GPRE_CURRENT_QTD_BIDS_MAX_AGE_DAYS = 7
 _GPRE_NONCURRENT_BIDS_MAX_AGE_DAYS = 14
+_GPRE_LOCAL_FORWARD_FUTURES_MAX_AGE_DAYS = 3
 _GPRE_AMS_BASIS_DEFAULT_STRATEGY = "exact1"
 _GPRE_COPRODUCT_SOURCE_PRIORITY: Tuple[str, ...] = ("nwer", "ams_3618")
 _MARKET_INPUT_FINGERPRINT_VERSION = "v1"
+_LOCAL_BARCHART_CORN_SOURCE_TYPE = "local_barchart_corn_futures_csv"
+_LOCAL_BARCHART_GAS_SOURCE_TYPE = "local_barchart_gas_futures_csv"
 _GPRE_COPRODUCT_REGION_SERIES_CANDIDATES: Dict[str, Dict[str, Tuple[str, ...]]] = {
     "renewable_corn_oil_price": {
         "nebraska": ("corn_oil_nebraska",),
@@ -288,11 +291,16 @@ def _normalize_raw_manifest_entry(entry: Dict[str, Any], *, source: str, provide
     except Exception:
         resolved = local_path
     try:
+        if hasattr(provider, "owns_local_asset") and not bool(provider.owns_local_asset(resolved)):
+            return None
+    except Exception:
+        pass
+    try:
         st = resolved.stat()
     except Exception:
         return None
     try:
-        report_ts = provider._date_from_name(resolved)
+        report_ts = provider.infer_local_report_date(resolved) if hasattr(provider, "infer_local_report_date") else provider._date_from_name(resolved)
     except Exception:
         report_ts = None
     report_txt = str(entry.get("report_date") or "").strip()
@@ -377,6 +385,131 @@ def _merge_raw_entries(
     out = list(merged.values())
     out.sort(key=lambda row: (str(row.get("report_date") or ""), str(row.get("local_path") or "")))
     return out
+
+
+def _raw_orphan_reason(path: Path, *, source: str, provider: Any, kept_paths: set[str]) -> str:
+    try:
+        resolved = path.resolve()
+    except Exception:
+        resolved = path
+    path_key = str(resolved)
+    try:
+        owns_asset = bool(provider.owns_local_asset(resolved)) if hasattr(provider, "owns_local_asset") else True
+    except Exception:
+        owns_asset = True
+    if not owns_asset:
+        return "wrong_owner"
+    if path_key not in kept_paths:
+        return "manifest_orphan"
+    return ""
+
+
+def _quarantine_raw_cache_orphans(
+    cache_root: Path,
+    *,
+    source: str,
+    provider: Any,
+    manifest_entries: List[Dict[str, Any]],
+    move_orphans: bool = False,
+) -> Dict[str, Any]:
+    raw_root = cache_root / "raw" / str(source)
+    if not raw_root.exists() or not raw_root.is_dir():
+        return {
+            "source": source,
+            "orphan_count": 0,
+            "action": "none",
+            "audit_root": None,
+            "quarantine_root": None,
+            "manifest_path": None,
+            "entries": [],
+        }
+    kept_paths = {
+        str(Path(str(entry.get("local_path") or "")).expanduser().resolve())
+        for entry in manifest_entries
+        if str(entry.get("local_path") or "").strip()
+    }
+    orphan_rows: List[Dict[str, Any]] = []
+    for path in sorted(raw_root.rglob("*")):
+        if not path.is_file():
+            continue
+        reason = _raw_orphan_reason(path, source=source, provider=provider, kept_paths=kept_paths)
+        if not reason:
+            continue
+        try:
+            resolved = path.resolve()
+        except Exception:
+            resolved = path
+        orphan_rows.append(
+            {
+                "path": resolved,
+                "reason": reason,
+                "size": int(resolved.stat().st_size) if resolved.exists() else 0,
+                "checksum": file_fingerprint(resolved) if resolved.exists() else "",
+            }
+        )
+    if not orphan_rows:
+        return {
+            "source": source,
+            "orphan_count": 0,
+            "action": "none",
+            "audit_root": None,
+            "quarantine_root": None,
+            "manifest_path": None,
+            "entries": [],
+        }
+
+    timestamp_txt = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    action = "quarantined" if move_orphans else "audit_only"
+    result_root = cache_root / ("raw_orphans" if move_orphans else "raw_orphan_audit") / str(source) / timestamp_txt
+    result_root.mkdir(parents=True, exist_ok=True)
+    manifest_entries_out: List[Dict[str, Any]] = []
+    for orphan in orphan_rows:
+        original_path = Path(orphan["path"])
+        try:
+            rel_path = original_path.relative_to(raw_root)
+        except Exception:
+            rel_path = Path(original_path.name)
+        target_path = result_root / rel_path
+        entry_out = {
+            "source": source,
+            "reason": str(orphan.get("reason") or ""),
+            "action": action,
+            "original_path": str(original_path),
+            "size": int(orphan.get("size") or 0),
+            "checksum": str(orphan.get("checksum") or ""),
+        }
+        if move_orphans:
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(original_path), str(target_path))
+            entry_out["quarantined_path"] = str(target_path)
+        else:
+            entry_out["active_path"] = str(original_path)
+        manifest_entries_out.append(entry_out)
+    manifest_path = result_root / "orphan_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "source": source,
+                "action": action,
+                "audited_at": pd.Timestamp.now("UTC").isoformat(),
+                "orphan_count": len(manifest_entries_out),
+                "entries": manifest_entries_out,
+            },
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "source": source,
+        "orphan_count": len(manifest_entries_out),
+        "action": action,
+        "audit_root": None if move_orphans else result_root,
+        "quarantine_root": result_root if move_orphans else None,
+        "manifest_path": manifest_path,
+        "entries": manifest_entries_out,
+    }
 
 
 def _ticker_root_from_cache_dir(cache_dir: Path, ticker: str) -> Path:
@@ -864,6 +997,7 @@ def sync_market_cache(
     sync_raw: bool = False,
     refresh: bool = False,
     reparse: bool = False,
+    quarantine_raw_orphans: bool = False,
 ) -> SyncSummary:
     """Keep market-data raw, parsed, and export layers aligned for one ticker.
 
@@ -898,6 +1032,7 @@ def sync_market_cache(
 
     raw_added = raw_refreshed = raw_skipped = 0
     raw_entries_by_source: Dict[str, List[Dict[str, Any]]] = {}
+    raw_orphan_results: Dict[str, Dict[str, Any]] = {}
     for source in enabled_sources:
         provider = PROVIDERS[source]
         manifest_entries = normalize_manifest_list(raw_manifest, source)
@@ -920,6 +1055,22 @@ def sync_market_cache(
         )
         raw_entries_by_source[source] = raw_entries
         raw_manifest[source] = raw_entries
+        quarantine_result = _quarantine_raw_cache_orphans(
+            cache_root,
+            source=source,
+            provider=provider,
+            manifest_entries=raw_entries,
+            move_orphans=bool(quarantine_raw_orphans),
+        )
+        raw_orphan_results[source] = quarantine_result
+        if int(quarantine_result.get("orphan_count") or 0) > 0:
+            action_txt = "quarantined" if quarantine_raw_orphans else "detected"
+            destination = quarantine_result.get("quarantine_root") or quarantine_result.get("manifest_path")
+            print(
+                f"[market_data:{source}] {action_txt} {int(quarantine_result.get('orphan_count') or 0)} raw-cache orphan(s) "
+                f"at {destination}",
+                flush=True,
+            )
     save_manifest(raw_manifest_path(cache_root), raw_manifest)
 
     parsed_sources: List[str] = []
@@ -1019,6 +1170,8 @@ def sync_market_cache(
         raw_added=raw_added,
         raw_refreshed=raw_refreshed,
         raw_skipped=raw_skipped,
+        raw_orphans_detected=sum(int(result.get("orphan_count") or 0) for result in raw_orphan_results.values()),
+        raw_orphan_results=tuple(dict(result) for result in raw_orphan_results.values()),
         parsed_sources=tuple(parsed_sources),
         export_rows=int(len(export_df)),
         export_path=export_path,
@@ -1061,7 +1214,12 @@ def _earliest_local_source_date_for_enabled_sources(
                     continue
                 seen_paths.add(resolved)
                 try:
-                    report_ts = provider._date_from_name(path)
+                    if hasattr(provider, "owns_local_asset") and not bool(provider.owns_local_asset(path)):
+                        continue
+                except Exception:
+                    pass
+                try:
+                    report_ts = provider.infer_local_report_date(path) if hasattr(provider, "infer_local_report_date") else provider._date_from_name(path)
                 except Exception:
                     report_ts = None
                 if report_ts is None or pd.isna(report_ts):
@@ -1102,8 +1260,7 @@ def _export_needs_history_repair(
             return True
     if needs_date_repair:
         return True
-    unique_quarters = {ts.date() for ts in export_quarters}
-    return len(unique_quarters) <= 4 or earliest_local.year <= earliest_export.year - 1
+    return False
 
 
 _TENOR_RE = re.compile(r"^(?P<month>[a-z]{3})(?P<year>\d{2})$", re.I)
@@ -1152,7 +1309,7 @@ def _market_rows_df(rows: Iterable[Dict[str, Any]]) -> pd.DataFrame:
 
 def _series_observation_df(df: pd.DataFrame, series_key: str) -> pd.DataFrame:
     if df is None or df.empty:
-        return pd.DataFrame()
+        return _market_rows_df([])
     require_market_columns(
         df,
         ["aggregation_level", "series_key", "observation_date", "price_value"],
@@ -2231,6 +2388,24 @@ def parse_gpre_corn_bids_html(
     return _dedupe_gpre_corn_bids_rows(rows)
 
 
+def _valid_gpre_corn_bids_rows(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    valid_rows: List[Dict[str, Any]] = []
+    for rec in rows or []:
+        if not isinstance(rec, dict):
+            continue
+        location = str(rec.get("location") or "").strip()
+        delivery_label = str(rec.get("delivery_label") or "").strip()
+        basis_num = pd.to_numeric(rec.get("basis_usd_per_bu"), errors="coerce")
+        if not location or not delivery_label or pd.isna(basis_num):
+            continue
+        row = dict(rec)
+        row["basis_usd_per_bu"] = float(basis_num)
+        if pd.isna(pd.to_numeric(row.get("basis_cents_per_bu"), errors="coerce")):
+            row["basis_cents_per_bu"] = float(basis_num) * 100.0
+        valid_rows.append(row)
+    return _dedupe_gpre_corn_bids_rows(valid_rows)
+
+
 def _gpre_corn_bids_storage_root(ticker_root: Optional[Path]) -> Optional[Path]:
     if not isinstance(ticker_root, Path):
         return None
@@ -3268,11 +3443,29 @@ def download_gpre_corn_bids_snapshot(
             "error": str(payload.get("error") or ""),
         }
     html_path.write_text(html_text, encoding="utf-8")
-    parsed_rows = [
+    payload_rows = _valid_gpre_corn_bids_rows(
         dict(rec)
         for rec in list(payload.get("rows") or [])
         if isinstance(rec, dict)
-    ]
+    )
+    html_rows = _valid_gpre_corn_bids_rows(
+        parse_gpre_corn_bids_html(
+            html_text,
+            as_of_date=snapshot_date,
+            source_url=source_url or _GPRE_CORN_BIDS_DIRECT_URLS[0],
+        )
+    )
+    parsed_rows = html_rows if len(html_rows) >= len(payload_rows) else payload_rows
+    if not parsed_rows:
+        return {
+            "status": "unavailable",
+            "html_path": html_path,
+            "csv_path": csv_path,
+            "snapshot_date": snapshot_date,
+            "source_url": source_url or _GPRE_CORN_BIDS_DIRECT_URLS[0],
+            "entry_url": str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
+            "error": "ValueError: no validated GPRE corn bid rows parsed from HTML payload",
+        }
     pd.DataFrame(parsed_rows).to_csv(csv_path, index=False)
     summary = _summarize_gpre_corn_bids_rows(
         parsed_rows,
@@ -3547,6 +3740,19 @@ def _resolve_gpre_corn_bids_snapshot(
             return local_summary
     if isinstance(provided_stale_summary, dict):
         return provided_stale_summary
+    mode = str(selection_mode or "").strip().lower()
+    if str(effective.get("status") or "").strip().lower() == "ok" and mode in {"prior_quarter", "historical_quarter", "quarter_open"}:
+        return _gpre_snapshot_fallback_summary(
+            status="unavailable",
+            source_kind="none",
+            source_url=str(effective.get("source_url") or ""),
+            snapshot_date=None,
+            selection_rule=_gpre_snapshot_selection_rule_name(selection_mode),
+            selection_note="Provided GPRE bid snapshot has no eligible dated snapshot for this selection mode.",
+            storage_root=_gpre_corn_bids_storage_root(ticker_root),
+            legacy_storage_root=_gpre_legacy_corn_bids_storage_root(ticker_root),
+            fallback_reason="provided_snapshot_ineligible",
+        )
     return effective
 
 
@@ -4009,6 +4215,8 @@ def weighted_corn_basis_context(
     if isinstance(snapshot_date, date):
         snapshot_date_txt = snapshot_date.isoformat()
     selection_rule_txt = str(effective_snapshot.get("selection_rule") or "").strip()
+    if not selection_rule_txt:
+        selection_rule_txt = _gpre_snapshot_selection_rule_name(frame_key)
     selection_note_txt = str(effective_snapshot.get("selection_note") or "").strip()
     snapshot_age_days = pd.to_numeric(effective_snapshot.get("snapshot_age_days"), errors="coerce")
     max_snapshot_age_days = pd.to_numeric(effective_snapshot.get("max_snapshot_age_days"), errors="coerce")
@@ -4289,13 +4497,32 @@ def _matched_process_snapshot_for_bounds(
     ethanol_yield: Optional[float],
     natural_gas_usage: Optional[float],
 ) -> Dict[str, Any]:
+    if (
+        ethanol_df is None
+        or gas_df is None
+        or corn_daily_df is None
+        or ethanol_df.empty
+        or gas_df.empty
+        or corn_daily_df.empty
+        or "observation_date" not in ethanol_df.columns
+        or "observation_date" not in gas_df.columns
+    ):
+        return {
+            "current_process": {},
+            "weekly_rows": [],
+            "weeks_included": 0,
+            "process_as_of": None,
+            "process_status": "no_data",
+        }
+    ethanol_dates = pd.to_datetime(ethanol_df["observation_date"], errors="coerce").dt.date
+    gas_dates = pd.to_datetime(gas_df["observation_date"], errors="coerce").dt.date
     ethanol_window = ethanol_df[
-        (ethanol_df["observation_date"].dt.date >= window_start)
-        & (ethanol_df["observation_date"].dt.date <= window_end)
+        (ethanol_dates >= window_start)
+        & (ethanol_dates <= window_end)
     ].copy()
     gas_window = gas_df[
-        (gas_df["observation_date"].dt.date >= window_start)
-        & (gas_df["observation_date"].dt.date <= window_end)
+        (gas_dates >= window_start)
+        & (gas_dates <= window_end)
     ].copy()
     if ethanol_window.empty or gas_window.empty or corn_daily_df is None or corn_daily_df.empty:
         return {
@@ -4641,6 +4868,7 @@ def _gpre_official_proxy_weekly_rows(
     basis_override_payload: Optional[Dict[str, Any]] = None,
     basis_context_resolver: Optional[Callable[[date], Optional[Dict[str, Any]]]] = None,
     plant_capacity_history: Optional[Dict[str, Any]] = None,
+    allow_natural_gas_futures_fallback: bool = False,
 ) -> List[Dict[str, Any]]:
     try:
         ethanol_yield_num = float(ethanol_yield) if ethanol_yield is not None else None
@@ -4747,10 +4975,74 @@ def _gpre_official_proxy_weekly_rows(
         for dt in (set(gas_map.keys()) | set(cbot_map.keys()) | set(ethanol_candidate_dates))
         if isinstance(dt, date) and window_start <= dt <= window_end
     )
+    if allow_natural_gas_futures_fallback:
+        gas_futures_df = rows_df[
+            (rows_df["aggregation_level"].astype(str).str.lower() == "observation")
+            & rows_df["series_key"].astype(str).str.match(r"^nymex_gas_[a-z]{3}\d{2}_usd$", na=False)
+            & rows_df["observation_date"].notna()
+            & rows_df["price_value"].notna()
+        ].copy()
+        if not gas_futures_df.empty and "market_family" in gas_futures_df.columns:
+            gas_futures_df = gas_futures_df[
+                gas_futures_df["market_family"].astype(str).eq("natural_gas_futures")
+            ].copy()
+    else:
+        gas_futures_df = pd.DataFrame()
+
+    def _gas_futures_spot_proxy(obs_date_in: date) -> Optional[Dict[str, Any]]:
+        if gas_futures_df.empty or not isinstance(obs_date_in, date):
+            return None
+        obs_dates = pd.to_datetime(gas_futures_df["observation_date"], errors="coerce")
+        floor_date = obs_date_in - timedelta(days=7)
+        candidates_df = gas_futures_df[
+            obs_dates.dt.date.le(obs_date_in) & obs_dates.dt.date.ge(floor_date)
+        ].copy()
+        if candidates_df.empty:
+            return None
+        candidates: List[Tuple[Tuple[int, int, int], Dict[str, Any]]] = []
+        for rec in candidates_df.to_dict("records"):
+            tenor = str(rec.get("contract_tenor") or "").strip().lower()
+            if not tenor:
+                series_key = str(rec.get("series_key") or "")
+                match = re.search(r"_([a-z]{3}\d{2})_usd$", series_key, re.I)
+                tenor = str(match.group(1) or "").strip().lower() if match else ""
+            contract_mid = _tenor_contract_midpoint(tenor)
+            price_num = pd.to_numeric(rec.get("price_value"), errors="coerce")
+            obs_ts = pd.to_datetime(rec.get("observation_date"), errors="coerce")
+            if contract_mid is None or pd.isna(price_num) or pd.isna(obs_ts):
+                continue
+            obs_dt = pd.Timestamp(obs_ts).date()
+            source_type = str(rec.get("source_type") or "").strip()
+            source_priority = 0 if source_type == _LOCAL_BARCHART_GAS_SOURCE_TYPE else 1
+            sort_key = (
+                abs((contract_mid - obs_date_in).days),
+                -obs_dt.toordinal(),
+                source_priority,
+            )
+            payload = dict(rec)
+            payload["contract_tenor"] = tenor
+            payload["contract_midpoint"] = contract_mid
+            payload["observation_date"] = obs_dt
+            payload["price_value"] = float(price_num)
+            candidates.append((sort_key, payload))
+        if not candidates:
+            return None
+        return sorted(candidates, key=lambda item: item[0])[0][1]
+
     ethanol_anchor_cache: Dict[date, Optional[float]] = {}
     out: List[Dict[str, Any]] = []
     for week_end in week_ends:
         gas_price = pd.to_numeric(gas_map.get(week_end), errors="coerce")
+        gas_source_kind = "nwer_observed_front_month"
+        gas_contract_tenor = "front" if pd.notna(gas_price) else ""
+        gas_source_type = ""
+        if pd.isna(gas_price):
+            gas_proxy = _gas_futures_spot_proxy(week_end)
+            if gas_proxy is not None:
+                gas_price = pd.to_numeric(gas_proxy.get("price_value"), errors="coerce")
+                gas_source_kind = "local_futures_proxy_front_month"
+                gas_contract_tenor = str(gas_proxy.get("contract_tenor") or "").strip()
+                gas_source_type = str(gas_proxy.get("source_type") or "").strip()
         cbot_corn = pd.to_numeric(cbot_map.get(week_end), errors="coerce")
         ethanol_anchor_value = ethanol_anchor_cache.get(week_end)
         if week_end not in ethanol_anchor_cache:
@@ -4903,6 +5195,9 @@ def _gpre_official_proxy_weekly_rows(
                 "delivered_corn_source_label": delivered_corn_source_label,
                 "delivered_corn_provenance": delivered_corn_provenance,
                 "natural_gas_price": (None if pd.isna(gas_price) else float(gas_price)),
+                "natural_gas_source_kind": gas_source_kind if pd.notna(gas_price) else "",
+                "natural_gas_source_type": gas_source_type,
+                "natural_gas_contract_tenor": gas_contract_tenor,
                 "ethanol_revenue": ethanol_revenue,
                 "feedstock_cost": feedstock_cost,
                 "natural_gas_burden": natural_gas_burden,
@@ -5000,6 +5295,9 @@ def build_gpre_official_proxy_snapshot(
         if not nums:
             return None
         return float(sum(nums) / len(nums))
+    def _num_or_none(value: Any) -> Optional[float]:
+        num = pd.to_numeric(value, errors="coerce")
+        return None if pd.isna(num) else float(num)
     def _meta(key: str, *, cadence: str, proxy_mode: str = "", extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         valid_rows = [
             rec
@@ -5071,17 +5369,17 @@ def build_gpre_official_proxy_snapshot(
                 "official_weighted_corn_basis_usd_per_bu": (
                     _avg("official_weighted_corn_basis_usd_per_bu")
                     if _avg("official_weighted_corn_basis_usd_per_bu") is not None
-                    else pd.to_numeric((basis_payload or {}).get("official_weighted_corn_basis_usd_per_bu"), errors="coerce")
+                    else _num_or_none((basis_payload or {}).get("official_weighted_corn_basis_usd_per_bu"))
                 ),
                 "official_weighted_corn_cash_price_usd_per_bu": (
                     _avg("gpre_cash_price_usd_per_bu")
                     if _avg("gpre_cash_price_usd_per_bu") is not None
-                    else pd.to_numeric((basis_payload or {}).get("official_weighted_corn_cash_price_usd_per_bu"), errors="coerce")
+                    else _num_or_none((basis_payload or {}).get("official_weighted_corn_cash_price_usd_per_bu"))
                 ),
                 "official_corn_cash_coverage_ratio": (
                     _avg("gpre_cash_coverage_ratio")
                     if _avg("gpre_cash_coverage_ratio") is not None
-                    else pd.to_numeric((basis_payload or {}).get("official_corn_cash_coverage_ratio"), errors="coerce")
+                    else _num_or_none((basis_payload or {}).get("official_corn_cash_coverage_ratio"))
                 ),
                 "official_actual_cash_price_plant_count": int((basis_payload or {}).get("official_actual_cash_price_plant_count") or 0),
                 "official_corn_price_source_kind": delivered_source_kind,
@@ -5123,7 +5421,9 @@ def build_gpre_official_proxy_snapshot(
                 "weighted_ams_basis_proxy_usd_per_bu": pd.to_numeric(
                     (basis_payload or {}).get("weighted_ams_basis_proxy_usd_per_bu"),
                     errors="coerce",
-                ),
+                )
+                if pd.notna(pd.to_numeric((basis_payload or {}).get("weighted_ams_basis_proxy_usd_per_bu"), errors="coerce"))
+                else None,
                 "cbot_corn_front_price_usd_per_bu": _avg("cbot_corn_price"),
             },
         ),
@@ -5191,7 +5491,9 @@ def build_gpre_official_proxy_history_series(
     start_date: Optional[date] = None,
     lookback_weeks: Optional[int] = None,
     ticker_root: Optional[Path] = None,
+    bids_snapshot: Optional[Dict[str, Any]] = None,
     plant_capacity_history: Optional[Dict[str, Any]] = None,
+    ams_basis_strategy: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     try:
         ethanol_yield_num = float(ethanol_yield) if ethanol_yield is not None else None
@@ -5202,6 +5504,27 @@ def build_gpre_official_proxy_history_series(
     rows_df = _market_rows_df(rows)
     end_date = as_of_date if isinstance(as_of_date, date) else date.today()
     window_start = start_date if isinstance(start_date, date) else (end_date - timedelta(days=((max(int(lookback_weeks or 104), 1) * 7) + 6)))
+    current_q_start, current_q_end = calendar_quarter_bounds(as_of_date=end_date)
+
+    def _weekly_basis_context(week_end_in: date) -> Optional[Dict[str, Any]]:
+        if not isinstance(week_end_in, date):
+            return None
+        if not isinstance(bids_snapshot, dict) or not bids_snapshot:
+            return None
+        if week_end_in < current_q_start or week_end_in > current_q_end:
+            return None
+        return weighted_corn_basis_context(
+            rows_df,
+            target_date=week_end_in,
+            target_quarter_end=quarter_end_from_date(week_end_in),
+            anchor_date=week_end_in,
+            ticker_root=ticker_root,
+            bids_snapshot=bids_snapshot,
+            frame_key="current_qtd",
+            plant_capacity_history=plant_capacity_history,
+            ams_basis_strategy=ams_basis_strategy,
+        )
+
     weekly_rows = _gpre_official_proxy_weekly_rows(
         rows_df,
         ethanol_yield=ethanol_yield,
@@ -5209,6 +5532,7 @@ def build_gpre_official_proxy_history_series(
         window_start=window_start,
         window_end=end_date,
         ticker_root=ticker_root,
+        basis_context_resolver=_weekly_basis_context,
         plant_capacity_history=plant_capacity_history,
     )
     out_rows = [
@@ -5289,6 +5613,21 @@ def _ethanol_thesis_source_label(source_type: Any) -> str:
     if source_txt == "cme_ethanol_settlement":
         return "official CME settlement file"
     return source_txt or "ethanol futures thesis source"
+
+
+def _forward_futures_source_label(source_type: Any) -> str:
+    source_txt = str(source_type or "").strip()
+    if source_txt == _LOCAL_BARCHART_CORN_SOURCE_TYPE:
+        return "local Barchart corn futures CSV"
+    if source_txt == _LOCAL_BARCHART_GAS_SOURCE_TYPE:
+        return "local Barchart natural gas futures CSV"
+    if source_txt == "gpre_bids_implied_futures":
+        return "implied corn futures from GPRE cash price - basis"
+    if source_txt == "nwer_pdf":
+        return "NWER PDF futures reference"
+    if source_txt == "nwer_public_data":
+        return "NWER public_data futures reference"
+    return source_txt or "forward futures source"
 
 
 def _build_quarter_strip_payload(
@@ -5426,6 +5765,10 @@ def _pick_quarter_strip_reference(
     market_family: str,
     as_of_date: Optional[date] = None,
 ) -> Optional[Dict[str, Any]]:
+    # Forward-looking frames must read as "what was knowable at the anchor date":
+    # quarter-open calls anchor at the prior quarter end, while next-quarter outlook
+    # anchors at the live workbook as-of date. Pick the latest eligible observation
+    # on or before that anchor for each required contract month.
     df = _market_rows_df(rows)
     require_market_columns(
         df,
@@ -5485,7 +5828,15 @@ def _pick_next_quarter_futures_reference(
     prefix: str,
     market_family: str,
     as_of_date: Optional[date] = None,
+    include_source_types: Optional[Iterable[str]] = None,
+    exclude_source_types: Optional[Iterable[str]] = None,
+    max_age_days: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
+    # The price source is a snapshot decision first, contract decision second:
+    # filter to data available on or before `as_of_date`, optionally require a
+    # fresh local futures file, then choose the contract whose midpoint best
+    # represents the target quarter. This keeps quarter-open from using later
+    # files and lets next-quarter outlook advance when newer local strips arrive.
     df = _market_rows_df(rows)
     require_market_columns(
         df,
@@ -5498,9 +5849,27 @@ def _pick_next_quarter_futures_reference(
         & df["observation_date"].notna()
         & df["price_value"].notna()
     ].copy()
+    include_types = {
+        str(item or "").strip()
+        for item in list(include_source_types or [])
+        if str(item or "").strip()
+    }
+    exclude_types = {
+        str(item or "").strip()
+        for item in list(exclude_source_types or [])
+        if str(item or "").strip()
+    }
+    if include_types:
+        obs = obs[obs["source_type"].astype(str).isin(include_types)].copy()
+    if exclude_types:
+        obs = obs[~obs["source_type"].astype(str).isin(exclude_types)].copy()
     if isinstance(as_of_date, date):
         obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
         obs = obs[obs_dates.dt.date.le(as_of_date)].copy()
+        if max_age_days is not None:
+            min_allowed = as_of_date - timedelta(days=max(int(max_age_days or 0), 0))
+            obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+            obs = obs[obs_dates.dt.date.ge(min_allowed)].copy()
     if obs.empty:
         return None
     latest_per_series = (
@@ -5540,6 +5909,124 @@ def _pick_next_quarter_futures_reference(
     return chosen
 
 
+def _gpre_symbol_contract_tenor(symbol_in: Any, delivery_end_in: Any) -> str:
+    symbol_txt = str(symbol_in or "").strip().upper()
+    symbol_match = re.search(r"@?[A-Z]+\s*(?P<year>\d{1,2})(?P<month_code>[FGHJKMNQUVXZ])$", symbol_txt)
+    if symbol_match:
+        month_num = {
+            "F": 1,
+            "G": 2,
+            "H": 3,
+            "J": 4,
+            "K": 5,
+            "M": 6,
+            "N": 7,
+            "Q": 8,
+            "U": 9,
+            "V": 10,
+            "X": 11,
+            "Z": 12,
+        }.get(str(symbol_match.group("month_code") or "").upper())
+        if month_num is not None:
+            year_raw = int(symbol_match.group("year"))
+            year_num = 2000 + year_raw if year_raw < 100 else year_raw
+            return f"{date(year_num, month_num, 1):%b}".lower() + f"{str(year_num)[-2:]}"
+    delivery_end = _gpre_parse_snapshot_date_like(delivery_end_in)
+    if isinstance(delivery_end, date):
+        return f"{delivery_end:%b}".lower() + f"{str(delivery_end.year)[-2:]}"
+    return ""
+
+
+def _gpre_implied_corn_futures_reference_from_bids(
+    bids_snapshot: Optional[Dict[str, Any]],
+    *,
+    target_quarter_end: date,
+    as_of_date: Optional[date],
+    ticker_root: Optional[Path],
+    plant_capacity_history: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    if not isinstance(bids_snapshot, dict):
+        return None
+    snapshot_date = _gpre_parse_snapshot_date_like(bids_snapshot.get("snapshot_date"))
+    if isinstance(as_of_date, date) and isinstance(snapshot_date, date) and snapshot_date > as_of_date:
+        return None
+    active_plants = _gpre_active_plants_for_quarter(
+        target_quarter_end,
+        plant_capacity_history=plant_capacity_history,
+        ticker_root=ticker_root,
+    )
+    capacity_by_location = {
+        str(rec.get("location") or "").strip(): float(pd.to_numeric(rec.get("capacity_mmgy"), errors="coerce"))
+        for rec in active_plants
+        if str(rec.get("location") or "").strip()
+        and pd.notna(pd.to_numeric(rec.get("capacity_mmgy"), errors="coerce"))
+    }
+    target_start = pd.Timestamp(target_quarter_end).to_period("Q").start_time.normalize().date()
+    target_mid = _quarter_midpoint(target_start, target_quarter_end)
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for raw_rec in list(bids_snapshot.get("rows") or []):
+        if not isinstance(raw_rec, dict):
+            continue
+        tenor = _gpre_symbol_contract_tenor(raw_rec.get("symbol"), raw_rec.get("delivery_end"))
+        if not tenor:
+            continue
+        cash_num = pd.to_numeric(raw_rec.get("cash_price"), errors="coerce")
+        basis_num = pd.to_numeric(raw_rec.get("basis_usd_per_bu"), errors="coerce")
+        if pd.isna(cash_num) or pd.isna(basis_num):
+            continue
+        implied_futures = float(cash_num) - float(basis_num)
+        contract_mid = _tenor_contract_midpoint(tenor)
+        if contract_mid is None:
+            continue
+        location = str(raw_rec.get("location") or "").strip()
+        weight = float(capacity_by_location.get(location) or 1.0)
+        bucket = grouped.setdefault(
+            tenor,
+            {
+                "weighted_sum": 0.0,
+                "weight_total": 0.0,
+                "contract_midpoint": contract_mid,
+                "source_locations": [],
+            },
+        )
+        bucket["weighted_sum"] += weight * implied_futures
+        bucket["weight_total"] += weight
+        if location:
+            bucket["source_locations"].append(location)
+    candidates: List[Tuple[Tuple[int, int], Dict[str, Any]]] = []
+    for tenor, payload in grouped.items():
+        weight_total = float(payload.get("weight_total") or 0.0)
+        if weight_total <= 0.0:
+            continue
+        contract_mid = payload.get("contract_midpoint")
+        if not isinstance(contract_mid, date):
+            continue
+        distance_days = abs((contract_mid - target_mid).days)
+        price_value = float(payload["weighted_sum"] / weight_total)
+        candidate = {
+            "target_quarter_start": target_start,
+            "target_quarter_end": target_quarter_end,
+            "target_quarter_midpoint": target_mid,
+            "market_family": "corn_futures",
+            "series_key": f"cbot_corn_{tenor}_usd",
+            "instrument": "Corn futures",
+            "contract_tenor": tenor,
+            "contract_label": _tenor_label(tenor),
+            "contract_midpoint": contract_mid,
+            "observation_date": snapshot_date,
+            "price_value": price_value,
+            "source_type": "gpre_bids_implied_futures",
+            "source_label": "implied corn futures from GPRE cash price - basis",
+            "source_file": str((bids_snapshot.get("parsed_path") or bids_snapshot.get("source_url") or "")),
+            "source_locations": sorted(set(str(item or "").strip() for item in list(payload.get("source_locations") or []) if str(item or "").strip())),
+        }
+        sort_key = (distance_days, -contract_mid.toordinal())
+        candidates.append((sort_key, candidate))
+    if not candidates:
+        return None
+    return sorted(candidates, key=lambda item: item[0])[0][1]
+
+
 def build_next_quarter_thesis_snapshot(
     rows: Iterable[Dict[str, Any]],
     *,
@@ -5549,9 +6036,47 @@ def build_next_quarter_thesis_snapshot(
     plant_capacity_history: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     rows_df = _market_rows_df(rows)
-    corn_ref = _pick_next_quarter_futures_reference(rows_df, prefix="cbot_corn", market_family="corn_futures", as_of_date=as_of_date)
+    corn_ref = _pick_next_quarter_futures_reference(
+        rows_df,
+        prefix="cbot_corn",
+        market_family="corn_futures",
+        as_of_date=as_of_date,
+        include_source_types=(_LOCAL_BARCHART_CORN_SOURCE_TYPE,),
+        max_age_days=_GPRE_LOCAL_FORWARD_FUTURES_MAX_AGE_DAYS,
+    )
+    if corn_ref is None:
+        corn_ref = _pick_next_quarter_futures_reference(
+            rows_df,
+            prefix="cbot_corn",
+            market_family="corn_futures",
+            as_of_date=as_of_date,
+            exclude_source_types=(_LOCAL_BARCHART_CORN_SOURCE_TYPE,),
+        )
+    if corn_ref is None:
+        corn_ref = _gpre_implied_corn_futures_reference_from_bids(
+            bids_snapshot,
+            target_quarter_end=next_calendar_quarter_bounds(as_of_date=as_of_date)[1],
+            as_of_date=as_of_date,
+            ticker_root=ticker_root,
+            plant_capacity_history=plant_capacity_history,
+        )
     ethanol_ref = _pick_quarter_strip_reference(rows_df, prefix="cme_ethanol_chicago_platts", market_family="ethanol_futures", as_of_date=as_of_date)
-    gas_ref = _pick_next_quarter_futures_reference(rows_df, prefix="nymex_gas", market_family="natural_gas_futures", as_of_date=as_of_date)
+    gas_ref = _pick_next_quarter_futures_reference(
+        rows_df,
+        prefix="nymex_gas",
+        market_family="natural_gas_futures",
+        as_of_date=as_of_date,
+        include_source_types=(_LOCAL_BARCHART_GAS_SOURCE_TYPE,),
+        max_age_days=_GPRE_LOCAL_FORWARD_FUTURES_MAX_AGE_DAYS,
+    )
+    if gas_ref is None:
+        gas_ref = _pick_next_quarter_futures_reference(
+            rows_df,
+            prefix="nymex_gas",
+            market_family="natural_gas_futures",
+            as_of_date=as_of_date,
+            exclude_source_types=(_LOCAL_BARCHART_GAS_SOURCE_TYPE,),
+        )
     target_start, target_end = next_calendar_quarter_bounds(as_of_date=as_of_date)
     target_mid = _quarter_midpoint(target_start, target_end)
     corn_basis_payload = _gpre_official_current_forward_basis_payload(
@@ -5879,9 +6404,20 @@ def load_gpre_current_qtd_snapshot_history(
 
 
 def _gpre_iso_week_key(value_in: Any) -> str:
-    if not isinstance(value_in, date):
+    try:
+        if pd.isna(value_in):
+            return ""
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value_in, pd.Timestamp):
+        value_date = value_in.date()
+    elif isinstance(value_in, datetime):
+        value_date = value_in.date()
+    elif isinstance(value_in, date):
+        value_date = value_in
+    else:
         return ""
-    iso = value_in.isocalendar()
+    iso = value_date.isocalendar()
     return f"{int(iso.year):04d}-W{int(iso.week):02d}"
 
 
@@ -5928,12 +6464,11 @@ def _gpre_current_qtd_component_bundle(
         if pd.isna(cbot_num) or pd.isna(yield_num) or abs(float(yield_num)) <= 1e-9
         else -(float(cbot_num) / float(yield_num))
     )
-    if corn_price_source_kind.startswith("actual_gpre_cash") and pd.notna(delivered_corn_num) and pd.notna(yield_num) and abs(float(yield_num)) > 1e-9:
-        if pd.notna(cbot_num):
-            corn_basis_component = -((float(delivered_corn_num) - float(cbot_num)) / float(yield_num))
-        else:
-            flat_corn_component = -(float(delivered_corn_num) / float(yield_num))
-            corn_basis_component = 0.0
+    if pd.notna(delivered_corn_num) and pd.notna(cbot_num) and pd.notna(yield_num) and abs(float(yield_num)) > 1e-9:
+        corn_basis_component = -((float(delivered_corn_num) - float(cbot_num)) / float(yield_num))
+    elif corn_price_source_kind.startswith("actual_gpre_cash") and pd.notna(delivered_corn_num) and pd.notna(yield_num) and abs(float(yield_num)) > 1e-9:
+        flat_corn_component = -(float(delivered_corn_num) / float(yield_num))
+        corn_basis_component = 0.0
     else:
         corn_basis_component = (
             None
@@ -6577,6 +7112,22 @@ def _resolve_local_manual_gpre_quarter_open_snapshot(
         selection_mode="quarter_open",
         plant_capacity_history=plant_capacity_history,
     )
+    if (
+        str(quarter_open_basis_payload.get("official_corn_basis_source_kind") or "").strip() == "weighted_ams_proxy"
+        and int(quarter_open_basis_payload.get("official_actual_bid_plant_count") or 0) == 0
+        and int(quarter_open_basis_payload.get("official_actual_cash_price_plant_count") or 0) == 0
+    ):
+        quarter_open_basis_payload = dict(quarter_open_basis_payload)
+        existing_basis_provenance = str(quarter_open_basis_payload.get("official_corn_basis_provenance") or "").rstrip(".")
+        manual_basis_note = "manual quarter-open uses CBOT corn futures without an AMS basis overlay when no retained GPRE bid snapshot is eligible"
+        quarter_open_basis_payload["official_weighted_corn_basis_usd_per_bu"] = None
+        quarter_open_basis_payload["official_weighted_corn_cash_price_usd_per_bu"] = None
+        quarter_open_basis_payload["official_corn_cash_coverage_ratio"] = 0.0
+        quarter_open_basis_payload["official_corn_basis_provenance"] = (
+            f"{existing_basis_provenance}; {manual_basis_note}."
+            if existing_basis_provenance
+            else f"{manual_basis_note}."
+        )
     corn_ref = thesis_snapshot.get("corn")
     if isinstance(corn_ref, dict):
         corn_ref = dict(corn_ref)
@@ -6764,6 +7315,12 @@ def build_gpre_next_quarter_preview_snapshot(
         corn_context["component_rows"] = list(corn_context.get("official_corn_basis_component_rows") or [])
     delivered_context = _gpre_delivered_corn_from_context(corn_context, cbot_corn_price=corn_price)
     delivered_corn = None
+    corn_as_of = (corn_ref or {}).get("observation_date")
+    ethanol_as_of = (ethanol_ref or {}).get("observation_date")
+    gas_as_of = (gas_ref or {}).get("observation_date")
+    corn_futures_source_type = str((corn_ref or {}).get("source_type") or "").strip()
+    corn_futures_source_label = str((corn_ref or {}).get("source_label") or _forward_futures_source_label(corn_futures_source_type)).strip()
+    corn_futures_source_file = str((corn_ref or {}).get("source_file") or "").strip()
     corn_price_source_kind = "cbot_plus_official_weighted_basis"
     corn_price_source_label = "CBOT corn + official weighted corn basis"
     corn_price_provenance = str((corn_ref or {}).get("official_corn_basis_provenance") or "").strip()
@@ -6776,6 +7333,14 @@ def build_gpre_next_quarter_preview_snapshot(
         delivered_corn = float(corn_price)
         if pd.notna(corn_basis):
             delivered_corn += float(corn_basis)
+        basis_provenance_tail = str((corn_ref or {}).get("official_corn_basis_provenance") or "").strip()
+        corn_price_provenance = (
+            f"{corn_futures_source_label} as of {corn_as_of.isoformat()} + official weighted corn basis."
+            if isinstance(corn_as_of, date)
+            else f"{corn_futures_source_label} + official weighted corn basis."
+        )
+        if basis_provenance_tail:
+            corn_price_provenance = f"{corn_price_provenance} {basis_provenance_tail}".strip()
     ethanol_revenue = None
     feedstock_cost = None
     natural_gas_burden = None
@@ -6791,9 +7356,6 @@ def build_gpre_next_quarter_preview_snapshot(
         simple_crush_per_bushel = float(ethanol_revenue + feedstock_cost + natural_gas_burden)
         if ethanol_yield_num:
             simple_crush_per_gal = float(simple_crush_per_bushel) / float(ethanol_yield_num)
-    corn_as_of = (corn_ref or {}).get("observation_date")
-    ethanol_as_of = (ethanol_ref or {}).get("observation_date")
-    gas_as_of = (gas_ref or {}).get("observation_date")
     as_of_candidates = [val for val in (corn_as_of, ethanol_as_of, gas_as_of, as_of_date) if isinstance(val, date)]
     snapshot_as_of = max(as_of_candidates) if as_of_candidates else None
     corn_basis_label = str((corn_ref or {}).get("official_corn_basis_source_label") or "").strip() or "weighted AMS basis proxy"
@@ -6805,6 +7367,9 @@ def build_gpre_next_quarter_preview_snapshot(
     ethanol_source_type = str((ethanol_ref or {}).get("source_type") or "local_chicago_ethanol_futures_csv").strip() or "local_chicago_ethanol_futures_csv"
     ethanol_source_label = str((ethanol_ref or {}).get("source_label") or _ethanol_thesis_source_label(ethanol_source_type))
     ethanol_source_files = [str(item or "").strip() for item in list((ethanol_ref or {}).get("source_files") or []) if str(item or "").strip()]
+    gas_source_type = str((gas_ref or {}).get("source_type") or "").strip()
+    gas_source_label = str((gas_ref or {}).get("source_label") or _forward_futures_source_label(gas_source_type)).strip()
+    gas_source_file = str((gas_ref or {}).get("source_file") or "").strip()
     market_meta = {
         "corn_price": {
             "value": delivered_corn,
@@ -6833,6 +7398,9 @@ def build_gpre_next_quarter_preview_snapshot(
             "official_corn_basis_snapshot_date": _gpre_parse_snapshot_date_like((corn_ref or {}).get("official_corn_basis_snapshot_date") or (corn_ref or {}).get("snapshot_date")),
             "official_corn_basis_selection_rule": str((corn_ref or {}).get("official_corn_basis_selection_rule") or (corn_ref or {}).get("selection_rule") or "").strip(),
             "cbot_corn_front_price_usd_per_bu": (None if pd.isna(corn_price) else float(corn_price)),
+            "futures_source_type": corn_futures_source_type,
+            "futures_source_label": corn_futures_source_label,
+            "futures_source_file": corn_futures_source_file,
         },
         "ethanol_price": {
             "value": (None if pd.isna(ethanol_price) else float(ethanol_price)),
@@ -6856,6 +7424,9 @@ def build_gpre_next_quarter_preview_snapshot(
             "as_of": gas_as_of if isinstance(gas_as_of, date) else None,
             "obs_count": 1 if pd.notna(gas_price) else 0,
             "cadence": "futures_thesis",
+            "source_type": gas_source_type,
+            "source_label": gas_source_label,
+            "source_file": gas_source_file,
         },
     }
     message = ""
@@ -6977,6 +7548,7 @@ def build_gpre_overlay_proxy_preview_bundle(
         lookback_weeks=None,
         start_date=date(2023, 1, 1),
         ticker_root=ticker_root,
+        bids_snapshot=bids_snapshot,
         plant_capacity_history=plant_capacity_history,
     )
     next_thesis_snapshot = (
@@ -7024,6 +7596,7 @@ def build_gpre_overlay_proxy_preview_bundle(
     if not isinstance(quarterly_df, pd.DataFrame):
         quarterly_df = pd.DataFrame()
     chosen_model_key = str((gpre_basis_model_result or {}).get("gpre_proxy_model_key") or "process_current_quarter_avg")
+    best_forward_lens_model_key = str((gpre_basis_model_result or {}).get("best_forward_lens_model_key") or "")
     chosen_family = str((gpre_basis_model_result or {}).get("gpre_proxy_family") or "")
     chosen_family_label = str((gpre_basis_model_result or {}).get("gpre_proxy_family_label") or "")
     chosen_timing = str((gpre_basis_model_result or {}).get("gpre_proxy_timing_rule") or "")
@@ -8571,6 +9144,23 @@ def build_gpre_overlay_proxy_preview_bundle(
         quarter_open_fitted_raw = pd.to_numeric(_model_preview_value(chosen_model_key, phase="quarter_open"), errors="coerce")
         quarter_open_fitted_mode = str(quarter_open_preview_story.get("live_preview_mode") or "model_preview_fallback")
         quarter_open_fitted_note = str(quarter_open_preview_story.get("live_preview_note") or "")
+    if (
+        pd.isna(quarter_open_fitted_raw)
+        and best_forward_lens_model_key
+        and best_forward_lens_model_key != chosen_model_key
+        and str((quarter_open_entry or {}).get("status") or "") == "ok"
+    ):
+        fallback_preview_story = _gpre_phase_preview_story(best_forward_lens_model_key, phase="quarter_open")
+        quarter_open_fitted_raw = pd.to_numeric(
+            _model_preview_value(best_forward_lens_model_key, phase="quarter_open"),
+            errors="coerce",
+        )
+        if pd.notna(quarter_open_fitted_raw):
+            quarter_open_fitted_mode = str(fallback_preview_story.get("live_preview_mode") or "best_forward_lens_fallback")
+            quarter_open_fitted_note = (
+                str(fallback_preview_story.get("live_preview_note") or "").strip()
+                or "Quarter-open fitted preview falls back to the best forward lens because the production winner has no quarter-open signal."
+            )
     prior_fitted_frame = _prior_quarter_fitted_frame()
     gpre_frames = {
         "prior_quarter": prior_fitted_frame,
@@ -15378,6 +15968,10 @@ def build_gpre_basis_proxy_model(
         hedge_realization_weights.append(float(hedge_weight))
         hedge_realization_sources.append(str(hedge_source))
         hedge_realization_refs.append(None if pd.isna(ref_num) else float(ref_num))
+    # This model builds a wide diagnostic frame. Compact pandas' internal block
+    # layout before the late-stage proxy/audit columns are added so the formulas
+    # below remain unchanged without triggering fragmentation warnings.
+    quarterly_df = quarterly_df.copy()
     quarterly_df["process_quarter_open_blend_hedge_weight"] = hedge_realization_weights
     quarterly_df["process_quarter_open_blend_hedge_source"] = hedge_realization_sources
     quarterly_df["process_quarter_open_blend_hedge_reference_usd_per_gal"] = hedge_realization_refs
@@ -16672,6 +17266,7 @@ def build_gpre_basis_proxy_model(
             "gpre_proxy_family": str(chosen_spec.get("family") or chosen_row.get("family") or ""),
             "gpre_proxy_family_label": str(chosen_spec.get("family_label") or chosen_row.get("family_label") or ""),
             "gpre_proxy_timing_rule": str(chosen_spec.get("timing_rule") or chosen_row.get("timing_rule") or ""),
+            "best_forward_lens_model_key": best_forward_lens_model_key,
         },
     )
     proxy_implied_results = _build_gpre_proxy_implied_results_bundle(
@@ -16978,9 +17573,10 @@ def load_market_export_rows(
         profile=profile,
         include_sidecars=False,
     )
+    df = _load_parquet(export_path)
     if ensure_cache and str(export_inputs_manifest.get("input_fingerprint") or "") != str(current_input_payload.get("fingerprint") or ""):
         sync_market_cache(cache_dir, ticker_u, profile=profile, sync_raw=True, refresh=False, reparse=True)
-    df = _load_parquet(export_path)
+        df = _load_parquet(export_path)
     if ensure_cache and _export_needs_history_repair(df, ticker_root=ticker_root, enabled_sources=enabled_sources):
         sync_market_cache(cache_dir, ticker_u, profile=profile, sync_raw=True, refresh=False, reparse=True)
         df = _load_parquet(export_path)
