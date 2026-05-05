@@ -7642,6 +7642,58 @@ def test_local_chicago_ethanol_provider_parses_local_barchart_contract_rows_and_
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_local_chicago_ethanol_provider_uses_file_date_for_time_only_barchart_rows() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_cme_ethanol_time_only_")
+    try:
+        csv_path = tmp_path / "ethanol-chicago-prices-intraday-04-24-2026.csv"
+        csv_path.write_text(
+            "Contract,Last,Time\n"
+            "\"FLN26 (Jul '26)\",1.9975,10:18\n"
+            "\"FLQ26 (Aug '26)\",1.9725,\"13:05 CT\"\n",
+            encoding="utf-8",
+        )
+
+        rows = parse_local_chicago_ethanol_futures_table(csv_path, fallback_date=None)
+
+        assert len(rows) == 2
+        assert {str(rec["series_key"]) for rec in rows} == {
+            "cme_ethanol_chicago_platts_jul26_usd_per_gal",
+            "cme_ethanol_chicago_platts_aug26_usd_per_gal",
+        }
+        assert {rec["observation_date"] for rec in rows} == {date(2026, 4, 24)}
+        assert all("intraday time" in str(rec.get("parsed_note") or "").lower() for rec in rows)
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_local_chicago_ethanol_provider_parses_single_contract_price_history_from_filename() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_cme_ethanol_price_history_")
+    try:
+        provider = LocalChicagoEthanolFuturesProvider()
+        csv_path = tmp_path / "flj26_price-history-04-26-2026.csv"
+        csv_path.write_text(
+            'Time,Open,High,Low,Latest,Change,%Change,Volume,"Open Int"\n'
+            "2026-04-01,1.9500,1.9800,1.9400,1.9650,0.0100,+0.51%,38,466\n"
+            "2026-03-31,1.9400,1.9600,1.9300,1.9550,0.0025,+0.13%,20,461\n",
+            encoding="utf-8",
+        )
+
+        parsed_df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [{"report_date": "2026-04-26", "local_path": str(csv_path)}],
+        )
+
+        assert set(parsed_df["series_key"].astype(str)) == {"cme_ethanol_chicago_platts_apr26_usd_per_gal"}
+        assert set(parsed_df["observation_date"].astype(str)) == {"2026-03-31", "2026-04-01"}
+        qopen_row = parsed_df.loc[parsed_df["observation_date"].astype(str) == "2026-04-01"].iloc[0]
+        assert float(pd.to_numeric(qopen_row["price_value"], errors="coerce")) == pytest.approx(1.9650, abs=1e-9)
+        assert str(qopen_row["source_file"]) == "flj26_price-history-04-26-2026.csv"
+        assert str(qopen_row["source_type"]) == "local_chicago_ethanol_futures_csv"
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_local_chicago_ethanol_provider_refresh_is_local_only_and_writes_debug() -> None:
     provider = LocalChicagoEthanolFuturesProvider()
 
@@ -7766,6 +7818,32 @@ def test_local_barchart_corn_provider_parses_contract_rows_and_ignores_cash() ->
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_local_barchart_corn_provider_uses_file_date_for_time_only_chain_rows() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_local_corn_time_only_")
+    try:
+        provider = LocalBarchartCornFuturesProvider()
+        csv_path = tmp_path / "corn-prices-intraday-04-24-2026.csv"
+        csv_path.write_text(
+            "Contract,Latest,Time\n"
+            "\"ZCN26 (Jul '26)\",478.50,10:18\n"
+            "\"ZCU26 (Sep '26)\",483.25,\"13:05 CT\"\n",
+            encoding="utf-8",
+        )
+
+        parsed_df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [{"report_date": "2026-04-24", "local_path": str(csv_path)}],
+        )
+
+        assert set(parsed_df["series_key"].astype(str)) == {"cbot_corn_jul26_usd", "cbot_corn_sep26_usd"}
+        assert set(parsed_df["observation_date"].astype(str)) == {"2026-04-24"}
+        assert set(round(float(value), 4) for value in parsed_df["price_value"]) == {4.7850, 4.8325}
+        assert all("intraday time" in note.lower() for note in parsed_df["parsed_note"].astype(str))
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_local_barchart_corn_provider_scales_real_barchart_cents_to_dollars() -> None:
     tmp_path = _local_test_dir(".pytest_tmp_local_barchart_corn_scale_")
     try:
@@ -7787,6 +7865,32 @@ def test_local_barchart_corn_provider_scales_real_barchart_cents_to_dollars() ->
         assert str(row["series_key"]) == "cbot_corn_sep26_usd"
         assert float(pd.to_numeric(row["price_value"], errors="coerce")) == pytest.approx(4.67, abs=1e-9)
         assert str(row["unit"]) == "$/bu"
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_local_barchart_corn_provider_parses_single_contract_history_from_filename_and_scales_cents() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_local_corn_contract_history_")
+    try:
+        provider = LocalBarchartCornFuturesProvider()
+        csv_path = tmp_path / "zck26_price-history-04-29-2026.csv"
+        csv_path.write_text(
+            'Time,Open,High,Low,Latest,Change,%Change,Volume,"Open Int"\n'
+            "2026-04-01,454.00,456.00,453.25,454.25,-0.25,-0.06%,120,900\n"
+            "2026-03-31,450.00,455.50,449.50,455.00,1.25,+0.28%,100,880\n",
+            encoding="utf-8",
+        )
+
+        parsed_df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [{"report_date": "2026-04-29", "local_path": str(csv_path)}],
+        )
+
+        assert set(parsed_df["series_key"].astype(str)) == {"cbot_corn_may26_usd"}
+        qopen_row = parsed_df.loc[parsed_df["observation_date"].astype(str) == "2026-04-01"].iloc[0]
+        assert float(pd.to_numeric(qopen_row["price_value"], errors="coerce")) == pytest.approx(4.5425, abs=1e-9)
+        assert str(qopen_row["source_file"]) == "zck26_price-history-04-29-2026.csv"
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
@@ -7815,6 +7919,33 @@ def test_local_barchart_gas_provider_parses_contract_rows() -> None:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_local_barchart_gas_provider_parses_single_contract_history_from_filename() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_local_gas_contract_history_")
+    try:
+        provider = LocalBarchartGasFuturesProvider()
+        csv_path = tmp_path / "ngk26_price-history-05-03-2026.csv"
+        csv_path.write_text(
+            'Time,Open,High,Low,Latest,Change,%Change,Volume,"Open Int"\n'
+            "2026-04-28,2.539,2.578,2.483,2.559,0.009,+0.35%,4973,1400\n"
+            "2026-04-27,2.505,2.630,2.505,2.550,0.027,+1.07%,65552,4261\n",
+            encoding="utf-8",
+        )
+
+        parsed_df = provider.parse_raw_to_rows(
+            tmp_path,
+            tmp_path,
+            [{"report_date": "2026-05-03", "local_path": str(csv_path)}],
+        )
+
+        assert set(parsed_df["series_key"].astype(str)) == {"nymex_gas_may26_usd"}
+        assert set(parsed_df["observation_date"].astype(str)) == {"2026-04-27", "2026-04-28"}
+        latest_row = parsed_df.loc[parsed_df["observation_date"].astype(str) == "2026-04-28"].iloc[0]
+        assert float(pd.to_numeric(latest_row["price_value"], errors="coerce")) == pytest.approx(2.559, abs=1e-9)
+        assert str(latest_row["source_file"]) == "ngk26_price-history-05-03-2026.csv"
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_local_barchart_gas_provider_discovers_camelcase_folder_and_intraday_latest() -> None:
     tmp_path = _local_test_dir(".pytest_tmp_local_gas_discover_")
     try:
@@ -7826,7 +7957,7 @@ def test_local_barchart_gas_provider_discovers_camelcase_folder_and_intraday_lat
         csv_path.write_text(
             "Contract,Latest,Time\n"
             "\"NGN26 (Jul '26)\",2.974,\"10:18 CT\"\n"
-            "\"NGQ26 (Aug '26)\",3.056,\"10:18 CT\"\n",
+            "\"NGQ26 (Aug '26)\",3.056,10:18\n",
             encoding="utf-8",
         )
 
@@ -7837,6 +7968,7 @@ def test_local_barchart_gas_provider_discovers_camelcase_folder_and_intraday_lat
         assert set(parsed_df["series_key"].astype(str)) == {"nymex_gas_jul26_usd", "nymex_gas_aug26_usd"}
         assert set(parsed_df["observation_date"].astype(str)) == {"2026-04-24"}
         assert float(pd.to_numeric(parsed_df.loc[parsed_df["series_key"] == "nymex_gas_aug26_usd", "price_value"].iloc[0], errors="coerce")) == pytest.approx(3.056, abs=1e-9)
+        assert all("intraday time" in note.lower() for note in parsed_df["parsed_note"].astype(str))
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
@@ -7853,7 +7985,7 @@ def test_local_barchart_gas_provider_uses_natural_gas_folder_as_primary_home() -
     assert not provider.owns_local_asset(Path("GPRE") / "gas_futures" / "natural-gas-prices-end-of-day-04-24-2026.csv")
 
 
-def test_next_quarter_thesis_snapshot_builds_day_weighted_cme_ethanol_strip_for_q2() -> None:
+def test_next_quarter_thesis_snapshot_builds_simple_average_cme_ethanol_strip_for_q2() -> None:
     rows = [
         _parsed_row(aggregation_level="observation", observation_date="2026-03-31", publication_date="2026-03-31", quarter="2026-03-31", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=4.72, contract_tenor="may26", source_type="nwer_pdf"),
         _parsed_row(aggregation_level="observation", observation_date="2026-03-31", publication_date="2026-03-31", quarter="2026-03-31", market_family="natural_gas_price", series_key="nymex_gas_jun26_usd", instrument="Natural gas futures", price_value=3.35, contract_tenor="jun26", source_type="nwer_pdf"),
@@ -7864,10 +7996,10 @@ def test_next_quarter_thesis_snapshot_builds_day_weighted_cme_ethanol_strip_for_
 
     thesis = build_next_quarter_thesis_snapshot(rows, as_of_date=date(2026, 3, 31))
 
-    expected = ((1.61 * 30.0) + (1.66 * 31.0) + (1.71 * 30.0)) / 91.0
+    expected = (1.61 + 1.66 + 1.71) / 3.0
     assert thesis["ethanol"]["status"] == "ok"
     assert thesis["ethanol"]["contract_tenors"] == ["apr26", "may26", "jun26"]
-    assert thesis["ethanol"]["strip_method"] == "day_weighted"
+    assert thesis["ethanol"]["strip_method"] == "simple_average"
     assert float(pd.to_numeric(thesis["ethanol"]["price_value"], errors="coerce")) == pytest.approx(expected, abs=1e-9)
 
 
@@ -7886,6 +8018,38 @@ def test_next_quarter_thesis_snapshot_uses_expected_contract_months_for_q3() -> 
     assert thesis["ethanol"]["contract_tenors"] == ["jul26", "aug26", "sep26"]
     assert thesis["corn"]["contract_tenor"] == "sep26"
     assert thesis["natural_gas"]["contract_tenor"] == "aug26"
+
+
+def test_next_quarter_thesis_snapshot_uses_q3_local_price_history_baskets() -> None:
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-29", publication_date="2026-04-29", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_jul26_usd", instrument="Corn futures", price_value=4.785, contract_tenor="jul26", source_type="local_barchart_corn_futures_csv", source_file="zcn26_price-history-04-29-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-30", publication_date="2026-04-30", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_sep26_usd", instrument="Corn futures", price_value=4.8325, contract_tenor="sep26", source_type="local_barchart_corn_futures_csv", source_file="zcu26_price-history-04-30-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-30", publication_date="2026-04-30", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_sep26_usd", instrument="Corn futures", price_value=5.50, contract_tenor="sep26", source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-27", publication_date="2026-04-27", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_jul26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.9975, contract_tenor="jul26", source_type="local_chicago_ethanol_futures_csv", source_file="fln26_price-history-04-28-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-27", publication_date="2026-04-27", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_aug26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.9725, contract_tenor="aug26", source_type="local_chicago_ethanol_futures_csv", source_file="flq26_price-history-04-28-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-27", publication_date="2026-04-27", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_sep26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.9425, contract_tenor="sep26", source_type="local_chicago_ethanol_futures_csv", source_file="flu26_price-history-04-28-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-05-01", publication_date="2026-05-01", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_jul26_usd", instrument="Natural gas futures", price_value=3.075, contract_tenor="jul26", source_type="local_barchart_gas_futures_csv", source_file="ngn26_price-history-05-03-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-05-04", publication_date="2026-05-04", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_aug26_usd", instrument="Natural gas futures", price_value=3.229, contract_tenor="aug26", source_type="local_barchart_gas_futures_csv", source_file="ngq26_price-history-05-04-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-05-04", publication_date="2026-05-04", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_sep26_usd", instrument="Natural gas futures", price_value=3.213, contract_tenor="sep26", source_type="local_barchart_gas_futures_csv", source_file="ngu26_price-history-05-04-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-05-05", publication_date="2026-05-05", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_sep26_usd", instrument="Corn futures", price_value=9.99, contract_tenor="sep26", source_type="local_barchart_corn_futures_csv", source_file="zcu26_price-history-04-30-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-05-05", publication_date="2026-05-05", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_sep26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=9.99, contract_tenor="sep26", source_type="local_chicago_ethanol_futures_csv", source_file="flu26_price-history-04-28-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-05-05", publication_date="2026-05-05", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_sep26_usd", instrument="Natural gas futures", price_value=9.99, contract_tenor="sep26", source_type="local_barchart_gas_futures_csv", source_file="ngu26_price-history-05-04-2026.csv"),
+    ]
+
+    thesis = build_next_quarter_thesis_snapshot(rows, as_of_date=date(2026, 5, 4))
+
+    assert thesis["target_quarter_end"] == date(2026, 9, 30)
+    assert thesis["corn"]["contract_tenors"] == ["jul26", "sep26"]
+    assert thesis["corn"]["weighting_rule"] == "1/3 ZCN26 July corn + 2/3 ZCU26 September corn"
+    assert float(pd.to_numeric(thesis["corn"]["price_value"], errors="coerce")) == pytest.approx(4.8166666667, abs=1e-9)
+    assert thesis["ethanol"]["strip_method"] == "simple_average"
+    assert thesis["ethanol"]["contract_tenors"] == ["jul26", "aug26", "sep26"]
+    assert float(pd.to_numeric(thesis["ethanol"]["price_value"], errors="coerce")) == pytest.approx(1.9708333333, abs=1e-9)
+    assert thesis["natural_gas"]["contract_tenors"] == ["jul26", "aug26", "sep26"]
+    assert float(pd.to_numeric(thesis["natural_gas"]["price_value"], errors="coerce")) == pytest.approx(3.1723333333, abs=1e-9)
+    assert all(rec["observation_date"] <= date(2026, 5, 4) for rec in thesis["corn"]["contract_components"])
+    assert all(rec["observation_date"] <= date(2026, 5, 4) for rec in thesis["ethanol"]["contract_components"])
+    assert all(rec["observation_date"] <= date(2026, 5, 4) for rec in thesis["natural_gas"]["contract_components"])
 
 
 def test_next_quarter_thesis_snapshot_marks_missing_cme_contract_months_explicitly() -> None:
@@ -7919,11 +8083,14 @@ def test_next_quarter_thesis_snapshot_moves_when_one_contract_month_changes() ->
     assert float(pd.to_numeric(bumped_thesis["ethanol"]["price_value"], errors="coerce")) > float(pd.to_numeric(base_thesis["ethanol"]["price_value"], errors="coerce"))
 
 
-def test_next_quarter_thesis_snapshot_prefers_local_barchart_corn_and_gas_when_recent() -> None:
+def test_next_quarter_thesis_snapshot_prefers_complete_local_barchart_corn_and_gas_baskets() -> None:
     rows = [
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_jul26_usd", instrument="Corn futures", price_value=4.76, contract_tenor="jul26", source_type="local_barchart_corn_futures_csv"),
         _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_sep26_usd", instrument="Corn futures", price_value=4.82, contract_tenor="sep26", source_type="local_barchart_corn_futures_csv"),
         _parsed_row(aggregation_level="observation", observation_date="2026-04-17", publication_date="2026-04-17", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_sep26_usd", instrument="Corn futures", price_value=4.72, contract_tenor="sep26", source_type="nwer_pdf"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_jul26_usd", instrument="Natural gas futures", price_value=3.10, contract_tenor="jul26", source_type="local_barchart_gas_futures_csv"),
         _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_aug26_usd", instrument="Natural gas futures", price_value=3.22, contract_tenor="aug26", source_type="local_barchart_gas_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_sep26_usd", instrument="Natural gas futures", price_value=3.28, contract_tenor="sep26", source_type="local_barchart_gas_futures_csv"),
         _parsed_row(aggregation_level="observation", observation_date="2026-04-17", publication_date="2026-04-17", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_aug26_usd", instrument="Natural gas futures", price_value=3.05, contract_tenor="aug26", source_type="nwer_pdf"),
         _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_jul26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.95, contract_tenor="jul26", source_type="local_chicago_ethanol_futures_csv"),
         _parsed_row(aggregation_level="observation", observation_date="2026-04-22", publication_date="2026-04-22", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_aug26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.92, contract_tenor="aug26", source_type="local_chicago_ethanol_futures_csv"),
@@ -7932,9 +8099,9 @@ def test_next_quarter_thesis_snapshot_prefers_local_barchart_corn_and_gas_when_r
 
     thesis = build_next_quarter_thesis_snapshot(rows, as_of_date=date(2026, 4, 23))
 
-    assert float(pd.to_numeric(thesis["corn"]["price_value"], errors="coerce")) == pytest.approx(4.82, abs=1e-9)
+    assert float(pd.to_numeric(thesis["corn"]["price_value"], errors="coerce")) == pytest.approx((4.76 / 3.0) + (4.82 * 2.0 / 3.0), abs=1e-9)
     assert str(thesis["corn"]["source_type"]) == "local_barchart_corn_futures_csv"
-    assert float(pd.to_numeric(thesis["natural_gas"]["price_value"], errors="coerce")) == pytest.approx(3.22, abs=1e-9)
+    assert float(pd.to_numeric(thesis["natural_gas"]["price_value"], errors="coerce")) == pytest.approx((3.10 + 3.22 + 3.28) / 3.0, abs=1e-9)
     assert str(thesis["natural_gas"]["source_type"]) == "local_barchart_gas_futures_csv"
 
 
@@ -7953,8 +8120,12 @@ def test_next_quarter_thesis_snapshot_falls_back_to_nwer_when_local_forward_file
 
     assert float(pd.to_numeric(thesis["corn"]["price_value"], errors="coerce")) == pytest.approx(4.72, abs=1e-9)
     assert str(thesis["corn"]["source_type"]) == "nwer_pdf"
+    assert thesis["corn"]["fallback_missing_contract_tenors"] == ["jul26"]
+    assert thesis["corn"]["fallback_from_source_type"] == "local_barchart_corn_futures_csv"
     assert float(pd.to_numeric(thesis["natural_gas"]["price_value"], errors="coerce")) == pytest.approx(3.05, abs=1e-9)
     assert str(thesis["natural_gas"]["source_type"]) == "nwer_pdf"
+    assert thesis["natural_gas"]["fallback_missing_contract_tenors"] == ["jul26", "sep26"]
+    assert thesis["natural_gas"]["fallback_from_source_type"] == "local_barchart_gas_futures_csv"
 
 
 def test_next_quarter_thesis_snapshot_can_use_implied_gpre_futures_as_emergency_corn_fallback() -> None:
@@ -8011,9 +8182,11 @@ def test_next_quarter_preview_snapshot_does_not_double_count_basis_when_local_ba
     )
 
     corn_meta = dict((preview.get("market_meta") or {}).get("corn_price") or {})
+    expected_crush = ((2.9 * 1.92) - (4.82 - 0.20) - (0.028 * 2.9 * 3.22)) / 2.9
     assert float(pd.to_numeric((preview.get("current_market") or {}).get("corn_price"), errors="coerce")) == pytest.approx(4.62, abs=1e-9)
     assert float(pd.to_numeric(corn_meta.get("cbot_corn_front_price_usd_per_bu"), errors="coerce")) == pytest.approx(4.82, abs=1e-9)
     assert float(pd.to_numeric(corn_meta.get("official_weighted_corn_basis_usd_per_bu"), errors="coerce")) == pytest.approx(-0.20, abs=1e-9)
+    assert float(pd.to_numeric((preview.get("current_process") or {}).get("simple_crush_per_gal"), errors="coerce")) == pytest.approx(expected_crush, abs=1e-9)
 
 
 def test_provider_registry_keeps_legacy_ethanol_alias_while_exposing_canonical_local_provider() -> None:
@@ -8181,8 +8354,11 @@ def test_manual_quarter_open_snapshot_prefers_local_corn_and_gas_available_at_qu
         _write_manual_quarter_open_snapshot(futures_dir / "ethanol_chicago_futures_2026_Q2.txt")
         rows = [
             _parsed_row(aggregation_level="observation", observation_date="2026-03-31", publication_date="2026-03-31", quarter="2026-03-31", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=4.50, contract_tenor="may26", source_type="local_barchart_corn_futures_csv"),
+            _parsed_row(aggregation_level="observation", observation_date="2026-03-31", publication_date="2026-03-31", quarter="2026-03-31", market_family="corn_futures", series_key="cbot_corn_jul26_usd", instrument="Corn futures", price_value=4.62, contract_tenor="jul26", source_type="local_barchart_corn_futures_csv"),
             _parsed_row(aggregation_level="observation", observation_date="2026-03-27", publication_date="2026-03-27", quarter="2026-03-31", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=4.70, contract_tenor="may26", source_type="nwer_pdf"),
+            _parsed_row(aggregation_level="observation", observation_date="2026-03-31", publication_date="2026-03-31", quarter="2026-03-31", market_family="natural_gas_futures", series_key="nymex_gas_apr26_usd", instrument="Natural gas futures", price_value=2.90, contract_tenor="apr26", source_type="local_barchart_gas_futures_csv"),
             _parsed_row(aggregation_level="observation", observation_date="2026-03-31", publication_date="2026-03-31", quarter="2026-03-31", market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=3.00, contract_tenor="may26", source_type="local_barchart_gas_futures_csv"),
+            _parsed_row(aggregation_level="observation", observation_date="2026-03-31", publication_date="2026-03-31", quarter="2026-03-31", market_family="natural_gas_futures", series_key="nymex_gas_jun26_usd", instrument="Natural gas futures", price_value=3.10, contract_tenor="jun26", source_type="local_barchart_gas_futures_csv"),
             _parsed_row(aggregation_level="observation", observation_date="2026-03-27", publication_date="2026-03-27", quarter="2026-03-31", market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=3.25, contract_tenor="may26", source_type="nwer_pdf"),
         ]
 
@@ -8199,10 +8375,584 @@ def test_manual_quarter_open_snapshot_prefers_local_corn_and_gas_available_at_qu
         market_meta = dict(market_snapshot.get("market_meta") or {})
         assert resolved["status"] == "ok"
         assert resolved["provenance"] == "manual_local_snapshot"
-        assert float(pd.to_numeric(market_inputs.get("cbot_corn_front_price"), errors="coerce")) == pytest.approx(4.50, abs=1e-9)
-        assert float(pd.to_numeric(market_inputs.get("natural_gas_price"), errors="coerce")) == pytest.approx(3.00, abs=1e-9)
+        assert float(pd.to_numeric(market_inputs.get("cbot_corn_front_price"), errors="coerce")) == pytest.approx((4.50 * 2.0 / 3.0) + (4.62 / 3.0), abs=1e-9)
+        assert float(pd.to_numeric(market_inputs.get("natural_gas_price"), errors="coerce")) == pytest.approx((2.90 + 3.00 + 3.10) / 3.0, abs=1e-9)
         assert (market_meta.get("corn_price") or {}).get("as_of") == date(2026, 3, 31)
         assert (market_meta.get("natural_gas_price") or {}).get("as_of") == date(2026, 3, 31)
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
+
+
+def test_quarter_open_snapshot_rejects_regular_futures_after_anchor_when_manual_snapshot_missing() -> None:
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-02", publication_date="2026-04-02", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=4.50, contract_tenor="may26", source_type="local_barchart_corn_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-07", publication_date="2026-04-07", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=4.90, contract_tenor="may26", source_type="local_barchart_corn_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-02", publication_date="2026-04-02", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=3.00, contract_tenor="may26", source_type="local_barchart_gas_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-02", publication_date="2026-04-02", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_apr26_usd_per_gal", instrument="Chicago Ethanol (Platts) Futures", price_value=1.98, contract_tenor="apr26", source_type="local_chicago_ethanol_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-02", publication_date="2026-04-02", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_may26_usd_per_gal", instrument="Chicago Ethanol (Platts) Futures", price_value=2.00, contract_tenor="may26", source_type="local_chicago_ethanol_futures_csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-02", publication_date="2026-04-02", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_jun26_usd_per_gal", instrument="Chicago Ethanol (Platts) Futures", price_value=2.02, contract_tenor="jun26", source_type="local_chicago_ethanol_futures_csv"),
+    ]
+
+    resolved = market_service.resolve_gpre_quarter_open_snapshot(
+        None,
+        current_quarter_end=date(2026, 6, 30),
+        rows=rows,
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+    )
+
+    assert resolved["status"] == "no_snapshot"
+    assert resolved["provenance"] == "unavailable"
+    assert "before quarter start" in str(resolved.get("message") or "").lower()
+    assert "corn futures" in str(resolved.get("message") or "").lower()
+
+
+def test_quarter_open_snapshot_uses_q2_price_history_baskets_without_future_leakage() -> None:
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=4.5425, contract_tenor="may26", source_type="local_barchart_corn_futures_csv", source_file="zck26_price-history-04-29-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_jul26_usd", instrument="Corn futures", price_value=4.6500, contract_tenor="jul26", source_type="local_barchart_corn_futures_csv", source_file="zcn26_price-history-04-29-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-02", publication_date="2026-04-02", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=9.99, contract_tenor="may26", source_type="local_barchart_corn_futures_csv", source_file="zck26_price-history-04-29-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-23", publication_date="2026-04-23", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=8.88, contract_tenor="may26", source_type="local_barchart_corn_futures_csv", source_file="corn-prices-end-of-day-04-23-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_apr26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.965, contract_tenor="apr26", source_type="local_chicago_ethanol_futures_csv", source_file="flj26_price-history-04-26-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_may26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.970, contract_tenor="may26", source_type="local_chicago_ethanol_futures_csv", source_file="flk26_price-history-04-26-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_jun26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.950, contract_tenor="jun26", source_type="local_chicago_ethanol_futures_csv", source_file="flm26_price-history-04-26-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-02", publication_date="2026-04-02", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_apr26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=9.99, contract_tenor="apr26", source_type="local_chicago_ethanol_futures_csv", source_file="flj26_price-history-04-26-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_apr26_usd", instrument="Natural gas futures", price_value=3.095, contract_tenor="apr26", source_type="local_barchart_gas_futures_csv", source_file="ngj26_price-history-05-01-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=2.819, contract_tenor="may26", source_type="local_barchart_gas_futures_csv", source_file="ngk26_price-history-05-03-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_jun26_usd", instrument="Natural gas futures", price_value=2.939, contract_tenor="jun26", source_type="local_barchart_gas_futures_csv", source_file="ngm26_price-history-05-03-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-02", publication_date="2026-04-02", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_apr26_usd", instrument="Natural gas futures", price_value=9.99, contract_tenor="apr26", source_type="local_barchart_gas_futures_csv", source_file="ngj26_price-history-05-01-2026.csv"),
+    ]
+
+    resolved = market_service.resolve_gpre_quarter_open_snapshot(
+        None,
+        current_quarter_end=date(2026, 6, 30),
+        rows=rows,
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+    )
+
+    market_snapshot = dict(resolved.get("official_market_snapshot") or {})
+    market_inputs = dict(market_snapshot.get("current_market") or {})
+    market_process = dict(market_snapshot.get("current_process") or {})
+    market_meta = dict(market_snapshot.get("market_meta") or {})
+    expected_ethanol = (1.965 + 1.970 + 1.950) / 3.0
+    expected_corn = (4.5425 * (2.0 / 3.0)) + (4.6500 * (1.0 / 3.0))
+    expected_gas = (3.095 + 2.819 + 2.939) / 3.0
+    delivered_corn = float(pd.to_numeric(market_inputs.get("corn_price"), errors="coerce"))
+    expected_crush = ((2.9 * expected_ethanol) - delivered_corn - (0.028 * 2.9 * expected_gas)) / 2.9
+
+    assert resolved["status"] == "ok"
+    assert resolved["provenance"] == "futures_near_quarter_start"
+    assert float(pd.to_numeric(market_inputs.get("cbot_corn_front_price"), errors="coerce")) == pytest.approx(expected_corn, abs=1e-9)
+    assert float(pd.to_numeric(market_inputs.get("ethanol_price"), errors="coerce")) == pytest.approx(expected_ethanol, abs=1e-9)
+    assert float(pd.to_numeric(market_inputs.get("natural_gas_price"), errors="coerce")) == pytest.approx(expected_gas, abs=1e-9)
+    assert float(pd.to_numeric(market_process.get("simple_crush_per_gal"), errors="coerce")) == pytest.approx(expected_crush, abs=1e-9)
+    assert (market_meta.get("corn_price") or {}).get("as_of") == date(2026, 4, 1)
+    assert (market_meta.get("ethanol_price") or {}).get("as_of") == date(2026, 4, 1)
+    assert (market_meta.get("natural_gas_price") or {}).get("as_of") == date(2026, 4, 1)
+    assert (market_meta.get("corn_price") or {}).get("futures_weighting_rule") == "2/3 ZCK26 May corn + 1/3 ZCN26 July corn"
+    assert (market_meta.get("ethanol_price") or {}).get("strip_method") == "simple_average"
+    assert (market_meta.get("natural_gas_price") or {}).get("weighting_rule") == "simple average of Apr/May/Jun natural gas futures"
+
+
+def test_quarter_open_snapshot_uses_q2_local_gas_strip_with_seven_calendar_day_window() -> None:
+    rows = [
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_may26_usd", instrument="Corn futures", price_value=4.5425, contract_tenor="may26", source_type="local_barchart_corn_futures_csv", source_file="zck26_price-history-04-29-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="corn_futures", series_key="cbot_corn_jul26_usd", instrument="Corn futures", price_value=4.6500, contract_tenor="jul26", source_type="local_barchart_corn_futures_csv", source_file="zcn26_price-history-04-29-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_apr26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.965, contract_tenor="apr26", source_type="local_chicago_ethanol_futures_csv", source_file="flj26_price-history-04-26-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_may26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.970, contract_tenor="may26", source_type="local_chicago_ethanol_futures_csv", source_file="flk26_price-history-04-26-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="ethanol_futures", series_key="cme_ethanol_chicago_platts_jun26_usd_per_gal", instrument="Chicago Ethanol Futures", price_value=1.950, contract_tenor="jun26", source_type="local_chicago_ethanol_futures_csv", source_file="flm26_price-history-04-26-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-03-27", publication_date="2026-03-27", quarter="2026-03-31", market_family="natural_gas_futures", series_key="nymex_gas_apr26_usd", instrument="Natural gas futures", price_value=3.095, contract_tenor="apr26", source_type="local_barchart_gas_futures_csv", source_file="ngj26_price-history-05-01-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=2.819, contract_tenor="may26", source_type="local_barchart_gas_futures_csv", source_file="ngk26_price-history-05-03-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-01", publication_date="2026-04-01", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_jun26_usd", instrument="Natural gas futures", price_value=2.939, contract_tenor="jun26", source_type="local_barchart_gas_futures_csv", source_file="ngm26_price-history-05-03-2026.csv"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-03-27", publication_date="2026-03-27", quarter="2026-03-31", market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=2.928, contract_tenor="may26", source_type="nwer_pdf", source_file="nwer_2026-03-23.pdf"),
+        _parsed_row(aggregation_level="observation", observation_date="2026-04-02", publication_date="2026-04-02", quarter="2026-06-30", market_family="natural_gas_futures", series_key="nymex_gas_may26_usd", instrument="Natural gas futures", price_value=9.99, contract_tenor="may26", source_type="nwer_pdf", source_file="nwer_2026-03-30.pdf"),
+    ]
+
+    resolved = market_service.resolve_gpre_quarter_open_snapshot(
+        None,
+        current_quarter_end=date(2026, 6, 30),
+        rows=rows,
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+    )
+
+    market_snapshot = dict(resolved.get("official_market_snapshot") or {})
+    market_inputs = dict(market_snapshot.get("current_market") or {})
+    gas_meta = dict((market_snapshot.get("market_meta") or {}).get("natural_gas_price") or {})
+    expected_gas = (3.095 + 2.819 + 2.939) / 3.0
+
+    assert resolved["status"] == "ok"
+    assert resolved["provenance"] == "futures_near_quarter_start"
+    assert float(pd.to_numeric(market_inputs.get("natural_gas_price"), errors="coerce")) == pytest.approx(expected_gas, abs=1e-9)
+    assert gas_meta.get("source_type") == "local_barchart_gas_futures_csv"
+    assert gas_meta.get("as_of") == date(2026, 4, 1)
+    assert gas_meta.get("contract_tenors") == ["apr26", "may26", "jun26"]
+    assert gas_meta.get("weighting_rule") == "simple average of Apr/May/Jun natural gas futures"
+    assert not gas_meta.get("fallback_missing_contract_tenors")
+
+
+def _gpre_futures_timing_q2_rows(*, missing_ethanol_jun: bool = False) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    q2 = "2026-06-30"
+    q1 = "2026-03-31"
+    qopen_rows = [
+        ("2026-04-01", q2, "corn_futures", "cbot_corn_may26_usd", "Corn futures", 4.5425, "may26", "local_barchart_corn_futures_csv", "zck26_price-history-04-29-2026.csv"),
+        ("2026-04-01", q2, "corn_futures", "cbot_corn_jul26_usd", "Corn futures", 4.6500, "jul26", "local_barchart_corn_futures_csv", "zcn26_price-history-04-29-2026.csv"),
+        ("2026-04-01", q2, "ethanol_futures", "cme_ethanol_chicago_platts_apr26_usd_per_gal", "Chicago Ethanol Futures", 1.965, "apr26", "local_chicago_ethanol_futures_csv", "flj26_price-history-04-26-2026.csv"),
+        ("2026-04-01", q2, "ethanol_futures", "cme_ethanol_chicago_platts_may26_usd_per_gal", "Chicago Ethanol Futures", 1.970, "may26", "local_chicago_ethanol_futures_csv", "flk26_price-history-04-26-2026.csv"),
+        ("2026-04-01", q2, "ethanol_futures", "cme_ethanol_chicago_platts_jun26_usd_per_gal", "Chicago Ethanol Futures", 1.950, "jun26", "local_chicago_ethanol_futures_csv", "flm26_price-history-04-26-2026.csv"),
+        ("2026-03-27", q1, "natural_gas_futures", "nymex_gas_apr26_usd", "Natural gas futures", 3.095, "apr26", "local_barchart_gas_futures_csv", "ngj26_price-history-05-01-2026.csv"),
+        ("2026-04-01", q2, "natural_gas_futures", "nymex_gas_may26_usd", "Natural gas futures", 2.819, "may26", "local_barchart_gas_futures_csv", "ngk26_price-history-05-03-2026.csv"),
+        ("2026-04-01", q2, "natural_gas_futures", "nymex_gas_jun26_usd", "Natural gas futures", 2.939, "jun26", "local_barchart_gas_futures_csv", "ngm26_price-history-05-03-2026.csv"),
+    ]
+    pre_rows = [
+        ("2026-03-02", q1, "corn_futures", "cbot_corn_may26_usd", "Corn futures", 4.4575, "may26", "local_barchart_corn_futures_csv", "zck26_price-history-04-29-2026.csv"),
+        ("2026-03-02", q1, "corn_futures", "cbot_corn_jul26_usd", "Corn futures", 4.5425, "jul26", "local_barchart_corn_futures_csv", "zcn26_price-history-04-29-2026.csv"),
+        ("2026-03-02", q1, "ethanol_futures", "cme_ethanol_chicago_platts_apr26_usd_per_gal", "Chicago Ethanol Futures", 1.810, "apr26", "local_chicago_ethanol_futures_csv", "flj26_price-history-04-26-2026.csv"),
+        ("2026-03-02", q1, "ethanol_futures", "cme_ethanol_chicago_platts_may26_usd_per_gal", "Chicago Ethanol Futures", 1.815, "may26", "local_chicago_ethanol_futures_csv", "flk26_price-history-04-26-2026.csv"),
+        ("2026-03-02", q1, "ethanol_futures", "cme_ethanol_chicago_platts_jun26_usd_per_gal", "Chicago Ethanol Futures", 1.810, "jun26", "local_chicago_ethanol_futures_csv", "flm26_price-history-04-26-2026.csv"),
+        ("2026-03-02", q1, "natural_gas_futures", "nymex_gas_apr26_usd", "Natural gas futures", 2.960, "apr26", "local_barchart_gas_futures_csv", "ngj26_price-history-05-01-2026.csv"),
+        ("2026-03-02", q1, "natural_gas_futures", "nymex_gas_may26_usd", "Natural gas futures", 2.985, "may26", "local_barchart_gas_futures_csv", "ngk26_price-history-05-03-2026.csv"),
+        ("2026-03-02", q1, "natural_gas_futures", "nymex_gas_jun26_usd", "Natural gas futures", 3.151, "jun26", "local_barchart_gas_futures_csv", "ngm26_price-history-05-03-2026.csv"),
+    ]
+    leak_rows = [
+        ("2026-04-02", q2, "corn_futures", "cbot_corn_may26_usd", "Corn futures", 9.99, "may26", "local_barchart_corn_futures_csv", "zck26_price-history-04-29-2026.csv"),
+        ("2026-04-01", q2, "corn_futures", "cbot_corn_may26_usd", "Corn futures", 8.88, "may26", "local_barchart_corn_futures_csv", "corn-prices-end-of-day-04-01-2026.csv"),
+        ("2026-04-02", q2, "ethanol_futures", "cme_ethanol_chicago_platts_apr26_usd_per_gal", "Chicago Ethanol Futures", 9.99, "apr26", "local_chicago_ethanol_futures_csv", "flj26_price-history-04-26-2026.csv"),
+        ("2026-04-02", q2, "natural_gas_futures", "nymex_gas_may26_usd", "Natural gas futures", 9.99, "may26", "local_barchart_gas_futures_csv", "ngk26_price-history-05-03-2026.csv"),
+    ]
+    for rec in [*qopen_rows, *pre_rows, *leak_rows]:
+        obs_dt, quarter, market_family, series_key, instrument, price, tenor, source_type, source_file = rec
+        if missing_ethanol_jun and series_key == "cme_ethanol_chicago_platts_jun26_usd_per_gal":
+            continue
+        rows.append(
+            _parsed_row(
+                aggregation_level="observation",
+                observation_date=obs_dt,
+                publication_date=obs_dt,
+                quarter=quarter,
+                market_family=market_family,
+                series_key=series_key,
+                instrument=instrument,
+                price_value=price,
+                contract_tenor=tenor,
+                source_type=source_type,
+                source_file=source_file,
+            )
+        )
+    for basis_region in ("illinois", "indiana", "iowa_east", "iowa_west", "minnesota", "nebraska"):
+        for obs_dt, quarter in (("2026-04-01", q2), ("2026-03-02", q1)):
+            rows.append(
+                _parsed_row(
+                    aggregation_level="observation",
+                    observation_date=obs_dt,
+                    publication_date=obs_dt,
+                    quarter=quarter,
+                    market_family="corn_basis",
+                    series_key=f"corn_basis_{basis_region}",
+                    instrument="Corn basis",
+                    price_value=0.10,
+                    source_type="ams_fixture",
+                    source_file="ams_basis_fixture.csv",
+                )
+            )
+    return rows
+
+
+def _gpre_futures_timing_weekly_q2_rows(
+    anchors: list[date],
+    *,
+    missing_anchor_indexes: set[int] | None = None,
+    include_future_leak_rows: bool = True,
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    missing_anchor_indexes = set(missing_anchor_indexes or set())
+    q2_start = date(2026, 4, 1)
+
+    def _quarter_for_obs(obs_dt: date) -> str:
+        return "2026-03-31" if obs_dt < q2_start else "2026-06-30"
+
+    for idx, obs_dt in enumerate(anchors):
+        if idx in missing_anchor_indexes:
+            continue
+        obs_txt = obs_dt.isoformat()
+        quarter_txt = _quarter_for_obs(obs_dt)
+        corn_may = 4.10 + (idx * 0.05)
+        corn_jul = 4.40 + (idx * 0.05)
+        ethanol_apr = 1.70 + (idx * 0.01)
+        ethanol_may = 1.72 + (idx * 0.01)
+        ethanol_jun = 1.74 + (idx * 0.01)
+        gas_apr = 2.70 + (idx * 0.03)
+        gas_may = 2.80 + (idx * 0.03)
+        gas_jun = 2.90 + (idx * 0.03)
+        futures_rows = [
+            ("corn_futures", "cbot_corn_may26_usd", "Corn futures", corn_may, "may26", "local_barchart_corn_futures_csv", "zck26_price-history-test.csv"),
+            ("corn_futures", "cbot_corn_jul26_usd", "Corn futures", corn_jul, "jul26", "local_barchart_corn_futures_csv", "zcn26_price-history-test.csv"),
+            ("ethanol_futures", "cme_ethanol_chicago_platts_apr26_usd_per_gal", "Chicago Ethanol Futures", ethanol_apr, "apr26", "local_chicago_ethanol_futures_csv", "flj26_price-history-test.csv"),
+            ("ethanol_futures", "cme_ethanol_chicago_platts_may26_usd_per_gal", "Chicago Ethanol Futures", ethanol_may, "may26", "local_chicago_ethanol_futures_csv", "flk26_price-history-test.csv"),
+            ("ethanol_futures", "cme_ethanol_chicago_platts_jun26_usd_per_gal", "Chicago Ethanol Futures", ethanol_jun, "jun26", "local_chicago_ethanol_futures_csv", "flm26_price-history-test.csv"),
+            ("natural_gas_futures", "nymex_gas_apr26_usd", "Natural gas futures", gas_apr, "apr26", "local_barchart_gas_futures_csv", "ngj26_price-history-test.csv"),
+            ("natural_gas_futures", "nymex_gas_may26_usd", "Natural gas futures", gas_may, "may26", "local_barchart_gas_futures_csv", "ngk26_price-history-test.csv"),
+            ("natural_gas_futures", "nymex_gas_jun26_usd", "Natural gas futures", gas_jun, "jun26", "local_barchart_gas_futures_csv", "ngm26_price-history-test.csv"),
+        ]
+        for market_family, series_key, instrument, price, tenor, source_type, source_file in futures_rows:
+            rows.append(
+                _parsed_row(
+                    aggregation_level="observation",
+                    observation_date=obs_txt,
+                    publication_date=obs_txt,
+                    quarter=quarter_txt,
+                    market_family=market_family,
+                    series_key=series_key,
+                    instrument=instrument,
+                    price_value=price,
+                    contract_tenor=tenor,
+                    source_type=source_type,
+                    source_file=source_file,
+                )
+            )
+        for basis_region in ("illinois", "indiana", "iowa_east", "iowa_west", "minnesota", "nebraska"):
+            rows.append(
+                _parsed_row(
+                    aggregation_level="observation",
+                    observation_date=obs_txt,
+                    publication_date=obs_txt,
+                    quarter=quarter_txt,
+                    market_family="corn_basis",
+                    series_key=f"corn_basis_{basis_region}",
+                    instrument="Corn basis",
+                    price_value=0.10,
+                    source_type="ams_fixture",
+                    source_file="ams_basis_fixture.csv",
+                )
+            )
+    if include_future_leak_rows:
+        rows.append(
+            _parsed_row(
+                aggregation_level="observation",
+                observation_date="2026-04-02",
+                publication_date="2026-04-02",
+                quarter="2026-06-30",
+                market_family="corn_futures",
+                series_key="cbot_corn_may26_usd",
+                instrument="Corn futures",
+                price_value=9.99,
+                contract_tenor="may26",
+                source_type="local_barchart_corn_futures_csv",
+                source_file="zck26_price-history-test.csv",
+            )
+        )
+    return rows
+
+
+def _gpre_weekly_fixture_margin(anchor_index: int, *, lock: tuple[str, ...] = ("ethanol", "corn", "natural_gas")) -> float:
+    actual_ethanol = 2.00
+    actual_delivered_corn = 4.60
+    actual_gas = 3.00
+    corn_may = 4.10 + (anchor_index * 0.05)
+    corn_jul = 4.40 + (anchor_index * 0.05)
+    ethanol_apr = 1.70 + (anchor_index * 0.01)
+    ethanol_may = 1.72 + (anchor_index * 0.01)
+    ethanol_jun = 1.74 + (anchor_index * 0.01)
+    gas_apr = 2.70 + (anchor_index * 0.03)
+    gas_may = 2.80 + (anchor_index * 0.03)
+    gas_jun = 2.90 + (anchor_index * 0.03)
+    ethanol = (ethanol_apr + ethanol_may + ethanol_jun) / 3.0 if "ethanol" in lock else actual_ethanol
+    delivered_corn = ((corn_may * (2.0 / 3.0)) + (corn_jul * (1.0 / 3.0))) + 0.10 if "corn" in lock else actual_delivered_corn
+    gas = (gas_apr + gas_may + gas_jun) / 3.0 if "natural_gas" in lock else actual_gas
+    return ((2.9 * ethanol) - delivered_corn - (0.028 * 2.9 * gas)) / 2.9
+
+
+def _gpre_futures_timing_quarterly_fixture() -> pd.DataFrame:
+    official = ((2.9 * 2.00) - (4.50 + 0.10) - (0.028 * 2.9 * 3.00)) / 2.9
+    return pd.DataFrame(
+        [
+            {
+                "quarter": date(2026, 6, 30),
+                "quarter_label": "2026-Q2",
+                "evaluation_target_margin_usd_per_gal": 0.31,
+                "reported_consolidated_crush_margin_usd_per_gal": 0.30,
+                "official_simple_proxy_usd_per_gal": official,
+                "simple_market_proxy_usd_per_gal": official,
+                "gpre_proxy_official_usd_per_gal": 0.34,
+                "best_forward_lens_proxy_usd_per_gal": 0.33,
+                "ethanol_price_usd_per_gal": 2.00,
+                "weighted_ethanol_benchmark_usd_per_gal": 2.00,
+                "cbot_corn_futures_usd_per_bu": 4.50,
+                "weighted_ams_basis_usd_per_bu": 0.10,
+                "natural_gas_price_usd_per_mmbtu": 3.00,
+            }
+        ]
+    )
+
+
+def test_gpre_futures_timing_sandbox_q2_quarter_open_uses_price_history_without_future_leakage() -> None:
+    study = market_service._build_gpre_futures_timing_sandbox(
+        _gpre_futures_timing_quarterly_fixture(),
+        _gpre_futures_timing_q2_rows(),
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=date(2026, 5, 4),
+    )
+
+    details = study["quarter_detail_df"]
+    qopen = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_qopen_all")
+    ].iloc[0].to_dict()
+    expected_ethanol = (1.965 + 1.970 + 1.950) / 3.0
+    expected_corn = (4.5425 * (2.0 / 3.0)) + (4.6500 * (1.0 / 3.0))
+    expected_gas = (3.095 + 2.819 + 2.939) / 3.0
+    expected = ((2.9 * expected_ethanol) - (expected_corn + 0.10) - (0.028 * 2.9 * expected_gas)) / 2.9
+
+    assert qopen["availability_status"] == "available"
+    assert qopen["pred_value_usd_per_gal"] == pytest.approx(expected, abs=1e-9)
+    assert qopen["delivered_corn_price_usd_per_bu"] == pytest.approx(expected_corn + 0.10, abs=1e-9)
+    assert qopen["selected_symbols"] == "ZCK26/ZCN26; FLJ26/FLK26/FLM26; NGJ26/NGK26/NGM26"
+    assert "2026-04-02" not in qopen["selected_observation_dates"]
+    assert "end-of-day" not in qopen["source_files"]
+    assert "price-history" in qopen["source_files"]
+
+
+def test_gpre_futures_timing_sandbox_prelock_dates_are_anchor_bounded() -> None:
+    study = market_service._build_gpre_futures_timing_sandbox(
+        _gpre_futures_timing_quarterly_fixture(),
+        _gpre_futures_timing_q2_rows(),
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=date(2026, 5, 4),
+    )
+
+    details = study["quarter_detail_df"]
+    pre30 = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_pre30_all")
+    ].iloc[0].to_dict()
+
+    assert pre30["availability_status"] == "available"
+    assert pre30["anchor_dates"] == "2026-03-02"
+    assert "2026-03-02" in pre30["selected_observation_dates"]
+    assert "2026-04-01" not in pre30["selected_observation_dates"]
+
+
+def test_gpre_futures_timing_sandbox_missing_contract_is_unavailable_and_excluded_from_scoring() -> None:
+    study = market_service._build_gpre_futures_timing_sandbox(
+        _gpre_futures_timing_quarterly_fixture(),
+        _gpre_futures_timing_q2_rows(missing_ethanol_jun=True),
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=date(2026, 5, 4),
+    )
+
+    details = study["quarter_detail_df"]
+    qopen = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_qopen_all")
+    ].iloc[0].to_dict()
+    leaderboard = study["candidate_leaderboard_df"]
+    row = leaderboard[leaderboard["candidate_key"] == "futures_qopen_all"].iloc[0].to_dict()
+
+    assert qopen["availability_status"] == "unavailable"
+    assert "jun26" in qopen["missing_data_flags"]
+    assert int(row["usable_quarter_count"]) == 0
+    assert row["status"] == "insufficient_sample"
+
+
+def test_gpre_futures_timing_sandbox_blend_uses_official_simple_without_double_counting_basis() -> None:
+    fixture = _gpre_futures_timing_quarterly_fixture()
+    study = market_service._build_gpre_futures_timing_sandbox(
+        fixture,
+        _gpre_futures_timing_q2_rows(),
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=date(2026, 5, 4),
+    )
+
+    details = study["quarter_detail_df"]
+    qopen = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_qopen_all")
+    ].iloc[0]
+    blend = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_qopen_blend_50")
+    ].iloc[0]
+    official = float(pd.to_numeric(fixture.iloc[0]["official_simple_proxy_usd_per_gal"], errors="coerce"))
+
+    assert float(blend["pred_value_usd_per_gal"]) == pytest.approx((float(qopen["pred_value_usd_per_gal"]) * 0.5) + (official * 0.5), abs=1e-9)
+    assert float(qopen["delivered_corn_price_usd_per_bu"]) == pytest.approx(float(qopen["corn_futures_price_usd_per_bu"]) + 0.10, abs=1e-9)
+
+
+def test_gpre_futures_timing_weekly_anchor_generation_includes_newest_edge_and_respects_asof() -> None:
+    anchors = market_service._gpre_futures_timing_weekly_anchor_dates(
+        date(2026, 4, 1),
+        window_start_days=30,
+        window_end_days=0,
+        as_of_date=date(2026, 4, 1),
+    )
+
+    assert anchors == [
+        date(2026, 3, 2),
+        date(2026, 3, 9),
+        date(2026, 3, 16),
+        date(2026, 3, 23),
+        date(2026, 3, 30),
+        date(2026, 4, 1),
+    ]
+    assert market_service._gpre_futures_timing_weekly_anchor_dates(
+        date(2026, 4, 1),
+        window_start_days=30,
+        window_end_days=0,
+        as_of_date=date(2026, 3, 20),
+    ) == [date(2026, 3, 2), date(2026, 3, 9), date(2026, 3, 16)]
+
+
+def test_gpre_futures_timing_weekly_weight_shapes_are_deterministic() -> None:
+    assert market_service._gpre_futures_timing_anchor_weights(4, "back_weighted") == pytest.approx([0.1, 0.2, 0.3, 0.4])
+    assert market_service._gpre_futures_timing_anchor_weights(4, "front_weighted") == pytest.approx([0.4, 0.3, 0.2, 0.1])
+    assert market_service._gpre_futures_timing_anchor_weights(5, "triangular") == pytest.approx([1 / 9, 2 / 9, 3 / 9, 2 / 9, 1 / 9])
+
+
+def test_gpre_futures_timing_weekly_equal_candidate_uses_anchor_average_without_future_leakage() -> None:
+    anchors = [
+        date(2026, 3, 2),
+        date(2026, 3, 9),
+        date(2026, 3, 16),
+        date(2026, 3, 23),
+        date(2026, 3, 30),
+        date(2026, 4, 1),
+    ]
+    study = market_service._build_gpre_futures_timing_sandbox(
+        _gpre_futures_timing_quarterly_fixture(),
+        _gpre_futures_timing_weekly_q2_rows(anchors),
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=date(2026, 5, 4),
+    )
+
+    details = study["quarter_detail_df"]
+    weekly = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_weekly_0_to_30d_all_equal")
+    ].iloc[0].to_dict()
+    expected = sum(_gpre_weekly_fixture_margin(idx) for idx in range(len(anchors))) / len(anchors)
+
+    assert weekly["availability_status"] == "available"
+    assert weekly["pred_value_usd_per_gal"] == pytest.approx(expected, abs=1e-9)
+    assert weekly["expected_anchor_count"] == 6
+    assert weekly["usable_anchor_count"] == 6
+    assert weekly["anchor_coverage_ratio"] == pytest.approx(1.0)
+    assert "2026-04-02" not in weekly["selected_observation_dates"]
+    assert weekly["weighting_style"] == "equal"
+
+
+def test_gpre_futures_timing_weekly_coverage_threshold_blanks_sparse_candidates() -> None:
+    anchors = [
+        date(2026, 3, 2),
+        date(2026, 3, 9),
+        date(2026, 3, 16),
+        date(2026, 3, 23),
+        date(2026, 3, 30),
+        date(2026, 4, 1),
+    ]
+    study = market_service._build_gpre_futures_timing_sandbox(
+        _gpre_futures_timing_quarterly_fixture(),
+        _gpre_futures_timing_weekly_q2_rows(anchors, missing_anchor_indexes={2, 3, 4, 5}),
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=date(2026, 5, 4),
+    )
+
+    details = study["quarter_detail_df"]
+    weekly = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_weekly_0_to_30d_all_equal")
+    ].iloc[0].to_dict()
+    leaderboard = study["candidate_leaderboard_df"]
+    scored = leaderboard[leaderboard["candidate_key"] == "futures_weekly_0_to_30d_all_equal"].iloc[0].to_dict()
+
+    assert weekly["availability_status"] == "unavailable"
+    assert weekly["usable_anchor_count"] == 3
+    assert weekly["anchor_coverage_ratio"] == pytest.approx(3 / 6)
+    assert "below 60%" in weekly["missing_data_flags"]
+    assert int(scored["usable_quarter_count"]) == 0
+
+
+def test_gpre_futures_timing_weekly_commodity_specific_locks_only_requested_inputs() -> None:
+    anchors = [
+        date(2026, 3, 2),
+        date(2026, 3, 9),
+        date(2026, 3, 16),
+        date(2026, 3, 23),
+        date(2026, 3, 30),
+        date(2026, 4, 1),
+    ]
+    study = market_service._build_gpre_futures_timing_sandbox(
+        _gpre_futures_timing_quarterly_fixture(),
+        _gpre_futures_timing_weekly_q2_rows(anchors),
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=date(2026, 5, 4),
+    )
+
+    weekly = study["quarter_detail_df"][
+        (study["quarter_detail_df"]["quarter_label"] == "2026-Q2")
+        & (study["quarter_detail_df"]["candidate_key"] == "futures_weekly_0_to_30d_corn_equal")
+    ].iloc[0].to_dict()
+    expected = sum(_gpre_weekly_fixture_margin(idx, lock=("corn",)) for idx in range(len(anchors))) / len(anchors)
+
+    assert weekly["availability_status"] == "available"
+    assert weekly["pred_value_usd_per_gal"] == pytest.approx(expected, abs=1e-9)
+    assert weekly["locked_commodities_label"] == "Corn"
+    assert "FLJ26" not in weekly["selected_symbols"]
+    assert "NGJ26" not in weekly["selected_symbols"]
+
+
+def test_gpre_futures_timing_commentary_explicit_share_creates_scored_sandbox_candidate() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_commentary_")
+    try:
+        (ticker_root / "conferences").mkdir(parents=True, exist_ok=True)
+        (ticker_root / "conferences" / "Stephens_Annual_Investment_Conference_2025.txt").write_text(
+            "The earnings call mentioned Q4 was about 75% hedged on crush, and management was layering Q1 hedging.",
+            encoding="utf-8",
+        )
+        (ticker_root / "earnings_transcripts").mkdir(parents=True, exist_ok=True)
+        (ticker_root / "earnings_transcripts" / "GPRE_Q4_2025_transcript.txt").write_text(
+            "We have a significant portion of our Q1 production margin logged in. We were fully hedged on nat gas.",
+            encoding="utf-8",
+        )
+        q4 = pd.DataFrame(
+            [
+                {
+                    "quarter": date(2025, 12, 31),
+                    "quarter_label": "2025-Q4",
+                    "evaluation_target_margin_usd_per_gal": 0.12,
+                    "reported_consolidated_crush_margin_usd_per_gal": 0.12,
+                    "official_simple_proxy_usd_per_gal": 0.10,
+                    "ethanol_price_usd_per_gal": 2.00,
+                    "cbot_corn_futures_usd_per_bu": 4.50,
+                    "weighted_ams_basis_usd_per_bu": 0.10,
+                    "natural_gas_price_usd_per_mmbtu": 3.00,
+                }
+            ]
+        )
+        study = market_service._build_gpre_futures_timing_sandbox(
+            q4,
+            _gpre_futures_timing_q2_rows(),
+            ethanol_yield=2.9,
+            natural_gas_usage=28000.0,
+            as_of_date=date(2026, 5, 4),
+            ticker_root=ticker_root,
+        )
+
+        specs = {str(spec.get("candidate_key")) for spec in study["candidate_specs"]}
+        audit = study["commentary_audit_df"]
+
+        assert "futures_commentary_disclosed_crush_lock_q4_2025" in specs
+        assert "futures_commentary_natgas_full_hedge_q1_2026" in specs
+        assert "explicit_share_candidate" in set(audit["status"].astype(str))
+        assert "audit_only_vague" in set(audit["status"].astype(str))
     finally:
         shutil.rmtree(ticker_root, ignore_errors=True)
 
@@ -8499,7 +9249,7 @@ def test_gpre_overlay_preview_bundle_populates_next_quarter_thesis_from_local_fu
     assert pd.notna(pd.to_numeric((next_snapshot.get("current_market") or {}).get("ethanol_price"), errors="coerce"))
     assert ethanol_meta.get("proxy_mode") == "local_chicago_ethanol_futures_strip"
     assert ethanol_meta.get("contract_tenors") == ["jul26", "aug26", "sep26"]
-    assert ethanol_meta.get("strip_method") == "day_weighted"
+    assert ethanol_meta.get("strip_method") == "simple_average"
     assert ethanol_meta.get("source_type") == "local_chicago_ethanol_futures_csv"
     assert "manual" not in str(next_snapshot.get("message") or "").lower()
 
@@ -8753,7 +9503,8 @@ def test_gpre_quarter_open_proxy_surfaces_missing_snapshot_explicitly() -> None:
         assert bundle["quarter_open_snapshot_status"] == "no_snapshot"
         assert bundle["quarter_open_official_proxy_usd_per_gal"] is None
         assert bundle["quarter_open_gpre_proxy_usd_per_gal"] is None
-        assert "No frozen prior-quarter thesis snapshot for 2026-Q2." in str(bundle["quarter_open_market_snapshot"]["message"] or "")
+        assert "No usable futures snapshot found within 7 calendar days before quarter start" in str(bundle["quarter_open_market_snapshot"]["message"] or "")
+        assert "missing corn futures" in str(bundle["quarter_open_market_snapshot"]["message"] or "")
     finally:
         shutil.rmtree(ticker_root, ignore_errors=True)
 

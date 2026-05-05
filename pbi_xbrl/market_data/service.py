@@ -94,11 +94,14 @@ _GPRE_CORN_BIDS_MANIFEST_FILENAME = "manifest.json"
 _GPRE_CURRENT_QTD_BIDS_MAX_AGE_DAYS = 7
 _GPRE_NONCURRENT_BIDS_MAX_AGE_DAYS = 14
 _GPRE_LOCAL_FORWARD_FUTURES_MAX_AGE_DAYS = 3
+_GPRE_QUARTER_OPEN_LOCAL_FUTURES_MAX_PRIOR_DAYS = 7
+_GPRE_QUARTER_OPEN_FORWARD_FUTURES_LOOKAROUND_DAYS = 7
 _GPRE_AMS_BASIS_DEFAULT_STRATEGY = "exact1"
 _GPRE_COPRODUCT_SOURCE_PRIORITY: Tuple[str, ...] = ("nwer", "ams_3618")
 _MARKET_INPUT_FINGERPRINT_VERSION = "v1"
 _LOCAL_BARCHART_CORN_SOURCE_TYPE = "local_barchart_corn_futures_csv"
 _LOCAL_BARCHART_GAS_SOURCE_TYPE = "local_barchart_gas_futures_csv"
+_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE = "local_chicago_ethanol_futures_csv"
 _GPRE_COPRODUCT_REGION_SERIES_CANDIDATES: Dict[str, Dict[str, Tuple[str, ...]]] = {
     "renewable_corn_oil_price": {
         "nebraska": ("corn_oil_nebraska",),
@@ -5758,12 +5761,351 @@ def _build_quarter_strip_payload(
     return payload
 
 
+_FUTURES_MONTH_CODE_BY_MONTH = {
+    1: "F",
+    2: "G",
+    3: "H",
+    4: "J",
+    5: "K",
+    6: "M",
+    7: "N",
+    8: "Q",
+    9: "U",
+    10: "V",
+    11: "X",
+    12: "Z",
+}
+
+
+def _tenor_from_year_month(year_num: int, month_num: int) -> str:
+    return f"{date(int(year_num), int(month_num), 1):%b}".lower() + f"{str(int(year_num))[-2:]}"
+
+
+def _futures_symbol(prefix: str, tenor: str) -> str:
+    match = _TENOR_RE.match(str(tenor or "").strip().lower())
+    if not match:
+        return str(tenor or "").strip().upper()
+    month_num = _MONTH_ABBREV.get(str(match.group("month") or "").lower())
+    if month_num is None:
+        return str(tenor or "").strip().upper()
+    code = _FUTURES_MONTH_CODE_BY_MONTH.get(month_num, "")
+    year_txt = str(match.group("year") or "").strip()
+    prefix_txt = str(prefix or "").strip()
+    if prefix_txt == "cbot_corn":
+        return f"ZC{code}{year_txt}"
+    if prefix_txt == "nymex_gas":
+        return f"NG{code}{year_txt}"
+    if prefix_txt == "cme_ethanol_chicago_platts":
+        return f"FL{code}{year_txt}"
+    return f"{code}{year_txt}"
+
+
+def _gpre_corn_futures_components(target_start: date) -> tuple[list[dict[str, Any]], str]:
+    year_num = int(target_start.year)
+    if int(target_start.month) == 4:
+        may_tenor = _tenor_from_year_month(year_num, 5)
+        jul_tenor = _tenor_from_year_month(year_num, 7)
+        return (
+            [
+                {"tenor": may_tenor, "weight": 2.0, "label": _tenor_label(may_tenor)},
+                {"tenor": jul_tenor, "weight": 1.0, "label": _tenor_label(jul_tenor)},
+            ],
+            f"2/3 {_futures_symbol('cbot_corn', may_tenor)} May corn + 1/3 {_futures_symbol('cbot_corn', jul_tenor)} July corn",
+        )
+    if int(target_start.month) == 7:
+        jul_tenor = _tenor_from_year_month(year_num, 7)
+        sep_tenor = _tenor_from_year_month(year_num, 9)
+        return (
+            [
+                {"tenor": jul_tenor, "weight": 1.0, "label": _tenor_label(jul_tenor)},
+                {"tenor": sep_tenor, "weight": 2.0, "label": _tenor_label(sep_tenor)},
+            ],
+            f"1/3 {_futures_symbol('cbot_corn', jul_tenor)} July corn + 2/3 {_futures_symbol('cbot_corn', sep_tenor)} September corn",
+        )
+    return [], ""
+
+
+def _gpre_monthly_futures_components(target_start: date) -> list[dict[str, Any]]:
+    return [
+        {
+            "tenor": str(comp["tenor"]),
+            "weight": 1.0,
+            "label": str(comp["label"]),
+        }
+        for comp in _quarter_contract_month_components(target_start)
+    ]
+
+
+def _gpre_simple_monthly_weighting_rule(*, prefix: str, target_start: date) -> str:
+    month_names = [date(target_start.year, target_start.month + offset, 1).strftime("%b") for offset in range(3)]
+    if prefix == "nymex_gas":
+        return f"simple average of {'/'.join(month_names)} natural gas futures"
+    if prefix == "cme_ethanol_chicago_platts":
+        return f"simple average of {'/'.join(month_names)} Chicago ethanol futures"
+    return f"simple average of {'/'.join(month_names)} futures"
+
+
+def _gpre_futures_source_label(prefix: str, source_type: Any) -> str:
+    if prefix == "cme_ethanol_chicago_platts":
+        return _ethanol_thesis_source_label(source_type)
+    return _forward_futures_source_label(source_type)
+
+
+def _gpre_futures_source_file_priority(source_file: Any) -> int:
+    name = Path(str(source_file or "")).name.lower()
+    if "price-history" in name:
+        return 3
+    if "end-of-day" in name:
+        return 2
+    if name:
+        return 1
+    return 0
+
+
+def _pick_gpre_fixed_futures_strip_reference(
+    rows: Iterable[Dict[str, Any]],
+    *,
+    prefix: str,
+    market_family: str,
+    target_start: date,
+    target_end: date,
+    components: list[dict[str, Any]],
+    weighting_rule: str,
+    strip_method: str,
+    frame: str,
+    as_of_date: Optional[date] = None,
+    observation_anchor_date: Optional[date] = None,
+    max_prior_days: Optional[int] = None,
+    include_source_types: Optional[Iterable[str]] = None,
+    exclude_source_types: Optional[Iterable[str]] = None,
+    default_source_type: str = "",
+    default_source_label: str = "",
+) -> Dict[str, Any]:
+    target_mid = _quarter_midpoint(target_start, target_end)
+    required_tenors = [str(comp.get("tenor") or "").strip().lower() for comp in components if str(comp.get("tenor") or "").strip()]
+    base_payload: Dict[str, Any] = {
+        "target_quarter_start": target_start,
+        "target_quarter_end": target_end,
+        "target_quarter_midpoint": target_mid,
+        "market_family": market_family,
+        "frame": frame,
+        "anchor_date": observation_anchor_date if isinstance(observation_anchor_date, date) else as_of_date,
+        "source_type": default_source_type,
+        "source_label": default_source_label,
+        "status": "missing_contract_months",
+        "strip_method": strip_method,
+        "weighting_rule": weighting_rule,
+        "contract_tenors": list(required_tenors),
+        "contract_labels": [str(comp.get("label") or _tenor_label(str(comp.get("tenor") or ""))) for comp in components],
+        "selected_symbols": [_futures_symbol(prefix, tenor) for tenor in required_tenors],
+        "contract_components": [],
+        "source_files": [],
+    }
+    if not required_tenors:
+        base_payload["fallback_reason"] = "No explicit GPRE contract basket is configured for this target quarter."
+        return base_payload
+    df = _market_rows_df(rows)
+    require_market_columns(
+        df,
+        ["aggregation_level", "series_key", "observation_date", "price_value"],
+        contract_name="_pick_gpre_fixed_futures_strip_reference",
+    )
+    obs = df[
+        (df["aggregation_level"].astype(str).str.lower() == "observation")
+        & df["observation_date"].notna()
+        & df["price_value"].notna()
+    ].copy()
+    if "contract_tenor" in obs.columns:
+        obs["_contract_tenor_norm"] = obs["contract_tenor"].astype(str).str.strip().str.lower()
+    else:
+        obs["_contract_tenor_norm"] = ""
+    series_pat = rf"^{re.escape(prefix)}_[a-z]{{3}}\d{{2}}_usd(?:_per_gal)?$"
+    obs = obs[
+        obs["series_key"].astype(str).str.match(series_pat, na=False)
+        | obs["_contract_tenor_norm"].isin(required_tenors)
+    ].copy()
+    obs = obs[obs["_contract_tenor_norm"].isin(required_tenors)].copy()
+    include_types = {str(item or "").strip() for item in list(include_source_types or []) if str(item or "").strip()}
+    exclude_types = {str(item or "").strip() for item in list(exclude_source_types or []) if str(item or "").strip()}
+    if include_types:
+        obs = obs[obs.get("source_type", pd.Series(dtype=str)).astype(str).isin(include_types)].copy()
+    if exclude_types:
+        obs = obs[~obs.get("source_type", pd.Series(dtype=str)).astype(str).isin(exclude_types)].copy()
+    obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+    obs = obs[obs_dates.notna()].copy()
+    if obs.empty:
+        base_payload["missing_contract_tenors"] = list(required_tenors)
+        base_payload["fallback_reason"] = "No date-valid futures rows were available for the required contract basket."
+        return base_payload
+    obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+    if isinstance(as_of_date, date):
+        obs = obs[obs_dates.dt.date.le(as_of_date)].copy()
+        obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+    if isinstance(observation_anchor_date, date):
+        obs = obs[obs_dates.dt.date.le(observation_anchor_date)].copy()
+        obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+        if max_prior_days is not None:
+            min_allowed = observation_anchor_date - timedelta(days=max(int(max_prior_days or 0), 0))
+            obs = obs[obs_dates.dt.date.ge(min_allowed)].copy()
+            obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+        if not obs.empty:
+            obs["_anchor_distance_days"] = obs_dates.dt.date.map(lambda obs_dt: (observation_anchor_date - obs_dt).days)
+    if obs.empty:
+        base_payload["missing_contract_tenors"] = list(required_tenors)
+        base_payload["fallback_reason"] = "No futures rows were available on or before the selected anchor date."
+        return base_payload
+    obs["_source_file_priority"] = obs.get("source_file", pd.Series(dtype=str)).map(_gpre_futures_source_file_priority)
+    obs["_obs_ord"] = pd.to_datetime(obs["observation_date"], errors="coerce").dt.date.map(lambda obs_dt: obs_dt.toordinal() if isinstance(obs_dt, date) else 0)
+    sort_cols = ["_contract_tenor_norm"]
+    if "_anchor_distance_days" in obs.columns:
+        sort_cols.extend(["_anchor_distance_days", "_obs_ord", "_source_file_priority"])
+        ascending = [True, True, False, False]
+    else:
+        sort_cols.extend(["_obs_ord", "_source_file_priority"])
+        ascending = [True, False, False]
+    chosen_rows = (
+        obs.sort_values(sort_cols, ascending=ascending)
+        .groupby("_contract_tenor_norm", as_index=False)
+        .head(1)
+        .reset_index(drop=True)
+    )
+    records_by_tenor = {str(rec.get("_contract_tenor_norm") or ""): dict(rec) for rec in chosen_rows.to_dict("records")}
+    missing = [tenor for tenor in required_tenors if tenor not in records_by_tenor]
+    if missing:
+        base_payload["missing_contract_tenors"] = list(missing)
+        base_payload["fallback_reason"] = f"Missing required futures contracts: {', '.join(missing)}."
+        return base_payload
+
+    total_weight = sum(float(comp.get("weight") or 0.0) for comp in components)
+    if total_weight <= 0.0:
+        total_weight = float(len(components))
+    weighted_value = 0.0
+    obs_out: list[date] = []
+    source_files: list[str] = []
+    source_types: list[str] = []
+    component_rows: list[dict[str, Any]] = []
+    selected_prices: Dict[str, float] = {}
+    selected_dates: Dict[str, date] = {}
+    for comp in components:
+        tenor = str(comp.get("tenor") or "").strip().lower()
+        rec = dict(records_by_tenor[tenor])
+        price_num = pd.to_numeric(rec.get("price_value"), errors="coerce")
+        if pd.isna(price_num):
+            base_payload["missing_contract_tenors"] = [tenor]
+            base_payload["fallback_reason"] = f"Selected futures contract {tenor} has no numeric price."
+            return base_payload
+        obs_dt = pd.to_datetime(rec.get("observation_date"), errors="coerce")
+        obs_date = pd.Timestamp(obs_dt).date() if pd.notna(obs_dt) else None
+        if isinstance(obs_date, date):
+            obs_out.append(obs_date)
+            selected_dates[tenor] = obs_date
+        source_file = str(rec.get("source_file") or "").strip()
+        if source_file:
+            source_files.append(source_file)
+        source_type = str(rec.get("source_type") or default_source_type).strip() or default_source_type
+        if source_type:
+            source_types.append(source_type)
+        component_weight = float(comp.get("weight") or 0.0)
+        normalized_weight = component_weight / total_weight if total_weight else 0.0
+        price_value = float(price_num)
+        weighted_value += price_value * normalized_weight
+        selected_prices[tenor] = price_value
+        component_rows.append(
+            {
+                "contract_tenor": tenor,
+                "contract_label": str(comp.get("label") or _tenor_label(tenor)),
+                "symbol": _futures_symbol(prefix, tenor),
+                "observation_date": obs_date,
+                "price_value": price_value,
+                "weight": normalized_weight,
+                "source_file": source_file,
+                "source_type": source_type,
+                "source_label": str(rec.get("source_label") or _gpre_futures_source_label(prefix, source_type)),
+            }
+        )
+    unique_source_types = sorted({item for item in source_types if item})
+    source_type = unique_source_types[0] if unique_source_types else default_source_type
+    source_label = _gpre_futures_source_label(prefix, source_type) if source_type else default_source_label
+    source_files_out = sorted({item for item in source_files if item})
+    payload = dict(base_payload)
+    payload.update(
+        {
+            "status": "ok",
+            "price_value": float(weighted_value),
+            "source_type": source_type,
+            "source_label": source_label,
+            "source_file": ", ".join(source_files_out),
+            "source_files": source_files_out,
+            "contract_tenor": "/".join(required_tenors),
+            "contract_components": component_rows,
+            "observation_date": max(obs_out) if obs_out else None,
+            "selected_observation_dates": selected_dates,
+            "selected_prices": selected_prices,
+            "average_price": float(weighted_value),
+            "weighted_price": float(weighted_value),
+        }
+    )
+    payload.pop("missing_contract_tenors", None)
+    payload.pop("fallback_reason", None)
+    return payload
+
+
+def _annotate_gpre_futures_fallback_reference(
+    fallback_ref: Optional[Dict[str, Any]],
+    *,
+    failed_ref: Optional[Dict[str, Any]],
+    prefix: str,
+    weighting_rule: str,
+) -> Optional[Dict[str, Any]]:
+    if not isinstance(fallback_ref, dict):
+        return None
+    out = dict(fallback_ref)
+    tenor = str(out.get("contract_tenor") or "").strip().lower()
+    symbol = _futures_symbol(prefix, tenor) if tenor else ""
+    missing_tenors = (
+        [str(item or "").strip() for item in list((failed_ref or {}).get("missing_contract_tenors") or []) if str(item or "").strip()]
+        if isinstance(failed_ref, dict)
+        else []
+    )
+    failed_reason = str((failed_ref or {}).get("fallback_reason") or "").strip() if isinstance(failed_ref, dict) else ""
+    out["status"] = "ok"
+    out["fallback_reason"] = failed_reason or "The explicit local futures basket was incomplete, so a date-valid fallback reference was used."
+    out["fallback_missing_contract_tenors"] = missing_tenors
+    out["fallback_from_source_type"] = str((failed_ref or {}).get("source_type") or "").strip() if isinstance(failed_ref, dict) else ""
+    out["fallback_from_source_label"] = str((failed_ref or {}).get("source_label") or "").strip() if isinstance(failed_ref, dict) else ""
+    out["fallback_from_selected_symbols"] = list((failed_ref or {}).get("selected_symbols") or []) if isinstance(failed_ref, dict) else []
+    out["strip_method"] = out.get("strip_method") or "single_contract_fallback"
+    out["weighting_rule"] = out.get("weighting_rule") or weighting_rule
+    if tenor and not out.get("contract_tenors"):
+        out["contract_tenors"] = [tenor]
+    if tenor and not out.get("contract_components"):
+        obs_dt = pd.to_datetime(out.get("observation_date"), errors="coerce")
+        out["contract_components"] = [
+            {
+                "contract_tenor": tenor,
+                "contract_label": str(out.get("contract_label") or _tenor_label(tenor)),
+                "symbol": symbol,
+                "observation_date": pd.Timestamp(obs_dt).date() if pd.notna(obs_dt) else None,
+                "price_value": float(pd.to_numeric(out.get("price_value"), errors="coerce")),
+                "weight": 1.0,
+                "source_file": str(out.get("source_file") or "").strip(),
+                "source_type": str(out.get("source_type") or "").strip(),
+                "source_label": str(out.get("source_label") or _gpre_futures_source_label(prefix, out.get("source_type"))),
+            }
+        ]
+    return out
+
+
 def _pick_quarter_strip_reference(
     rows: Iterable[Dict[str, Any]],
     *,
     prefix: str,
     market_family: str,
     as_of_date: Optional[date] = None,
+    target_start_override: Optional[date] = None,
+    target_end_override: Optional[date] = None,
+    observation_anchor_date: Optional[date] = None,
+    max_anchor_distance_days: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
     # Forward-looking frames must read as "what was knowable at the anchor date":
     # quarter-open calls anchor at the prior quarter end, while next-quarter outlook
@@ -5775,7 +6117,10 @@ def _pick_quarter_strip_reference(
         ["aggregation_level", "series_key", "observation_date", "price_value"],
         contract_name="_pick_quarter_strip_reference",
     )
-    target_start, target_end = next_calendar_quarter_bounds(as_of_date=as_of_date)
+    if isinstance(target_start_override, date) and isinstance(target_end_override, date):
+        target_start, target_end = target_start_override, target_end_override
+    else:
+        target_start, target_end = next_calendar_quarter_bounds(as_of_date=as_of_date)
     obs = df[
         (df["aggregation_level"].astype(str).str.lower() == "observation")
         & df["series_key"].astype(str).str.match(rf"^{re.escape(prefix)}_[a-z]{{3}}\d{{2}}_usd(?:_per_gal)?$", na=False)
@@ -5794,13 +6139,55 @@ def _pick_quarter_strip_reference(
             default_source_type="local_chicago_ethanol_futures_csv",
             default_source_label="local Chicago ethanol futures CSV",
         )
-
-    latest_per_series = (
-        obs.sort_values("observation_date")
-        .groupby("series_key", as_index=False)
-        .tail(1)
-        .reset_index(drop=True)
-    )
+    if isinstance(observation_anchor_date, date):
+        obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+        obs = obs[obs_dates.notna()].copy()
+        if obs.empty:
+            return _build_quarter_strip_payload(
+                target_start=target_start,
+                target_end=target_end,
+                market_family=market_family,
+                records_by_tenor={},
+                default_source_type="local_chicago_ethanol_futures_csv",
+                default_source_label="local Chicago ethanol futures CSV",
+            )
+        obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+        obs = obs[obs_dates.dt.date.le(observation_anchor_date)].copy()
+        if obs.empty:
+            return _build_quarter_strip_payload(
+                target_start=target_start,
+                target_end=target_end,
+                market_family=market_family,
+                records_by_tenor={},
+                default_source_type="local_chicago_ethanol_futures_csv",
+                default_source_label="local Chicago ethanol futures CSV",
+            )
+        obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+        obs["_anchor_distance_days"] = obs_dates.dt.date.map(lambda obs_dt: (observation_anchor_date - obs_dt).days)
+        if max_anchor_distance_days is not None:
+            obs = obs[obs["_anchor_distance_days"].le(max(int(max_anchor_distance_days or 0), 0))].copy()
+        if obs.empty:
+            return _build_quarter_strip_payload(
+                target_start=target_start,
+                target_end=target_end,
+                market_family=market_family,
+                records_by_tenor={},
+                default_source_type="local_chicago_ethanol_futures_csv",
+                default_source_label="local Chicago ethanol futures CSV",
+            )
+        latest_per_series = (
+            obs.sort_values(["series_key", "_anchor_distance_days", "observation_date"], ascending=[True, True, False])
+            .groupby("series_key", as_index=False)
+            .head(1)
+            .reset_index(drop=True)
+        )
+    else:
+        latest_per_series = (
+            obs.sort_values("observation_date")
+            .groupby("series_key", as_index=False)
+            .tail(1)
+            .reset_index(drop=True)
+        )
     latest_by_tenor: Dict[str, Dict[str, Any]] = {}
     for rec in latest_per_series.to_dict("records"):
         tenor = str(rec.get("contract_tenor") or "").strip().lower()
@@ -5809,7 +6196,11 @@ def _pick_quarter_strip_reference(
             match = re.search(r"_([a-z]{3}\d{2})_usd(?:_per_gal)?$", series_key, re.I)
             tenor = str(match.group(1) or "").strip().lower() if match else ""
         if tenor:
-            rec = dict(rec)
+            rec = {
+                key: val
+                for key, val in dict(rec).items()
+                if not str(key).startswith("_anchor_")
+            }
             rec["contract_tenor"] = tenor
             latest_by_tenor[tenor] = rec
     return _build_quarter_strip_payload(
@@ -5831,6 +6222,10 @@ def _pick_next_quarter_futures_reference(
     include_source_types: Optional[Iterable[str]] = None,
     exclude_source_types: Optional[Iterable[str]] = None,
     max_age_days: Optional[int] = None,
+    target_start_override: Optional[date] = None,
+    target_end_override: Optional[date] = None,
+    observation_anchor_date: Optional[date] = None,
+    max_anchor_distance_days: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
     # The price source is a snapshot decision first, contract decision second:
     # filter to data available on or before `as_of_date`, optionally require a
@@ -5872,13 +6267,38 @@ def _pick_next_quarter_futures_reference(
             obs = obs[obs_dates.dt.date.ge(min_allowed)].copy()
     if obs.empty:
         return None
-    latest_per_series = (
-        obs.sort_values("observation_date")
-        .groupby("series_key", as_index=False)
-        .tail(1)
-        .reset_index(drop=True)
-    )
-    target_start, target_end = next_calendar_quarter_bounds(as_of_date=as_of_date)
+    if isinstance(observation_anchor_date, date):
+        obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+        obs = obs[obs_dates.notna()].copy()
+        if obs.empty:
+            return None
+        obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+        obs = obs[obs_dates.dt.date.le(observation_anchor_date)].copy()
+        if obs.empty:
+            return None
+        obs_dates = pd.to_datetime(obs["observation_date"], errors="coerce")
+        obs["_anchor_distance_days"] = obs_dates.dt.date.map(lambda obs_dt: (observation_anchor_date - obs_dt).days)
+        if max_anchor_distance_days is not None:
+            obs = obs[obs["_anchor_distance_days"].le(max(int(max_anchor_distance_days or 0), 0))].copy()
+        if obs.empty:
+            return None
+        latest_per_series = (
+            obs.sort_values(["series_key", "_anchor_distance_days", "observation_date"], ascending=[True, True, False])
+            .groupby("series_key", as_index=False)
+            .head(1)
+            .reset_index(drop=True)
+        )
+    else:
+        latest_per_series = (
+            obs.sort_values("observation_date")
+            .groupby("series_key", as_index=False)
+            .tail(1)
+            .reset_index(drop=True)
+        )
+    if isinstance(target_start_override, date) and isinstance(target_end_override, date):
+        target_start, target_end = target_start_override, target_end_override
+    else:
+        target_start, target_end = next_calendar_quarter_bounds(as_of_date=as_of_date)
     target_mid = _quarter_midpoint(target_start, target_end)
     candidates: List[Tuple[Tuple[int, int, int], Dict[str, Any]]] = []
     for rec in latest_per_series.to_dict("records"):
@@ -5892,7 +6312,11 @@ def _pick_next_quarter_futures_reference(
             continue
         distance_days = abs((contract_mid - target_mid).days)
         sort_key = (distance_days, -contract_mid.toordinal(), -pd.Timestamp(rec["observation_date"]).to_pydatetime().date().toordinal())
-        payload = dict(rec)
+        payload = {
+            key: val
+            for key, val in dict(rec).items()
+            if not str(key).startswith("_anchor_")
+        }
         payload["contract_tenor"] = tenor
         payload["contract_label"] = _tenor_label(tenor)
         payload["contract_midpoint"] = contract_mid
@@ -6036,49 +6460,126 @@ def build_next_quarter_thesis_snapshot(
     plant_capacity_history: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     rows_df = _market_rows_df(rows)
-    corn_ref = _pick_next_quarter_futures_reference(
+    target_start, target_end = next_calendar_quarter_bounds(as_of_date=as_of_date)
+    target_mid = _quarter_midpoint(target_start, target_end)
+    corn_components, corn_weighting_rule = _gpre_corn_futures_components(target_start)
+    corn_ref = _pick_gpre_fixed_futures_strip_reference(
         rows_df,
         prefix="cbot_corn",
         market_family="corn_futures",
+        target_start=target_start,
+        target_end=target_end,
+        components=corn_components,
+        weighting_rule=corn_weighting_rule,
+        strip_method="exposure_weighted",
+        frame="next_quarter_outlook",
         as_of_date=as_of_date,
         include_source_types=(_LOCAL_BARCHART_CORN_SOURCE_TYPE,),
-        max_age_days=_GPRE_LOCAL_FORWARD_FUTURES_MAX_AGE_DAYS,
+        default_source_type=_LOCAL_BARCHART_CORN_SOURCE_TYPE,
+        default_source_label=_forward_futures_source_label(_LOCAL_BARCHART_CORN_SOURCE_TYPE),
     )
-    if corn_ref is None:
-        corn_ref = _pick_next_quarter_futures_reference(
+    if str((corn_ref or {}).get("status") or "") != "ok":
+        failed_corn_ref = dict(corn_ref or {})
+        fallback_corn_ref = _pick_next_quarter_futures_reference(
             rows_df,
             prefix="cbot_corn",
             market_family="corn_futures",
             as_of_date=as_of_date,
             exclude_source_types=(_LOCAL_BARCHART_CORN_SOURCE_TYPE,),
         )
+        corn_ref = (
+            _annotate_gpre_futures_fallback_reference(
+                fallback_corn_ref,
+                failed_ref=failed_corn_ref,
+                prefix="cbot_corn",
+                weighting_rule=corn_weighting_rule,
+            )
+            if fallback_corn_ref is not None
+            else None
+        )
     if corn_ref is None:
         corn_ref = _gpre_implied_corn_futures_reference_from_bids(
             bids_snapshot,
-            target_quarter_end=next_calendar_quarter_bounds(as_of_date=as_of_date)[1],
+            target_quarter_end=target_end,
             as_of_date=as_of_date,
             ticker_root=ticker_root,
             plant_capacity_history=plant_capacity_history,
         )
-    ethanol_ref = _pick_quarter_strip_reference(rows_df, prefix="cme_ethanol_chicago_platts", market_family="ethanol_futures", as_of_date=as_of_date)
-    gas_ref = _pick_next_quarter_futures_reference(
+    ethanol_components = _gpre_monthly_futures_components(target_start)
+    ethanol_ref = _pick_gpre_fixed_futures_strip_reference(
+        rows_df,
+        prefix="cme_ethanol_chicago_platts",
+        market_family="ethanol_futures",
+        target_start=target_start,
+        target_end=target_end,
+        components=ethanol_components,
+        weighting_rule=_gpre_simple_monthly_weighting_rule(prefix="cme_ethanol_chicago_platts", target_start=target_start),
+        strip_method="simple_average",
+        frame="next_quarter_outlook",
+        as_of_date=as_of_date,
+        include_source_types=(_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE,),
+        default_source_type=_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE,
+        default_source_label=_ethanol_thesis_source_label(_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE),
+    )
+    if str((ethanol_ref or {}).get("status") or "") != "ok":
+        failed_ethanol_ref = dict(ethanol_ref or {})
+        fallback_ethanol_ref = _pick_gpre_fixed_futures_strip_reference(
+            rows_df,
+            prefix="cme_ethanol_chicago_platts",
+            market_family="ethanol_futures",
+            target_start=target_start,
+            target_end=target_end,
+            components=ethanol_components,
+            weighting_rule=_gpre_simple_monthly_weighting_rule(prefix="cme_ethanol_chicago_platts", target_start=target_start),
+            strip_method="simple_average",
+            frame="next_quarter_outlook",
+            as_of_date=as_of_date,
+            exclude_source_types=(_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE,),
+            default_source_type="nwer_pdf",
+            default_source_label=_ethanol_thesis_source_label("nwer_pdf"),
+        )
+        if str((fallback_ethanol_ref or {}).get("status") or "") == "ok":
+            ethanol_ref = _annotate_gpre_futures_fallback_reference(
+                fallback_ethanol_ref,
+                failed_ref=failed_ethanol_ref,
+                prefix="cme_ethanol_chicago_platts",
+                weighting_rule=_gpre_simple_monthly_weighting_rule(prefix="cme_ethanol_chicago_platts", target_start=target_start),
+            )
+    gas_components = _gpre_monthly_futures_components(target_start)
+    gas_ref = _pick_gpre_fixed_futures_strip_reference(
         rows_df,
         prefix="nymex_gas",
         market_family="natural_gas_futures",
+        target_start=target_start,
+        target_end=target_end,
+        components=gas_components,
+        weighting_rule=_gpre_simple_monthly_weighting_rule(prefix="nymex_gas", target_start=target_start),
+        strip_method="simple_average",
+        frame="next_quarter_outlook",
         as_of_date=as_of_date,
         include_source_types=(_LOCAL_BARCHART_GAS_SOURCE_TYPE,),
-        max_age_days=_GPRE_LOCAL_FORWARD_FUTURES_MAX_AGE_DAYS,
+        default_source_type=_LOCAL_BARCHART_GAS_SOURCE_TYPE,
+        default_source_label=_forward_futures_source_label(_LOCAL_BARCHART_GAS_SOURCE_TYPE),
     )
-    if gas_ref is None:
-        gas_ref = _pick_next_quarter_futures_reference(
+    if str((gas_ref or {}).get("status") or "") != "ok":
+        failed_gas_ref = dict(gas_ref or {})
+        fallback_gas_ref = _pick_next_quarter_futures_reference(
             rows_df,
             prefix="nymex_gas",
             market_family="natural_gas_futures",
             as_of_date=as_of_date,
             exclude_source_types=(_LOCAL_BARCHART_GAS_SOURCE_TYPE,),
         )
-    target_start, target_end = next_calendar_quarter_bounds(as_of_date=as_of_date)
-    target_mid = _quarter_midpoint(target_start, target_end)
+        gas_ref = (
+            _annotate_gpre_futures_fallback_reference(
+                fallback_gas_ref,
+                failed_ref=failed_gas_ref,
+                prefix="nymex_gas",
+                weighting_rule=_gpre_simple_monthly_weighting_rule(prefix="nymex_gas", target_start=target_start),
+            )
+            if fallback_gas_ref is not None
+            else None
+        )
     corn_basis_payload = _gpre_official_current_forward_basis_payload(
         rows_df,
         target_date=target_mid,
@@ -7195,6 +7696,245 @@ def _resolve_local_manual_gpre_quarter_open_snapshot(
     }
 
 
+def _resolve_gpre_quarter_open_futures_snapshot(
+    ticker_root: Optional[Path],
+    *,
+    current_quarter_end: date,
+    rows: Iterable[Dict[str, Any]],
+    ethanol_yield: Optional[float],
+    natural_gas_usage: Optional[float],
+    bids_snapshot: Optional[Dict[str, Any]] = None,
+    plant_capacity_history: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    current_quarter_start, _ = calendar_quarter_bounds(as_of_date=current_quarter_end)
+    anchor_cutoff = current_quarter_start
+    rows_df = _market_rows_df(rows)
+    selector_kwargs = {
+        "as_of_date": anchor_cutoff,
+        "target_start_override": current_quarter_start,
+        "target_end_override": current_quarter_end,
+        "observation_anchor_date": current_quarter_start,
+        "max_anchor_distance_days": _GPRE_LOCAL_FORWARD_FUTURES_MAX_AGE_DAYS,
+    }
+    corn_components, corn_weighting_rule = _gpre_corn_futures_components(current_quarter_start)
+    corn_ref = _pick_gpre_fixed_futures_strip_reference(
+        rows_df,
+        prefix="cbot_corn",
+        market_family="corn_futures",
+        target_start=current_quarter_start,
+        target_end=current_quarter_end,
+        components=corn_components,
+        weighting_rule=corn_weighting_rule,
+        strip_method="exposure_weighted",
+        frame="quarter_open",
+        as_of_date=anchor_cutoff,
+        observation_anchor_date=current_quarter_start,
+        max_prior_days=_GPRE_QUARTER_OPEN_LOCAL_FUTURES_MAX_PRIOR_DAYS,
+        include_source_types=(_LOCAL_BARCHART_CORN_SOURCE_TYPE,),
+        default_source_type=_LOCAL_BARCHART_CORN_SOURCE_TYPE,
+        default_source_label=_forward_futures_source_label(_LOCAL_BARCHART_CORN_SOURCE_TYPE),
+    )
+    if str((corn_ref or {}).get("status") or "") != "ok":
+        fallback_corn_ref = _pick_next_quarter_futures_reference(
+            rows_df,
+            prefix="cbot_corn",
+            market_family="corn_futures",
+            exclude_source_types=(_LOCAL_BARCHART_CORN_SOURCE_TYPE,),
+            **selector_kwargs,
+        )
+        if fallback_corn_ref is not None:
+            corn_ref = fallback_corn_ref
+    if corn_ref is None:
+        corn_ref = _gpre_implied_corn_futures_reference_from_bids(
+            bids_snapshot,
+            target_quarter_end=current_quarter_end,
+            as_of_date=anchor_cutoff,
+            ticker_root=ticker_root,
+            plant_capacity_history=plant_capacity_history,
+        )
+    ethanol_components = _gpre_monthly_futures_components(current_quarter_start)
+    ethanol_ref = _pick_gpre_fixed_futures_strip_reference(
+        rows_df,
+        prefix="cme_ethanol_chicago_platts",
+        market_family="ethanol_futures",
+        target_start=current_quarter_start,
+        target_end=current_quarter_end,
+        components=ethanol_components,
+        weighting_rule=_gpre_simple_monthly_weighting_rule(prefix="cme_ethanol_chicago_platts", target_start=current_quarter_start),
+        strip_method="simple_average",
+        frame="quarter_open",
+        as_of_date=anchor_cutoff,
+        observation_anchor_date=current_quarter_start,
+        max_prior_days=_GPRE_QUARTER_OPEN_LOCAL_FUTURES_MAX_PRIOR_DAYS,
+        include_source_types=(_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE,),
+        default_source_type=_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE,
+        default_source_label=_ethanol_thesis_source_label(_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE),
+    )
+    if str((ethanol_ref or {}).get("status") or "") != "ok":
+        fallback_ethanol_ref = _pick_gpre_fixed_futures_strip_reference(
+            rows_df,
+            prefix="cme_ethanol_chicago_platts",
+            market_family="ethanol_futures",
+            target_start=current_quarter_start,
+            target_end=current_quarter_end,
+            components=ethanol_components,
+            weighting_rule=_gpre_simple_monthly_weighting_rule(prefix="cme_ethanol_chicago_platts", target_start=current_quarter_start),
+            strip_method="simple_average",
+            frame="quarter_open",
+            as_of_date=anchor_cutoff,
+            observation_anchor_date=current_quarter_start,
+            max_prior_days=_GPRE_LOCAL_FORWARD_FUTURES_MAX_AGE_DAYS,
+            exclude_source_types=(_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE,),
+            default_source_type="nwer_pdf",
+            default_source_label=_ethanol_thesis_source_label("nwer_pdf"),
+        )
+        if str((fallback_ethanol_ref or {}).get("status") or "") == "ok":
+            ethanol_ref = fallback_ethanol_ref
+    gas_components = _gpre_monthly_futures_components(current_quarter_start)
+    gas_ref = _pick_gpre_fixed_futures_strip_reference(
+        rows_df,
+        prefix="nymex_gas",
+        market_family="natural_gas_futures",
+        target_start=current_quarter_start,
+        target_end=current_quarter_end,
+        components=gas_components,
+        weighting_rule=_gpre_simple_monthly_weighting_rule(prefix="nymex_gas", target_start=current_quarter_start),
+        strip_method="simple_average",
+        frame="quarter_open",
+        as_of_date=anchor_cutoff,
+        observation_anchor_date=current_quarter_start,
+        max_prior_days=_GPRE_QUARTER_OPEN_LOCAL_FUTURES_MAX_PRIOR_DAYS,
+        include_source_types=(_LOCAL_BARCHART_GAS_SOURCE_TYPE,),
+        default_source_type=_LOCAL_BARCHART_GAS_SOURCE_TYPE,
+        default_source_label=_forward_futures_source_label(_LOCAL_BARCHART_GAS_SOURCE_TYPE),
+    )
+    if str((gas_ref or {}).get("status") or "") != "ok":
+        failed_gas_ref = dict(gas_ref or {})
+        fallback_gas_ref = _pick_next_quarter_futures_reference(
+            rows_df,
+            prefix="nymex_gas",
+            market_family="natural_gas_futures",
+            exclude_source_types=(_LOCAL_BARCHART_GAS_SOURCE_TYPE,),
+            as_of_date=anchor_cutoff,
+            target_start_override=current_quarter_start,
+            target_end_override=current_quarter_end,
+            observation_anchor_date=current_quarter_start,
+        )
+        if fallback_gas_ref is not None:
+            gas_ref = _annotate_gpre_futures_fallback_reference(
+                fallback_gas_ref,
+                failed_ref=failed_gas_ref,
+                prefix="nymex_gas",
+                weighting_rule="fallback to the nearest date-valid NWER natural gas futures reference on or before quarter start",
+            )
+    quarter_open_basis_payload = _gpre_official_current_forward_basis_payload(
+        rows_df,
+        target_date=current_quarter_start,
+        target_quarter_end=current_quarter_end,
+        as_of_date=anchor_cutoff,
+        ticker_root=ticker_root,
+        bids_snapshot=bids_snapshot,
+        selection_mode="quarter_open",
+        plant_capacity_history=plant_capacity_history,
+    )
+    if isinstance(corn_ref, dict):
+        corn_ref = dict(corn_ref)
+        corn_ref.update(
+            {
+                "official_weighted_corn_basis_usd_per_bu": quarter_open_basis_payload.get("official_weighted_corn_basis_usd_per_bu"),
+                "official_weighted_corn_cash_price_usd_per_bu": quarter_open_basis_payload.get("official_weighted_corn_cash_price_usd_per_bu"),
+                "official_corn_cash_coverage_ratio": quarter_open_basis_payload.get("official_corn_cash_coverage_ratio"),
+                "official_actual_cash_price_plant_count": quarter_open_basis_payload.get("official_actual_cash_price_plant_count"),
+                "official_corn_basis_source_kind": quarter_open_basis_payload.get("official_corn_basis_source_kind"),
+                "official_corn_basis_source_label": quarter_open_basis_payload.get("official_corn_basis_source_label"),
+                "official_corn_basis_provenance": quarter_open_basis_payload.get("official_corn_basis_provenance"),
+                "official_corn_basis_snapshot_date": quarter_open_basis_payload.get("snapshot_date"),
+                "official_corn_basis_selection_rule": quarter_open_basis_payload.get("selection_rule"),
+                "official_actual_bid_plant_count": quarter_open_basis_payload.get("official_actual_bid_plant_count"),
+                "official_fallback_plant_count": quarter_open_basis_payload.get("official_fallback_plant_count"),
+                "weighted_ams_basis_proxy_usd_per_bu": quarter_open_basis_payload.get("weighted_ams_basis_proxy_usd_per_bu"),
+                "official_corn_basis_component_rows": quarter_open_basis_payload.get("component_rows"),
+            }
+        )
+    thesis_snapshot = {
+        "target_quarter_start": current_quarter_start,
+        "target_quarter_end": current_quarter_end,
+        "target_quarter_midpoint": _quarter_midpoint(current_quarter_start, current_quarter_end),
+        "corn": corn_ref,
+        "ethanol": ethanol_ref,
+        "natural_gas": gas_ref,
+    }
+    official_market_snapshot = build_gpre_next_quarter_preview_snapshot(
+        rows_df,
+        next_quarter_thesis_snapshot=thesis_snapshot,
+        ethanol_yield=ethanol_yield,
+        natural_gas_usage=natural_gas_usage,
+        as_of_date=current_quarter_start,
+    )
+    official_market_snapshot = dict(official_market_snapshot or {})
+    status_ok = str(official_market_snapshot.get("process_status") or "") == "ok"
+    if not status_ok:
+        missing_bits = []
+        if not isinstance(corn_ref, dict) or str((corn_ref or {}).get("status") or "ok") != "ok":
+            missing_txt = ", ".join(str(item or "") for item in list((corn_ref or {}).get("missing_contract_tenors") or []) if str(item or "").strip()) if isinstance(corn_ref, dict) else ""
+            missing_bits.append(f"corn futures{f' ({missing_txt})' if missing_txt else ''}")
+        if not isinstance(gas_ref, dict) or str((gas_ref or {}).get("status") or "ok") != "ok":
+            missing_txt = ", ".join(str(item or "") for item in list((gas_ref or {}).get("missing_contract_tenors") or []) if str(item or "").strip()) if isinstance(gas_ref, dict) else ""
+            missing_bits.append(f"natural gas futures{f' ({missing_txt})' if missing_txt else ''}")
+        if str((ethanol_ref or {}).get("status") or "") != "ok":
+            missing_txt = ", ".join(str(item or "") for item in list((ethanol_ref or {}).get("missing_contract_tenors") or []) if str(item or "").strip())
+            missing_bits.append(f"ethanol strip{f' ({missing_txt})' if missing_txt else ''}")
+        missing_suffix = "; missing " + ", ".join(missing_bits) if missing_bits else ""
+        return {
+            "status": "no_snapshot",
+            "provenance": "unavailable",
+            "target_quarter_end": current_quarter_end,
+            "source_quarter_end": prior_calendar_quarter_bounds(as_of_date=current_quarter_end)[1],
+            "message": (
+                "No usable futures snapshot found within "
+                f"{_GPRE_QUARTER_OPEN_LOCAL_FUTURES_MAX_PRIOR_DAYS} calendar days before quarter start{missing_suffix}."
+            ),
+        }
+    snapshot_as_of = official_market_snapshot.get("as_of")
+    official_market_snapshot["quarter_open_provenance"] = "futures_near_quarter_start"
+    official_market_snapshot["message"] = str(
+        official_market_snapshot.get("message") or "Quarter-open outlook uses futures snapshots nearest the quarter start."
+    )
+    market_meta = dict(official_market_snapshot.get("market_meta") or {})
+    for meta_key in ("corn_price", "ethanol_price", "natural_gas_price"):
+        meta = dict(market_meta.get(meta_key) or {})
+        meta["quarter_open_provenance"] = "futures_near_quarter_start"
+        meta["quarter_open_anchor_date"] = current_quarter_start
+        market_meta[meta_key] = meta
+    official_market_snapshot["market_meta"] = market_meta
+    fallback_notes = []
+    for label, ref in (("natural gas", gas_ref), ("corn", corn_ref), ("ethanol", ethanol_ref)):
+        fallback_reason = str((ref or {}).get("fallback_reason") or "").strip() if isinstance(ref, dict) else ""
+        if fallback_reason:
+            missing_txt = ", ".join(str(item or "") for item in list((ref or {}).get("fallback_missing_contract_tenors") or []) if str(item or "").strip())
+            fallback_notes.append(f"{label} fallback used after incomplete local basket{f' ({missing_txt})' if missing_txt else ''}")
+    message = "Quarter-open outlook uses futures snapshots nearest the quarter start."
+    if fallback_notes:
+        message = f"{message} {'; '.join(fallback_notes)}."
+        official_market_snapshot["message"] = message
+    return {
+        "status": "ok",
+        "provenance": "futures_near_quarter_start",
+        "snapshot_as_of": snapshot_as_of if isinstance(snapshot_as_of, date) else current_quarter_start,
+        "source_quarter_end": prior_calendar_quarter_bounds(as_of_date=current_quarter_end)[1],
+        "target_quarter_end": current_quarter_end,
+        "next_quarter_thesis_snapshot": thesis_snapshot,
+        "official_market_snapshot": official_market_snapshot,
+        "official_simple_proxy_usd_per_gal": _gpre_snapshot_simple_proxy_usd_per_gal(
+            official_market_snapshot,
+            ethanol_yield=ethanol_yield,
+        ),
+        "gpre_proxy_official_usd_per_gal": None,
+        "gpre_proxy_model_key": "",
+        "message": message,
+    }
+
+
 def resolve_gpre_quarter_open_snapshot(
     ticker_root: Optional[Path],
     *,
@@ -7222,6 +7962,7 @@ def resolve_gpre_quarter_open_snapshot(
         candidates.append(dict(rec))
     if not candidates:
         manual_fallback = None
+        futures_fallback = None
         if rows is not None:
             manual_fallback = _resolve_local_manual_gpre_quarter_open_snapshot(
                 ticker_root,
@@ -7234,8 +7975,25 @@ def resolve_gpre_quarter_open_snapshot(
             )
         if isinstance(manual_fallback, dict) and str(manual_fallback.get("status") or "") == "ok":
             return manual_fallback
+        if rows is not None:
+            futures_fallback = _resolve_gpre_quarter_open_futures_snapshot(
+                ticker_root,
+                current_quarter_end=current_quarter_end,
+                rows=rows,
+                ethanol_yield=ethanol_yield,
+                natural_gas_usage=natural_gas_usage,
+                bids_snapshot=bids_snapshot,
+                plant_capacity_history=plant_capacity_history,
+            )
+        if isinstance(futures_fallback, dict) and str(futures_fallback.get("status") or "") == "ok":
+            return futures_fallback
         quarter_txt = _quarter_label(current_quarter_end)
         failure_message = str((manual_fallback or {}).get("message") or "").strip()
+        futures_failure_message = str((futures_fallback or {}).get("message") or "").strip()
+        if failure_message and futures_failure_message and futures_failure_message not in failure_message:
+            failure_message = f"{failure_message} {futures_failure_message}".strip()
+        elif futures_failure_message:
+            failure_message = futures_failure_message
         if not failure_message:
             failure_message = f"No frozen prior-quarter thesis snapshot for {quarter_txt}."
         return {
@@ -7370,11 +8128,15 @@ def build_gpre_next_quarter_preview_snapshot(
     gas_source_type = str((gas_ref or {}).get("source_type") or "").strip()
     gas_source_label = str((gas_ref or {}).get("source_label") or _forward_futures_source_label(gas_source_type)).strip()
     gas_source_file = str((gas_ref or {}).get("source_file") or "").strip()
+    corn_contract_tenors = [str(item or "").strip() for item in list((corn_ref or {}).get("contract_tenors") or []) if str(item or "").strip()]
+    corn_contract_components = [dict(item) for item in list((corn_ref or {}).get("contract_components") or []) if isinstance(item, dict)]
+    gas_contract_tenors = [str(item or "").strip() for item in list((gas_ref or {}).get("contract_tenors") or []) if str(item or "").strip()]
+    gas_contract_components = [dict(item) for item in list((gas_ref or {}).get("contract_components") or []) if isinstance(item, dict)]
     market_meta = {
         "corn_price": {
             "value": delivered_corn,
             "as_of": corn_as_of if isinstance(corn_as_of, date) else None,
-            "obs_count": 1 if delivered_corn is not None else 0,
+            "obs_count": len(corn_contract_tenors) if corn_contract_tenors and delivered_corn is not None else (1 if delivered_corn is not None else 0),
             "cadence": "futures_plus_basis_thesis",
             "proxy_mode": "gpre_cash_price_with_fallback" if delivered_context else "cbot_plus_official_weighted_basis",
             "official_weighted_corn_basis_usd_per_bu": (None if pd.isna(corn_basis) else float(corn_basis)),
@@ -7401,6 +8163,12 @@ def build_gpre_next_quarter_preview_snapshot(
             "futures_source_type": corn_futures_source_type,
             "futures_source_label": corn_futures_source_label,
             "futures_source_file": corn_futures_source_file,
+            "futures_contract_tenors": corn_contract_tenors,
+            "futures_contract_components": corn_contract_components,
+            "futures_weighting_rule": str((corn_ref or {}).get("weighting_rule") or "").strip(),
+            "futures_strip_method": str((corn_ref or {}).get("strip_method") or "").strip(),
+            "futures_frame": str((corn_ref or {}).get("frame") or "").strip(),
+            "futures_anchor_date": (corn_ref or {}).get("anchor_date") if isinstance((corn_ref or {}).get("anchor_date"), date) else None,
         },
         "ethanol_price": {
             "value": (None if pd.isna(ethanol_price) else float(ethanol_price)),
@@ -7418,15 +8186,30 @@ def build_gpre_next_quarter_preview_snapshot(
             "source_type": ethanol_source_type,
             "source_label": ethanol_source_label,
             "source_files": ethanol_source_files,
+            "contract_components": list((ethanol_ref or {}).get("contract_components") or []),
+            "weighting_rule": str((ethanol_ref or {}).get("weighting_rule") or "").strip(),
+            "frame": str((ethanol_ref or {}).get("frame") or "").strip(),
+            "anchor_date": (ethanol_ref or {}).get("anchor_date") if isinstance((ethanol_ref or {}).get("anchor_date"), date) else None,
         },
         "natural_gas_price": {
             "value": (None if pd.isna(gas_price) else float(gas_price)),
             "as_of": gas_as_of if isinstance(gas_as_of, date) else None,
-            "obs_count": 1 if pd.notna(gas_price) else 0,
+            "obs_count": len(gas_contract_tenors) if gas_contract_tenors and pd.notna(gas_price) else (1 if pd.notna(gas_price) else 0),
             "cadence": "futures_thesis",
             "source_type": gas_source_type,
             "source_label": gas_source_label,
             "source_file": gas_source_file,
+            "contract_tenors": gas_contract_tenors,
+            "contract_components": gas_contract_components,
+            "weighting_rule": str((gas_ref or {}).get("weighting_rule") or "").strip(),
+            "strip_method": str((gas_ref or {}).get("strip_method") or "").strip(),
+            "frame": str((gas_ref or {}).get("frame") or "").strip(),
+            "anchor_date": (gas_ref or {}).get("anchor_date") if isinstance((gas_ref or {}).get("anchor_date"), date) else None,
+            "fallback_reason": str((gas_ref or {}).get("fallback_reason") or "").strip(),
+            "fallback_missing_contract_tenors": list((gas_ref or {}).get("fallback_missing_contract_tenors") or []),
+            "fallback_from_source_type": str((gas_ref or {}).get("fallback_from_source_type") or "").strip(),
+            "fallback_from_source_label": str((gas_ref or {}).get("fallback_from_source_label") or "").strip(),
+            "fallback_from_selected_symbols": list((gas_ref or {}).get("fallback_from_selected_symbols") or []),
         },
     }
     message = ""
@@ -12325,6 +13108,1353 @@ def _gpre_hedge_style_fit_note(
     }.get(str(family_key or "").strip(), "Best explained by a simple hedge-style analogue")
 
 
+_GPRE_FUTURES_TIMING_MAX_PRIOR_DAYS = 7
+_GPRE_FUTURES_TIMING_MIN_USABLE_QUARTERS = 4
+_GPRE_FUTURES_TIMING_MIN_WEEKLY_COVERAGE = 0.60
+
+
+def _gpre_futures_timing_empty_study() -> Dict[str, Any]:
+    return {
+        "target_col": "evaluation_target_margin_usd_per_gal",
+        "target_label": "Evaluation target margin ($/gal)",
+        "target_definition": "Evaluation target margin used by the production GPRE proxy model.",
+        "candidate_specs": [],
+        "candidate_leaderboard_df": pd.DataFrame(),
+        "quarter_detail_df": pd.DataFrame(),
+        "backtest_window_quarters": [],
+        "backtest_window_display": "",
+        "best_candidate_key": "",
+        "best_candidate_label": "",
+        "coverage_note": "No futures timing sandbox rows were available.",
+        "diagnostic_only_note": "Sandbox/comparison-only; does not change official row, fitted row, or winner selection.",
+        "commentary_audit_df": pd.DataFrame(),
+    }
+
+
+def _gpre_sandbox_corn_futures_components(target_start: date) -> tuple[list[dict[str, Any]], str]:
+    year_num = int(target_start.year)
+    month_num = int(target_start.month)
+    if month_num == 1:
+        mar_tenor = _tenor_from_year_month(year_num, 3)
+        return (
+            [{"tenor": mar_tenor, "weight": 1.0, "label": _tenor_label(mar_tenor)}],
+            f"100% {_futures_symbol('cbot_corn', mar_tenor)} March corn",
+        )
+    if month_num == 4:
+        return _gpre_corn_futures_components(target_start)
+    if month_num == 7:
+        return _gpre_corn_futures_components(target_start)
+    if month_num == 10:
+        dec_tenor = _tenor_from_year_month(year_num, 12)
+        return (
+            [{"tenor": dec_tenor, "weight": 1.0, "label": _tenor_label(dec_tenor)}],
+            f"100% {_futures_symbol('cbot_corn', dec_tenor)} December corn",
+        )
+    return [], ""
+
+
+def _gpre_futures_timing_weekly_anchor_dates(
+    quarter_start: date,
+    *,
+    window_start_days: int,
+    window_end_days: int,
+    as_of_date: Optional[date] = None,
+) -> List[date]:
+    if not isinstance(quarter_start, date):
+        return []
+    try:
+        oldest_days = max(int(window_start_days), int(window_end_days))
+        newest_days = min(int(window_start_days), int(window_end_days))
+    except Exception:
+        return []
+    oldest_days = max(oldest_days, 0)
+    newest_days = max(newest_days, 0)
+    start_date = quarter_start - timedelta(days=oldest_days)
+    newest_edge = quarter_start - timedelta(days=newest_days)
+    anchors: List[date] = []
+    cur = start_date
+    while cur <= newest_edge:
+        anchors.append(cur)
+        cur = cur + timedelta(days=7)
+    if not anchors or anchors[-1] != newest_edge:
+        anchors.append(newest_edge)
+    limit_date = quarter_start
+    if isinstance(as_of_date, date) and as_of_date < limit_date:
+        limit_date = as_of_date
+    return sorted({anchor for anchor in anchors if start_date <= anchor <= newest_edge and anchor <= limit_date})
+
+
+def _gpre_futures_timing_anchor_weights(count: int, weighting_style: str = "equal") -> List[float]:
+    try:
+        count_num = int(count)
+    except Exception:
+        count_num = 0
+    if count_num <= 0:
+        return []
+    style = str(weighting_style or "equal").strip().lower()
+    if style == "back_weighted":
+        raw = [float(idx + 1) for idx in range(count_num)]
+    elif style == "front_weighted":
+        raw = [float(count_num - idx) for idx in range(count_num)]
+    elif style == "triangular":
+        raw = [float(min(idx + 1, count_num - idx)) for idx in range(count_num)]
+    else:
+        raw = [1.0 for _ in range(count_num)]
+    total = float(sum(raw))
+    if total <= 0.0:
+        return [1.0 / count_num for _ in range(count_num)]
+    return [float(val) / total for val in raw]
+
+
+def _gpre_futures_timing_weekly_candidate_specs() -> List[Dict[str, Any]]:
+    long_windows = [
+        ("0_to_90d", 90, 0, "0-90 days before quarter start"),
+        ("45_to_135d", 135, 45, "45-135 days before quarter start"),
+        ("90_to_180d", 180, 90, "90-180 days before quarter start"),
+        ("30_to_120d", 120, 30, "30-120 days before quarter start"),
+        ("60_to_150d", 150, 60, "60-150 days before quarter start"),
+    ]
+    short_windows = [
+        ("0_to_30d", 30, 0, "0-30 days before quarter start"),
+        ("0_to_45d", 45, 0, "0-45 days before quarter start"),
+        ("0_to_60d", 60, 0, "0-60 days before quarter start"),
+        ("30_to_90d", 90, 30, "30-90 days before quarter start"),
+    ]
+    long_locks = [
+        ("corn", ("corn",), "Corn"),
+        ("ethanol", ("ethanol",), "Ethanol"),
+        ("gas", ("natural_gas",), "Gas"),
+        ("ethanol_corn", ("ethanol", "corn"), "Ethanol + corn"),
+        ("corn_gas", ("corn", "natural_gas"), "Corn + gas"),
+        ("all", ("ethanol", "corn", "natural_gas"), "All commodities"),
+    ]
+    short_locks = [
+        ("corn", ("corn",), "Corn"),
+        ("ethanol", ("ethanol",), "Ethanol"),
+        ("ethanol_corn", ("ethanol", "corn"), "Ethanol + corn"),
+        ("all", ("ethanol", "corn", "natural_gas"), "All commodities"),
+    ]
+
+    def _spec(
+        *,
+        window_key: str,
+        start_days: int,
+        end_days: int,
+        window_label: str,
+        lock_key: str,
+        locked: tuple[str, ...],
+        lock_label: str,
+        weighting_style: str,
+    ) -> Dict[str, Any]:
+        style_label = {
+            "equal": "equal",
+            "back_weighted": "back-weighted",
+            "front_weighted": "front-weighted",
+            "triangular": "triangular",
+        }.get(weighting_style, weighting_style)
+        return {
+            "candidate_key": f"futures_weekly_{window_key}_{lock_key}_{weighting_style}",
+            "candidate_label": f"Weekly {window_key.replace('_', '-')} {lock_label.lower()} futures ({style_label})",
+            "family": "weekly_layered",
+            "family_label": "Weekly layered futures",
+            "timing_rule": f"Weekly {window_label}; {style_label} anchors; minimum 60% anchor coverage",
+            "timing_window": window_label,
+            "kind": "weekly_layered",
+            "window_key": window_key,
+            "window_start_days": int(start_days),
+            "window_end_days": int(end_days),
+            "weighting_style": weighting_style,
+            "min_anchor_coverage": _GPRE_FUTURES_TIMING_MIN_WEEKLY_COVERAGE,
+            "locked_commodities": locked,
+        }
+
+    specs: List[Dict[str, Any]] = []
+    for window_key, start_days, end_days, window_label in long_windows:
+        for lock_key, locked, lock_label in long_locks:
+            specs.append(
+                _spec(
+                    window_key=window_key,
+                    start_days=start_days,
+                    end_days=end_days,
+                    window_label=window_label,
+                    lock_key=lock_key,
+                    locked=locked,
+                    lock_label=lock_label,
+                    weighting_style="equal",
+                )
+            )
+    for window_key, start_days, end_days, window_label in short_windows:
+        for lock_key, locked, lock_label in short_locks:
+            specs.append(
+                _spec(
+                    window_key=window_key,
+                    start_days=start_days,
+                    end_days=end_days,
+                    window_label=window_label,
+                    lock_key=lock_key,
+                    locked=locked,
+                    lock_label=lock_label,
+                    weighting_style="equal",
+                )
+            )
+    for weighting_style, window_key, start_days, end_days, window_label in (
+        ("back_weighted", "0_to_90d", 90, 0, "0-90 days before quarter start"),
+        ("front_weighted", "0_to_90d", 90, 0, "0-90 days before quarter start"),
+        ("triangular", "30_to_120d", 120, 30, "30-120 days before quarter start"),
+    ):
+        for lock_key, locked, lock_label in (
+            ("corn", ("corn",), "Corn"),
+            ("ethanol_corn", ("ethanol", "corn"), "Ethanol + corn"),
+            ("all", ("ethanol", "corn", "natural_gas"), "All commodities"),
+        ):
+            specs.append(
+                _spec(
+                    window_key=window_key,
+                    start_days=start_days,
+                    end_days=end_days,
+                    window_label=window_label,
+                    lock_key=lock_key,
+                    locked=locked,
+                    lock_label=lock_label,
+                    weighting_style=weighting_style,
+                )
+            )
+    return specs
+
+
+def _gpre_futures_timing_commentary_audit(ticker_root: Optional[Path]) -> pd.DataFrame:
+    if ticker_root is None:
+        return pd.DataFrame()
+    paths = _gpre_local_doc_paths(
+        ticker_root,
+        "earnings_transcripts/GPRE_Q*_transcript.txt",
+        "conferences/*.txt",
+        "earnings_release/*",
+        "annual_reports/*",
+    )
+    rows: List[Dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+
+    def _add(
+        *,
+        path: Path,
+        target_quarter: date,
+        signal_type: str,
+        status: str,
+        hedge_share: Optional[float],
+        commodities: tuple[str, ...],
+        text: str,
+    ) -> None:
+        key = (path.name, signal_type, _quarter_label(target_quarter))
+        if key in seen:
+            return
+        seen.add(key)
+        rows.append(
+            {
+                "source_doc": path.name,
+                "target_quarter": target_quarter,
+                "target_quarter_label": _quarter_label(target_quarter),
+                "signal_type": signal_type,
+                "status": status,
+                "hedge_share": hedge_share,
+                "commodities": ", ".join(commodities),
+                "commentary_excerpt": str(text or "").strip()[:240],
+            }
+        )
+
+    for path in paths:
+        text = _gpre_read_local_textish_doc(path)
+        if not text:
+            continue
+        text_low = text.lower()
+        q4_match = re.search(r"q4[^.]{0,100}?about\s+(\d{1,3})\s*%\s+hedged[^.]{0,80}?crush|q4[^.]{0,100}?(\d{1,3})\s*%\s+hedged[^.]{0,80}?crush|(\d{1,3})\s*%\s+hedged[^.]{0,80}?crush[^.]{0,100}?q4", text, re.I)
+        if q4_match:
+            share_txt = next((grp for grp in q4_match.groups() if grp), "")
+            share_num = pd.to_numeric(share_txt, errors="coerce")
+            if pd.notna(share_num):
+                _add(
+                    path=path,
+                    target_quarter=date(2025, 12, 31),
+                    signal_type="q4_2025_crush_hedge_share",
+                    status="explicit_share_candidate",
+                    hedge_share=float(share_num) / 100.0,
+                    commodities=("ethanol", "corn", "natural_gas"),
+                    text=q4_match.group(0),
+                )
+        if "q1" in text_low and "significant portion" in text_low and ("logged in" in text_low or "hedg" in text_low):
+            _add(
+                path=path,
+                target_quarter=date(2026, 3, 31),
+                signal_type="q1_2026_margin_logged_vague",
+                status="audit_only_vague",
+                hedge_share=None,
+                commodities=("ethanol", "corn", "natural_gas"),
+                text="significant portion of Q1 production margin logged in",
+            )
+        if ("fully hedged" in text_low or "full hedged" in text_low) and ("nat gas" in text_low or "natural gas" in text_low):
+            _add(
+                path=path,
+                target_quarter=date(2026, 3, 31),
+                signal_type="q1_2026_natgas_full_hedge",
+                status="explicit_commodity_candidate",
+                hedge_share=1.0,
+                commodities=("natural_gas",),
+                text="fully hedged on natural gas",
+            )
+    return pd.DataFrame(rows)
+
+
+def _gpre_futures_timing_commentary_candidate_specs(commentary_audit_df: pd.DataFrame) -> List[Dict[str, Any]]:
+    if commentary_audit_df is None or not isinstance(commentary_audit_df, pd.DataFrame) or commentary_audit_df.empty:
+        return []
+    specs: List[Dict[str, Any]] = []
+    for rec in commentary_audit_df.to_dict("records"):
+        status = str(rec.get("status") or "").strip()
+        signal_type = str(rec.get("signal_type") or "").strip()
+        qd = parse_quarter_like(rec.get("target_quarter"))
+        hedge_share = pd.to_numeric(rec.get("hedge_share"), errors="coerce")
+        if not isinstance(qd, date) or pd.isna(hedge_share):
+            continue
+        if signal_type == "q4_2025_crush_hedge_share" and status == "explicit_share_candidate":
+            specs.append(
+                {
+                    "candidate_key": "futures_commentary_disclosed_crush_lock_q4_2025",
+                    "candidate_label": "Commentary disclosed Q4 crush lock",
+                    "family": "commentary_informed",
+                    "family_label": "Commentary-informed futures",
+                    "timing_rule": "Q4 2025 disclosed crush hedge share; 75% weekly 0-90d futures + official actual/current residual",
+                    "timing_window": "0-90 days before quarter start",
+                    "kind": "commentary_weekly_blend",
+                    "target_quarter": qd,
+                    "hedge_share": float(hedge_share),
+                    "window_key": "0_to_90d",
+                    "window_start_days": 90,
+                    "window_end_days": 0,
+                    "weighting_style": "equal",
+                    "min_anchor_coverage": _GPRE_FUTURES_TIMING_MIN_WEEKLY_COVERAGE,
+                    "locked_commodities": ("ethanol", "corn", "natural_gas"),
+                    "commentary_source_doc": rec.get("source_doc"),
+                }
+            )
+        elif signal_type == "q1_2026_natgas_full_hedge" and status == "explicit_commodity_candidate":
+            specs.append(
+                {
+                    "candidate_key": "futures_commentary_natgas_full_hedge_q1_2026",
+                    "candidate_label": "Commentary Q1 gas fully hedged",
+                    "family": "commentary_informed",
+                    "family_label": "Commentary-informed futures",
+                    "timing_rule": "Q1 2026 disclosed natural-gas hedge; gas weekly 0-90d futures, ethanol/corn actual/current",
+                    "timing_window": "0-90 days before quarter start",
+                    "kind": "commentary_weekly_blend",
+                    "target_quarter": qd,
+                    "hedge_share": float(hedge_share),
+                    "window_key": "0_to_90d",
+                    "window_start_days": 90,
+                    "window_end_days": 0,
+                    "weighting_style": "equal",
+                    "min_anchor_coverage": _GPRE_FUTURES_TIMING_MIN_WEEKLY_COVERAGE,
+                    "locked_commodities": ("natural_gas",),
+                    "commentary_source_doc": rec.get("source_doc"),
+                }
+            )
+    return specs
+
+
+def _gpre_futures_timing_candidate_specs() -> List[Dict[str, Any]]:
+    specs = [
+        {
+            "candidate_key": "futures_qopen_all",
+            "candidate_label": "Quarter-open futures lock",
+            "family": "quarter_open_futures",
+            "family_label": "Quarter-open futures",
+            "timing_rule": "Quarter start anchor",
+            "kind": "curve",
+            "anchor_key": "qopen",
+            "locked_commodities": ("ethanol", "corn", "natural_gas"),
+        },
+        {
+            "candidate_key": "futures_pre30_all",
+            "candidate_label": "30d pre-quarter futures lock",
+            "family": "pre_quarter_futures",
+            "family_label": "Pre-quarter futures",
+            "timing_rule": "30 days before quarter start",
+            "kind": "curve",
+            "anchor_key": "pre30",
+            "locked_commodities": ("ethanol", "corn", "natural_gas"),
+        },
+        {
+            "candidate_key": "futures_pre60_all",
+            "candidate_label": "60d pre-quarter futures lock",
+            "family": "pre_quarter_futures",
+            "family_label": "Pre-quarter futures",
+            "timing_rule": "60 days before quarter start",
+            "kind": "curve",
+            "anchor_key": "pre60",
+            "locked_commodities": ("ethanol", "corn", "natural_gas"),
+        },
+        {
+            "candidate_key": "futures_pre90_all",
+            "candidate_label": "90d pre-quarter futures lock",
+            "family": "pre_quarter_futures",
+            "family_label": "Pre-quarter futures",
+            "timing_rule": "90 days before quarter start",
+            "kind": "curve",
+            "anchor_key": "pre90",
+            "locked_commodities": ("ethanol", "corn", "natural_gas"),
+        },
+        {
+            "candidate_key": "futures_qopen_blend_25",
+            "candidate_label": "25% q-open futures blend",
+            "family": "blend",
+            "family_label": "Futures/current blend",
+            "timing_rule": "25% quarter-open futures + 75% official actual/current",
+            "kind": "blend",
+            "anchor_key": "qopen",
+            "anchor_weight": 0.25,
+            "locked_commodities": ("ethanol", "corn", "natural_gas"),
+        },
+        {
+            "candidate_key": "futures_qopen_blend_50",
+            "candidate_label": "50% q-open futures blend",
+            "family": "blend",
+            "family_label": "Futures/current blend",
+            "timing_rule": "50% quarter-open futures + 50% official actual/current",
+            "kind": "blend",
+            "anchor_key": "qopen",
+            "anchor_weight": 0.50,
+            "locked_commodities": ("ethanol", "corn", "natural_gas"),
+        },
+        {
+            "candidate_key": "futures_qopen_blend_75",
+            "candidate_label": "75% q-open futures blend",
+            "family": "blend",
+            "family_label": "Futures/current blend",
+            "timing_rule": "75% quarter-open futures + 25% official actual/current",
+            "kind": "blend",
+            "anchor_key": "qopen",
+            "anchor_weight": 0.75,
+            "locked_commodities": ("ethanol", "corn", "natural_gas"),
+        },
+        {
+            "candidate_key": "futures_layered_all",
+            "candidate_label": "Layered 90/60/30/q-open futures",
+            "family": "layered",
+            "family_label": "Layered futures",
+            "timing_rule": "Average of 90d, 60d, 30d, and quarter-open all-commodity futures margins",
+            "kind": "layered",
+            "anchor_keys": ("pre90", "pre60", "pre30", "qopen"),
+            "locked_commodities": ("ethanol", "corn", "natural_gas"),
+        },
+        {
+            "candidate_key": "futures_qopen_ethanol_only",
+            "candidate_label": "Ethanol futures locked",
+            "family": "commodity_specific",
+            "family_label": "Commodity-specific futures",
+            "timing_rule": "Quarter-open ethanol futures; corn and gas actual/current",
+            "kind": "curve",
+            "anchor_key": "qopen",
+            "locked_commodities": ("ethanol",),
+        },
+        {
+            "candidate_key": "futures_qopen_corn_only",
+            "candidate_label": "Corn futures locked",
+            "family": "commodity_specific",
+            "family_label": "Commodity-specific futures",
+            "timing_rule": "Quarter-open corn futures plus date-matched basis; ethanol and gas actual/current",
+            "kind": "curve",
+            "anchor_key": "qopen",
+            "locked_commodities": ("corn",),
+        },
+        {
+            "candidate_key": "futures_qopen_gas_only",
+            "candidate_label": "Gas futures locked",
+            "family": "commodity_specific",
+            "family_label": "Commodity-specific futures",
+            "timing_rule": "Quarter-open gas futures; ethanol and corn actual/current",
+            "kind": "curve",
+            "anchor_key": "qopen",
+            "locked_commodities": ("natural_gas",),
+        },
+        {
+            "candidate_key": "futures_qopen_ethanol_corn",
+            "candidate_label": "Ethanol + corn futures locked",
+            "family": "commodity_specific",
+            "family_label": "Commodity-specific futures",
+            "timing_rule": "Quarter-open ethanol and corn futures; gas actual/current",
+            "kind": "curve",
+            "anchor_key": "qopen",
+            "locked_commodities": ("ethanol", "corn"),
+        },
+    ]
+    specs.extend(_gpre_futures_timing_weekly_candidate_specs())
+    return specs
+
+
+def _gpre_futures_timing_anchor_date(quarter_start: date, anchor_key: str) -> Optional[date]:
+    if not isinstance(quarter_start, date):
+        return None
+    offset_days = {
+        "qopen": 0,
+        "pre30": -30,
+        "pre60": -60,
+        "pre90": -90,
+    }.get(str(anchor_key or "").strip().lower())
+    if offset_days is None:
+        return None
+    return quarter_start + timedelta(days=int(offset_days))
+
+
+def _gpre_futures_timing_price_history_rows(rows: Iterable[Dict[str, Any]]) -> pd.DataFrame:
+    df = _market_rows_df(rows)
+    if df.empty or "source_file" not in df.columns:
+        return pd.DataFrame(columns=list(df.columns))
+    return df[df["source_file"].astype(str).str.contains("price-history", case=False, na=False)].copy()
+
+
+def _gpre_futures_timing_contract_groups(refs: Dict[str, Dict[str, Any]], locked: Iterable[str]) -> tuple[str, str, str, str]:
+    symbol_groups: List[str] = []
+    obs_dates: List[str] = []
+    price_bits: List[str] = []
+    source_files: List[str] = []
+    locked_set = {str(item or "").strip() for item in locked}
+    for commodity, label in (("corn", "corn"), ("ethanol", "ethanol"), ("natural_gas", "gas")):
+        if commodity not in locked_set:
+            continue
+        ref = dict(refs.get(commodity) or {})
+        components = [dict(item) for item in list(ref.get("contract_components") or []) if isinstance(item, dict)]
+        symbols = [
+            str(comp.get("symbol") or "").strip().upper()
+            for comp in components
+            if str(comp.get("symbol") or "").strip()
+        ]
+        if not symbols:
+            symbols = [str(item or "").strip().upper() for item in list(ref.get("selected_symbols") or []) if str(item or "").strip()]
+        if symbols:
+            symbol_groups.append("/".join(symbols))
+        prices = []
+        for comp in components:
+            obs = comp.get("observation_date")
+            obs_txt = obs.isoformat() if isinstance(obs, date) else str(obs or "").strip()
+            if obs_txt and obs_txt not in obs_dates:
+                obs_dates.append(obs_txt)
+            price_num = pd.to_numeric(comp.get("price_value"), errors="coerce")
+            symbol_txt = str(comp.get("symbol") or comp.get("contract_tenor") or "").strip().upper()
+            if pd.notna(price_num):
+                prices.append(f"{symbol_txt} {obs_txt} {float(price_num):.4f}".strip())
+            source_file = str(comp.get("source_file") or "").strip()
+            if source_file:
+                source_files.append(Path(source_file).name)
+        if prices:
+            price_bits.append(f"{label}: " + ", ".join(prices))
+        for source_file in list(ref.get("source_files") or []):
+            source_file_txt = Path(str(source_file or "").strip()).name
+            if source_file_txt:
+                source_files.append(source_file_txt)
+        source_file_txt = str(ref.get("source_file") or "").strip()
+        if source_file_txt:
+            source_files.extend(Path(item.strip()).name for item in source_file_txt.split(",") if item.strip())
+    return (
+        "; ".join(symbol_groups),
+        "; ".join(sorted({item for item in obs_dates if item})),
+        "; ".join(price_bits),
+        ", ".join(sorted({item for item in source_files if item})),
+    )
+
+
+def _gpre_futures_timing_actual_components(row: Dict[str, Any]) -> Dict[str, Any]:
+    ethanol = pd.to_numeric(
+        row.get("ethanol_price_usd_per_gal", row.get("weighted_ethanol_benchmark_usd_per_gal")),
+        errors="coerce",
+    )
+    gas = pd.to_numeric(row.get("natural_gas_price_usd_per_mmbtu"), errors="coerce")
+    delivered = pd.to_numeric(row.get("delivered_corn_price_usd_per_bu"), errors="coerce")
+    if pd.isna(delivered):
+        cbot = pd.to_numeric(row.get("cbot_corn_futures_usd_per_bu"), errors="coerce")
+        basis = pd.to_numeric(row.get("weighted_ams_basis_usd_per_bu"), errors="coerce")
+        if pd.notna(cbot) and pd.notna(basis):
+            delivered = float(cbot) + float(basis)
+    return {
+        "ethanol_price": None if pd.isna(ethanol) else float(ethanol),
+        "natural_gas_price": None if pd.isna(gas) else float(gas),
+        "delivered_corn_price": None if pd.isna(delivered) else float(delivered),
+    }
+
+
+def _gpre_futures_timing_margin(
+    *,
+    ethanol_price: Optional[float],
+    delivered_corn_price: Optional[float],
+    natural_gas_price: Optional[float],
+    ethanol_yield: float,
+    natural_gas_usage: float,
+) -> Optional[float]:
+    nums = [
+        pd.to_numeric(ethanol_price, errors="coerce"),
+        pd.to_numeric(delivered_corn_price, errors="coerce"),
+        pd.to_numeric(natural_gas_price, errors="coerce"),
+        pd.to_numeric(ethanol_yield, errors="coerce"),
+        pd.to_numeric(natural_gas_usage, errors="coerce"),
+    ]
+    if any(pd.isna(num) for num in nums) or float(nums[3]) == 0.0:
+        return None
+    yield_num = float(nums[3])
+    return float(
+        ((yield_num * float(nums[0])) - float(nums[1]) - ((float(nums[4]) / 1_000_000.0) * yield_num * float(nums[2])))
+        / yield_num
+    )
+
+
+def _gpre_futures_timing_pick_ref(
+    rows_df: pd.DataFrame,
+    *,
+    commodity: str,
+    quarter_start: date,
+    quarter_end: date,
+    anchor_date: date,
+) -> Dict[str, Any]:
+    if commodity == "corn":
+        components, weighting_rule = _gpre_sandbox_corn_futures_components(quarter_start)
+        return _pick_gpre_fixed_futures_strip_reference(
+            rows_df,
+            prefix="cbot_corn",
+            market_family="corn_futures",
+            target_start=quarter_start,
+            target_end=quarter_end,
+            components=components,
+            weighting_rule=weighting_rule,
+            strip_method="exposure_weighted",
+            frame="futures_timing_sandbox",
+            as_of_date=anchor_date,
+            observation_anchor_date=anchor_date,
+            max_prior_days=_GPRE_FUTURES_TIMING_MAX_PRIOR_DAYS,
+            include_source_types=(_LOCAL_BARCHART_CORN_SOURCE_TYPE,),
+            default_source_type=_LOCAL_BARCHART_CORN_SOURCE_TYPE,
+            default_source_label=_forward_futures_source_label(_LOCAL_BARCHART_CORN_SOURCE_TYPE),
+        )
+    if commodity == "ethanol":
+        components = _gpre_monthly_futures_components(quarter_start)
+        return _pick_gpre_fixed_futures_strip_reference(
+            rows_df,
+            prefix="cme_ethanol_chicago_platts",
+            market_family="ethanol_futures",
+            target_start=quarter_start,
+            target_end=quarter_end,
+            components=components,
+            weighting_rule=_gpre_simple_monthly_weighting_rule(prefix="cme_ethanol_chicago_platts", target_start=quarter_start),
+            strip_method="simple_average",
+            frame="futures_timing_sandbox",
+            as_of_date=anchor_date,
+            observation_anchor_date=anchor_date,
+            max_prior_days=_GPRE_FUTURES_TIMING_MAX_PRIOR_DAYS,
+            include_source_types=(_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE,),
+            default_source_type=_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE,
+            default_source_label=_ethanol_thesis_source_label(_LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE),
+        )
+    components = _gpre_monthly_futures_components(quarter_start)
+    return _pick_gpre_fixed_futures_strip_reference(
+        rows_df,
+        prefix="nymex_gas",
+        market_family="natural_gas_futures",
+        target_start=quarter_start,
+        target_end=quarter_end,
+        components=components,
+        weighting_rule=_gpre_simple_monthly_weighting_rule(prefix="nymex_gas", target_start=quarter_start),
+        strip_method="simple_average",
+        frame="futures_timing_sandbox",
+        as_of_date=anchor_date,
+        observation_anchor_date=anchor_date,
+        max_prior_days=_GPRE_FUTURES_TIMING_MAX_PRIOR_DAYS,
+        include_source_types=(_LOCAL_BARCHART_GAS_SOURCE_TYPE,),
+        default_source_type=_LOCAL_BARCHART_GAS_SOURCE_TYPE,
+        default_source_label=_forward_futures_source_label(_LOCAL_BARCHART_GAS_SOURCE_TYPE),
+    )
+
+
+def _build_gpre_futures_timing_sandbox(
+    quarterly_df: pd.DataFrame,
+    rows: Iterable[Dict[str, Any]],
+    *,
+    ethanol_yield: Optional[float],
+    natural_gas_usage: Optional[float],
+    as_of_date: Optional[date] = None,
+    ticker_root: Optional[Path] = None,
+    bids_snapshot: Optional[Dict[str, Any]] = None,
+    plant_capacity_history: Optional[Dict[str, Any]] = None,
+    current_qtd_market_snapshot: Optional[Dict[str, Any]] = None,
+    next_quarter_thesis_snapshot: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    result = _gpre_futures_timing_empty_study()
+    commentary_audit_df = _gpre_futures_timing_commentary_audit(ticker_root)
+    specs = [*_gpre_futures_timing_candidate_specs(), *_gpre_futures_timing_commentary_candidate_specs(commentary_audit_df)]
+    result["candidate_specs"] = [dict(spec) for spec in specs]
+    result["commentary_audit_df"] = commentary_audit_df
+    if rows is None:
+        return result
+    try:
+        ethanol_yield_num = float(ethanol_yield if ethanol_yield is not None else 2.9)
+    except Exception:
+        ethanol_yield_num = 2.9
+    if not np.isfinite(ethanol_yield_num) or ethanol_yield_num <= 0.0:
+        ethanol_yield_num = 2.9
+    try:
+        natural_gas_usage_num = float(natural_gas_usage if natural_gas_usage is not None else 28000.0)
+    except Exception:
+        natural_gas_usage_num = 28000.0
+    if not np.isfinite(natural_gas_usage_num) or natural_gas_usage_num < 0.0:
+        natural_gas_usage_num = 28000.0
+
+    price_history_df = _gpre_futures_timing_price_history_rows(rows)
+    if price_history_df.empty:
+        result["coverage_note"] = "No local price-history futures rows were available; sandbox candidates are unavailable."
+        result["candidate_leaderboard_df"] = pd.DataFrame(
+            [
+                {
+                    "candidate_key": str(spec.get("candidate_key") or ""),
+                    "candidate_label": str(spec.get("candidate_label") or ""),
+                    "family": str(spec.get("family") or ""),
+                    "family_label": str(spec.get("family_label") or ""),
+                    "timing_rule": str(spec.get("timing_rule") or ""),
+                    "timing_window": str(spec.get("timing_window") or spec.get("timing_rule") or ""),
+                    "weighting_style": str(spec.get("weighting_style") or ""),
+                    "locked_commodities_label": _gpre_locked_commodities_label(spec.get("locked_commodities")),
+                    "usable_quarter_count": 0,
+                    "mae": np.nan,
+                    "median_abs_error": np.nan,
+                    "max_abs_error": np.nan,
+                    "closest_quarter_count": 0,
+                    "avg_anchor_coverage_ratio": np.nan,
+                    "status": "insufficient_sample",
+                    "notes": "No local price-history rows available.",
+                }
+                for spec in specs
+            ]
+        )
+        return result
+
+    quarter_records: Dict[date, Dict[str, Any]] = {}
+    if isinstance(quarterly_df, pd.DataFrame) and not quarterly_df.empty:
+        for rec in quarterly_df.to_dict("records"):
+            qd = parse_quarter_like(rec.get("quarter"))
+            if isinstance(qd, date):
+                quarter_records[qd] = dict(rec)
+
+    def _snapshot_record(snapshot_in: Optional[Dict[str, Any]], qd: Optional[date]) -> Dict[str, Any]:
+        if not isinstance(snapshot_in, dict) or not isinstance(qd, date):
+            return {}
+        market = dict(snapshot_in.get("current_market") or {})
+        process = dict(snapshot_in.get("current_process") or {})
+        return {
+            "quarter": qd,
+            "quarter_label": _quarter_label(qd),
+            "official_simple_proxy_usd_per_gal": snapshot_in.get("official_simple_proxy_usd_per_gal", process.get("simple_crush_per_gal")),
+            "simple_market_proxy_usd_per_gal": snapshot_in.get("official_simple_proxy_usd_per_gal", process.get("simple_crush_per_gal")),
+            "ethanol_price_usd_per_gal": market.get("ethanol_price"),
+            "delivered_corn_price_usd_per_bu": market.get("corn_price"),
+            "cbot_corn_futures_usd_per_bu": market.get("cbot_corn_front_price"),
+            "natural_gas_price_usd_per_mmbtu": market.get("natural_gas_price"),
+        }
+
+    if isinstance(as_of_date, date):
+        current_start, current_end = calendar_quarter_bounds(as_of_date=as_of_date)
+        if current_end not in quarter_records:
+            snap_rec = _snapshot_record(current_qtd_market_snapshot, current_end)
+            if snap_rec:
+                quarter_records[current_end] = snap_rec
+        next_start, next_end = next_calendar_quarter_bounds(as_of_date=as_of_date)
+        if next_end not in quarter_records:
+            snap_rec = _snapshot_record(
+                build_gpre_next_quarter_preview_snapshot(
+                    rows,
+                    next_quarter_thesis_snapshot=next_quarter_thesis_snapshot,
+                    ethanol_yield=ethanol_yield_num,
+                    natural_gas_usage=natural_gas_usage_num,
+                    as_of_date=as_of_date,
+                )
+                if isinstance(next_quarter_thesis_snapshot, dict)
+                else None,
+                next_end,
+            )
+            if snap_rec:
+                quarter_records[next_end] = snap_rec
+        del current_start, next_start
+
+    curve_cache: Dict[tuple[date, str], Dict[str, Any]] = {}
+
+    def _curve_bundle_for_anchor(qd: date, anchor: Optional[date], cache_label: str) -> Dict[str, Any]:
+        cache_key = (qd, str(cache_label))
+        if cache_key in curve_cache:
+            return curve_cache[cache_key]
+        quarter_start, quarter_end = calendar_quarter_bounds(as_of_date=qd)
+        empty_bundle = {
+            "quarter_start": quarter_start,
+            "quarter_end": quarter_end,
+            "anchor_date": anchor,
+            "refs": {},
+            "availability_status": "unavailable",
+            "missing_data_flags": "",
+            "margin": None,
+        }
+        if not isinstance(anchor, date):
+            empty_bundle["missing_data_flags"] = "invalid anchor"
+            curve_cache[cache_key] = empty_bundle
+            return empty_bundle
+        if isinstance(as_of_date, date) and anchor > as_of_date:
+            empty_bundle["missing_data_flags"] = f"anchor {anchor.isoformat()} is after model as-of {as_of_date.isoformat()}"
+            curve_cache[cache_key] = empty_bundle
+            return empty_bundle
+        refs = {
+            "corn": _gpre_futures_timing_pick_ref(price_history_df, commodity="corn", quarter_start=quarter_start, quarter_end=quarter_end, anchor_date=anchor),
+            "ethanol": _gpre_futures_timing_pick_ref(price_history_df, commodity="ethanol", quarter_start=quarter_start, quarter_end=quarter_end, anchor_date=anchor),
+            "natural_gas": _gpre_futures_timing_pick_ref(price_history_df, commodity="natural_gas", quarter_start=quarter_start, quarter_end=quarter_end, anchor_date=anchor),
+        }
+        basis_payload = _gpre_official_current_forward_basis_payload(
+            rows,
+            target_date=quarter_start,
+            target_quarter_end=quarter_end,
+            as_of_date=anchor,
+            ticker_root=ticker_root,
+            bids_snapshot=bids_snapshot,
+            selection_mode="quarter_open",
+            plant_capacity_history=plant_capacity_history,
+        )
+        corn_ref = dict(refs.get("corn") or {})
+        corn_ref.update(
+            {
+                "official_weighted_corn_basis_usd_per_bu": basis_payload.get("official_weighted_corn_basis_usd_per_bu"),
+                "official_weighted_corn_cash_price_usd_per_bu": basis_payload.get("official_weighted_corn_cash_price_usd_per_bu"),
+                "official_corn_cash_coverage_ratio": basis_payload.get("official_corn_cash_coverage_ratio"),
+                "official_actual_cash_price_plant_count": basis_payload.get("official_actual_cash_price_plant_count"),
+                "official_corn_basis_source_kind": basis_payload.get("official_corn_basis_source_kind"),
+                "official_corn_basis_source_label": basis_payload.get("official_corn_basis_source_label"),
+                "official_corn_basis_provenance": basis_payload.get("official_corn_basis_provenance"),
+                "official_corn_basis_snapshot_date": basis_payload.get("snapshot_date"),
+                "official_corn_basis_selection_rule": basis_payload.get("selection_rule"),
+                "official_actual_bid_plant_count": basis_payload.get("official_actual_bid_plant_count"),
+                "official_fallback_plant_count": basis_payload.get("official_fallback_plant_count"),
+                "weighted_ams_basis_proxy_usd_per_bu": basis_payload.get("weighted_ams_basis_proxy_usd_per_bu"),
+                "official_corn_basis_component_rows": basis_payload.get("component_rows"),
+            }
+        )
+        refs["corn"] = corn_ref
+        missing_bits: List[str] = []
+        for label, ref in (("corn", corn_ref), ("ethanol", refs["ethanol"]), ("gas", refs["natural_gas"])):
+            if str((ref or {}).get("status") or "") != "ok":
+                missing = ", ".join(str(item or "").strip() for item in list((ref or {}).get("missing_contract_tenors") or []) if str(item or "").strip())
+                reason = str((ref or {}).get("fallback_reason") or "missing futures strip").strip()
+                missing_bits.append(f"{label}: {missing or reason}")
+        corn_futures = pd.to_numeric(corn_ref.get("price_value"), errors="coerce")
+        delivered_corn = None
+        if pd.notna(corn_futures):
+            delivered_context = _gpre_delivered_corn_from_context(corn_ref, cbot_corn_price=float(corn_futures))
+            if delivered_context:
+                delivered_corn = float(delivered_context["delivered_corn_price"])
+            else:
+                basis_num = pd.to_numeric(corn_ref.get("official_weighted_corn_basis_usd_per_bu"), errors="coerce")
+                if pd.notna(basis_num):
+                    delivered_corn = float(corn_futures) + float(basis_num)
+                else:
+                    missing_bits.append("corn basis: missing official date-matched basis")
+        ethanol_price = pd.to_numeric((refs["ethanol"] or {}).get("price_value"), errors="coerce")
+        gas_price = pd.to_numeric((refs["natural_gas"] or {}).get("price_value"), errors="coerce")
+        margin = None
+        if not missing_bits:
+            margin = _gpre_futures_timing_margin(
+                ethanol_price=(None if pd.isna(ethanol_price) else float(ethanol_price)),
+                delivered_corn_price=delivered_corn,
+                natural_gas_price=(None if pd.isna(gas_price) else float(gas_price)),
+                ethanol_yield=ethanol_yield_num,
+                natural_gas_usage=natural_gas_usage_num,
+            )
+            if margin is None:
+                missing_bits.append("formula inputs incomplete")
+        bundle = {
+            "quarter_start": quarter_start,
+            "quarter_end": quarter_end,
+            "anchor_date": anchor,
+            "refs": refs,
+            "availability_status": "available" if margin is not None and not missing_bits else "unavailable",
+            "missing_data_flags": "; ".join(missing_bits),
+            "margin": margin,
+            "ethanol_price": (None if pd.isna(ethanol_price) else float(ethanol_price)),
+            "corn_futures_price": (None if pd.isna(corn_futures) else float(corn_futures)),
+            "delivered_corn_price": delivered_corn,
+            "natural_gas_price": (None if pd.isna(gas_price) else float(gas_price)),
+            "basis_source": str(corn_ref.get("official_corn_basis_source_label") or "official basis").strip(),
+        }
+        curve_cache[cache_key] = bundle
+        return bundle
+
+    def _curve_bundle(qd: date, anchor_key: str) -> Dict[str, Any]:
+        quarter_start, _quarter_end = calendar_quarter_bounds(as_of_date=qd)
+        anchor = _gpre_futures_timing_anchor_date(quarter_start, anchor_key)
+        return _curve_bundle_for_anchor(qd, anchor, f"key:{anchor_key}")
+
+    def _weekly_candidate_bundle(qd: date, qrec: Dict[str, Any], spec: Dict[str, Any]) -> Dict[str, Any]:
+        quarter_start, _quarter_end = calendar_quarter_bounds(as_of_date=qd)
+        anchors = _gpre_futures_timing_weekly_anchor_dates(
+            quarter_start,
+            window_start_days=int(spec.get("window_start_days") or 0),
+            window_end_days=int(spec.get("window_end_days") or 0),
+            as_of_date=as_of_date,
+        )
+        locked = tuple(str(item or "").strip() for item in list(spec.get("locked_commodities") or []) if str(item or "").strip())
+        actual = _gpre_futures_timing_actual_components(qrec)
+        expected_count = int(len(anchors))
+        usable_records: List[Dict[str, Any]] = []
+        missing_bits: List[str] = []
+        symbols_parts: List[str] = []
+        obs_parts: List[str] = []
+        price_parts: List[str] = []
+        file_parts: List[str] = []
+        basis_parts: List[str] = []
+        for anchor in anchors:
+            curve = _curve_bundle_for_anchor(qd, anchor, f"weekly:{qd.isoformat()}:{anchor.isoformat()}")
+            refs = dict(curve.get("refs") or {})
+            ethanol_price = actual.get("ethanol_price")
+            delivered_corn = actual.get("delivered_corn_price")
+            gas_price = actual.get("natural_gas_price")
+            anchor_missing: List[str] = []
+            corn_futures = None
+            if "ethanol" in locked:
+                ethanol_price = curve.get("ethanol_price")
+                if ethanol_price is None:
+                    anchor_missing.append("ethanol futures")
+            elif ethanol_price is None:
+                anchor_missing.append("actual/current ethanol")
+            if "corn" in locked:
+                delivered_corn = curve.get("delivered_corn_price")
+                corn_futures = curve.get("corn_futures_price")
+                if delivered_corn is None:
+                    anchor_missing.append("corn futures/basis")
+            elif delivered_corn is None:
+                anchor_missing.append("actual/current delivered corn")
+            if "natural_gas" in locked:
+                gas_price = curve.get("natural_gas_price")
+                if gas_price is None:
+                    anchor_missing.append("natural gas futures")
+            elif gas_price is None:
+                anchor_missing.append("actual/current natural gas")
+            margin = None
+            if not anchor_missing:
+                margin = _gpre_futures_timing_margin(
+                    ethanol_price=ethanol_price,
+                    delivered_corn_price=delivered_corn,
+                    natural_gas_price=gas_price,
+                    ethanol_yield=ethanol_yield_num,
+                    natural_gas_usage=natural_gas_usage_num,
+                )
+                if margin is None:
+                    anchor_missing.append("formula inputs incomplete")
+            if anchor_missing:
+                missing_bits.append(f"{anchor.isoformat()}: {', '.join(anchor_missing)}")
+                continue
+            sym_txt, obs_txt, price_txt, files_txt = _gpre_futures_timing_contract_groups(refs, locked)
+            if sym_txt:
+                symbols_parts.append(sym_txt)
+            if obs_txt:
+                obs_parts.append(obs_txt)
+            if price_txt:
+                price_parts.append(f"{anchor.isoformat()} {price_txt}")
+            if files_txt:
+                file_parts.append(files_txt)
+            basis_txt = str(curve.get("basis_source") or "").strip()
+            if basis_txt and "corn" in locked:
+                basis_parts.append(basis_txt)
+            usable_records.append(
+                {
+                    "anchor": anchor,
+                    "margin": float(margin),
+                    "corn_futures": corn_futures,
+                    "delivered_corn": delivered_corn,
+                    "ethanol_price": ethanol_price,
+                    "natural_gas_price": gas_price,
+                }
+            )
+        def _compact_items(items_in: Iterable[str], max_items: int = 8) -> str:
+            items = [str(item or "").strip() for item in items_in if str(item or "").strip()]
+            if len(items) <= max_items:
+                return "; ".join(items)
+            head = max(1, max_items - 3)
+            tail = 2
+            return "; ".join([*items[:head], f"... {len(items) - head - tail} more", *items[-tail:]])
+
+        usable_count = int(len(usable_records))
+        coverage_ratio = (float(usable_count) / float(expected_count)) if expected_count else 0.0
+        min_coverage = float(pd.to_numeric(spec.get("min_anchor_coverage"), errors="coerce") or _GPRE_FUTURES_TIMING_MIN_WEEKLY_COVERAGE)
+        status = "unavailable"
+        pred = None
+        if expected_count <= 0:
+            missing_bits.append("no weekly anchors in window")
+        elif coverage_ratio + 1e-12 < min_coverage:
+            missing_bits.append(f"weekly anchor coverage {coverage_ratio:.0%} below {min_coverage:.0%}")
+        elif usable_records:
+            weights = _gpre_futures_timing_anchor_weights(usable_count, str(spec.get("weighting_style") or "equal"))
+            pred = float(sum(float(rec["margin"]) * float(weight) for rec, weight in zip(usable_records, weights)))
+            status = "available"
+        anchor_dates = [str(rec["anchor"].isoformat()) for rec in usable_records if isinstance(rec.get("anchor"), date)]
+        obs_unique = sorted({part for item in obs_parts for part in item.split("; ") if part})
+        return {
+            "pred": pred,
+            "status": status,
+            "missing_data_flags": "; ".join(bit for bit in missing_bits if str(bit or "").strip()),
+            "anchor_dates": _compact_items(anchor_dates, max_items=8),
+            "selected_symbols": "; ".join(sorted({item for item in symbols_parts if item})),
+            "selected_observation_dates": _compact_items(obs_unique, max_items=8),
+            "selected_prices": _compact_items(price_parts, max_items=5),
+            "source_files": ", ".join(sorted({part.strip() for item in file_parts for part in item.split(",") if part.strip()})),
+            "basis_source": ", ".join(sorted({item for item in basis_parts if item})),
+            "expected_anchor_count": expected_count,
+            "usable_anchor_count": usable_count,
+            "anchor_coverage_ratio": coverage_ratio,
+            "corn_futures_price": None,
+            "delivered_corn_price": None,
+        }
+
+    def _candidate_margin(qd: date, qrec: Dict[str, Any], spec: Dict[str, Any]) -> Dict[str, Any]:
+        kind = str(spec.get("kind") or "").strip()
+        target_num = pd.to_numeric(qrec.get("evaluation_target_margin_usd_per_gal"), errors="coerce")
+        if pd.isna(target_num):
+            target_num = pd.to_numeric(qrec.get("reported_consolidated_crush_margin_usd_per_gal"), errors="coerce")
+        target_val = None if pd.isna(target_num) else float(target_num)
+        official_num = pd.to_numeric(qrec.get("official_simple_proxy_usd_per_gal", qrec.get("simple_market_proxy_usd_per_gal")), errors="coerce")
+        official_val = None if pd.isna(official_num) else float(official_num)
+        actual = _gpre_futures_timing_actual_components(qrec)
+        anchor_keys: List[str] = []
+        locked = tuple(str(item or "").strip() for item in list(spec.get("locked_commodities") or []) if str(item or "").strip())
+        pred = None
+        status = "unavailable"
+        missing_bits: List[str] = []
+        anchor_dates: List[str] = []
+        selected_symbols = ""
+        selected_obs_dates = ""
+        selected_prices = ""
+        source_files = ""
+        basis_source = ""
+        delivered_corn = None
+        corn_futures = None
+        expected_anchor_count = None
+        usable_anchor_count = None
+        anchor_coverage_ratio = None
+        timing_window = str(spec.get("timing_window") or spec.get("timing_rule") or "").strip()
+        weighting_style = str(spec.get("weighting_style") or "").strip()
+        if kind == "blend":
+            anchor_key = str(spec.get("anchor_key") or "qopen")
+            curve = _curve_bundle(qd, anchor_key)
+            anchor_keys = [anchor_key]
+            if isinstance(curve.get("anchor_date"), date):
+                anchor_dates.append(curve["anchor_date"].isoformat())
+            if curve.get("margin") is None:
+                missing_bits.append(str(curve.get("missing_data_flags") or "quarter-open futures unavailable"))
+            if official_val is None:
+                missing_bits.append("official actual/current simple row missing")
+            if not missing_bits:
+                weight = float(pd.to_numeric(spec.get("anchor_weight"), errors="coerce"))
+                pred = (float(curve["margin"]) * weight) + (float(official_val) * (1.0 - weight))
+                status = "available"
+            selected_symbols, selected_obs_dates, selected_prices, source_files = _gpre_futures_timing_contract_groups(dict(curve.get("refs") or {}), locked)
+            basis_source = str(curve.get("basis_source") or "")
+            delivered_corn = curve.get("delivered_corn_price")
+            corn_futures = curve.get("corn_futures_price")
+        elif kind == "weekly_layered":
+            anchor_keys = [str(spec.get("window_key") or "").strip()]
+            weekly = _weekly_candidate_bundle(qd, qrec, spec)
+            pred = weekly.get("pred")
+            status = str(weekly.get("status") or "unavailable")
+            if status != "available":
+                missing_bits.append(str(weekly.get("missing_data_flags") or "weekly futures unavailable"))
+            anchor_dates = [item.strip() for item in str(weekly.get("anchor_dates") or "").split(";") if item.strip()]
+            selected_symbols = str(weekly.get("selected_symbols") or "")
+            selected_obs_dates = str(weekly.get("selected_observation_dates") or "")
+            selected_prices = str(weekly.get("selected_prices") or "")
+            source_files = str(weekly.get("source_files") or "")
+            basis_source = str(weekly.get("basis_source") or "")
+            expected_anchor_count = weekly.get("expected_anchor_count")
+            usable_anchor_count = weekly.get("usable_anchor_count")
+            anchor_coverage_ratio = weekly.get("anchor_coverage_ratio")
+        elif kind == "commentary_weekly_blend":
+            anchor_keys = [str(spec.get("window_key") or "").strip()]
+            target_qd = parse_quarter_like(spec.get("target_quarter"))
+            if not isinstance(target_qd, date) or target_qd != qd:
+                missing_bits.append(
+                    f"commentary signal applies to {_quarter_label(target_qd) if isinstance(target_qd, date) else 'another quarter'}"
+                )
+            else:
+                weekly = _weekly_candidate_bundle(qd, qrec, spec)
+                if weekly.get("pred") is None:
+                    missing_bits.append(str(weekly.get("missing_data_flags") or "commentary futures leg unavailable"))
+                if official_val is None:
+                    missing_bits.append("official actual/current simple row missing")
+                if not missing_bits:
+                    hedge_share = float(np.clip(float(pd.to_numeric(spec.get("hedge_share"), errors="coerce")), 0.0, 1.0))
+                    pred = (float(weekly["pred"]) * hedge_share) + (float(official_val) * (1.0 - hedge_share))
+                    status = "available"
+                anchor_dates = [item.strip() for item in str(weekly.get("anchor_dates") or "").split(";") if item.strip()]
+                selected_symbols = str(weekly.get("selected_symbols") or "")
+                selected_obs_dates = str(weekly.get("selected_observation_dates") or "")
+                selected_prices = str(weekly.get("selected_prices") or "")
+                source_files = str(weekly.get("source_files") or "")
+                basis_source = str(weekly.get("basis_source") or "")
+                expected_anchor_count = weekly.get("expected_anchor_count")
+                usable_anchor_count = weekly.get("usable_anchor_count")
+                anchor_coverage_ratio = weekly.get("anchor_coverage_ratio")
+        elif kind == "layered":
+            anchor_keys = [str(item or "").strip() for item in list(spec.get("anchor_keys") or []) if str(item or "").strip()]
+            values: List[float] = []
+            symbols_parts: List[str] = []
+            obs_parts: List[str] = []
+            price_parts: List[str] = []
+            file_parts: List[str] = []
+            for anchor_key in anchor_keys:
+                curve = _curve_bundle(qd, anchor_key)
+                if isinstance(curve.get("anchor_date"), date):
+                    anchor_dates.append(curve["anchor_date"].isoformat())
+                if curve.get("margin") is None:
+                    missing_bits.append(f"{anchor_key}: {curve.get('missing_data_flags') or 'unavailable'}")
+                    continue
+                values.append(float(curve["margin"]))
+                sym_txt, obs_txt, price_txt, files_txt = _gpre_futures_timing_contract_groups(dict(curve.get("refs") or {}), locked)
+                if sym_txt:
+                    symbols_parts.append(f"{anchor_key} {sym_txt}")
+                if obs_txt:
+                    obs_parts.append(f"{anchor_key} {obs_txt}")
+                if price_txt:
+                    price_parts.append(f"{anchor_key} {price_txt}")
+                if files_txt:
+                    file_parts.append(files_txt)
+            if not missing_bits and len(values) == len(anchor_keys):
+                pred = float(sum(values) / len(values))
+                status = "available"
+            selected_symbols = "; ".join(symbols_parts)
+            selected_obs_dates = "; ".join(obs_parts)
+            selected_prices = "; ".join(price_parts)
+            source_files = ", ".join(sorted({item.strip() for part in file_parts for item in part.split(",") if item.strip()}))
+            basis_source = "date-matched official basis per layer"
+        else:
+            anchor_key = str(spec.get("anchor_key") or "qopen")
+            anchor_keys = [anchor_key]
+            curve = _curve_bundle(qd, anchor_key)
+            if isinstance(curve.get("anchor_date"), date):
+                anchor_dates.append(curve["anchor_date"].isoformat())
+            refs = dict(curve.get("refs") or {})
+            selected_symbols, selected_obs_dates, selected_prices, source_files = _gpre_futures_timing_contract_groups(refs, locked)
+            basis_source = str(curve.get("basis_source") or "")
+            ethanol_price = actual.get("ethanol_price")
+            gas_price = actual.get("natural_gas_price")
+            delivered_corn = actual.get("delivered_corn_price")
+            if "ethanol" in locked:
+                ethanol_price = curve.get("ethanol_price")
+                if ethanol_price is None:
+                    missing_bits.append("ethanol futures unavailable")
+            elif ethanol_price is None:
+                missing_bits.append("actual/current ethanol missing")
+            if "corn" in locked:
+                delivered_corn = curve.get("delivered_corn_price")
+                corn_futures = curve.get("corn_futures_price")
+                if delivered_corn is None:
+                    missing_bits.append(str(curve.get("missing_data_flags") or "corn futures/basis unavailable"))
+            elif delivered_corn is None:
+                missing_bits.append("actual/current delivered corn missing")
+            if "natural_gas" in locked:
+                gas_price = curve.get("natural_gas_price")
+                if gas_price is None:
+                    missing_bits.append("natural gas futures unavailable")
+            elif gas_price is None:
+                missing_bits.append("actual/current natural gas missing")
+            if str(curve.get("availability_status") or "") != "available" and set(locked) == {"ethanol", "corn", "natural_gas"}:
+                missing_bits = [str(curve.get("missing_data_flags") or "futures curve unavailable")]
+            pred = _gpre_futures_timing_margin(
+                ethanol_price=ethanol_price,
+                delivered_corn_price=delivered_corn,
+                natural_gas_price=gas_price,
+                ethanol_yield=ethanol_yield_num,
+                natural_gas_usage=natural_gas_usage_num,
+            )
+            if pred is not None and not missing_bits:
+                status = "available"
+        error = None if pred is None or target_val is None else float(pred) - float(target_val)
+        return {
+            "quarter": qd,
+            "quarter_label": _quarter_label(qd),
+            "candidate_key": str(spec.get("candidate_key") or ""),
+            "candidate_label": str(spec.get("candidate_label") or ""),
+            "family": str(spec.get("family") or ""),
+            "family_label": str(spec.get("family_label") or ""),
+            "timing_rule": str(spec.get("timing_rule") or ""),
+            "locked_commodities_label": _gpre_locked_commodities_label(locked),
+            "target_value_usd_per_gal": target_val,
+            "official_simple_proxy_usd_per_gal": official_val,
+            "gpre_proxy_official_usd_per_gal": (
+                None
+                if pd.isna(pd.to_numeric(qrec.get("gpre_proxy_official_usd_per_gal"), errors="coerce"))
+                else float(pd.to_numeric(qrec.get("gpre_proxy_official_usd_per_gal"), errors="coerce"))
+            ),
+            "best_forward_lens_proxy_usd_per_gal": (
+                None
+                if pd.isna(pd.to_numeric(qrec.get("best_forward_lens_proxy_usd_per_gal"), errors="coerce"))
+                else float(pd.to_numeric(qrec.get("best_forward_lens_proxy_usd_per_gal"), errors="coerce"))
+            ),
+            "pred_value_usd_per_gal": pred,
+            "error_usd_per_gal": error,
+            "abs_error_usd_per_gal": None if error is None else abs(float(error)),
+            "anchor_dates": "; ".join(anchor_dates),
+            "anchor_keys": "; ".join(anchor_keys),
+            "selected_symbols": selected_symbols,
+            "selected_observation_dates": selected_obs_dates,
+            "selected_prices": selected_prices,
+            "source_files": source_files,
+            "basis_source": basis_source,
+            "corn_futures_price_usd_per_bu": corn_futures,
+            "delivered_corn_price_usd_per_bu": delivered_corn,
+            "timing_window": timing_window,
+            "weighting_style": weighting_style,
+            "expected_anchor_count": expected_anchor_count,
+            "usable_anchor_count": usable_anchor_count,
+            "anchor_coverage_ratio": anchor_coverage_ratio,
+            "availability_status": status,
+            "missing_data_flags": "; ".join(bit for bit in missing_bits if str(bit or "").strip()),
+        }
+
+    def _quarter_sort_key(item: tuple[date, Dict[str, Any]]) -> date:
+        return item[0]
+
+    detail_records: List[Dict[str, Any]] = []
+    for qd, qrec in sorted(quarter_records.items(), key=_quarter_sort_key):
+        for spec in specs:
+            detail_records.append(_candidate_margin(qd, dict(qrec), dict(spec)))
+    detail_df = pd.DataFrame(detail_records)
+    if detail_df.empty:
+        return result
+
+    score_df = detail_df.copy()
+    score_df["pred_num"] = pd.to_numeric(score_df.get("pred_value_usd_per_gal"), errors="coerce")
+    score_df["target_num"] = pd.to_numeric(score_df.get("target_value_usd_per_gal"), errors="coerce")
+    score_df["abs_error_num"] = pd.to_numeric(score_df.get("abs_error_usd_per_gal"), errors="coerce")
+    valid_score = score_df[score_df["pred_num"].notna() & score_df["target_num"].notna()].copy()
+    closest_counts: Dict[str, int] = {}
+    if not valid_score.empty:
+        for _, sub in valid_score.groupby("quarter_label", dropna=False):
+            min_err = pd.to_numeric(sub["abs_error_num"], errors="coerce").min()
+            if pd.isna(min_err):
+                continue
+            winners = sub[np.isclose(pd.to_numeric(sub["abs_error_num"], errors="coerce"), float(min_err), atol=1e-12)]
+            for key in winners["candidate_key"].astype(str).tolist():
+                closest_counts[key] = int(closest_counts.get(key, 0) + 1)
+    leaderboard_rows: List[Dict[str, Any]] = []
+    for spec in specs:
+        key = str(spec.get("candidate_key") or "")
+        sub = valid_score[valid_score["candidate_key"].astype(str) == key].copy()
+        unavailable_labels = [
+            str(item or "").strip()
+            for item in detail_df[
+                (detail_df["candidate_key"].astype(str) == key)
+                & (detail_df["availability_status"].astype(str) != "available")
+            ]["quarter_label"].tolist()
+            if str(item or "").strip()
+        ]
+        usable = int(len(sub))
+        mae = float(pd.to_numeric(sub["abs_error_num"], errors="coerce").mean()) if usable else np.nan
+        median_abs = float(pd.to_numeric(sub["abs_error_num"], errors="coerce").median()) if usable else np.nan
+        max_abs = float(pd.to_numeric(sub["abs_error_num"], errors="coerce").max()) if usable else np.nan
+        coverage_values = pd.to_numeric(
+            detail_df[detail_df["candidate_key"].astype(str) == key].get("anchor_coverage_ratio"),
+            errors="coerce",
+        )
+        avg_anchor_coverage = float(coverage_values.dropna().mean()) if not coverage_values.dropna().empty else np.nan
+        status = "insufficient_sample" if usable < _GPRE_FUTURES_TIMING_MIN_USABLE_QUARTERS else "comparison_only"
+        notes = "Sandbox/comparison-only; no production promotion."
+        if unavailable_labels:
+            notes = f"{notes} Unavailable: {', '.join(unavailable_labels[:6])}."
+        leaderboard_rows.append(
+            {
+                "candidate_key": key,
+                "candidate_label": str(spec.get("candidate_label") or ""),
+                "family": str(spec.get("family") or ""),
+                "family_label": str(spec.get("family_label") or ""),
+                "timing_rule": str(spec.get("timing_rule") or ""),
+                "timing_window": str(spec.get("timing_window") or spec.get("timing_rule") or ""),
+                "weighting_style": str(spec.get("weighting_style") or ""),
+                "locked_commodities_label": _gpre_locked_commodities_label(spec.get("locked_commodities")),
+                "usable_quarter_count": usable,
+                "mae": mae,
+                "median_abs_error": median_abs,
+                "max_abs_error": max_abs,
+                "closest_quarter_count": int(closest_counts.get(key, 0)),
+                "avg_anchor_coverage_ratio": avg_anchor_coverage,
+                "status": status,
+                "notes": notes,
+                "unavailable_quarters": ", ".join(unavailable_labels),
+            }
+        )
+    leaderboard_df = pd.DataFrame(leaderboard_rows).sort_values(
+        ["mae", "usable_quarter_count", "candidate_key"],
+        ascending=[True, False, True],
+        na_position="last",
+    ).reset_index(drop=True)
+    best_candidate_key = ""
+    best_candidate_label = ""
+    robust = leaderboard_df[
+        pd.to_numeric(leaderboard_df.get("usable_quarter_count"), errors="coerce").fillna(0).astype(int)
+        >= _GPRE_FUTURES_TIMING_MIN_USABLE_QUARTERS
+    ].copy()
+    if not robust.empty:
+        best_row = robust.sort_values(["mae", "candidate_key"], na_position="last").iloc[0].to_dict()
+        best_candidate_key = str(best_row.get("candidate_key") or "")
+        best_candidate_label = str(best_row.get("candidate_label") or "")
+    valid_quarter_labels = (
+        valid_score.sort_values("quarter")["quarter_label"].astype(str).drop_duplicates().tolist()
+        if not valid_score.empty and "quarter" in valid_score.columns
+        else []
+    )
+    all_quarter_labels = [
+        str(item or "").strip()
+        for item in detail_df.sort_values("quarter")["quarter_label"].astype(str).drop_duplicates().tolist()
+        if str(item or "").strip()
+    ]
+    max_usable_quarters = int(
+        pd.to_numeric(leaderboard_df.get("usable_quarter_count"), errors="coerce").fillna(0).max()
+    ) if not leaderboard_df.empty else 0
+    unavailable_quarters = [
+        label
+        for label in all_quarter_labels
+        if label not in set(valid_quarter_labels)
+    ]
+    if valid_quarter_labels:
+        coverage_note = (
+            "Local price-history futures coverage is sandbox-only. "
+            f"Scored quarters with at least one candidate: {valid_quarter_labels[0]} to {valid_quarter_labels[-1]} "
+            f"({len(valid_quarter_labels)} quarters); best single candidate coverage={max_usable_quarters} quarters. "
+        )
+    else:
+        coverage_note = "Local price-history futures coverage is sandbox-only. No candidate had both a target and a usable local futures prediction. "
+    if unavailable_quarters:
+        coverage_note += f"Unavailable or unscored quarters include: {', '.join(unavailable_quarters[:8])}. "
+    coverage_note += "Rows remain sandbox/comparison-only and do not change production proxy selection."
+    result.update(
+        {
+            "candidate_leaderboard_df": leaderboard_df,
+            "quarter_detail_df": detail_df.sort_values(["quarter", "candidate_key"], na_position="last").reset_index(drop=True),
+            "backtest_window_quarters": valid_quarter_labels,
+            "backtest_window_display": (
+                f"{valid_quarter_labels[0]} to {valid_quarter_labels[-1]}"
+                if len(valid_quarter_labels) >= 2
+                else (valid_quarter_labels[0] if valid_quarter_labels else "")
+            ),
+            "best_candidate_key": best_candidate_key,
+            "best_candidate_label": best_candidate_label,
+            "coverage_note": coverage_note,
+        }
+    )
+    return result
+
+
+def _gpre_locked_commodities_label(value: Any) -> str:
+    items = [str(item or "").strip() for item in list(value or []) if str(item or "").strip()]
+    if not items:
+        return "None"
+    label_map = {"natural_gas": "Gas", "ethanol": "Ethanol", "corn": "Corn"}
+    return ", ".join(label_map.get(item, item.replace("_", " ").title()) for item in items)
+
+
 def _build_gpre_hedge_style_study(quarterly_df: pd.DataFrame) -> Dict[str, Any]:
     empty_result = {
         "target_col": "reported_consolidated_crush_margin_usd_per_gal",
@@ -14667,6 +16797,7 @@ def build_gpre_basis_proxy_model(
             "best_coproduct_experimental_model_key": "",
             "coproduct_experimental_frame_values": {},
             "coproduct_experimental_summary_markdown": "",
+            "futures_timing_study": _gpre_futures_timing_empty_study(),
             "current_qtd_trend_tracking": {},
         }
 
@@ -14761,6 +16892,7 @@ def build_gpre_basis_proxy_model(
             "best_coproduct_experimental_model_key": "",
             "coproduct_experimental_frame_values": {},
             "coproduct_experimental_summary_markdown": "",
+            "futures_timing_study": _gpre_futures_timing_empty_study(),
             "current_qtd_trend_tracking": {},
         }
 
@@ -16551,6 +18683,7 @@ def build_gpre_basis_proxy_model(
         if best_forward_pred_col and best_forward_pred_col in quarterly_df.columns
         else pd.Series(index=quarterly_df.index, dtype=float)
     )
+    quarterly_df["best_forward_lens_proxy_usd_per_gal"] = forward_base_series
     def _coproduct_spec_num(spec_in: Dict[str, Any], field_in: str, default_in: float = 0.0) -> float:
         value_num = pd.to_numeric(spec_in.get(field_in), errors="coerce")
         if pd.isna(value_num):
@@ -16910,6 +19043,18 @@ def build_gpre_basis_proxy_model(
     ]
     coproduct_experimental_summary_markdown = "\n".join(coproduct_experimental_summary_lines)
     hedge_style_study = _build_gpre_hedge_style_study(quarterly_df)
+    futures_timing_study = _build_gpre_futures_timing_sandbox(
+        quarterly_df,
+        row_list,
+        ethanol_yield=yield_per_bushel,
+        natural_gas_usage=natural_gas_usage_num,
+        as_of_date=as_of_date,
+        ticker_root=ticker_root,
+        bids_snapshot=effective_bids_snapshot,
+        plant_capacity_history=effective_plant_capacity_history,
+        current_qtd_market_snapshot=current_qtd_market_snapshot,
+        next_quarter_thesis_snapshot=next_quarter_thesis_snapshot,
+    )
     hedge_candidate_leaderboard_df = (
         hedge_style_study.get("candidate_leaderboard_df")
         if isinstance(hedge_style_study.get("candidate_leaderboard_df"), pd.DataFrame)
@@ -17487,6 +19632,7 @@ def build_gpre_basis_proxy_model(
         "recent_quarter_comparison_df": recent_quarter_comparison_df,
         "system_audit": system_audit,
         "hedge_style_study": hedge_style_study,
+        "futures_timing_study": futures_timing_study,
         "model_key_to_pred_col": model_key_to_pred_col,
         "ethanol_yield": yield_per_bushel,
         "natural_gas_usage_btu_per_gal": natural_gas_usage_num,

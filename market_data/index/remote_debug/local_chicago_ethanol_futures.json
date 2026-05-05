@@ -5,10 +5,10 @@
     "rows_by_source_file": [
       {
         "parsed_rows": 2,
-        "source_file": "zck26_price-history-04-29-2026.csv"
+        "source_file": "flj26_price-history-04-26-2026.csv"
       }
     ],
     "status": "success"
   },
-  "source": "local_barchart_corn_futures"
+  "source": "local_chicago_ethanol_futures"
 }

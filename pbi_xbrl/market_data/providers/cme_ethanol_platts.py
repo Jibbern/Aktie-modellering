@@ -16,6 +16,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import pandas as pd
 
 from .base import BaseMarketProvider
+from .local_barchart_futures import _parse_barchart_observation_date
 from ..aggregations import quarter_end_from_date
 
 
@@ -24,7 +25,10 @@ _TENOR_RE = re.compile(
     re.I,
 )
 _COMPACT_TENOR_RE = re.compile(r"\b(?P<year>20\d{2})[-_/]?(?P<month>0[1-9]|1[0-2])\b")
-_SYMBOL_TENOR_RE = re.compile(r"\b[A-Z]{2}(?P<month_code>[FGHJKMNQUVXZ])(?P<year>\d{2})\b", re.I)
+_SYMBOL_TENOR_RE = re.compile(
+    r"(?<![A-Z0-9])[@A-Z]{0,3}(?P<month_code>[FGHJKMNQUVXZ])(?P<year>\d{1,2})(?![A-Z0-9])",
+    re.I,
+)
 _COMPACT_DATE_RE = re.compile(r"(20\d{2})(\d{2})(\d{2})")
 _ISO_DATE_RE = re.compile(r"(20\d{2})[-_](\d{2})[-_](\d{2})")
 _VENDOR_DATE_RE = re.compile(r"(?<!\d)(\d{2})[-_](\d{2})[-_](20\d{2})(?!\d)")
@@ -266,7 +270,7 @@ def _looks_like_local_futures_export(df: pd.DataFrame) -> bool:
     if df is None or df.empty:
         return False
     cols = {_slug(col) for col in df.columns}
-    return {"contract", "last", "time"}.issubset(cols)
+    return ({"contract", "last", "time"}.issubset(cols)) or ({"time", "latest"}.issubset(cols))
 
 
 def _iter_legacy_candidate_rows(df: pd.DataFrame) -> Iterable[Dict[str, Any]]:
@@ -331,14 +335,15 @@ def _iter_local_futures_rows(
     cols = list(df.columns)
     norm_map = {_slug(col): col for col in cols}
     contract_col = norm_map.get("contract")
-    last_col = norm_map.get("last")
-    time_col = norm_map.get("time")
-    if not contract_col or not last_col or not time_col:
+    last_col = norm_map.get("last") or norm_map.get("latest") or norm_map.get("settlement") or norm_map.get("price")
+    time_col = norm_map.get("time") or norm_map.get("date") or norm_map.get("trade_date")
+    filename_contract = _normalize_contract_tenor(path.stem) if not contract_col else ""
+    if (not contract_col and not filename_contract) or not last_col or not time_col:
         return []
     default_date = fallback_date or _parse_filename_date(path)
     out: List[Dict[str, Any]] = []
     for _, row in df.iterrows():
-        contract_txt = str(row.get(contract_col) or "").strip()
+        contract_txt = str(row.get(contract_col) or "").strip() if contract_col else str(filename_contract or path.stem)
         if not contract_txt:
             continue
         if contract_txt.lower().startswith("downloaded from"):
@@ -346,9 +351,7 @@ def _iter_local_futures_rows(
         price_value = _coerce_settle_usd_per_gal(row.get(last_col), unit_hint="$/gal")
         if price_value is None or price_value <= 0.0:
             continue
-        obs_ts = pd.to_datetime(row.get(time_col), errors="coerce")
-        if pd.isna(obs_ts):
-            obs_ts = default_date
+        obs_ts, obs_note = _parse_barchart_observation_date(row.get(time_col), default_date, path)
         if obs_ts is None or pd.isna(obs_ts):
             continue
         tenor = _normalize_contract_tenor(contract_txt)
@@ -364,7 +367,7 @@ def _iter_local_futures_rows(
                 "source_label": _LOCAL_SOURCE_LABEL,
                 "report_type": _LOCAL_SOURCE_TYPE,
                 "product_code": str(re.match(r"([A-Z]{2})", contract_txt, re.I).group(1) if re.match(r"([A-Z]{2})", contract_txt, re.I) else "FL"),
-                "parsed_note": "Chicago ethanol futures thesis input from local end-of-day futures CSV.",
+                "parsed_note": f"Chicago ethanol futures thesis input from local end-of-day futures CSV.{obs_note}",
             }
         )
     return out
@@ -560,6 +563,8 @@ def parse_cme_ethanol_settlement_table(
 def _source_file_priority(source_file: str) -> int:
     name = Path(str(source_file or "")).name.lower()
     if name.startswith("manual_cme_ethanol_chicago_eod"):
+        return 3
+    if "price-history" in name:
         return 2
     if name.startswith("ethanol-chicago-prices-end-of-day"):
         return 1
@@ -583,6 +588,7 @@ class CMEChicagoEthanolPlattsProvider(BaseMarketProvider):
     local_patterns = (
         "Ethanol_futures/manual_cme_ethanol_chicago_eod*.csv",
         "Ethanol_futures/ethanol-chicago-prices-end-of-day-*.csv",
+        "Ethanol_futures/fl*_price-history-*.csv",
         "CME_ethanol_settlements/*.csv",
         "CME_ethanol_settlements/**/*.csv",
         "cme_ethanol_platts/*.csv",

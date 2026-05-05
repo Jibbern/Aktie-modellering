@@ -13,14 +13,21 @@ from ..aggregations import quarter_end_from_date
 
 
 _COMPACT_DATE_RE = re.compile(r"(20\d{2})(\d{2})(\d{2})")
-_ISO_DATE_RE = re.compile(r"(20\d{2})[-_](\d{2})[-_](\d{2})")
-_VENDOR_DATE_RE = re.compile(r"(?<!\d)(\d{2})[-_](\d{2})[-_](20\d{2})(?!\d)")
+_ISO_DATE_RE = re.compile(r"(20\d{2})[-_/](\d{2})[-_/](\d{2})")
+_VENDOR_DATE_RE = re.compile(r"(?<!\d)(\d{2})[-_/](\d{2})[-_/](20\d{2})(?!\d)")
+_TIME_ONLY_RE = re.compile(
+    r"^\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:[ap]\.?m\.?)?\s*(?:[a-z]{1,4})?\s*$",
+    re.I,
+)
 _TENOR_RE = re.compile(
     r"\b(?P<month>jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[-\s_/'`]*(?P<year>\d{2,4})\b",
     re.I,
 )
 _COMPACT_TENOR_RE = re.compile(r"\b(?P<year>20\d{2})[-_/]?(?P<month>0[1-9]|1[0-2])\b")
-_SYMBOL_TENOR_RE = re.compile(r"\b[A-Z@]{0,3}(?P<month_code>[FGHJKMNQUVXZ])(?P<year>\d{1,2})\b", re.I)
+_SYMBOL_TENOR_RE = re.compile(
+    r"(?<![A-Z0-9])[@A-Z]{0,3}(?P<month_code>[FGHJKMNQUVXZ])(?P<year>\d{1,2})(?![A-Z0-9])",
+    re.I,
+)
 _MONTH_TO_NUM = {
     "jan": 1,
     "feb": 2,
@@ -78,6 +85,64 @@ def _parse_filename_date(path_like: Any) -> Optional[pd.Timestamp]:
         except Exception:
             continue
     return None
+
+
+def _parse_date_token(value: Any) -> Optional[pd.Timestamp]:
+    if value is None:
+        return None
+    if isinstance(value, pd.Timestamp):
+        return value.normalize()
+    if isinstance(value, date):
+        return pd.Timestamp(value)
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    text = str(value or "").strip()
+    if not text or text.lower() in {"nan", "nat", "n/a", "na", "--"}:
+        return None
+    for regex, order in (
+        (_COMPACT_DATE_RE, ("year", "month", "day")),
+        (_ISO_DATE_RE, ("year", "month", "day")),
+        (_VENDOR_DATE_RE, ("month", "day", "year")),
+    ):
+        match = regex.search(text)
+        if not match:
+            continue
+        try:
+            if order == ("year", "month", "day"):
+                year_num = int(match.group(1))
+                month_num = int(match.group(2))
+                day_num = int(match.group(3))
+            else:
+                month_num = int(match.group(1))
+                day_num = int(match.group(2))
+                year_num = int(match.group(3))
+            return pd.Timestamp(year=year_num, month=month_num, day=day_num)
+        except Exception:
+            continue
+    return None
+
+
+def _parse_barchart_observation_date(
+    row_time: Any,
+    default_date: Optional[pd.Timestamp],
+    source_file: Any,
+) -> Tuple[Optional[pd.Timestamp], str]:
+    row_ts = _parse_date_token(row_time)
+    if row_ts is not None:
+        return row_ts, ""
+
+    default_ts = _parse_date_token(default_date) or _parse_filename_date(source_file)
+    raw_time = str(row_time or "").strip()
+    if default_ts is None:
+        return None, ""
+    if raw_time and _TIME_ONLY_RE.match(raw_time):
+        return default_ts, f" Intraday time {raw_time} came from the Time column; observation date uses the file/report date."
+    if raw_time and raw_time.lower() not in {"nan", "nat", "n/a", "na", "--"}:
+        return default_ts, f" Non-date Time value {raw_time} came from the Time column; observation date uses the file/report date."
+    return default_ts, ""
 
 
 def _tenor_from_parts(year_num: int, month_num: int) -> str:
@@ -167,6 +232,8 @@ def _normalize_market_price(*, market_family: str, value: float) -> float:
 def _source_file_priority(source_file: str) -> int:
     name = Path(str(source_file or "")).name.lower()
     if name.startswith("manual_"):
+        return 3
+    if "price-history" in name:
         return 2
     return 1
 
@@ -246,12 +313,13 @@ def parse_local_barchart_futures_table(
     contract_col = norm_map.get("contract")
     last_col = norm_map.get("last") or norm_map.get("latest") or norm_map.get("settlement") or norm_map.get("price")
     time_col = norm_map.get("time") or norm_map.get("date") or norm_map.get("trade_date")
-    if not contract_col or not last_col:
+    filename_contract = _normalize_contract_tenor(path.stem) if not contract_col else ""
+    if (not contract_col and not filename_contract) or not last_col:
         return []
     default_date = fallback_date or _parse_filename_date(path)
     rows: List[Dict[str, Any]] = []
     for _, row in df.iterrows():
-        contract_txt = str(row.get(contract_col) or "").strip()
+        contract_txt = str(row.get(contract_col) or "").strip() if contract_col else str(filename_contract or path.stem)
         if not contract_txt:
             continue
         contract_low = contract_txt.lower()
@@ -261,9 +329,11 @@ def parse_local_barchart_futures_table(
         if price_value is None:
             continue
         price_value = _normalize_market_price(market_family=market_family, value=price_value)
-        obs_ts = pd.to_datetime(row.get(time_col), errors="coerce") if time_col else pd.NaT
-        if pd.isna(obs_ts):
-            obs_ts = default_date
+        obs_ts, obs_note = _parse_barchart_observation_date(
+            row.get(time_col) if time_col else None,
+            default_date,
+            path,
+        )
         if obs_ts is None or pd.isna(obs_ts):
             continue
         tenor = _normalize_contract_tenor(contract_txt)
@@ -282,7 +352,7 @@ def parse_local_barchart_futures_table(
                 unit=unit,
                 source_type=source_type,
                 source_label=source_label,
-                parsed_note=f"{instrument} thesis input from local Barchart futures CSV.",
+                parsed_note=f"{instrument} thesis input from local Barchart futures CSV.{obs_note}",
             )
         )
     return rows
@@ -413,7 +483,8 @@ class LocalBarchartCornFuturesProvider(_LocalBarchartFuturesProvider):
         parent_low = str(path.parent.name or "").strip().lower()
         if parent_low in {"corn_futures", "cbot_corn_futures"}:
             return True
-        return "corn" in path.name.lower()
+        name_low = path.name.lower()
+        return "corn" in name_low or bool(re.match(r"^@?zc[fhjkmnquvxz]\d{1,2}", name_low, re.I))
 
 
 class LocalBarchartGasFuturesProvider(_LocalBarchartFuturesProvider):
