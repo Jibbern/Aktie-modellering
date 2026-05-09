@@ -10,6 +10,7 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 
 from pbi_xbrl import excel_writer, pipeline, pipeline_orchestration
+from pbi_xbrl.debt_parser import parse_debt_tranches_from_primary_doc
 from pbi_xbrl.pipeline_qa import finalize_needs_review, finalize_qa_checks
 from pbi_xbrl.pipeline_runtime import (
     PipelineStageCache,
@@ -17,6 +18,74 @@ from pbi_xbrl.pipeline_runtime import (
     resolve_pipeline_roots,
 )
 from pbi_xbrl.pipeline_types import PipelineArtifacts, PipelineConfig, WorkbookInputs
+from pbi_xbrl.valuation_precompute_runtime import ValuationPrecomputeRuntime, analyze_cap_alloc_doc
+
+
+def test_debt_parser_keeps_summary_rows_on_current_period_column() -> None:
+    html = """
+    <html><body><table>
+      <tr><td></td><td>Interest rate</td><td>March 31, 2026</td><td>December 31, 2025</td></tr>
+      <tr><td>Notes due March 2027</td><td>6.875%</td><td>$</td><td>346,700</td><td>$</td><td>346,700</td></tr>
+      <tr><td>Term loan due March 2028</td><td>SOFR + 1.85%</td><td>152,000</td><td>154,000</td></tr>
+      <tr><td>Notes due March 2029</td><td>7.25%</td><td>476,000</td><td>326,000</td></tr>
+      <tr><td>Convertible Notes due August 2030</td><td>1.50%</td><td>230,000</td><td>230,000</td></tr>
+      <tr><td>Term loan due March 2032</td><td>SOFR + 3.75%</td><td>587,030</td><td>588,567</td></tr>
+      <tr><td>Notes due January 2037</td><td>5.25%</td><td>31,666</td><td>31,666</td></tr>
+      <tr><td>Notes due March 2043</td><td>6.70%</td><td>349,279</td><td>349,279</td></tr>
+      <tr><td>Principal amount</td><td>2,172,675</td><td>2,026,212</td></tr>
+      <tr><td>Less: unamortized costs, net</td><td>34,483</td><td>33,174</td></tr>
+      <tr><td>Total debt</td><td>2,138,192</td><td>1,993,038</td></tr>
+      <tr><td>Less: current portion long-term debt</td><td>363,952</td><td>17,150</td></tr>
+      <tr><td>Long-term debt</td><td>$</td><td>1,774,240</td><td>$</td><td>1,975,888</td></tr>
+    </table></body></html>
+    """
+
+    tranches, _score, table_total, long_term_total, _label, _scale, _period_match = (
+        parse_debt_tranches_from_primary_doc(
+            html.encode("utf-8"),
+            quarter_end=dt.date(2026, 3, 31),
+        )
+    )
+
+    assert len(tranches) == 7
+    assert sum(float(row["amount"]) for row in tranches) == 2_172_675.0
+    assert table_total == 2_138_192.0
+    assert long_term_total == 1_774_240.0
+
+
+def test_cash_identity_qa_is_labeled_as_approximate_bridge() -> None:
+    hist = pd.DataFrame(
+        {
+            "quarter": pd.to_datetime(["2025-12-31", "2026-03-31"]),
+            "cash": [100_000_000.0, 700_000_000.0],
+            "cfo": [10_000_000.0, 20_000_000.0],
+            "capex": [2_000_000.0, 3_000_000.0],
+            "total_debt": [50_000_000.0, 100_000_000.0],
+        }
+    )
+    df_all = pd.DataFrame(
+        [
+            {
+                "tag": "OtherFact",
+                "unit": "USD",
+                "fy": 2026,
+                "fy_calc": 2026,
+                "fp": "Q1",
+                "end_d": dt.date(2026, 3, 31),
+                "start_d": dt.date(2026, 1, 1),
+                "filed_d": dt.date(2026, 5, 1),
+                "val": 1.0,
+            }
+        ]
+    )
+
+    qa = pipeline.build_qa_checks(df_all, hist)
+    row = qa.loc[qa["check"].eq("cash_identity")].iloc[0]
+
+    assert row["status"] == "fail"
+    assert row["issue_family"] == "cash_bridge_definition_gap"
+    assert "Approx cash bridge" in row["message"]
+    assert "not a parser conflict" in row["message"]
 
 
 def test_local_non_gaap_metric_filter_skips_only_fully_covered_quarters_and_keeps_order() -> None:
@@ -128,6 +197,103 @@ def test_local_non_gaap_pdf_cache_layout_is_stable_for_slides_and_other_sources(
         assert other_key != slide_key
 
 
+def test_local_non_gaap_segment_parser_extracts_pbi_q1_2026_revenue_and_adjusted_segment_schedule() -> None:
+    revenue_page = """
+    Pitney Bowes Inc.
+    Business Segment Revenue
+    (Unaudited; in thousands)
+    Three Months Ended March 31,
+    2026 2025 % Change
+    Sending Technology Solutions $313,947 $315,606 (1%)
+    Presort Services 163,466 177,814 (8%)
+    Total revenue $477,413 $493,420 (3%)
+    """
+    ebitda_page = """
+    Pitney Bowes Inc.
+    Adjusted Segment EBIT & EBITDA
+    (Unaudited; in thousands)
+    Three Months Ended March 31,
+    2026 2025 % change
+    Adjusted Adjusted Adjusted Adjusted Adjusted Adjusted
+    Segment Segment Segment Segment Segment Segment
+    EBIT (1) D&A EBITDA EBIT (1) D&A EBITDA EBIT EBITDA
+    Sending Technology Solutions $113,530 $9,875 $123,405 $97,027 $11,680 $108,707 17% 14%
+    Presort Services 39,178 8,736 47,914 54,779 9,269 64,048 (28%) (25%)
+    Total reportable segments $152,708 $18,611 171,319 $151,806 $20,949 172,755 1% (1%)
+    """
+    q_end = dt.date(2026, 3, 31)
+
+    rows = pipeline_orchestration._parse_local_non_gaap_segment_rows_from_text(revenue_page, q_end)
+    rows += pipeline_orchestration._parse_local_non_gaap_segment_rows_from_text(ebitda_page, q_end)
+    by_key = {(row["segment"], row["metric"]): row["value"] for row in rows}
+
+    assert by_key[("SendTech Solutions", "revenue")] == 313_947_000.0
+    assert by_key[("Presort Services", "revenue")] == 163_466_000.0
+    assert by_key[("SendTech Solutions", "adj_segment_ebit")] == 113_530_000.0
+    assert by_key[("SendTech Solutions", "adj_segment_da")] == 9_875_000.0
+    assert by_key[("SendTech Solutions", "adj_segment_ebitda")] == 123_405_000.0
+    assert by_key[("Presort Services", "adj_segment_ebit")] == 39_178_000.0
+    assert by_key[("Presort Services", "adj_segment_da")] == 8_736_000.0
+    assert by_key[("Presort Services", "adj_segment_ebitda")] == 47_914_000.0
+    assert by_key[("Total reportable segments", "adj_segment_ebit")] == 152_708_000.0
+    assert by_key[("Total reportable segments", "adj_segment_da")] == 18_611_000.0
+    assert by_key[("Total reportable segments", "adj_segment_ebitda")] == 171_319_000.0
+
+
+def test_local_non_gaap_segment_dedupe_prefers_explicit_pdf_schedule_over_spurious_rows() -> None:
+    q = pd.Timestamp("2026-03-31")
+    rows = pd.DataFrame(
+        [
+            {
+                "quarter": q,
+                "segment": "Sending Technology Solutions",
+                "metric": "adj_segment_ebit",
+                "value": 202_000.0,
+                "doc": r"C:\PBI\earnings_release\8-K_2026-05-05_earnings_release_q1_2026.htm",
+                "page": None,
+                "source": "earnings_release",
+            },
+            {
+                "quarter": q,
+                "segment": "SendTech Solutions",
+                "metric": "adj_segment_ebit",
+                "value": 113_530_000.0,
+                "doc": r"C:\PBI\earnings_release\PBI_Q1_2026_earnings_release.pdf",
+                "page": 9,
+                "source": "earnings_release",
+            },
+            {
+                "quarter": q,
+                "segment": "Presort Services",
+                "metric": "adj_segment_ebitda",
+                "value": -31_000.0,
+                "doc": r"C:\PBI\financial_statement\PBI_Q1_2026_10Q_2026-03-31_financial_statement.htm",
+                "page": None,
+                "source": "financial_statement",
+            },
+            {
+                "quarter": q,
+                "segment": "Presort Services",
+                "metric": "adj_segment_ebitda",
+                "value": 47_914_000.0,
+                "doc": r"C:\PBI\earnings_release\PBI_Q1_2026_earnings_release.pdf",
+                "page": 9,
+                "source": "earnings_release",
+            },
+        ]
+    )
+
+    cleaned = pipeline_orchestration._dedupe_local_non_gaap_segment_rows(rows)
+
+    by_key = {
+        (row["segment"], row["metric"]): row["value"]
+        for row in cleaned.to_dict("records")
+    }
+    assert by_key[("SendTech Solutions", "adj_segment_ebit")] == 113_530_000.0
+    assert by_key[("Presort Services", "adj_segment_ebitda")] == 47_914_000.0
+    assert len(cleaned) == 2
+
+
 def test_local_non_gaap_page_scores_detect_debt_profile_markers_from_slide_text() -> None:
     text = """
     Select Balance Sheet Data
@@ -209,6 +375,109 @@ def test_parse_financial_statement_debt_table_html_extracts_modern_debt_rows() -
         assert all(row["quarter"] == dt.date(2025, 12, 31) for row in rows)
 
 
+def test_parse_financial_statement_debt_table_html_keeps_gpre_carbon_capture_tranches_distinct() -> None:
+    with _case_dir() as case_dir:
+        path_in = case_dir / "GPRE_Q1_2026_10Q_2026-03-31_financial_statement.htm"
+        path_in.write_text(
+            """
+            <html><body>
+            <table>
+              <tr><th>Corporate</th><th>March 31, 2026</th></tr>
+              <tr><td>2.25% convertible notes due 2027 (1)</td><td>60,000</td></tr>
+              <tr><td>5.25% convertible notes due 2030 (2)</td><td>200,000</td></tr>
+              <tr><td>Green Plains Shenandoah</td><td></td></tr>
+              <tr><td>Term loan due 2035 (4)</td><td>69,750</td></tr>
+              <tr><td>Green Plains Central City Carbon Capture</td><td></td></tr>
+              <tr><td>Tallgrass Term loan due 2038</td><td>44,126</td></tr>
+              <tr><td>Green Plains Wood River Carbon Capture</td><td></td></tr>
+              <tr><td>Tallgrass Term loan due 2038</td><td>48,387</td></tr>
+              <tr><td>Green Plains York Carbon Capture</td><td></td></tr>
+              <tr><td>Tallgrass Term loan due 2037</td><td>34,389</td></tr>
+              <tr><td>Other</td><td>9,661</td></tr>
+              <tr><td>Total book value of long-term debt</td><td>466,313</td></tr>
+            </table>
+            </body></html>
+            """,
+            encoding="utf-8",
+        )
+
+        rows = pipeline_orchestration._parse_financial_statement_debt_table_html(
+            path_in,
+            dt.date(2026, 3, 31),
+        )
+
+        names = [str(row["tranche"]) for row in rows]
+        assert len(rows) == 7
+        assert "Green Plains Central City Carbon Capture Tallgrass Term loan due 2038" in names
+        assert "Green Plains Wood River Carbon Capture Tallgrass Term loan due 2038" in names
+        assert "Green Plains York Carbon Capture Tallgrass Term loan due 2037" in names
+        assert sum(float(row["amount"]) for row in rows) == 466_313_000.0
+
+
+def test_build_debt_profile_publishes_gpre_q1_tranches_against_debt_core_when_current_maturities_exist() -> None:
+    latest_q = pd.Timestamp("2026-03-31")
+    hist = pd.DataFrame(
+        {
+            "quarter": [latest_q],
+            "debt_core": [458_239_000.0],
+            "total_debt": [458_239_000.0],
+            "cash": [95_719_000.0],
+        }
+    )
+    df_all = pd.DataFrame(
+        [
+            {
+                "tag": "LongTermDebtCurrent",
+                "unit": "USD",
+                "fy": 2026,
+                "fy_calc": 2026,
+                "fp": "Q1",
+                "end_d": latest_q.date(),
+                "start_d": dt.date(2026, 1, 1),
+                "filed_d": dt.date(2026, 5, 7),
+                "form": "10-Q",
+                "val": 69_316_000.0,
+            },
+            {
+                "tag": "LongTermDebt",
+                "unit": "USD",
+                "fy": 2026,
+                "fy_calc": 2026,
+                "fp": "Q1",
+                "end_d": latest_q.date(),
+                "start_d": dt.date(2026, 1, 1),
+                "filed_d": dt.date(2026, 5, 7),
+                "form": "10-Q",
+                "val": 388_923_000.0,
+            },
+        ]
+    )
+    debt_tranches = pd.DataFrame(
+        [
+            {"quarter": latest_q, "tranche_name": "2.25% convertible notes due 2027", "amount": 60_000_000.0, "maturity_year": 2027, "form": "10-Q", "period_match": True, "parse_quality": "asof_matched"},
+            {"quarter": latest_q, "tranche_name": "5.25% convertible notes due 2030", "amount": 200_000_000.0, "maturity_year": 2030, "form": "10-Q", "period_match": True, "parse_quality": "asof_matched"},
+            {"quarter": latest_q, "tranche_name": "Green Plains Shenandoah Term loan due 2035", "amount": 69_750_000.0, "maturity_year": 2035, "form": "10-Q", "period_match": True, "parse_quality": "asof_matched"},
+            {"quarter": latest_q, "tranche_name": "Green Plains Central City Carbon Capture Tallgrass Term loan due 2038", "amount": 44_126_000.0, "maturity_year": 2038, "form": "10-Q", "period_match": True, "parse_quality": "asof_matched"},
+            {"quarter": latest_q, "tranche_name": "Green Plains Wood River Carbon Capture Tallgrass Term loan due 2038", "amount": 48_387_000.0, "maturity_year": 2038, "form": "10-Q", "period_match": True, "parse_quality": "asof_matched"},
+            {"quarter": latest_q, "tranche_name": "Green Plains York Carbon Capture Tallgrass Term loan due 2037", "amount": 34_389_000.0, "maturity_year": 2037, "form": "10-Q", "period_match": True, "parse_quality": "asof_matched"},
+            {"quarter": latest_q, "tranche_name": "Other", "amount": 9_661_000.0, "maturity_year": None, "form": "10-Q", "period_match": True, "parse_quality": "asof_matched"},
+        ]
+    )
+
+    _profile, tr_latest, _maturity, qa_df, _info = pipeline.build_debt_profile(
+        hist,
+        df_all,
+        debt_tranches,
+        slides_debt=None,
+        debt_schedule=None,
+    )
+
+    assert len(tr_latest) == 7
+    assert "Needs review" not in " ".join(str(v) for v in tr_latest.get("tranche_name", []))
+    guard_rows = qa_df[qa_df["metric"].astype(str) == "debt_latest_publish_guardrail"]
+    assert guard_rows.empty
+
+
 def test_parse_financial_statement_debt_table_html_skips_interest_rate_cells() -> None:
     with _case_dir() as case_dir:
         path_in = case_dir / "PBI_FY2025_10K_2025-12-31_financial_statement.htm"
@@ -234,6 +503,28 @@ def test_parse_financial_statement_debt_table_html_skips_interest_rate_cells() -
         assert rows[0]["amount"] == 346_700_000.0
         assert rows[1]["amount"] == 230_000_000.0
         assert rows[1]["maturity_year"] == 2030
+
+
+def test_cap_alloc_doc_blocks_cumulative_buyback_when_filing_says_no_q1_repurchases() -> None:
+    text = (
+        "Issuer Purchases of Equity Securities. Since inception of the program, we have repurchased "
+        "approximately 10.3 million shares of common stock for approximately $122.8 million under the program. "
+        "We did not repurchase any shares during the first quarter of 2026."
+    )
+    runtime = ValuationPrecomputeRuntime()
+    path = Path("gpre-20260331.htm")
+
+    analysis = analyze_cap_alloc_doc(
+        runtime,
+        path,
+        path_cache_key=lambda p: p.name,
+        extract_doc_text=lambda _p: text,
+        text=text,
+    )
+
+    assert analysis["buyback_quarter_sentence_amount"] is None
+    assert analysis["buyback_quarter_sentence_text"] is None
+    assert analysis["buyback_execution_candidates"] == []
 
 
 def test_limit_recent_financial_statement_debt_rows_trims_old_statement_quarters() -> None:
@@ -332,6 +623,41 @@ class _FakeEx99Sec:
         self.calls["ocr_html_assets"] += 1
         doc = str(context.get("doc") or "")
         return self.ocr_text_map.get(doc, self.ocr_text_map.get("*", ""))
+
+
+def test_shares_outstanding_cover_page_audit_marks_not_pro_forma_adjusted() -> None:
+    sec = _FakeEx99Sec()
+    accn = "0001628280-26-031003"
+    accn_nd = pipeline.normalize_accession(accn)
+    doc_name = "pbi-20260331.htm"
+    sec.doc_map[(accn_nd, doc_name)] = (
+        b"<html><body>"
+        b"As of April 24, 2026, 135,441,425 shares of common stock, par value $1.00 per share, were outstanding."
+        b"</body></html>"
+    )
+    submissions = _submission_recent(
+        [
+            {
+                "form": "10-Q",
+                "accn": accn,
+                "report_date": "2026-03-31",
+                "filing_date": "2026-05-05",
+                "primary_doc": doc_name,
+            }
+        ]
+    )
+
+    shares_map, audit = pipeline.build_shares_outstanding_fallback(
+        sec,
+        78814,
+        submissions,
+        max_quarters=4,
+    )
+
+    q1 = dt.date(2026, 3, 31)
+    assert shares_map[q1]["shares_outstanding"] == 135_441_425.0
+    assert audit[0]["source"] == "cover_page"
+    assert "not pro forma-adjusted" in str(audit[0]["note"]).lower()
 
 
 def _submission_recent(rows: list[dict[str, str]]) -> dict[str, object]:

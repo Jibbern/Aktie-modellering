@@ -8808,6 +8808,11 @@ def build_gpre_overlay_proxy_preview_bundle(
                 "live_preview_mode": "exact_formula",
                 "live_preview_note": "Fitted preview uses the front-loaded process leg plus the capped ethanol geography term.",
             }
+        if model_key_in == "process_prior_disturbance_carryover":
+            return {
+                "live_preview_mode": "exact_formula" if phase in {"current", "quarter_open"} else "reduced_form_approximation",
+                "live_preview_note": "Fitted preview uses the beta-35 process leg and applies the bounded prior-disturbance carryover when prior-quarter evidence exists.",
+            }
         return {
             "live_preview_mode": "exact_formula",
             "live_preview_note": "",
@@ -8958,6 +8963,20 @@ def build_gpre_overlay_proxy_preview_bundle(
     prior_pattern_share = _gpre_pattern_hedge_share(prior_display_quarter)
     current_pattern_share = _gpre_pattern_hedge_share(current_quarter_end)
     next_pattern_share = _gpre_pattern_hedge_share(next_target_quarter)
+    prior_realization_residual_penalty = _gpre_realization_residual_penalty(
+        prior_utilization_penalty,
+        prior_maintenance_delay_penalty,
+        prior_inventory_drag_penalty,
+    )
+    current_realization_residual_penalty = _gpre_realization_residual_penalty(
+        current_utilization_penalty,
+        current_maintenance_delay_penalty,
+        current_inventory_drag_penalty,
+    )
+    prior_disturbed_flag = bool(float(prior_maintenance_delay_penalty or 0.0) > 0.0 or float(prior_inventory_drag_penalty or 0.0) > 0.0)
+    prior_hard_flag = bool(float(prior_total_exec_penalty or 0.0) > 0.0 or float(prior_utilization_penalty or 0.0) > 0.0)
+    current_disturbed_flag = bool(float(current_maintenance_delay_penalty or 0.0) > 0.0 or float(current_inventory_drag_penalty or 0.0) > 0.0)
+    current_hard_flag = bool(float(current_total_exec_penalty or 0.0) > 0.0 or float(current_utilization_penalty or 0.0) > 0.0)
     prior_regime_beta = _gpre_regime_basis_passthrough_beta(prior_disclosed_share, prior_pattern_share)
     current_regime_beta = _gpre_regime_basis_passthrough_beta(current_disclosed_share, current_pattern_share)
     next_regime_beta = _gpre_regime_basis_passthrough_beta(next_disclosed_share, next_pattern_share)
@@ -9116,6 +9135,7 @@ def build_gpre_overlay_proxy_preview_bundle(
             "process_capacity_weighted_basis_strict": "process_capacity_weighted_basis_strict_usd_per_gal",
             "process_front_loaded_ops_penalty": "process_front_loaded_ops_penalty_usd_per_gal",
             "process_front_loaded_ethanol_geo": "process_front_loaded_ethanol_geo_usd_per_gal",
+            "process_prior_disturbance_carryover": "process_prior_disturbance_carryover_usd_per_gal",
             "hedge_disclosed_bridge_prior_current": "hedge_memo_disclosed_bridge_prior_current_usd_per_gal",
             "hedge_disclosed_bridge_prior_front": "hedge_memo_disclosed_bridge_prior_front_usd_per_gal",
             "hedge_disclosed_process_prior_current": "hedge_memo_disclosed_process_prior_current_usd_per_gal",
@@ -9287,6 +9307,15 @@ def build_gpre_overlay_proxy_preview_bundle(
                 return None if process_front_current is None else float(process_front_current) - float(current_ops_penalty)
             if model_key_in == "process_front_loaded_ethanol_geo":
                 return None if process_front_current is None else float(process_front_current) + float(current_geo_term)
+            if model_key_in == "process_prior_disturbance_carryover":
+                return _gpre_prior_disturbance_carryover_value(
+                    process_basis_passthrough_beta35_current,
+                    prior_disturbed_flag=prior_disturbed_flag,
+                    prior_hard_flag=prior_hard_flag,
+                    prior_residual_penalty=prior_realization_residual_penalty,
+                    multiplier=0.60,
+                    cap=0.04,
+                )
             if model_key_in == "hedge_disclosed_bridge_prior_current":
                 return _hedge_blend(prior_bridge_current, bridge_spot_current, current_disclosed_share)
             if model_key_in == "hedge_disclosed_bridge_prior_front":
@@ -9376,6 +9405,15 @@ def build_gpre_overlay_proxy_preview_bundle(
                 return None if process_front_quarter_open is None else float(process_front_quarter_open) - float(current_ops_penalty)
             if model_key_in == "process_front_loaded_ethanol_geo":
                 return None if process_front_quarter_open is None else float(process_front_quarter_open) + float(quarter_open_geo_term)
+            if model_key_in == "process_prior_disturbance_carryover":
+                return _gpre_prior_disturbance_carryover_value(
+                    process_basis_passthrough_beta35_quarter_open,
+                    prior_disturbed_flag=prior_disturbed_flag,
+                    prior_hard_flag=prior_hard_flag,
+                    prior_residual_penalty=prior_realization_residual_penalty,
+                    multiplier=0.60,
+                    cap=0.04,
+                )
             if model_key_in == "hedge_disclosed_bridge_prior_current":
                 return _hedge_blend(prior_bridge_current, bridge_spot_quarter_open, current_disclosed_share)
             if model_key_in == "hedge_disclosed_bridge_prior_front":
@@ -9457,6 +9495,15 @@ def build_gpre_overlay_proxy_preview_bundle(
             return None if process_front_next is None else float(process_front_next) - float(next_ops_penalty)
         if model_key_in == "process_front_loaded_ethanol_geo":
             return None if process_front_next is None else float(process_front_next) + float(next_geo_term)
+        if model_key_in == "process_prior_disturbance_carryover":
+            return _gpre_prior_disturbance_carryover_value(
+                process_basis_passthrough_beta35_next,
+                prior_disturbed_flag=current_disturbed_flag,
+                prior_hard_flag=current_hard_flag,
+                prior_residual_penalty=current_realization_residual_penalty,
+                multiplier=0.60,
+                cap=0.04,
+            )
         if model_key_in == "hedge_disclosed_bridge_prior_current":
             return _hedge_blend(prior_bridge_current, bridge_spot_next, next_disclosed_share)
         if model_key_in == "hedge_disclosed_bridge_prior_front":
@@ -10016,6 +10063,38 @@ def _same_quarter_last_year_date(qd: Any) -> Optional[date]:
         return None
 
 
+def _gpre_latest_reported_volume_anchor(
+    gallons_by_quarter: Dict[date, float],
+    target_quarter_end: Any,
+    *,
+    include_target: bool = False,
+    max_prior_quarters: Optional[int] = None,
+) -> Tuple[Optional[date], Optional[float]]:
+    if not isinstance(target_quarter_end, date) or not gallons_by_quarter:
+        return None, None
+    candidates = [
+        qd
+        for qd in gallons_by_quarter
+        if isinstance(qd, date)
+        and (qd <= target_quarter_end if include_target else qd < target_quarter_end)
+    ]
+    if not candidates:
+        return None, None
+    anchor_q = max(candidates)
+    if max_prior_quarters is not None:
+        try:
+            target_period = pd.Timestamp(target_quarter_end).to_period("Q")
+            anchor_period = pd.Timestamp(anchor_q).to_period("Q")
+            if int(target_period.ordinal - anchor_period.ordinal) > int(max_prior_quarters):
+                return None, None
+        except Exception:
+            return None, None
+    gallons_num = pd.to_numeric(gallons_by_quarter.get(anchor_q), errors="coerce")
+    if pd.isna(gallons_num) or float(gallons_num) <= 0.0:
+        return None, None
+    return anchor_q, float(gallons_num)
+
+
 def _build_gpre_proxy_implied_results_bundle(
     overlay_preview_bundle: Optional[Dict[str, Any]],
     *,
@@ -10075,6 +10154,8 @@ def _build_gpre_proxy_implied_results_bundle(
             "implied_gallons_million_display": None,
             "volume_basis_display": "Unavailable",
             "volume_basis_comment": "",
+            "volume_anchor_quarter": None,
+            "volume_anchor_quarter_label": "",
             "footprint_scale_factor": None,
             "current_operating_plant_count": None,
             "ly_operating_plant_count": None,
@@ -10181,6 +10262,12 @@ def _build_gpre_proxy_implied_results_bundle(
                         f"No gallons produced available for {_quarter_label(same_quarter_last_year)}."
                     )
                 else:
+                    latest_anchor_q, latest_anchor_gallons = _gpre_latest_reported_volume_anchor(
+                        gallons_by_quarter,
+                        target_quarter_end,
+                        include_target=False,
+                        max_prior_quarters=2,
+                    )
                     current_footprint = _gpre_footprint_for_quarter(
                         target_quarter_end,
                         ticker_root=ticker_root,
@@ -10211,7 +10298,21 @@ def _build_gpre_proxy_implied_results_bundle(
                         if pd.isna(ly_capacity) or float(ly_capacity) <= 0.0
                         else float(ly_capacity)
                     )
-                    if pd.notna(current_capacity) and pd.notna(ly_capacity) and float(ly_capacity) > 0.0 and float(current_capacity) > 0.0:
+                    if latest_anchor_q is not None and latest_anchor_gallons is not None:
+                        record["gallons_source_kind"] = "latest_reported_operating_volume_anchor"
+                        record["volume_anchor_quarter"] = latest_anchor_q
+                        record["volume_anchor_quarter_label"] = _quarter_label(latest_anchor_q)
+                        record["implied_gallons"] = float(latest_anchor_gallons)
+                        record["implied_gallons_raw"] = float(latest_anchor_gallons)
+                        record["implied_gallons_million_display"] = float(latest_anchor_gallons) / 1_000_000.0
+                        record["volume_basis_display"] = "Latest reported actual produced gallons anchor"
+                        record["volume_basis_comment"] = (
+                            f"Uses latest reported {_quarter_label(latest_anchor_q)} actual produced gallons "
+                            f"as the forward operating-volume anchor for {_quarter_label(target_quarter_end)}."
+                        )
+                        record["status"] = "ok"
+                        record["reason_unavailable"] = ""
+                    elif pd.notna(current_capacity) and pd.notna(ly_capacity) and float(ly_capacity) > 0.0 and float(current_capacity) > 0.0:
                         scale_factor = float(current_capacity) / float(ly_capacity)
                         current_capacity_disp = int(round(float(current_capacity)))
                         record["gallons_source_kind"] = "yoy_same_quarter_gallons_produced_capacity_scaled"
@@ -13215,6 +13316,7 @@ def _gpre_futures_timing_weekly_candidate_specs() -> List[Dict[str, Any]]:
         ("60_to_150d", 150, 60, "60-150 days before quarter start"),
     ]
     short_windows = [
+        ("0_to_15d", 15, 0, "0-15 days before quarter start"),
         ("0_to_30d", 30, 0, "0-30 days before quarter start"),
         ("0_to_45d", 45, 0, "0-45 days before quarter start"),
         ("0_to_60d", 60, 0, "0-60 days before quarter start"),
@@ -13408,6 +13510,15 @@ def _gpre_futures_timing_commentary_candidate_specs(commentary_audit_df: pd.Data
     if commentary_audit_df is None or not isinstance(commentary_audit_df, pd.DataFrame) or commentary_audit_df.empty:
         return []
     specs: List[Dict[str, Any]] = []
+    seen_keys: set[str] = set()
+
+    def _append_once(spec: Dict[str, Any]) -> None:
+        key = str(spec.get("candidate_key") or "").strip()
+        if not key or key in seen_keys:
+            return
+        seen_keys.add(key)
+        specs.append(spec)
+
     for rec in commentary_audit_df.to_dict("records"):
         status = str(rec.get("status") or "").strip()
         signal_type = str(rec.get("signal_type") or "").strip()
@@ -13416,7 +13527,7 @@ def _gpre_futures_timing_commentary_candidate_specs(commentary_audit_df: pd.Data
         if not isinstance(qd, date) or pd.isna(hedge_share):
             continue
         if signal_type == "q4_2025_crush_hedge_share" and status == "explicit_share_candidate":
-            specs.append(
+            _append_once(
                 {
                     "candidate_key": "futures_commentary_disclosed_crush_lock_q4_2025",
                     "candidate_label": "Commentary disclosed Q4 crush lock",
@@ -13437,7 +13548,7 @@ def _gpre_futures_timing_commentary_candidate_specs(commentary_audit_df: pd.Data
                 }
             )
         elif signal_type == "q1_2026_natgas_full_hedge" and status == "explicit_commodity_candidate":
-            specs.append(
+            _append_once(
                 {
                     "candidate_key": "futures_commentary_natgas_full_hedge_q1_2026",
                     "candidate_label": "Commentary Q1 gas fully hedged",
@@ -13584,6 +13695,42 @@ def _gpre_futures_timing_candidate_specs() -> List[Dict[str, Any]]:
             "kind": "curve",
             "anchor_key": "qopen",
             "locked_commodities": ("ethanol", "corn"),
+        },
+        {
+            "candidate_key": "futures_qopen_corn_only_ams_basis",
+            "candidate_label": "Corn futures locked (AMS basis sensitivity)",
+            "family": "basis_sensitivity",
+            "family_label": "Basis sensitivity",
+            "timing_rule": "Quarter-open corn futures plus AMS date-matched basis; ethanol and gas actual/current",
+            "timing_window": "Quarter-open corn futures plus AMS date-matched basis",
+            "kind": "curve",
+            "anchor_key": "qopen",
+            "basis_mode": "ams_only",
+            "locked_commodities": ("corn",),
+        },
+        {
+            "candidate_key": "futures_qopen_corn_only_flat_basis",
+            "candidate_label": "Corn futures locked (flat basis sensitivity)",
+            "family": "basis_sensitivity",
+            "family_label": "Basis sensitivity",
+            "timing_rule": "Quarter-open corn futures plus flat historical median basis; ethanol and gas actual/current",
+            "timing_window": "Quarter-open corn futures plus flat historical median basis",
+            "kind": "curve",
+            "anchor_key": "qopen",
+            "basis_mode": "flat_historical",
+            "locked_commodities": ("corn",),
+        },
+        {
+            "candidate_key": "futures_qopen_corn_only_strong_basis_only",
+            "candidate_label": "Corn futures locked (strong basis coverage only)",
+            "family": "basis_sensitivity",
+            "family_label": "Basis sensitivity",
+            "timing_rule": "Quarter-open corn futures, scored only when GPRE bid/cash basis support exists; ethanol and gas actual/current",
+            "timing_window": "Quarter-open corn futures with strong basis support",
+            "kind": "curve",
+            "anchor_key": "qopen",
+            "basis_mode": "official_strong",
+            "locked_commodities": ("corn",),
         },
     ]
     specs.extend(_gpre_futures_timing_weekly_candidate_specs())
@@ -13838,6 +13985,102 @@ def _build_gpre_futures_timing_sandbox(
             if isinstance(qd, date):
                 quarter_records[qd] = dict(rec)
 
+    flat_basis_values: List[float] = []
+    for rec in quarter_records.values():
+        for key in ("weighted_ams_basis_usd_per_bu", "official_weighted_corn_basis_usd_per_bu"):
+            basis_num = pd.to_numeric(rec.get(key), errors="coerce")
+            if pd.notna(basis_num) and np.isfinite(float(basis_num)):
+                flat_basis_values.append(float(basis_num))
+                break
+    flat_basis_proxy_num: Optional[float] = (
+        float(np.nanmedian(flat_basis_values)) if flat_basis_values else None
+    )
+
+    def _corn_basis_mode_payload(corn_ref: Dict[str, Any], corn_futures_price: Any, basis_mode: str) -> Dict[str, Any]:
+        mode = str(basis_mode or "official").strip().lower()
+        cbot_num = pd.to_numeric(corn_futures_price, errors="coerce")
+        if pd.isna(cbot_num):
+            return {
+                "status": "unavailable",
+                "delivered_corn_price": None,
+                "basis_source": "",
+                "missing_data_flags": "corn futures unavailable",
+            }
+        cbot_price = float(cbot_num)
+
+        def _basis_plus_futures(basis_value: Any, source_label: str, missing_label: str) -> Dict[str, Any]:
+            basis_num = pd.to_numeric(basis_value, errors="coerce")
+            if pd.isna(basis_num):
+                return {
+                    "status": "unavailable",
+                    "delivered_corn_price": None,
+                    "basis_source": source_label,
+                    "missing_data_flags": missing_label,
+                }
+            return {
+                "status": "available",
+                "delivered_corn_price": float(cbot_price) + float(basis_num),
+                "basis_source": source_label,
+                "basis_value_usd_per_bu": float(basis_num),
+                "missing_data_flags": "",
+            }
+
+        if mode == "ams_only":
+            return _basis_plus_futures(
+                corn_ref.get("weighted_ams_basis_proxy_usd_per_bu"),
+                "AMS date-matched basis sensitivity",
+                "AMS date-matched basis unavailable",
+            )
+        if mode == "flat_historical":
+            return _basis_plus_futures(
+                flat_basis_proxy_num,
+                "flat historical median basis sensitivity",
+                "flat historical median basis unavailable",
+            )
+
+        if mode == "official_strong":
+            source_kind = str(corn_ref.get("official_corn_basis_source_kind") or "").strip().lower()
+            cash_count = pd.to_numeric(corn_ref.get("official_actual_cash_price_plant_count"), errors="coerce")
+            bid_count = pd.to_numeric(corn_ref.get("official_actual_bid_plant_count"), errors="coerce")
+            strong_source_kinds = {
+                "actual_gpre_bids",
+                "actual_gpre_bids_with_ams_fallback",
+                "actual_gpre_cash_prices",
+                "actual_gpre_cash_prices_with_cbot_basis_fallback",
+            }
+            has_strong_support = (
+                source_kind in strong_source_kinds
+                or (pd.notna(cash_count) and float(cash_count) > 0.0)
+                or (pd.notna(bid_count) and float(bid_count) > 0.0)
+            )
+            if not has_strong_support:
+                return {
+                    "status": "unavailable",
+                    "delivered_corn_price": None,
+                    "basis_source": str(corn_ref.get("official_corn_basis_source_label") or "official basis").strip(),
+                    "missing_data_flags": "weak basis provenance excluded from strong-basis sensitivity",
+                }
+
+        delivered_context = _gpre_delivered_corn_from_context(corn_ref, cbot_corn_price=cbot_price)
+        if delivered_context:
+            label = str(delivered_context.get("source_label") or "official GPRE cash/basis").strip()
+            if mode == "official_strong":
+                label = f"{label} (strong basis sensitivity)"
+            return {
+                "status": "available",
+                "delivered_corn_price": float(delivered_context["delivered_corn_price"]),
+                "basis_source": label,
+                "missing_data_flags": "",
+            }
+        label = str(corn_ref.get("official_corn_basis_source_label") or "official weighted basis").strip()
+        if mode == "official_strong":
+            label = f"{label} (strong basis sensitivity)"
+        return _basis_plus_futures(
+            corn_ref.get("official_weighted_corn_basis_usd_per_bu"),
+            label,
+            "corn basis unavailable",
+        )
+
     def _snapshot_record(snapshot_in: Optional[Dict[str, Any]], qd: Optional[date]) -> Dict[str, Any]:
         if not isinstance(snapshot_in, dict) or not isinstance(qd, date):
             return {}
@@ -13943,17 +14186,16 @@ def _build_gpre_futures_timing_sandbox(
                 reason = str((ref or {}).get("fallback_reason") or "missing futures strip").strip()
                 missing_bits.append(f"{label}: {missing or reason}")
         corn_futures = pd.to_numeric(corn_ref.get("price_value"), errors="coerce")
-        delivered_corn = None
-        if pd.notna(corn_futures):
-            delivered_context = _gpre_delivered_corn_from_context(corn_ref, cbot_corn_price=float(corn_futures))
-            if delivered_context:
-                delivered_corn = float(delivered_context["delivered_corn_price"])
-            else:
-                basis_num = pd.to_numeric(corn_ref.get("official_weighted_corn_basis_usd_per_bu"), errors="coerce")
-                if pd.notna(basis_num):
-                    delivered_corn = float(corn_futures) + float(basis_num)
-                else:
-                    missing_bits.append("corn basis: missing official date-matched basis")
+        basis_mode_payloads = {
+            mode: _corn_basis_mode_payload(corn_ref, corn_futures, mode)
+            for mode in ("official", "ams_only", "flat_historical", "official_strong")
+        }
+        official_basis_payload = dict(basis_mode_payloads.get("official") or {})
+        delivered_corn = official_basis_payload.get("delivered_corn_price")
+        if delivered_corn is None:
+            missing_bits.append(
+                f"corn basis: {str(official_basis_payload.get('missing_data_flags') or 'missing official date-matched basis')}"
+            )
         ethanol_price = pd.to_numeric((refs["ethanol"] or {}).get("price_value"), errors="coerce")
         gas_price = pd.to_numeric((refs["natural_gas"] or {}).get("price_value"), errors="coerce")
         margin = None
@@ -13979,7 +14221,8 @@ def _build_gpre_futures_timing_sandbox(
             "corn_futures_price": (None if pd.isna(corn_futures) else float(corn_futures)),
             "delivered_corn_price": delivered_corn,
             "natural_gas_price": (None if pd.isna(gas_price) else float(gas_price)),
-            "basis_source": str(corn_ref.get("official_corn_basis_source_label") or "official basis").strip(),
+            "basis_source": str(official_basis_payload.get("basis_source") or corn_ref.get("official_corn_basis_source_label") or "official basis").strip(),
+            "basis_mode_payloads": basis_mode_payloads,
         }
         curve_cache[cache_key] = bundle
         return bundle
@@ -14130,6 +14373,7 @@ def _build_gpre_futures_timing_sandbox(
         selected_prices = ""
         source_files = ""
         basis_source = ""
+        basis_mode = str(spec.get("basis_mode") or "official").strip().lower()
         delivered_corn = None
         corn_futures = None
         expected_anchor_count = None
@@ -14248,10 +14492,21 @@ def _build_gpre_futures_timing_sandbox(
             elif ethanol_price is None:
                 missing_bits.append("actual/current ethanol missing")
             if "corn" in locked:
-                delivered_corn = curve.get("delivered_corn_price")
                 corn_futures = curve.get("corn_futures_price")
+                corn_missing_added = False
+                if basis_mode and basis_mode != "official":
+                    mode_payloads = dict(curve.get("basis_mode_payloads") or {})
+                    mode_payload = dict(mode_payloads.get(basis_mode) or {})
+                    delivered_corn = mode_payload.get("delivered_corn_price")
+                    basis_source = str(mode_payload.get("basis_source") or basis_source or "").strip()
+                    if delivered_corn is None:
+                        missing_bits.append(str(mode_payload.get("missing_data_flags") or "corn futures/basis sensitivity unavailable"))
+                        corn_missing_added = True
+                else:
+                    delivered_corn = curve.get("delivered_corn_price")
                 if delivered_corn is None:
-                    missing_bits.append(str(curve.get("missing_data_flags") or "corn futures/basis unavailable"))
+                    if not corn_missing_added:
+                        missing_bits.append(str(curve.get("missing_data_flags") or "corn futures/basis unavailable"))
             elif delivered_corn is None:
                 missing_bits.append("actual/current delivered corn missing")
             if "natural_gas" in locked:
@@ -14362,6 +14617,8 @@ def _build_gpre_futures_timing_sandbox(
         avg_anchor_coverage = float(coverage_values.dropna().mean()) if not coverage_values.dropna().empty else np.nan
         status = "insufficient_sample" if usable < _GPRE_FUTURES_TIMING_MIN_USABLE_QUARTERS else "comparison_only"
         notes = "Sandbox/comparison-only; no production promotion."
+        if str(spec.get("family") or "") == "basis_sensitivity":
+            notes = f"{notes} Basis sensitivity only; not a predictive hedge rule."
         if unavailable_labels:
             notes = f"{notes} Unavailable: {', '.join(unavailable_labels[:6])}."
         leaderboard_rows.append(
@@ -16218,7 +16475,29 @@ def weighted_coproduct_context(
     distillers_yield_num = pd.to_numeric(coefficient_values.get("distillers_yield"), errors="coerce")
     uhp_yield_num = pd.to_numeric(coefficient_values.get("uhp_yield"), errors="coerce")
     corn_oil_yield_num = pd.to_numeric(coefficient_values.get("renewable_corn_oil_yield"), errors="coerce")
-    raw_gallons = pd.to_numeric(dict(reported_gallons_produced_by_quarter or {}).get(quarter_end), errors="coerce")
+    reported_gallons_map: Dict[date, float] = {}
+    for raw_qd, raw_val in dict(reported_gallons_produced_by_quarter or {}).items():
+        parsed_qd = parse_quarter_like(raw_qd)
+        gallons_num = pd.to_numeric(raw_val, errors="coerce")
+        if parsed_qd is None or pd.isna(gallons_num):
+            continue
+        gallons_float = float(gallons_num)
+        if not np.isfinite(gallons_float) or gallons_float <= 0.0:
+            continue
+        reported_gallons_map[parsed_qd] = gallons_float
+    raw_gallons = pd.to_numeric(reported_gallons_map.get(quarter_end), errors="coerce")
+    gallons_anchor_quarter = quarter_end if pd.notna(raw_gallons) and float(raw_gallons) > 0.0 else None
+    gallons_source_kind = "actual_reported_quarter_gallons_produced" if gallons_anchor_quarter else ""
+    if gallons_anchor_quarter is None:
+        gallons_anchor_quarter, latest_anchor_gallons = _gpre_latest_reported_volume_anchor(
+            reported_gallons_map,
+            quarter_end,
+            include_target=False,
+            max_prior_quarters=2,
+        )
+        raw_gallons = pd.to_numeric(latest_anchor_gallons, errors="coerce")
+        if gallons_anchor_quarter is not None and pd.notna(raw_gallons) and float(raw_gallons) > 0.0:
+            gallons_source_kind = "latest_reported_operating_volume_anchor"
     gallons_million_display = (
         None
         if pd.isna(raw_gallons) or float(raw_gallons) <= 0.0
@@ -16438,6 +16717,14 @@ def weighted_coproduct_context(
             distillers_rec.get("source_mode"),
         ),
         "coverage_ratio": coverage_ratio,
+        "gallons_source_kind": gallons_source_kind,
+        "gallons_anchor_quarter": gallons_anchor_quarter,
+        "gallons_anchor_quarter_label": (
+            _quarter_label(gallons_anchor_quarter)
+            if isinstance(gallons_anchor_quarter, date)
+            else ""
+        ),
+        "gallons_million_display": gallons_million_display,
         "rule": (
             "Weighted exact-quarter averages using quarter-aware active-capacity plant footprint and plant-to-region coproduct mapping."
             if str(mode or "").strip().lower() != "quarter_open"
@@ -16512,6 +16799,15 @@ def _gpre_coproduct_frame_record(
     uhp_value_num = pd.to_numeric(primary.get("uhp_price"), errors="coerce")
     if pd.isna(uhp_value_num):
         uhp_value_num = pd.to_numeric(fallback.get("uhp_price"), errors="coerce")
+    gallons_million_num = pd.to_numeric(primary.get("gallons_million_display"), errors="coerce")
+    gallons_source_kind = str(primary.get("gallons_source_kind") or "").strip()
+    gallons_anchor_quarter = primary.get("gallons_anchor_quarter")
+    gallons_anchor_label = str(primary.get("gallons_anchor_quarter_label") or "").strip()
+    if pd.isna(gallons_million_num):
+        gallons_million_num = pd.to_numeric(fallback.get("gallons_million_display"), errors="coerce")
+        gallons_source_kind = str(fallback.get("gallons_source_kind") or gallons_source_kind).strip()
+        gallons_anchor_quarter = fallback.get("gallons_anchor_quarter") or gallons_anchor_quarter
+        gallons_anchor_label = str(fallback.get("gallons_anchor_quarter_label") or gallons_anchor_label).strip()
     if str(frame_key or "").strip() == "quarter_open":
         rule_text = (
             "Early-quarter weighted observation snapshot where available; prior-quarter carry-forward fills missing coproduct legs."
@@ -16565,6 +16861,20 @@ def _gpre_coproduct_frame_record(
         and abs(float(ethanol_yield_num)) > 1e-9
         else None
     )
+    out["approximate_coproduct_credit_usd_m"] = (
+        float(out["approximate_coproduct_credit_per_gal"]) * float(gallons_million_num)
+        if out["approximate_coproduct_credit_per_gal"] is not None
+        and pd.notna(gallons_million_num)
+        and abs(float(gallons_million_num)) > 1e-9
+        else None
+    )
+    out["gallons_source_kind"] = gallons_source_kind
+    out["gallons_anchor_quarter"] = gallons_anchor_quarter if isinstance(gallons_anchor_quarter, date) else None
+    out["gallons_anchor_quarter_label"] = (
+        gallons_anchor_label
+        or (_quarter_label(gallons_anchor_quarter) if isinstance(gallons_anchor_quarter, date) else "")
+    )
+    out["gallons_million_display"] = None if pd.isna(gallons_million_num) else float(gallons_million_num)
     coverage_candidates = [
         float(val)
         for val in (corn_coverage_ratio, distillers_coverage_ratio)

@@ -247,7 +247,7 @@ def is_cumulative_buyback_context(text_in: Any) -> bool:
         return False
     return bool(
         re.search(
-            r"\b(since inception|to date|since starting(?:\s+the\s+program)?|since the beginning|authorized up to|authorization remained|remaining authorization|remaining capacity|may repurchase|under the program we may repurchase|no other repurchase was made during|no repurchase was made during)\b",
+            r"\b(since inception|to date|since starting(?:\s+the\s+program)?|since the beginning|authorized up to|authorization remained|remaining authorization|remaining capacity|may repurchase|under the program we may repurchase|did not repurchase any shares|no shares were repurchased|no other repurchase was made during|no repurchase was made during)\b",
             text,
             re.I,
         )
@@ -364,6 +364,9 @@ def analyze_cap_alloc_doc(
             must_have_pat=r"\b(repurchased|repurchasing|bought\s+back|at\s+total\s+cost|cash\s+flow\s+into\s+repurchasing|spent)\b",
             deny_pat=r"\b(authoriz|capacity|remaining|increased?\s+.*repurchase\s+authorization)\b",
         )
+        if bb is not None and is_cumulative_buyback_context(bb_sent or ""):
+            bb = None
+            bb_sent = None
         analysis["buyback_quarter_sentence_amount"] = bb
         analysis["buyback_quarter_sentence_text"] = bb_sent
         if bb is None:

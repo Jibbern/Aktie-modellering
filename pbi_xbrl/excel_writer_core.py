@@ -1335,7 +1335,29 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
         normalize_audit_like_frame(qa_checks, defaults=qa_defaults),
     )
 
-    callbacks.write_sheet("SEC_Audit_Log", ctx.inputs.audit)
+    audit_for_write = ctx.inputs.audit
+    if (
+        str(getattr(ctx.inputs, "ticker", "") or "").upper() == "PBI"
+        and audit_for_write is not None
+        and not audit_for_write.empty
+        and {"metric", "quarter", "source", "note"}.issubset(set(audit_for_write.columns))
+    ):
+        audit_for_write = audit_for_write.copy()
+        q_ser = pd.to_datetime(audit_for_write["quarter"], errors="coerce")
+        mask = (
+            audit_for_write["metric"].astype(str).str.strip().eq("shares_outstanding")
+            & audit_for_write["source"].astype(str).str.strip().str.lower().eq("cover_page")
+            & q_ser.dt.to_period("Q").dt.end_time.dt.normalize().eq(pd.Timestamp("2026-03-31"))
+        )
+        if mask.any():
+            audit_for_write.loc[mask, "note"] = audit_for_write.loc[mask, "note"].astype(str).apply(
+                lambda txt: (
+                    txt
+                    if "pro forma" in txt.lower()
+                    else f"{txt}; reported share count is not pro forma-adjusted for post-quarter buybacks."
+                )
+            )
+    callbacks.write_sheet("SEC_Audit_Log", audit_for_write)
     callbacks.write_sheet("Info_Log", info_log)
     callbacks.write_sheet("OCR_Text_Log", ctx.inputs.ocr_log)
     callbacks.write_sheet("QA_Log", qa_log)

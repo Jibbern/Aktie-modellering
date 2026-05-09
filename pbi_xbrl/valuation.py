@@ -143,20 +143,26 @@ def valuation_engine(
     implied_ev_m = market_cap_m + net_debt_m if (market_cap_m is not None and net_debt_m is not None) else None
 
     ev_tieout_diff_m = None
-    if implied_ev_m is not None and market_cap_m is not None and debt_core_m is not None and cash_m is not None:
-        ev_from_components = market_cap_m + debt_core_m - cash_m
-        ev_tieout_diff_m = implied_ev_m - ev_from_components
-        if abs(ev_tieout_diff_m) > 0.001:
-            warns.append(f"WARN: EV tieout mismatch {ev_tieout_diff_m:.6f}m")
-    else:
-        warns.append("WARN: EV tieout incomplete (missing debt/cash)")
+    if implied_ev_m is not None and market_cap_m is not None:
+        if debt_core_m is not None and cash_m is not None:
+            ev_from_components = market_cap_m + debt_core_m - cash_m
+            ev_tieout_diff_m = implied_ev_m - ev_from_components
+            if abs(ev_tieout_diff_m) > 0.001:
+                warns.append(f"WARN: EV tieout mismatch {ev_tieout_diff_m:.6f}m")
+        else:
+            warns.append("WARN: EV tieout incomplete (missing debt/cash)")
 
     implied_ev_ebitda = None
+    implied_ev_adj_ebitda = None
     if implied_ev_m is not None:
         if ebitda_ttm_m is None or ebitda_ttm_m <= 0:
             warns.append("WARN: EBITDA_TTM<=0; implied EV/EBITDA set NA")
         else:
             implied_ev_ebitda = implied_ev_m / ebitda_ttm_m
+        if adj_ebitda_ttm_m is None or adj_ebitda_ttm_m <= 0:
+            warns.append("WARN: Adj EBITDA_TTM<=0; implied EV/Adj EBITDA set NA")
+        else:
+            implied_ev_adj_ebitda = implied_ev_m / adj_ebitda_ttm_m
 
     fcff_proxy_ttm_m = None
     if fcf_ttm_m is not None and int_paid_ttm_m is not None:
@@ -168,6 +174,10 @@ def valuation_engine(
             warns.append("WARN: FCF_TTM<=0 or FCFF proxy missing; implied FCF yield set NA")
         else:
             implied_fcf_yield = _safe_div(fcff_proxy_ttm_m, implied_ev_m)
+
+    equity_fcf_yield = None
+    if market_cap_m is not None:
+        equity_fcf_yield = _safe_div(fcf_ttm_m, market_cap_m)
 
     if implied_ev_m is not None and implied_ev_m < 0:
         fails.append("FAIL: EV < 0")
@@ -281,7 +291,9 @@ def valuation_engine(
         },
         "implied_ev": implied_ev_m,
         "implied_ev_ebitda": implied_ev_ebitda,
+        "implied_ev_adj_ebitda": implied_ev_adj_ebitda,
         "implied_fcf_yield": implied_fcf_yield,
+        "equity_fcf_yield": equity_fcf_yield,
         "ev_tieout_diff_m": ev_tieout_diff_m,
         "base_target_price": scenario_out.get("base", {}).get("target_price"),
         "base_expected_return": scenario_out.get("base", {}).get("expected_return"),
@@ -315,8 +327,10 @@ def valuation_to_frames(valuation_outputs: Dict[str, Any]) -> Tuple[pd.DataFrame
         {"metric": "fcf_ttm_m", "value": inp.get("fcf_ttm_m"), "unit": "$m", "section": "inputs"},
         {"metric": "fcff_proxy_ttm_m", "value": inp.get("fcff_proxy_ttm_m"), "unit": "$m", "section": "inputs"},
         {"metric": "implied_ev_m", "value": valuation_outputs.get("implied_ev"), "unit": "$m", "section": "implied"},
+        {"metric": "implied_ev_adj_ebitda", "value": valuation_outputs.get("implied_ev_adj_ebitda"), "unit": "x", "section": "implied"},
         {"metric": "implied_ev_ebitda", "value": valuation_outputs.get("implied_ev_ebitda"), "unit": "x", "section": "implied"},
         {"metric": "implied_fcf_yield", "value": valuation_outputs.get("implied_fcf_yield"), "unit": "%", "section": "implied"},
+        {"metric": "equity_fcf_yield", "value": valuation_outputs.get("equity_fcf_yield"), "unit": "%", "section": "implied"},
         {"metric": "ev_tieout_diff_m", "value": valuation_outputs.get("ev_tieout_diff_m"), "unit": "$m", "section": "qa"},
         {"metric": "base_target_price", "value": valuation_outputs.get("base_target_price"), "unit": "$/share", "section": "scenarios"},
         {"metric": "base_expected_return", "value": valuation_outputs.get("base_expected_return"), "unit": "%", "section": "scenarios"},
@@ -335,7 +349,7 @@ def valuation_to_frames(valuation_outputs: Dict[str, Any]) -> Tuple[pd.DataFrame
     if not grid_df.empty:
         grid_df = grid_df.rename(
             columns={
-                "multiple": "ev_ebitda_multiple",
+                "multiple": "ev_adj_ebitda_multiple",
                 "bear_eq_share": "bear_price",
                 "base_eq_share": "base_price",
                 "bull_eq_share": "bull_price",

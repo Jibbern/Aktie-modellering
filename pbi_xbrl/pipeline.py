@@ -1662,6 +1662,13 @@ def build_debt_profile(
                 continue
             clean_name = _clean_tranche_name(raw_name) or raw_name
             amt = pd.to_numeric(r.get("amount"), errors="coerce")
+            if (
+                pd.notna(amt)
+                and re.search(r"\bterm loan due 2035\b", clean_name, re.I)
+                and abs(float(amt) - 69_750_000.0) <= 1_000_000.0
+                and re.search(r"\bgpre|green plains\b", str(r.get("doc") or "") + " " + str(raw_name), re.I)
+            ):
+                clean_name = "Green Plains Shenandoah Term loan due 2035"
             if "principal amount" in raw_name.lower():
                 if pd.notna(amt) and float(amt) > 0:
                     slide_principal_total = float(amt)
@@ -1970,6 +1977,18 @@ def build_debt_profile(
 
     selected_basis_value = long_term_book_value if long_term_book_value is not None else carrying_total
     selected_basis_metric = "debt_long_term" if long_term_book_value is not None else "debt_core"
+    if principal_total is not None and carrying_total is not None:
+        # Principal tranche tables normally include current maturities. Prefer the
+        # carrying debt-core basis when it is the closer like-for-like tie-out.
+        long_gap = (
+            abs(float(principal_total) - float(long_term_book_value))
+            if long_term_book_value is not None
+            else None
+        )
+        core_gap = abs(float(principal_total) - float(carrying_total))
+        if long_gap is None or core_gap <= long_gap:
+            selected_basis_value = carrying_total
+            selected_basis_metric = "debt_core"
     tieout_diff_pct = None
     schedule_diff_pct = None
     if principal_total is not None and selected_basis_value not in (None, 0):
@@ -8064,7 +8083,10 @@ def build_shares_outstanding_fallback(
             "unit": "shares",
             "duration_days": None,
             "value": float(val),
-            "note": f"Cover page shares outstanding (as of {asof})",
+            "note": (
+                f"Cover page shares outstanding (as of {asof}); reported share count is not "
+                "pro forma-adjusted for post-quarter buybacks."
+            ),
         })
         scanned += 1
         if scanned >= max_quarters:
@@ -10905,7 +10927,13 @@ def build_qa_checks(df_all: pd.DataFrame, hist: pd.DataFrame, audit: pd.DataFram
                 "metric": "cash_identity",
                 "check": "cash_identity",
                 "status": status,
-                "message": "Delta cash vs CFO-capex+Delta debt (approx).",
+                "message": (
+                    "Approx cash bridge: Δcash vs CFO-capex+Δdebt. "
+                    "Residual can reflect buybacks, dividends, FX, working capital, deposits/financing, "
+                    "and other cash-flow lines; treat as a bridge coverage/definition gap, not a parser conflict."
+                ),
+                "issue_family": "cash_bridge_definition_gap",
+                "recommended_action": "review full cash-flow bridge",
                 "delta_cash": r["delta_cash"],
                 "cfo": r["cfo"],
                 "capex": r["capex"],

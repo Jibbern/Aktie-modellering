@@ -461,6 +461,50 @@ class BaseMarketProvider:
         # responsible for deliberate multi-period history downloads.
         return [max(selected_pool, key=lambda item: item[1])]
 
+    def _align_direct_asset_dates_to_public_data_ranges(
+        self,
+        direct_candidates: List[Dict[str, Any]],
+        public_candidates: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Use public_data period end dates for weekly PDF assets when available.
+
+        USDA weekly PDF links often live under a URL folder named after the report
+        begin date, while the report itself and public_data rows are keyed to the
+        week end / report date. Aligning keeps JSON and PDF filenames together.
+        """
+        ranges: List[tuple[date, date]] = []
+        for candidate in list(public_candidates or []):
+            label = str(candidate.get("label") or "")
+            match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\s+to\s+(20\d{2}-\d{2}-\d{2})\b", label)
+            if not match:
+                continue
+            begin_ts = self._date_from_value(match.group(1))
+            end_ts = self._date_from_value(match.group(2))
+            if begin_ts is None or end_ts is None:
+                continue
+            begin = begin_ts.date()
+            end = end_ts.date()
+            if end > begin:
+                ranges.append((begin, end))
+        if not ranges:
+            return list(direct_candidates or [])
+
+        out: List[Dict[str, Any]] = []
+        for candidate in list(direct_candidates or []):
+            item = dict(candidate)
+            report_ts = self._date_from_value(item.get("report_date"))
+            asset_type = str(item.get("asset_type") or "").strip().lower()
+            if asset_type == "pdf" and report_ts is not None:
+                report_dt = report_ts.date()
+                for begin, end in ranges:
+                    if report_dt == begin:
+                        item["report_date"] = pd.Timestamp(end)
+                        item["report_begin_date"] = pd.Timestamp(begin)
+                        item["date_alignment_note"] = "pdf_url_begin_date_aligned_to_public_data_report_end"
+                        break
+            out.append(item)
+        return out
+
     def _discover_public_data_assets(self, *, as_of: Optional[date], cache_root: Optional[Path]) -> List[Dict[str, Any]]:
         # Priority 1: structured USDA public_data JSON. It is more stable than the
         # viewReport landing-page HTML because the app's filter/search endpoints return
@@ -784,6 +828,7 @@ class BaseMarketProvider:
                         "report_date": self._remote_date_from_text(url, label, page_url),
                     }
                 )
+        direct_candidates = self._align_direct_asset_dates_to_public_data_ranges(direct_candidates, public_candidates)
         deduped: Dict[tuple[str, str], Dict[str, Any]] = {}
         for cand in direct_candidates:
             url = str(cand.get("url") or "").strip()

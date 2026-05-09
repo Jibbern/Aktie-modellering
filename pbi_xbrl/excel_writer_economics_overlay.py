@@ -186,8 +186,16 @@ def _write_proxy_implied_results_panel(
     ):
         return
 
-    helper_gallons_row = int(inputs.bridge_panel_rows.get("underlying_crush_margin") or 0)
-    helper_basis_row = int(inputs.bridge_panel_rows.get("reported_consolidated_crush_margin") or 0)
+    helper_gallons_row = int(
+        inputs.bridge_panel_rows.get("proxy_implied_gallons")
+        or inputs.bridge_panel_rows.get("underlying_crush_margin")
+        or 0
+    )
+    helper_basis_row = int(
+        inputs.bridge_panel_rows.get("proxy_implied_volume_basis")
+        or inputs.bridge_panel_rows.get("reported_consolidated_crush_margin")
+        or 0
+    )
     if helper_gallons_row <= 0 or helper_basis_row <= 0:
         helper_gallons_row = fitted_bridge_row + 2
         helper_basis_row = fitted_bridge_row + 3
@@ -208,6 +216,13 @@ def _write_proxy_implied_results_panel(
         "current_qtd": 6,
         "next_quarter_thesis": 8,
     }
+    prior_bridge_col = 0
+    prior_quarter_label = str(inputs.prior_quarter_header_text or "").strip()
+    if prior_quarter_label:
+        for col_idx in range(2, panel_start_col):
+            if str(ws.cell(row=panel_subheader_row, column=col_idx).value or "").strip() == prior_quarter_label:
+                prior_bridge_col = col_idx
+                break
     proxy_implied_frames = dict(inputs.proxy_implied_results_bundle.get("frames") or {})
     neighbor_width = ws.column_dimensions["U"].width or ws.column_dimensions["T"].width or 13.86
     for col_idx in range(helper_label_start_col, helper_label_end_col + 1):
@@ -331,23 +346,44 @@ def _write_proxy_implied_results_panel(
         gallons_cell_ref = f"{get_column_letter(start_col)}{helper_gallons_row}"
         official_proxy_ref = f"{get_column_letter(proxy_src_col)}{official_proxy_comp_row}"
         fitted_proxy_ref = f"{get_column_letter(proxy_src_col)}{fitted_proxy_comp_row}"
-        ws.cell(
-            row=approx_bridge_row,
-            column=start_col,
-            value=f'=IF(AND(ISNUMBER({official_proxy_ref}),ISNUMBER({gallons_cell_ref})),{official_proxy_ref}*{gallons_cell_ref},"")',
-        ).number_format = "0.0;-0.0"
-        ws.cell(
-            row=fitted_bridge_row,
-            column=start_col,
-            value=f'=IF(AND(ISNUMBER({fitted_proxy_ref}),ISNUMBER({gallons_cell_ref})),{fitted_proxy_ref}*{gallons_cell_ref},"")',
-        ).number_format = "0.0;-0.0"
-        if forward_bridge_row > 0 and best_forward_proxy_comp_row > 0:
-            forward_proxy_ref = f"{get_column_letter(proxy_src_col)}{best_forward_proxy_comp_row}"
+        if frame_key == "prior_quarter" and prior_bridge_col > 0:
+            official_bridge_ref = f"{get_column_letter(prior_bridge_col)}{approx_bridge_row}"
+            fitted_bridge_ref = f"{get_column_letter(prior_bridge_col)}{fitted_bridge_row}"
             ws.cell(
-                row=forward_bridge_row,
+                row=approx_bridge_row,
                 column=start_col,
-                value=f'=IF(AND(ISNUMBER({forward_proxy_ref}),ISNUMBER({gallons_cell_ref})),{forward_proxy_ref}*{gallons_cell_ref},"")',
+                value=f'=IF(ISNUMBER({official_bridge_ref}),{official_bridge_ref},"")',
             ).number_format = "0.0;-0.0"
+            ws.cell(
+                row=fitted_bridge_row,
+                column=start_col,
+                value=f'=IF(ISNUMBER({fitted_bridge_ref}),{fitted_bridge_ref},"")',
+            ).number_format = "0.0;-0.0"
+            if forward_bridge_row > 0 and best_forward_proxy_comp_row > 0:
+                forward_bridge_ref = f"{get_column_letter(prior_bridge_col)}{forward_bridge_row}"
+                ws.cell(
+                    row=forward_bridge_row,
+                    column=start_col,
+                    value=f'=IF(ISNUMBER({forward_bridge_ref}),{forward_bridge_ref},"")',
+                ).number_format = "0.0;-0.0"
+        else:
+            ws.cell(
+                row=approx_bridge_row,
+                column=start_col,
+                value=f'=IF(AND(ISNUMBER({official_proxy_ref}),ISNUMBER({gallons_cell_ref})),{official_proxy_ref}*{gallons_cell_ref},"")',
+            ).number_format = "0.0;-0.0"
+            ws.cell(
+                row=fitted_bridge_row,
+                column=start_col,
+                value=f'=IF(AND(ISNUMBER({fitted_proxy_ref}),ISNUMBER({gallons_cell_ref})),{fitted_proxy_ref}*{gallons_cell_ref},"")',
+            ).number_format = "0.0;-0.0"
+            if forward_bridge_row > 0 and best_forward_proxy_comp_row > 0:
+                forward_proxy_ref = f"{get_column_letter(proxy_src_col)}{best_forward_proxy_comp_row}"
+                ws.cell(
+                    row=forward_bridge_row,
+                    column=start_col,
+                    value=f'=IF(AND(ISNUMBER({forward_proxy_ref}),ISNUMBER({gallons_cell_ref})),{forward_proxy_ref}*{gallons_cell_ref},"")',
+                ).number_format = "0.0;-0.0"
 
         implied_gallons_display_num = pd.to_numeric(frame_rec.get("implied_gallons_million_display"), errors="coerce")
         gallons_cell = ws.cell(row=helper_gallons_row, column=start_col)

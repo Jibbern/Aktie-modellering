@@ -602,6 +602,22 @@ def parse_debt_tranches_from_primary_doc(
             used_col_idx = int(amt_col_idx)
             amt_cell_local = row_vals[used_col_idx] if used_col_idx < len(row_vals) else None
             amt_local = coerce_number(amt_cell_local)
+            row_text_local = " ".join(str(v) for v in row_vals)
+            is_summary_debt_row = bool(
+                re.search(
+                    r"\b(principal\s+amount|unamortized|total\s+debt|current\s+portion\s+long[- ]term\s+debt|long[- ]term\s+debt)\b",
+                    row_text_local,
+                    re.I,
+                )
+            )
+            if selected_col_is_asof and is_summary_debt_row and used_col_idx > 0:
+                # Some SEC debt tables omit the interest-rate column for summary
+                # rows, shifting the current-period summary amount one cell left
+                # while instrument rows still align under the date header.
+                left_cell = row_vals[used_col_idx - 1]
+                left_amt = coerce_number(left_cell)
+                if left_amt is not None and abs(float(left_amt)) >= 1_000.0:
+                    return float(left_amt), int(used_col_idx - 1)
             if selected_col_is_asof and (_is_blankish_amount_cell(amt_cell_local) or amt_local is None or amt_local == 0):
                 if _is_currency_placeholder_cell(amt_cell_local):
                     for next_idx in range(used_col_idx + 1, min(len(row_vals), used_col_idx + 3)):
@@ -618,7 +634,6 @@ def parse_debt_tranches_from_primary_doc(
                 and amt_local is not None
                 and abs(float(amt_local)) < 100.0
             ):
-                row_text_local = " ".join(str(v) for v in row_vals)
                 has_rate_context = bool(
                     re.search(r"\b(%|convertible|notes?\s+due|term\s+loan)\b", row_text_local, re.I)
                 )
@@ -645,11 +660,15 @@ def parse_debt_tranches_from_primary_doc(
                 continue
             ln = name.lower()
             row_text = " ".join(str(v) for v in row_vals).lower()
-            if "total" in ln and "debt" in ln:
+            ln_normalized = re.sub(r"\s+", " ", ln.replace("–", "-").replace("—", "-")).strip()
+            is_long_term_summary_row = bool(
+                re.fullmatch(r"long[- ]term debt|longterm debt", ln_normalized)
+            )
+            if ("total" in ln and "debt" in ln) or is_long_term_summary_row:
                 amt, used_amt_col_idx = _extract_row_amount(row_vals)
                 if amt is not None:
                     local_table_total_label = name
-                    if "long-term" in ln or "long term" in ln or "longterm" in ln:
+                    if is_long_term_summary_row or "long-term" in ln or "long term" in ln or "longterm" in ln:
                         local_table_total_long_term_debt = float(amt) * scale
                     else:
                         local_table_total_debt = float(amt) * scale

@@ -16,6 +16,185 @@ import pandas as pd
 from .guidance_lexicon import normalize_text as glx_normalize_text
 
 
+GPRE_45Z_ACCOUNTING_DISCLOSURE_NOTE = (
+    "Beginning Q1 2026, Green Plains records Section 45Z production tax credits as a reduction "
+    "of cost of goods sold under ASU 2025-10. As a result, gross margin, operating income, "
+    "EBITDA and consolidated crush margin may include 45Z credit value. Base-business metrics "
+    "excluding 45Z are shown separately for comparability."
+)
+
+
+GPRE_45Z_DRIVER_VALUE_FIELDS: Dict[str, str] = {
+    "adjusted_ebitda_reported": "adjusted_ebitda_total_m",
+    "45z_adjusted_ebitda_component": "adjusted_ebitda_45z_m",
+    "adjusted_ebitda_ex_45z_base_business": "adjusted_ebitda_base_business_m",
+    "45z_ethanol_cogs_crush_component": "ethanol_production_45z_cogs_m",
+    "production_tax_credits_current_asset": "production_tax_credits_balance_sheet_m",
+    "production_tax_credits_working_capital_increase": "production_tax_credits_working_capital_increase_m",
+}
+
+
+def _gpre_45z_amount_to_m(raw_value: Any, unit: Any = "", *, assume_thousands: bool = False) -> Optional[float]:
+    raw = str(raw_value or "").strip()
+    if not raw:
+        return None
+    neg = bool(re.search(r"^\s*\(", raw))
+    cleaned = re.sub(r"[$,\s()]", "", raw)
+    if not cleaned or cleaned in {"-", "\u2014"}:
+        return None
+    try:
+        value = float(cleaned)
+    except ValueError:
+        return None
+    if neg:
+        value = -abs(value)
+    unit_txt = str(unit or "").strip().lower()
+    if unit_txt in {"b", "bn", "billion"}:
+        return float(value) * 1000.0
+    if unit_txt in {"m", "mm", "million"}:
+        return float(value)
+    if assume_thousands or "," in raw:
+        return float(value) / 1000.0
+    return float(value)
+
+
+def _first_amount_m(text: str, patterns: Tuple[re.Pattern[str], ...], *, assume_thousands: bool = False) -> Optional[float]:
+    for pat in patterns:
+        m = pat.search(text)
+        if not m:
+            continue
+        unit = m.group(2) if (m.lastindex or 0) >= 2 else ""
+        val = _gpre_45z_amount_to_m(m.group(1), unit, assume_thousands=assume_thousands)
+        if val is not None:
+            return float(val)
+    return None
+
+
+def extract_gpre_45z_accounting_memo(text_in: Any) -> Dict[str, Any]:
+    """Extract the narrow GPRE 45Z accounting bridge disclosed from Q1 2026 onward."""
+    txt = glx_normalize_text(str(text_in or "").replace("\x00", " "))
+    if not txt or not re.search(r"\b(?:45z|production tax credits?)\b", txt, re.I):
+        return {}
+    treatment_is_asu_cogs = bool(
+        re.search(r"\bASU\s*2025-10\b", txt, re.I)
+        and re.search(r"\breduction of cost of goods sold\b", txt, re.I)
+        and re.search(r"\bproduction tax credits?\b", txt, re.I)
+    )
+
+    adjusted_total = _first_amount_m(
+        txt,
+        (
+            re.compile(r"\$\s*([0-9]{1,3}(?:,\d{3})+(?:\.\d+)?)\s+\$?\s*\(?[0-9,.\-]+\)?\s+Adjusted EBITDA\b", re.I),
+            re.compile(r"\bAdjusted EBITDA\b[^.]{0,160}?\$\s*([0-9]{1,3}(?:,\d{3})+(?:\.\d+)?)\b", re.I),
+        ),
+        assume_thousands=True,
+    )
+    if adjusted_total is None:
+        adjusted_total = _first_amount_m(
+            txt,
+            (
+                re.compile(r"\bAdjusted EBITDA\s+of\s+\$?\s*([0-9]{1,3}(?:\.\d+)?)\s*(million|m)\b", re.I),
+            ),
+        )
+
+    adjusted_45z = _first_amount_m(
+        txt,
+        (
+            re.compile(
+                r"\binclusive of\b[^.]{0,120}?\$?\s*([0-9]{1,3}(?:\.\d+)?)\s*(million|m)\s+in\s+45Z production tax credit value",
+                re.I,
+            ),
+            re.compile(
+                r"\$?\s*([0-9]{1,3}(?:\.\d+)?)\s*(million|m)\s+in\s+45Z production tax credit value",
+                re.I,
+            ),
+            re.compile(
+                r"\b45Z production tax credits?\s+recorded net of discounts[^.]{0,80}?\$?\s*([0-9]{1,3}(?:\.\d+)?)\s*(million|m)\b",
+                re.I,
+            ),
+        ),
+    )
+    base_business = _first_amount_m(
+        txt,
+        (
+            re.compile(r"\$?\s*([0-9]{1,3}(?:\.\d+)?)\s*(million|m)\s+from the base business\b", re.I),
+        ),
+    )
+    if adjusted_total is not None and adjusted_45z is not None:
+        base_business = float(adjusted_total) - float(adjusted_45z)
+
+    ethanol_cogs_45z = _first_amount_m(
+        txt,
+        (
+            re.compile(
+                r"Ethanol production includes\s+\$?\s*([0-9]{1,3}(?:\.\d+)?)\s*(million|m)\s+of\s+45Z production tax credits?[^.]{0,180}?recorded as a reduction of cost of goods sold",
+                re.I,
+            ),
+        ),
+    )
+
+    reported_crush = _first_amount_m(
+        txt,
+        (
+            re.compile(r"\$\s*([0-9]{1,3}(?:,\d{3})+(?:\.\d+)?)\s+\$?\s*\(?[0-9,.\-]+\)?\s+Consolidated ethanol crush margin\b", re.I),
+        ),
+        assume_thousands=True,
+    )
+    if reported_crush is None:
+        reported_crush = _first_amount_m(
+            txt,
+            (
+                re.compile(r"\bconsolidated ethanol crush margin\s+was\s+\$?\s*([0-9]{1,3}(?:\.\d+)?)\s*(million|m)\b", re.I),
+            ),
+        )
+
+    ptc_match = re.search(
+        r"\bProduction tax credits\s+\$?\s*([0-9]{1,3}(?:,\d{3})+(?:\.\d+)?)\s+\$?\s*([0-9]{1,3}(?:,\d{3})+(?:\.\d+)?)\b",
+        txt,
+        re.I,
+    )
+    ptc_current = None
+    ptc_prior = None
+    if ptc_match:
+        ptc_current = _gpre_45z_amount_to_m(ptc_match.group(1), assume_thousands=True)
+        ptc_prior = _gpre_45z_amount_to_m(ptc_match.group(2), assume_thousands=True)
+
+    cash_received = _first_amount_m(
+        txt,
+        (
+            re.compile(r"\bcash (?:received|collected)[^.]{0,80}?45Z[^.]{0,80}?\$?\s*([0-9]{1,3}(?:\.\d+)?)\s*(million|m)\b", re.I),
+            re.compile(r"\b45Z[^.]{0,80}?cash (?:received|collected)[^.]{0,80}?\$?\s*([0-9]{1,3}(?:\.\d+)?)\s*(million|m)\b", re.I),
+        ),
+    )
+
+    out: Dict[str, Any] = {
+        "accounting_treatment_45z": "ASU2025-10_cogs_reduction" if treatment_is_asu_cogs else "",
+        "gross_margin_includes_45z": bool(treatment_is_asu_cogs),
+        "ebitda_includes_45z": bool(treatment_is_asu_cogs and adjusted_45z is not None),
+        "crush_margin_includes_45z": bool(treatment_is_asu_cogs and ethanol_cogs_45z is not None),
+        "adjusted_ebitda_total_m": adjusted_total,
+        "adjusted_ebitda_45z_m": adjusted_45z,
+        "adjusted_ebitda_base_business_m": base_business,
+        "ethanol_production_45z_cogs_m": ethanol_cogs_45z,
+        "reported_consolidated_crush_margin_m": reported_crush,
+        "production_tax_credits_balance_sheet_m": ptc_current,
+        "production_tax_credits_prior_balance_sheet_m": ptc_prior,
+        "production_tax_credits_cash_received_m": cash_received,
+        "q1_q2_2025_statement_45z_recognized": not bool(
+            re.search(r"No Section 45Z[^.]{0,120}?first or second quarters of 2025[^.]{0,120}?no adjustments", txt, re.I)
+        ),
+    }
+    if reported_crush is not None and ethanol_cogs_45z is not None:
+        out["crush_margin_ex_45z_m"] = float(reported_crush) - float(ethanol_cogs_45z)
+    else:
+        out["crush_margin_ex_45z_m"] = None
+    if ptc_current is not None and ptc_prior is not None:
+        out["production_tax_credits_working_capital_increase_m"] = float(ptc_current) - float(ptc_prior)
+    else:
+        out["production_tax_credits_working_capital_increase_m"] = None
+    return out
+
+
 @dataclass
 class OperatingDriversRuntime:
     template_index_cache: Optional[Dict[str, Any]] = None
@@ -221,6 +400,70 @@ def extract_operating_driver_rows_for_template(
             quarter_records=quarter_records,
         )
         runtime.template_candidate_cache[cache_key] = candidate_records
+
+    if deps.is_gpre_profile and (key in GPRE_45Z_DRIVER_VALUE_FIELDS or key == "45z_accounting_treatment_cogs_reduction"):
+        if qd < date(2026, 3, 31):
+            return []
+        best_row: Optional[Dict[str, Any]] = None
+        best_score = -10_000.0
+        for rec in candidate_records:
+            text_blob = str(rec.get("text") or "")
+            memo = extract_gpre_45z_accounting_memo(text_blob)
+            if memo.get("accounting_treatment_45z") != "ASU2025-10_cogs_reduction":
+                continue
+            score = 70.0 - float(rec.get("source_rank") or 0) * 5.0 - float(rec.get("_fragment_penalty") or 0) * 3.0
+            if str(rec.get("source_type") or "").strip().lower() == "earnings_release":
+                score += 4.0
+            if key == "45z_accounting_treatment_cogs_reduction":
+                value = None
+                unit = ""
+                commentary = GPRE_45Z_ACCOUNTING_DISCLOSURE_NOTE
+                quality = "text-derived"
+            else:
+                field = GPRE_45Z_DRIVER_VALUE_FIELDS[key]
+                value = memo.get(field)
+                if value is None:
+                    continue
+                unit = str(getattr(tpl, "preferred_unit", "") or "$m")
+                quality = "exact"
+                if key in {
+                    "adjusted_ebitda_reported",
+                    "45z_adjusted_ebitda_component",
+                    "adjusted_ebitda_ex_45z_base_business",
+                }:
+                    commentary = (
+                        "Adjusted EBITDA bridge separates reported total, 45Z included in EBITDA, "
+                        "and base-business ex-45Z EBITDA."
+                    )
+                elif key == "45z_ethanol_cogs_crush_component":
+                    commentary = (
+                        "45Z amount recorded as ethanol-production COGS reduction; used for the crush ex-45Z bridge."
+                    )
+                elif key == "production_tax_credits_current_asset":
+                    commentary = (
+                        "45Z production tax credits receivable/current asset recognized on the balance sheet; "
+                        "earned credits are not cash until monetized or collected."
+                    )
+                else:
+                    commentary = "Increase in production tax credits asset is a working-capital drag until monetized."
+            if score > best_score:
+                best_score = score
+                best_row = make_driver_row(
+                    qd,
+                    key,
+                    group,
+                    label,
+                    str(rec.get("source_type") or ""),
+                    str(rec.get("source_doc") or ""),
+                    driver_source_display_fn=deps.driver_source_display_fn,
+                    driver_source_note_fn=deps.driver_source_note_fn,
+                    commentary=commentary,
+                    quality=quality,
+                    value=value,
+                    unit=unit,
+                    source_note=deps.driver_source_note_fn(rec.get("source_doc"), commentary),
+                )
+        return [best_row] if best_row is not None else []
 
     if key == "utilization":
 
@@ -457,6 +700,19 @@ def extract_operating_driver_rows_for_template(
                 source_type = str(rec.get("source_type") or "")
                 if source_type not in {"earnings_release", "presentation"}:
                     continue
+                accounting_memo = extract_gpre_45z_accounting_memo(rec.get("text"))
+                memo_crush = pd.to_numeric(
+                    accounting_memo.get("reported_consolidated_crush_margin_m") if accounting_memo else None,
+                    errors="coerce",
+                )
+                if pd.notna(memo_crush):
+                    source_type_low = source_type.strip().lower()
+                    official_rank = 0 if source_type_low == "earnings_release" else 1 if source_type_low == "presentation" else 2
+                    rank = (official_rank, int(rec.get("source_rank") or 99))
+                    snippet = "Consolidated ethanol crush margin from the Q1 2026 45Z accounting bridge table."
+                    if same_quarter_best is None or rank < same_quarter_best[0]:
+                        same_quarter_best = (rank, rec, float(memo_crush), snippet)
+                    continue
                 parsed_pair = deps.parse_gpre_crush_margin_pair_fn(rec.get("text"))
                 if not parsed_pair:
                     continue
@@ -569,6 +825,37 @@ def extract_operating_driver_rows_for_template(
                 ]
 
     if key == "45z_value_realized":
+        if deps.is_gpre_profile and qd >= date(2026, 3, 31):
+            best: Optional[Dict[str, Any]] = None
+            best_score = -10_000.0
+            for rec in candidate_records:
+                memo = extract_gpre_45z_accounting_memo(rec.get("text"))
+                val = pd.to_numeric(memo.get("adjusted_ebitda_45z_m") if memo else None, errors="coerce")
+                if pd.isna(val):
+                    continue
+                score = 68.0 - float(rec.get("source_rank") or 0) * 5.0 - float(rec.get("_fragment_penalty") or 0) * 3.0
+                if str(rec.get("source_type") or "").strip().lower() == "earnings_release":
+                    score += 4.0
+                if score > best_score:
+                    commentary = "45Z production tax credit value included in Adjusted EBITDA, net of discounts and costs."
+                    best_score = score
+                    best = make_driver_row(
+                        qd,
+                        key,
+                        group,
+                        label,
+                        str(rec.get("source_type") or ""),
+                        str(rec.get("source_doc") or ""),
+                        driver_source_display_fn=deps.driver_source_display_fn,
+                        driver_source_note_fn=deps.driver_source_note_fn,
+                        commentary=commentary,
+                        quality="exact",
+                        value=float(val),
+                        unit="$m",
+                        source_note=deps.driver_source_note_fn(rec.get("source_doc"), commentary),
+                    )
+            if best is not None:
+                return [best]
         best: Optional[Dict[str, Any]] = None
         best_score = -10_000.0
         for rec in candidate_records:
@@ -1017,11 +1304,18 @@ def build_operating_drivers_history_rows(
             errors="coerce",
         )
         consolidated = float(consolidated_val) if pd.notna(consolidated_val) else bundle_components.get("consolidated")
+        cogs_45z_val = pd.to_numeric(
+            row_map.get((qd, "45z_ethanol_cogs_crush_component", ""), {}).get("Value"),
+            errors="coerce",
+        )
+        cogs_45z = float(cogs_45z_val) if pd.notna(cogs_45z_val) else None
         ex_45z_val = None
         ex_45z_quality = "modeled"
         if "ex_45z" in bundle_components:
             ex_45z_val = float(bundle_components["ex_45z"])
             ex_45z_quality = "exact"
+        elif consolidated is not None and cogs_45z is not None:
+            ex_45z_val = float(consolidated) - float(cogs_45z)
         elif consolidated is not None and "45z" in bundle_components and same_basis_bridge:
             ex_45z_val = float(consolidated) - float(bundle_components["45z"])
         if ex_45z_val is not None:

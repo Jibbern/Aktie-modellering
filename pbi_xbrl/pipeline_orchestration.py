@@ -64,7 +64,7 @@ from .pipeline_types import PipelineArtifacts, PipelineConfig
 from .source_material_refresh import _looks_preliminary_results_guidance_update
 
 
-LOCAL_NON_GAAP_FALLBACK_VERSION = 14
+LOCAL_NON_GAAP_FALLBACK_VERSION = 15
 LOCAL_NON_GAAP_PDF_PAGE_CACHE_VERSION = 1
 DOC_INTEL_BEHAVIOR_VERSION = "v17_workbook_dataflow_hardening"
 COMPANY_OVERVIEW_BEHAVIOR_VERSION = "v8_topic_aware_summary_dataflow_hardening"
@@ -130,6 +130,195 @@ def _local_non_gaap_page_scores(text: str) -> Dict[str, int]:
     if ("adjusted segment" in t or "reportable segments" in t) and "reconciliation of reported" not in t:
         score["non_gaap"] = min(score["non_gaap"], 1)
     return score
+
+
+def _detect_local_non_gaap_text_scale(text: str) -> float:
+    txt = str(text or "")
+    if re.search(r"\(\s*\$?\s*0{3}s?\s*\)|\$\s*0{3}s?\b|in\s+\$?0{3}s?", txt, re.I):
+        return 1000.0
+    if re.search(r"in\s+millions", txt, re.I):
+        return 1_000_000.0
+    if re.search(r"in\s+thousands", txt, re.I):
+        return 1000.0
+    return 1.0
+
+
+def _local_non_gaap_three_month_lines(lines: List[str]) -> List[str]:
+    start = None
+    end = None
+    for i, ln in enumerate(lines):
+        if re.search(r"three\s+months\s+ended|quarter\s+ended", ln, re.I):
+            start = i
+            continue
+        if start is not None and re.search(r"six\s+months|nine\s+months|twelve\s+months|year\s+ended|fiscal\s+year", ln, re.I):
+            if i - start <= 3:
+                continue
+            end = i
+            break
+    if start is not None:
+        return lines[start:end] if end is not None else lines[start:]
+    return lines
+
+
+def _local_non_gaap_years_from_3m_lines(lines: List[str]) -> List[int]:
+    years: List[int] = []
+    for i, ln in enumerate(lines[:40]):
+        if re.search(r"three months|quarter ended", ln, re.I):
+            yrs = [int(y) for y in re.findall(r"(20\d{2})", ln)]
+            if not yrs:
+                for j in range(1, 3):
+                    if i + j < len(lines):
+                        yrs.extend([int(y) for y in re.findall(r"(20\d{2})", lines[i + j])])
+            for y in yrs:
+                if y not in years:
+                    years.append(y)
+            if years:
+                break
+    return years
+
+
+def _canonical_local_non_gaap_segment_name(segment_in: Any) -> str:
+    low = re.sub(r"\s+", " ", str(segment_in or "").strip().lower())
+    if not low:
+        return ""
+    if "sending technology" in low or re.search(r"\bsendtech\b", low):
+        return "SendTech Solutions"
+    if "presort" in low:
+        return "Presort Services"
+    if "total reportable" in low:
+        return "Total reportable segments"
+    return re.sub(r"\s+", " ", str(segment_in or "").strip())
+
+
+def _local_non_gaap_amount_values(line_txt: str, *, scale: float) -> List[float]:
+    clean = re.sub(r"\(?-?\d+(?:\.\d+)?%\)?", "", str(line_txt or ""))
+    values: List[float] = []
+    for token in re.findall(r"\(?-?\d{1,3}(?:,\d{3})*(?:\.\d+)?\)?", clean):
+        value = coerce_number(token)
+        if value is None:
+            continue
+        if 1900 <= float(value) <= 2100 and len(str(int(value))) == 4:
+            continue
+        values.append(float(value) * scale)
+    return values
+
+
+def _pick_local_non_gaap_values_by_year(
+    values: List[float],
+    years: List[int],
+    q_end: Optional[dt.date],
+    count: int,
+) -> Optional[List[float]]:
+    if len(values) < count:
+        return None
+    if years and q_end is not None and len(values) >= count * 2:
+        year = int(q_end.year)
+        if year == years[0]:
+            return values[:count]
+        if len(years) > 1 and year == years[1]:
+            return values[count : count * 2]
+    return values[:count]
+
+
+def _parse_local_non_gaap_segment_rows_from_text(
+    text: str,
+    q_end: Optional[dt.date],
+) -> List[Dict[str, Any]]:
+    if not text or q_end is None:
+        return []
+    lines = [re.sub(r"\s+", " ", ln).strip() for ln in str(text or "").splitlines() if ln.strip()]
+    lines_3m = _local_non_gaap_three_month_lines(lines)
+    years = _local_non_gaap_years_from_3m_lines(lines_3m)
+    scale = _detect_local_non_gaap_text_scale(text)
+    page_low = str(text or "").lower()
+    is_revenue_schedule = "business segment revenue" in page_low or (
+        "total revenue" in page_low and "adjusted segment" not in page_low
+    )
+    rows: List[Dict[str, Any]] = []
+
+    for line in lines_3m:
+        low = line.lower()
+        segment = ""
+        if "sending technology" in low or re.search(r"\bsendtech\b", low):
+            segment = "SendTech Solutions"
+        elif "presort" in low:
+            segment = "Presort Services"
+        elif "total reportable" in low:
+            segment = "Total reportable segments"
+        if not segment:
+            continue
+
+        values = _local_non_gaap_amount_values(line, scale=scale)
+        if is_revenue_schedule and segment != "Total reportable segments":
+            picked = _pick_local_non_gaap_values_by_year(values, years, q_end, 1)
+            if picked:
+                rows.append(
+                    {
+                        "quarter": q_end,
+                        "segment": segment,
+                        "metric": "revenue",
+                        "value": picked[0],
+                        "unit": "USD",
+                    }
+                )
+            continue
+
+        picked3 = _pick_local_non_gaap_values_by_year(values, years, q_end, 3)
+        if not picked3:
+            continue
+        rows.append({"quarter": q_end, "segment": segment, "metric": "adj_segment_ebit", "value": picked3[0], "unit": "USD"})
+        rows.append({"quarter": q_end, "segment": segment, "metric": "adj_segment_da", "value": picked3[1], "unit": "USD"})
+        rows.append({"quarter": q_end, "segment": segment, "metric": "adj_segment_ebitda", "value": picked3[2], "unit": "USD"})
+    return rows
+
+
+def _local_non_gaap_segment_row_score(row: Dict[str, Any]) -> Tuple[float, float]:
+    doc = str(row.get("doc") or "").lower()
+    source = str(row.get("source") or "").lower()
+    page = row.get("page")
+    value = pd.to_numeric(row.get("value"), errors="coerce")
+    value_abs = abs(float(value)) if pd.notna(value) else 0.0
+    score = 0.0
+    if "earnings_release" in source:
+        score += 30.0
+    if doc.endswith(".pdf"):
+        score += 45.0
+    if pd.notna(page):
+        score += 15.0
+    if "financial_statement" in source or "financial_statement" in doc:
+        score -= 20.0
+    if value_abs >= 1_000_000.0:
+        score += 8.0
+    elif value_abs and value_abs < 750_000.0:
+        score -= 12.0
+    if "q1_2026_earnings_release" in doc:
+        score += 20.0
+    return score, value_abs
+
+
+def _dedupe_local_non_gaap_segment_rows(rows: pd.DataFrame) -> pd.DataFrame:
+    if rows is None or rows.empty:
+        return pd.DataFrame()
+    df = rows.copy()
+    if "quarter" not in df.columns or "segment" not in df.columns or "metric" not in df.columns:
+        return df
+    df["quarter"] = pd.to_datetime(df["quarter"], errors="coerce")
+    df["segment"] = df["segment"].map(_canonical_local_non_gaap_segment_name)
+    df["metric"] = df["metric"].astype(str).str.strip()
+    df["value"] = pd.to_numeric(df.get("value"), errors="coerce")
+    df = df[df["quarter"].notna() & df["segment"].astype(bool) & df["metric"].astype(bool) & df["value"].notna()].copy()
+    if df.empty:
+        return df
+    scores = [_local_non_gaap_segment_row_score(row) for row in df.to_dict("records")]
+    df["_source_score"] = [score for score, _abs_value in scores]
+    df["_abs_value"] = [_abs_value for _score, _abs_value in scores]
+    df = (
+        df.sort_values(["quarter", "segment", "metric", "_source_score", "_abs_value"], ascending=[True, True, True, False, False])
+        .drop_duplicates(subset=["quarter", "segment", "metric"], keep="first")
+        .drop(columns=["_source_score", "_abs_value"], errors="ignore")
+        .reset_index(drop=True)
+    )
+    return df
 
 
 def _local_non_gaap_has_financial_statement_files(base_dir: Path, ticker: str = "") -> bool:
@@ -227,6 +416,7 @@ def _parse_financial_statement_debt_table_html(path_in: Path, q_end: Optional[dt
         if df is None or df.empty:
             continue
         candidate_rows: List[Dict[str, Any]] = []
+        pending_debt_group = ""
         for _, row in df.fillna("").iterrows():
             values = [_norm_text(v) for v in row.tolist()]
             nonempty = [v for v in values if v]
@@ -235,10 +425,21 @@ def _parse_financial_statement_debt_table_html(path_in: Path, q_end: Optional[dt
             lead_cells = [v for v in values[:3] if v]
             label = lead_cells[0] if lead_cells else nonempty[0]
             low = label.lower()
+            if low.startswith("corporate"):
+                pending_debt_group = ""
+                continue
+            if low.startswith("green plains"):
+                has_amount = any(
+                    coerce_number(cell) is not None
+                    and abs(float(coerce_number(cell) or 0.0)) > 0
+                    for cell in nonempty[1:]
+                    if "%" not in str(cell).lower()
+                )
+                if not has_amount:
+                    pending_debt_group = label
+                    continue
             if low.startswith(
                 (
-                    "corporate",
-                    "green plains",
                     "total book value",
                     "unamortized",
                     "less:",
@@ -259,6 +460,14 @@ def _parse_financial_statement_debt_table_html(path_in: Path, q_end: Optional[dt
             )
             if not is_debt_row:
                 continue
+            display_label = label
+            if (
+                pending_debt_group
+                and "tallgrass term loan" in low
+                and not low.startswith(pending_debt_group.lower())
+            ):
+                display_label = f"{pending_debt_group} {label}"
+                pending_debt_group = ""
             nums: List[float] = []
             for cell in nonempty[1:]:
                 cell_low = cell.lower()
@@ -278,7 +487,7 @@ def _parse_financial_statement_debt_table_html(path_in: Path, q_end: Optional[dt
             candidate_rows.append(
                 {
                     "quarter": q_end,
-                    "tranche": label[:180],
+                    "tranche": display_label[:180],
                     "amount": nums[0] * 1000.0,
                     "maturity_year": int(maturity_match.group(1)) if maturity_match else None,
                     "unit": "USD",
@@ -641,7 +850,9 @@ def run_pipeline_impl(
         # and reused by both workbook debt tabs and downstream QA.
         debt_tranches_key = "|".join(
             [
-                "v1",
+                # v2 invalidates stale debt-table parses after summary rows with
+                # shifted current-period amounts were aligned to the date header.
+                "v2",
                 f"sub={submissions_sig}",
                 f"max_q={config.max_quarters}",
                 f"min_year={config.min_year}",
@@ -782,46 +993,13 @@ def run_pipeline_impl(
             return _local_non_gaap_actuals_allowed_for_source(src_name, path_in.name, txt)
 
         def _detect_scale_txt(t: str) -> float:
-            if re.search(r"\(\s*\$?\s*0{3}s?\s*\)|\$\s*0{3}s?\b|in\s+\$?0{3}s?", t, re.I):
-                return 1000.0
-            if re.search(r"in\s+millions", t, re.I):
-                return 1_000_000.0
-            if re.search(r"in\s+thousands", t, re.I):
-                return 1000.0
-            return 1.0
+            return _detect_local_non_gaap_text_scale(t)
 
         def _years_3m_from_text(lines: List[str]) -> List[int]:
-            years: List[int] = []
-            for i, ln in enumerate(lines[:40]):
-                if re.search(r"three months|quarter ended", ln, re.I):
-                    yrs = [int(y) for y in re.findall(r"(20\d{2})", ln)]
-                    if not yrs:
-                        for j in range(1, 3):
-                            if i + j < len(lines):
-                                yrs.extend([int(y) for y in re.findall(r"(20\d{2})", lines[i + j])])
-                    for y in yrs:
-                        if y not in years:
-                            years.append(y)
-                    if years:
-                        break
-            return years
+            return _local_non_gaap_years_from_3m_lines(lines)
 
         def _slice_three_month_block_local(lines: List[str]) -> List[str]:
-            start = None
-            end = None
-            for i, ln in enumerate(lines):
-                if re.search(r"three\\s+months\\s+ended|quarter\\s+ended", ln, re.I):
-                    start = i
-                    continue
-                if start is not None and re.search(r"six\\s+months|nine\\s+months|twelve\\s+months|year\\s+ended|fiscal\\s+year", ln, re.I):
-                    # Allow header lines that show 3M/6M side by side before the data rows.
-                    if i - start <= 3:
-                        continue
-                    end = i
-                    break
-            if start is not None:
-                return lines[start:end] if end is not None else lines[start:]
-            return lines
+            return _local_non_gaap_three_month_lines(lines)
 
         def _three_month_end_from_text(txt: str) -> Optional[dt.date]:
             if not txt:
@@ -923,54 +1101,7 @@ def run_pipeline_impl(
             )
 
         def _parse_segment_from_text(txt: str, q_end: Optional[dt.date]) -> List[Dict[str, Any]]:
-            if not txt or q_end is None:
-                return []
-            lines = [re.sub(r"\s+", " ", ln).strip() for ln in txt.splitlines() if ln.strip()]
-            lines_3m = _slice_three_month_block_local(lines)
-            years = _years_3m_from_text(lines_3m)
-            scale = _detect_scale_txt(txt)
-
-            def _pick3(nums: List[float]) -> Optional[List[float]]:
-                if not nums:
-                    return None
-                if len(nums) >= 6:
-                    nums = nums[:6]
-                if len(nums) >= 3:
-                    if len(nums) >= 6 and years:
-                        y = int(q_end.year)
-                        if y == years[0]:
-                            return nums[:3]
-                        if len(years) > 1 and y == years[1]:
-                            return nums[3:6]
-                    return nums[:3]
-                return None
-
-            seg_rows: List[Dict[str, Any]] = []
-            for ln in lines_3m:
-                l = ln.lower()
-                if not ("sending technology" in l or "presort" in l or "total reportable" in l):
-                    continue
-                ln_clean = re.sub(r"\(?-?\d+(?:\.\d+)?%\)?", "", ln)
-                nums = []
-                for t in re.findall(r"\(?-?\d{1,3}(?:,\d{3})*(?:\.\d+)?\)?", ln_clean):
-                    v = coerce_number(t)
-                    if v is None:
-                        continue
-                    if 1900 <= float(v) <= 2100 and len(str(int(v))) == 4:
-                        continue
-                    nums.append(float(v) * scale)
-                trio = _pick3(nums)
-                if not trio:
-                    continue
-                seg_name = "Total reportable segments"
-                if "sending technology" in l:
-                    seg_name = "Sending Technology Solutions"
-                elif "presort" in l:
-                    seg_name = "Presort Services"
-                seg_rows.append({"quarter": q_end, "segment": seg_name, "metric": "adj_segment_ebit", "value": trio[0], "unit": "USD"})
-                seg_rows.append({"quarter": q_end, "segment": seg_name, "metric": "adj_segment_da", "value": trio[1], "unit": "USD"})
-                seg_rows.append({"quarter": q_end, "segment": seg_name, "metric": "adj_segment_ebitda", "value": trio[2], "unit": "USD"})
-            return seg_rows
+            return _parse_local_non_gaap_segment_rows_from_text(txt, q_end)
 
         def _parse_debt_profile_from_text(txt: str, q_end: Optional[dt.date]) -> List[Dict[str, Any]]:
             if not txt:
@@ -1799,7 +1930,7 @@ def run_pipeline_impl(
             pass
         df_debt = _limit_recent_financial_statement_debt_rows(pd.DataFrame(rows_debt))
         df_debt = _drop_financial_statement_debt_rows_covered_by_slides(df_debt)
-        return df_m, pd.DataFrame(rows_f), pd.DataFrame(rows_seg), df_debt, pd.DataFrame(rows_guid)
+        return df_m, pd.DataFrame(rows_f), _dedupe_local_non_gaap_segment_rows(pd.DataFrame(rows_seg)), df_debt, pd.DataFrame(rows_guid)
 
     # Use local fallback only when EX-99 (strict/relaxed) missing for a quarter
     if config.enable_tier3_non_gaap:

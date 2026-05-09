@@ -1288,6 +1288,74 @@ def test_nwer_public_data_refresh_downloads_json_and_pdf_to_weekly_folder(monkey
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_nwer_public_data_refresh_names_weekly_pdf_by_report_end_date(monkeypatch) -> None:
+    provider = NWERProvider()
+    conditions = {
+        "reportBeginDates": ["2026-05-04"],
+        "reportEndDates": ["2026-05-08"],
+    }
+    detail_payload = {
+        "reportSection": "Report Detail",
+        "results": [
+            {
+                "slug_id": 3616,
+                "report_begin_date": "05/04/2026",
+                "report_end_date": "05/08/2026",
+                "report_date": "05/04/2026",
+                "commodity": "Ethanol",
+                "state/Province": "Nebraska",
+                "avg_price": 1.75,
+            }
+        ],
+    }
+    landing_html = "<html><body><div>Slug Id: 3616</div></body></html>"
+    latest_html = """
+    {"html":"<a href=\"/filerepo/sites/default/files/3616/2026-05-04/1323101/ams_3616_00190.pdf\">Latest Report</a>"}
+    """
+
+    def _fake_text(url: str, *, extra_headers: dict[str, str] | None = None) -> str:
+        del extra_headers
+        if "ajax-get-conditions" in url:
+            return json.dumps(conditions)
+        if "get_latest_release" in url:
+            return latest_html
+        if "get_previous_release" in url:
+            return "{\"html\":\"\"}"
+        return landing_html
+
+    def _fake_bytes(url: str, *, extra_headers: dict[str, str] | None = None) -> bytes:
+        del extra_headers
+        if "ajax-search-data" in url:
+            return json.dumps(detail_payload).encode("utf-8")
+        return b"%PDF-1.4 weekly ethanol report"
+
+    monkeypatch.setattr(provider, "_today", lambda: date(2026, 5, 9))
+    monkeypatch.setattr(provider, "_fetch_text_diagnostic", _diagnostic_text_stub(_fake_text))
+    monkeypatch.setattr(provider, "_fetch_bytes_diagnostic", _diagnostic_bytes_stub(_fake_bytes))
+
+    tmp_path = _local_test_dir(".pytest_tmp_market_nwer_public_data_pdf_end_date_")
+    try:
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ensure_market_cache_dirs(cache_root)
+        ticker_root = tmp_path / "GPRE"
+
+        result = provider.sync_raw(cache_root, ticker_root, refresh=True)
+        weekly_dir = ticker_root / "USDA_weekly_data"
+
+        assert (weekly_dir / "nwer_2026-05-08_data.json").exists()
+        assert (weekly_dir / "nwer_2026-05-08.pdf").exists()
+        assert not (weekly_dir / "nwer_2026-05-04.pdf").exists()
+        assert {
+            ("pdf", "2026-05-08T00:00:00"),
+            ("json", "2026-05-08T00:00:00"),
+        } <= {
+            (str(entry.get("asset_type") or ""), str(entry.get("report_date") or ""))
+            for entry in result["entries"]
+        }
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_usda_release_fragment_urls_accept_visible_slug_text() -> None:
     provider = NWERProvider()
     landing_html = """
@@ -4319,6 +4387,36 @@ def test_gpre_proxy_implied_results_bundle_uses_actual_prior_quarter_produced_ga
     assert float(pd.to_numeric(prior_frame["implied_gallons_raw"], errors="coerce")) == pytest.approx(180_000_000.0, abs=1e-6)
     assert "Uses actual 2026-Q1 gallons produced." in str(prior_frame["volume_basis_comment"] or "")
     assert str(prior_frame["reasonableness_status"] or "") == "within_tolerance"
+
+
+def test_gpre_proxy_implied_results_bundle_uses_latest_reported_anchor_for_forward_frames() -> None:
+    bundle = market_service._build_gpre_proxy_implied_results_bundle(
+        _gpre_proxy_implied_overlay_bundle_fixture(),
+        reported_gallons_produced_by_quarter={
+            date(2026, 3, 31): 174_196_000.0,
+            date(2025, 6, 30): 170_000_000.0,
+            date(2025, 9, 30): 178_000_000.0,
+        },
+        denominator_policy_by_quarter={},
+        ticker_root=None,
+    )
+
+    for frame_key, proxy_value in (
+        ("quarter_open", 0.230),
+        ("current_qtd", 0.260),
+        ("next_quarter_thesis", 0.310),
+    ):
+        frame = bundle["frames"][frame_key]
+        assert str(frame["status"] or "") == "ok"
+        assert str(frame["gallons_source_kind"] or "") == "latest_reported_operating_volume_anchor"
+        assert frame["volume_anchor_quarter"] == date(2026, 3, 31)
+        assert str(frame["volume_anchor_quarter_label"] or "") == "2026-Q1"
+        assert float(pd.to_numeric(frame["implied_gallons_raw"], errors="coerce")) == pytest.approx(174_196_000.0, abs=1e-6)
+        assert float(pd.to_numeric(frame["gpre_proxy_implied_result_usd_m"], errors="coerce")) == pytest.approx(
+            proxy_value * 174_196_000.0 / 1_000_000.0,
+            abs=1e-9,
+        )
+        assert "latest reported 2026-Q1 actual produced gallons" in str(frame["volume_basis_comment"] or "")
 
 
 def test_gpre_proxy_implied_results_bundle_flags_reasonableness_above_capacity_tolerance() -> None:
@@ -8784,6 +8882,46 @@ def test_gpre_futures_timing_sandbox_blend_uses_official_simple_without_double_c
     assert float(qopen["delivered_corn_price_usd_per_bu"]) == pytest.approx(float(qopen["corn_futures_price_usd_per_bu"]) + 0.10, abs=1e-9)
 
 
+def test_gpre_futures_timing_basis_sensitivity_is_sandbox_only_and_excludes_weak_basis() -> None:
+    study = market_service._build_gpre_futures_timing_sandbox(
+        _gpre_futures_timing_quarterly_fixture(),
+        _gpre_futures_timing_q2_rows(),
+        ethanol_yield=2.9,
+        natural_gas_usage=28000.0,
+        as_of_date=date(2026, 5, 4),
+    )
+
+    details = study["quarter_detail_df"]
+    official = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_qopen_corn_only")
+    ].iloc[0].to_dict()
+    ams_only = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_qopen_corn_only_ams_basis")
+    ].iloc[0].to_dict()
+    flat_basis = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_qopen_corn_only_flat_basis")
+    ].iloc[0].to_dict()
+    strong_only = details[
+        (details["quarter_label"] == "2026-Q2")
+        & (details["candidate_key"] == "futures_qopen_corn_only_strong_basis_only")
+    ].iloc[0].to_dict()
+    leaderboard = study["candidate_leaderboard_df"]
+    ams_score = leaderboard[leaderboard["candidate_key"] == "futures_qopen_corn_only_ams_basis"].iloc[0].to_dict()
+
+    assert ams_only["availability_status"] == "available"
+    assert flat_basis["availability_status"] == "available"
+    assert ams_only["pred_value_usd_per_gal"] == pytest.approx(official["pred_value_usd_per_gal"], abs=1e-9)
+    assert flat_basis["pred_value_usd_per_gal"] == pytest.approx(official["pred_value_usd_per_gal"], abs=1e-9)
+    assert "AMS date-matched basis sensitivity" in ams_only["basis_source"]
+    assert "flat historical median basis sensitivity" in flat_basis["basis_source"]
+    assert strong_only["availability_status"] == "unavailable"
+    assert "weak basis provenance" in strong_only["missing_data_flags"]
+    assert "Basis sensitivity only" in str(ams_score["notes"])
+
+
 def test_gpre_futures_timing_weekly_anchor_generation_includes_newest_edge_and_respects_asof() -> None:
     anchors = market_service._gpre_futures_timing_weekly_anchor_dates(
         date(2026, 4, 1),
@@ -8806,6 +8944,12 @@ def test_gpre_futures_timing_weekly_anchor_generation_includes_newest_edge_and_r
         window_end_days=0,
         as_of_date=date(2026, 3, 20),
     ) == [date(2026, 3, 2), date(2026, 3, 9), date(2026, 3, 16)]
+    assert market_service._gpre_futures_timing_weekly_anchor_dates(
+        date(2026, 4, 1),
+        window_start_days=15,
+        window_end_days=0,
+        as_of_date=date(2026, 4, 1),
+    ) == [date(2026, 3, 17), date(2026, 3, 24), date(2026, 3, 31), date(2026, 4, 1)]
 
 
 def test_gpre_futures_timing_weekly_weight_shapes_are_deterministic() -> None:
@@ -8907,6 +9051,37 @@ def test_gpre_futures_timing_weekly_commodity_specific_locks_only_requested_inpu
     assert weekly["locked_commodities_label"] == "Corn"
     assert "FLJ26" not in weekly["selected_symbols"]
     assert "NGJ26" not in weekly["selected_symbols"]
+    assert "futures_weekly_0_to_15d_corn_equal" in set(study["candidate_leaderboard_df"]["candidate_key"].astype(str))
+
+
+def test_gpre_futures_timing_commentary_candidate_specs_are_deduped() -> None:
+    audit = pd.DataFrame(
+        [
+            {
+                "source_doc": "doc_a.txt",
+                "target_quarter": date(2026, 3, 31),
+                "signal_type": "q1_2026_natgas_full_hedge",
+                "status": "explicit_commodity_candidate",
+                "hedge_share": 1.0,
+                "commodities": "natural_gas",
+                "commentary_excerpt": "fully hedged on natural gas",
+            },
+            {
+                "source_doc": "doc_b.txt",
+                "target_quarter": date(2026, 3, 31),
+                "signal_type": "q1_2026_natgas_full_hedge",
+                "status": "explicit_commodity_candidate",
+                "hedge_share": 1.0,
+                "commodities": "natural_gas",
+                "commentary_excerpt": "fully hedged on natural gas",
+            },
+        ]
+    )
+
+    specs = market_service._gpre_futures_timing_commentary_candidate_specs(audit)
+    keys = [str(spec.get("candidate_key") or "") for spec in specs]
+
+    assert keys.count("futures_commentary_natgas_full_hedge_q1_2026") == 1
 
 
 def test_gpre_futures_timing_commentary_explicit_share_creates_scored_sandbox_candidate() -> None:
@@ -10058,6 +10233,62 @@ def test_gpre_weighted_coproduct_record_exposes_corn_oil_contribution_fields(mon
     assert float(pd.to_numeric(record.get("renewable_corn_oil_contribution_per_bushel"), errors="coerce")) == pytest.approx(expected_per_bushel, abs=1e-9)
     assert float(pd.to_numeric(record.get("renewable_corn_oil_contribution_per_gal"), errors="coerce")) == pytest.approx(expected_per_gal, abs=1e-9)
     assert float(pd.to_numeric(record.get("renewable_corn_oil_contribution_usd_m_proxy"), errors="coerce")) == pytest.approx(expected_usd_m_proxy, abs=1e-9)
+
+
+def test_gpre_weighted_coproduct_record_uses_latest_reported_volume_anchor_for_forward_usd_m(monkeypatch: pytest.MonkeyPatch) -> None:
+    q1 = date(2026, 3, 31)
+    q2 = date(2026, 6, 30)
+    monkeypatch.setattr(
+        market_service,
+        "_gpre_official_market_weights_for_quarter",
+        lambda quarter_end, ticker_root=None, plant_capacity_history=None: {"nebraska": 1.0},
+    )
+    rows = [
+        _parsed_row(
+            observation_date=q2.isoformat(),
+            quarter=q2,
+            aggregation_level="quarter_avg",
+            market_family="renewable_corn_oil_price",
+            series_key="corn_oil_nebraska",
+            instrument="Renewable corn oil",
+            location="Nebraska",
+            region="nebraska",
+            price_value=0.50,
+            unit="$/lb",
+            source_type="nwer_pdf",
+        ),
+        _parsed_row(
+            observation_date=q2.isoformat(),
+            quarter=q2,
+            aggregation_level="quarter_avg",
+            market_family="distillers_grains_price",
+            series_key="ddgs_10_nebraska",
+            instrument="Distillers grains",
+            location="Nebraska",
+            region="nebraska",
+            price_value=0.04,
+            unit="$/lb",
+            source_type="nwer_pdf",
+        ),
+    ]
+
+    record = market_service._gpre_build_weighted_coproduct_record(
+        rows,
+        q2,
+        ticker_root=None,
+        plant_capacity_history=None,
+        reported_gallons_produced_by_quarter={q1: 174_196_000.0},
+    )
+
+    credit_per_gal = float(pd.to_numeric(record.get("approximate_coproduct_credit_per_gal"), errors="coerce"))
+    assert str(record.get("gallons_source_kind") or "") == "latest_reported_operating_volume_anchor"
+    assert record.get("gallons_anchor_quarter") == q1
+    assert str(record.get("gallons_anchor_quarter_label") or "") == "2026-Q1"
+    assert float(pd.to_numeric(record.get("gallons_million_display"), errors="coerce")) == pytest.approx(174.196, abs=1e-9)
+    assert float(pd.to_numeric(record.get("approximate_coproduct_credit_usd_m"), errors="coerce")) == pytest.approx(
+        credit_per_gal * 174.196,
+        abs=1e-9,
+    )
 
 
 def test_weighted_coproduct_context_exposes_capacity_weighted_plant_rows_for_ddgs_and_corn_oil(monkeypatch: pytest.MonkeyPatch) -> None:

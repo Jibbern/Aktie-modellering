@@ -310,7 +310,7 @@ def _parse_adjusted_from_text(
                 ln_low = ln.lower()
                 if exclude_terms and any(term in ln_low for term in exclude_terms):
                     continue
-                if "reconciliation of reported" in ln_low:
+                if "reconciliation of" in ln_low:
                     # Skip section headers that mention adjusted metrics but have no numbers.
                     continue
                 # Avoid picking segment tables when we need consolidated adjusted metrics
@@ -333,7 +333,10 @@ def _parse_adjusted_from_text(
                     # numbers may be on the next line(s)
                     for j in range(1, 3):
                         if i + j < len(lines_3m):
-                            nums = _extract_nums_from_line(lines_3m[i + j])
+                            next_line = str(lines_3m[i + j] or "")
+                            if re.search(r"[A-Za-z]{3,}", next_line):
+                                continue
+                            nums = _extract_nums_from_line(next_line)
                             if nums:
                                 break
                 if not nums:

@@ -113,6 +113,40 @@ def test_parse_adjusted_from_plain_text_does_not_fill_adj_ebit_from_adjusted_ebi
     assert source == "ocr"
 
 
+def test_parse_adjusted_from_plain_text_skips_pbi_reconciliation_heading_before_adj_ebitda() -> None:
+    txt = """
+    Pitney Bowes Inc.
+    Reconciliation of Reported Consolidated Results to Adjusted Results
+    (Unaudited; in thousands, except per share amounts)
+    Three Months Ended
+    March 31,
+    2026 2025
+    Reconciliation of net income to adjusted net income,
+    adjusted EBIT and adjusted EBITDA
+    Net income - GAAP $58,138 $35,422
+    Adjusted net income $68,942 $61,691
+    Adjusted income before tax $94,802 $81,804
+    Interest expense, including financing interest 35,575 37,885
+    Adjusted EBIT 130,377 119,689
+    Depreciation and amortization 25,641 28,324
+    Adjusted EBITDA $156,018 $148,013
+    Adjusted diluted earnings per share $0.47 $0.33
+    """
+
+    adj_ebit, adj_ebitda, adj_eps, adjustments, status, source = parse_adjusted_from_plain_text(
+        txt,
+        quarter_end=pd.Timestamp("2026-03-31"),
+        mode="relaxed",
+    )
+
+    assert adj_ebit == 130_377_000.0
+    assert adj_ebitda == 156_018_000.0
+    assert adj_eps == 0.47
+    assert adjustments == {}
+    assert status == "ok_relaxed_ocr"
+    assert source == "ocr"
+
+
 def test_find_ex99_docs_detects_earnings_release_and_ceo_letter_filenames_without_ex99_token() -> None:
     index_json = {
         "directory": {

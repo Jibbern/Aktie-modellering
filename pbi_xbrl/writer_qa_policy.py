@@ -134,7 +134,7 @@ def recommended_action(row_in: pd.Series) -> str:
     }:
         return "review debt definition"
     if issue_family_txt == "debt_recon_coverage_check":
-        return "fix source preference"
+        return "review debt definition / carrying vs total debt presentation"
     if issue_family_txt == "debt_tranches":
         return "watch only"
     return ""
@@ -381,7 +381,7 @@ def coalesce_curated_definition_rows(df_in: pd.DataFrame) -> pd.DataFrame:
             ).iloc[0]
             parts = []
             if "debt_recon_coverage_check" in families:
-                parts.append("source preference / reconciliation coverage needs review")
+                parts.append("debt definition / carrying vs total debt presentation needs review")
             if {"carrying_debt_tieout", "principal_tranche_tieout"} & families:
                 if {"carrying_debt_tieout", "principal_tranche_tieout"} <= families:
                     parts.append("carrying-value and principal debt totals do not tie cleanly")
@@ -396,7 +396,7 @@ def coalesce_curated_definition_rows(df_in: pd.DataFrame) -> pd.DataFrame:
             compact_message = "Debt integrity: " + "; ".join(parts[:4]) + "." if parts else str(anchor.get("latest_message") or anchor.get("message") or "").strip()
             recommended_action_txt = "watch only"
             if "debt_recon_coverage_check" in families:
-                recommended_action_txt = "fix source preference"
+                recommended_action_txt = "review debt definition / carrying vs total debt presentation"
             elif {"carrying_debt_tieout", "principal_tranche_tieout", "revolver_and_other_debt_presence_check"} & families:
                 recommended_action_txt = "review debt definition"
             status_candidates = [str(x or "").strip() for x in grp.get("review_status", pd.Series([], dtype=object)).tolist() if str(x or "").strip()]
