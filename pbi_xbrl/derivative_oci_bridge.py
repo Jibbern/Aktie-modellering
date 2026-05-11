@@ -1,3 +1,17 @@
+"""Derivative and OCI bridge extraction for GPRE-style hedge disclosures.
+
+The bridge is an audit/memo surface, not a production earnings adjustment. It
+keeps four concepts separate:
+
+- income-statement derivative/hedge P&L,
+- OCI/AOCI movement and AOCI reclassification,
+- period-end derivative assets and liabilities,
+- open notional exposure by commodity/instrument.
+
+Workbook writers and QA rely on that separation so OCI or balance-sheet
+exposure never leaks into current-quarter margin or valuation math.
+"""
+
 from __future__ import annotations
 
 import math
@@ -10,6 +24,9 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import pandas as pd
 
 
+# Stable dataframe contract for the Derivative_OCI_Bridge sheet and downstream
+# diagnostic builders. Add new fields here only when the writer/readback surface
+# should expose them explicitly.
 DERIVATIVE_OCI_BRIDGE_COLUMNS: List[str] = [
     "quarter",
     "source_period_type",
@@ -61,6 +78,9 @@ DERIVATIVE_OCI_BRIDGE_COLUMNS: List[str] = [
 ]
 
 
+# Open-position notional disclosure is intentionally kept on the company's
+# source scale. For GPRE that is "in thousands"; the writer shows the Scale
+# column instead of silently multiplying values.
 DERIVATIVE_EXPOSURE_COLUMNS: List[str] = [
     "Quarter",
     "Commodity",
@@ -122,6 +142,8 @@ DERIVATIVE_QA_COLUMNS: List[str] = [
 
 @dataclass(frozen=True)
 class DerivativeOciBridgeResult:
+    """Parsed bridge tables plus QA rows from local derivative disclosures."""
+
     rows: pd.DataFrame
     qa_rows: pd.DataFrame
     exposure_rows: pd.DataFrame
@@ -329,6 +351,8 @@ def _extract_exposure_rows(
     quarter: date,
     source_path: Path,
 ) -> List[dict[str, Any]]:
+    """Parse open derivative-position notional rows while preserving disclosure basis."""
+
     out: List[dict[str, Any]] = []
     quarter_ts = pd.Timestamp(quarter)
     source_note_base = f"{source_path.name} | derivative note open-position table"
@@ -407,6 +431,9 @@ def _extract_exposure_rows(
                 short_notional = _first_number(row, short_cols)
                 if long_notional is None and short_notional is None:
                     continue
+                # Forward rows are disclosed gross long and gross short. Net
+                # notional is a display aid only; the gross source values remain
+                # visible so the workbook does not imply source-level netting.
                 net_notional = _sum_optional(
                     float(long_notional) if long_notional is not None else pd.NA,
                     float(short_notional) if short_notional is not None else pd.NA,
@@ -556,6 +583,8 @@ def _extract_one_source(
     hist: Optional[pd.DataFrame] = None,
     adj_metrics: Optional[pd.DataFrame] = None,
 ) -> Tuple[List[dict[str, Any]], List[dict[str, Any]], List[dict[str, Any]]]:
+    """Extract one filing's derivative bridge rows, QA notes, and exposure rows."""
+
     try:
         tables = pd.read_html(source_path)
     except Exception:
@@ -630,6 +659,8 @@ def _extract_one_source(
     fair_value_hedge_cogs = fair_value_hedge_total
     cash_flow_statement_derivative_change = _usd_thousands(_first_value(tables, ("change in derivative financial instruments",)))
 
+    # Total derivative P&L is income-statement impact only. OCI movement, AOCI
+    # balances, and net derivative assets/liabilities stay out of this total.
     aggregate_revenue_total = _sum_optional(revenue_total, cf_reclass_revenue)
     aggregate_cogs_total = _sum_optional(cogs_total, cf_reclass_cogs, fair_value_hedge_total)
     pnl_total = _sum_optional(non_designated_total, cf_reclass_total, fair_value_hedge_total)
@@ -705,6 +736,8 @@ def _numeric_or_none(value: Any) -> Optional[float]:
 
 
 def _derive_q4_rows(rows: List[dict[str, Any]]) -> Tuple[List[dict[str, Any]], List[dict[str, Any]]]:
+    """Quarterize annual 10-K flow fields by subtracting Q1-Q3 disclosures."""
+
     by_year: Dict[int, Dict[int, dict[str, Any]]] = {}
     annual_by_year: Dict[int, dict[str, Any]] = {}
     quarterized_rows: List[dict[str, Any]] = []
@@ -763,6 +796,12 @@ def build_derivative_oci_bridge_from_sources(
     adj_metrics: Optional[pd.DataFrame] = None,
     workspace_root: Optional[Path] = None,
 ) -> DerivativeOciBridgeResult:
+    """Build historical derivative/OCI bridge data from local filing tables.
+
+    The parser favors reported three-month 10-Q columns. Annual 10-K values are
+    used only for derived Q4 flow rows when Q1-Q3 are available; balance-sheet
+    exposure fields remain period-end snapshots.
+    """
     paths = [Path(p) for p in source_paths] if source_paths is not None else _source_paths_for_ticker(ticker, workspace_root)
     rows: List[dict[str, Any]] = []
     qa_rows: List[dict[str, Any]] = []

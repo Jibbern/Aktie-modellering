@@ -1,3 +1,15 @@
+"""Diagnostic GPRE derivative-to-crush test builder.
+
+This module is deliberately downstream of source extraction. It accepts the
+Derivative_OCI_Bridge rows, open hedge exposure rows, operating-driver history,
+and the GPRE basis model quarterly frame, then returns table-shaped data for the
+Derivative_Crush_Tests workbook sheet.
+
+The core accounting boundary is important: current-quarter model tests use only
+income-statement derivative P&L fields. OCI, AOCI, and net derivative balances
+are deferred/exposure signals and are only used in lead/lag diagnostics.
+"""
+
 from __future__ import annotations
 
 import math
@@ -8,6 +20,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 import pandas as pd
 
 
+# Keep this order aligned with the custom workbook writer. These names are the
+# public contract returned by DerivativeCrushTestResult.as_dict().
 DERIVATIVE_CRUSH_TEST_TABLES: Tuple[str, ...] = (
     "model_summary",
     "reconciliation",
@@ -22,6 +36,8 @@ DERIVATIVE_CRUSH_TEST_TABLES: Tuple[str, ...] = (
 
 @dataclass(frozen=True)
 class DerivativeCrushTestResult:
+    """Named diagnostic tables consumed by the Derivative_Crush_Tests writer."""
+
     model_summary: pd.DataFrame
     reconciliation: pd.DataFrame
     quarterly_derivative_impact: pd.DataFrame
@@ -164,6 +180,8 @@ def _resolve_denominator_m(
     driver_by_quarter: Mapping[date, Mapping[str, float]],
     basis_by_quarter: Mapping[date, Mapping[str, Any]],
 ) -> Tuple[Optional[float], str, str]:
+    # Match Derivative_OCI_Bridge diagnostics so $/gal readbacks reconcile across
+    # the accounting source sheet and the crush-testing sheet.
     driver_rec = driver_by_quarter.get(qd, {})
     for key, label in (
         ("ethanol_gallons_produced", "Ethanol gallons produced"),
@@ -189,6 +207,9 @@ def _reported_margin_per_gal(
     driver_by_quarter: Mapping[date, Mapping[str, float]],
     basis_by_quarter: Mapping[date, Mapping[str, Any]],
 ) -> Tuple[Optional[float], str]:
+    # Prefer reported dollars divided by the same gallon denominator used for
+    # derivative P&L. The basis-model fallback is only for quarters where the
+    # already-computed reported per-gallon field is all that exists.
     if gallons_m is not None and abs(float(gallons_m)) > 1e-12:
         crush_m = _num(driver_by_quarter.get(qd, {}).get("consolidated_ethanol_crush_margin"))
         if crush_m is not None:
@@ -200,6 +221,8 @@ def _reported_margin_per_gal(
 
 
 def _component_residual_m(rec: Mapping[str, Any]) -> Optional[float]:
+    """Return any disclosed-total-vs-component gap in $m, zeroing noise."""
+
     total = _usd_to_m(rec.get("derivative_gain_loss_pnl_total_usd"))
     if total is None:
         return None
@@ -248,6 +271,8 @@ def _base_rows(
     operating_driver_history_rows: Optional[Iterable[Mapping[str, Any]]],
     quarterly_df: Optional[pd.DataFrame],
 ) -> List[Dict[str, Any]]:
+    """Join derivative, operating-driver, and market-proxy records by quarter."""
+
     derivative_by_quarter = _derivative_records_by_quarter(derivative_bridge_df)
     driver_by_quarter = _driver_records_by_quarter(operating_driver_history_rows)
     basis_by_quarter = _basis_records_by_quarter(quarterly_df)
@@ -278,6 +303,9 @@ def _base_rows(
 
 
 def _model_adjustment(row: Mapping[str, Any], variant: str) -> Optional[float]:
+    # The variants are additive diagnostics, not fitted regressions. That keeps
+    # the sheet explainable and prevents a tiny sample from becoming production
+    # model logic by accident.
     if variant == "Model A: baseline only":
         return 0.0
     if variant == "Model B: baseline + total derivative P&L":
@@ -710,9 +738,10 @@ def build_derivative_crush_tests(
 ) -> DerivativeCrushTestResult:
     """Build diagnostic tables that test derivative P&L against GPRE crush margins.
 
-    The output is presentation-only. Current-quarter model variants use only
-    income-statement derivative P&L fields; OCI/AOCI and net derivative balances
-    are kept to lead/lag and exposure diagnostics.
+    Inputs are normalized dataframes/lists from earlier pipeline and writer
+    steps. The output is presentation-only. Current-quarter model variants use
+    only income-statement derivative P&L fields; OCI/AOCI and net derivative
+    balances are kept to lead/lag and exposure diagnostics.
     """
     base_rows = _base_rows(derivative_bridge_df, operating_driver_history_rows, quarterly_df)
     reconciliation = _reconciliation_rows(base_rows)

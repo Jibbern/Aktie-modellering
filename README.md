@@ -23,9 +23,10 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
 3. [`docs/SEC_CACHE_REFERENCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/SEC_CACHE_REFERENCE.md)
 4. [`docs/MARKET_DATA_USDA.md`](/c:/Users/Jibbe/Aktier/Code/docs/MARKET_DATA_USDA.md)
 5. [`docs/GPRE_ECONOMICS_OVERLAY.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_ECONOMICS_OVERLAY.md)
-6. [`docs/PERFORMANCE_NOTES.md`](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md)
-7. [`docs/WORKBOOK_ACCEPTANCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/WORKBOOK_ACCEPTANCE.md)
-8. [`docs/CURRENT_PASS.md`](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md)
+6. [`docs/GPRE_DERIVATIVE_HEDGE_DIAGNOSTICS.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_DERIVATIVE_HEDGE_DIAGNOSTICS.md)
+7. [`docs/PERFORMANCE_NOTES.md`](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md)
+8. [`docs/WORKBOOK_ACCEPTANCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/WORKBOOK_ACCEPTANCE.md)
+9. [`docs/CURRENT_PASS.md`](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md)
 
 ## Runtime Model
 - The saved workbook is the product truth.
@@ -48,6 +49,10 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
   - [`GPRE/basis_proxy/gpre_current_qtd_snapshots.parquet`](/c:/Users/Jibbe/Aktier/GPRE/basis_proxy/gpre_current_qtd_snapshots.parquet)
   - [`GPRE/basis_proxy/gpre_current_qtd_snapshots.csv`](/c:/Users/Jibbe/Aktier/GPRE/basis_proxy/gpre_current_qtd_snapshots.csv)
   - the workbook shows a compact overlay surface; the sidecar is the retained audit/history store
+- For `GPRE`, derivative and hedge disclosures are split into two workbook surfaces:
+  - `Derivative_OCI_Bridge` is the accounting source/audit sheet for P&L derivative impact, OCI/AOCI, net derivative exposure, and open hedge notional.
+  - `Derivative_Crush_Tests` is diagnostic only; it tests whether reported income-statement derivative P&L helps explain reported margin versus market/proxy crush lenses.
+  - OCI/AOCI and net derivative asset/liability never feed current-quarter reported margin, valuation, or the production GPRE crush proxy.
 - Source selection should prefer explicit support and safe blanks over contaminated values.
 - Readback validation exists so fixes are measured against the saved workbook, not only in-memory dataframes.
 
@@ -64,6 +69,8 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
    - saves the workbook, reopens it, and validates the delivered file so readback rather than in-memory state decides success.
 6. `pbi_xbrl/market_data/service.py`
    - maintains the market-data raw/parsed/export layers consumed by GPRE overlay logic and related sandbox diagnostics.
+7. `pbi_xbrl/derivative_oci_bridge.py` and `pbi_xbrl/derivative_crush_tests.py`
+   - shape GPRE derivative/hedge accounting disclosure into workbook memo sheets without changing production actuals, valuation, or crush-proxy math.
 
 ## Current Workspace Notes
 - The git repo root is [`Code/`](/c:/Users/Jibbe/Aktier/Code), while the active workspace also includes sibling directories such as:

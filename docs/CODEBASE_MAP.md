@@ -30,6 +30,12 @@ This map explains which modules own each major stage of the runtime so the hando
 ### 4. Source interpretation and evidence shaping
 - [`pbi_xbrl/doc_intel.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/doc_intel.py)
   - Builds quarter notes, promises, promise-progress evidence, and non-GAAP credibility outputs from documents.
+- [`pbi_xbrl/derivative_oci_bridge.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/derivative_oci_bridge.py)
+  - Extracts GPRE-style derivative P&L, OCI/AOCI, net derivative exposure, and open hedge notional into memo/audit tables.
+  - Keeps income-statement impact separate from OCI and balance-sheet exposure so downstream sheets cannot accidentally treat deferred hedge movement as current-quarter margin.
+- [`pbi_xbrl/derivative_crush_tests.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/derivative_crush_tests.py)
+  - Builds GPRE-only diagnostic tables that test whether derivative P&L improves reported-margin explanation versus market/proxy crush lenses.
+  - Does not feed production `Economics_Overlay`, valuation, reported actuals, or the GPRE crush proxy.
 - [`pbi_xbrl/source_material_refresh.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/source_material_refresh.py)
   - Local source-material discovery, normalization, manifest rebuild, and coverage reporting.
 - [`pbi_xbrl/summary_overview.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/summary_overview.py)
@@ -93,6 +99,10 @@ For the operational USDA download/backfill flow, see
 
 For the current `GPRE` economics-overlay source precedence, local ethanol-futures files, and crush-proxy behavior, see
 [`GPRE_ECONOMICS_OVERLAY.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_ECONOMICS_OVERLAY.md).
+
+For GPRE derivative/hedge accounting boundaries, open notional exposure, and
+the diagnostic `Derivative_Crush_Tests` sheet, see
+[`GPRE_DERIVATIVE_HEDGE_DIAGNOSTICS.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_DERIVATIVE_HEDGE_DIAGNOSTICS.md).
 
 ### 7. QA, audit, and comparison support
 - [`pbi_xbrl/pipeline_qa.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/pipeline_qa.py)
