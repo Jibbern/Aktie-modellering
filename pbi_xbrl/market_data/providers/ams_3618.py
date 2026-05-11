@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from .base import BaseMarketProvider
+from .base import BaseMarketProvider, report_period_end_date_from_text
 from ..aggregations import quarter_end_from_date
 
 
@@ -62,6 +62,9 @@ def _safe_pdf_text(pdf_path: Path) -> str:
 
 
 def _ams3618_report_date(text: str, fallback: Optional[pd.Timestamp]) -> Optional[date]:
+    period_end = report_period_end_date_from_text(text)
+    if period_end is not None:
+        return period_end
     match = re.search(
         r"Livestock,\s*Poultry(?:,\s*|\s+)and\s+Grain\s+Market\s+News\s+([A-Za-z]+\s+\d{1,2},\s+20\d{2})",
         str(text or ""),
@@ -342,6 +345,13 @@ class AMS3618Provider(BaseMarketProvider):
         name_low = path.name.lower()
         return name_low.startswith("ams_3618_")
 
+    def infer_pdf_report_date_from_content(self, path: Path) -> Optional[pd.Timestamp]:
+        if path.suffix.lower() != ".pdf" or not path.exists():
+            return None
+        text = _safe_pdf_text(path)
+        report_date = _ams3618_report_date(text, fallback=None) if text else None
+        return pd.Timestamp(report_date) if isinstance(report_date, date) else None
+
     def infer_local_report_date(self, path: Path) -> Optional[pd.Timestamp]:
         base = self._date_from_name(path)
         if base is not None:
@@ -356,45 +366,13 @@ class AMS3618Provider(BaseMarketProvider):
             return None
         if path.suffix.lower() != ".pdf" or not path.exists():
             return None
-        text = _safe_pdf_text(path)
-        report_date = _ams3618_report_date(text, fallback=None) if text else None
-        return pd.Timestamp(report_date) if isinstance(report_date, date) else None
+        return self.infer_pdf_report_date_from_content(path)
 
     def normalize_local_filenames(self, ticker_root: Path) -> List[Dict[str, Any]]:
-        actions: List[Dict[str, Any]] = []
-        candidate_dirs = [
-            ticker_root / "USDA_bioenergy_reports",
-            ticker_root / "ams_3618_pdfs",
-        ]
-        for folder in candidate_dirs:
-            if not folder.exists():
-                continue
-            for path in sorted(folder.glob("ams_3618_*.pdf")):
-                if self._date_from_name(path) is not None:
-                    continue
-                report_ts = self.infer_local_report_date(path)
-                if report_ts is None or pd.isna(report_ts):
-                    continue
-                # Historical AMS 3618 archives often arrived as sequence numbers
-                # (`ams_3618_00183.pdf`). Re-stamp them to YYYY-MM-DD so local
-                # discovery and raw-cache sync sort in real report order.
-                target_stem = f"ams_3618_{pd.Timestamp(report_ts).date().isoformat()}"
-                target = path.with_name(f"{target_stem}{path.suffix.lower()}")
-                if target == path:
-                    continue
-                counter = 1
-                while target.exists():
-                    target = path.with_name(f"{target_stem}_{counter:02d}{path.suffix.lower()}")
-                    counter += 1
-                path.rename(target)
-                actions.append(
-                    {
-                        "from": str(path),
-                        "to": str(target),
-                        "report_date": pd.Timestamp(report_ts).date().isoformat(),
-                    }
-                )
-        return actions
+        # Historical AMS 3618 archives often arrived as sequence numbers, and
+        # older refreshes could retain URL-folder begin-date names. Normalize all
+        # PDFs to the report-period end date parsed from the PDF body.
+        return super().normalize_local_filenames(ticker_root)
 
     def parse_raw_to_rows(self, cache_root: Path, ticker_root: Path, raw_entries: List[Dict[str, Any]]) -> pd.DataFrame:
         del ticker_root

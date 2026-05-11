@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from .base import BaseMarketProvider
+from .base import BaseMarketProvider, report_period_end_date_from_text
 from ..aggregations import quarter_end_from_date
 
 
@@ -59,6 +59,9 @@ def _safe_pdf_text(pdf_path: Path) -> str:
 
 
 def _ams3617_report_date(text: str, fallback: Optional[pd.Timestamp]) -> Optional[date]:
+    period_end = report_period_end_date_from_text(text)
+    if period_end is not None:
+        return period_end
     match = re.search(r"Livestock,\s+Poultry,\s+and\s+Grain\s+Market\s+News\s+([A-Za-z]+\s+\d{1,2},\s+20\d{2})", str(text or ""))
     if match:
         ts = pd.to_datetime(match.group(1), errors="coerce")
@@ -349,6 +352,13 @@ class AMS3617Provider(BaseMarketProvider):
             or name_low in {"ams_3617_daily_corn.csv", "ams_3617_weekly_corn.csv"}
         )
 
+    def infer_pdf_report_date_from_content(self, path: Path) -> Optional[pd.Timestamp]:
+        if path.suffix.lower() != ".pdf" or not path.exists():
+            return None
+        text = _safe_pdf_text(path)
+        report_date = _ams3617_report_date(text, fallback=None) if text else None
+        return pd.Timestamp(report_date) if isinstance(report_date, date) else None
+
     def infer_local_report_date(self, path: Path) -> Optional[pd.Timestamp]:
         base = self._date_from_name(path)
         if base is not None:
@@ -363,9 +373,7 @@ class AMS3617Provider(BaseMarketProvider):
             return None
         if path.suffix.lower() != ".pdf" or not path.exists():
             return None
-        text = _safe_pdf_text(path)
-        report_date = _ams3617_report_date(text, fallback=None) if text else None
-        return pd.Timestamp(report_date) if isinstance(report_date, date) else None
+        return self.infer_pdf_report_date_from_content(path)
 
     def parse_raw_to_rows(self, cache_root: Path, ticker_root: Path, raw_entries: List[Dict[str, Any]]) -> pd.DataFrame:
         del ticker_root

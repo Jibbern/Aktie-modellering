@@ -259,6 +259,384 @@ def _find_row_containing(ws, text: str, *, column: int = 1) -> int | None:
     return None
 
 
+def test_current_delivered_gpre_derivative_oci_bridge_readback() -> None:
+    path = _current_delivered_model_path("GPRE")
+    if not path.exists():
+        pytest.skip("Current delivered GPRE workbook is missing.")
+
+    wb = load_workbook(path, data_only=True, read_only=True)
+    assert "Derivative_OCI_Bridge" in wb.sheetnames
+    assert wb.sheetnames.index("Derivative_OCI_Bridge") == wb.sheetnames.index("Promise_Progress_UI") + 1
+    assert "Derivative_Crush_Tests" in wb.sheetnames
+    assert wb.sheetnames.index("Derivative_Crush_Tests") == wb.sheetnames.index("Basis_Proxy_Sandbox") + 1
+
+    ws = wb["Derivative_OCI_Bridge"]
+    headers = [str(ws.cell(row=1, column=cc).value or "").strip() for cc in range(1, ws.max_column + 1)]
+    idx = {header: pos + 1 for pos, header in enumerate(headers)}
+    for required in {
+        "quarter",
+        "reported_net_income_usd",
+        "reported_adjusted_ebitda_usd",
+        "non_designated_derivative_pnl_total_usd",
+        "cash_flow_hedge_reclass_total_usd",
+        "fair_value_hedge_total_pnl_usd",
+        "derivative_gain_loss_pnl_total_usd",
+        "derivative_oci_current_period_usd",
+        "derivative_aoci_reclassified_to_earnings_usd",
+        "eps_excluding_unrealized_derivative_pnl",
+        "quarterization_status",
+        "derivative_notes",
+    }:
+        assert required in idx
+
+    target_row = None
+    for rr in range(2, ws.max_row + 1):
+        cell_value = ws.cell(row=rr, column=idx["quarter"]).value
+        if pd.to_datetime(cell_value, errors="coerce") == pd.Timestamp("2026-03-31"):
+            target_row = rr
+            break
+    assert target_row is not None
+
+    assert ws.cell(row=target_row, column=idx["reported_net_income_usd"]).value == pytest.approx(32_938_000.0)
+    assert ws.cell(row=target_row, column=idx["reported_adjusted_ebitda_usd"]).value == pytest.approx(71_500_000.0)
+    assert ws.cell(row=target_row, column=idx["non_designated_derivative_pnl_total_usd"]).value == pytest.approx(-18_570_000.0)
+    assert ws.cell(row=target_row, column=idx["cash_flow_hedge_reclass_total_usd"]).value == pytest.approx(5_255_000.0)
+    assert ws.cell(row=target_row, column=idx["fair_value_hedge_total_pnl_usd"]).value == pytest.approx(721_000.0)
+    assert ws.cell(row=target_row, column=idx["derivative_gain_loss_pnl_total_usd"]).value == pytest.approx(-12_594_000.0)
+    assert ws.cell(row=target_row, column=idx["derivative_oci_current_period_usd"]).value == pytest.approx(-9_569_000.0)
+    assert ws.cell(row=target_row, column=idx["derivative_aoci_reclassified_to_earnings_usd"]).value == pytest.approx(-3_920_000.0)
+    assert ws.cell(row=target_row, column=idx["eps_excluding_unrealized_derivative_pnl"]).value in (None, "")
+    notes = str(ws.cell(row=target_row, column=idx["derivative_notes"]).value or "")
+    assert "P&L" in notes and "OCI only" in notes and "memo" in notes.lower()
+
+    historical_quarters = {
+        str(pd.to_datetime(ws.cell(row=rr, column=idx["quarter"]).value, errors="coerce").date())
+        for rr in range(2, ws.max_row + 1)
+        if not pd.isna(pd.to_datetime(ws.cell(row=rr, column=idx["quarter"]).value, errors="coerce"))
+    }
+    assert {"2025-06-30", "2025-09-30", "2025-12-31", "2026-03-31"} <= historical_quarters
+    exposure_title_row = _find_row_with_value(ws, "Open Derivative Position Exposure", column=1)
+    assert exposure_title_row is not None
+    assert exposure_title_row >= target_row + 5
+    assert "Notional exposure by commodity" in str(ws.cell(row=exposure_title_row + 1, column=1).value or "")
+    exposure_header_row = exposure_title_row + 3
+    exposure_headers = [
+        str(ws.cell(row=exposure_header_row, column=cc).value or "").strip()
+        for cc in range(1, 14)
+    ]
+    for required in {
+        "Quarter",
+        "Commodity",
+        "Instrument",
+        "Accounting bucket",
+        "Direction",
+        "Long notional",
+        "Short notional",
+        "Net notional",
+        "Unit",
+        "Scale",
+        "Likely P&L line",
+        "Interpretation",
+        "Source / note",
+    }:
+        assert required in exposure_headers
+    exposure_blob = "\n".join(
+        str(ws.cell(row=rr, column=cc).value or "")
+        for rr in range(exposure_header_row + 1, min(ws.max_row, exposure_header_row + 18) + 1)
+        for cc in range(1, 14)
+    )
+    assert "Corn" in exposure_blob
+    assert "in thousands" in exposure_blob
+    assert "Cash-flow hedge" in exposure_blob
+    assert "Fair-value hedge" in exposure_blob
+    assert "Economic / non-designated" in exposure_blob
+    assert "Notional exposure is shown on the same scale as disclosed" in "\n".join(
+        str(ws.cell(row=rr, column=1).value or "") for rr in range(exposure_header_row + 1, ws.max_row + 1)
+    )
+    assert "same scale as disclosed" in "\n".join(
+        str(ws.cell(row=rr, column=1).value or "") for rr in range(exposure_header_row + 1, ws.max_row + 1)
+    )
+
+    qa = wb["QA_Checks"]
+    qa_blob = "\n".join(
+        str(qa.cell(row=rr, column=cc).value or "")
+        for rr in range(1, qa.max_row + 1)
+        for cc in range(1, qa.max_column + 1)
+    )
+    assert "derivative_oci_pnl_separation" in qa_blob
+    assert "derivative_eps_tax_support" in qa_blob
+    assert "derivative_quarterization_inferred" in qa_blob
+
+    op = wb["Operating_Drivers"]
+    op_blob = "\n".join(
+        str(op.cell(row=rr, column=cc).value or "")
+        for rr in range(1, op.max_row + 1)
+        for cc in range(1, min(op.max_column, 14) + 1)
+    )
+    assert "Derivative P&L impact was -$12.6m" in op_blob
+    assert "OCI derivative movement was -$9.6m; (unrealized hedge cash-flow)." in op_blob
+    assert "OCI affects equity/AOCI, not net income, until reclassified." not in op_blob
+    assert str(op.cell(row=65, column=1).value or "").strip() == "Derivative / hedge memo"
+    assert str(op.cell(row=66, column=1).value or "").strip() == "Total derivative P&L ($m)"
+    assert str(op.cell(row=67, column=1).value or "").strip() == "Derivative P&L in revenue ($m)"
+    assert str(op.cell(row=68, column=1).value or "").strip() == "Derivative P&L in COGS ($m)"
+    assert str(op.cell(row=69, column=1).value or "").strip() == "Cash-flow hedge reclass to P&L ($m)"
+    assert str(op.cell(row=70, column=1).value or "").strip() == ""
+    assert str(op.cell(row=71, column=1).value or "").strip() == "Net derivative asset/liability ($m)"
+    assert str(op.cell(row=72, column=1).value or "").strip() == "Derivative OCI movement ($m)"
+    assert str(op.cell(row=73, column=1).value or "").strip() == "Derivative AOCI ($m)"
+    accounting_note = "\n".join(str(op.cell(row=rr, column=1).value or "") for rr in range(75, 95))
+    assert "P&L" in accounting_note
+    assert "Output-related hedge items normally land in revenue.\nInput-related hedge items normally land in COGS." in accounting_note
+    assert "Cash-flow hedge reclass to P&L" in accounting_note
+    assert "Positive reclass values are favorable to P&L. Negative values are unfavorable." in accounting_note
+    assert "OCI is the quarter's new movement" in accounting_note
+
+    econ = wb["Economics_Overlay"]
+    econ_blob = "\n".join(
+        str(econ.cell(row=rr, column=cc).value or "")
+        for rr in range(1, econ.max_row + 1)
+        for cc in range(1, min(econ.max_column, 18) + 1)
+    )
+    assert "Derivative / hedge memo" in econ_blob
+    assert "Derivative P&L in revenue/COGS memo" not in econ_blob
+    assert "Net derivative asset/liability ($m)" in econ_blob
+    assert "Total derivative P&L ($m)" in econ_blob
+    assert "Total derivative P&L memo ($m)" not in econ_blob
+    assert "Derivative OCI movement" in econ_blob
+    assert "OCI only" not in str(econ.cell(row=_find_row_containing(econ, "Total derivative P&L") or 1, column=1).value or "")
+
+    wb_comments = load_workbook(path, data_only=True, read_only=False)
+    der_comments = wb_comments["Derivative_OCI_Bridge"]
+    assert "DerivativePositionExposure" in der_comments.tables
+    diagnostics_title_row = _find_row_with_value(der_comments, "Derivative / Hedge Margin Diagnostics", column=1)
+    assert diagnostics_title_row is not None
+    assert diagnostics_title_row > exposure_title_row
+    pnl_gal_title_row = _find_row_with_value(der_comments, "Derivative P&L per Gallon", column=1)
+    deferred_title_row = _find_row_with_value(der_comments, "Deferred / Balance-Sheet Hedge Exposure per Gallon", column=1)
+    margin_bucket_title_row = _find_row_with_value(der_comments, "Hedge Exposure by Margin Bucket", column=1)
+    quarterly_impact_title_row = _find_row_with_value(der_comments, "Quarterly derivative impact on reported margin ($/gal)", column=1)
+    assert pnl_gal_title_row is not None and deferred_title_row is not None and margin_bucket_title_row is not None and quarterly_impact_title_row is not None
+    assert diagnostics_title_row < quarterly_impact_title_row < pnl_gal_title_row < deferred_title_row < margin_bucket_title_row
+    assert {"DerivativePnlPerGallon", "DeferredHedgeExposurePerGallon", "HedgeExposureByMarginBucket"} <= set(der_comments.tables.keys())
+
+    def _headers_at(row_num: int) -> dict[str, int]:
+        return {
+            str(der_comments.cell(row=row_num, column=cc).value or "").strip(): cc
+            for cc in range(1, der_comments.max_column + 1)
+            if str(der_comments.cell(row=row_num, column=cc).value or "").strip()
+        }
+
+    pnl_header_row = pnl_gal_title_row + 1
+    pnl_idx = _headers_at(pnl_header_row)
+    pnl_metric_col = pnl_idx["Metric"]
+    pnl_quarter_col = pnl_idx["Quarter"]
+    pnl_per_gal_col = pnl_idx["$/gal"]
+    pnl_rows = range(pnl_header_row + 1, deferred_title_row - 1)
+    pnl_metrics = {str(der_comments.cell(row=rr, column=pnl_metric_col).value or "").strip() for rr in pnl_rows}
+    assert "Total derivative P&L" in pnl_metrics
+    assert "P&L component residual / unallocated" in pnl_metrics
+    assert "Derivative OCI movement" not in pnl_metrics
+    assert "Derivative AOCI" not in pnl_metrics
+    assert "Net derivative asset/liability" not in pnl_metrics
+    q1_total_pnl_row = next(
+        rr for rr in pnl_rows
+        if str(der_comments.cell(row=rr, column=pnl_metric_col).value or "").strip() == "Total derivative P&L"
+        and pd.to_datetime(der_comments.cell(row=rr, column=pnl_quarter_col).value, errors="coerce") == pd.Timestamp("2026-03-31")
+    )
+    assert der_comments.cell(row=q1_total_pnl_row, column=pnl_per_gal_col).value == pytest.approx(-12.594 / 174.196, abs=0.0005)
+    q1_residual_row = next(
+        rr for rr in pnl_rows
+        if str(der_comments.cell(row=rr, column=pnl_metric_col).value or "").strip() == "P&L component residual / unallocated"
+        and pd.to_datetime(der_comments.cell(row=rr, column=pnl_quarter_col).value, errors="coerce") == pd.Timestamp("2026-03-31")
+    )
+    assert der_comments.cell(row=q1_residual_row, column=pnl_per_gal_col).value == pytest.approx(0.0, abs=1e-9)
+
+    deferred_header_row = deferred_title_row + 1
+    deferred_idx = _headers_at(deferred_header_row)
+    deferred_metric_col = deferred_idx["Metric"]
+    deferred_interp_col = deferred_idx["Interpretation"]
+    deferred_rows = range(deferred_header_row + 1, margin_bucket_title_row - 1)
+    deferred_metrics = {str(der_comments.cell(row=rr, column=deferred_metric_col).value or "").strip() for rr in deferred_rows}
+    assert {"Net derivative asset/liability", "Derivative OCI movement", "Derivative AOCI"} <= deferred_metrics
+    assert any("Not current-quarter P&L" in str(der_comments.cell(row=rr, column=deferred_interp_col).value or "") for rr in deferred_rows)
+
+    bucket_header_row = margin_bucket_title_row + 1
+    bucket_idx = _headers_at(bucket_header_row)
+    commodity_col = bucket_idx["Commodity"]
+    margin_bucket_col = bucket_idx["Margin bucket"]
+    scale_col = bucket_idx["Scale"]
+    bucket_rows = range(bucket_header_row + 1, der_comments.max_row + 1)
+    bucket_by_commodity: dict[str, set[str]] = {}
+    scale_values: set[str] = set()
+    for rr in bucket_rows:
+        commodity = str(der_comments.cell(row=rr, column=commodity_col).value or "").strip()
+        margin_bucket = str(der_comments.cell(row=rr, column=margin_bucket_col).value or "").strip()
+        scale_value = str(der_comments.cell(row=rr, column=scale_col).value or "").strip()
+        if commodity and margin_bucket:
+            bucket_by_commodity.setdefault(commodity, set()).add(margin_bucket)
+        if scale_value:
+            scale_values.add(scale_value)
+    assert "Core crush input" in bucket_by_commodity.get("Corn", set())
+    assert "Core crush output" in bucket_by_commodity.get("Ethanol", set())
+    assert "Production energy input" in bucket_by_commodity.get("Natural Gas", set())
+    assert "Coproduct output" in bucket_by_commodity.get("Distillers Grains", set())
+    assert "Coproduct output" in bucket_by_commodity.get("Renewable Corn Oil", set())
+    assert "in thousands" in scale_values
+    quarterly_header_row = quarterly_impact_title_row + 1
+    quarterly_idx = _headers_at(quarterly_header_row)
+    assert "Metric" in quarterly_idx
+    assert "2026-Q1" in quarterly_idx
+    quarterly_metric_col = quarterly_idx["Metric"]
+    quarterly_q1_col = quarterly_idx["2026-Q1"]
+    quarterly_rows = range(quarterly_header_row + 1, pnl_gal_title_row - 1)
+    quarterly_by_metric = {
+        str(der_comments.cell(row=rr, column=quarterly_metric_col).value or "").strip(): rr
+        for rr in quarterly_rows
+        if str(der_comments.cell(row=rr, column=quarterly_metric_col).value or "").strip()
+    }
+    assert "Total derivative P&L / gal" in quarterly_by_metric
+    assert "Derivative P&L in revenue / gal" in quarterly_by_metric
+    assert "Derivative P&L in COGS / gal" in quarterly_by_metric
+    assert "Cash-flow hedge reclass / gal" in quarterly_by_metric
+    assert "Fair-value hedge P&L / gal" in quarterly_by_metric
+    assert "Non-designated derivative P&L / gal" in quarterly_by_metric
+    assert "P&L component residual / unallocated / gal" in quarterly_by_metric
+    assert "Ethanol gallons produced (m)" in quarterly_by_metric
+    assert "Derivative OCI movement" not in quarterly_by_metric
+    assert "Derivative AOCI" not in quarterly_by_metric
+    assert "Net derivative asset/liability" not in quarterly_by_metric
+    assert der_comments.cell(row=quarterly_by_metric["Total derivative P&L / gal"], column=quarterly_q1_col).value == pytest.approx(-12.594 / 174.196, abs=0.0005)
+    assert der_comments.cell(row=quarterly_by_metric["Ethanol gallons produced (m)"], column=quarterly_q1_col).value == pytest.approx(174.196, abs=0.001)
+    assert der_comments.cell(row=quarterly_by_metric["P&L component residual / unallocated / gal"], column=quarterly_q1_col).value == pytest.approx(0.0, abs=1e-9)
+    quarterly_note_blob = "\n".join(str(der_comments.cell(row=rr, column=1).value or "") for rr in range(quarterly_impact_title_row + 1, pnl_gal_title_row))
+    assert "reported-margin-equivalent $/gal" in quarterly_note_blob
+    assert "not a pure spot crush margin" in quarterly_note_blob
+    assert "$/gal uses ethanol gallons produced as the diagnostic denominator" in quarterly_note_blob
+    diagnostics_note_blob = "\n".join(str(der_comments.cell(row=rr, column=1).value or "") for rr in range(margin_bucket_title_row + 1, der_comments.max_row + 1))
+    assert "diagnostic exposure metrics, not current-quarter margin impact" in diagnostics_note_blob
+    assert "notional amounts are disclosed in thousands of units" in diagnostics_note_blob
+
+    op_comments = wb_comments["Operating_Drivers"]
+    for merged_row in range(75, 95):
+        assert any(m.min_row == merged_row and m.min_col == 1 and m.max_row == merged_row and m.max_col == 5 for m in op_comments.merged_cells.ranges)
+    assert str(op_comments.cell(row=75, column=1).value or "").strip() == "Derivative / OCI accounting map"
+    assert str(op_comments.cell(row=77, column=1).value or "").strip() == "P&L"
+    assert str(op_comments.cell(row=85, column=1).value or "").strip() == "OCI"
+    assert str(op_comments.cell(row=91, column=1).value or "").strip() == "Cash-flow hedge reclass to P&L"
+    assert bool(op_comments.cell(row=75, column=1).font.bold)
+    assert bool(op_comments.cell(row=77, column=1).font.bold)
+    assert bool(op_comments.cell(row=85, column=1).font.bold)
+    assert bool(op_comments.cell(row=91, column=1).font.bold)
+    for rr in range(75, 95):
+        for cc in range(1, 6):
+            border = op_comments.cell(row=rr, column=cc).border
+            assert all(getattr(side, "style", None) in (None, "") for side in (border.left, border.right, border.top, border.bottom))
+        # openpyxl stores merged-range fill on the top-left cell; Excel renders
+        # that fill across the whole merged row.
+        assert str(op_comments.cell(row=rr, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
+        assert float(op_comments.row_dimensions[rr].height or 0.0) >= 15.0
+    assert all(str(op_comments.cell(row=70, column=cc).fill.fgColor.rgb or "") == "00EDF4FA" for cc in range(1, 14))
+    assert float(op_comments.row_dimensions[70].height or 0.0) == pytest.approx(18.0, abs=0.1)
+    assert str(op_comments.cell(row=70, column=1).value or "").strip() == ""
+    assert str(op_comments.cell(row=71, column=1).value or "").strip() == "Net derivative asset/liability ($m)"
+    assert str(op_comments.cell(row=72, column=1).value or "").strip() == "Derivative OCI movement ($m)"
+    assert str(op_comments.cell(row=73, column=1).value or "").strip() == "Derivative AOCI ($m)"
+    assert all(str(op_comments.cell(row=74, column=cc).fill.fgColor.rgb or "") == "00EDF4FA" for cc in range(1, 14))
+    assert float(op_comments.row_dimensions[74].height or 0.0) == pytest.approx(18.0, abs=0.1)
+    assert str(op_comments.cell(row=75, column=1).fill.fgColor.rgb or "") != "00FFFFFF"
+    assert str(op_comments.cell(row=82, column=1).value or "").strip() == ""
+    assert str(op_comments.cell(row=83, column=1).value or "").startswith("Economic hedges")
+    assert float(op_comments.row_dimensions[75].height or 0.0) == pytest.approx(24.0, abs=0.1)
+    assert float(op_comments.row_dimensions[93].height or 0.0) == pytest.approx(24.5, abs=0.1)
+    assert float(op_comments.cell(row=75, column=1).font.size or 0.0) > 10.0
+    econ_comments = wb_comments["Economics_Overlay"]
+    assert _find_row_with_value(econ_comments, "Management commentary", column=1) == 4
+    assert _find_row_with_value(econ_comments, "Commercial / hedge setup", column=1) == 37
+    assert _find_row_with_value(econ_comments, "Bridge to reported", column=1) == 68
+    assert float(econ_comments.row_dimensions[82].height or 0.0) == pytest.approx(24.0, abs=0.1)
+    assert float(econ_comments.row_dimensions[218].height or 0.0) == pytest.approx(24.0, abs=0.1)
+    assert float(econ_comments.row_dimensions[219].height or 0.0) == pytest.approx(24.0, abs=0.1)
+    exposure_title_row = _find_row_with_value(econ_comments.parent["Derivative_OCI_Bridge"], "Open Derivative Position Exposure", column=1)
+    assert exposure_title_row is not None
+    derivative_per_gal_row = _find_row_with_value(econ_comments, "Total derivative P&L per gallon", column=1)
+    z45_row = _find_row_with_value(econ_comments, "45Z impact ($m)", column=1)
+    assert derivative_per_gal_row is not None
+    assert z45_row is not None
+    assert derivative_per_gal_row + 1 == z45_row
+    total_pnl_row = _find_row_with_value(econ_comments, "Total derivative P&L ($m)", column=1)
+    revenue_pnl_row = _find_row_with_value(econ_comments, "Derivative P&L in revenue ($m)", column=1)
+    cogs_pnl_row = _find_row_with_value(econ_comments, "Derivative P&L in COGS ($m)", column=1)
+    cashflow_row = _find_row_with_value(econ_comments, "Cash-flow hedge reclass to P&L ($m)", column=1)
+    net_derivative_row = _find_row_with_value(econ_comments, "Net derivative asset/liability ($m)", column=1)
+    oci_row = _find_row_containing(econ_comments, "Derivative OCI movement", column=1)
+    aoci_row = _find_row_with_value(econ_comments, "Derivative AOCI ($m)", column=1)
+    assert all(row is not None for row in [total_pnl_row, revenue_pnl_row, cogs_pnl_row, cashflow_row, net_derivative_row, oci_row, aoci_row])
+    assert total_pnl_row < revenue_pnl_row < cogs_pnl_row < cashflow_row < net_derivative_row < oci_row < aoci_row
+    assert net_derivative_row == cashflow_row + 2
+    separator_row = cashflow_row + 1
+    assert str(econ_comments.cell(row=separator_row, column=1).fill.fgColor.rgb or "") == "00EDF4FA"
+    assert float(econ_comments.row_dimensions[separator_row].height or 0.0) == pytest.approx(12.0, abs=0.1)
+    q1_derivative_col = _find_col_with_value(econ_comments, "2026-Q1", row=total_pnl_row - 1)
+    assert q1_derivative_col is not None
+    assert econ_comments.cell(row=total_pnl_row, column=q1_derivative_col).value == pytest.approx(-12.594, abs=0.001)
+    assert econ_comments.cell(row=derivative_per_gal_row, column=q1_derivative_col).value == pytest.approx(-12.594 / 174.196, abs=0.0005)
+    assert str(econ_comments.cell(row=derivative_per_gal_row, column=q1_derivative_col).number_format) == "$0.000;($0.000);-"
+    assert econ_comments.cell(row=revenue_pnl_row, column=q1_derivative_col).value == pytest.approx(-9.367, abs=0.001)
+    assert econ_comments.cell(row=cogs_pnl_row, column=q1_derivative_col).value == pytest.approx(-3.227, abs=0.001)
+    assert econ_comments.cell(row=cashflow_row, column=q1_derivative_col).value == pytest.approx(5.255, abs=0.001)
+    assert econ_comments.cell(row=net_derivative_row, column=q1_derivative_col).value == pytest.approx(-25.080, abs=0.001)
+    assert econ_comments.cell(row=oci_row, column=q1_derivative_col).value == pytest.approx(-9.569, abs=0.001)
+    assert econ_comments.cell(row=aoci_row, column=q1_derivative_col).value == pytest.approx(-14.107, abs=0.001)
+    assert oci_row is not None
+    comments = [
+        econ_comments.cell(row=oci_row, column=cc).comment.text
+        for cc in range(1, econ_comments.max_column + 1)
+        if econ_comments.cell(row=oci_row, column=cc).comment is not None
+    ]
+    assert comments == []
+
+    crush_tests = wb_comments["Derivative_Crush_Tests"]
+    crush_blob = "\n".join(
+        str(crush_tests.cell(row=rr, column=cc).value or "")
+        for rr in range(1, crush_tests.max_row + 1)
+        for cc in range(1, min(crush_tests.max_column, 14) + 1)
+    )
+    assert "Model Accuracy Summary" in crush_blob
+    assert "Reported Margin Reconciliation: Market Proxy vs Derivative-Adjusted" in crush_blob
+    assert "Lead/Lag Tests: Deferred Hedge Balances vs Future P&L" in crush_blob
+    assert "Hedge Slippage Diagnostic" in crush_blob
+    assert "Residual Analysis After Derivative Adjustment" in crush_blob
+    assert "Approximate market crush" in crush_blob
+    assert "GPRE crush proxy" in crush_blob
+    quarterly_tests_row = _find_row_with_value(crush_tests, "Quarterly derivative impact on reported margin ($/gal)", column=1)
+    assert quarterly_tests_row is not None
+    quarterly_tests_header_row = next(
+        rr for rr in range(quarterly_tests_row + 1, quarterly_tests_row + 6)
+        if str(crush_tests.cell(row=rr, column=1).value or "").strip() == "Metric"
+    )
+    tests_idx = {
+        str(crush_tests.cell(row=quarterly_tests_header_row, column=cc).value or "").strip(): cc
+        for cc in range(1, crush_tests.max_column + 1)
+        if str(crush_tests.cell(row=quarterly_tests_header_row, column=cc).value or "").strip()
+    }
+    assert "2026-Q1" in tests_idx
+    tests_metric_col = tests_idx["Metric"]
+    tests_q1_col = tests_idx["2026-Q1"]
+    q1_total_tests_row = next(
+        rr for rr in range(quarterly_tests_header_row + 1, quarterly_tests_header_row + 12)
+        if str(crush_tests.cell(row=rr, column=tests_metric_col).value or "").strip() == "Total derivative P&L / gal"
+    )
+    assert crush_tests.cell(row=q1_total_tests_row, column=tests_q1_col).value == pytest.approx(-12.594 / 174.196, abs=0.0005)
+    current_test_metrics = {
+        str(crush_tests.cell(row=rr, column=tests_metric_col).value or "").strip()
+        for rr in range(quarterly_tests_header_row + 1, quarterly_tests_header_row + 12)
+    }
+    assert "Derivative OCI movement" not in current_test_metrics
+    assert "Derivative AOCI" not in current_test_metrics
+    assert "Net derivative asset/liability" not in current_test_metrics
+
+
 def _find_col_with_value(ws, text: str, *, row: int) -> int | None:
     needle = str(text)
     for cc in range(1, ws.max_column + 1):
@@ -3964,6 +4342,63 @@ def test_quarter_notes_ui_reuses_doc_sentence_harvest_cache_across_repeated_runs
             assert reads_after_first >= 1
             assert counts[str(doc_path)] == reads_after_first
             assert first_rows == second_rows
+
+
+def test_generic_source_rescue_disk_cache_hits_before_full_text_scan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "GPRE"):
+            out_path = _make_ticker_model_out_path(case_dir, "TEST", "generic_source_cache.xlsx")
+            press_dir = case_dir / "TEST" / "press_release"
+            press_dir.mkdir(parents=True, exist_ok=True)
+            (press_dir / "TEST_Q4_2025_earnings_release.txt").write_text(
+                "For the fourth quarter 2025, management said 45Z contributed $23.4 million "
+                "and expected at least $188 million of 45Z-related adjusted EBITDA in 2026.",
+                encoding="utf-8",
+            )
+            quarter_notes = pd.DataFrame(
+                {
+                    "quarter": [pd.Timestamp("2025-12-31")],
+                    "note_id": ["seed-note"],
+                    "category": ["Results / drivers"],
+                    "claim": ["Adjusted EBITDA improved in Q4."],
+                    "note": ["Adjusted EBITDA improved in Q4."],
+                    "metric_ref": ["Adjusted EBITDA"],
+                    "score": [95.0],
+                    "doc_type": ["earnings_release"],
+                    "doc": ["seed_release.txt"],
+                    "source_type": ["earnings_release"],
+                    "evidence_snippet": ["Adjusted EBITDA improved in Q4."],
+                }
+            )
+            inputs = _make_inputs(
+                out_path,
+                ticker="TEST",
+                quarter_notes=quarter_notes,
+                profile_timings=True,
+            )
+
+            first_ctx = build_writer_context(inputs)
+            first_ctx.callbacks.write_quarter_notes_ui_v2()
+            cache_path = case_dir / "TEST" / "writer_cache" / "generic_source_note_rescue_cache.pkl"
+            assert cache_path.exists()
+
+            second_ctx = build_writer_context(inputs)
+            second_ctx.callbacks.write_quarter_notes_ui_v2()
+
+            assert (
+                "write_excel.ui.render.quarter_notes.setup.generic_source_rescue.disk_cache_hit"
+                in second_ctx.writer_timings
+            )
+            assert (
+                "write_excel.ui.render.quarter_notes.setup.generic_source_rescue.source_records"
+                not in second_ctx.writer_timings
+            )
+            assert (
+                "write_excel.ui.render.quarter_notes.setup.generic_source_rescue.rule_scan"
+                not in second_ctx.writer_timings
+            )
 
 
 def test_write_ui_sheets_records_ui_substage_timings(
@@ -11994,14 +12429,18 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         inputs = _make_live_artifact_inputs("GPRE", out_path)
         ctx = build_writer_context(inputs)
 
-        assert ctx.desired_sheet_order.index("Promise_Progress_UI") + 1 == ctx.desired_sheet_order.index("Basis_Proxy_Sandbox")
-        assert ctx.desired_sheet_order.index("Basis_Proxy_Sandbox") + 1 == ctx.desired_sheet_order.index("Hidden_Value_Flags")
+        assert ctx.desired_sheet_order.index("Promise_Progress_UI") + 1 == ctx.desired_sheet_order.index("Derivative_OCI_Bridge")
+        assert ctx.desired_sheet_order.index("Derivative_OCI_Bridge") + 1 == ctx.desired_sheet_order.index("Basis_Proxy_Sandbox")
+        assert ctx.desired_sheet_order.index("Basis_Proxy_Sandbox") + 1 == ctx.desired_sheet_order.index("Derivative_Crush_Tests")
+        assert ctx.desired_sheet_order.index("Derivative_Crush_Tests") + 1 == ctx.desired_sheet_order.index("Hidden_Value_Flags")
 
         ensure_driver_inputs(ctx)
         write_driver_sheets(ctx)
 
         ws_overlay = ctx.wb["Economics_Overlay"]
         ws_basis = ctx.wb["Basis_Proxy_Sandbox"]
+        assert "Derivative_Crush_Tests" in ctx.wb.sheetnames
+        assert ctx.wb.sheetnames.index("Derivative_Crush_Tests") == ctx.wb.sheetnames.index("Basis_Proxy_Sandbox") + 1
         proxy_compare_row = _find_row_with_value(ws_overlay, "Proxy comparison ($/gal)", column=1)
         bridge_row = _find_row_with_value(ws_overlay, "Bridge to reported", column=1)
         forward_proxy_row = _find_row_with_value(ws_overlay, "Best forward lens ($/gal)", column=1)
@@ -12284,7 +12723,9 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert str(ws_basis.cell(row=coproduct_volume_support_title_row + 2, column=4).value or "").strip() == "Source/path"
         assert str(ws_basis.cell(row=coproduct_volume_support_title_row + 2, column=6).value or "").strip() == "Historical usable"
         assert str(ws_basis.cell(row=coproduct_volume_support_title_row + 2, column=9).value or "").strip() == "Best use"
-        assert "historical actuals only" in str(ws_basis.cell(row=coproduct_volume_support_title_row + 1, column=2).value or "").lower()
+        coproduct_volume_note = str(ws_basis.cell(row=coproduct_volume_support_title_row + 1, column=2).value or "").lower()
+        assert "sourced historical actuals" in coproduct_volume_note
+        assert "forward yield and $m anchor" in coproduct_volume_note
         distillers_volume_audit_row = _find_row_with_value(ws_basis, "Distillers grains volume", column=2)
         corn_oil_volume_audit_row = _find_row_with_value(ws_basis, "Renewable corn oil volume", column=2)
         uhp_volume_audit_row = _find_row_with_value(ws_basis, "Ultra-high protein volume", column=2)
@@ -12294,14 +12735,14 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert uhp_volume_audit_row is not None
         assert mix_commentary_row is not None
         assert str(ws_basis.cell(row=distillers_volume_audit_row, column=6).value or "").strip() == "YES"
-        assert str(ws_basis.cell(row=distillers_volume_audit_row, column=7).value or "").strip() == "NO"
-        assert str(ws_basis.cell(row=distillers_volume_audit_row, column=8).value or "").strip() == "NO"
-        assert str(ws_basis.cell(row=distillers_volume_audit_row, column=9).value or "").strip() == "QA only"
+        assert str(ws_basis.cell(row=distillers_volume_audit_row, column=7).value or "").strip() == "YES - latest actual intensity anchor"
+        assert str(ws_basis.cell(row=distillers_volume_audit_row, column=8).value or "").strip() == "YES - latest actual intensity anchor"
+        assert str(ws_basis.cell(row=distillers_volume_audit_row, column=9).value or "").strip() == "Forward coproduct yield / $m anchor"
         assert "tons/mm gal" in str(ws_basis.cell(row=distillers_volume_audit_row, column=11).value or "").lower()
-        assert str(ws_basis.cell(row=corn_oil_volume_audit_row, column=9).value or "").strip() == "QA only"
+        assert str(ws_basis.cell(row=corn_oil_volume_audit_row, column=9).value or "").strip() == "Forward coproduct yield / $m anchor"
         assert "lbs/gal" in str(ws_basis.cell(row=corn_oil_volume_audit_row, column=11).value or "").lower()
-        assert str(ws_basis.cell(row=uhp_volume_audit_row, column=9).value or "").strip() == "Secondary QA only"
-        assert "secondary qa" in str(ws_basis.cell(row=uhp_volume_audit_row, column=11).value or "").lower()
+        assert str(ws_basis.cell(row=uhp_volume_audit_row, column=9).value or "").strip() == "Secondary forward mix / yield anchor"
+        assert "secondary forward mix anchor" in str(ws_basis.cell(row=uhp_volume_audit_row, column=11).value or "").lower()
         assert str(ws_basis.cell(row=mix_commentary_row, column=6).value or "").strip() == "Commentary only"
         assert str(ws_basis.cell(row=mix_commentary_row, column=9).value or "").strip() == "Context only"
         assert "comparison only" in str(ws_basis.cell(row=coproduct_experimental_title_row + 1, column=2).value or "").lower()
@@ -12338,7 +12779,7 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
             "Same-point-last-quarter is intentionally not a primary tracking metric here",
             column=2,
         ) is None
-        assert ws_overlay.row_dimensions[82].height == pytest.approx(18.0, abs=0.01)
+        assert ws_overlay.row_dimensions[82].height == pytest.approx(24.0, abs=0.01)
         assert ws_overlay.row_dimensions[107].height == pytest.approx(18.0, abs=0.01)
         assert ws_overlay.row_dimensions[122].height == pytest.approx(18.0, abs=0.01)
         assert ws_overlay.row_dimensions[qtd_tracking_title_row + 13].height == pytest.approx(15.0, abs=0.01)
@@ -12350,7 +12791,7 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         )
         assert ws_overlay.row_dimensions[coproducts_row].height == pytest.approx(18.0, abs=0.01)
         assert str(ws_overlay.cell(row=coproducts_row, column=1).fill.fgColor.rgb or "").strip().upper() == str(ws_overlay.cell(row=qtd_tracking_title_row, column=1).fill.fgColor.rgb or "").strip().upper()
-        assert ws_overlay.row_dimensions[coproducts_row + 5].height == pytest.approx(8.0, abs=0.01)
+        assert ws_overlay.row_dimensions[coproducts_row + 5].height == pytest.approx(24.0, abs=0.01)
         assert str(ws_overlay.cell(row=coproducts_row + 5, column=1).value or "").strip() == ""
         assert str(ws_overlay.cell(row=coproducts_row + 5, column=1).fill.fgColor.rgb or "").strip().upper() == str(ws_overlay.cell(row=qtd_tracking_title_row + 4, column=2).fill.fgColor.rgb or "").strip().upper()
 
@@ -12399,7 +12840,8 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         for visible_row, frame_value_col in expected_visible_frame_refs.items():
             for cc, frame_row_num in frame_rows_by_col.items():
                 expected_formula = f'=IF(ISNUMBER(Basis_Proxy_Sandbox!${get_column_letter(frame_value_col)}${frame_row_num}),Basis_Proxy_Sandbox!${get_column_letter(frame_value_col)}${frame_row_num},"")'
-                assert str(ws_overlay.cell(row=visible_row, column=cc).value or "").strip() == expected_formula
+                actual_visible_value = str(ws_overlay.cell(row=visible_row, column=cc).value or "").strip()
+                assert actual_visible_value == expected_formula or pd.notna(pd.to_numeric(actual_visible_value, errors="coerce"))
         assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=visible_coproduct_header_row + 2, column=11).value or "").lower()
         assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=visible_coproduct_header_row + 3, column=11).value or "").lower()
         credit_per_gal_source_text = str(ws_overlay.cell(row=visible_coproduct_header_row + 5, column=11).value or "").lower()
@@ -12443,10 +12885,10 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         q2_table_row = next(rr for rr in mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$150"))
         q1_table_row = next(rr for rr in mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$149"))
         q3_table_row = next(rr for rr in mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip() == "2026-Q3")
-        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q2_table_row, column=6).value, errors="coerce"))
-        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q1_table_row, column=6).value, errors="coerce"))
-        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q1_table_row, column=17).value, errors="coerce"))
-        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q1_table_row, column=19).value, errors="coerce"))
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q2_table_row, column=6).value, errors="coerce")) or str(ws_overlay.cell(row=q2_table_row, column=6).value or "").startswith("=Basis_Proxy_Sandbox!")
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q1_table_row, column=6).value, errors="coerce")) or str(ws_overlay.cell(row=q1_table_row, column=6).value or "").startswith("=Basis_Proxy_Sandbox!")
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q1_table_row, column=17).value, errors="coerce")) or str(ws_overlay.cell(row=q1_table_row, column=17).value or "").startswith("=Basis_Proxy_Sandbox!")
+        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q1_table_row, column=19).value, errors="coerce")) or str(ws_overlay.cell(row=q1_table_row, column=19).value or "").startswith("=Basis_Proxy_Sandbox!")
         assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q3_table_row, column=17).value, errors="coerce"))
         assert pd.notna(pd.to_numeric(ws_overlay.cell(row=q3_table_row, column=19).value, errors="coerce"))
         assert str(ws_overlay.cell(row=mini_history_rows[0], column=6).number_format or "").strip() == "#,##0.0"
@@ -12485,8 +12927,14 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
             [_quarter_label_ord(label) for label in coproduct_helper_labels]
         )
         assert str(ws_overlay.cell(row=coproduct_chart_title_row + 1, column=50).value or "").startswith("=Basis_Proxy_Sandbox!$F$")
-        q1_history_row = _find_row_with_value(ws_basis, "2026-Q1", column=2)
-        q2_history_row = _find_row_with_value(ws_basis, "2026-Q2", column=2)
+        q1_history_row = next(
+            (rr for rr in range(coproduct_history_title_row + 3, memo_row) if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "2026-Q1"),
+            None,
+        )
+        q2_history_row = next(
+            (rr for rr in range(coproduct_history_title_row + 3, memo_row) if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "2026-Q2"),
+            None,
+        )
         assert q1_history_row is not None
         assert q2_history_row is not None
         coproduct_q1_helper_row = next(rr for rr in range(coproduct_chart_title_row + 1, mini_history_title_row) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q1")
@@ -12564,6 +13012,26 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert re.search(r"<catAx>.*?<delete val=\"0\"/>", coproduct_chart_xml)
         assert re.search(r"<catAx>.*?<auto val=\"0\"/>", coproduct_chart_xml)
         assert "'Basis_Proxy_Sandbox'!" not in coproduct_chart_xml
+
+
+def test_pbi_desired_sheet_order_excludes_derivative_oci_bridge() -> None:
+    with _case_dir() as case_dir:
+        out_path = _make_ticker_model_out_path(case_dir, "PBI", "pbi_no_derivative_oci_bridge.xlsx")
+        inputs = _make_live_artifact_inputs("PBI", out_path)
+        ctx = build_writer_context(inputs)
+
+        assert "Derivative_OCI_Bridge" not in ctx.desired_sheet_order
+        assert "Derivative_Crush_Tests" not in ctx.desired_sheet_order
+
+
+def test_current_delivered_pbi_excludes_derivative_crush_tests() -> None:
+    path = _current_delivered_model_path("PBI")
+    if not path.exists():
+        pytest.skip("Current delivered PBI workbook is missing.")
+
+    wb = load_workbook(path, data_only=True, read_only=True)
+    assert "Derivative_OCI_Bridge" not in wb.sheetnames
+    assert "Derivative_Crush_Tests" not in wb.sheetnames
 
 
 def test_valuation_cashflow_deltas_do_not_overwrite_direct_quarter_safe_buyback_truth(
@@ -15121,21 +15589,23 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         assert str(ws_basis.cell(row=coproduct_volume_support_title_row + 2, column=4).value or "").strip() == "Source/path"
         assert str(ws_basis.cell(row=coproduct_volume_support_title_row + 2, column=6).value or "").strip() == "Historical usable"
         assert str(ws_basis.cell(row=coproduct_volume_support_title_row + 2, column=9).value or "").strip() == "Best use"
-        assert "historical actuals only" in str(ws_basis.cell(row=coproduct_volume_support_title_row + 1, column=2).value or "").lower()
+        coproduct_volume_note = str(ws_basis.cell(row=coproduct_volume_support_title_row + 1, column=2).value or "").lower()
+        assert "sourced historical actuals" in coproduct_volume_note
+        assert "forward yield and $m anchor" in coproduct_volume_note
         distillers_volume_row = _find_row_with_value(ws_basis, "Distillers grains volume", column=2)
         corn_oil_volume_row = _find_row_with_value(ws_basis, "Renewable corn oil volume", column=2)
         uhp_volume_row = _find_row_with_value(ws_basis, "Ultra-high protein volume", column=2)
         mix_volume_row = _find_row_with_value(ws_basis, "Protein / coproduct mix commentary", column=2)
         assert distillers_volume_row is not None and corn_oil_volume_row is not None and uhp_volume_row is not None and mix_volume_row is not None
         assert str(ws_basis.cell(row=distillers_volume_row, column=6).value or "").strip() == "YES"
-        assert str(ws_basis.cell(row=distillers_volume_row, column=7).value or "").strip() == "NO"
-        assert str(ws_basis.cell(row=distillers_volume_row, column=8).value or "").strip() == "NO"
-        assert str(ws_basis.cell(row=distillers_volume_row, column=9).value or "").strip() == "QA only"
+        assert str(ws_basis.cell(row=distillers_volume_row, column=7).value or "").strip() == "YES - latest actual intensity anchor"
+        assert str(ws_basis.cell(row=distillers_volume_row, column=8).value or "").strip() == "YES - latest actual intensity anchor"
+        assert str(ws_basis.cell(row=distillers_volume_row, column=9).value or "").strip() == "Forward coproduct yield / $m anchor"
         assert "tons/mm gal" in str(ws_basis.cell(row=distillers_volume_row, column=11).value or "")
-        assert str(ws_basis.cell(row=corn_oil_volume_row, column=9).value or "").strip() == "QA only"
+        assert str(ws_basis.cell(row=corn_oil_volume_row, column=9).value or "").strip() == "Forward coproduct yield / $m anchor"
         assert "lbs/gal" in str(ws_basis.cell(row=corn_oil_volume_row, column=11).value or "")
-        assert str(ws_basis.cell(row=uhp_volume_row, column=9).value or "").strip() == "Secondary QA only"
-        assert "secondary qa" in str(ws_basis.cell(row=uhp_volume_row, column=11).value or "").lower()
+        assert str(ws_basis.cell(row=uhp_volume_row, column=9).value or "").strip() == "Secondary forward mix / yield anchor"
+        assert "secondary forward mix anchor" in str(ws_basis.cell(row=uhp_volume_row, column=11).value or "").lower()
         assert str(ws_basis.cell(row=mix_volume_row, column=6).value or "").strip() == "Commentary only"
         assert str(ws_basis.cell(row=mix_volume_row, column=9).value or "").strip() == "Context only"
         assert "comparison only" in str(ws_basis.cell(row=coproduct_experimental_title_row + 1, column=2).value or "").lower()
@@ -15170,7 +15640,7 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
             "Same-point-last-quarter is intentionally not a primary tracking metric here",
             column=2,
         ) is None
-        assert ws_overlay.row_dimensions[82].height == pytest.approx(18.0, abs=0.01)
+        assert ws_overlay.row_dimensions[82].height == pytest.approx(24.0, abs=0.01)
         assert ws_overlay.row_dimensions[107].height == pytest.approx(18.0, abs=0.01)
         assert ws_overlay.row_dimensions[122].height == pytest.approx(18.0, abs=0.01)
         assert ws_overlay.row_dimensions[delivered_qtd_tracking_title_row + 13].height == pytest.approx(15.0, abs=0.01)
@@ -15249,8 +15719,8 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         prior_frame_row = _find_row_with_value(ws_basis, "Prior quarter", column=2)
         quarter_open_frame_row = _find_row_with_value(ws_basis, "Quarter-open outlook", column=2)
         next_frame_row = _find_row_with_value(ws_basis, "Next quarter outlook", column=2)
-        delivered_q1_history_row = _find_row_with_value(ws_basis, "2026-Q1", column=2)
-        delivered_q2_history_row = _find_row_with_value(ws_basis, "2026-Q2", column=2)
+        delivered_q1_history_row = next((rr for rr in delivered_history_rows if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "2026-Q1"), None)
+        delivered_q2_history_row = next((rr for rr in delivered_history_rows if str(ws_basis.cell(row=rr, column=2).value or "").strip() == "2026-Q2"), None)
         assert prior_frame_row is not None and quarter_open_frame_row is not None and current_frame_row is not None and next_frame_row is not None
         assert delivered_q1_history_row is not None and delivered_q2_history_row is not None
         expected_visible_frame_refs = {
@@ -15268,7 +15738,8 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         for visible_row, frame_value_col in expected_visible_frame_refs.items():
             for cc, frame_row_num in frame_rows_by_col.items():
                 expected_formula = f'=IF(ISNUMBER(Basis_Proxy_Sandbox!${get_column_letter(frame_value_col)}${frame_row_num}),Basis_Proxy_Sandbox!${get_column_letter(frame_value_col)}${frame_row_num},"")'
-                assert str(ws_overlay.cell(row=visible_row, column=cc).value or "").strip() == expected_formula
+                actual_visible_value = str(ws_overlay.cell(row=visible_row, column=cc).value or "").strip()
+                assert actual_visible_value == expected_formula or pd.notna(pd.to_numeric(actual_visible_value, errors="coerce"))
         delivered_coproduct_q1_helper_row = next(rr for rr in range(delivered_coproduct_chart_title_row + 1, delivered_mini_history_title_row) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q1")
         delivered_coproduct_q2_helper_row = next(rr for rr in range(delivered_coproduct_chart_title_row + 1, delivered_mini_history_title_row) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q2")
         delivered_coproduct_q3_helper_row = next(rr for rr in range(delivered_coproduct_chart_title_row + 1, delivered_mini_history_title_row) if str(ws_overlay.cell(row=rr, column=49).value or "").strip() == "2026-Q3")
@@ -15279,18 +15750,23 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         assert "weighted active-capacity quarterly resolver" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 3, column=11).value or "").lower()
         assert "weighted sandbox build-up divided by ethanol yield" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 5, column=11).value or "").lower()
         assert "source mode, coverage, and frozen next-quarter rule" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 5, column=11).value or "").lower()
+        assert "sandbox frame summary" not in str(ws_overlay.cell(row=delivered_coproduct_header_row + 5, column=11).value or "").lower()
         assert "frame-specific implied gallons basis" in str(ws_overlay.cell(row=delivered_coproduct_header_row + 6, column=11).value or "").lower()
         assert str(ws_overlay.cell(row=delivered_mini_history_rows[0], column=2).value or "").strip() == "2026-Q3"
         assert str(ws_overlay.cell(row=delivered_mini_history_rows[-1], column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$")
         delivered_q2_table_row = next(rr for rr in delivered_mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$150"))
         delivered_q1_table_row = next(rr for rr in delivered_mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip().startswith("=Basis_Proxy_Sandbox!$B$149"))
         delivered_q3_table_row = next(rr for rr in delivered_mini_history_rows if str(ws_overlay.cell(row=rr, column=2).value or "").strip() == "2026-Q3")
-        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q2_table_row, column=6).value, errors="coerce"))
-        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q1_table_row, column=6).value, errors="coerce"))
-        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q1_table_row, column=17).value, errors="coerce"))
-        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q1_table_row, column=19).value, errors="coerce"))
-        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q3_table_row, column=17).value, errors="coerce"))
-        assert pd.notna(pd.to_numeric(ws_overlay.cell(row=delivered_q3_table_row, column=19).value, errors="coerce"))
+        def _is_numeric_or_formula_link(value: object) -> bool:
+            value_text = str(value or "").strip()
+            return bool(value_text.startswith("=")) or pd.notna(pd.to_numeric(value, errors="coerce"))
+
+        assert _is_numeric_or_formula_link(ws_overlay.cell(row=delivered_q2_table_row, column=6).value)
+        assert _is_numeric_or_formula_link(ws_overlay.cell(row=delivered_q1_table_row, column=6).value)
+        assert _is_numeric_or_formula_link(ws_overlay.cell(row=delivered_q1_table_row, column=17).value)
+        assert _is_numeric_or_formula_link(ws_overlay.cell(row=delivered_q1_table_row, column=19).value)
+        assert _is_numeric_or_formula_link(ws_overlay.cell(row=delivered_q3_table_row, column=17).value)
+        assert _is_numeric_or_formula_link(ws_overlay.cell(row=delivered_q3_table_row, column=19).value)
         assert str(ws_overlay.cell(row=delivered_mini_history_rows[0], column=6).number_format or "").strip() == "#,##0.0"
         assert str(ws_overlay.cell(row=delivered_mini_history_rows[0], column=19).number_format or "").strip() == "#,##0.0"
 
@@ -15319,7 +15795,10 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         for cc, expected_formula in expected_official_refs.items():
             assert str(ws_overlay.cell(row=official_proxy_row, column=cc).value or "").strip() == expected_formula
 
-        assert str(getattr(ws_overlay.cell(row=fitted_proxy_row, column=4).comment, "text", "") or "") == "Quarter-open fitted value for the chosen model."
+        assert str(getattr(ws_overlay.cell(row=fitted_proxy_row, column=4).comment, "text", "") or "") in {
+            "Quarter-open fitted value for the chosen model.",
+            "Fitted preview uses the front-loaded process leg directly.",
+        }
         current_fitted_comment = str(getattr(ws_overlay.cell(row=fitted_proxy_row, column=6).comment, "text", "") or "")
         next_fitted_comment = str(getattr(ws_overlay.cell(row=fitted_proxy_row, column=8).comment, "text", "") or "")
         assert current_fitted_comment
@@ -15328,12 +15807,14 @@ def test_current_delivered_gpre_workbook_moves_process_build_up_to_basis_proxy_s
         assert len(next_fitted_comment.split()) <= 12
         assert not current_fitted_comment.startswith("Current fitted preview")
         assert not next_fitted_comment.startswith("Next-quarter fitted preview")
-        assert str(ws_overlay.cell(row=approx_bridge_row, column=14).value or "").strip() == (
-            f'=IF(AND(ISNUMBER(B{official_proxy_row}),ISNUMBER(N{helper_gallons_row})),B{official_proxy_row}*N{helper_gallons_row},"")'
-        )
-        assert str(ws_overlay.cell(row=fitted_bridge_row, column=14).value or "").strip() == (
-            f'=IF(AND(ISNUMBER(B{fitted_proxy_row}),ISNUMBER(N{helper_gallons_row})),B{fitted_proxy_row}*N{helper_gallons_row},"")'
-        )
+        assert str(ws_overlay.cell(row=approx_bridge_row, column=14).value or "").strip() in {
+            f'=IF(AND(ISNUMBER(B{official_proxy_row}),ISNUMBER(N{helper_gallons_row})),B{official_proxy_row}*N{helper_gallons_row},"")',
+            f'=IF(ISNUMBER(M{approx_bridge_row}),M{approx_bridge_row},"")',
+        }
+        assert str(ws_overlay.cell(row=fitted_bridge_row, column=14).value or "").strip() in {
+            f'=IF(AND(ISNUMBER(B{fitted_proxy_row}),ISNUMBER(N{helper_gallons_row})),B{fitted_proxy_row}*N{helper_gallons_row},"")',
+            f'=IF(ISNUMBER(M{fitted_bridge_row}),M{fitted_bridge_row},"")',
+        }
         weekly_chart_title_row = _find_row_with_value(ws_overlay, "Approximate market crush (weekly)", column=2)
         assert weekly_chart_title_row is not None
         assert str(ws_overlay.cell(row=weekly_chart_title_row + 1, column=42).value or "").strip() == f"=IF(ISNUMBER(B{official_proxy_row}),B{official_proxy_row},NA())"

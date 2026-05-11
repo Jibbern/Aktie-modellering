@@ -932,6 +932,14 @@ def write_raw_data_sheets(ctx: WriterContext) -> None:
     callbacks.write_sheet("Slides_Segments", ctx.inputs.slides_segments)
     callbacks.write_sheet("Slides_Debt_Profile", ctx.inputs.slides_debt)
     callbacks.write_sheet("NonGAAP_Bridge", ctx.require_derived_frame("ng_bridge"))
+    derivative_oci_bridge_df = ctx.data.extra_values.get("derivative_oci_bridge_df")
+    if isinstance(derivative_oci_bridge_df, pd.DataFrame) and not derivative_oci_bridge_df.empty:
+        derivative_oci_exposure_df = ctx.data.extra_values.get("derivative_oci_exposure_df")
+        derivative_writer = callbacks.extra_callbacks.get("_write_derivative_oci_bridge_sheet")
+        if callable(derivative_writer):
+            derivative_writer(derivative_oci_bridge_df, derivative_oci_exposure_df)
+        else:
+            callbacks.write_sheet("Derivative_OCI_Bridge", derivative_oci_bridge_df)
     if ctx.inputs.excel_mode == "full" and not ctx.inputs.adj_metrics_relaxed.empty:
         callbacks.write_sheet("Adjusted_Metrics_Relaxed", ctx.inputs.adj_metrics_relaxed)
         callbacks.write_sheet("Adjustments_Breakdown_Relaxed", ctx.inputs.adj_breakdown_relaxed)
@@ -1417,6 +1425,12 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
             qa_checks = ui_qa_df.copy()
         else:
             qa_checks = pd.concat([qa_checks, ui_qa_df], ignore_index=True)
+    derivative_oci_qa_df = ctx.data.extra_values.get("derivative_oci_qa_df")
+    if isinstance(derivative_oci_qa_df, pd.DataFrame) and not derivative_oci_qa_df.empty:
+        if qa_checks is None or qa_checks.empty:
+            qa_checks = derivative_oci_qa_df.copy()
+        else:
+            qa_checks = pd.concat([qa_checks, derivative_oci_qa_df], ignore_index=True)
     if shares_diluted_diag_rows:
         diag_df = pd.DataFrame(shares_diluted_diag_rows)
         if qa_checks is None or qa_checks.empty:

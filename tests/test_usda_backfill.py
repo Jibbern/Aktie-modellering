@@ -5,15 +5,63 @@ import shutil
 from datetime import date
 from pathlib import Path
 
+import pandas as pd
+
+from pbi_xbrl.market_data.providers.base import BaseMarketProvider, report_period_end_date_from_text
 from pbi_xbrl.market_data.providers.ams_3617 import AMS3617Provider
 from pbi_xbrl.market_data.providers.nwer import NWERProvider
-from pbi_xbrl.market_data.providers.ams_3618 import AMS3618Provider
+from pbi_xbrl.market_data.providers.ams_3618 import AMS3618Provider, _ams3618_report_date
 from pbi_xbrl.market_data.usda_backfill import (
     collect_archive_assets,
     download_archive_assets,
     resolve_usda_sources,
     run_usda_archive_backfill,
 )
+
+
+def test_usda_report_period_end_date_wins_over_publication_header() -> None:
+    text = (
+        "National Weekly Grain Co-Products Report\n"
+        "Livestock, Poultry and Grain Market News May 4, 2026\n"
+        "Report for 4/27/2026 - 5/1/2026\n"
+    )
+
+    assert report_period_end_date_from_text(text) == date(2026, 5, 1)
+    assert _ams3618_report_date(text, fallback=None) == date(2026, 5, 1)
+
+
+def test_usda_normalize_removes_begin_date_duplicate_when_end_date_copy_exists() -> None:
+    class DemoUsdaProvider(BaseMarketProvider):
+        source = "demo_usda"
+        stable_name_prefix = "demo_usda"
+        local_dir_name = "USDA_demo"
+        local_patterns = ("USDA_demo/*",)
+
+        def owns_local_asset(self, path: Path) -> bool:
+            return path.name.startswith("demo_usda_")
+
+        def infer_pdf_report_date_from_content(self, path: Path) -> pd.Timestamp | None:
+            if path.name in {"demo_usda_2026-04-27.pdf", "demo_usda_2026-05-01.pdf"}:
+                return pd.Timestamp("2026-05-01")
+            return None
+
+    tmp_path = Path(__file__).resolve().parents[1] / "tests" / "_tmp_usda_normalize"
+    shutil.rmtree(tmp_path, ignore_errors=True)
+    local_dir = tmp_path / "GPRE" / "USDA_demo"
+    local_dir.mkdir(parents=True, exist_ok=True)
+    begin_named = local_dir / "demo_usda_2026-04-27.pdf"
+    end_named = local_dir / "demo_usda_2026-05-01.pdf"
+    begin_named.write_bytes(b"same-pdf")
+    end_named.write_bytes(b"same-pdf")
+
+    try:
+        actions = DemoUsdaProvider().normalize_local_filenames(tmp_path / "GPRE")
+
+        assert not begin_named.exists()
+        assert end_named.exists()
+        assert any(item.get("status") == "removed_duplicate" for item in actions)
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
 
 
 def test_collect_archive_assets_merges_latest_and_month_archive(monkeypatch) -> None:

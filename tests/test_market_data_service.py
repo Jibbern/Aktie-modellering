@@ -1743,6 +1743,39 @@ def test_sync_market_cache_rebuilds_raw_manifest_from_existing_raw_files(monkeyp
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_raw_cache_merge_drops_stale_usda_begin_date_duplicate() -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_market_raw_usda_duplicate_")
+    try:
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        raw_dir = cache_root / "raw" / "demo_usda" / "2026"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        begin_named = raw_dir / "demo_usda_2026-04-27.pdf"
+        end_named = raw_dir / "demo_usda_2026-05-01.pdf"
+        begin_named.write_bytes(b"%PDF-1.4 same USDA report bytes")
+        end_named.write_bytes(b"%PDF-1.4 same USDA report bytes")
+
+        class _DemoUsdaProvider(BaseMarketProvider):
+            source = "demo_usda"
+            stable_name_prefix = "demo_usda"
+
+            def owns_local_asset(self, path: Path) -> bool:
+                return path.name.startswith("demo_usda_")
+
+            def infer_pdf_report_date_from_content(self, path: Path) -> pd.Timestamp | None:
+                if path.name in {"demo_usda_2026-04-27.pdf", "demo_usda_2026-05-01.pdf"}:
+                    return pd.Timestamp("2026-05-01")
+                return None
+
+        provider = _DemoUsdaProvider()
+        disk_entries = market_service._raw_entries_from_disk(cache_root, "demo_usda", provider)
+        merged = market_service._merge_raw_entries([], disk_entries, source="demo_usda", provider=provider)
+
+        assert [Path(str(entry.get("local_path") or "")).name for entry in merged] == ["demo_usda_2026-05-01.pdf"]
+        assert merged[0]["report_date"] == "2026-05-01"
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_sync_market_cache_ingests_manually_added_local_usda_pdfs(monkeypatch: pytest.MonkeyPatch) -> None:
     tmp_path = _local_test_dir(".pytest_tmp_market_local_usda_sync_")
     try:

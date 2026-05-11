@@ -7,6 +7,7 @@ stays in one place.
 from __future__ import annotations
 
 import base64
+import hashlib
 import html
 import json
 import re
@@ -22,6 +23,37 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 from ..cache import file_fingerprint, raw_source_dir, remote_debug_path
+
+
+def report_period_end_date_from_text(text: str) -> Optional[date]:
+    """Return the report-period end date from USDA PDF text when disclosed.
+
+    USDA weekly PDFs can have a publication header date after the report week
+    end. Public_data rows and workbook series use the report period end, so the
+    "Report for <begin> - <end>" line is the stable date for filenames and
+    observations when present.
+    """
+    match = re.search(
+        r"\bReport\s+for\s+"
+        r"(?P<begin>\d{1,2}/\d{1,2}/\d{2,4})"
+        r"(?:\s*(?:-|\u2013|\u2014|\bto\b)\s*(?P<end>\d{1,2}/\d{1,2}/\d{2,4}))?",
+        str(text or ""),
+        re.I,
+    )
+    if not match:
+        return None
+    token = match.group("end") or match.group("begin")
+    ts = pd.to_datetime(token, errors="coerce")
+    if pd.isna(ts):
+        return None
+    return ts.date()
+
+
+def _file_content_fingerprint(path: Path) -> str:
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except Exception:
+        return ""
 
 
 class RemoteFetchError(RuntimeError):
@@ -73,9 +105,58 @@ class BaseMarketProvider:
     def infer_local_report_date(self, path: Path) -> Optional[pd.Timestamp]:
         return self._date_from_name(path)
 
+    def infer_pdf_report_date_from_content(self, path: Path) -> Optional[pd.Timestamp]:
+        del path
+        return None
+
     def normalize_local_filenames(self, ticker_root: Path) -> List[Dict[str, Any]]:
-        del ticker_root
-        return []
+        actions: List[Dict[str, Any]] = []
+        seen: set[Path] = set()
+        for pattern in tuple(self.local_patterns or ()):
+            for path in sorted(Path(ticker_root).glob(pattern)):
+                if not path.is_file() or path.suffix.lower() != ".pdf":
+                    continue
+                if not self.owns_local_asset(path):
+                    continue
+                resolved = path.resolve()
+                if resolved in seen:
+                    continue
+                seen.add(resolved)
+                content_ts = self.infer_pdf_report_date_from_content(path)
+                if content_ts is None or pd.isna(content_ts):
+                    continue
+                content_date = pd.Timestamp(content_ts).date()
+                named_ts = self._date_from_name(path)
+                if named_ts is not None and pd.Timestamp(named_ts).date() == content_date:
+                    continue
+                target_stem = f"{str(self.stable_name_prefix or self.source).strip()}_{content_date.isoformat()}"
+                target = path.with_name(f"{target_stem}{path.suffix.lower()}")
+                if target == path:
+                    continue
+                action: Dict[str, Any] = {
+                    "from": str(path),
+                    "to": str(target),
+                    "report_date": content_date.isoformat(),
+                }
+                if target.exists():
+                    src_fp = _file_content_fingerprint(path)
+                    target_fp = _file_content_fingerprint(target)
+                    if src_fp and target_fp and src_fp == target_fp:
+                        path.unlink()
+                        action["status"] = "removed_duplicate"
+                        actions.append(action)
+                        continue
+                    counter = 1
+                    while target.exists():
+                        target = path.with_name(f"{target_stem}_{counter:02d}{path.suffix.lower()}")
+                        counter += 1
+                    action["to"] = str(target)
+                    action["status"] = "renamed_conflicting_copy"
+                else:
+                    action["status"] = "renamed"
+                path.rename(target)
+                actions.append(action)
+        return actions
 
     def _is_direct_asset_url(self, url: str) -> bool:
         suffix = Path(urllib.parse.urlparse(str(url or "")).path).suffix.lower()
@@ -1055,6 +1136,7 @@ class BaseMarketProvider:
                 refreshed += 1
             else:
                 skipped += 1
+            self._remove_duplicate_raw_pdf_siblings(dst)
             dst_fp = file_fingerprint(dst)
             st = dst.stat()
             entries.append(
@@ -1076,6 +1158,41 @@ class BaseMarketProvider:
             "raw_refreshed": refreshed,
             "raw_skipped": skipped,
         }
+
+    def _remove_duplicate_raw_pdf_siblings(self, canonical_path: Path) -> int:
+        if canonical_path.suffix.lower() != ".pdf" or not canonical_path.exists():
+            return 0
+        try:
+            canonical_resolved = canonical_path.resolve()
+            canonical_size = canonical_resolved.stat().st_size
+        except Exception:
+            return 0
+        canonical_fp = _file_content_fingerprint(canonical_resolved)
+        if not canonical_fp:
+            return 0
+        removed = 0
+        for sibling in sorted(canonical_resolved.parent.glob(f"*{canonical_resolved.suffix}")):
+            try:
+                sibling_resolved = sibling.resolve()
+            except Exception:
+                sibling_resolved = sibling
+            if sibling_resolved == canonical_resolved or not sibling_resolved.is_file():
+                continue
+            if not self.owns_local_asset(sibling_resolved):
+                continue
+            try:
+                if sibling_resolved.stat().st_size != canonical_size:
+                    continue
+            except Exception:
+                continue
+            sibling_fp = _file_content_fingerprint(sibling_resolved)
+            if sibling_fp and sibling_fp == canonical_fp:
+                try:
+                    sibling_resolved.unlink()
+                    removed += 1
+                except Exception:
+                    pass
+        return removed
 
     def parse_raw_to_rows(self, cache_root: Path, ticker_root: Path, raw_entries: List[Dict[str, Any]]) -> pd.DataFrame:
         del cache_root, ticker_root, raw_entries

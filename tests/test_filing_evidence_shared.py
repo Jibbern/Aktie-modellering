@@ -23,6 +23,7 @@ from pbi_xbrl.filing_evidence_shared import (
     filing_quarter_end,
     format_pct,
     history_quarter_ends,
+    investor_note_candidate_from_event,
     iter_submission_batches,
     merge_same_subject_events,
     merge_evidence_events,
@@ -454,6 +455,40 @@ def test_shared_routing_splits_note_vs_measurable_promise_generically() -> None:
     assert promise.candidate_scope == "hard_target"
     assert promise.canonical_subject_key
     assert promise.lifecycle_state == "stated"
+
+
+def test_investor_note_candidate_from_event_matches_existing_route() -> None:
+    text = "Risk management supports margins and cash flow through the cycle."
+    event = build_evidence_event(
+        text,
+        source_type="earnings_release",
+        source_doc="release_q3.txt",
+        metric_hint="Risk management",
+        theme_hint="Results / drivers",
+        base_score=72.0,
+        period_norm="Q2025Q3",
+    )
+    routed = route_to_investor_note_candidate(
+        text,
+        quarter="2025-09-30",
+        source_type="earnings_release",
+        source_doc="release_q3.txt",
+        metric_hint="Risk management",
+        theme_hint="Results / drivers",
+        base_score=72.0,
+        period_norm="Q2025Q3",
+    )
+
+    assert event is not None and routed is not None
+    from_event = investor_note_candidate_from_event(
+        event,
+        quarter="2025-09-30",
+        raw_text=text,
+        source_type="earnings_release",
+        source_doc="release_q3.txt",
+    )
+
+    assert from_event == routed
 
 
 def test_follow_through_event_and_same_subject_merge_handle_wording_variants() -> None:

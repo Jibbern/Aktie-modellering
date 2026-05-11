@@ -1625,12 +1625,30 @@ def route_to_investor_note_candidate(
     )
     if event is None:
         return None
+
+    return investor_note_candidate_from_event(
+        event,
+        quarter=quarter,
+        raw_text=text,
+        source_type=source_type,
+        source_doc=source_doc,
+    )
+
+
+def investor_note_candidate_from_event(
+    event: EvidenceEvent,
+    *,
+    quarter: Any,
+    raw_text: Any = "",
+    source_type: Any = "",
+    source_doc: Any = "",
+) -> InvestorNoteCandidate:
     return InvestorNoteCandidate(
         quarter=str(quarter or ""),
-        source_type=str(source_type or ""),
-        source_doc=str(source_doc or ""),
-        source_rank=source_rank(source_type),
-        raw_text=str(text or ""),
+        source_type=str(source_type or event.source_type or ""),
+        source_doc=str(source_doc or event.source_doc or ""),
+        source_rank=source_rank(source_type or event.source_type),
+        raw_text=str(raw_text or ""),
         statement_summary=str(event.summary or ""),
         candidate_type="investor_note_candidate",
         source_class=str(event.source_class or ""),

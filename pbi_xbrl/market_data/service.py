@@ -386,7 +386,133 @@ def _merge_raw_entries(
             continue
         merged[str(normalized.get("local_path") or "")] = normalized
     out = list(merged.values())
+    out = _dedupe_raw_pdf_entries_by_content_report_date(out, provider=provider)
     out.sort(key=lambda row: (str(row.get("report_date") or ""), str(row.get("local_path") or "")))
+    return out
+
+
+def _raw_entry_content_fingerprint(entry: Dict[str, Any]) -> str:
+    try:
+        path = Path(str(entry.get("local_path") or "")).expanduser()
+    except Exception:
+        return ""
+    if not path.exists() or not path.is_file():
+        return ""
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except Exception:
+        return ""
+
+
+def _raw_entry_content_report_date(entry: Dict[str, Any], *, provider: Any) -> str:
+    try:
+        path = Path(str(entry.get("local_path") or "")).expanduser()
+    except Exception:
+        return ""
+    if path.suffix.lower() != ".pdf" or not path.exists() or not path.is_file():
+        return ""
+    infer = getattr(provider, "infer_pdf_report_date_from_content", None)
+    if not callable(infer):
+        return ""
+    try:
+        report_ts = infer(path)
+    except Exception:
+        return ""
+    if not isinstance(report_ts, pd.Timestamp) or pd.isna(report_ts):
+        return ""
+    return report_ts.date().isoformat()
+
+
+def _raw_entry_date_score(entry: Dict[str, Any], *, provider: Any, report_date: str) -> Tuple[int, str]:
+    try:
+        path = Path(str(entry.get("local_path") or "")).expanduser()
+    except Exception:
+        path = Path(str(entry.get("local_path") or ""))
+    score = 0
+    if report_date:
+        try:
+            named_ts = provider._date_from_name(path)
+        except Exception:
+            named_ts = None
+        if isinstance(named_ts, pd.Timestamp) and not pd.isna(named_ts) and named_ts.date().isoformat() == report_date:
+            score += 100
+        entry_report_date = str(entry.get("report_date") or "").strip()[:10]
+        if entry_report_date == report_date:
+            score += 50
+    # Stable canonical names are more useful than old restored duplicates when
+    # both point at the same USDA PDF bytes.
+    return score, path.name.lower()
+
+
+def _dedupe_raw_pdf_entries_by_content_report_date(
+    entries: List[Dict[str, Any]],
+    *,
+    provider: Any,
+) -> List[Dict[str, Any]]:
+    """Drop stale raw-cache PDF duplicates after local USDA name normalization.
+
+    Raw cache intentionally backfills from disk even when the manifest is stale.
+    That is useful, but restored USDA PDFs can also retain old begin-date or
+    publication-date filenames. When a corrected period-end copy exists with the
+    same PDF bytes, keep the canonical period-end entry and exclude the stale
+    duplicate from the active manifest/parse set.
+    """
+    size_groups: Dict[Tuple[str, int], List[int]] = {}
+    for idx, entry in enumerate(entries):
+        try:
+            path = Path(str(entry.get("local_path") or "")).expanduser()
+        except Exception:
+            continue
+        if path.suffix.lower() != ".pdf" or not path.exists() or not path.is_file():
+            continue
+        try:
+            size = int(entry.get("size") or path.stat().st_size)
+        except Exception:
+            size = 0
+        if size <= 0:
+            continue
+        key = (str(entry.get("asset_type") or "").strip(), size)
+        size_groups.setdefault(key, []).append(idx)
+
+    skip: set[int] = set()
+    replacements: Dict[int, Dict[str, Any]] = {}
+    for group_idxs in size_groups.values():
+        if len(group_idxs) < 2:
+            continue
+        content_groups: Dict[str, List[int]] = {}
+        for idx in group_idxs:
+            fp = _raw_entry_content_fingerprint(entries[idx])
+            if fp:
+                content_groups.setdefault(fp, []).append(idx)
+        for duplicate_idxs in content_groups.values():
+            if len(duplicate_idxs) < 2:
+                continue
+            content_report_date = ""
+            for idx in duplicate_idxs:
+                content_report_date = _raw_entry_content_report_date(entries[idx], provider=provider)
+                if content_report_date:
+                    break
+            if not content_report_date:
+                continue
+            keep_idx = max(
+                duplicate_idxs,
+                key=lambda idx: _raw_entry_date_score(entries[idx], provider=provider, report_date=content_report_date),
+            )
+            kept = dict(entries[keep_idx])
+            kept["report_date"] = content_report_date
+            kept["publication_date"] = str(kept.get("publication_date") or content_report_date)
+            replacements[keep_idx] = kept
+            for idx in duplicate_idxs:
+                if idx != keep_idx:
+                    skip.add(idx)
+
+    if not skip and not replacements:
+        return entries
+    out: List[Dict[str, Any]] = []
+    for idx, entry in enumerate(entries):
+        if idx in skip:
+            continue
+        out.append(replacements.get(idx, entry))
     return out
 
 
