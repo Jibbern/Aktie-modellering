@@ -116,9 +116,22 @@ def latest_common_quarter(series_list: Sequence[pd.Series], min_points: int = 1)
 def _series(df: pd.DataFrame, col: str) -> pd.Series:
     if df is None or df.empty or col not in df.columns or "quarter" not in df.columns:
         return pd.Series(dtype=float)
-    s = pd.to_numeric(df[col], errors="coerce")
-    s.index = pd.to_datetime(df["quarter"], errors="coerce")
+    work = df.copy()
+    work["_quarter_idx"] = pd.to_datetime(work["quarter"], errors="coerce")
+    work = work[work["_quarter_idx"].notna()].copy()
+    if work.empty:
+        return pd.Series(dtype=float)
+    if "period_type" in work.columns:
+        period_order = {"annual": 0, "year": 0, "fy": 0, "ytd": 1, "quarter": 2, "": 2}
+        work["_period_order"] = work["period_type"].astype(str).str.strip().str.lower().map(period_order).fillna(2)
+        work = work.sort_values(["_quarter_idx", "_period_order"], kind="stable")
+    else:
+        work = work.sort_values(["_quarter_idx"], kind="stable")
+    s = pd.to_numeric(work[col], errors="coerce")
+    s.index = pd.DatetimeIndex(work["_quarter_idx"])
     s = s[~s.index.isna()]
+    if s.index.has_duplicates:
+        s = s.groupby(level=0).last()
     return s.sort_index()
 
 
