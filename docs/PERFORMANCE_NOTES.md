@@ -82,6 +82,43 @@ For the current writer/runtime split, the safest higher-payoff improvements are:
 
 These are better short-term bets than broad workbook rewrites because they can save visible runtime without weakening workbook truth.
 
+## New-Ticker Performance Contract
+New tickers should inherit the generic fast path before any ticker-specific rescue
+logic is added. The practical rule is:
+
+1. Add a timing bucket before optimizing.
+   - Use `profile_timings` labels at the stage/sheet/helper boundary where a
+     future reader can act on the result.
+   - Avoid one huge "writer" bucket when the work can be split into selection,
+     rendering, raw sheet writing, and save/readback.
+2. Put event-window guards before broad source-cache scans.
+   - If a helper is searching for one known event family, gate it by ticker,
+     earliest possible quarter, exact event quarter, quarter month, or source
+     type before reading many cached documents.
+   - The guard must be a prefilter only. It must not replace source text
+     matching, provenance checks, or saved-workbook readback.
+   - If a new ticker later gets its own rescue helper, write down the event
+     window in code near the helper and keep a test/readback that proves the
+     visible row still appears.
+3. Prefer reusable writer mechanics over sheet-specific loops.
+   - Generic dataframe sheets should use the shared `_write_sheet` path unless
+     the sheet has a real presentation contract.
+   - Large raw/provenance sheets should avoid expensive per-row height
+     estimation except for long wrapped text.
+   - Do not switch to a "faster-looking" openpyxl pattern without profiling it
+     on a delivered workbook; one attempted row-style rewrite was materially
+     slower than the existing path.
+4. Cache within the export, not across truth boundaries.
+   - Run-scoped caches are good for repeated document scans inside one workbook
+     write.
+   - Do not persist a derived value across runs unless the cache signature proves
+     the source inputs are unchanged.
+
+This lets the system become more general over time without waiting for each new
+company to become slow first. Ticker-specific performance fixes are still
+expected for genuinely company-specific disclosures, but they should follow the
+same guard/cache/readback pattern.
+
 ## Latest Measured Result
 Recent profiled runs after the latest GPRE-first write-path pass showed that the old `Economics_Overlay` hotspot was mostly repeated market-data preparation, not visible openpyxl cell-writing.
 
@@ -125,6 +162,37 @@ What did not materially move yet:
   - still material at about `14.6s` on the latest profiled `GPRE` run
 
 So the next realistic optimization target is no longer `Economics_Overlay`. It is `Quarter_Notes_UI` selection.
+
+## Latest Writer Generalization Pass
+After derivative/crush diagnostics were added, a later conservative runtime pass
+kept workbook output intact while reducing the GPRE writer path further:
+
+- Full `GPRE` build
+  - `write_excel`
+    - before: `338.82s`
+    - after: `253.95s`
+    - delta: about `-85s`
+  - `write_excel.ui.render.quarter_notes`
+    - before: about `119.7s`
+    - after: about `48.2s`
+- Full `PBI` build
+  - `write_excel`
+    - before: `165.35s`
+    - after: `161.29s`
+    - delta: about `-4s`
+
+The durable pieces from that pass were:
+- per-raw-sheet timing labels in `excel_writer_core.write_raw_data_sheets`,
+- a generic `_write_sheet` loop using `DataFrame.itertuples` and centralized
+  Excel-safe value normalization,
+- long-text-only row-height estimation on the heavy `economics_market_raw`
+  sheet,
+- event-window guards around GPRE quarter-note rescue scans that otherwise read
+  broad SEC/source caches for quarters where the event could not exist.
+
+Those event-window guards are now implemented through a named local helper in
+`excel_writer_context.py` so future ticker-specific rescue scans have one
+obvious pattern to copy.
 
 ## What Not To “Optimize”
 - Do not bypass cache invalidation rules just to get faster runs.

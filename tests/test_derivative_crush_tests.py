@@ -72,8 +72,11 @@ def _sample_drivers() -> list[dict[str, object]]:
     return [
         {"Quarter": pd.Timestamp("2025-12-31"), "_driver_key": "ethanol_gallons_produced", "Value": 170.0},
         {"Quarter": pd.Timestamp("2025-12-31"), "_driver_key": "consolidated_ethanol_crush_margin", "Value": 40.0},
+        {"Quarter": pd.Timestamp("2025-12-31"), "_driver_key": "plant_utilization", "Value": 0.93},
         {"Quarter": pd.Timestamp("2026-03-31"), "_driver_key": "ethanol_gallons_produced", "Value": 174.196},
         {"Quarter": pd.Timestamp("2026-03-31"), "_driver_key": "consolidated_ethanol_crush_margin", "Value": 64.616},
+        {"Quarter": pd.Timestamp("2026-03-31"), "_driver_key": "crush_margin_ex_45z", "Value": 8.516},
+        {"Quarter": pd.Timestamp("2026-03-31"), "_driver_key": "plant_utilization", "Value": 0.97},
     ]
 
 
@@ -84,13 +87,21 @@ def _sample_quarterly() -> pd.DataFrame:
                 "quarter": pd.Timestamp("2025-12-31"),
                 "official_simple_proxy_usd_per_gal": 0.20,
                 "gpre_proxy_official_usd_per_gal": 0.23,
+                "best_forward_lens_proxy_usd_per_gal": 0.22,
                 "reported_consolidated_crush_margin_usd_per_gal": 40.0 / 170.0,
+                "weighted_basis_recommended_usd_per_bu": -0.10,
+                "natural_gas_price_usd_per_mmbtu": 2.5,
+                "coproduct_approximate_credit_usd_per_gal": 0.12,
             },
             {
                 "quarter": pd.Timestamp("2026-03-31"),
                 "official_simple_proxy_usd_per_gal": 0.0824,
                 "gpre_proxy_official_usd_per_gal": 0.095,
+                "best_forward_lens_proxy_usd_per_gal": 0.105,
                 "reported_consolidated_crush_margin_usd_per_gal": 64.616 / 174.196,
+                "weighted_basis_recommended_usd_per_bu": -0.12,
+                "natural_gas_price_usd_per_mmbtu": 2.8,
+                "coproduct_approximate_credit_usd_per_gal": 0.13,
             },
         ]
     )
@@ -105,7 +116,7 @@ def test_derivative_crush_tests_build_both_baseline_lenses_and_q1_per_gallon() -
     )
 
     reconciliation = result.reconciliation
-    assert set(reconciliation["Baseline lens"]) == {"Approximate market crush", "GPRE crush proxy"}
+    assert set(reconciliation["Baseline lens"]) == {"Approximate market crush", "GPRE crush proxy", "Best forward lens"}
     q1 = reconciliation[
         (reconciliation["Quarter"] == pd.Timestamp("2026-03-31"))
         & (reconciliation["Baseline lens"] == "Approximate market crush")
@@ -117,6 +128,56 @@ def test_derivative_crush_tests_build_both_baseline_lenses_and_q1_per_gallon() -
         - abs((64.616 / 174.196) - (0.0824 + (-12.594 / 174.196))),
         abs=0.0005,
     )
+
+
+def test_second_stage_ex_derivative_and_clean_margin_diagnostics() -> None:
+    result = build_derivative_crush_tests(
+        _sample_bridge(),
+        _sample_exposure(),
+        _sample_drivers(),
+        _sample_quarterly(),
+    )
+
+    ex_test = result.ex_derivative_margin_test
+    q1_ex = ex_test[
+        (ex_test["Quarter"] == pd.Timestamp("2026-03-31"))
+        & (ex_test["Baseline lens"] == "Approximate market crush")
+    ].iloc[0]
+    expected_deriv = -12.594 / 174.196
+    expected_reported = 64.616 / 174.196
+    assert q1_ex["Reported margin ex derivative / gal"] == pytest.approx(expected_reported - expected_deriv, abs=0.0005)
+    assert q1_ex["Error vs ex-derivative margin"] == pytest.approx((expected_reported - expected_deriv) - 0.0824, abs=0.0005)
+
+    clean = result.clean_margin_bridge
+    q1_clean = clean[clean["Quarter"] == pd.Timestamp("2026-03-31")].iloc[0]
+    expected_45z = 56.1 / 174.196
+    assert q1_clean["45Z impact / gal"] == pytest.approx(expected_45z, abs=0.0005)
+    assert q1_clean["Clean margin / gal"] == pytest.approx(expected_reported - expected_deriv - expected_45z, abs=0.0005)
+    assert "missing explicit items" in str(q1_clean["Notes / flags"])
+
+
+def test_second_stage_accuracy_regression_lag_and_residual_screens_exist() -> None:
+    result = build_derivative_crush_tests(
+        _sample_bridge(),
+        _sample_exposure(),
+        _sample_drivers(),
+        _sample_quarterly(),
+    )
+
+    assert not result.target_specific_model_accuracy.empty
+    assert {"Reported margin / gal", "Reported margin ex derivative / gal", "Clean margin / gal"} <= set(result.target_specific_model_accuracy["Target"])
+    assert "Best forward lens" in set(result.target_specific_model_accuracy["Baseline lens"])
+
+    assert not result.coefficient_diagnostic.empty
+    assert "Model 2: reported = alpha + beta * proxy + gamma * derivative P&L" in set(result.coefficient_diagnostic["Regression model"])
+    assert all("insufficient sample" in str(x) or "diagnostic" in str(x) or "derivative P&L" in str(x) or "possible timing" in str(x) for x in result.coefficient_diagnostic["Interpretation"])
+
+    assert not result.lagged_derivative_pnl_tests.empty
+    assert {"Current quarter derivative P&L", "Prior quarter derivative P&L", "Rolling 2Q derivative P&L avg", "Rolling 4Q derivative P&L avg"} <= set(result.lagged_derivative_pnl_tests["Derivative timing variant"])
+
+    assert not result.residual_driver_screen.empty
+    assert {"45Z impact / gal", "Coproduct value proxy / gal", "Q4 quarterization flag"} <= set(result.residual_driver_screen["Driver"])
+    assert all("current-quarter P&L" not in str(x) for x in result.residual_driver_screen["Driver"])
 
 
 def test_derivative_crush_tests_exclude_oci_from_current_quarter_models() -> None:

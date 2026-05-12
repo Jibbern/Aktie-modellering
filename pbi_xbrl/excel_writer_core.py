@@ -6,7 +6,7 @@ import re
 import time
 from bisect import bisect_right
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 import pandas as pd
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
@@ -921,39 +921,50 @@ def write_raw_data_sheets(ctx: WriterContext) -> None:
     ensure_driver_inputs(ctx)
     ensure_raw_data_inputs(ctx)
 
-    callbacks.write_sheet("History_Q", ctx.inputs.hist)
+    def _write_raw_stage(stage_name: str, fn: Callable[[], None]) -> None:
+        with timed_writer_stage(
+            ctx.writer_timings,
+            f"write_excel.raw_data.{stage_name}",
+            enabled=bool(ctx.inputs.profile_timings),
+        ):
+            fn()
+
+    _write_raw_stage("history_q", lambda: callbacks.write_sheet("History_Q", ctx.inputs.hist))
     if data.enable_operating_drivers_sheet:
-        callbacks.write_operating_drivers_raw_sheet(data.operating_driver_history_rows)
+        _write_raw_stage("operating_drivers_raw", lambda: callbacks.write_operating_drivers_raw_sheet(data.operating_driver_history_rows))
     if data.enable_economics_market_raw_sheet:
-        callbacks.write_economics_market_raw_sheet(data.economics_market_rows)
-    callbacks.write_sheet("Adjusted_Metrics", ctx.inputs.adj_metrics)
-    callbacks.write_sheet("Adjustments_Breakdown", ctx.inputs.adj_breakdown)
-    callbacks.write_sheet("NonGAAP_Files", ctx.inputs.non_gaap_files)
-    callbacks.write_sheet("Slides_Segments", ctx.inputs.slides_segments)
-    callbacks.write_sheet("Slides_Debt_Profile", ctx.inputs.slides_debt)
-    callbacks.write_sheet("NonGAAP_Bridge", ctx.require_derived_frame("ng_bridge"))
+        _write_raw_stage("economics_market_raw", lambda: callbacks.write_economics_market_raw_sheet(data.economics_market_rows))
+    _write_raw_stage("adjusted_metrics", lambda: callbacks.write_sheet("Adjusted_Metrics", ctx.inputs.adj_metrics))
+    _write_raw_stage("adjustments_breakdown", lambda: callbacks.write_sheet("Adjustments_Breakdown", ctx.inputs.adj_breakdown))
+    _write_raw_stage("non_gaap_files", lambda: callbacks.write_sheet("NonGAAP_Files", ctx.inputs.non_gaap_files))
+    _write_raw_stage("slides_segments", lambda: callbacks.write_sheet("Slides_Segments", ctx.inputs.slides_segments))
+    _write_raw_stage("slides_debt_profile", lambda: callbacks.write_sheet("Slides_Debt_Profile", ctx.inputs.slides_debt))
+    _write_raw_stage("non_gaap_bridge", lambda: callbacks.write_sheet("NonGAAP_Bridge", ctx.require_derived_frame("ng_bridge")))
     derivative_oci_bridge_df = ctx.data.extra_values.get("derivative_oci_bridge_df")
     if isinstance(derivative_oci_bridge_df, pd.DataFrame) and not derivative_oci_bridge_df.empty:
         derivative_oci_exposure_df = ctx.data.extra_values.get("derivative_oci_exposure_df")
         derivative_writer = callbacks.extra_callbacks.get("_write_derivative_oci_bridge_sheet")
         if callable(derivative_writer):
-            derivative_writer(derivative_oci_bridge_df, derivative_oci_exposure_df)
+            _write_raw_stage("derivative_oci_bridge", lambda: derivative_writer(derivative_oci_bridge_df, derivative_oci_exposure_df))
         else:
-            callbacks.write_sheet("Derivative_OCI_Bridge", derivative_oci_bridge_df)
+            _write_raw_stage("derivative_oci_bridge", lambda: callbacks.write_sheet("Derivative_OCI_Bridge", derivative_oci_bridge_df))
     if ctx.inputs.excel_mode == "full" and not ctx.inputs.adj_metrics_relaxed.empty:
-        callbacks.write_sheet("Adjusted_Metrics_Relaxed", ctx.inputs.adj_metrics_relaxed)
-        callbacks.write_sheet("Adjustments_Breakdown_Relaxed", ctx.inputs.adj_breakdown_relaxed)
-        callbacks.write_sheet("NonGAAP_Files_Relaxed", ctx.inputs.non_gaap_files_relaxed)
-        callbacks.write_sheet(
-            "NonGAAP_Bridge_Relaxed",
-            ctx.require_derived_frame("ng_bridge_relaxed"),
+        _write_raw_stage("adjusted_metrics_relaxed", lambda: callbacks.write_sheet("Adjusted_Metrics_Relaxed", ctx.inputs.adj_metrics_relaxed))
+        _write_raw_stage("adjustments_breakdown_relaxed", lambda: callbacks.write_sheet("Adjustments_Breakdown_Relaxed", ctx.inputs.adj_breakdown_relaxed))
+        _write_raw_stage("non_gaap_files_relaxed", lambda: callbacks.write_sheet("NonGAAP_Files_Relaxed", ctx.inputs.non_gaap_files_relaxed))
+        _write_raw_stage(
+            "non_gaap_bridge_relaxed",
+            lambda: callbacks.write_sheet(
+                "NonGAAP_Bridge_Relaxed",
+                ctx.require_derived_frame("ng_bridge_relaxed"),
+            ),
         )
 
-    callbacks.write_sheet("DATA_Facts_Long", ctx.require_derived_frame("facts_long"))
-    callbacks.write_sheet("DATA_LineItem_Map", ctx.require_derived_frame("lineitem_map"))
-    callbacks.write_sheet("DATA_Period_Index", ctx.require_derived_frame("period_index"))
+    _write_raw_stage("data_facts_long", lambda: callbacks.write_sheet("DATA_Facts_Long", ctx.require_derived_frame("facts_long")))
+    _write_raw_stage("data_lineitem_map", lambda: callbacks.write_sheet("DATA_LineItem_Map", ctx.require_derived_frame("lineitem_map")))
+    _write_raw_stage("data_period_index", lambda: callbacks.write_sheet("DATA_Period_Index", ctx.require_derived_frame("period_index")))
     if not data.data_is_rules_df.empty:
-        callbacks.write_sheet("DATA_IS_Rules", data.data_is_rules_df)
+        _write_raw_stage("data_is_rules", lambda: callbacks.write_sheet("DATA_IS_Rules", data.data_is_rules_df))
 
 
 def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> None:

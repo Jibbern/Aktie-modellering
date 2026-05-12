@@ -78,6 +78,14 @@
 - Quarter-note defaults that should hold automatically on new tickers:
   - realized contribution text should stay in a realized-results family, not collapse back into guidance/outlook
   - origin-quarter capital-markets events should not repeat into later quarters without a real new update
+  - ticker-specific rescue scans should start with a cheap event-window guard
+    before reading broad SEC/source caches; the guard limits runtime only and
+    must not replace explicit source matching or provenance.
+- Performance defaults that should hold automatically on new tickers:
+  - add fine-grained timing labels before optimizing new slow paths
+  - reuse generic writer/dataframe mechanics unless a sheet has a real visual contract
+  - use run-scoped caches for repeated document analysis inside one export
+  - accept speedups only after saved-workbook readback confirms visible output is unchanged
 
 ## Minimum Integrity Requirements
 - The saved workbook must open cleanly.

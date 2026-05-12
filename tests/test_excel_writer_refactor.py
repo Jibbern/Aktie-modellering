@@ -603,8 +603,14 @@ def test_current_delivered_gpre_derivative_oci_bridge_readback() -> None:
         for cc in range(1, min(crush_tests.max_column, 14) + 1)
     )
     assert "Model Accuracy Summary" in crush_blob
+    assert "Ex-Derivative Margin Test" in crush_blob
+    assert "Clean Margin Bridge Diagnostic" in crush_blob
+    assert "Target-Specific Model Accuracy" in crush_blob
     assert "Reported Margin Reconciliation: Market Proxy vs Derivative-Adjusted" in crush_blob
+    assert "Coefficient Diagnostic" in crush_blob
+    assert "Lagged Derivative P&L Tests" in crush_blob
     assert "Lead/Lag Tests: Deferred Hedge Balances vs Future P&L" in crush_blob
+    assert "Residual Driver Screen" in crush_blob
     assert "Hedge Slippage Diagnostic" in crush_blob
     assert "Residual Analysis After Derivative Adjustment" in crush_blob
     assert "Approximate market crush" in crush_blob
@@ -635,6 +641,45 @@ def test_current_delivered_gpre_derivative_oci_bridge_readback() -> None:
     assert "Derivative OCI movement" not in current_test_metrics
     assert "Derivative AOCI" not in current_test_metrics
     assert "Net derivative asset/liability" not in current_test_metrics
+
+    ex_derivative_row = _find_row_with_value(crush_tests, "Ex-Derivative Margin Test", column=1)
+    assert ex_derivative_row is not None
+    ex_header_row = next(
+        rr for rr in range(ex_derivative_row + 1, ex_derivative_row + 8)
+        if str(crush_tests.cell(row=rr, column=1).value or "").strip() == "Baseline lens"
+    )
+    ex_idx = {
+        str(crush_tests.cell(row=ex_header_row, column=cc).value or "").strip(): cc
+        for cc in range(1, crush_tests.max_column + 1)
+        if str(crush_tests.cell(row=ex_header_row, column=cc).value or "").strip()
+    }
+    clean_row = _find_row_with_value(crush_tests, "Clean Margin Bridge Diagnostic", column=1)
+    assert clean_row is not None
+    ex_q1_row = next(
+        rr for rr in range(ex_header_row + 1, clean_row)
+        if str(crush_tests.cell(row=rr, column=ex_idx["Baseline lens"]).value or "").strip() == "Approximate market crush"
+        and pd.to_datetime(crush_tests.cell(row=rr, column=ex_idx["Quarter"]).value, errors="coerce") == pd.Timestamp("2026-03-31")
+    )
+    reported_val = crush_tests.cell(row=ex_q1_row, column=ex_idx["Reported margin / gal"]).value
+    deriv_val = crush_tests.cell(row=ex_q1_row, column=ex_idx["Total derivative P&L / gal"]).value
+    ex_deriv_val = crush_tests.cell(row=ex_q1_row, column=ex_idx["Reported margin ex derivative / gal"]).value
+    assert ex_deriv_val == pytest.approx(float(reported_val) - float(deriv_val), abs=0.0005)
+
+    clean_header_row = next(
+        rr for rr in range(clean_row + 1, clean_row + 8)
+        if str(crush_tests.cell(row=rr, column=1).value or "").strip() == "Quarter"
+    )
+    clean_idx = {
+        str(crush_tests.cell(row=clean_header_row, column=cc).value or "").strip(): cc
+        for cc in range(1, crush_tests.max_column + 1)
+        if str(crush_tests.cell(row=clean_header_row, column=cc).value or "").strip()
+    }
+    clean_q1_row = next(
+        rr for rr in range(clean_header_row + 1, _find_row_with_value(crush_tests, "Target-Specific Model Accuracy", column=1) or clean_header_row + 40)
+        if pd.to_datetime(crush_tests.cell(row=rr, column=clean_idx["Quarter"]).value, errors="coerce") == pd.Timestamp("2026-03-31")
+    )
+    assert crush_tests.cell(row=clean_q1_row, column=clean_idx["Total derivative P&L / gal"]).value == pytest.approx(-12.594 / 174.196, abs=0.0005)
+    assert crush_tests.cell(row=clean_q1_row, column=clean_idx["Clean margin / gal"]).value is not None
 
 
 def _find_col_with_value(ws, text: str, *, row: int) -> int | None:

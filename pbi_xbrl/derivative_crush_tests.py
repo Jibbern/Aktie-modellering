@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
+import numpy as np
 import pandas as pd
 
 
@@ -24,10 +25,16 @@ import pandas as pd
 # public contract returned by DerivativeCrushTestResult.as_dict().
 DERIVATIVE_CRUSH_TEST_TABLES: Tuple[str, ...] = (
     "model_summary",
+    "ex_derivative_margin_test",
+    "clean_margin_bridge",
+    "target_specific_model_accuracy",
     "reconciliation",
     "quarterly_derivative_impact",
+    "coefficient_diagnostic",
+    "lagged_derivative_pnl_tests",
     "lead_lag_summary",
     "lead_lag_detail",
+    "residual_driver_screen",
     "slippage",
     "exposure_buckets",
     "residual",
@@ -39,10 +46,16 @@ class DerivativeCrushTestResult:
     """Named diagnostic tables consumed by the Derivative_Crush_Tests writer."""
 
     model_summary: pd.DataFrame
+    ex_derivative_margin_test: pd.DataFrame
+    clean_margin_bridge: pd.DataFrame
+    target_specific_model_accuracy: pd.DataFrame
     reconciliation: pd.DataFrame
     quarterly_derivative_impact: pd.DataFrame
+    coefficient_diagnostic: pd.DataFrame
+    lagged_derivative_pnl_tests: pd.DataFrame
     lead_lag_summary: pd.DataFrame
     lead_lag_detail: pd.DataFrame
+    residual_driver_screen: pd.DataFrame
     slippage: pd.DataFrame
     exposure_buckets: pd.DataFrame
     residual: pd.DataFrame
@@ -135,6 +148,41 @@ def _correlation(xs: List[float], ys: List[float]) -> Tuple[Optional[float], Opt
         return None, None, None
     slope = float(((x - x.mean()) * (y - y.mean())).mean() / x_var)
     return corr, slope, corr * corr
+
+
+def _first_numeric(mapping: Mapping[str, Any], keys: Iterable[str]) -> Optional[float]:
+    for key in keys:
+        value = _num(mapping.get(key))
+        if value is not None:
+            return float(value)
+    return None
+
+
+def _bridge_component_from_keys(
+    driver_rec: Mapping[str, float],
+    basis_rec: Mapping[str, Any],
+    keys: Iterable[str],
+) -> Optional[float]:
+    driver_value = _first_numeric(driver_rec, keys)
+    if driver_value is not None:
+        return driver_value
+    return _first_numeric(basis_rec, keys)
+
+
+def _bridge_component_difference(
+    reported_m: Optional[float],
+    driver_rec: Mapping[str, float],
+    basis_rec: Mapping[str, Any],
+    explicit_keys: Iterable[str],
+    ex_keys: Iterable[str],
+) -> Optional[float]:
+    explicit_value = _bridge_component_from_keys(driver_rec, basis_rec, explicit_keys)
+    if explicit_value is not None:
+        return explicit_value
+    ex_value = _bridge_component_from_keys(driver_rec, basis_rec, ex_keys)
+    if reported_m is not None and ex_value is not None:
+        return float(reported_m) - float(ex_value)
+    return None
 
 
 def _driver_records_by_quarter(
@@ -282,7 +330,100 @@ def _base_rows(
         gallons_m, denom_label, denom_source = _resolve_denominator_m(qd, driver_by_quarter, basis_by_quarter)
         reported_margin, reported_note = _reported_margin_per_gal(qd, gallons_m, driver_by_quarter, basis_by_quarter)
         derivative_rec = derivative_by_quarter.get(qd, {})
+        driver_rec = driver_by_quarter.get(qd, {})
         basis_rec = basis_by_quarter.get(qd, {})
+        reported_crush_m = _num(driver_rec.get("consolidated_ethanol_crush_margin"))
+        if reported_crush_m is None and reported_margin is not None and gallons_m is not None:
+            reported_crush_m = float(reported_margin) * float(gallons_m)
+        impact_45z_m = _bridge_component_difference(
+            reported_crush_m,
+            driver_rec,
+            basis_rec,
+            (
+                "45z_impact",
+                "45z_impact_usd_m",
+                "45z_cogs_impact",
+                "45z_cogs_impact_usd_m",
+                "ethanol_production_45z_cogs_reduction",
+            ),
+            ("crush_margin_ex_45z", "underlying_crush_margin", "reported_crush_ex_45z"),
+        )
+        if impact_45z_m is None and reported_margin is not None and gallons_m is not None:
+            underlying_per_gal = _first_numeric(
+                basis_rec,
+                ("underlying_crush_margin_usd_per_gal", "crush_margin_ex_45z_usd_per_gal"),
+            )
+            if underlying_per_gal is not None:
+                impact_45z_m = (float(reported_margin) - float(underlying_per_gal)) * float(gallons_m)
+        rin_impact_m = _bridge_component_difference(
+            reported_crush_m,
+            driver_rec,
+            basis_rec,
+            ("rin_impact", "rin_sale", "rin_impact_usd_m", "rin_sale_usd_m"),
+            ("crush_margin_ex_rin", "reported_crush_ex_rin"),
+        )
+        if rin_impact_m is None and reported_margin is not None and gallons_m is not None:
+            ex_rin_per_gal = _first_numeric(
+                basis_rec,
+                ("crush_margin_ex_rin_usd_per_gal", "reported_crush_ex_rin_usd_per_gal"),
+            )
+            if ex_rin_per_gal is not None:
+                rin_impact_m = (float(reported_margin) - float(ex_rin_per_gal)) * float(gallons_m)
+        inventory_nrv_m = _bridge_component_from_keys(
+            driver_rec,
+            basis_rec,
+            ("inventory_nrv", "inventory_lcnrv", "inventory_nrv_usd_m", "inventory_lcnrv_usd_m"),
+        )
+        non_ethanol_m = _bridge_component_from_keys(
+            driver_rec,
+            basis_rec,
+            (
+                "non_ethanol_operating_activities",
+                "non_ethanol_operating_activities_usd_m",
+                "intercompany_nonethanol_net",
+                "intercompany_nonethanol_net_usd_m",
+            ),
+        )
+        impairment_m = _bridge_component_from_keys(
+            driver_rec,
+            basis_rec,
+            (
+                "impairment_assets_held_for_sale",
+                "impairment_held_for_sale",
+                "impairment_assets_held_for_sale_usd_m",
+            ),
+        )
+        other_explicit_m = _bridge_component_from_keys(
+            driver_rec,
+            basis_rec,
+            ("other_bridge_items", "other_explicit_items", "other_bridge_items_usd_m"),
+        )
+        utilization = _bridge_component_from_keys(
+            driver_rec,
+            basis_rec,
+            ("plant_utilization", "operating_utilization", "utilization", "utilization_pct"),
+        )
+        corn_basis = _first_numeric(
+            basis_rec,
+            (
+                "weighted_basis_recommended_usd_per_bu",
+                "weighted_basis_official_usd_per_bu",
+                "official_corn_basis_usd_per_bu",
+                "corn_basis_usd_per_bu",
+            ),
+        )
+        natural_gas = _first_numeric(
+            basis_rec,
+            ("natural_gas_price_usd_per_mmbtu", "natural_gas_usd_per_mmbtu", "gas_price_usd_per_mmbtu"),
+        )
+        coproduct_credit = _first_numeric(
+            basis_rec,
+            (
+                "coproduct_approximate_credit_usd_per_gal",
+                "approximate_coproduct_credit_per_gal",
+                "coproduct_credit_usd_per_gal",
+            ),
+        )
         row: Dict[str, Any] = {
             "Quarter": pd.Timestamp(qd),
             "_quarter_end": qd,
@@ -290,14 +431,68 @@ def _base_rows(
             "Denominator": denom_label,
             "Gallons (m)": gallons_m,
             "Denominator source": denom_source,
+            "Reported consolidated crush margin ($m)": reported_crush_m,
             "Reported margin / gal": reported_margin,
             "Reported margin note": reported_note,
             "Approximate market crush / gal": _num(basis_rec.get("official_simple_proxy_usd_per_gal")),
             "GPRE crush proxy / gal": _num(basis_rec.get("gpre_proxy_official_usd_per_gal")),
+            "Best forward lens / gal": _num(basis_rec.get("best_forward_lens_proxy_usd_per_gal")),
+            "45Z impact ($m)": impact_45z_m,
+            "45Z impact / gal": _per_gal(impact_45z_m, gallons_m),
+            "RIN impact ($m)": rin_impact_m,
+            "RIN impact / gal": _per_gal(rin_impact_m, gallons_m),
+            "Inventory NRV / lower-of-cost ($m)": inventory_nrv_m,
+            "Inventory NRV / gal": _per_gal(inventory_nrv_m, gallons_m),
+            "Non-ethanol operating activities ($m)": non_ethanol_m,
+            "Non-ethanol operating activities / gal": _per_gal(non_ethanol_m, gallons_m),
+            "Impairment / held-for-sale ($m)": impairment_m,
+            "Impairment / held-for-sale / gal": _per_gal(impairment_m, gallons_m),
+            "Other explicit items ($m)": other_explicit_m,
+            "Other explicit items / gal": _per_gal(other_explicit_m, gallons_m),
+            "Utilization": utilization,
+            "Corn basis proxy": corn_basis,
+            "Natural gas proxy": natural_gas,
+            "Coproduct value proxy / gal": coproduct_credit,
+            "Q4 quarterization flag": 1.0 if (qd.month == 12 or str(derivative_rec.get("quarterization_status") or "").lower().startswith("annual_minus")) else 0.0,
             "quarterization_status": derivative_rec.get("quarterization_status"),
             "quarterization_note": derivative_rec.get("quarterization_note"),
         }
         row.update(_derivative_features(derivative_rec, gallons_m))
+        deriv = _num(row.get("Total derivative P&L / gal"))
+        row["Reported margin ex derivative / gal"] = (
+            None if reported_margin is None or deriv is None else float(reported_margin) - float(deriv)
+        )
+        clean_items = [
+            row.get("Total derivative P&L / gal"),
+            row.get("45Z impact / gal"),
+            row.get("RIN impact / gal"),
+            row.get("Inventory NRV / gal"),
+            row.get("Non-ethanol operating activities / gal"),
+            row.get("Impairment / held-for-sale / gal"),
+            row.get("Other explicit items / gal"),
+        ]
+        available_clean_items = [float(v) for v in clean_items if _num(v) is not None]
+        row["Clean margin / gal"] = (
+            None if reported_margin is None else float(reported_margin) - sum(available_clean_items)
+        )
+        missing_clean_labels = [
+            label
+            for label, value in (
+                ("derivative P&L", row.get("Total derivative P&L / gal")),
+                ("45Z", row.get("45Z impact / gal")),
+                ("RIN", row.get("RIN impact / gal")),
+                ("inventory NRV", row.get("Inventory NRV / gal")),
+                ("non-ethanol", row.get("Non-ethanol operating activities / gal")),
+                ("impairment", row.get("Impairment / held-for-sale / gal")),
+                ("other explicit", row.get("Other explicit items / gal")),
+            )
+            if _num(value) is None
+        ]
+        row["Clean margin note"] = (
+            "diagnostic clean margin; missing explicit items: " + ", ".join(missing_clean_labels)
+            if missing_clean_labels
+            else "diagnostic clean margin subtracts all available explicit bridge items"
+        )
         rows.append(row)
     return rows
 
@@ -328,11 +523,18 @@ def _model_adjustment(row: Mapping[str, Any], variant: str) -> Optional[float]:
     return None
 
 
-def _reconciliation_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    lens_specs = (
+def _available_lens_specs(base_rows: List[Dict[str, Any]]) -> Tuple[Tuple[str, str], ...]:
+    specs: List[Tuple[str, str]] = [
         ("Approximate market crush", "Approximate market crush / gal"),
         ("GPRE crush proxy", "GPRE crush proxy / gal"),
-    )
+    ]
+    if any(_num(row.get("Best forward lens / gal")) is not None for row in base_rows):
+        specs.append(("Best forward lens", "Best forward lens / gal"))
+    return tuple(specs)
+
+
+def _reconciliation_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    lens_specs = _available_lens_specs(base_rows)
     rows: List[Dict[str, Any]] = []
     for row in base_rows:
         reported = _num(row.get("Reported margin / gal"))
@@ -460,10 +662,7 @@ def _model_summary_rows(reconciliation_rows: List[Dict[str, Any]]) -> List[Dict[
 
 
 def _model_summary_rows_from_base(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    lens_specs = (
-        ("Approximate market crush", "Approximate market crush / gal"),
-        ("GPRE crush proxy", "GPRE crush proxy / gal"),
-    )
+    lens_specs = _available_lens_specs(base_rows)
     variants = (
         ("Model A: baseline only", "Reported margin / gal ~= baseline margin / gal"),
         ("Model B: baseline + total derivative P&L", "Reported margin / gal ~= baseline + total derivative P&L / gal"),
@@ -518,6 +717,308 @@ def _model_interpretation(valid_count: int, improvement: Optional[float]) -> str
     if improvement < 0:
         return "derivative P&L worsened fit versus baseline"
     return "no change versus baseline"
+
+
+def _prediction_stats(records: List[Tuple[pd.Timestamp, float, float]]) -> Dict[str, Any]:
+    errors = [float(actual) - float(pred) for _, actual, pred in records]
+    return {
+        "Valid quarters": len(records),
+        "MAE": _mean([abs(err) for err in errors]),
+        "RMSE": _rmse(errors),
+        "Median absolute error": _median_abs(errors),
+        "Bias / avg error": _mean(errors),
+        "Directional hit rate": _directional_hit_rate(records),
+    }
+
+
+def _ex_derivative_margin_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for row in base_rows:
+        reported = _num(row.get("Reported margin / gal"))
+        deriv = _num(row.get("Total derivative P&L / gal"))
+        ex_deriv = _num(row.get("Reported margin ex derivative / gal"))
+        for lens, baseline_field in _available_lens_specs(base_rows):
+            baseline = _num(row.get(baseline_field))
+            err_reported = None if reported is None or baseline is None else float(reported) - float(baseline)
+            err_ex = None if ex_deriv is None or baseline is None else float(ex_deriv) - float(baseline)
+            improvement = None if err_reported is None or err_ex is None else abs(err_reported) - abs(err_ex)
+            rows.append(
+                {
+                    "Baseline lens": lens,
+                    "Quarter": row.get("Quarter"),
+                    "Reported margin / gal": reported,
+                    "Total derivative P&L / gal": deriv,
+                    "Reported margin ex derivative / gal": ex_deriv,
+                    "Market/proxy crush margin / gal": baseline,
+                    "Error vs reported margin": err_reported,
+                    "Error vs ex-derivative margin": err_ex,
+                    "Improvement when targeting ex-derivative margin": improvement,
+                    "Notes / flags": _quality_note(row, "physical-margin diagnostic; not reported earnings model"),
+                }
+            )
+    return rows
+
+
+def _clean_margin_bridge_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for row in base_rows:
+        clean = _num(row.get("Clean margin / gal"))
+        gpre_proxy = _num(row.get("GPRE crush proxy / gal"))
+        approx_proxy = _num(row.get("Approximate market crush / gal"))
+        residual_basis = gpre_proxy if gpre_proxy is not None else approx_proxy
+        rows.append(
+            {
+                "Quarter": row.get("Quarter"),
+                "Reported consolidated crush margin ($m)": row.get("Reported consolidated crush margin ($m)"),
+                "Ethanol gallons produced (m)": row.get("Gallons (m)"),
+                "Reported margin / gal": row.get("Reported margin / gal"),
+                "Total derivative P&L / gal": row.get("Total derivative P&L / gal"),
+                "45Z impact / gal": row.get("45Z impact / gal"),
+                "RIN impact / gal": row.get("RIN impact / gal"),
+                "Inventory NRV / gal": row.get("Inventory NRV / gal"),
+                "Non-ethanol operating activities / gal": row.get("Non-ethanol operating activities / gal"),
+                "Other explicit items / gal": row.get("Other explicit items / gal"),
+                "Clean margin / gal": clean,
+                "Market/proxy crush margin / gal": approx_proxy,
+                "GPRE crush proxy / gal": gpre_proxy,
+                "Clean-margin residual / gal": None if clean is None or residual_basis is None else clean - residual_basis,
+                "Notes / flags": _quality_note(row, str(row.get("Clean margin note") or "")),
+            }
+        )
+    return rows
+
+
+def _target_specific_model_accuracy_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    target_specs = (
+        ("Reported margin / gal", "Reported margin / gal"),
+        ("Reported margin ex derivative / gal", "Reported margin ex derivative / gal"),
+        ("Clean margin / gal", "Clean margin / gal"),
+    )
+    rows: List[Dict[str, Any]] = []
+    for lens, baseline_field in _available_lens_specs(base_rows):
+        reported_mae: Optional[float] = None
+        for target_label, target_field in target_specs:
+            records: List[Tuple[pd.Timestamp, float, float]] = []
+            for row in base_rows:
+                target = _num(row.get(target_field))
+                baseline = _num(row.get(baseline_field))
+                if target is None or baseline is None:
+                    continue
+                records.append((pd.Timestamp(row.get("Quarter")), float(target), float(baseline)))
+            stats = _prediction_stats(records)
+            if target_label == "Reported margin / gal":
+                reported_mae = stats["MAE"]
+            improvement = None if stats["MAE"] is None or reported_mae is None else float(reported_mae) - float(stats["MAE"])
+            rows.append(
+                {
+                    "Baseline lens": lens,
+                    "Target": target_label,
+                    **stats,
+                    "Improvement vs reported-target MAE": improvement,
+                    "Interpretation": (
+                        "diagnostic only; small sample"
+                        if int(stats["Valid quarters"] or 0) < 3
+                        else "positive improvement means this target fits the lens better than reported margin"
+                    ),
+                }
+            )
+    return rows
+
+
+def _fit_ols(y_values: List[float], x_rows: List[List[float]]) -> Optional[Dict[str, Any]]:
+    if len(y_values) < 3 or len(y_values) != len(x_rows):
+        return None
+    x = np.asarray(x_rows, dtype=float)
+    y = np.asarray(y_values, dtype=float)
+    if x.ndim != 2 or x.shape[0] <= x.shape[1]:
+        return None
+    design = np.column_stack([np.ones(x.shape[0]), x])
+    try:
+        coeffs, *_ = np.linalg.lstsq(design, y, rcond=None)
+    except Exception:
+        return None
+    pred = design @ coeffs
+    errors = y - pred
+    ss_tot = float(np.sum((y - y.mean()) ** 2))
+    ss_res = float(np.sum(errors ** 2))
+    r2 = None if abs(ss_tot) < 1e-12 else float(1.0 - (ss_res / ss_tot))
+    loo_errors: List[float] = []
+    if len(y_values) > x.shape[1] + 2:
+        for idx in range(len(y_values)):
+            train_mask = np.ones(len(y_values), dtype=bool)
+            train_mask[idx] = False
+            train_x = design[train_mask]
+            train_y = y[train_mask]
+            if train_x.shape[0] <= x.shape[1]:
+                continue
+            try:
+                train_coeffs, *_ = np.linalg.lstsq(train_x, train_y, rcond=None)
+            except Exception:
+                continue
+            loo_pred = float(design[idx] @ train_coeffs)
+            loo_errors.append(float(y[idx] - loo_pred))
+    return {
+        "coefficients": [float(c) for c in coeffs],
+        "R^2": r2,
+        "MAE": _mean([abs(float(err)) for err in errors.tolist()]),
+        "RMSE": _rmse([float(err) for err in errors.tolist()]),
+        "Leave-one-out MAE": _mean([abs(err) for err in loo_errors]) if loo_errors else None,
+    }
+
+
+def _coefficient_diagnostic_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    model_specs = (
+        ("Model 1: reported = alpha + beta * proxy", "Reported margin / gal", ("proxy",)),
+        ("Model 2: reported = alpha + beta * proxy + gamma * derivative P&L", "Reported margin / gal", ("proxy", "derivative")),
+        ("Model 3: ex-derivative = alpha + beta * proxy", "Reported margin ex derivative / gal", ("proxy",)),
+    )
+    for lens, baseline_field in _available_lens_specs(base_rows):
+        for model_label, target_field, features in model_specs:
+            y_values: List[float] = []
+            x_rows: List[List[float]] = []
+            for row in base_rows:
+                target = _num(row.get(target_field))
+                proxy = _num(row.get(baseline_field))
+                deriv = _num(row.get("Total derivative P&L / gal"))
+                if target is None or proxy is None:
+                    continue
+                feature_row = [float(proxy)]
+                if "derivative" in features:
+                    if deriv is None:
+                        continue
+                    feature_row.append(float(deriv))
+                y_values.append(float(target))
+                x_rows.append(feature_row)
+            fit = _fit_ols(y_values, x_rows)
+            coeffs = list((fit or {}).get("coefficients") or [])
+            gamma = coeffs[2] if len(coeffs) > 2 else None
+            if fit is None:
+                interpretation = "insufficient sample"
+            elif gamma is None:
+                interpretation = "diagnostic proxy coefficient; do not promote automatically"
+            elif abs(gamma - 1.0) <= 0.25:
+                interpretation = "derivative P&L behaves like a missing reported-margin adjustment"
+            elif abs(gamma) <= 0.25:
+                interpretation = "derivative P&L adds little incremental signal in this sample"
+            elif gamma < 0:
+                interpretation = "possible timing, double-count, sign or target mismatch"
+            else:
+                interpretation = "diagnostic relationship; do not promote automatically"
+            rows.append(
+                {
+                    "Baseline lens": lens,
+                    "Regression model": model_label,
+                    "Valid quarters": len(y_values),
+                    "Alpha": coeffs[0] if len(coeffs) > 0 else None,
+                    "Beta on proxy": coeffs[1] if len(coeffs) > 1 else None,
+                    "Gamma on derivative P&L": gamma,
+                    "R^2": (fit or {}).get("R^2"),
+                    "MAE": (fit or {}).get("MAE"),
+                    "RMSE": (fit or {}).get("RMSE"),
+                    "Leave-one-out MAE": (fit or {}).get("Leave-one-out MAE"),
+                    "Interpretation": interpretation,
+                }
+            )
+    return rows
+
+
+def _lagged_derivative_pnl_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    sorted_rows = sorted(base_rows, key=lambda row: pd.Timestamp(row.get("Quarter")))
+    derivatives = [_num(row.get("Total derivative P&L / gal")) for row in sorted_rows]
+    variant_values: Dict[str, List[Optional[float]]] = {
+        "No derivative baseline": [0.0 for _ in sorted_rows],
+        "Current quarter derivative P&L": derivatives,
+        "Prior quarter derivative P&L": [None] + derivatives[:-1],
+        "Rolling 2Q derivative P&L avg": [
+            _mean([float(v) for v in derivatives[max(0, idx - 1): idx + 1] if v is not None])
+            for idx in range(len(sorted_rows))
+        ],
+        "Rolling 4Q derivative P&L avg": [
+            _mean([float(v) for v in derivatives[max(0, idx - 3): idx + 1] if v is not None])
+            if idx >= 3
+            else None
+            for idx in range(len(sorted_rows))
+        ],
+    }
+    for lens, baseline_field in _available_lens_specs(base_rows):
+        base_records: List[Tuple[pd.Timestamp, float, float]] = []
+        for row in sorted_rows:
+            reported = _num(row.get("Reported margin / gal"))
+            baseline = _num(row.get(baseline_field))
+            if reported is None or baseline is None:
+                continue
+            base_records.append((pd.Timestamp(row.get("Quarter")), float(reported), float(baseline)))
+        base_mae = _prediction_stats(base_records)["MAE"]
+        for variant, values in variant_values.items():
+            records: List[Tuple[pd.Timestamp, float, float]] = []
+            for row, deriv_value in zip(sorted_rows, values):
+                reported = _num(row.get("Reported margin / gal"))
+                baseline = _num(row.get(baseline_field))
+                if reported is None or baseline is None or deriv_value is None:
+                    continue
+                records.append((pd.Timestamp(row.get("Quarter")), float(reported), float(baseline) + float(deriv_value)))
+            stats = _prediction_stats(records)
+            improvement = None if stats["MAE"] is None or base_mae is None else float(base_mae) - float(stats["MAE"])
+            rows.append(
+                {
+                    "Baseline lens": lens,
+                    "Derivative timing variant": variant,
+                    "Valid quarters": stats["Valid quarters"],
+                    "MAE": stats["MAE"],
+                    "RMSE": stats["RMSE"],
+                    "Improvement vs no-derivative baseline": improvement,
+                    "Notes": "rolling variants use per-gallon average; diagnostic timing test only",
+                }
+            )
+    return rows
+
+
+def _residual_driver_screen_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    driver_specs = (
+        ("45Z impact / gal", "45Z impact / gal"),
+        ("RIN impact / gal", "RIN impact / gal"),
+        ("Inventory NRV / gal", "Inventory NRV / gal"),
+        ("Utilization", "Utilization"),
+        ("Ethanol gallons produced (m)", "Gallons (m)"),
+        ("Corn basis proxy", "Corn basis proxy"),
+        ("Natural gas proxy", "Natural gas proxy"),
+        ("Coproduct value proxy / gal", "Coproduct value proxy / gal"),
+        ("Non-ethanol operating activities / gal", "Non-ethanol operating activities / gal"),
+        ("Q4 quarterization flag", "Q4 quarterization flag"),
+    )
+    rows: List[Dict[str, Any]] = []
+    for lens, baseline_field in _available_lens_specs(base_rows):
+        residuals_by_row: List[Tuple[Dict[str, Any], Optional[float]]] = []
+        for row in base_rows:
+            reported = _num(row.get("Reported margin / gal"))
+            baseline = _num(row.get(baseline_field))
+            deriv = _num(row.get("Total derivative P&L / gal"))
+            residual = None if reported is None or baseline is None or deriv is None else float(reported) - float(baseline) - float(deriv)
+            residuals_by_row.append((row, residual))
+        for driver_label, driver_field in driver_specs:
+            xs: List[float] = []
+            ys: List[float] = []
+            for row, residual in residuals_by_row:
+                driver_value = _num(row.get(driver_field))
+                if residual is None or driver_value is None:
+                    continue
+                xs.append(float(driver_value))
+                ys.append(float(residual))
+            corr, slope, r2 = _correlation(xs, ys)
+            rows.append(
+                {
+                    "Baseline lens": lens,
+                    "Driver": driver_label,
+                    "Valid observations": len(xs),
+                    "Correlation": corr,
+                    "R^2": r2,
+                    "Simple slope": slope,
+                    "Interpretation": "insufficient sample" if len(xs) < 3 else "residual diagnostic only; do not use as production model",
+                }
+            )
+    return rows
 
 
 def _quarterly_impact_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -622,10 +1123,7 @@ def _lead_lag_rows(base_rows: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]
 
 
 def _slippage_rows(base_rows: List[Dict[str, Any]], *, threshold: float) -> List[Dict[str, Any]]:
-    lens_specs = (
-        ("Approximate market crush", "Approximate market crush / gal"),
-        ("GPRE crush proxy", "GPRE crush proxy / gal"),
-    )
+    lens_specs = _available_lens_specs(base_rows)
     rows: List[Dict[str, Any]] = []
     sorted_rows = sorted(base_rows, key=lambda row: pd.Timestamp(row.get("Quarter")))
     for lens, field in lens_specs:
@@ -748,10 +1246,16 @@ def build_derivative_crush_tests(
     lead_lag_detail, lead_lag_summary = _lead_lag_rows(base_rows)
     return DerivativeCrushTestResult(
         model_summary=pd.DataFrame(_model_summary_rows_from_base(base_rows)),
+        ex_derivative_margin_test=pd.DataFrame(_ex_derivative_margin_rows(base_rows)),
+        clean_margin_bridge=pd.DataFrame(_clean_margin_bridge_rows(base_rows)),
+        target_specific_model_accuracy=pd.DataFrame(_target_specific_model_accuracy_rows(base_rows)),
         reconciliation=pd.DataFrame(reconciliation),
         quarterly_derivative_impact=pd.DataFrame(_quarterly_impact_rows(base_rows)),
+        coefficient_diagnostic=pd.DataFrame(_coefficient_diagnostic_rows(base_rows)),
+        lagged_derivative_pnl_tests=pd.DataFrame(_lagged_derivative_pnl_rows(base_rows)),
         lead_lag_summary=pd.DataFrame(lead_lag_summary),
         lead_lag_detail=pd.DataFrame(lead_lag_detail),
+        residual_driver_screen=pd.DataFrame(_residual_driver_screen_rows(base_rows)),
         slippage=pd.DataFrame(_slippage_rows(base_rows, threshold=slippage_threshold)),
         exposure_buckets=pd.DataFrame(_exposure_bucket_rows(derivative_exposure_df)),
         residual=pd.DataFrame(_residual_rows(reconciliation, threshold=slippage_threshold)),
