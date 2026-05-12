@@ -296,7 +296,13 @@ def _ensure_valuation_source_views(ctx: WriterContext) -> None:
         if adj_metrics is not None and not adj_metrics.empty and "quarter" in adj_metrics.columns:
             adj_view = adj_metrics.copy()
             adj_view["quarter"] = pd.to_datetime(adj_view["quarter"], errors="coerce")
-            adj_view = adj_view[adj_view["quarter"].notna()].sort_values("quarter").reset_index(drop=True)
+            adj_view = adj_view[adj_view["quarter"].notna()].copy()
+            if "period_type" in adj_view.columns:
+                period_order = {"annual": 0, "year": 0, "fy": 0, "ytd": 1, "quarter": 2, "": 2}
+                adj_view["_period_order"] = adj_view["period_type"].astype(str).str.strip().str.lower().map(period_order).fillna(2)
+                adj_view = adj_view.sort_values(["quarter", "_period_order"], kind="stable").drop(columns=["_period_order"], errors="ignore").reset_index(drop=True)
+            else:
+                adj_view = adj_view.sort_values("quarter", kind="stable").reset_index(drop=True)
             if "adj_ebit" in adj_view.columns:
                 adj_view["adj_ebit_num"] = pd.to_numeric(adj_view["adj_ebit"], errors="coerce")
                 adj_ebit_series = (
