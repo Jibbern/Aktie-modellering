@@ -64,6 +64,44 @@ def test_usda_normalize_removes_begin_date_duplicate_when_end_date_copy_exists()
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_usda_public_data_latest_refresh_can_skip_legacy_view_report(monkeypatch, tmp_path) -> None:
+    class DemoDirectFirstProvider(BaseMarketProvider):
+        source = "demo_public_data"
+        landing_page_url = "https://example.test/viewReport/999"
+        public_data_url = "https://example.test/public_data?slug_id=999"
+        public_data_slug_id = "999"
+        public_data_latest_refresh_sufficient = True
+
+    provider = DemoDirectFirstProvider()
+    calls: list[str] = []
+
+    def _fake_fetch_text_diagnostic(url: str, *, extra_headers: dict[str, str] | None = None):
+        del extra_headers
+        calls.append(url)
+        if "viewReport" in url:
+            raise AssertionError("legacy viewReport discovery should not run after public_data succeeds")
+        payload = {
+            "reportBeginDates": ["05/12/2026"],
+            "reportEndDates": ["05/12/2026"],
+        }
+        return json.dumps(payload), [{"status": "ok"}]
+
+    def _fake_fetch_bytes_diagnostic(url: str, *, extra_headers: dict[str, str] | None = None):
+        del extra_headers
+        calls.append(url)
+        payload = {"results": [{"report_date": "05/12/2026", "value": 123}]}
+        return json.dumps(payload).encode("utf-8"), [{"status": "ok"}]
+
+    monkeypatch.setattr(provider, "_fetch_text_diagnostic", _fake_fetch_text_diagnostic)
+    monkeypatch.setattr(provider, "_fetch_bytes_diagnostic", _fake_fetch_bytes_diagnostic)
+
+    candidates = provider.discover_remote_assets(as_of=date(2026, 5, 12), cache_root=tmp_path)
+
+    assert len(candidates) == 1
+    assert candidates[0]["asset_type"] == "json"
+    assert "viewReport" not in " ".join(calls)
+
+
 def test_collect_archive_assets_merges_latest_and_month_archive(monkeypatch) -> None:
     provider = NWERProvider()
     landing_html = """

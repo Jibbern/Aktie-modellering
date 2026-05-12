@@ -15,7 +15,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -24,10 +24,19 @@ import pandas as pd
 # Keep this order aligned with the custom workbook writer. These names are the
 # public contract returned by DerivativeCrushTestResult.as_dict().
 DERIVATIVE_CRUSH_TEST_TABLES: Tuple[str, ...] = (
+    "key_takeaways",
     "model_summary",
+    "q4_quarterization_sensitivity",
     "ex_derivative_margin_test",
     "clean_margin_bridge",
     "target_specific_model_accuracy",
+    "revenue_cogs_decomposition",
+    "volume_utilization_summary",
+    "volume_utilization_quarterly",
+    "basis_energy_summary",
+    "basis_energy_quarterly",
+    "aoci_future_reclass_summary",
+    "aoci_future_reclass_tracker",
     "reconciliation",
     "quarterly_derivative_impact",
     "coefficient_diagnostic",
@@ -45,10 +54,19 @@ DERIVATIVE_CRUSH_TEST_TABLES: Tuple[str, ...] = (
 class DerivativeCrushTestResult:
     """Named diagnostic tables consumed by the Derivative_Crush_Tests writer."""
 
+    key_takeaways: pd.DataFrame
     model_summary: pd.DataFrame
+    q4_quarterization_sensitivity: pd.DataFrame
     ex_derivative_margin_test: pd.DataFrame
     clean_margin_bridge: pd.DataFrame
     target_specific_model_accuracy: pd.DataFrame
+    revenue_cogs_decomposition: pd.DataFrame
+    volume_utilization_summary: pd.DataFrame
+    volume_utilization_quarterly: pd.DataFrame
+    basis_energy_summary: pd.DataFrame
+    basis_energy_quarterly: pd.DataFrame
+    aoci_future_reclass_summary: pd.DataFrame
+    aoci_future_reclass_tracker: pd.DataFrame
     reconciliation: pd.DataFrame
     quarterly_derivative_impact: pd.DataFrame
     coefficient_diagnostic: pd.DataFrame
@@ -430,6 +448,18 @@ def _base_rows(
             "Quarter label": _quarter_label(qd),
             "Denominator": denom_label,
             "Gallons (m)": gallons_m,
+            "Ethanol gallons produced (m)": _num(driver_rec.get("ethanol_gallons_produced"))
+            or (
+                None
+                if _num(basis_rec.get("reported_ethanol_gallons_produced_raw")) is None
+                else float(_num(basis_rec.get("reported_ethanol_gallons_produced_raw"))) / 1_000_000.0
+            ),
+            "Ethanol gallons sold (m)": _num(driver_rec.get("ethanol_gallons_sold"))
+            or (
+                None
+                if _num(basis_rec.get("reported_ethanol_gallons_sold_raw")) is None
+                else float(_num(basis_rec.get("reported_ethanol_gallons_sold_raw"))) / 1_000_000.0
+            ),
             "Denominator source": denom_source,
             "Reported consolidated crush margin ($m)": reported_crush_m,
             "Reported margin / gal": reported_margin,
@@ -823,6 +853,512 @@ def _target_specific_model_accuracy_rows(base_rows: List[Dict[str, Any]]) -> Lis
                 }
             )
     return rows
+
+
+def _target_specs() -> Tuple[Tuple[str, str], ...]:
+    return (
+        ("Reported margin / gal", "Reported margin / gal"),
+        ("Reported margin ex derivative / gal", "Reported margin ex derivative / gal"),
+        ("Clean margin / gal", "Clean margin / gal"),
+    )
+
+
+def _q4_sample_specs() -> Tuple[Tuple[str, Callable[[Mapping[str, Any]], bool], str], ...]:
+    def _is_q4(row: Mapping[str, Any]) -> bool:
+        qd = row.get("_quarter_end")
+        return isinstance(qd, date) and qd.month == 12
+
+    def _is_reported_three_month(row: Mapping[str, Any]) -> bool:
+        status = str(row.get("quarterization_status") or "").strip().lower()
+        qd = row.get("_quarter_end")
+        if isinstance(qd, date) and qd.month == 12:
+            return False
+        return status in {"reported", "direct", "standalone", "three_month", "three-month", ""}
+
+    return (
+        ("All quarters", lambda row: True, "all available quarters"),
+        ("Excluding Q4 quarters", lambda row: not _is_q4(row), "Q4 excluded; diagnostic only"),
+        ("Source-reported three-month quarters only", _is_reported_three_month, "uses source-reported/non-Q4 quarterly rows where identifiable"),
+        ("Q4-only", _is_q4, "Q4 quarterized / annual-minus-Q1-Q3; diagnostic only"),
+    )
+
+
+def _q4_quarterization_sensitivity_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    all_mae_by_key: Dict[Tuple[str, str], Optional[float]] = {}
+    for lens, baseline_field in _available_lens_specs(base_rows):
+        for target_label, target_field in _target_specs():
+            all_records: List[Tuple[pd.Timestamp, float, float]] = []
+            for row in base_rows:
+                target = _num(row.get(target_field))
+                baseline = _num(row.get(baseline_field))
+                if target is None or baseline is None:
+                    continue
+                all_records.append((pd.Timestamp(row.get("Quarter")), float(target), float(baseline)))
+            all_mae_by_key[(lens, target_label)] = _prediction_stats(all_records)["MAE"]
+
+    for sample_label, predicate, note in _q4_sample_specs():
+        sample_rows = [row for row in base_rows if predicate(row)]
+        for lens, baseline_field in _available_lens_specs(base_rows):
+            for target_label, target_field in _target_specs():
+                records: List[Tuple[pd.Timestamp, float, float]] = []
+                for row in sample_rows:
+                    target = _num(row.get(target_field))
+                    baseline = _num(row.get(baseline_field))
+                    if target is None or baseline is None:
+                        continue
+                    records.append((pd.Timestamp(row.get("Quarter")), float(target), float(baseline)))
+                stats = _prediction_stats(records)
+                all_mae = all_mae_by_key.get((lens, target_label))
+                improvement = None if stats["MAE"] is None or all_mae is None else float(all_mae) - float(stats["MAE"])
+                interp = "insufficient sample" if int(stats["Valid quarters"] or 0) < 3 else "positive improvement means this sample is less noisy than all quarters"
+                rows.append(
+                    {
+                        "Sample": sample_label,
+                        "Baseline lens": lens,
+                        "Target": target_label,
+                        "Valid quarters": stats["Valid quarters"],
+                        "MAE": stats["MAE"],
+                        "RMSE": stats["RMSE"],
+                        "Median absolute error": stats["Median absolute error"],
+                        "Bias / avg error": stats["Bias / avg error"],
+                        "Improvement vs all-quarter baseline": improvement,
+                        "Notes / flags": note,
+                        "Interpretation": interp,
+                    }
+                )
+    return rows
+
+
+def _revenue_cogs_decomposition_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for row in base_rows:
+        reported = _num(row.get("Reported margin / gal"))
+        rev = _num(row.get("Derivative P&L in revenue / gal"))
+        cogs = _num(row.get("Derivative P&L in COGS / gal"))
+        total = _num(row.get("Total derivative P&L / gal"))
+        for lens, baseline_field in _available_lens_specs(base_rows):
+            baseline = _num(row.get(baseline_field))
+            baseline_error = None if reported is None or baseline is None else float(reported) - float(baseline)
+            rev_error = None if baseline_error is None or rev is None else float(reported) - (float(baseline) + float(rev))
+            cogs_error = None if baseline_error is None or cogs is None else float(reported) - (float(baseline) + float(cogs))
+            split_error = (
+                None
+                if baseline_error is None or (rev is None and cogs is None)
+                else float(reported) - (float(baseline) + float(rev or 0.0) + float(cogs or 0.0))
+            )
+            best_parts = [
+                ("revenue", rev_error),
+                ("COGS", cogs_error),
+                ("revenue + COGS", split_error),
+            ]
+            available = [(label, abs(float(err))) for label, err in best_parts if err is not None]
+            interpretation = "missing derivative split"
+            if available and baseline_error is not None:
+                best_label, best_abs = min(available, key=lambda item: item[1])
+                if best_abs < abs(float(baseline_error)):
+                    interpretation = f"{best_label} adjustment improves this quarter versus baseline"
+                else:
+                    interpretation = "split does not improve this quarter versus baseline"
+            rows.append(
+                {
+                    "Baseline lens": lens,
+                    "Quarter": row.get("Quarter"),
+                    "Reported margin / gal": reported,
+                    "Market/proxy margin / gal": baseline,
+                    "Revenue derivative P&L / gal": rev,
+                    "COGS derivative P&L / gal": cogs,
+                    "Total derivative P&L / gal": total,
+                    "Baseline error / gal": baseline_error,
+                    "Error after revenue derivative adjustment": rev_error,
+                    "Error after COGS derivative adjustment": cogs_error,
+                    "Error after revenue + COGS derivative adjustment": split_error,
+                    "Interpretation": interpretation,
+                }
+            )
+    return rows
+
+
+def _with_volume_changes(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rows = [dict(row) for row in sorted(base_rows, key=lambda item: pd.Timestamp(item.get("Quarter")))]
+    by_quarter = {row.get("_quarter_end"): row for row in rows}
+    for idx, row in enumerate(rows):
+        current = _num(row.get("Ethanol gallons produced (m)") or row.get("Gallons (m)"))
+        previous = _num(rows[idx - 1].get("Ethanol gallons produced (m)") or rows[idx - 1].get("Gallons (m)")) if idx > 0 else None
+        qd = row.get("_quarter_end")
+        prior_year_row = None
+        if isinstance(qd, date):
+            prior_year_row = by_quarter.get(date(qd.year - 1, qd.month, qd.day))
+        prior_year = _num((prior_year_row or {}).get("Ethanol gallons produced (m)") or (prior_year_row or {}).get("Gallons (m)"))
+        sold = _num(row.get("Ethanol gallons sold (m)"))
+        row["Production QoQ change"] = None if current is None or previous is None else float(current) - float(previous)
+        row["Production YoY change"] = None if current is None or prior_year is None else float(current) - float(prior_year)
+        row["Production vs sales mismatch"] = None if current is None or sold is None else float(current) - float(sold)
+    return rows
+
+
+def _residual_for_row(row: Mapping[str, Any], baseline_field: str, *, clean: bool = False) -> Optional[float]:
+    baseline = _num(row.get(baseline_field))
+    if baseline is None:
+        return None
+    if clean:
+        clean_margin = _num(row.get("Clean margin / gal"))
+        return None if clean_margin is None else float(clean_margin) - float(baseline)
+    reported = _num(row.get("Reported margin / gal"))
+    deriv = _num(row.get("Total derivative P&L / gal"))
+    return None if reported is None or deriv is None else float(reported) - float(baseline) - float(deriv)
+
+
+def _driver_relationship_summary(
+    base_rows: List[Dict[str, Any]],
+    driver_specs: Iterable[Tuple[str, str]],
+    *,
+    residual_kind: str,
+) -> List[Dict[str, Any]]:
+    enriched_rows = _with_volume_changes(base_rows)
+    rows: List[Dict[str, Any]] = []
+    for lens, baseline_field in _available_lens_specs(base_rows):
+        for driver_label, driver_field in driver_specs:
+            xs: List[float] = []
+            ys: List[float] = []
+            for row in enriched_rows:
+                driver_value = _num(row.get(driver_field))
+                residual = _residual_for_row(row, baseline_field, clean=residual_kind == "Clean-margin residual / gal")
+                if driver_value is None or residual is None:
+                    continue
+                xs.append(float(driver_value))
+                ys.append(float(residual))
+            corr, slope, r2 = _correlation(xs, ys)
+            direction = ""
+            if slope is not None:
+                direction = "positive residual relationship" if slope > 0 else "negative residual relationship"
+            rows.append(
+                {
+                    "Baseline lens": lens,
+                    "Residual target": residual_kind,
+                    "Driver": driver_label,
+                    "Valid observations": len(xs),
+                    "Correlation with residual": corr,
+                    "R^2": r2,
+                    "Simple slope": slope,
+                    "Direction": direction,
+                    "Interpretation": "insufficient sample" if len(xs) < 3 else "diagnostic relationship; do not overstate causality",
+                    "Data quality note": "available" if xs else "not available",
+                }
+            )
+    return rows
+
+
+def _volume_utilization_summary_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return _driver_relationship_summary(
+        base_rows,
+        (
+            ("Ethanol gallons produced", "Ethanol gallons produced (m)"),
+            ("Ethanol gallons sold", "Ethanol gallons sold (m)"),
+            ("Utilization", "Utilization"),
+            ("Production QoQ change", "Production QoQ change"),
+            ("Production YoY change", "Production YoY change"),
+            ("Production vs sales mismatch", "Production vs sales mismatch"),
+            ("Q4 quarterization flag", "Q4 quarterization flag"),
+        ),
+        residual_kind="Residual after derivative adjustment / gal",
+    ) + _driver_relationship_summary(
+        base_rows,
+        (
+            ("Ethanol gallons produced", "Ethanol gallons produced (m)"),
+            ("Utilization", "Utilization"),
+            ("Production QoQ change", "Production QoQ change"),
+        ),
+        residual_kind="Clean-margin residual / gal",
+    )
+
+
+def _volume_utilization_quarterly_rows(base_rows: List[Dict[str, Any]], *, threshold: float) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    enriched_rows = _with_volume_changes(base_rows)
+    for lens, baseline_field in _available_lens_specs(base_rows):
+        for row in enriched_rows:
+            residual = _residual_for_row(row, baseline_field, clean=False)
+            clean_residual = _residual_for_row(row, baseline_field, clean=True)
+            produced = _num(row.get("Ethanol gallons produced (m)") or row.get("Gallons (m)"))
+            qoq = _num(row.get("Production QoQ change"))
+            util = _num(row.get("Utilization"))
+            flag = "No clear volume signal"
+            if residual is not None:
+                low_volume = (qoq is not None and qoq < -1.0) or (util is not None and util < 0.90)
+                high_volume = (qoq is not None and qoq > 1.0) or (util is not None and util >= 0.95)
+                if low_volume and residual < -threshold:
+                    flag = "Possible fixed-cost absorption / operating efficiency drag"
+                elif high_volume and residual > threshold:
+                    flag = "Possible scale/utilization benefit"
+            rows.append(
+                {
+                    "Baseline lens": lens,
+                    "Quarter": row.get("Quarter"),
+                    "Residual after derivative adjustment / gal": residual,
+                    "Clean-margin residual / gal": clean_residual,
+                    "Ethanol gallons produced": produced,
+                    "Utilization": util,
+                    "Production QoQ change": qoq,
+                    "Production YoY change": row.get("Production YoY change"),
+                    "Volume residual flag": flag,
+                    "Interpretation": "diagnostic only; volume does not imply causality",
+                }
+            )
+    return rows
+
+
+def _basis_energy_summary_rows(base_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    enriched_rows = _with_volume_changes(base_rows)
+    for idx, row in enumerate(enriched_rows):
+        prev = enriched_rows[idx - 1] if idx > 0 else {}
+        corn = _num(row.get("Corn basis proxy"))
+        prev_corn = _num(prev.get("Corn basis proxy"))
+        gas = _num(row.get("Natural gas proxy"))
+        prev_gas = _num(prev.get("Natural gas proxy"))
+        coproduct = _num(row.get("Coproduct value proxy / gal"))
+        prev_coproduct = _num(prev.get("Coproduct value proxy / gal"))
+        row["Corn basis QoQ change"] = None if corn is None or prev_corn is None else float(corn) - float(prev_corn)
+        row["Natural gas QoQ change"] = None if gas is None or prev_gas is None else float(gas) - float(prev_gas)
+        row["Coproduct proxy QoQ change"] = None if coproduct is None or prev_coproduct is None else float(coproduct) - float(prev_coproduct)
+    rows = _driver_relationship_summary(
+        enriched_rows,
+        (
+            ("Corn basis proxy", "Corn basis proxy"),
+            ("Corn basis QoQ change", "Corn basis QoQ change"),
+            ("Natural gas proxy", "Natural gas proxy"),
+            ("Natural gas QoQ change", "Natural gas QoQ change"),
+            ("Coproduct proxy / gal", "Coproduct value proxy / gal"),
+            ("Coproduct proxy QoQ change", "Coproduct proxy QoQ change"),
+        ),
+        residual_kind="Residual after derivative adjustment / gal",
+    )
+    for row in rows:
+        row["Available?"] = "yes" if int(row.get("Valid observations") or 0) > 0 else "no"
+    return rows
+
+
+def _basis_energy_quarterly_rows(base_rows: List[Dict[str, Any]], *, threshold: float) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    enriched_rows = _with_volume_changes(base_rows)
+    for idx, row in enumerate(enriched_rows):
+        prev = enriched_rows[idx - 1] if idx > 0 else {}
+        corn = _num(row.get("Corn basis proxy"))
+        prev_corn = _num(prev.get("Corn basis proxy"))
+        gas = _num(row.get("Natural gas proxy"))
+        prev_gas = _num(prev.get("Natural gas proxy"))
+        coproduct = _num(row.get("Coproduct value proxy / gal"))
+        row["Corn basis QoQ change"] = None if corn is None or prev_corn is None else float(corn) - float(prev_corn)
+        row["Natural gas QoQ change"] = None if gas is None or prev_gas is None else float(gas) - float(prev_gas)
+        for lens, baseline_field in _available_lens_specs(base_rows):
+            residual = _residual_for_row(row, baseline_field, clean=False)
+            flag = "No clear signal"
+            if residual is None:
+                flag = "Insufficient data"
+            elif abs(float(residual)) > threshold and corn is not None:
+                flag = "Corn basis may explain part of residual"
+            elif abs(float(residual)) > threshold and gas is not None:
+                flag = "Energy-cost timing may explain part of residual"
+            rows.append(
+                {
+                    "Baseline lens": lens,
+                    "Quarter": row.get("Quarter"),
+                    "Residual / gal": residual,
+                    "Corn basis proxy": corn,
+                    "Corn basis QoQ change": row.get("Corn basis QoQ change"),
+                    "Natural gas proxy": gas,
+                    "Natural gas QoQ change": row.get("Natural gas QoQ change"),
+                    "Coproduct proxy": coproduct,
+                    "Basis/energy flag": flag,
+                    "Notes": "diagnostic only; production proxy unchanged",
+                }
+            )
+    return rows
+
+
+def _aoci_future_reclass_rows(base_rows: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    rows_sorted = sorted(base_rows, key=lambda row: pd.Timestamp(row.get("Quarter")))
+    tracker: List[Dict[str, Any]] = []
+    for idx, row in enumerate(rows_sorted):
+        next1 = rows_sorted[idx + 1] if idx + 1 < len(rows_sorted) else {}
+        next2_rows = rows_sorted[idx + 1 : idx + 3]
+        next1_reclass = _num(next1.get("Cash-flow hedge reclass to P&L / gal"))
+        next1_total = _num(next1.get("Total derivative P&L / gal"))
+        next2_reclass_values = [_num(r.get("Cash-flow hedge reclass to P&L / gal")) for r in next2_rows]
+        next2_total_values = [_num(r.get("Total derivative P&L / gal")) for r in next2_rows]
+        next2_reclass = sum(float(v) for v in next2_reclass_values if v is not None) if len([v for v in next2_reclass_values if v is not None]) == 2 else None
+        next2_total = sum(float(v) for v in next2_total_values if v is not None) if len([v for v in next2_total_values if v is not None]) == 2 else None
+        aoci = _num(row.get("Derivative AOCI / gal"))
+        forecast_error = None if aoci is None or next1_reclass is None else float(next1_reclass) - float(aoci)
+        tracker.append(
+            {
+                "Quarter": row.get("Quarter"),
+                "Derivative AOCI / gal": aoci,
+                "Derivative OCI movement / gal": row.get("Derivative OCI movement / gal"),
+                "Net derivative asset/liability / gal": row.get("Net derivative asset/liability / gal"),
+                "Next-quarter cash-flow hedge reclass / gal": next1_reclass,
+                "Next-2Q cash-flow hedge reclass / gal": next2_reclass,
+                "Next-quarter total derivative P&L / gal": next1_total,
+                "Next-2Q total derivative P&L / gal": next2_total,
+                "Forecast error if using AOCI as signal": forecast_error,
+                "Interpretation": "Not current-quarter P&L; lead/forecast diagnostic only" if next1_reclass is not None else "insufficient sample",
+            }
+        )
+    summary_specs = (
+        ("AOCI / gal vs next-quarter cash-flow reclass / gal", "Derivative AOCI / gal", "Next-quarter cash-flow hedge reclass / gal"),
+        ("AOCI / gal vs next-2Q cash-flow reclass / gal", "Derivative AOCI / gal", "Next-2Q cash-flow hedge reclass / gal"),
+        ("AOCI / gal vs next-quarter total derivative P&L / gal", "Derivative AOCI / gal", "Next-quarter total derivative P&L / gal"),
+        ("AOCI / gal vs next-2Q total derivative P&L / gal", "Derivative AOCI / gal", "Next-2Q total derivative P&L / gal"),
+        ("OCI movement / gal vs next-quarter reclass / gal", "Derivative OCI movement / gal", "Next-quarter cash-flow hedge reclass / gal"),
+        ("Net derivative asset/liability / gal vs next-quarter total derivative P&L / gal", "Net derivative asset/liability / gal", "Next-quarter total derivative P&L / gal"),
+    )
+    summary: List[Dict[str, Any]] = []
+    for label, x_field, y_field in summary_specs:
+        xs: List[float] = []
+        ys: List[float] = []
+        errors: List[float] = []
+        for rec in tracker:
+            x = _num(rec.get(x_field))
+            y = _num(rec.get(y_field))
+            if x is None or y is None:
+                continue
+            xs.append(float(x))
+            ys.append(float(y))
+            if x_field == "Derivative AOCI / gal":
+                errors.append(float(y) - float(x))
+        corr, slope, r2 = _correlation(xs, ys)
+        summary.append(
+            {
+                "Diagnostic": label,
+                "Valid observations": len(xs),
+                "Correlation": corr,
+                "R^2": r2,
+                "Simple slope": slope,
+                "MAE of naive AOCI-based forecast": _mean([abs(e) for e in errors]) if errors else None,
+                "Notes": "insufficient sample" if len(xs) < 3 else "lead/forecast diagnostic only; do not use as current-quarter P&L",
+            }
+        )
+    return tracker, summary
+
+
+def _key_takeaway_rows(
+    model_summary: List[Dict[str, Any]],
+    target_accuracy: List[Dict[str, Any]],
+    q4_sensitivity: List[Dict[str, Any]],
+    residual_rows: List[Dict[str, Any]],
+    aoci_summary: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    def _best_improvement(model_variant: str) -> Optional[float]:
+        vals = [
+            _num(row.get("Improvement vs Model A"))
+            for row in model_summary
+            if str(row.get("Model variant") or "") == model_variant
+        ]
+        vals = [float(v) for v in vals if v is not None]
+        return max(vals) if vals else None
+
+    deriv_improvement = _best_improvement("Model B: baseline + total derivative P&L")
+    if deriv_improvement is None:
+        deriv_reading = "insufficient sample"
+    elif deriv_improvement > 0.005:
+        deriv_reading = "Derivative P&L improves reported-margin fit in current sample"
+    else:
+        deriv_reading = "Derivative P&L is more useful as reconciliation than production adjustment in current sample"
+
+    clean_candidates = [
+        row
+        for row in target_accuracy
+        if str(row.get("Target") or "") == "Clean margin / gal" and _num(row.get("MAE")) is not None
+    ]
+    best_clean = min(clean_candidates, key=lambda row: float(_num(row.get("MAE")) or 999.0)) if clean_candidates else {}
+    reported_candidates = [
+        row
+        for row in target_accuracy
+        if str(row.get("Target") or "") == "Reported margin / gal" and _num(row.get("MAE")) is not None
+    ]
+    best_reported = min(reported_candidates, key=lambda row: float(_num(row.get("MAE")) or 999.0)) if reported_candidates else {}
+    clean_vs_reported = "insufficient sample"
+    if best_clean and best_reported:
+        clean_vs_reported = (
+            "Clean margin target fits better than raw reported margin"
+            if float(_num(best_clean.get("MAE")) or 0.0) < float(_num(best_reported.get("MAE")) or 0.0)
+            else "Reported margin fits at least as well as clean margin in current sample"
+        )
+
+    q4_improvements = [
+        _num(row.get("Improvement vs all-quarter baseline"))
+        for row in q4_sensitivity
+        if str(row.get("Sample") or "") == "Excluding Q4 quarters"
+    ]
+    q4_vals = [float(v) for v in q4_improvements if v is not None]
+    q4_reading = "insufficient sample"
+    if q4_vals:
+        q4_reading = (
+            "Ex-Q4 accuracy is better; Q4 quarterization may be a noise source"
+            if max(q4_vals) > 0.01
+            else "No clear ex-Q4 improvement in current sample"
+        )
+
+    residual_candidates = [
+        row for row in residual_rows if _num(row.get("Correlation")) is not None and int(row.get("Valid observations") or 0) >= 3
+    ]
+    strongest = max(residual_candidates, key=lambda row: abs(float(_num(row.get("Correlation")) or 0.0))) if residual_candidates else {}
+    strongest_residual = (
+        f"{strongest.get('Driver')} ({strongest.get('Baseline lens')})" if strongest else "insufficient sample"
+    )
+
+    aoci_candidates = [
+        row for row in aoci_summary if _num(row.get("Correlation")) is not None and int(row.get("Valid observations") or 0) >= 3
+    ]
+    aoci_reading = "AOCI lead-signal sample is too small"
+    if aoci_candidates:
+        best_aoci = max(aoci_candidates, key=lambda row: abs(float(_num(row.get("Correlation")) or 0.0)))
+        aoci_reading = f"Lead-signal potential: {best_aoci.get('Diagnostic')}"
+
+    return [
+        {
+            "Diagnostic": "Derivative P&L improves reported-margin fit?",
+            "Reading": deriv_reading,
+            "Support": "Model B vs Model A improvement",
+            "Production model implication": "Do not promote automatically",
+        },
+        {
+            "Diagnostic": "Proxy fits reported margin or clean margin better?",
+            "Reading": clean_vs_reported,
+            "Support": "Target-specific MAE comparison",
+            "Production model implication": "Use clean margin as diagnostic target only",
+        },
+        {
+            "Diagnostic": "Best clean-margin lens",
+            "Reading": str(best_clean.get("Baseline lens") or "insufficient sample"),
+            "Support": "Lowest clean-margin MAE",
+            "Production model implication": "No production model change",
+        },
+        {
+            "Diagnostic": "Q4 quarterization issue?",
+            "Reading": q4_reading,
+            "Support": "Q4 / Quarterization Sensitivity",
+            "Production model implication": "Do not remove Q4 automatically",
+        },
+        {
+            "Diagnostic": "Strongest residual driver",
+            "Reading": strongest_residual,
+            "Support": "Residual Driver Screen plus volume/basis screens",
+            "Production model implication": "Research candidate only",
+        },
+        {
+            "Diagnostic": "AOCI useful as future reclass signal?",
+            "Reading": aoci_reading,
+            "Support": "AOCI Future Reclass Tracker",
+            "Production model implication": "Lead diagnostic only",
+        },
+        {
+            "Diagnostic": "Production model recommendation",
+            "Reading": "Keep derivative P&L as diagnostics/reconciliation; keep production crush proxy unchanged",
+            "Support": "Accounting boundary and sample-size limits",
+            "Production model implication": "No production change recommended",
+        },
+    ]
 
 
 def _fit_ols(y_values: List[float], x_rows: List[List[float]]) -> Optional[Dict[str, Any]]:
@@ -1244,18 +1780,40 @@ def build_derivative_crush_tests(
     base_rows = _base_rows(derivative_bridge_df, operating_driver_history_rows, quarterly_df)
     reconciliation = _reconciliation_rows(base_rows)
     lead_lag_detail, lead_lag_summary = _lead_lag_rows(base_rows)
+    model_summary = _model_summary_rows_from_base(base_rows)
+    q4_sensitivity = _q4_quarterization_sensitivity_rows(base_rows)
+    target_accuracy = _target_specific_model_accuracy_rows(base_rows)
+    residual_driver_screen = _residual_driver_screen_rows(base_rows)
+    aoci_tracker, aoci_summary = _aoci_future_reclass_rows(base_rows)
     return DerivativeCrushTestResult(
-        model_summary=pd.DataFrame(_model_summary_rows_from_base(base_rows)),
+        key_takeaways=pd.DataFrame(
+            _key_takeaway_rows(
+                model_summary,
+                target_accuracy,
+                q4_sensitivity,
+                residual_driver_screen,
+                aoci_summary,
+            )
+        ),
+        model_summary=pd.DataFrame(model_summary),
+        q4_quarterization_sensitivity=pd.DataFrame(q4_sensitivity),
         ex_derivative_margin_test=pd.DataFrame(_ex_derivative_margin_rows(base_rows)),
         clean_margin_bridge=pd.DataFrame(_clean_margin_bridge_rows(base_rows)),
-        target_specific_model_accuracy=pd.DataFrame(_target_specific_model_accuracy_rows(base_rows)),
+        target_specific_model_accuracy=pd.DataFrame(target_accuracy),
+        revenue_cogs_decomposition=pd.DataFrame(_revenue_cogs_decomposition_rows(base_rows)),
+        volume_utilization_summary=pd.DataFrame(_volume_utilization_summary_rows(base_rows)),
+        volume_utilization_quarterly=pd.DataFrame(_volume_utilization_quarterly_rows(base_rows, threshold=slippage_threshold)),
+        basis_energy_summary=pd.DataFrame(_basis_energy_summary_rows(base_rows)),
+        basis_energy_quarterly=pd.DataFrame(_basis_energy_quarterly_rows(base_rows, threshold=slippage_threshold)),
+        aoci_future_reclass_summary=pd.DataFrame(aoci_summary),
+        aoci_future_reclass_tracker=pd.DataFrame(aoci_tracker),
         reconciliation=pd.DataFrame(reconciliation),
         quarterly_derivative_impact=pd.DataFrame(_quarterly_impact_rows(base_rows)),
         coefficient_diagnostic=pd.DataFrame(_coefficient_diagnostic_rows(base_rows)),
         lagged_derivative_pnl_tests=pd.DataFrame(_lagged_derivative_pnl_rows(base_rows)),
         lead_lag_summary=pd.DataFrame(lead_lag_summary),
         lead_lag_detail=pd.DataFrame(lead_lag_detail),
-        residual_driver_screen=pd.DataFrame(_residual_driver_screen_rows(base_rows)),
+        residual_driver_screen=pd.DataFrame(residual_driver_screen),
         slippage=pd.DataFrame(_slippage_rows(base_rows, threshold=slippage_threshold)),
         exposure_buckets=pd.DataFrame(_exposure_bucket_rows(derivative_exposure_df)),
         residual=pd.DataFrame(_residual_rows(reconciliation, threshold=slippage_threshold)),

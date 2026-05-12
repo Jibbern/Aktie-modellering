@@ -281,6 +281,36 @@ INCOME_STATEMENT_RULES: dict = {
         "cogs_min_ratio": 0.15,
         "cogs_max_ratio": 0.95,
     },
+    "ANF": {
+        "titles_any": [
+            "condensed consolidated statements of operations",
+            "consolidated statements of operations",
+            "statements of operations",
+        ],
+        "period_markers": ["thirteen weeks ended", "three months ended", "quarter ended"],
+        "period_markers_3m": ["thirteen weeks ended", "three months ended", "quarter ended"],
+        "period_markers_9m": ["thirty-nine weeks ended", "nine months ended", "nine-months ended"],
+        "period_markers_fy": [
+            "fifty-two weeks ended",
+            "fifty-three weeks ended",
+            "year ended",
+            "fiscal year",
+        ],
+        "period_tokens_3m": ["thirteen weeks", "three months", "quarter"],
+        "period_tokens_9m": ["thirty-nine weeks", "nine months", "nine-months"],
+        "period_tokens_fy": ["fifty-two weeks", "fifty-three weeks", "year ended", "fiscal year"],
+        "require_labels": [
+            "net sales",
+            "cost of sales",
+        ],
+        "revenue_primary": ["net sales"],
+        "revenue_parts": [],
+        "cogs_parts": [],
+        "cogs_alt": ["cost of sales"],
+        "anti_labels": ["interest", "income tax"],
+        "cogs_min_ratio": 0.20,
+        "cogs_max_ratio": 0.70,
+    },
 }
 
 

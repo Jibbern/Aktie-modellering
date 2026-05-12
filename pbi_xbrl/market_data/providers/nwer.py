@@ -578,6 +578,7 @@ class NWERProvider(BaseMarketProvider):
     landing_page_url = "https://mymarketnews.ams.usda.gov/viewReport/3616"
     public_data_url = "https://mymarketnews.ams.usda.gov/public_data?slug_id=3616"
     public_data_slug_id = "3616"
+    public_data_latest_refresh_sufficient = True
     report_token = "/3616/"
     stable_name_prefix = "nwer"
     local_dir_name = "USDA_weekly_data"

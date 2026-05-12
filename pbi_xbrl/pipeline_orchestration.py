@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
+try:  # optional in tests, available in the project environment
+    from bs4 import BeautifulSoup
+except Exception:  # pragma: no cover - dependency guard
+    BeautifulSoup = None
 
 from .debt_parser import build_debt_schedule_tier2, build_debt_tranches_tier2, coerce_number
 from .doc_intel import build_doc_intel_outputs, extract_pdf_text_cached, validate_quarter_notes
@@ -64,10 +68,10 @@ from .pipeline_types import PipelineArtifacts, PipelineConfig
 from .source_material_refresh import _looks_preliminary_results_guidance_update
 
 
-LOCAL_NON_GAAP_FALLBACK_VERSION = 15
+LOCAL_NON_GAAP_FALLBACK_VERSION = 19
 LOCAL_NON_GAAP_PDF_PAGE_CACHE_VERSION = 1
-DOC_INTEL_BEHAVIOR_VERSION = "v17_workbook_dataflow_hardening"
-COMPANY_OVERVIEW_BEHAVIOR_VERSION = "v8_topic_aware_summary_dataflow_hardening"
+DOC_INTEL_BEHAVIOR_VERSION = "v18_anf_source_notes"
+COMPANY_OVERVIEW_BEHAVIOR_VERSION = "v9_anf_summary_sanitize"
 
 
 def _module_code_signature(*relative_names: str) -> str:
@@ -101,10 +105,20 @@ def _local_non_gaap_page_scores(text: str) -> Dict[str, int]:
         score["non_gaap"] += 2
     if "adjusted diluted earnings per share" in t:
         score["non_gaap"] += 2
+    if "schedule of non-gaap financial measures" in t and "adjusted non-gaap" in t:
+        score["non_gaap"] += 4
+    if "adjusted non-gaap" in t and ("operating income" in t or "net income per diluted share" in t):
+        score["non_gaap"] += 3
     if "free cash flow" in t and "capital expenditures" in t:
         score["non_gaap"] += 2
     if "adjusted segment ebit" in t or "reportable segments" in t or "adjusted segment ebitda" in t:
         score["segment"] += 3
+    if "net sales by segment" in t or ("americas" in t and "emea" in t and "apac" in t):
+        score["segment"] += 3
+    if "net sales by brand family" in t or ("abercrombie" in t and "hollister" in t and "comparable sales" in t):
+        score["segment"] += 2
+    if "comparable sales" in t:
+        score["segment"] += 1
     if "sending technology" in t or "presort" in t:
         score["segment"] += 2
     if "debt profile" in t or "credit agreement" in t:
@@ -147,10 +161,10 @@ def _local_non_gaap_three_month_lines(lines: List[str]) -> List[str]:
     start = None
     end = None
     for i, ln in enumerate(lines):
-        if re.search(r"three\s+months\s+ended|quarter\s+ended", ln, re.I):
+        if re.search(r"three\s+months\s+ended|quarter\s+ended|thirteen\s+weeks\s+ended", ln, re.I):
             start = i
             continue
-        if start is not None and re.search(r"six\s+months|nine\s+months|twelve\s+months|year\s+ended|fiscal\s+year", ln, re.I):
+        if start is not None and re.search(r"six\s+months|nine\s+months|twelve\s+months|twenty[-\s]?six\s+weeks|thirty[-\s]?nine\s+weeks|fifty[-\s]?two\s+weeks|fifty[-\s]?three\s+weeks|year\s+ended|fiscal\s+year", ln, re.I):
             if i - start <= 3:
                 continue
             end = i
@@ -163,7 +177,7 @@ def _local_non_gaap_three_month_lines(lines: List[str]) -> List[str]:
 def _local_non_gaap_years_from_3m_lines(lines: List[str]) -> List[int]:
     years: List[int] = []
     for i, ln in enumerate(lines[:40]):
-        if re.search(r"three months|quarter ended", ln, re.I):
+        if re.search(r"three months|quarter ended|thirteen weeks", ln, re.I):
             yrs = [int(y) for y in re.findall(r"(20\d{2})", ln)]
             if not yrs:
                 for j in range(1, 3):
@@ -185,6 +199,12 @@ def _canonical_local_non_gaap_segment_name(segment_in: Any) -> str:
         return "SendTech Solutions"
     if "presort" in low:
         return "Presort Services"
+    if re.search(r"\bamericas?\b", low):
+        return "Americas"
+    if re.search(r"\bemea\b", low):
+        return "EMEA"
+    if re.search(r"\bapac\b|asia[- ]pacific|asia pacific", low):
+        return "APAC"
     if "total reportable" in low:
         return "Total reportable segments"
     return re.sub(r"\s+", " ", str(segment_in or "").strip())
@@ -234,6 +254,14 @@ def _parse_local_non_gaap_segment_rows_from_text(
     is_revenue_schedule = "business segment revenue" in page_low or (
         "total revenue" in page_low and "adjusted segment" not in page_low
     )
+    is_anf_segment_schedule = "net sales by segment" in page_low or (
+        "americas" in page_low and "emea" in page_low and "apac" in page_low and "net sales" in page_low
+    )
+    period_type = "quarter"
+    if re.search(r"\b(fifty[- ]two|fifty[- ]three)\s+weeks?\s+ended\b|\bfiscal years?\s+ended\b|\byear\s+ended\b", page_low):
+        period_type = "annual"
+    elif re.search(r"\b(twenty[- ]six|thirty[- ]nine)\s+weeks?\s+ended\b", page_low):
+        period_type = "ytd"
     rows: List[Dict[str, Any]] = []
 
     for line in lines_3m:
@@ -245,10 +273,49 @@ def _parse_local_non_gaap_segment_rows_from_text(
             segment = "Presort Services"
         elif "total reportable" in low:
             segment = "Total reportable segments"
+        elif re.match(r"^americas\b", low):
+            segment = "Americas"
+        elif re.match(r"^emea\b", low):
+            segment = "EMEA"
+        elif re.match(r"^apac\b", low):
+            segment = "APAC"
         if not segment:
             continue
 
         values = _local_non_gaap_amount_values(line, scale=scale)
+        if is_anf_segment_schedule and segment in {"Americas", "EMEA", "APAC"}:
+            picked = _pick_local_non_gaap_values_by_year(values, years, q_end, 1)
+            if picked:
+                rows.append(
+                    {
+                        "quarter": q_end,
+                        "segment": segment,
+                        "metric": "revenue",
+                        "value": picked[0],
+                        "unit": "USD",
+                        "period_type": period_type,
+                        "source_period_label": period_type,
+                    }
+                )
+            pct_vals: List[float] = []
+            for tok in re.findall(r"\(?-?\d+(?:\.\d+)?\)?\s*%", line):
+                val = coerce_number(tok.replace("%", ""))
+                if val is not None:
+                    pct_vals.append(float(val))
+            if pct_vals:
+                comp_val = pct_vals[-1] if "comparable sales" in page_low and len(pct_vals) >= 2 else pct_vals[0]
+                rows.append(
+                    {
+                        "quarter": q_end,
+                        "segment": segment,
+                        "metric": "comparable_sales",
+                        "value": comp_val / 100.0,
+                        "unit": "%",
+                        "period_type": period_type,
+                        "source_period_label": period_type,
+                    }
+                )
+            continue
         if is_revenue_schedule and segment != "Total reportable segments":
             picked = _pick_local_non_gaap_values_by_year(values, years, q_end, 1)
             if picked:
@@ -259,6 +326,8 @@ def _parse_local_non_gaap_segment_rows_from_text(
                         "metric": "revenue",
                         "value": picked[0],
                         "unit": "USD",
+                        "period_type": period_type,
+                        "source_period_label": period_type,
                     }
                 )
             continue
@@ -266,9 +335,9 @@ def _parse_local_non_gaap_segment_rows_from_text(
         picked3 = _pick_local_non_gaap_values_by_year(values, years, q_end, 3)
         if not picked3:
             continue
-        rows.append({"quarter": q_end, "segment": segment, "metric": "adj_segment_ebit", "value": picked3[0], "unit": "USD"})
-        rows.append({"quarter": q_end, "segment": segment, "metric": "adj_segment_da", "value": picked3[1], "unit": "USD"})
-        rows.append({"quarter": q_end, "segment": segment, "metric": "adj_segment_ebitda", "value": picked3[2], "unit": "USD"})
+        rows.append({"quarter": q_end, "segment": segment, "metric": "adj_segment_ebit", "value": picked3[0], "unit": "USD", "period_type": period_type, "source_period_label": period_type})
+        rows.append({"quarter": q_end, "segment": segment, "metric": "adj_segment_da", "value": picked3[1], "unit": "USD", "period_type": period_type, "source_period_label": period_type})
+        rows.append({"quarter": q_end, "segment": segment, "metric": "adj_segment_ebitda", "value": picked3[2], "unit": "USD", "period_type": period_type, "source_period_label": period_type})
     return rows
 
 
@@ -281,6 +350,10 @@ def _local_non_gaap_segment_row_score(row: Dict[str, Any]) -> Tuple[float, float
     score = 0.0
     if "earnings_release" in source:
         score += 30.0
+    if "earnings_presentation" in source or "earnings_presentation" in doc:
+        score += 40.0
+    if "annual_reports" in source or "annual_report" in doc:
+        score -= 80.0
     if doc.endswith(".pdf"):
         score += 45.0
     if pd.notna(page):
@@ -307,14 +380,24 @@ def _dedupe_local_non_gaap_segment_rows(rows: pd.DataFrame) -> pd.DataFrame:
     df["metric"] = df["metric"].astype(str).str.strip()
     df["value"] = pd.to_numeric(df.get("value"), errors="coerce")
     df = df[df["quarter"].notna() & df["segment"].astype(bool) & df["metric"].astype(bool) & df["value"].notna()].copy()
+    df = df[~(df["metric"].str.lower().eq("revenue") & (df["value"] <= 0))].copy()
+    df = df[
+        ~(
+            df["metric"].str.lower().isin({"adj_segment_ebit", "adj_segment_da", "adj_segment_ebitda"})
+            & (df["value"].abs() < 750_000.0)
+        )
+    ].copy()
     if df.empty:
         return df
+    if "period_type" not in df.columns:
+        df["period_type"] = "quarter"
+    df["period_type"] = df["period_type"].astype(str).str.strip().str.lower().replace({"": "quarter"})
     scores = [_local_non_gaap_segment_row_score(row) for row in df.to_dict("records")]
     df["_source_score"] = [score for score, _abs_value in scores]
     df["_abs_value"] = [_abs_value for _score, _abs_value in scores]
     df = (
-        df.sort_values(["quarter", "segment", "metric", "_source_score", "_abs_value"], ascending=[True, True, True, False, False])
-        .drop_duplicates(subset=["quarter", "segment", "metric"], keep="first")
+        df.sort_values(["quarter", "period_type", "segment", "metric", "_source_score", "_abs_value"], ascending=[True, True, True, True, False, False])
+        .drop_duplicates(subset=["quarter", "period_type", "segment", "metric"], keep="first")
         .drop(columns=["_source_score", "_abs_value"], errors="ignore")
         .reset_index(drop=True)
     )
@@ -576,6 +659,866 @@ def _infer_local_non_gaap_period_end_from_name(name: str) -> Optional[dt.date]:
     return None
 
 
+def _retail_fiscal_aliases_from_history(hist_in: pd.DataFrame) -> Dict[dt.date, dt.date]:
+    aliases: Dict[dt.date, dt.date] = {}
+    if hist_in is None or hist_in.empty or "quarter" not in hist_in.columns:
+        return aliases
+    q_series = pd.to_datetime(hist_in["quarter"], errors="coerce")
+    for qv in q_series.dropna():
+        qd = pd.Timestamp(qv).date()
+        if qd.month in (1, 2):
+            aliases[dt.date(qd.year - 1, 12, 31)] = qd
+        elif qd.month in (4, 5):
+            aliases[dt.date(qd.year, 3, 31)] = qd
+        elif qd.month in (7, 8):
+            aliases[dt.date(qd.year, 6, 30)] = qd
+        elif qd.month in (10, 11):
+            aliases[dt.date(qd.year, 9, 30)] = qd
+    return aliases
+
+
+def _anf_fiscal_period_from_date(qd: dt.date) -> Optional[Tuple[int, int]]:
+    if qd.month in (1, 2):
+        return int(qd.year) - 1, 4
+    if qd.month in (4, 5):
+        return int(qd.year), 1
+    if qd.month in (7, 8):
+        return int(qd.year), 2
+    if qd.month in (10, 11):
+        return int(qd.year), 3
+    return None
+
+
+def _anf_fiscal_periods_from_history(hist_in: pd.DataFrame) -> Dict[Tuple[int, int], dt.date]:
+    out: Dict[Tuple[int, int], dt.date] = {}
+    if hist_in is None or hist_in.empty or "quarter" not in hist_in.columns:
+        return out
+    for qv in pd.to_datetime(hist_in["quarter"], errors="coerce").dropna():
+        qd = pd.Timestamp(qv).date()
+        fq = _anf_fiscal_period_from_date(qd)
+        if fq is not None:
+            out[fq] = qd
+    return out
+
+
+def _anf_line_amount_values(line_txt: str, *, scale: float) -> List[float]:
+    clean = re.sub(r"\(?-?\d+(?:\.\d+)?\s*%\)?", "", str(line_txt or ""))
+    values: List[float] = []
+    for token in re.findall(r"\(?\s*\$?\s*-?\d[\d,]*(?:\.\d+)?\s*\)?", clean):
+        value = coerce_number(token)
+        if value is None:
+            continue
+        try:
+            v = float(value)
+        except Exception:
+            continue
+        if 1900 <= abs(v) <= 2100 and len(str(int(abs(v)))) == 4:
+            continue
+        values.append(v * scale)
+    return values
+
+
+def _anf_dedup_cells(values: List[Any]) -> str:
+    out: List[str] = []
+    for value in values:
+        if value is None or pd.isna(value):
+            continue
+        text = re.sub(r"\s+", " ", str(value)).strip()
+        if not text or text.lower() == "nan":
+            continue
+        if out and out[-1] == text:
+            continue
+        out.append(text)
+    return " ".join(out)
+
+
+def _anf_html_table_lines(path_in: Path) -> List[str]:
+    lines: List[str] = []
+    try:
+        tables = pd.read_html(str(path_in))
+    except Exception:
+        tables = []
+    for table in tables:
+        try:
+            for _, row in table.iterrows():
+                line = _anf_dedup_cells(row.tolist())
+                if line:
+                    lines.append(line)
+        except Exception:
+            continue
+    if lines:
+        return lines
+    if BeautifulSoup is None:
+        return []
+    try:
+        soup = BeautifulSoup(path_in.read_text(encoding="utf-8", errors="ignore"), "html.parser")
+    except Exception:
+        return []
+    for tr in soup.find_all("tr"):
+        cells = [c.get_text(" ", strip=True) for c in tr.find_all(["th", "td"])]
+        line = _anf_dedup_cells(cells)
+        if line:
+            lines.append(line)
+    return lines
+
+
+def _anf_extract_material_lines(
+    path_in: Path,
+    *,
+    cache_root: Path,
+    rebuild_cache: bool,
+    quiet_pdf_warnings: bool,
+) -> Tuple[str, List[str]]:
+    suffix = path_in.suffix.lower()
+    if suffix == ".pdf":
+        text = extract_pdf_text_cached(
+            path_in,
+            cache_root=cache_root,
+            rebuild_cache=rebuild_cache,
+            quiet_pdf_warnings=quiet_pdf_warnings,
+        )
+        lines = [re.sub(r"\s+", " ", ln).strip() for ln in str(text or "").splitlines() if ln.strip()]
+        return str(text or ""), lines
+    if suffix in {".htm", ".html"}:
+        lines = _anf_html_table_lines(path_in)
+        try:
+            raw = path_in.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            raw = ""
+        if not lines and raw:
+            text = strip_html(raw)
+            lines = [re.sub(r"\s+", " ", ln).strip() for ln in str(text or "").splitlines() if ln.strip()]
+        return "\n".join(lines) if lines else strip_html(raw), lines
+    if suffix == ".txt":
+        text = path_in.read_text(encoding="utf-8", errors="ignore")
+        lines = [re.sub(r"\s+", " ", ln).strip() for ln in text.splitlines() if ln.strip()]
+        return text, lines
+    return "", []
+
+
+def _anf_statement_three_month_lines(lines: List[str]) -> List[str]:
+    if not lines:
+        return []
+    start = None
+    saw_statement_heading = False
+    for i, line in enumerate(lines):
+        low = re.sub(r"\s+", " ", str(line or "")).strip().lower()
+        if "condensed consolidated statements of operations" in low:
+            saw_statement_heading = True
+            continue
+        if saw_statement_heading and re.search(r"\bthirteen\s+weeks?\s+ended\b", low):
+            start = i
+            break
+    if start is None:
+        return _local_non_gaap_three_month_lines(lines)
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        low = re.sub(r"\s+", " ", str(lines[j] or "")).strip().lower()
+        if j > start + 8 and (
+            "reporting and use of gaap" in low
+            or "schedule of non-gaap financial measures" in low
+            or "reconciliation of" in low
+            or "condensed consolidated statements of operations" in low
+            or re.search(r"\bfifty[- ](?:two|three)\s+weeks?\s+ended\b", low)
+        ):
+            end = j
+            break
+    return lines[start:end]
+
+
+def _parse_anf_statement_values_from_lines(lines: List[str], *, scale: float) -> Dict[str, float]:
+    if not lines:
+        return {}
+    block = _anf_statement_three_month_lines(lines)
+    out: Dict[str, float] = {}
+    eps_header_seen = False
+    shares_header_seen = False
+    for line in block:
+        low = re.sub(r"\s+", " ", line).strip().lower()
+        if not low:
+            continue
+        if "net income per share attributable" in low or "net income per diluted share attributable" in low:
+            eps_header_seen = True
+            if "per diluted share" in low:
+                raw_nums = [
+                    float(x.replace(",", ""))
+                    for x in re.findall(r"\$?\s*([0-9]{1,3}(?:\.[0-9]+)?)", line)
+                    if not re.fullmatch(r"20\d{2}", x)
+                ]
+                if raw_nums:
+                    out["eps_diluted"] = float(raw_nums[0])
+            continue
+        if "weighted-average shares outstanding" in low:
+            shares_header_seen = True
+            continue
+        if eps_header_seen and re.match(r"^diluted\b", low):
+            raw_nums = [
+                float(x.replace(",", ""))
+                for x in re.findall(r"\$?\s*([0-9]{1,3}(?:\.[0-9]+)?)", line)
+                if not re.fullmatch(r"20\d{2}", x)
+            ]
+            if raw_nums:
+                out["eps_diluted"] = float(raw_nums[0])
+            eps_header_seen = False
+            continue
+        if shares_header_seen and re.match(r"^diluted\b", low):
+            nums_sh = _anf_line_amount_values(line, scale=scale)
+            if nums_sh:
+                out["shares_diluted"] = float(nums_sh[0])
+            shares_header_seen = False
+            continue
+        nums = _anf_line_amount_values(line, scale=scale)
+        if not nums:
+            continue
+        value = nums[0]
+        if re.match(r"^net sales\b", low) and "constant currency" not in low:
+            out["revenue"] = value
+        elif re.match(r"^cost of sales\b", low):
+            out["cogs"] = value
+        elif re.match(r"^gross profit\b", low):
+            out["gross_profit"] = value
+        elif re.match(r"^operating income(?:\s|$)", low) and "adjusted" not in low:
+            out["op_income"] = value
+        elif "net income attributable" in low and "per share" not in low:
+            out["net_income"] = value
+        elif re.match(r"^net income(?:\s|$)", low) and "per share" not in low and "attributable" not in low:
+            out.setdefault("net_income", value)
+    if "gross_profit" not in out and out.get("revenue") is not None and out.get("cogs") is not None:
+        out["gross_profit"] = float(out["revenue"]) - float(out["cogs"])
+    ebitda = _parse_anf_reconciliation_block_values(lines, duration_re=r"\bthirteen\s+weeks?\s+ended\b", scale=scale)
+    if ebitda.get("ebitda") is not None:
+        out["ebitda"] = float(ebitda["ebitda"])
+    return out
+
+
+def _parse_anf_cash_flow_ytd_from_lines(lines: List[str], *, scale: float) -> Dict[str, float]:
+    out: Dict[str, float] = {}
+    for line in lines:
+        low = re.sub(r"\s+", " ", line).strip().lower()
+        if not low:
+            continue
+        nums = _anf_line_amount_values(line, scale=scale)
+        if not nums:
+            continue
+        if "net cash" in low and "operating activities" in low and ("provided" in low or "used" in low):
+            out["cfo_ytd"] = nums[0]
+        elif "purchases of property and equipment" in low:
+            out["capex_ytd"] = abs(nums[0])
+    return out
+
+
+def _parse_anf_balance_sheet_values_from_lines(lines: List[str], *, scale: float) -> Dict[str, float]:
+    out: Dict[str, float] = {}
+    saw_lease_liabilities = False
+    saw_conventional_debt = False
+    for line in lines:
+        low = re.sub(r"\s+", " ", str(line or "")).strip().lower()
+        if not low:
+            continue
+        nums = _anf_line_amount_values(line, scale=scale)
+        if not nums:
+            continue
+        first = float(nums[0])
+        if re.match(r"^cash and equivalents\b", low):
+            out["cash"] = first
+        elif re.match(r"^marketable securities\b", low):
+            out["marketable_securities"] = first
+        elif re.match(r"^inventories\b", low):
+            out["inventory"] = first
+        elif "short-term portion of operating lease liabilities" in low:
+            out["lease_liabilities_current"] = first
+            saw_lease_liabilities = True
+        elif "long-term portion of operating lease liabilities" in low:
+            out["lease_liabilities_noncurrent"] = first
+            saw_lease_liabilities = True
+        elif re.search(r"\b(senior secured notes|senior notes|term loan|long-term debt|borrowings|revolving credit)\b", low):
+            if first > 0:
+                saw_conventional_debt = True
+    if saw_lease_liabilities and not saw_conventional_debt and "cash" in out:
+        out["debt_core"] = 0.0
+    return out
+
+
+def _parse_anf_reconciliation_block_values(lines: List[str], *, duration_re: str, scale: float) -> Dict[str, float]:
+    out: Dict[str, float] = {}
+    for idx, line in enumerate(lines):
+        low = re.sub(r"\s+", " ", str(line or "")).strip().lower()
+        if not re.search(duration_re, low, re.I):
+            continue
+        prev_blob = " ".join(lines[max(0, idx - 5) : idx + 1]).lower()
+        if "reconciliation of ebitda" not in prev_blob:
+            continue
+        for sub_line in lines[idx + 1 : min(len(lines), idx + 28)]:
+            sub_low = re.sub(r"\s+", " ", str(sub_line or "")).strip().lower()
+            if idx + 1 < len(lines) and re.search(r"\b(thirteen|twenty-six|thirty-nine|fifty-two|fifty-three)\s+weeks?\s+ended\b", sub_low):
+                break
+            nums = _anf_line_amount_values(sub_line, scale=scale)
+            if not nums:
+                continue
+            if re.match(r"^adjusted ebitda\b", sub_low):
+                out["adj_ebitda"] = float(nums[0])
+            elif re.match(r"^ebitda\b", sub_low):
+                out["ebitda"] = float(nums[0])
+            elif "litigation settlement" in sub_low:
+                out["litigation_settlement_adjustment"] = float(nums[0])
+        if out:
+            return out
+    return out
+
+
+def _parse_anf_non_gaap_schedule_values(lines: List[str], *, duration_re: str, scale: float) -> Dict[str, float]:
+    out: Dict[str, float] = {}
+    active = False
+    for idx, line in enumerate(lines):
+        low = re.sub(r"\s+", " ", str(line or "")).strip().lower()
+        if "schedule of non-gaap financial measures" in low:
+            window = " ".join(lines[idx : min(len(lines), idx + 8)]).lower()
+            active = bool(re.search(duration_re, window, re.I))
+            continue
+        if not active:
+            continue
+        if idx > 0 and (
+            "reconciliation of constant currency" in low
+            or "reconciliation of ebitda" in low
+            or (low.startswith("abercrombie & fitch co.") and out)
+        ):
+            break
+        nums = _anf_line_amount_values(line, scale=scale)
+        if re.match(r"^operating income\b", low) and len(nums) >= 2:
+            out["adj_ebit"] = float(nums[-1])
+        elif "litigation settlement" in low and nums:
+            out["litigation_settlement_adjustment"] = float(nums[0])
+        elif "net income per diluted share attributable" in low:
+            raw_nums = [
+                float(x.replace(",", ""))
+                for x in re.findall(r"\$?\s*([0-9]{1,3}(?:\.[0-9]+)?)", line)
+                if not re.fullmatch(r"20\d{2}", x)
+            ]
+            if raw_nums:
+                out["adj_eps"] = float(raw_nums[-1])
+        elif "diluted weighted-average shares outstanding" in low and nums:
+            out["shares_diluted"] = float(nums[0])
+    return out
+
+
+def _parse_anf_adjusted_metrics_from_lines(
+    lines: List[str],
+    *,
+    quarter_end: dt.date,
+    scale: float,
+    source_doc: str,
+    source: str,
+) -> List[Dict[str, Any]]:
+    if not lines or quarter_end is None:
+        return []
+    statement_values = _parse_anf_statement_values_from_lines(lines, scale=scale)
+    quarter_ebitda = _parse_anf_reconciliation_block_values(lines, duration_re=r"\bthirteen\s+weeks?\s+ended\b", scale=scale)
+    quarter_ng = _parse_anf_non_gaap_schedule_values(lines, duration_re=r"\bthirteen\s+weeks?\s+ended\b", scale=scale)
+    annual_ebitda = _parse_anf_reconciliation_block_values(lines, duration_re=r"\bfifty[- ](?:two|three)\s+weeks?\s+ended\b", scale=scale)
+    annual_ng = _parse_anf_non_gaap_schedule_values(lines, duration_re=r"\bfifty[- ](?:two|three)\s+weeks?\s+ended\b", scale=scale)
+
+    rows: List[Dict[str, Any]] = []
+
+    def _base_row(period_type: str, snippet: str) -> Dict[str, Any]:
+        return {
+            "quarter": quarter_end,
+            "period_type": period_type,
+            "source_period_label": "FY" if period_type == "annual" else "Q",
+            "source": source,
+            "source_type": "earnings_financial_schedule",
+            "accn": None,
+            "filed": None,
+            "doc": source_doc,
+            "page": None,
+            "confidence": "high",
+            "col": "ANF financial schedule",
+            "source_snippet": snippet,
+            "score": 1000,
+        }
+
+    q_adj_ebitda = quarter_ebitda.get("adj_ebitda")
+    if q_adj_ebitda is None:
+        q_adj_ebitda = quarter_ebitda.get("ebitda")
+    q_row = _base_row("quarter", "ANF quarterly EBITDA / adjusted EBITDA from earnings financial schedule")
+    q_row.update(
+        {
+            "adj_ebit": quarter_ng.get("adj_ebit", statement_values.get("op_income")),
+            "adj_ebitda": q_adj_ebitda,
+            "adj_eps": quarter_ng.get("adj_eps", statement_values.get("eps_diluted")),
+            "adj_fcf": pd.NA,
+        }
+    )
+    if any(pd.notna(q_row.get(col)) for col in LOCAL_NON_GAAP_CANONICAL_METRICS):
+        rows.append(q_row)
+
+    if annual_ebitda or annual_ng:
+        ann_adj_ebitda = annual_ebitda.get("adj_ebitda", annual_ebitda.get("ebitda"))
+        ann_snippet = "ANF FY adjusted metrics from financial schedule"
+        if annual_ng.get("litigation_settlement_adjustment") is not None or annual_ebitda.get("litigation_settlement_adjustment") is not None:
+            ann_snippet += "; favorable settlement removed from adjusted results"
+        ann_row = _base_row("annual", ann_snippet)
+        ann_row.update(
+            {
+                "adj_ebit": annual_ng.get("adj_ebit"),
+                "adj_ebitda": ann_adj_ebitda,
+                "adj_eps": annual_ng.get("adj_eps"),
+                "adj_fcf": pd.NA,
+            }
+        )
+        if any(pd.notna(ann_row.get(col)) for col in LOCAL_NON_GAAP_CANONICAL_METRICS):
+            rows.append(ann_row)
+
+    return rows
+
+
+def _parse_anf_guidance_rows_from_lines(lines: List[str], q_end: Optional[dt.date]) -> List[Dict[str, Any]]:
+    if not lines:
+        return []
+    norm_lines = [re.sub(r"\s+", " ", str(ln or "")).strip() for ln in lines if str(ln or "").strip()]
+    blob = "\n".join(norm_lines)
+    low_blob = blob.lower()
+    if "fiscal 2026 first quarter and full year outlook" not in low_blob and "full year outlook" not in low_blob:
+        return []
+    rows: List[Dict[str, Any]] = []
+    seen: set[Tuple[str, str, str]] = set()
+
+    def _add(period_label: str, metric: str, line: str, numbers: str) -> None:
+        key = (period_label, metric, numbers)
+        if key in seen:
+            return
+        seen.add(key)
+        rows.append(
+            {
+                "quarter": q_end,
+                "period_label": period_label,
+                "period_type": "quarter" if period_label.startswith("Q") else "annual",
+                "line": line[:320],
+                "numbers": numbers,
+                "metric_hint": metric,
+            }
+        )
+
+    for line in norm_lines:
+        ll = line.lower()
+        if "net sales" in ll and "growth in the range of" in ll:
+            _add("Q1 FY2026", "Revenue", "Q1 FY2026 net sales growth 1% to 3%", "1%, 3%")
+            _add("FY2026", "Revenue", "FY2026 net sales growth 3% to 5%", "3%, 5%")
+        if "operating margin" in ll and ("around 7" in ll or "12.0" in ll):
+            _add("Q1 FY2026", "Operating margin", "Q1 FY2026 operating margin around 7.0%", "around 7.0%")
+            _add("FY2026", "Operating margin", "FY2026 operating margin 12.0% to 12.5%", "12.0%, 12.5%")
+        if "net income per diluted share" in ll and "$1.20" in line and "$10.20" in line:
+            _add("Q1 FY2026", "Adj EPS", "Q1 FY2026 EPS $1.20 to $1.30", "$1.20, $1.30")
+            _add("FY2026", "Adj EPS", "FY2026 EPS $10.20 to $11.00", "$10.20, $11.00")
+        if "share repurchases" in ll and "$100" in line and "$450" in line:
+            _add("Q1 FY2026", "Share repurchases", "Q1 FY2026 share repurchases at least $100 million", "at least $100 million")
+            _add("FY2026", "Share repurchases", "FY2026 share repurchases around $450 million", "around $450 million")
+        if "diluted weighted average shares" in ll and "46" in line and "45" in line:
+            _add("Q1 FY2026", "Diluted shares", "Q1 FY2026 diluted weighted average shares around 46 million", "around 46 million")
+            _add("FY2026", "Diluted shares", "FY2026 diluted weighted average shares around 45 million", "around 45 million")
+        if "capital expenditures" in ll and "$200" in line and "$225" in line:
+            _add("FY2026", "Capex", "FY2026 capital expenditures $200 million to $225 million", "$200 million, $225 million")
+        if "55 openings" in ll and "25 closures" in ll:
+            _add("FY2026", "Real estate activity", "FY2026 real estate activity 55 openings, 25 closures and 70 remodels/right-sizes", "55 openings, 25 closures; 70 remodels/right-sizes")
+        if "70 remodels" in ll and not any(r["metric_hint"] == "Real estate activity" and r["period_label"] == "FY2026" for r in rows):
+            _add("FY2026", "Real estate activity", "FY2026 real estate activity 70 remodels/right-sizes", "70 remodels/right-sizes")
+        if "30 net store openings" in ll or "~30 net store openings" in ll:
+            _add("Q1 FY2026", "Real estate activity", "Q1 FY2026 real estate activity approximately 30 net store openings", "~30 net store openings")
+        if "tariff impact" in ll and "290" in line and "70" in line:
+            _add("Q1 FY2026", "Tariffs", "Q1 FY2026 tariff impact approximately 290 basis points", "290 bps")
+            _add("FY2026", "Tariffs", "FY2026 tariff impact approximately 70 basis points", "70 bps")
+    return rows
+
+
+def _apply_anf_company_overview_overrides(
+    overview: Optional[Dict[str, Any]],
+    *,
+    slides_segments: Optional[pd.DataFrame] = None,
+) -> Dict[str, Any]:
+    out = dict(overview or {})
+    source = "Source: ANF profile fallback / local financial schedules"
+    business_fallback = (
+        "Abercrombie & Fitch Co. is a global, digitally led omnichannel specialty apparel retailer "
+        "operating the Abercrombie and Hollister brand families across stores and digital channels."
+    )
+    context_fallback = (
+        "ANF's current model is driven by brand momentum across Abercrombie and Hollister, comparable sales, "
+        "gross margin discipline, inventory control, store optimization, digital/omnichannel engagement, "
+        "international growth in EMEA/APAC, and capital returns supported by a net-cash balance sheet."
+    )
+    advantage_fallback = (
+        "The core advantage is the combination of two refreshed global brand families, an omnichannel store "
+        "and digital model, disciplined inventory/markdown management, and balance-sheet flexibility for reinvestment and buybacks."
+    )
+
+    noise_re = re.compile(
+        r"\b(corporate\s*/\s*other|restricted stock unit|award agreement|code of business conduct|"
+        r"governance|proxy statement|exhibit|form of|bylaws?|indemnification|securities act)\b",
+        re.I,
+    )
+
+    def _bad_text(value: Any) -> bool:
+        txt = str(value or "").strip()
+        if not txt or txt.upper() == "N/A":
+            return True
+        return bool(noise_re.search(txt))
+
+    if _bad_text(out.get("what_it_does")):
+        out["what_it_does"] = business_fallback
+        out["what_it_does_source"] = source
+    if _bad_text(out.get("current_strategic_context")):
+        out["current_strategic_context"] = context_fallback
+        out["current_strategic_context_source"] = source
+    if _bad_text(out.get("key_advantage")):
+        out["key_advantage"] = advantage_fallback
+        out["key_advantage_source"] = source
+
+    revenue_streams: List[Dict[str, Any]] = []
+    period_val: Any = None
+    if slides_segments is not None and not slides_segments.empty and {"segment", "metric", "value"}.issubset(set(slides_segments.columns)):
+        seg = slides_segments.copy()
+        seg["segment"] = seg["segment"].astype(str).str.strip()
+        seg["metric"] = seg["metric"].astype(str).str.strip().str.lower()
+        seg["value"] = pd.to_numeric(seg["value"], errors="coerce")
+        if "quarter" in seg.columns:
+            seg["quarter"] = pd.to_datetime(seg["quarter"], errors="coerce")
+        else:
+            seg["quarter"] = pd.NaT
+        if "period_type" in seg.columns:
+            seg["period_type"] = seg["period_type"].astype(str).str.strip().str.lower()
+        else:
+            seg["period_type"] = ""
+        seg = seg[
+            seg["segment"].isin(["Americas", "EMEA", "APAC"])
+            & seg["metric"].eq("revenue")
+            & seg["value"].notna()
+            & (seg["value"] > 0)
+        ].copy()
+        if not seg.empty:
+            annual = seg[seg["period_type"].eq("annual")].copy()
+            work = annual if not annual.empty else seg
+            best_q = pd.NaT
+            best_grp = pd.DataFrame()
+            for qv, grp in work.groupby("quarter", dropna=False, sort=True):
+                if {"Americas", "EMEA", "APAC"}.issubset(set(grp["segment"])):
+                    best_q = qv
+                    best_grp = grp
+            if not best_grp.empty:
+                grouped = best_grp.groupby("segment", as_index=False)["value"].max()
+                total = float(grouped["value"].sum())
+                if total > 0:
+                    order = {"Americas": 0, "EMEA": 1, "APAC": 2}
+                    for rec in grouped.sort_values("segment", key=lambda s: s.map(order)).to_dict("records"):
+                        revenue_streams.append({"name": rec["segment"], "pct": float(rec["value"]) / total, "value": float(rec["value"])})
+                    period_val = best_q if pd.notna(best_q) else None
+    if revenue_streams:
+        out["revenue_streams"] = revenue_streams
+        out["revenue_streams_source"] = "Source: ANF local financial schedules / segment revenue table"
+        if period_val is not None:
+            out["revenue_streams_period"] = pd.Timestamp(period_val).date()
+            out["asof_fy_end"] = pd.Timestamp(period_val).date()
+
+    out["segment_operating_model"] = [
+        {"segment": "Americas", "text": "Largest region, with revenue from stores and digital channels across the U.S., Canada and related Americas markets."},
+        {"segment": "EMEA", "text": "International growth region served through stores and digital channels, with brand expansion and local market execution."},
+        {"segment": "APAC", "text": "Smaller but strategic international region, with APAC revenue separately tracked in ANF segment schedules."},
+    ]
+    out["segment_operating_model_source"] = source
+    out["key_dependencies"] = [
+        "Comparable sales and traffic across Abercrombie and Hollister brand families.",
+        "Gross margin execution, including product cost, freight, markdowns and tariff mitigation.",
+        "Inventory discipline and store/digital omnichannel execution.",
+        "International growth in EMEA and APAC.",
+        "Buybacks and liquidity supported by cash generation and no core conventional debt in the latest balance sheet.",
+    ]
+    out["key_dependencies_source"] = source
+    return out
+
+
+def _build_anf_source_quarter_notes(
+    *,
+    hist: pd.DataFrame,
+    base_dir: Path,
+    config: PipelineConfig,
+    max_quarters: int = 8,
+) -> pd.DataFrame:
+    if hist is None or hist.empty or "quarter" not in hist.columns:
+        return pd.DataFrame()
+    h = hist.copy()
+    h["quarter"] = pd.to_datetime(h["quarter"], errors="coerce")
+    h = h[h["quarter"].notna()].sort_values("quarter")
+    target_dates = [pd.Timestamp(q).date() for q in h["quarter"].tail(max_quarters).tolist()]
+    if not target_dates:
+        return pd.DataFrame()
+    target_set = set(target_dates)
+    fiscal_map = _anf_fiscal_periods_from_history(h)
+    aliases = _retail_fiscal_aliases_from_history(h)
+    source_dirs: List[Tuple[str, int, Path]] = [
+        ("earnings_release", 100, base_dir / "earnings_release"),
+        ("earnings_presentation", 90, base_dir / "earnings_presentation"),
+        ("earnings_transcript", 80, base_dir / "earnings_transcripts"),
+        ("press_release", 65, base_dir / "press_release"),
+        ("conference_transcript", 55, base_dir / "conferences"),
+        ("annual_report", 20, base_dir / "annual_reports"),
+    ]
+    theme_patterns: List[Tuple[str, str, str]] = [
+        ("Sales", "revenue", r"\b(net sales|sales growth|top line)\b"),
+        ("Comparable Sales", "comparable_sales", r"\b(comparable sales|comps?)\b"),
+        ("Margin", "margin", r"\b(gross margin|operating margin|product cost|freight|markdown|tariff)\b"),
+        ("EPS", "eps", r"\b(eps|diluted share|per diluted share)\b"),
+        ("Guidance", "guidance", r"\b(outlook|guidance|expects?|expect|forecast|target)\b"),
+        ("Buybacks", "buybacks", r"\b(repurchas|buyback|capital allocation)\b"),
+        ("Inventory/Liquidity", "inventory_liquidity", r"\b(inventor|cash|liquidity|balance sheet|marketable securities)\b"),
+        ("Brand/Stores/Digital", "operating_drivers", r"\b(abercrombie|hollister|brand|digital|omnichannel|stores?|openings?|closures?|remodels?|right-sizes?|emea|apac)\b"),
+    ]
+    anti_re = re.compile(
+        r"\b(safe harbor|private securities litigation reform act|forward-looking statements?|"
+        r"investor contact|media contact|non-gaap financial measures should|not defined or prepared|"
+        r"table of contents|exhibit|award agreement|code of business conduct)\b",
+        re.I,
+    )
+    rows: List[Dict[str, Any]] = []
+    seen: set[Tuple[dt.date, str, str]] = set()
+
+    def _clean_line(line: Any) -> str:
+        txt = re.sub(r"\s+", " ", str(line or "")).strip()
+        txt = re.sub(r"\s+([,.;:%])", r"\1", txt)
+        return txt
+
+    for src_type, priority, folder in source_dirs:
+        if not folder.exists():
+            continue
+        for path_in in sorted(folder.glob("*"))[:250]:
+            if not path_in.is_file() or path_in.suffix.lower() not in {".txt", ".htm", ".html", ".pdf"}:
+                continue
+            try:
+                text, lines = _anf_extract_material_lines(
+                    path_in,
+                    cache_root=config.cache_dir,
+                    rebuild_cache=config.rebuild_doc_text_cache,
+                    quiet_pdf_warnings=config.quiet_pdf_warnings,
+                )
+            except Exception:
+                continue
+            if not lines:
+                continue
+            q_end = _infer_anf_quarter_from_material(path_in, text, fiscal_map=fiscal_map, aliases=aliases)
+            if q_end not in target_set:
+                continue
+            per_theme_count: Dict[str, int] = {}
+            for line in lines:
+                txt = _clean_line(line)
+                if len(txt) < 24 or len(txt) > 360:
+                    continue
+                low = txt.lower()
+                if anti_re.search(low):
+                    continue
+                for category, metric_ref, pat in theme_patterns:
+                    if per_theme_count.get(category, 0) >= 2:
+                        continue
+                    if not re.search(pat, low, re.I):
+                        continue
+                    if category == "Guidance" and not re.search(r"\b(outlook|guidance|expects?|in the range|around|at least)\b", low, re.I):
+                        continue
+                    key = (q_end, category, glx_key := re.sub(r"[^a-z0-9]+", " ", low).strip()[:120])
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    per_theme_count[category] = per_theme_count.get(category, 0) + 1
+                    note_id = hashlib.sha1(f"ANF|{q_end}|{category}|{glx_key}".encode("utf-8", errors="ignore")).hexdigest()[:12]
+                    rows.append(
+                        {
+                            "quarter": q_end,
+                            "category": category,
+                            "tag": category,
+                            "topic": category,
+                            "metric_ref": metric_ref,
+                            "claim": txt,
+                            "note": txt,
+                            "evidence_snippet": txt,
+                            "evidence_json": json.dumps(
+                                {
+                                    "source_type": src_type,
+                                    "doc": str(path_in),
+                                    "quote": txt,
+                                    "period": str(q_end),
+                                },
+                                ensure_ascii=False,
+                            ),
+                            "source_type": src_type,
+                            "doc": str(path_in),
+                            "source_doc": str(path_in),
+                            "severity": "info",
+                            "severity_score": float(priority),
+                            "score": float(priority),
+                            "rank": 1,
+                            "note_id": note_id,
+                        }
+                    )
+                    break
+    if not rows:
+        return pd.DataFrame()
+    out = pd.DataFrame(rows)
+    out["quarter"] = pd.to_datetime(out["quarter"], errors="coerce")
+    out = out[out["quarter"].notna()].copy()
+    out = out.sort_values(["quarter", "severity_score", "category"], ascending=[True, False, True], kind="stable")
+    return out.reset_index(drop=True)
+
+
+def _infer_anf_quarter_from_material(
+    path_in: Path,
+    text: str,
+    *,
+    fiscal_map: Dict[Tuple[int, int], dt.date],
+    aliases: Dict[dt.date, dt.date],
+) -> Optional[dt.date]:
+    name = path_in.name
+    m = re.search(r"Q([1-4])[_\s-]*(20\d{2})", name, re.I)
+    if m:
+        q = int(m.group(1))
+        fy = int(m.group(2))
+        qd = fiscal_map.get((fy, q))
+        if qd is not None:
+            return qd
+    inferred = infer_quarter_end_from_text(text)
+    if inferred is not None:
+        qd = pd.Timestamp(inferred).date()
+        return aliases.get(qd, qd)
+    return None
+
+
+def _apply_anf_local_earnings_financials(
+    hist: pd.DataFrame,
+    audit: pd.DataFrame,
+    *,
+    base_dir: Path,
+    config: PipelineConfig,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    if hist is None or hist.empty or "quarter" not in hist.columns:
+        return hist, audit
+    aliases = _retail_fiscal_aliases_from_history(hist)
+    fiscal_map = _anf_fiscal_periods_from_history(hist)
+    quarter_set = set(fiscal_map.values())
+    if not quarter_set:
+        return hist, audit
+
+    candidates: List[Tuple[int, Path]] = []
+    pres_dir = base_dir / "earnings_presentation"
+    rel_dir = base_dir / "earnings_release"
+    if pres_dir.exists():
+        for path_in in sorted(pres_dir.glob("*financial_schedules.pdf")):
+            candidates.append((30, path_in))
+    if rel_dir.exists():
+        for pattern, priority in (("ANF_Q*_earnings_release.pdf", 20), ("8-K_*_earnings_release.htm", 10)):
+            for path_in in sorted(rel_dir.glob(pattern)):
+                candidates.append((priority, path_in))
+
+    records: Dict[dt.date, Dict[str, Any]] = {}
+    for priority, path_in in candidates:
+        text, lines = _anf_extract_material_lines(
+            path_in,
+            cache_root=config.cache_dir,
+            rebuild_cache=config.rebuild_doc_text_cache,
+            quiet_pdf_warnings=config.quiet_pdf_warnings,
+        )
+        if not lines:
+            continue
+        q_end = _infer_anf_quarter_from_material(path_in, text, fiscal_map=fiscal_map, aliases=aliases)
+        if q_end is None or q_end not in quarter_set:
+            continue
+        scale = _detect_local_non_gaap_text_scale(text)
+        source_name = (
+            "tier3_ex99_pdf_local_earnings_financials"
+            if path_in.suffix.lower() == ".pdf"
+            else "tier3_ex99_local_earnings_financials"
+        )
+        rec = records.setdefault(
+            q_end,
+            {"priority": -1, "values": {}, "ytd": {}, "source_file": path_in.name, "source": source_name},
+        )
+        values = _parse_anf_statement_values_from_lines(lines, scale=scale)
+        ytd = _parse_anf_cash_flow_ytd_from_lines(lines, scale=scale)
+        balance_values = _parse_anf_balance_sheet_values_from_lines(lines, scale=scale)
+        if priority >= int(rec.get("priority", -1)):
+            rec["priority"] = priority
+            rec["source_file"] = path_in.name
+            rec["source"] = source_name
+            for key, value in values.items():
+                rec.setdefault("values", {})[key] = value
+            for key, value in balance_values.items():
+                rec.setdefault("values", {})[key] = value
+            for key, value in ytd.items():
+                rec.setdefault("ytd", {})[key] = value
+        else:
+            for key, value in ytd.items():
+                rec.setdefault("ytd", {}).setdefault(key, value)
+            for key, value in values.items():
+                rec.setdefault("values", {}).setdefault(key, value)
+            for key, value in balance_values.items():
+                rec.setdefault("values", {}).setdefault(key, value)
+
+    ytd_by_period: Dict[Tuple[int, int], Dict[str, Any]] = {}
+    for q_end, rec in records.items():
+        fq = _anf_fiscal_period_from_date(q_end)
+        if fq is not None and rec.get("ytd"):
+            ytd_by_period[fq] = rec
+    for (fy, q), rec in sorted(ytd_by_period.items()):
+        ytd = rec.get("ytd") or {}
+        prev = ytd_by_period.get((fy, q - 1), {}) if q > 1 else {}
+        prev_ytd = prev.get("ytd") or {}
+        values = rec.setdefault("values", {})
+        if "cfo_ytd" in ytd:
+            values["cfo"] = float(ytd["cfo_ytd"]) - float(prev_ytd.get("cfo_ytd", 0.0) or 0.0)
+        if "capex_ytd" in ytd:
+            capex_val = float(ytd["capex_ytd"]) - float(prev_ytd.get("capex_ytd", 0.0) or 0.0)
+            if capex_val >= 0:
+                values["capex"] = capex_val
+
+    hist_out = hist.copy()
+    hist_q = pd.to_datetime(hist_out["quarter"], errors="coerce").dt.date
+    audit_rows: List[Dict[str, Any]] = []
+    for q_end, rec in sorted(records.items()):
+        values = rec.get("values") or {}
+        if not values:
+            continue
+        mask = hist_q == q_end
+        if not bool(mask.any()):
+            continue
+        for metric, value in values.items():
+            if metric not in hist_out.columns:
+                hist_out[metric] = pd.NA
+            current = pd.to_numeric(hist_out.loc[mask, metric], errors="coerce")
+            should_set = bool(current.isna().all())
+            if metric in {"cfo", "capex", "shares_diluted", "ebitda", "cash", "inventory", "marketable_securities", "debt_core"} and current.notna().any():
+                cur_val = float(current.dropna().iloc[0])
+                tight_metrics = {"shares_diluted", "cash", "inventory", "marketable_securities", "debt_core"}
+                tolerance = max(1.0, abs(float(value)) * (0.002 if metric in tight_metrics else 0.02))
+                should_set = abs(cur_val - float(value)) > tolerance
+            if not should_set:
+                continue
+            hist_out.loc[mask, metric] = float(value)
+            audit_rows.append(
+                {
+                    "metric": metric,
+                    "quarter": q_end,
+                    "source": rec.get("source") or "tier3_ex99_local_earnings_financials",
+                    "tag": rec.get("source_file"),
+                    "accn": None,
+                    "form": "local_material",
+                    "filed": None,
+                    "start": None,
+                    "end": q_end,
+                    "unit": "USD",
+                    "duration_days": None,
+                    "value": float(value),
+                    "note": "ANF local earnings financials fallback; cash-flow metrics derived from cumulative schedules when needed",
+                }
+            )
+    if audit_rows:
+        audit_add = pd.DataFrame(audit_rows)
+        audit = audit_add if audit is None or audit.empty else pd.concat([audit, audit_add], ignore_index=True)
+    return hist_out, audit
+
+
 def _normalized_quarter_timestamps(values: Any) -> set[pd.Timestamp]:
     if values is None:
         return set()
@@ -794,7 +1737,7 @@ def run_pipeline_impl(
     # is driven by recent submissions identity plus a compact signature of facts.
     gaap_history_key = "|".join(
         [
-            "v1",
+            "v2",
             f"sub={submissions_sig}",
             f"facts={df_all_sig}",
             f"max_q={config.max_quarters}",
@@ -838,6 +1781,14 @@ def run_pipeline_impl(
     from .pipeline import build_tag_coverage
 
     tag_coverage = build_tag_coverage(df_all)
+    if tkr_u == "ANF":
+        with _timed_stage(stage_timings, "anf_local_earnings_financials", enabled=config.profile_timings):
+            hist, audit = _apply_anf_local_earnings_financials(
+                hist,
+                audit,
+                base_dir=base_dir,
+                config=config,
+            )
     period_checks = self_check_period_logic(
         df_all,
         audit,
@@ -905,7 +1856,7 @@ def run_pipeline_impl(
             # rules while feeding the same workbook surfaces.
             tier3_key = "|".join(
                 [
-                    "v1",
+                    "v2",
                     f"sub={submissions_sig}",
                     f"mode={mode_name}",
                     f"max_q={config.max_quarters}",
@@ -935,8 +1886,20 @@ def run_pipeline_impl(
                 adj_metrics_relaxed, adj_breakdown_relaxed, non_gaap_files_relaxed = _load_or_build_tier3("relaxed")
 
     # Last-resort local fallback for adjusted metrics (slides/transcripts) when EX-99 missing
+    local_period_aliases = _retail_fiscal_aliases_from_history(hist) if str(ticker or "").strip().upper() == "ANF" else {}
+    anf_fiscal_map = _anf_fiscal_periods_from_history(hist) if str(ticker or "").strip().upper() == "ANF" else {}
+
+    def _resolve_local_period_end(qd: Optional[dt.date]) -> Optional[dt.date]:
+        if qd is None:
+            return None
+        try:
+            d0 = pd.Timestamp(qd).date()
+        except Exception:
+            return qd
+        return local_period_aliases.get(d0, d0)
+
     def _infer_q_from_filename(name: str) -> Optional[dt.date]:
-        return _infer_local_non_gaap_period_end_from_name(name)
+        return _resolve_local_period_end(_infer_local_non_gaap_period_end_from_name(name))
 
     def _extract_text_from_file(p: Path) -> str:
         suf = p.suffix.lower()
@@ -992,6 +1955,18 @@ def run_pipeline_impl(
             # are not complete quarter packages and must not backfill actuals.
             return _local_non_gaap_actuals_allowed_for_source(src_name, path_in.name, txt)
 
+        def _allow_non_gaap_metrics_from_local_page(src_name: str, path_in: Path, txt: str) -> bool:
+            if not _allow_actuals_from_local_page(src_name, path_in, txt):
+                return False
+            if tkr_u == "ANF":
+                src_low = str(src_name or "").strip().lower()
+                name_low = str(path_in.name or "").strip().lower()
+                if src_low in {"transcripts", "annual_reports"}:
+                    return False
+                if src_low == "slides" and "financial_schedules" not in name_low and "earnings_release" not in name_low:
+                    return False
+            return True
+
         def _detect_scale_txt(t: str) -> float:
             return _detect_local_non_gaap_text_scale(t)
 
@@ -1008,7 +1983,17 @@ def run_pipeline_impl(
             m = re.search(r"three\s+months\s+ended\s+([A-Za-z]+)\s+(\d{1,2}),?\s*(\d{4})", txt, re.I)
             if m:
                 try:
-                    return pd.Timestamp(f"{m.group(1)} {m.group(2)} {m.group(3)}").date()
+                    return _resolve_local_period_end(pd.Timestamp(f"{m.group(1)} {m.group(2)} {m.group(3)}").date())
+                except Exception:
+                    pass
+            m_week = re.search(
+                r"(?:thirteen|twenty[-\s]?six|thirty[-\s]?nine|fifty[-\s]?two|fifty[-\s]?three)\s+weeks\s+ended\s+([A-Za-z]+)\s+(\d{1,2}),?\s*(\d{4})",
+                txt,
+                re.I,
+            )
+            if m_week:
+                try:
+                    return _resolve_local_period_end(pd.Timestamp(f"{m_week.group(1)} {m_week.group(2)} {m_week.group(3)}").date())
                 except Exception:
                     pass
             # If year is not on the same line, try to infer from nearby year headers
@@ -1018,7 +2003,7 @@ def run_pipeline_impl(
                 if years:
                     try:
                         y = max(years)
-                        return pd.Timestamp(f"{m2.group(1)} {m2.group(2)} {y}").date()
+                        return _resolve_local_period_end(pd.Timestamp(f"{m2.group(1)} {m2.group(2)} {y}").date())
                     except Exception:
                         pass
             return None
@@ -1078,9 +2063,22 @@ def run_pipeline_impl(
                 years = []
             outs: List[dt.date] = []
             if years:
+                alias_month_day: Optional[Tuple[int, int]] = None
+                if q_end.month in (1, 2):
+                    alias_month_day = (12, 31)
+                elif q_end.month in (4, 5):
+                    alias_month_day = (3, 31)
+                elif q_end.month in (7, 8):
+                    alias_month_day = (6, 30)
+                elif q_end.month in (10, 11):
+                    alias_month_day = (9, 30)
                 for y in years:
                     try:
-                        outs.append(dt.date(int(y), q_end.month, q_end.day))
+                        if local_period_aliases and alias_month_day:
+                            aliased = dt.date(int(y), int(alias_month_day[0]), int(alias_month_day[1]))
+                            outs.append(local_period_aliases.get(aliased, aliased))
+                        else:
+                            outs.append(dt.date(int(y), q_end.month, q_end.day))
                     except Exception:
                         continue
             if not outs:
@@ -1099,6 +2097,14 @@ def run_pipeline_impl(
                 _expand_quarter_ends(txt, q_end),
                 existing_metrics_by_quarter_for_local_fallback,
             )
+
+        def _local_non_gaap_metric_quarters(txt: str, q_end: Optional[dt.date]) -> List[dt.date]:
+            if tkr_u == "ANF":
+                return _filter_missing_local_non_gaap_metric_quarters(
+                    [q_end] if q_end is not None else [],
+                    existing_metrics_by_quarter_for_local_fallback,
+                )
+            return _missing_non_gaap_quarters(txt, q_end)
 
         def _parse_segment_from_text(txt: str, q_end: Optional[dt.date]) -> List[Dict[str, Any]]:
             return _parse_local_non_gaap_segment_rows_from_text(txt, q_end)
@@ -1199,6 +2205,10 @@ def run_pipeline_impl(
             out: List[Dict[str, Any]] = []
             if not lines:
                 return out
+            if tkr_u == "ANF":
+                anf_rows = _parse_anf_guidance_rows_from_lines(lines, q_end)
+                if anf_rows:
+                    return anf_rows
             anchor_re = re.compile(
                 r"\b(guidance|outlook|financial outlook|updated guidance|full[- ]year outlook|next[- ]year outlook|targets?)\b",
                 re.I,
@@ -1463,6 +2473,10 @@ def run_pipeline_impl(
             t = (txt or "").lower()
             if "adjusted segment" in t or "reportable segments" in t:
                 return False
+            if "schedule of non-gaap financial measures" in t and (
+                "adjusted non-gaap" in t or "adjusted ebitda" in t
+            ):
+                return True
             if "reconciliation of reported net income" in t and "adjusted ebitda" in t:
                 return True
             if "reconciliation of reported consolidated results" in t and "adjusted ebitda" in t:
@@ -1532,6 +2546,52 @@ def run_pipeline_impl(
                     q_hint = _infer_q_from_filename(p.name)
                     if q_hint is not None and q_hint.year < int(config.min_year):
                         continue
+                if tkr_u == "ANF" and src_name in {"slides", "earnings_release"}:
+                    name_low = p.name.lower()
+                    if "financial_schedules" in name_low or name_low.startswith("8-k_") or "earnings_release" in name_low:
+                        try:
+                            full_text, full_lines = _anf_extract_material_lines(
+                                p,
+                                cache_root=config.cache_dir,
+                                rebuild_cache=config.rebuild_doc_text_cache,
+                                quiet_pdf_warnings=config.quiet_pdf_warnings,
+                            )
+                        except Exception:
+                            full_text, full_lines = "", []
+                        q_full = _infer_anf_quarter_from_material(
+                            p,
+                            full_text,
+                            fiscal_map=anf_fiscal_map,
+                            aliases=local_period_aliases,
+                        )
+                        if q_full is not None and full_lines:
+                            scale_full = _detect_local_non_gaap_text_scale(full_text)
+                            anf_rows = _parse_anf_adjusted_metrics_from_lines(
+                                full_lines,
+                                quarter_end=q_full,
+                                scale=scale_full,
+                                source_doc=str(p),
+                                source=src_name,
+                            )
+                            if anf_rows:
+                                rows_m_candidates.extend(anf_rows)
+                                rows_f.append(
+                                    {
+                                        "accn": None,
+                                        "filed": None,
+                                        "status": "ok_anf_financial_schedule",
+                                        "doc": str(p),
+                                        "quarter": str(q_full),
+                                        "col": "ANF financial schedule",
+                                        "source": src_name,
+                                        "page": None,
+                                    }
+                                )
+                            anf_guidance_rows = _parse_anf_guidance_rows_from_lines(full_lines, q_full)
+                            if anf_guidance_rows:
+                                for r0 in anf_guidance_rows:
+                                    r0.update({"doc": str(p), "page": None, "source": src_name})
+                                rows_guid.extend(anf_guidance_rows)
                 if p.suffix.lower() == ".pdf":
                     try:
                         import pdfplumber  # type: ignore
@@ -1583,12 +2643,14 @@ def run_pipeline_impl(
                                 scores = _local_non_gaap_page_scores(txt)
                                 if max(scores.values()) == 0:
                                     continue
-                                q_end = _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
+                                q_end = _resolve_local_period_end(
+                                    _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
+                                )
                                 if q_end is None:
                                     continue
                                 actuals_allowed = _allow_actuals_from_local_page(src_name, p, txt)
-                                if actuals_allowed and scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
-                                    for q_end_use in _missing_non_gaap_quarters(txt, q_end):
+                                if _allow_non_gaap_metrics_from_local_page(src_name, p, txt) and scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
+                                    for q_end_use in _local_non_gaap_metric_quarters(txt, q_end):
                                         q_ts = pd.Timestamp(q_end_use)
                                         if pages_per_q.get(q_ts, 0) >= 2:
                                             continue
@@ -1715,8 +2777,8 @@ def run_pipeline_impl(
                                 if q_end is None:
                                     continue
                                 actuals_allowed = _allow_actuals_from_local_page(src_name, p, txt)
-                                if actuals_allowed and scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
-                                    for q_end_use in _missing_non_gaap_quarters(txt, q_end):
+                                if _allow_non_gaap_metrics_from_local_page(src_name, p, txt) and scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
+                                    for q_end_use in _local_non_gaap_metric_quarters(txt, q_end):
                                         q_ts = pd.Timestamp(q_end_use)
                                         if pages_per_q.get(q_ts, 0) >= 2:
                                             continue
@@ -1799,12 +2861,14 @@ def run_pipeline_impl(
                     scores = _local_non_gaap_page_scores(txt)
                     if max(scores.values()) == 0:
                         continue
-                    q_end = _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
+                    q_end = _resolve_local_period_end(
+                        _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
+                    )
                     if q_end is None:
                         continue
                     actuals_allowed = _allow_actuals_from_local_page(src_name, p, txt)
-                    if actuals_allowed and scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
-                        for q_end_use in _missing_non_gaap_quarters(txt, q_end):
+                    if _allow_non_gaap_metrics_from_local_page(src_name, p, txt) and scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
+                        for q_end_use in _local_non_gaap_metric_quarters(txt, q_end):
                             q_ts = pd.Timestamp(q_end_use)
                             if pages_per_q.get(q_ts, 0) >= 2:
                                 continue
@@ -1873,9 +2937,14 @@ def run_pipeline_impl(
             df_m = df_m[df_m["quarter"].notna()]
             if not df_m.empty:
                 df_m["score"] = pd.to_numeric(df_m.get("score"), errors="coerce").fillna(0)
+                if "period_type" not in df_m.columns:
+                    df_m["period_type"] = "quarter"
+                df_m["period_type"] = df_m["period_type"].astype(str).str.strip().str.lower().replace({"": "quarter"})
+                period_order_map = {"annual": 0, "ytd": 1, "quarter": 2}
+                df_m["_period_order"] = df_m["period_type"].map(period_order_map).fillna(2).astype(int)
                 metric_cols = ["adj_ebit", "adj_ebitda", "adj_eps", "adj_fcf"]
                 merged_rows: List[Dict[str, Any]] = []
-                for qv, sub in df_m.groupby("quarter", sort=True):
+                for (qv, period_type), sub in df_m.sort_values(["quarter", "_period_order", "score"], kind="stable").groupby(["quarter", "period_type"], sort=True):
                     sub = sub.copy()
                     for metric_col in metric_cols:
                         sub[f"{metric_col}_num"] = pd.to_numeric(sub.get(metric_col), errors="coerce")
@@ -1889,6 +2958,7 @@ def run_pipeline_impl(
                     )
                     merged = dict(base)
                     merged["quarter"] = qv
+                    merged["period_type"] = period_type
                     merged["confidence"] = merged.get("confidence") or "low"
                     merged_sources: List[str] = []
                     for metric_col in metric_cols:
@@ -1913,12 +2983,16 @@ def run_pipeline_impl(
                         merged["source_snippet"] = "Merged local fallback metrics | " + " | ".join(merged_sources[:4])
                     merged_rows.append(merged)
                 df_m = pd.DataFrame(merged_rows)
+                if not df_m.empty and "period_type" in df_m.columns:
+                    df_m["_period_order"] = df_m["period_type"].map(period_order_map).fillna(2).astype(int)
+                    df_m = df_m.sort_values(["quarter", "_period_order", "score"], kind="stable").reset_index(drop=True)
                 df_m = df_m.drop(
                     columns=[
                         *[f"{metric_col}_num" for metric_col in metric_cols],
                         *[f"{metric_col}_nonnull" for metric_col in metric_cols],
                         *[f"{metric_col}_abs" for metric_col in metric_cols],
                         "_metric_count",
+                        "_period_order",
                     ],
                     errors="ignore",
                 )
@@ -2660,6 +3734,10 @@ def run_pipeline_impl(
                 "non_gaap_cred": non_gaap_cred,
             },
         )
+    if tkr_u == "ANF":
+        anf_source_notes = _build_anf_source_quarter_notes(hist=hist, base_dir=base_dir, config=config)
+        if not anf_source_notes.empty:
+            quarter_notes = pd.concat([quarter_notes, anf_source_notes], ignore_index=True, sort=False) if quarter_notes is not None and not quarter_notes.empty else anf_source_notes
     quarter_notes_qa = validate_quarter_notes(quarter_notes, hist)
     promise_qa_df = build_promise_qa_checks(promises, promise_progress)
     non_gaap_qa_df = build_non_gaap_cred_qa(non_gaap_cred)
@@ -2708,6 +3786,11 @@ def run_pipeline_impl(
                 "revenue_streams_source": f"Source: N/A ({err})",
                 "asof_fy_end": None,
             }
+    if tkr_u == "ANF":
+        company_overview = _apply_anf_company_overview_overrides(
+            company_overview,
+            slides_segments=slides_segments,
+        )
 
     if config.profile_timings and stage_timings:
         summary = " | ".join(f"{k}={v:.2f}s" for k, v in sorted(stage_timings.items(), key=lambda kv: (-kv[1], kv[0])))

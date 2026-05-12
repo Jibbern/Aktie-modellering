@@ -1308,6 +1308,52 @@ def write_qa_sheets(ctx: WriterContext, ui_qa_rows: List[Dict[str, Any]]) -> Non
         needs_review_raw = qa_log[qa_log["is_current_review_relevant"]].copy()
         needs_review = _build_curated_needs_review(needs_review_raw.drop(columns=[], errors="ignore"))
         needs_review_export = _export_curated_needs_review(needs_review)
+        if (needs_review_export is None or needs_review_export.empty) and not needs_review_raw.empty:
+            fallback = needs_review_raw.copy()
+            fallback_sev = fallback["severity"].astype(str).str.lower() if "severity" in fallback.columns else pd.Series("", index=fallback.index)
+            fallback = fallback[fallback_sev.isin(["fail", "warn"])].copy()
+            if not fallback.empty:
+                if "issue_family" not in fallback.columns:
+                    fallback["issue_family"] = fallback.apply(_issue_family_local, axis=1)
+                if "recommended_action" not in fallback.columns:
+                    fallback["recommended_action"] = fallback.apply(_recommended_action_local, axis=1)
+                if "review_status" not in fallback.columns:
+                    fallback["review_status"] = fallback.apply(lambda row: _review_status_local(row, policy_ctx=policy_ctx), axis=1)
+                fallback["priority"] = fallback["severity"].astype(str).str.lower().map({"fail": "P1", "warn": "P2"}).fillna("P3")
+                fallback["first_seen_q"] = fallback.get("_quarter_norm", fallback.get("quarter"))
+                fallback["last_seen_q"] = fallback.get("_quarter_norm", fallback.get("quarter"))
+                fallback["quarter_count"] = 1
+                fallback["latest_message"] = fallback.get("message", "")
+                if "raw_metric" not in fallback.columns:
+                    fallback["raw_metric"] = fallback.get("metric", "")
+                if "canonical_issue_key" not in fallback.columns:
+                    fallback["canonical_issue_key"] = fallback.apply(
+                        lambda row: "|".join(
+                            [
+                                str(row.get("issue_family") or ""),
+                                str(row.get("severity") or "").strip().lower(),
+                                str(row.get("raw_metric") or row.get("metric") or ""),
+                            ]
+                        ).strip("|"),
+                        axis=1,
+                    )
+                export_cols = [
+                    "priority",
+                    "issue_family",
+                    "severity",
+                    "first_seen_q",
+                    "last_seen_q",
+                    "quarter_count",
+                    "latest_message",
+                    "recommended_action",
+                    "source",
+                    "quarter",
+                    "raw_metric",
+                    "canonical_issue_key",
+                    "review_status",
+                ]
+                export_cols = [col for col in export_cols if col in fallback.columns]
+                needs_review_export = fallback[export_cols].head(50).copy()
         helper_cols = [col for col in ["is_expected_legacy", "is_current_review_relevant"] if col in qa_log.columns]
         other_cols = [col for col in qa_log.columns if col not in {"_quarter_norm", "_review_status_sort", *helper_cols}]
         qa_log = qa_log[other_cols + helper_cols].copy()

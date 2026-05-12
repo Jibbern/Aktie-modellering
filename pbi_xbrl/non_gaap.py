@@ -29,6 +29,7 @@ def find_ex99_docs(index_json: Dict[str, Any]) -> List[str]:
 
 def infer_quarter_end_from_text(txt: str) -> Optional[pd.Timestamp]:
     patterns = [
+        r"(?:Thirteen|Twenty[-\s]?Six|Thirty[-\s]?Nine|Fifty[-\s]?Two|Fifty[-\s]?Three)\s+Weeks\s+Ended\s+([A-Za-z]+)\s+(\d{1,2}),?\s*(\d{4})",
         r"Three\s+Months\s+Ended\s+([A-Za-z]+)\s+(\d{1,2}),?\s*(\d{4})",
         r"Quarter\s+Ended\s+([A-Za-z]+)\s+(\d{1,2}),?\s*(\d{4})",
         r"Fourth\s+Quarter\s+and\s+Full\s+Year\s+(\d{4})",
@@ -83,10 +84,10 @@ def _slice_three_month_block(lines: List[str]) -> List[str]:
     start = None
     end = None
     for i, ln in enumerate(lines):
-        if re.search(r"three\s+months\s+ended|quarter\s+ended", ln, re.I):
+        if re.search(r"three\s+months\s+ended|quarter\s+ended|thirteen\s+weeks\s+ended", ln, re.I):
             start = i
             continue
-        if start is not None and re.search(r"six\s+months|nine\s+months|twelve\s+months|year\s+ended|fiscal\s+year", ln, re.I):
+        if start is not None and re.search(r"six\s+months|nine\s+months|twelve\s+months|twenty[-\s]?six\s+weeks|thirty[-\s]?nine\s+weeks|fifty[-\s]?two\s+weeks|fifty[-\s]?three\s+weeks|year\s+ended|fiscal\s+year", ln, re.I):
             # Allow a few header lines where 3M/6M appear together before the data rows.
             if i - start <= 3:
                 continue
@@ -254,9 +255,9 @@ def _parse_adjusted_from_text(
 
     # Try to detect "Three Months Ended" header years to pick correct column
     years_3m: List[int] = []
-    has_6m_block = any(re.search(r"six\s+months\s+ended", ln, re.I) for ln in lines[:80])
+    has_6m_block = any(re.search(r"six\s+months\s+ended|twenty[-\s]?six\s+weeks\s+ended", ln, re.I) for ln in lines[:80])
     for i, ln in enumerate(lines_3m[:40]):
-        if re.search(r"three months|quarter ended", ln, re.I):
+        if re.search(r"three months|quarter ended|thirteen weeks", ln, re.I):
             yrs = [int(y) for y in re.findall(r"(20\d{2})", ln)]
             if not yrs:
                 # check next couple of lines for year headers
@@ -284,6 +285,8 @@ def _parse_adjusted_from_text(
         if quarter_end is None or not years_3m or len(nums) < 2:
             return nums[0]
         y = int(pd.Timestamp(quarter_end).year)
+        if y not in years_3m and int(pd.Timestamp(quarter_end).month) in (1, 2) and (y - 1) in years_3m:
+            y = y - 1
         if y == years_3m[0]:
             return nums[0]
         if len(years_3m) > 1 and y == years_3m[1]:
@@ -354,6 +357,25 @@ def _parse_adjusted_from_text(
     adj_ebit = _find_value(_ADJ_EBIT_SYNONYMS, exclude_terms=["ebitda", "depreciation and amortization"])
     adj_eps: Optional[float] = None
 
+    if adj_ebit is None:
+        in_operating_income_block = False
+        for ln in lines_3m:
+            ln_low = ln.lower()
+            if "operating income" in ln_low and ("bps change" in ln_low or "net sales" in ln_low or "gaap" in ln_low):
+                in_operating_income_block = True
+                continue
+            if in_operating_income_block and re.search(r"^(adjusted\s+non-gaap|non-gaap\s+constant)", ln_low):
+                nums = _extract_nums_from_line(ln)
+                if nums:
+                    adj_ebit = _pick_number_by_year(nums)
+                    break
+            if in_operating_income_block and (
+                "net income per diluted share" in ln_low
+                or "reconciliation of ebitda" in ln_low
+                or "balance sheets" in ln_low
+            ):
+                in_operating_income_block = False
+
     for i, ln in enumerate(lines_3m):
         if not _is_adj_eps_label(ln):
             continue
@@ -392,6 +414,29 @@ def _parse_adjusted_from_text(
             continue
         adj_eps = _pick_number_by_year(eps_nums)
         break
+
+    if adj_eps is None:
+        in_eps_block = False
+        for ln in lines_3m:
+            ln_low = ln.lower()
+            if "net income per diluted share" in ln_low or "earnings per share" in ln_low:
+                in_eps_block = True
+                continue
+            if in_eps_block and re.search(r"^(adjusted\s+non-gaap|non-gaap\s+constant)", ln_low):
+                eps_nums = []
+                for t in re.findall(r"\(?-?\d+(?:\.\d+)?\)?", ln):
+                    v = coerce_number(t)
+                    if v is None:
+                        continue
+                    if 1900 <= float(v) <= 2100 and len(str(int(v))) == 4:
+                        continue
+                    if abs(float(v)) <= 100:
+                        eps_nums.append(float(v))
+                if eps_nums:
+                    adj_eps = _pick_number_by_year(eps_nums)
+                    break
+            if in_eps_block and ("reconciliation of ebitda" in ln_low or "balance sheets" in ln_low):
+                in_eps_block = False
 
     if adj_ebitda is None and adj_ebit is None and adj_eps is None:
         return None, None, None, {}, "ocr_no_metrics", None

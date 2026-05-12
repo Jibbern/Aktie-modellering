@@ -603,9 +603,15 @@ def test_current_delivered_gpre_derivative_oci_bridge_readback() -> None:
         for cc in range(1, min(crush_tests.max_column, 14) + 1)
     )
     assert "Model Accuracy Summary" in crush_blob
+    assert "Key Diagnostic Takeaways" in crush_blob
+    assert "Q4 / Quarterization Sensitivity" in crush_blob
     assert "Ex-Derivative Margin Test" in crush_blob
     assert "Clean Margin Bridge Diagnostic" in crush_blob
     assert "Target-Specific Model Accuracy" in crush_blob
+    assert "Revenue / COGS Side Decomposition" in crush_blob
+    assert "Volume / Utilization Residual Test" in crush_blob
+    assert "Basis and Energy Residual Screen" in crush_blob
+    assert "AOCI Future Reclass Tracker" in crush_blob
     assert "Reported Margin Reconciliation: Market Proxy vs Derivative-Adjusted" in crush_blob
     assert "Coefficient Diagnostic" in crush_blob
     assert "Lagged Derivative P&L Tests" in crush_blob
@@ -2724,6 +2730,44 @@ def test_summary_includes_current_strategic_context_row() -> None:
         row = summary_df.loc[summary_df["Metric"] == "Current strategic context"].iloc[0]
         assert row["Value"] == "Management is focused on capital allocation and cost discipline."
         assert row["Note"] == "Source: SEC 8-K demo"
+
+
+def test_saved_summary_export_expectation_uses_rendered_cleaned_text() -> None:
+    with _case_dir() as case_dir:
+        out_path = _make_model_out_path(case_dir, "summary_rendered_expectation.xlsx")
+        inputs = _make_inputs(out_path)
+        inputs.company_overview = {
+            "what_it_does": "Demo company description.",
+            "what_it_does_source": "Source: SEC 10-K demo",
+            "current_strategic_context": (
+                "Cash Flow and Capital Allocation Details related to the company's cash flows "
+                "for the full year ended January 31, 2026 are as follows: • Net cash provided "
+                "by operating activities of $619 million. • Net cash used for investing "
+                "activities of $151 million, primarily reflecting capital expenditures, "
+                "partially offset by maturities of marketable securities. • Net cash used "
+                "for financing activities of $495 million, primari"
+            ),
+            "current_strategic_context_source": "Source: SEC 10-K demo",
+            "key_advantage": "Demo advantage.",
+            "key_advantage_source": "Source: SEC 10-K competition demo",
+            "segment_operating_model": [],
+            "segment_operating_model_source": "Source: N/A",
+            "key_dependencies": [],
+            "key_dependencies_source": "Source: N/A",
+            "wrong_thesis_bullets": [],
+            "wrong_thesis_source": "Source: N/A",
+            "revenue_streams": [],
+            "revenue_streams_source": "Source: N/A",
+            "asof_fy_end": None,
+        }
+
+        result = write_excel_from_inputs(inputs)
+
+        validate_summary_export(out_path, result.summary_export_expectation)
+        summary_snapshot = result.saved_workbook_provenance.get("summary_snapshot") or {}
+        rendered_context = summary_snapshot["Current strategic context"]["value"]
+        assert not rendered_context.endswith("primari")
+        assert rendered_context.endswith("$495 million")
 
 
 def test_operating_driver_line_index_and_template_rows_cache_reuse(
@@ -10066,6 +10110,22 @@ def test_quarter_notes_audit_sheet_strips_illegal_control_chars() -> None:
         source_excerpt_idx = header.index("source_excerpt")
         assert "\x00" not in str(vals[1][source_excerpt_idx] or "")
         assert "\x0f" not in str(vals[1][source_excerpt_idx] or "")
+
+
+def test_quarter_notes_audit_sheet_writes_empty_state() -> None:
+    with _case_dir() as case_dir:
+        out_path = _make_model_out_path(case_dir, "audit_sheet_empty.xlsx")
+        wb = Workbook()
+        wb.save(out_path)
+
+        write_quarter_notes_audit_sheet(out_path, [])
+
+        wb2 = load_workbook(out_path, data_only=True)
+        try:
+            assert "Quarter_Notes_Audit" in wb2.sheetnames
+            assert wb2["Quarter_Notes_Audit"]["A1"].value == "No Quarter_Notes_UI audit rows."
+        finally:
+            wb2.close()
 
 
 def test_pbi_quarter_notes_audit_traces_auth_dividend_note_to_saved_workbook(

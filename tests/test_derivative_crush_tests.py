@@ -234,3 +234,62 @@ def test_derivative_crush_tests_quarterly_impact_is_pnl_only() -> None:
         "2026-Q1",
     ].iloc[0]
     assert q1_total == pytest.approx(-12.594 / 174.196, abs=0.0005)
+
+
+def test_stage3_diagnostics_add_q4_decomposition_volume_basis_and_aoci_tables() -> None:
+    result = build_derivative_crush_tests(
+        _sample_bridge(),
+        _sample_exposure(),
+        _sample_drivers(),
+        _sample_quarterly(),
+    )
+    tables = result.as_dict()
+
+    expected_tables = {
+        "key_takeaways",
+        "q4_quarterization_sensitivity",
+        "revenue_cogs_decomposition",
+        "volume_utilization_summary",
+        "volume_utilization_quarterly",
+        "basis_energy_summary",
+        "basis_energy_quarterly",
+        "aoci_future_reclass_summary",
+        "aoci_future_reclass_tracker",
+    }
+    assert expected_tables <= set(tables)
+
+    q4 = result.q4_quarterization_sensitivity
+    assert {"All quarters", "Excluding Q4 quarters", "Q4-only"} <= set(q4["Sample"])
+    q4_only = q4[q4["Sample"] == "Q4-only"].iloc[0]
+    assert "Q4 quarterized / annual-minus-Q1-Q3" in str(q4_only["Notes / flags"])
+
+    decomp = result.revenue_cogs_decomposition
+    q1 = decomp[
+        (decomp["Quarter"] == pd.Timestamp("2026-03-31"))
+        & (decomp["Baseline lens"] == "Approximate market crush")
+    ].iloc[0]
+    reported = 64.616 / 174.196
+    revenue_deriv = -9.367 / 174.196
+    cogs_deriv = -3.227 / 174.196
+    assert q1["Error after revenue derivative adjustment"] == pytest.approx(reported - (0.0824 + revenue_deriv), abs=0.0005)
+    assert q1["Error after COGS derivative adjustment"] == pytest.approx(reported - (0.0824 + cogs_deriv), abs=0.0005)
+    assert q1["Error after revenue + COGS derivative adjustment"] == pytest.approx(reported - (0.0824 + revenue_deriv + cogs_deriv), abs=0.0005)
+
+    assert {"Ethanol gallons produced", "Utilization"} <= set(result.volume_utilization_summary["Driver"])
+    volume_q1 = result.volume_utilization_quarterly[
+        result.volume_utilization_quarterly["Quarter"] == pd.Timestamp("2026-03-31")
+    ].iloc[0]
+    assert volume_q1["Production QoQ change"] == pytest.approx(174.196 - 170.0, abs=0.0005)
+
+    assert {"Corn basis proxy", "Natural gas proxy"} <= set(result.basis_energy_summary["Driver"])
+    assert "Available?" in set(result.basis_energy_summary.columns)
+
+    tracker = result.aoci_future_reclass_tracker
+    assert "Next-quarter cash-flow hedge reclass / gal" in set(tracker.columns)
+    assert all("Not current-quarter P&L" in str(x) or "insufficient sample" in str(x) for x in tracker["Interpretation"])
+    summary = result.aoci_future_reclass_summary
+    assert "AOCI / gal vs next-quarter cash-flow reclass / gal" in set(summary["Diagnostic"])
+
+    takeaway_metrics = set(result.key_takeaways["Diagnostic"])
+    assert "Production model recommendation" in takeaway_metrics
+    assert all("production" in str(x).lower() or "diagnostic" in str(x).lower() or str(x).strip() for x in result.key_takeaways["Reading"])

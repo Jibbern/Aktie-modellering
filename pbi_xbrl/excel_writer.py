@@ -1074,6 +1074,8 @@ def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
     else:
         with timed_writer_stage(writer_timings, "write_excel.summary", enabled=bool(inputs.profile_timings)):
             write_summary_sheets(ctx)
+            if "SUMMARY" in ctx.wb.sheetnames:
+                ctx.derived.summary_export_expectation = {"rows": _summary_snapshot_from_ws(ctx.wb["SUMMARY"])}
         with timed_writer_stage(writer_timings, "write_excel.valuation", enabled=bool(inputs.profile_timings)):
             ui_qa_rows.extend(write_valuation_sheets(ctx))
         with timed_writer_stage(writer_timings, "write_excel.drivers", enabled=bool(inputs.profile_timings)):

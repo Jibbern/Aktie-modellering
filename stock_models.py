@@ -1063,7 +1063,7 @@ def main() -> None:
     final_provenance: Dict[str, Any] = {}
     if not partial_debug_scope:
         final_provenance = _verify_saved_workbook_export(final_out_path, writer_result)
-        if bool(args.quarter_notes_audit) and getattr(writer_result, "quarter_notes_audit_rows", None):
+        if bool(args.quarter_notes_audit):
             final_audit_rows = enrich_quarter_notes_audit_rows_with_readback(
                 list(getattr(writer_result, "quarter_notes_audit_rows", []) or []),
                 final_provenance,

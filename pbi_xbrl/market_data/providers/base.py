@@ -72,6 +72,11 @@ class BaseMarketProvider:
     public_data_url = ""
     public_data_slug_id = ""
     public_data_sections: tuple[str, ...] = ("Report Detail",)
+    # Some USDA reports expose all parsed latest-refresh data through the structured
+    # public_data endpoint. Those providers can opt in here so normal refreshes avoid
+    # the more fragile legacy viewReport/AJAX/PDF discovery path unless public_data
+    # returns no usable candidate.
+    public_data_latest_refresh_sufficient = False
     report_token = ""
     stable_name_prefix = ""
     local_dir_name = ""
@@ -742,6 +747,8 @@ class BaseMarketProvider:
 
     def discover_remote_assets(self, as_of: Optional[date] = None, cache_root: Optional[Path] = None) -> List[Dict[str, Any]]:
         public_candidates = self._discover_public_data_assets(as_of=as_of, cache_root=cache_root)
+        if public_candidates and bool(getattr(self, "public_data_latest_refresh_sufficient", False)):
+            return public_candidates
         landing_url = str(self.landing_page_url or "").strip()
         if not landing_url:
             return public_candidates

@@ -337,6 +337,7 @@ class AMS3618Provider(BaseMarketProvider):
     landing_page_url = "https://mymarketnews.ams.usda.gov/viewReport/3618"
     public_data_url = "https://mymarketnews.ams.usda.gov/public_data?slug_id=3618"
     public_data_slug_id = "3618"
+    public_data_latest_refresh_sufficient = True
     report_token = "/3618/"
     stable_name_prefix = "ams_3618"
     local_dir_name = "USDA_bioenergy_reports"

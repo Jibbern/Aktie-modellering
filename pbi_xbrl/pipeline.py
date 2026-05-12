@@ -329,6 +329,7 @@ def _build_target_years_from_quarters(target_quarters: Optional[set[dt.date]]) -
     years = {q.year for q in target_quarters if q is not None}
     if not years:
         return None
+    years |= {q.year - 1 for q in target_quarters if q is not None and q.month in (1, 2)}
     return years | {y + 1 for y in years}
 
 
@@ -475,6 +476,81 @@ def _prefer_latest_primary_filing_row(candidate: Dict[str, Any], current: Option
     return int(candidate.get("_row_order") or 0) < int(current.get("_row_order") or 0)
 
 
+def _actual_quarter_ends_from_filing_rows(
+    fy_end: dt.date,
+    filing_rows: List[Dict[str, Any]] | Dict[str, Any] | None,
+) -> Dict[int, dt.date]:
+    out = _quarter_ends_from_fy_end(fy_end)
+    if not isinstance(fy_end, dt.date):
+        return out
+    q_rows: Dict[dt.date, Dict[str, Any]] = {}
+    if isinstance(filing_rows, dict):
+        q_rows = dict((filing_rows.get("form_report_index") or {}).get("10-Q") or {})
+    else:
+        for row in filing_rows or []:
+            form = str(row.get("form") or "").upper().strip()
+            if form not in {"10-Q", "10-Q/A"}:
+                continue
+            qd = row.get("report_date") or row.get("filing_date")
+            if not isinstance(qd, dt.date):
+                continue
+            candidate = dict(row)
+            current = q_rows.get(qd)
+            if _prefer_latest_primary_filing_row(candidate, current):
+                q_rows[qd] = candidate
+    if not q_rows:
+        return out
+    candidates = sorted(
+        d
+        for d in q_rows.keys()
+        if isinstance(d, dt.date) and d < fy_end and 45 <= (fy_end - d).days <= 340
+    )
+    if len(candidates) >= 3:
+        q1, q2, q3 = candidates[-3:]
+        return {1: q1, 2: q2, 3: q3, 4: fy_end}
+    return out
+
+
+def _submission_period_end_map(submissions: Optional[Dict[str, Any]]) -> Dict[Tuple[int, str], dt.date]:
+    if not submissions:
+        return {}
+    rec = ((submissions or {}).get("filings") or {}).get("recent") or {}
+    forms = list(rec.get("form") or [])
+    reports = list(rec.get("reportDate") or [])
+    filing_dates = list(rec.get("filingDate") or [])
+    rows: List[Dict[str, Any]] = []
+    n = min(len(forms), max(len(reports), len(filing_dates)))
+    for i in range(n):
+        form = str(forms[i] if i < len(forms) else "").upper().strip()
+        if form not in {"10-Q", "10-Q/A", "10-K", "10-K/A"}:
+            continue
+        qd = parse_date(reports[i]) if i < len(reports) else None
+        fd = parse_date(filing_dates[i]) if i < len(filing_dates) else None
+        if qd is None:
+            qd = fd
+        if qd is None:
+            continue
+        rows.append({"form": form, "report_date": qd, "filing_date": fd, "_row_order": len(rows)})
+    fy_ends = sorted({r["report_date"] for r in rows if str(r.get("form") or "").startswith("10-K")})
+    out: Dict[Tuple[int, str], dt.date] = {}
+    for fy_end in fy_ends:
+        q_ends = _actual_quarter_ends_from_filing_rows(fy_end, rows)
+        for idx, label in ((1, "Q1"), (2, "Q2"), (3, "Q3"), (4, "FY")):
+            qd = q_ends.get(idx)
+            if isinstance(qd, dt.date):
+                out[(fy_end.year, label)] = qd
+    return out
+
+
+def _uses_non_calendar_reporting_dates(submissions: Optional[Dict[str, Any]]) -> bool:
+    period_map = _submission_period_end_map(submissions)
+    dates = [d for d in period_map.values() if isinstance(d, dt.date)]
+    if not dates:
+        return False
+    non_calendar = [d for d in dates if not _is_quarter_end(d)]
+    return len(non_calendar) >= 3
+
+
 def _select_primary_filing_rows_for_ytd_q4(
     filing_rows: List[Dict[str, Any]] | Dict[str, Any],
     target_quarters: Optional[set[dt.date]],
@@ -485,14 +561,15 @@ def _select_primary_filing_rows_for_ytd_q4(
         return {
             "fy_rows": {},
             "q3_rows": {},
+            "fy_to_q3_end": {},
         }
     fy_targets = {q for q in target_quarters if isinstance(q, dt.date)}
-    q3_targets = {
-        q3_end
+    fy_to_q3_end = {
+        fy_end: _actual_quarter_ends_from_filing_rows(fy_end, filing_rows).get(3)
         for fy_end in fy_targets
-        for q3_end in [_quarter_ends_from_fy_end(fy_end).get(3)]
-        if isinstance(q3_end, dt.date)
+        if isinstance(fy_end, dt.date)
     }
+    q3_targets = {q3_end for q3_end in fy_to_q3_end.values() if isinstance(q3_end, dt.date)}
     cache_key = tuple(sorted(q.isoformat() for q in fy_targets))
     selection_cache = filing_runtime_cache.setdefault("ytd_q4_selection", {}) if filing_runtime_cache is not None else None
     if selection_cache is not None and cache_key in selection_cache:
@@ -508,7 +585,7 @@ def _select_primary_filing_rows_for_ytd_q4(
         q3_rows = {
             q3_end: dict(q3_index[q3_end])
             for q3_end in q3_targets
-            if isinstance(q3_end, dt.date) and q3_end.month == 9 and q3_end in q3_index
+            if isinstance(q3_end, dt.date) and q3_end in q3_index
         }
         fy_rows = {
             fy_end: dict(fy_index[fy_end])
@@ -523,7 +600,7 @@ def _select_primary_filing_rows_for_ytd_q4(
                 continue
             candidate = dict(row)
             candidate["_row_order"] = row_order
-            if form in {"10-Q", "10-Q/A"} and q_end in q3_targets and q_end.month == 9:
+            if form in {"10-Q", "10-Q/A"} and q_end in q3_targets:
                 if _prefer_latest_primary_filing_row(candidate, q3_rows.get(q_end)):
                     q3_rows[q_end] = candidate
                 continue
@@ -533,6 +610,7 @@ def _select_primary_filing_rows_for_ytd_q4(
     out = {
         "fy_rows": fy_rows,
         "q3_rows": q3_rows,
+        "fy_to_q3_end": fy_to_q3_end,
     }
     if selection_cache is not None:
         selection_cache[cache_key] = out
@@ -5356,14 +5434,29 @@ def _extract_income_statement_from_html(
     rules = rules or get_income_statement_rules(None)
     titles_any = [s.lower() for s in rules.get("titles_any", [])]
     if period_hint == "3M":
-        period_markers = [s.lower() for s in rules.get("period_markers", [])]
-        period_tokens = ["three months", "three-months"]
+        period_markers = [s.lower() for s in rules.get("period_markers_3m", rules.get("period_markers", []))]
+        period_tokens = [s.lower() for s in rules.get("period_tokens_3m", ["three months", "three-months"])]
     elif period_hint == "9M":
-        period_markers = ["nine months ended", "nine-months ended", "nine months", "nine-months"]
-        period_tokens = ["nine months", "nine-months"]
+        period_markers = [
+            s.lower()
+            for s in rules.get(
+                "period_markers_9m",
+                ["nine months ended", "nine-months ended", "nine months", "nine-months"],
+            )
+        ]
+        period_tokens = [s.lower() for s in rules.get("period_tokens_9m", ["nine months", "nine-months"])]
     elif period_hint == "FY":
-        period_markers = ["year ended", "years ended", "twelve months ended", "twelve-months ended", "fiscal year"]
-        period_tokens = ["year ended", "years ended", "twelve months", "fiscal year"]
+        period_markers = [
+            s.lower()
+            for s in rules.get(
+                "period_markers_fy",
+                ["year ended", "years ended", "twelve months ended", "twelve-months ended", "fiscal year"],
+            )
+        ]
+        period_tokens = [
+            s.lower()
+            for s in rules.get("period_tokens_fy", ["year ended", "years ended", "twelve months", "fiscal year"])
+        ]
     else:
         period_markers = [s.lower() for s in rules.get("period_markers", [])]
         period_tokens = []
@@ -5825,6 +5918,7 @@ def build_income_statement_ytd_q4_fallback(
     target_years: Optional[set[int]] = None
     if target_quarters:
         target_years = {d.year for d in target_quarters if d is not None}
+        target_years.update({d.year - 1 for d in target_quarters if d is not None and d.month in (1, 2)})
 
     filing_inventory, filing_runtime_cache = _ensure_primary_filing_inventory(
         sec,
@@ -5914,9 +6008,9 @@ def build_income_statement_ytd_q4_fallback(
         "gaap_history.income_statement_ytd_q4_fallback.combine_q4",
         enabled=profile_timings,
     ):
+        fy_to_q3_end = selected_rows.get("fy_to_q3_end") or {}
         for fy_end, fy_payload in fy_map.items():
-            q_ends = _quarter_ends_from_fy_end(fy_end)
-            q3_end = q_ends.get(3)
+            q3_end = fy_to_q3_end.get(fy_end) or _quarter_ends_from_fy_end(fy_end).get(3)
             if not q3_end:
                 continue
             ytd_payload = ytd_9m.get(q3_end)
@@ -5994,7 +6088,7 @@ def build_quarterly_data_10k_fallback(
             continue
         if target_years is not None and fy_end.year not in target_years:
             continue
-        q_ends = _quarter_ends_from_fy_end(fy_end)
+        q_ends = _actual_quarter_ends_from_filing_rows(fy_end, filing_inventory)
         if not q_ends:
             continue
         accn_nd = str(row.get("accn_nd") or "")
@@ -7279,6 +7373,8 @@ def build_income_statement_fallback_ex99_ocr(
     def _accept_q(q_end: Optional[dt.date]) -> bool:
         if q_end is None:
             return False
+        if target_quarters is not None and q_end in target_quarters:
+            return True
         if not _is_quarter_end(q_end):
             return False
         if target_quarters is None:
@@ -7475,6 +7571,8 @@ def build_balance_sheet_fallback_ex99_ocr(
     def _accept_q(q_end: Optional[dt.date]) -> bool:
         if q_end is None:
             return False
+        if target_quarters is not None and q_end in target_quarters:
+            return True
         if not _is_quarter_end(q_end):
             return False
         if target_quarters is None:
@@ -8300,6 +8398,8 @@ def build_eps_shares_fallback_ex99(
     def _accept_q(q_end: Optional[dt.date]) -> bool:
         if q_end is None:
             return False
+        if target_quarters is not None and q_end in target_quarters:
+            return True
         if not _is_quarter_end(q_end):
             return False
         if target_quarters is None:
@@ -8608,9 +8708,15 @@ def build_gaap_history(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     gaap_stage_timings = stage_timings if stage_timings is not None else {}
     ends, fy_fp_to_end = build_quarter_calendar_from_revenue(df_all, max_quarters=max_quarters)
+    submission_period_map = _submission_period_end_map(submissions)
+    non_calendar_reporting = _uses_non_calendar_reporting_dates(submissions)
     # Enrich quarter calendar/mapping beyond the single "best revenue tag" so year-end
     # 10-K data (FY/Q4) is still included when tags switch between filings.
     extra_ends: set[dt.date] = set(ends)
+    if non_calendar_reporting and submission_period_map:
+        extra_ends.update(d for d in submission_period_map.values() if isinstance(d, dt.date))
+        for key, qd in submission_period_map.items():
+            fy_fp_to_end[key] = qd
     if df_all is not None and not df_all.empty and "end_d" in df_all.columns:
         cal = df_all[df_all["end_d"].notna()].copy()
         if "form" in cal.columns:
@@ -8689,7 +8795,7 @@ def build_gaap_history(
                     if fy_end is None:
                         months_fwd = {"Q1": 9, "Q2": 6, "Q3": 3}.get(fp_norm, 0)
                         fy_end = (end_d + pd.DateOffset(months=months_fwd) + pd.offsets.MonthEnd(0)).date()
-                    exp = quarter_ends_for_fy(fy_end).get(fp_norm)
+                    exp = submission_period_map.get((fy_v, fp_norm)) or quarter_ends_for_fy(fy_end).get(fp_norm)
                     if exp is not None and exp != end_d.date():
                         # Comparative rows in later filings can carry mismatched fp labels;
                         # keep deterministic quarter mapping only when end-date matches fp.
@@ -8713,7 +8819,8 @@ def build_gaap_history(
             if not form.startswith("10-K"):
                 continue
             rep_d = parse_date(reports[i]) if i < len(reports) else None
-            rep_d = rep_d if _is_quarter_end(rep_d) else _coerce_prev_quarter_end(rep_d)
+            if rep_d is not None and not _is_quarter_end(rep_d) and not non_calendar_reporting:
+                rep_d = _coerce_prev_quarter_end(rep_d)
             if rep_d is None:
                 fil_d = parse_date(filing_dates[i]) if i < len(filing_dates) else None
                 rep_d = _coerce_prev_quarter_end(fil_d)
@@ -8721,6 +8828,22 @@ def build_gaap_history(
                 continue
             extra_ends.add(rep_d)
             fy_fp_to_end[(rep_d.year, "FY")] = rep_d
+
+    if non_calendar_reporting and submission_period_map:
+        actual_dates = {d for d in submission_period_map.values() if isinstance(d, dt.date)}
+        calendar_aliases: set[dt.date] = set()
+        for d in actual_dates:
+            if _is_quarter_end(d):
+                continue
+            if d.month in (1, 2):
+                calendar_aliases.add(dt.date(d.year - 1, 12, 31))
+            elif d.month in (4, 5):
+                calendar_aliases.add(dt.date(d.year, 3, 31))
+            elif d.month in (7, 8):
+                calendar_aliases.add(dt.date(d.year, 6, 30))
+            elif d.month in (10, 11):
+                calendar_aliases.add(dt.date(d.year, 9, 30))
+        extra_ends = {d for d in extra_ends if d not in calendar_aliases or d in actual_dates}
 
     ends = sorted(extra_ends)
     if max_quarters and len(ends) > max_quarters:
@@ -10373,6 +10496,7 @@ def build_gaap_history(
                     missing_qdata_quarters.update(miss)
         if missing_qdata_quarters:
             target_years = {d.year for d in missing_qdata_quarters}
+            target_years |= {d.year - 1 for d in missing_qdata_quarters if getattr(d, "month", None) in (1, 2)}
             target_years |= {y + 1 for y in target_years}
             # also include latest 10-K year for preview visibility
             filing_inventory = _get_filing_shared_inventory()
@@ -10440,7 +10564,7 @@ def build_gaap_history(
         for metric in ("cogs", "gross_profit", "op_income"):
             if metric in hist.columns:
                 miss = hist.loc[hist[metric].isna(), "quarter"]
-                missing_q4_quarters.update([d for d in miss if pd.notna(d) and getattr(d, "month", None) == 12])
+                missing_q4_quarters.update([d for d in miss if pd.notna(d) and (quarter_index(d) or 0) == 4])
         if missing_q4_quarters:
             filing_inventory = _get_filing_shared_inventory()
             with _timed_stage(gaap_stage_timings, "gaap_history.income_statement_ytd_q4_fallback", enabled=profile_timings):

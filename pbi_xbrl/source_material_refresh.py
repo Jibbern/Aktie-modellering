@@ -23,6 +23,7 @@ from .non_gaap import find_ex99_docs, infer_quarter_end_from_text, strip_html
 from .sec_ingest import (
     EDGAR_BASE,
     IngestConfig,
+    SEC_BASE,
     SecClient,
     _canonical_name,
     _filings_df,
@@ -242,11 +243,24 @@ def _refresh_ticker_source_materials(
     material_root.mkdir(parents=True, exist_ok=True)
     manifest_path = cache_dir / MANIFEST_RELATIVE_PATH
     manifest = _load_manifest(manifest_path)
+
+    ingest_cfg = IngestConfig(
+        cache_dir=cache_dir,
+        user_agent=user_agent,
+        forms=SEC_PRIMARY_FORMS,
+        include_exhibits=True,
+        materialize=False,
+        quiet_download_logs=True,
+        max_filings=max_filings,
+    )
+    cik_int, filings_df, _sub_path = _list_recent_filings_with_legacy_support(ingest_cfg, ticker=ticker)
+    quarter_aliases = _source_material_quarter_aliases(profile=profile, filings_df=filings_df)
     local_scan = _normalize_and_collect_local_materials(
         repo_root=repo_root,
         ticker=ticker,
         manifest=manifest,
         dry_run=dry_run,
+        quarter_aliases=quarter_aliases,
     )
     for row in local_scan.moved_files:
         summary.add_event(
@@ -289,16 +303,6 @@ def _refresh_ticker_source_materials(
             title=str(row.get("title") or ""),
         )
 
-    ingest_cfg = IngestConfig(
-        cache_dir=cache_dir,
-        user_agent=user_agent,
-        forms=SEC_PRIMARY_FORMS,
-        include_exhibits=True,
-        materialize=False,
-        quiet_download_logs=True,
-        max_filings=max_filings,
-    )
-    cik_int, filings_df, _sub_path = _list_recent_filings_with_legacy_support(ingest_cfg, ticker=ticker)
     sec_client: Optional[SecClient] = None
     quarter_targets = _quarter_targets_from_filings(filings_df)
     quarter_family_sources: Dict[Tuple[str, str], str] = {}
@@ -337,7 +341,7 @@ def _refresh_ticker_source_materials(
 
         if str(filing.get("base_form") or filing.get("form") or "").upper().split("/")[0] != "8-K":
             continue
-        for cand in _collect_sec_material_candidates(cache_dir, cik_int, filing):
+        for cand in _collect_sec_material_candidates(cache_dir, cik_int, filing, quarter_aliases=quarter_aliases):
             qkey = cand.quarter.isoformat() if cand.quarter else ""
             if cand.quarter_assignment_status == "matched_quarter_end" and quarter_targets and qkey not in quarter_targets:
                 continue
@@ -408,11 +412,12 @@ def _refresh_ticker_source_materials(
     if not dry_run:
         _prune_stale_manifest_entries(manifest, selected_keys=selected_manifest_keys, material_root=material_root)
         _save_manifest(manifest_path, manifest)
+    coverage_quarters = int(getattr(profile, "source_material_coverage_quarters", 16) or 16)
     coverage_report = _build_coverage_report(
         ticker=ticker,
         manifest=manifest,
         filings_df=filings_df,
-        max_quarters=16,
+        max_quarters=max(1, coverage_quarters),
         ir_diagnostics=ir_result.diagnostics,
         local_scan=local_scan,
     )
@@ -453,7 +458,7 @@ def _list_recent_filings_with_legacy_support(
     if sub_path.exists():
         submissions = json.loads(sub_path.read_text(encoding="utf-8"))
     else:
-        url = f"{EDGAR_BASE}/submissions/CIK{cik10}.json"
+        url = f"{SEC_BASE}/submissions/CIK{cik10}.json"
         submissions = sec.get(url, as_json=True)
         nested_path.parent.mkdir(parents=True, exist_ok=True)
         _write_json_file(nested_path, submissions)
@@ -533,7 +538,13 @@ def _parse_quarter_date(value: Any) -> Optional[date]:
         return None
 
 
-def _collect_sec_material_candidates(cache_dir: Path, cik_int: int, filing: Dict[str, Any]) -> List[MaterialCandidate]:
+def _collect_sec_material_candidates(
+    cache_dir: Path,
+    cik_int: int,
+    filing: Dict[str, Any],
+    *,
+    quarter_aliases: Optional[Dict[date, date]] = None,
+) -> List[MaterialCandidate]:
     accn = normalize_accession(str(filing.get("accession") or ""))
     if not accn:
         return []
@@ -598,6 +609,7 @@ def _collect_sec_material_candidates(cache_dir: Path, cik_int: int, filing: Dict
             default_q=default_q,
             allow_non_quarter_default=(family == "press_release"),
             canonical_family=family,
+            quarter_aliases=quarter_aliases or {},
         )
         candidates.append(
             MaterialCandidate(
@@ -775,6 +787,8 @@ def _has_results_markers(text: str) -> bool:
     blob = str(text or "").lower()
     if _has_strong_earnings_markers(blob):
         return True
+    if re.search(r"\breports\b.{0,100}\bresults\b", blob):
+        return True
     return bool(re.search(r"\b(earnings|financial results|quarterly results|full year)\b", blob))
 
 
@@ -807,7 +821,7 @@ def _has_presentation_markers(text: str) -> bool:
     blob = str(text or "").lower()
     return bool(
         re.search(
-            r"(investor presentation|earnings presentation|results presentation|quarterly presentation|presentation|slides|slide deck|deck|supplemental presentation|earnings supplement|webcast presentation|supplement)",
+            r"(investor presentation|earnings presentation|results presentation|quarterly presentation|presentation|slides|slide deck|deck|supplemental presentation|earnings supplement|webcast presentation|supplement|earnings financials|quarterly financial statements|consolidated statements of income and balance sheets)",
             blob,
         )
     )
@@ -823,6 +837,8 @@ def _looks_letter_style_doc(text: str) -> bool:
 
 def _looks_non_results_press_release(text: str) -> bool:
     blob = str(text or "").lower()
+    if _looks_business_update_press_release(blob):
+        return True
     if _looks_preliminary_results_guidance_update(blob):
         return True
     if _has_explicit_earnings_release_markers(blob) or _has_results_quarter_markers(blob):
@@ -856,6 +872,22 @@ def _looks_preliminary_results_guidance_update(text: str) -> bool:
         )
     )
     return bool(has_preliminary_results and has_guidance_update and has_future_full_release)
+
+
+def _looks_business_update_press_release(text: str) -> bool:
+    blob = re.sub(r"\s+", " ", str(text or "").lower()).strip()
+    if not blob or "business update" not in blob:
+        return False
+    if re.search(r"\b(earnings release|results release|quarterly results)\b", blob):
+        return False
+    return bool(
+        re.search(
+            r"(\bbusiness update\b.{0,80}\b(?:press release|news release)\b|"
+            r"\b(?:press release|news release)\b.{0,80}\bbusiness update\b|"
+            r"\bissues business update\b)",
+            blob,
+        )
+    )
 
 
 def _looks_transaction_only_exhibit(text: str) -> bool:
@@ -943,7 +975,16 @@ def _assign_quarter_from_source(
     default_q: Optional[date],
     allow_non_quarter_default: bool,
     canonical_family: str,
+    quarter_aliases: Optional[Dict[date, date]] = None,
 ) -> QuarterAssignment:
+    aliases = quarter_aliases or {}
+
+    def _mapped_assignment(qd: date, status: str, reason: str) -> QuarterAssignment:
+        mapped = aliases.get(qd)
+        if mapped is not None and mapped != qd:
+            return QuarterAssignment(quarter=mapped, status=status, reason=f"{reason}_retail_fiscal_alias")
+        return QuarterAssignment(quarter=qd, status=status, reason=reason)
+
     if canonical_family == "press_release" and _looks_preliminary_results_guidance_update(
         _normalize_material_blob(title, source_name, source_url, text_excerpt=text_excerpt)
     ):
@@ -960,24 +1001,24 @@ def _assign_quarter_from_source(
             )
     title_q = _infer_quarter_signal_from_text(title or "")
     if title_q is not None and _is_quarter_end_date(title_q):
-        return QuarterAssignment(quarter=title_q, status="matched_quarter_end", reason="title_quarter_signal")
+        return _mapped_assignment(title_q, "matched_quarter_end", "title_quarter_signal")
     source_q = _infer_quarter_signal_from_text(source_url or "")
     if source_q is not None and _is_quarter_end_date(source_q):
-        return QuarterAssignment(quarter=source_q, status="matched_quarter_end", reason="source_url_quarter_signal")
+        return _mapped_assignment(source_q, "matched_quarter_end", "source_url_quarter_signal")
     for label, candidate in (
         ("filename", infer_q_from_name(source_name)),
         ("title", infer_quarter_end_from_text(title or "")),
     ):
         qd = _coerce_quarter_end(candidate)
         if qd is not None and _is_quarter_end_date(qd):
-            return QuarterAssignment(quarter=qd, status="matched_quarter_end", reason=f"{label}_quarter_signal")
+            return _mapped_assignment(qd, "matched_quarter_end", f"{label}_quarter_signal")
     body_q = _infer_quarter_signal_from_text(str(text_excerpt or "")[:12000])
     if body_q is None:
         body_q = _coerce_quarter_end(infer_quarter_end_from_text(str(text_excerpt or "")[:12000]))
     if body_q is not None and _is_quarter_end_date(body_q) and _allow_body_quarter_match(canonical_family=canonical_family, title=title, source_name=source_name, source_url=source_url, text_excerpt=text_excerpt):
-        return QuarterAssignment(quarter=body_q, status="matched_quarter_end", reason="body_quarter_signal")
+        return _mapped_assignment(body_q, "matched_quarter_end", "body_quarter_signal")
     if default_q is not None and _is_quarter_end_date(default_q):
-        return QuarterAssignment(quarter=default_q, status="matched_quarter_end", reason="quarter_end_report_date_fallback")
+        return _mapped_assignment(default_q, "matched_quarter_end", "quarter_end_report_date_fallback")
     if allow_non_quarter_default and default_q is not None:
         return QuarterAssignment(quarter=default_q, status="non_quarter_event", reason="non_quarter_report_date")
     return QuarterAssignment(quarter=None, status="unknown", reason="no_quarter_signal")
@@ -1081,7 +1122,20 @@ def _infer_non_quarter_event_date_from_material(
         )
         if m:
             try:
-                month = pd.Timestamp(f"{m.group(1)} 1 {m.group(3)}").month
+                month = {
+                    "jan": 1,
+                    "feb": 2,
+                    "mar": 3,
+                    "apr": 4,
+                    "may": 5,
+                    "jun": 6,
+                    "jul": 7,
+                    "aug": 8,
+                    "sep": 9,
+                    "oct": 10,
+                    "nov": 11,
+                    "dec": 12,
+                }[m.group(1)[:3].lower()]
                 return date(int(m.group(3)), int(month), int(m.group(2)))
             except Exception:
                 pass
@@ -1327,6 +1381,7 @@ def _normalize_and_collect_local_materials(
     ticker: str,
     manifest: Dict[str, Dict[str, Any]],
     dry_run: bool,
+    quarter_aliases: Optional[Dict[date, date]] = None,
 ) -> LocalMaterialScanResult:
     result = LocalMaterialScanResult()
     material_root = _ticker_material_root(repo_root, ticker)
@@ -1342,6 +1397,7 @@ def _normalize_and_collect_local_materials(
         dry_run=dry_run,
         result=result,
         official_paths=official_paths,
+        quarter_aliases=quarter_aliases or {},
     )
     result.candidates.extend(
         _collect_manual_local_candidates(
@@ -1349,9 +1405,41 @@ def _normalize_and_collect_local_materials(
             ticker=ticker,
             official_paths=official_paths,
             result=result,
+            quarter_aliases=quarter_aliases or {},
         )
     )
     return result
+
+
+def _source_material_quarter_aliases(*, profile: CompanyProfile, filings_df: Any) -> Dict[date, date]:
+    mode = str(getattr(profile, "source_material_quarter_alias_mode", "") or "").strip().lower()
+    if mode != "retail_fiscal" or filings_df is None or getattr(filings_df, "empty", True):
+        return {}
+    aliases: Dict[date, date] = {}
+    for row in filings_df.to_dict("records"):
+        base_form = str(row.get("base_form") or row.get("form") or "").upper().split("/")[0]
+        if base_form not in {"10-Q", "10-K"}:
+            continue
+        qd = _parse_quarter_date(row.get("reportDate"))
+        if qd is None:
+            continue
+        label_q: Optional[int] = None
+        label_year = int(qd.year)
+        if qd.month in {4, 5, 6}:
+            label_q = 1
+        elif qd.month in {7, 8, 9}:
+            label_q = 2
+        elif qd.month in {10, 11, 12}:
+            label_q = 3
+        elif qd.month in {1, 2} and base_form == "10-K":
+            label_q = 4
+            label_year -= 1
+        if label_q is None:
+            continue
+        label_qd = _quarter_end_from_parts(label_q, label_year)
+        if label_qd is not None:
+            aliases[label_qd] = qd
+    return aliases
 
 
 def _official_manifest_destination_paths(manifest: Dict[str, Dict[str, Any]]) -> set[str]:
@@ -1457,6 +1545,7 @@ def _normalize_local_family_files(
     dry_run: bool,
     result: LocalMaterialScanResult,
     official_paths: set[str],
+    quarter_aliases: Dict[date, date],
 ) -> None:
     for family_hint in LOCAL_MANUAL_FAMILY_ALIASES.keys():
         folder = material_root / family_hint
@@ -1471,6 +1560,7 @@ def _normalize_local_family_files(
                 path_in=path_in,
                 ticker=ticker,
                 family_hint=family_hint,
+                quarter_aliases=quarter_aliases,
             )
             if inspected.get("review_reason"):
                 result.manual_review_files.append(
@@ -1577,6 +1667,7 @@ def _collect_manual_local_candidates(
     ticker: str,
     official_paths: set[str],
     result: LocalMaterialScanResult,
+    quarter_aliases: Dict[date, date],
 ) -> List[MaterialCandidate]:
     out: List[MaterialCandidate] = []
     seen_paths: set[str] = set()
@@ -1595,6 +1686,7 @@ def _collect_manual_local_candidates(
                 path_in=path_in,
                 ticker=ticker,
                 family_hint=family_hint,
+                quarter_aliases=quarter_aliases,
             )
             if inspected.get("review_reason"):
                 continue
@@ -1622,6 +1714,7 @@ def _inspect_manual_local_file(
     path_in: Path,
     ticker: str,
     family_hint: str,
+    quarter_aliases: Optional[Dict[date, date]] = None,
 ) -> Dict[str, Any]:
     title = _best_local_title(path_in)
     name_hint = _manual_name_hint(path_in)
@@ -1632,7 +1725,7 @@ def _inspect_manual_local_file(
     quarter = _infer_quarter_signal_from_text(name_hint) or _infer_quarter_signal_from_text(title)
     if quarter is None and text_excerpt:
         quarter = _infer_quarter_signal_from_text(str(text_excerpt)[:12000])
-    if _looks_preliminary_results_guidance_update(blob):
+    if _looks_preliminary_results_guidance_update(blob) or _looks_business_update_press_release(core_blob):
         event_date = _infer_non_quarter_event_date_from_material(
             source_name=name_hint,
             title=title,
@@ -1655,9 +1748,16 @@ def _inspect_manual_local_file(
             title=title,
             quarter=event_date,
             assignment=assignment,
-            subject_slug=_preliminary_guidance_subject_slug(blob),
+            subject_slug=(
+                "business_update"
+                if _looks_business_update_press_release(core_blob)
+                else _preliminary_guidance_subject_slug(blob)
+            ),
         )
-    if _is_annual_report_material(name_hint=name_hint, title=title, text_excerpt=text_excerpt):
+    if (
+        family_hint == "annual_reports"
+        or re.search(r"(annual report|annual-report|\bar[_ -]?wr\b|\bform 10-k\b)", core_blob)
+    ) and _is_annual_report_material(name_hint=name_hint, title=title, text_excerpt=text_excerpt):
         return _manual_local_inspection_payload(
             ticker=ticker,
             path_in=path_in,
@@ -1677,6 +1777,7 @@ def _inspect_manual_local_file(
                 default_q=quarter,
                 allow_non_quarter_default=False,
                 canonical_family="earnings_transcripts",
+                quarter_aliases=quarter_aliases,
             )
             if assignment.quarter is None:
                 return {"review_reason": "quarter_not_clear", "title": title}
@@ -1715,6 +1816,7 @@ def _inspect_manual_local_file(
             default_q=quarter,
             allow_non_quarter_default=False,
             canonical_family="earnings_release",
+            quarter_aliases=quarter_aliases,
         )
         if assignment.quarter is None:
             return {"review_reason": "quarter_not_clear", "title": title}
@@ -1760,7 +1862,7 @@ def _inspect_manual_local_file(
             and not re.search(r"(ceo letter|shareholder letter|stockholder letter|investor letter)", blob)
         ):
             family = "earnings_transcripts"
-    if family_hint == "earnings_release" and family is None and quarter is not None and _has_results_markers(blob):
+    if family_hint == "earnings_release" and family in {None, "press_release"} and quarter is not None and _has_results_markers(blob):
         family = "earnings_release"
     if family_hint == "press_release" and family is None:
         family = "press_release"
@@ -1774,6 +1876,7 @@ def _inspect_manual_local_file(
         default_q=quarter,
         allow_non_quarter_default=(family == "press_release"),
         canonical_family=family,
+        quarter_aliases=quarter_aliases,
     )
     if family in RESULTS_FAMILY_SET and assignment.quarter is None:
         return {"review_reason": "quarter_not_clear", "title": title}
@@ -1843,10 +1946,10 @@ def _manual_local_destination_name(
         if subject_slug == "ceo_letter":
             return f"{ticker_txt}_{quarter_txt}_ceo_letter{ext}"
         if canonical_family == "earnings_release":
-            suffix = f"_{role_hint}" if role_hint in {"financial_schedules"} else ""
+            suffix = f"_{role_hint}" if role_hint in {"financial_schedules", "quarterly_history"} else ""
             return f"{ticker_txt}_{quarter_txt}_earnings_release{suffix}{ext}"
         if canonical_family == "earnings_presentation":
-            suffix = f"_{role_hint}" if role_hint in {"financial_schedules"} else ""
+            suffix = f"_{role_hint}" if role_hint in {"financial_schedules", "quarterly_history"} else ""
             return f"{ticker_txt}_{quarter_txt}_earnings_presentation{suffix}{ext}"
         if canonical_family == "earnings_transcripts":
             return f"{ticker_txt}_{quarter_txt}_transcript{ext}"
@@ -1854,9 +1957,20 @@ def _manual_local_destination_name(
 
 
 def _quarter_label_human(qd: Optional[date]) -> str:
-    if not _is_quarter_end_date(qd):
+    if qd is None:
         return ""
     qnum = ((int(qd.month) - 1) // 3) + 1
+    if not _is_quarter_end_date(qd):
+        if qd.month in {4, 5, 6}:
+            qnum = 1
+        elif qd.month in {7, 8, 9}:
+            qnum = 2
+        elif qd.month in {10, 11, 12}:
+            qnum = 3
+        elif qd.month in {1, 2}:
+            return f"Q4_{int(qd.year) - 1}"
+        else:
+            return ""
     return f"Q{qnum}_{int(qd.year)}"
 
 
@@ -1895,7 +2009,14 @@ def _sanitized_slug(text: str) -> str:
 
 def _manual_local_role_hint(path_in: Path) -> str:
     blob = _manual_name_hint(path_in).lower()
-    if "financial schedules" in blob or "financial schedule" in blob:
+    if "quarterly history" in blob:
+        return "quarterly_history"
+    if (
+        "financial schedules" in blob
+        or "financial schedule" in blob
+        or "earnings financials" in blob
+        or "consolidated statements" in blob
+    ):
         return "financial_schedules"
     return ""
 

@@ -12,7 +12,7 @@ import requests
 
 import pbi_xbrl.source_material_refresh as smr
 
-from pbi_xbrl.company_profiles import CompanyProfile, SourceMaterialSeed
+from pbi_xbrl.company_profiles import CompanyProfile, SourceMaterialSeed, get_company_profile
 from pbi_xbrl.pipeline_types import PipelineConfig
 from pbi_xbrl.source_material_refresh import (
     MaterialCandidate,
@@ -43,6 +43,208 @@ def _make_case_dir() -> Path:
     case_dir = _TMP_ROOT / f"case_{uuid4().hex}"
     case_dir.mkdir(parents=True, exist_ok=True)
     return case_dir
+
+
+def test_anf_profile_configures_retail_sources_and_20_quarter_coverage() -> None:
+    profile = get_company_profile("ANF")
+
+    assert profile.ticker == "ANF"
+    assert profile.enable_operating_drivers_sheet
+    assert not profile.enable_economics_overlay_sheet
+    assert tuple(profile.enabled_market_sources) == tuple()
+    assert profile.source_material_coverage_quarters == 20
+    assert profile.source_material_quarter_alias_mode == "retail_fiscal"
+    assert any(label == "Americas" for label, _pattern in profile.segment_patterns)
+    assert any(label == "EMEA" for label, _pattern in profile.segment_patterns)
+    assert any(label == "APAC" for label, _pattern in profile.segment_patterns)
+    seed_urls = {seed.seed_url for seed in profile.official_source_seeds}
+    assert "https://abercrombieandfitchcompany.gcs-web.com/financial-information/quarterly-results" in seed_urls
+    assert "https://abercrombieandfitchcompany.gcs-web.com/news-releases" in seed_urls
+
+
+def test_anf_quarterly_earnings_financials_classify_as_presentation_material() -> None:
+    family = _classify_material_family(
+        nm="q2-2025-earnings-financials.pdf",
+        title="Q2 2025 Earnings Financials",
+        sec_type="",
+        seed_family_hint="earnings_presentation",
+        text_excerpt="Quarterly Financial Statements for Abercrombie & Fitch Co.",
+        source_url="https://abercrombieandfitchcompany.gcs-web.com/static-files/demo",
+    )
+
+    assert family == "earnings_presentation"
+
+
+def test_anf_retail_fiscal_quarter_aliases_map_titles_to_sec_report_dates() -> None:
+    case_dir = _make_case_dir()
+    try:
+        profile = get_company_profile("ANF")
+        filings_df = pd.DataFrame(
+            [
+                {"base_form": "10-Q", "form": "10-Q", "reportDate": "2025-05-03", "accession": "q1"},
+                {"base_form": "10-Q", "form": "10-Q", "reportDate": "2025-08-02", "accession": "q2"},
+                {"base_form": "10-Q", "form": "10-Q", "reportDate": "2025-11-01", "accession": "q3"},
+                {"base_form": "10-K", "form": "10-K", "reportDate": "2026-01-31", "accession": "q4"},
+            ]
+        )
+        aliases = smr._source_material_quarter_aliases(profile=profile, filings_df=filings_df)
+
+        q1_path = case_dir / "Q1 2025 Press Release.txt"
+        q1_path.write_text(
+            "ABERCROMBIE & FITCH CO. REPORTS FIRST QUARTER FISCAL 2025 RESULTS",
+            encoding="utf-8",
+        )
+        q4_path = case_dir / "Q4 2025 Investor Presentation.txt"
+        q4_path.write_text(
+            "INVESTOR PRESENTATION: FOURTH QUARTER 2025",
+            encoding="utf-8",
+        )
+        q2_financials_path = case_dir / "Q2 2025 Earnings Financials.txt"
+        q2_financials_path.write_text(
+            "Abercrombie & Fitch Co. Condensed Consolidated Statements of Operations for August 2, 2025",
+            encoding="utf-8",
+        )
+
+        q1 = _inspect_manual_local_file(
+            path_in=q1_path,
+            ticker="ANF",
+            family_hint="earnings_release",
+            quarter_aliases=aliases,
+        )
+        q4 = _inspect_manual_local_file(
+            path_in=q4_path,
+            ticker="ANF",
+            family_hint="earnings_presentation",
+            quarter_aliases=aliases,
+        )
+        q2_financials = _inspect_manual_local_file(
+            path_in=q2_financials_path,
+            ticker="ANF",
+            family_hint="earnings_presentation",
+            quarter_aliases=aliases,
+        )
+
+        assert str(q1["quarter"]) == "2025-05-03"
+        assert q1["desired_name"] == "ANF_Q1_2025_earnings_release.txt"
+        assert str(q2_financials["quarter"]) == "2025-08-02"
+        assert q2_financials["desired_name"] == "ANF_Q2_2025_earnings_presentation_financial_schedules.txt"
+        assert str(q4["quarter"]) == "2026-01-31"
+        assert q4["desired_name"] == "ANF_Q4_2025_earnings_presentation.txt"
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
+def test_anf_manual_business_update_and_presentations_stay_in_correct_families() -> None:
+    case_dir = _make_case_dir()
+    try:
+        profile = get_company_profile("ANF")
+        filings_df = pd.DataFrame(
+            [
+                {"base_form": "10-Q", "form": "10-Q", "reportDate": "2022-04-30", "accession": "q1"},
+                {"base_form": "10-K", "form": "10-K", "reportDate": "2026-01-31", "accession": "q4"},
+            ]
+        )
+        aliases = smr._source_material_quarter_aliases(profile=profile, filings_df=filings_df)
+
+        business_update_path = case_dir / "Q4 2025 Business Update Press Release.txt"
+        business_update_path.write_text(
+            "Abercrombie & Fitch Co. Issues Business Update\nJanuary 12, 2026\nRaises full-year guidance.",
+            encoding="utf-8",
+        )
+        presentation_path = case_dir / "Q1- 2022 Investor Presentation.txt"
+        presentation_path.write_text(
+            "Investor Presentation. Business update section. Forward-looking statements refer to the Annual Report on Form 10-K.",
+            encoding="utf-8",
+        )
+
+        business_update = _inspect_manual_local_file(
+            path_in=business_update_path,
+            ticker="ANF",
+            family_hint="press_release",
+            quarter_aliases=aliases,
+        )
+        presentation = _inspect_manual_local_file(
+            path_in=presentation_path,
+            ticker="ANF",
+            family_hint="earnings_presentation",
+            quarter_aliases=aliases,
+        )
+
+        assert business_update["canonical_family"] == "press_release"
+        assert str(business_update["quarter"]) == "2026-01-12"
+        assert business_update["desired_name"] == "ANF_2026-01-12_press_release_business_update.txt"
+        assert presentation["canonical_family"] == "earnings_presentation"
+        assert str(presentation["quarter"]) == "2022-04-30"
+        assert presentation["desired_name"] == "ANF_Q1_2022_earnings_presentation.txt"
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
+def test_source_material_refresh_uses_profile_coverage_window(monkeypatch) -> None:
+    case_dir = _make_case_dir()
+    try:
+        captured: dict[str, int] = {}
+        profile = CompanyProfile(
+            ticker="TEST",
+            has_bank=False,
+            industry_keywords=tuple(),
+            segment_patterns=tuple(),
+            segment_alias_patterns=tuple(),
+            key_adv_require_keywords=tuple(),
+            key_adv_deny_keywords=tuple(),
+            official_source_seeds=(
+                SourceMaterialSeed(
+                    family="earnings_presentation",
+                    seed_url="https://example.com/quarterly-results",
+                ),
+            ),
+            source_material_coverage_quarters=20,
+        )
+        filings_df = pd.DataFrame(
+            [
+                {"base_form": "10-Q", "form": "10-Q", "reportDate": "2025-10-31", "accession": "0001"},
+            ]
+        )
+
+        monkeypatch.setattr(smr, "_load_manifest", lambda _path: {})
+        monkeypatch.setattr(smr, "_save_manifest", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(smr, "_normalize_and_collect_local_materials", lambda **_kwargs: smr.LocalMaterialScanResult())
+        monkeypatch.setattr(smr, "_list_recent_filings_with_legacy_support", lambda *_args, **_kwargs: (1018840, filings_df, case_dir / "submissions.json"))
+        monkeypatch.setattr(smr, "_detect_filing_package_presence", lambda *_args, **_kwargs: smr.FilingPackagePresence("present_complete", None, None))
+        monkeypatch.setattr(smr, "_collect_sec_material_candidates", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(smr, "_build_ir_session", lambda _ua: requests.Session())
+        monkeypatch.setattr(smr, "_discover_official_ir_candidates", lambda **_kwargs: smr.IRDiscoveryResult())
+
+        def fake_build_coverage_report(**kwargs):
+            captured["max_quarters"] = kwargs["max_quarters"]
+            return {
+                "ticker": kwargs["ticker"],
+                "quarters": [],
+                "moved_files": [],
+                "renamed_files": [],
+                "duplicate_files": [],
+                "manual_review_files": [],
+                "ambiguous_materials": [],
+                "non_quarter_materials": [],
+                "ir_diagnostics": [],
+            }
+
+        monkeypatch.setattr(smr, "_build_coverage_report", fake_build_coverage_report)
+
+        summary = smr._refresh_ticker_source_materials(
+            repo_root=case_dir,
+            ticker="TEST",
+            profile=profile,
+            cache_dir=case_dir / "sec_cache" / "TEST",
+            user_agent="test@example.com",
+            max_filings=1,
+            dry_run=True,
+        )
+
+        assert summary.coverage_lines
+        assert captured["max_quarters"] == 20
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
 
 
 def test_detect_filing_package_presence_recognizes_flat_complete() -> None:
@@ -111,6 +313,49 @@ def test_list_recent_filings_with_legacy_support_uses_flat_submissions() -> None
         assert cik_int == 78814
         assert path_in.name == "submissions_0000078814.json"
         assert list(filings_df["accession"]) == ["0000078814-25-000023"]
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
+def test_list_recent_filings_fetches_submissions_from_data_sec(monkeypatch) -> None:
+    case_dir = _make_case_dir()
+    try:
+        cache_dir = case_dir / "sec_cache" / "ANF"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        submissions = {
+            "filings": {
+                "recent": {
+                    "form": ["10-K"],
+                    "accessionNumber": ["0001018840-26-000012"],
+                    "filingDate": ["2026-03-26"],
+                    "reportDate": ["2026-01-31"],
+                    "primaryDocument": ["anf-20260131.htm"],
+                }
+            }
+        }
+        seen_urls: list[str] = []
+
+        class FakeSecClient:
+            def __init__(self, _cfg) -> None:
+                pass
+
+            def get(self, url: str, *, as_json: bool = False):
+                seen_urls.append(url)
+                assert as_json
+                return submissions
+
+        monkeypatch.setattr(smr, "SecClient", FakeSecClient)
+        monkeypatch.setattr(smr, "ticker_to_cik", lambda _sec, _ticker: 1018840)
+
+        cik_int, filings_df, path_in = _list_recent_filings_with_legacy_support(
+            type("Cfg", (), {"cache_dir": cache_dir, "forms": ("10-Q", "10-K", "8-K"), "max_filings": None, "user_agent": "test@example.com"})(),
+            ticker="ANF",
+        )
+
+        assert cik_int == 1018840
+        assert seen_urls == ["https://data.sec.gov/submissions/CIK0001018840.json"]
+        assert path_in == cache_dir / "0001018840" / "submissions.json"
+        assert list(filings_df["accession"]) == ["0001018840-26-000012"]
     finally:
         shutil.rmtree(case_dir, ignore_errors=True)
 
