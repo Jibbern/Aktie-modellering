@@ -172,7 +172,7 @@ def _quarter_notes_ui_snapshot_from_ws(ws: Any) -> Dict[str, List[Tuple[str, str
     current_quarter = ""
     for rr in range(1, int(ws.max_row or 0) + 1):
         col_a = _normalize_qnote_cell(ws.cell(row=rr, column=1).value)
-        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", col_a):
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", col_a) or re.fullmatch(r"Q[1-4]\s+20\d{2}", col_a, re.I):
             current_quarter = col_a
             rows_by_quarter.setdefault(current_quarter, [])
             continue
@@ -191,7 +191,7 @@ def _quarter_notes_ui_snapshot_rows_from_ws(ws: Any) -> Dict[str, List[Tuple[str
     current_quarter = ""
     for rr in range(1, int(ws.max_row or 0) + 1):
         col_a = _normalize_qnote_cell(ws.cell(row=rr, column=1).value)
-        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", col_a):
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", col_a) or re.fullmatch(r"Q[1-4]\s+20\d{2}", col_a, re.I):
             current_quarter = col_a
             rows_by_quarter.setdefault(current_quarter, [])
             continue
@@ -276,7 +276,7 @@ def _valuation_snapshot_from_ws(ws: Any) -> Dict[str, Any]:
     quarter_cols: List[int] = []
     for cc in range(2, int(ws.max_column or 0) + 1):
         val = str(ws.cell(6, cc).value or "").strip()
-        if re.fullmatch(r"\d{4}-Q[1-4]", val):
+        if re.fullmatch(r"(?:\d{4}-Q[1-4]|Q[1-4]\s+\d{4})", val):
             quarter_headers.append(val)
             quarter_cols.append(cc)
     grid_targets = [
@@ -1092,6 +1092,8 @@ def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
             write_qa_sheets(ctx, ui_qa_rows)
     with timed_writer_stage(writer_timings, "write_excel.save", enabled=bool(inputs.profile_timings)):
         finalize_workbook(ctx)
+    if "SUMMARY" in ctx.wb.sheetnames:
+        ctx.derived.summary_export_expectation = {"rows": _summary_snapshot_from_ws(ctx.wb["SUMMARY"])}
     snapshot = (
         _quarter_notes_ui_snapshot_from_ws(ctx.wb["Quarter_Notes_UI"])
         if "Quarter_Notes_UI" in ctx.wb.sheetnames

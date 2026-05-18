@@ -70,6 +70,7 @@ class PipelineArtifacts:
     promise_progress: pd.DataFrame
     non_gaap_cred: pd.DataFrame
     company_overview: Optional[Dict[str, Any]] = None
+    guidance_raw: pd.DataFrame = field(default_factory=pd.DataFrame)
     stage_timings: Dict[str, float] = field(default_factory=dict)
 
     def as_legacy_tuple(self) -> Tuple[pd.DataFrame, ...]:
@@ -109,6 +110,7 @@ class PipelineArtifacts:
             self.promise_progress,
             self.non_gaap_cred,
             self.company_overview,
+            self.guidance_raw,
         )
 
 
@@ -162,6 +164,7 @@ class WorkbookInputs:
     quarter_notes_audit: bool = False
     capture_saved_workbook_provenance: bool = True
     excel_debug_scope: str = "full"
+    guidance_raw: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     @classmethod
     def from_artifacts(
@@ -219,6 +222,7 @@ class WorkbookInputs:
             promise_progress=artifacts.promise_progress,
             non_gaap_cred=artifacts.non_gaap_cred,
             company_overview=artifacts.company_overview,
+            guidance_raw=getattr(artifacts, "guidance_raw", pd.DataFrame()),
             ticker=ticker,
             price=price,
             strictness=strictness,

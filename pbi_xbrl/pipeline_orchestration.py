@@ -68,7 +68,7 @@ from .pipeline_types import PipelineArtifacts, PipelineConfig
 from .source_material_refresh import _looks_preliminary_results_guidance_update
 
 
-LOCAL_NON_GAAP_FALLBACK_VERSION = 19
+LOCAL_NON_GAAP_FALLBACK_VERSION = 30
 LOCAL_NON_GAAP_PDF_PAGE_CACHE_VERSION = 1
 DOC_INTEL_BEHAVIOR_VERSION = "v18_anf_source_notes"
 COMPANY_OVERVIEW_BEHAVIOR_VERSION = "v9_anf_summary_sanitize"
@@ -381,6 +381,14 @@ def _dedupe_local_non_gaap_segment_rows(rows: pd.DataFrame) -> pd.DataFrame:
     df["value"] = pd.to_numeric(df.get("value"), errors="coerce")
     df = df[df["quarter"].notna() & df["segment"].astype(bool) & df["metric"].astype(bool) & df["value"].notna()].copy()
     df = df[~(df["metric"].str.lower().eq("revenue") & (df["value"] <= 0))].copy()
+    retail_segments = {"Americas", "EMEA", "APAC"}
+    df = df[
+        ~(
+            df["metric"].str.lower().eq("revenue")
+            & df["segment"].isin(retail_segments)
+            & (df["value"].abs() < 750_000.0)
+        )
+    ].copy()
     df = df[
         ~(
             df["metric"].str.lower().isin({"adj_segment_ebit", "adj_segment_da", "adj_segment_ebitda"})
@@ -402,6 +410,22 @@ def _dedupe_local_non_gaap_segment_rows(rows: pd.DataFrame) -> pd.DataFrame:
         .reset_index(drop=True)
     )
     return df
+
+
+def _dedupe_slides_guidance_rows(rows: pd.DataFrame) -> pd.DataFrame:
+    if rows is None or rows.empty:
+        return pd.DataFrame() if rows is None else rows
+    df = rows.copy()
+    if "quarter" in df.columns:
+        df["quarter"] = pd.to_datetime(df["quarter"], errors="coerce")
+    for col in ("period_label", "metric_hint", "numbers", "doc"):
+        if col not in df.columns:
+            df[col] = ""
+        df[col] = df[col].astype(str).str.strip()
+    key_cols = [c for c in ("quarter", "period_label", "metric_hint", "numbers", "doc") if c in df.columns]
+    if not key_cols:
+        return df.reset_index(drop=True)
+    return df.drop_duplicates(subset=key_cols, keep="first").reset_index(drop=True)
 
 
 def _local_non_gaap_has_financial_statement_files(base_dir: Path, ticker: str = "") -> bool:
@@ -919,7 +943,7 @@ def _parse_anf_balance_sheet_values_from_lines(lines: List[str], *, scale: float
         if not nums:
             continue
         first = float(nums[0])
-        if re.match(r"^cash and equivalents\b", low):
+        if re.match(r"^cash and equivalents\b", low) and "restricted cash" not in low:
             out["cash"] = first
         elif re.match(r"^marketable securities\b", low):
             out["marketable_securities"] = first
@@ -1048,6 +1072,12 @@ def _parse_anf_adjusted_metrics_from_lines(
             "adj_fcf": pd.NA,
         }
     )
+    rev_ref = statement_values.get("revenue")
+    if rev_ref is not None and pd.notna(rev_ref) and float(rev_ref) > 0:
+        for metric_col in ("adj_ebit", "adj_ebitda"):
+            metric_val = q_row.get(metric_col)
+            if metric_val is not None and pd.notna(metric_val) and float(metric_val) > float(rev_ref) * 5.0:
+                q_row[metric_col] = float(metric_val) / 1000.0
     if any(pd.notna(q_row.get(col)) for col in LOCAL_NON_GAAP_CANONICAL_METRICS):
         rows.append(q_row)
 
@@ -1077,16 +1107,84 @@ def _parse_anf_guidance_rows_from_lines(lines: List[str], q_end: Optional[dt.dat
     norm_lines = [re.sub(r"\s+", " ", str(ln or "")).strip() for ln in lines if str(ln or "").strip()]
     blob = "\n".join(norm_lines)
     low_blob = blob.lower()
-    if "fiscal 2026 first quarter and full year outlook" not in low_blob and "full year outlook" not in low_blob:
+    if not re.search(r"\b(fiscal|fy)\s*20\d{2}\b", low_blob, re.I) or not re.search(r"\boutlook|guidance|expects?\b", low_blob, re.I):
         return []
     rows: List[Dict[str, Any]] = []
     seen: set[Tuple[str, str, str]] = set()
 
+    def _infer_guidance_fiscal_year() -> Optional[int]:
+        for line in norm_lines:
+            line_l = line.lower()
+            if "outlook" not in line_l and "guidance" not in line_l and "expects" not in line_l:
+                continue
+            m_year = re.search(r"\b(?:fiscal|fy)\s*(20\d{2})\b", line, re.I)
+            if m_year:
+                return int(m_year.group(1))
+        m_any = re.search(r"\b(?:fiscal|fy)\s*(20\d{2})\b", blob, re.I)
+        if m_any:
+            return int(m_any.group(1))
+        return q_end.year if isinstance(q_end, dt.date) else None
+
+    fiscal_year = _infer_guidance_fiscal_year()
+    quarter_words = {
+        "first": 1,
+        "second": 2,
+        "third": 3,
+        "fourth": 4,
+    }
+
+    def _infer_outlook_quarter() -> Optional[int]:
+        for line in norm_lines:
+            line_l = line.lower()
+            if "outlook" not in line_l and "guidance" not in line_l:
+                continue
+            for word, q_num in quarter_words.items():
+                if re.search(rf"\b{word}\s+quarter\b", line_l):
+                    return q_num
+            m_q_line = re.search(r"\bq([1-4])\s*(?:fy|fiscal)?\s*20\d{2}\b", line_l, re.I)
+            if m_q_line:
+                return int(m_q_line.group(1))
+        header_blob = " ".join(norm_lines[:12]).lower()
+        for word, q_num in quarter_words.items():
+            if re.search(rf"\b{word}\s+quarter\b", header_blob):
+                return q_num
+        m_q = re.search(r"\bq([1-4])\s*(?:fy|fiscal)?\s*20\d{2}\b", header_blob, re.I)
+        if m_q:
+            return int(m_q.group(1))
+        return None
+
+    q_num = _infer_outlook_quarter()
+    quarter_period_label = f"Q{q_num} FY{fiscal_year}" if q_num and fiscal_year else ""
+    annual_period_label = f"FY{fiscal_year}" if fiscal_year else ""
+
+    def _number_components(numbers: str) -> Dict[str, Any]:
+        txt = str(numbers or "").strip()
+        out: Dict[str, Any] = {"low": pd.NA, "high": pd.NA, "value": pd.NA, "unit": ""}
+        if not txt:
+            return out
+        if "bps" in txt.lower():
+            vals = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", txt)]
+            if len(vals) >= 2:
+                out.update({"low": vals[0], "high": vals[1], "unit": "bps"})
+            elif vals:
+                out.update({"value": vals[0], "unit": "bps"})
+            return out
+        unit = "$m" if "$" in txt and "million" in txt.lower() else ("%" if "%" in txt else ("m shares" if "share" in txt.lower() or "million" in txt.lower() else ""))
+        vals = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", txt)]
+        if len(vals) >= 2 and "," in txt:
+            out.update({"low": vals[0], "high": vals[1], "unit": unit})
+        elif vals:
+            out.update({"value": vals[0], "unit": unit})
+        return out
+
     def _add(period_label: str, metric: str, line: str, numbers: str) -> None:
+        if not period_label or not metric or not numbers:
+            return
         key = (period_label, metric, numbers)
         if key in seen:
             return
         seen.add(key)
+        comps = _number_components(numbers)
         rows.append(
             {
                 "quarter": q_end,
@@ -1095,38 +1193,1016 @@ def _parse_anf_guidance_rows_from_lines(lines: List[str], q_end: Optional[dt.dat
                 "line": line[:320],
                 "numbers": numbers,
                 "metric_hint": metric,
+                "low": comps.get("low"),
+                "high": comps.get("high"),
+                "value": comps.get("value"),
+                "unit": comps.get("unit"),
             }
         )
 
+    def _fmt_num(raw: str, unit: str, *, force_dollar: bool = False) -> str:
+        num = str(raw or "").strip()
+        if force_dollar and not num.startswith("$"):
+            num = "$" + num
+        if unit == "%" and not num.endswith("%"):
+            num += "%"
+        if unit.lower() == "million" and "million" not in num.lower():
+            num += " million"
+        return num
+
+    phrase_re = re.compile(
+        r"(?P<range_prefix>growth\s+in\s+the\s+range\s+of|in\s+the\s+range\s+of)\s+"
+        r"(?P<low_dollar>\$)?(?P<low>\d+(?:\.\d+)?)\s*(?P<low_unit>%|million)?\s*(?:to|-|–)\s*"
+        r"(?P<high_dollar>\$)?(?P<high>\d+(?:\.\d+)?)\s*(?P<high_unit>%|million)?"
+        r"|(?P<approx_prefix>around|approximately|at least|up to|~)\s*"
+        r"(?P<approx_dollar>\$)?(?P<approx>\d+(?:\.\d+)?)\s*(?P<approx_unit>%|million)?",
+        re.I,
+    )
+
+    def _extract_value_phrases(line: str) -> List[str]:
+        out: List[str] = []
+        for match in phrase_re.finditer(line):
+            if match.group("low") and match.group("high"):
+                unit = match.group("high_unit") or match.group("low_unit") or ""
+                force_dollar = bool(match.group("low_dollar") or match.group("high_dollar"))
+                low = _fmt_num(match.group("low"), unit, force_dollar=force_dollar)
+                high = _fmt_num(match.group("high"), unit, force_dollar=force_dollar)
+                out.append(f"{low}, {high}")
+                continue
+            if match.group("approx"):
+                prefix = str(match.group("approx_prefix") or "").lower()
+                unit = match.group("approx_unit") or ""
+                force_dollar = bool(match.group("approx_dollar"))
+                val = _fmt_num(match.group("approx"), unit, force_dollar=force_dollar)
+                out.append(f"{'~' if prefix == '~' else prefix} {val}".strip())
+        return out
+
+    def _metric_for_line(line_l: str) -> Optional[str]:
+        if "tariff" in line_l:
+            return None
+        if "net sales" in line_l:
+            return "Revenue"
+        if "operating margin" in line_l:
+            return "Operating margin"
+        if "net income per diluted share" in line_l or re.search(r"\beps\b", line_l):
+            return "Adj EPS"
+        if "share repurchases" in line_l:
+            return "Share repurchases"
+        if "diluted weighted average shares" in line_l:
+            return "Diluted shares"
+        if "capital expenditures" in line_l or re.search(r"\bcapex\b", line_l):
+            return "Capex"
+        return None
+
+    annual_store_parts: Dict[str, str] = {}
     for line in norm_lines:
         ll = line.lower()
-        if "net sales" in ll and "growth in the range of" in ll:
-            _add("Q1 FY2026", "Revenue", "Q1 FY2026 net sales growth 1% to 3%", "1%, 3%")
-            _add("FY2026", "Revenue", "FY2026 net sales growth 3% to 5%", "3%, 5%")
-        if "operating margin" in ll and ("around 7" in ll or "12.0" in ll):
-            _add("Q1 FY2026", "Operating margin", "Q1 FY2026 operating margin around 7.0%", "around 7.0%")
-            _add("FY2026", "Operating margin", "FY2026 operating margin 12.0% to 12.5%", "12.0%, 12.5%")
-        if "net income per diluted share" in ll and "$1.20" in line and "$10.20" in line:
-            _add("Q1 FY2026", "Adj EPS", "Q1 FY2026 EPS $1.20 to $1.30", "$1.20, $1.30")
-            _add("FY2026", "Adj EPS", "FY2026 EPS $10.20 to $11.00", "$10.20, $11.00")
-        if "share repurchases" in ll and "$100" in line and "$450" in line:
-            _add("Q1 FY2026", "Share repurchases", "Q1 FY2026 share repurchases at least $100 million", "at least $100 million")
-            _add("FY2026", "Share repurchases", "FY2026 share repurchases around $450 million", "around $450 million")
-        if "diluted weighted average shares" in ll and "46" in line and "45" in line:
-            _add("Q1 FY2026", "Diluted shares", "Q1 FY2026 diluted weighted average shares around 46 million", "around 46 million")
-            _add("FY2026", "Diluted shares", "FY2026 diluted weighted average shares around 45 million", "around 45 million")
-        if "capital expenditures" in ll and "$200" in line and "$225" in line:
-            _add("FY2026", "Capex", "FY2026 capital expenditures $200 million to $225 million", "$200 million, $225 million")
-        if "55 openings" in ll and "25 closures" in ll:
-            _add("FY2026", "Real estate activity", "FY2026 real estate activity 55 openings, 25 closures and 70 remodels/right-sizes", "55 openings, 25 closures; 70 remodels/right-sizes")
-        if "70 remodels" in ll and not any(r["metric_hint"] == "Real estate activity" and r["period_label"] == "FY2026" for r in rows):
-            _add("FY2026", "Real estate activity", "FY2026 real estate activity 70 remodels/right-sizes", "70 remodels/right-sizes")
-        if "30 net store openings" in ll or "~30 net store openings" in ll:
-            _add("Q1 FY2026", "Real estate activity", "Q1 FY2026 real estate activity approximately 30 net store openings", "~30 net store openings")
-        if "tariff impact" in ll and "290" in line and "70" in line:
-            _add("Q1 FY2026", "Tariffs", "Q1 FY2026 tariff impact approximately 290 basis points", "290 bps")
-            _add("FY2026", "Tariffs", "FY2026 tariff impact approximately 70 basis points", "70 bps")
+        metric = _metric_for_line(ll)
+        if metric:
+            phrases = _extract_value_phrases(line)
+            if len(phrases) >= 2:
+                _add(quarter_period_label, metric, f"{quarter_period_label} {metric} {phrases[0]}", phrases[0])
+                _add(annual_period_label, metric, f"{annual_period_label} {metric} {phrases[1]}", phrases[1])
+            elif len(phrases) == 1:
+                target_period = annual_period_label if metric in {"Capex"} else quarter_period_label
+                _add(target_period, metric, f"{target_period} {metric} {phrases[0]}", phrases[0])
+        if "real estate activity" in ll or "store openings" in ll or "openings" in ll or "remodel" in ll or "right-size" in ll:
+            q_store = re.search(r"(?:~|approximately\s+)?(\d+)\s+net\s+store\s+openings", line, re.I)
+            if q_store:
+                _add(quarter_period_label, "Real estate activity", f"{quarter_period_label} real estate activity approximately {q_store.group(1)} net store openings", f"~{q_store.group(1)} net store openings")
+            open_close = re.search(r"(\d+)\s+openings?\s*,?\s*(\d+)\s+closures?", line, re.I)
+            if open_close:
+                annual_store_parts["open_close"] = f"{open_close.group(1)} openings, {open_close.group(2)} closures"
+            remodel = re.search(r"(\d+)\s+remodels?(?:\s+and\s+|\s*/\s*|\s+/\s+)?right-?sizes?", line, re.I)
+            if remodel:
+                annual_store_parts["remodels"] = f"{remodel.group(1)} remodels/right-sizes"
+        if "tariff impact" in ll or "tariff" in ll:
+            bps_vals = re.findall(r"(\d+(?:\.\d+)?)\s*basis\s+points?", line, re.I)
+            if len(bps_vals) >= 2:
+                _add(quarter_period_label, "Tariffs", f"{quarter_period_label} tariff impact approximately {bps_vals[0]} basis points", f"{bps_vals[0]} bps")
+                _add(annual_period_label, "Tariffs", f"{annual_period_label} tariff impact approximately {bps_vals[1]} basis points", f"{bps_vals[1]} bps")
+            elif len(bps_vals) == 1:
+                target_period = annual_period_label if "full year" in ll else quarter_period_label
+                _add(target_period, "Tariffs", f"{target_period} tariff impact approximately {bps_vals[0]} basis points", f"{bps_vals[0]} bps")
+    if annual_store_parts:
+        numbers = "; ".join(x for x in [annual_store_parts.get("open_close"), annual_store_parts.get("remodels")] if x)
+        if numbers:
+            _add(annual_period_label, "Real estate activity", f"{annual_period_label} real estate activity {numbers}", numbers)
     return rows
+
+
+def _parse_anf_pct_value(value: Any) -> Optional[float]:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, (int, float)) and pd.notna(value):
+        v = float(value)
+        return v / 100.0 if abs(v) > 1.5 else v
+    txt = str(value or "").strip()
+    if not txt:
+        return None
+    had_pct = "%" in txt
+    neg = bool(re.search(r"\(\s*-?\d", txt))
+    txt = txt.replace("%", "").replace(",", "").replace("(", "").replace(")", "").strip()
+    m = re.search(r"-?\d+(?:\.\d+)?", txt)
+    if not m:
+        return None
+    try:
+        v = float(m.group(0))
+    except Exception:
+        return None
+    if neg and v > 0:
+        v *= -1.0
+    return v / 100.0 if had_pct or abs(v) > 1.5 else v
+
+
+def _parse_anf_amount_thousands(value: Any) -> Optional[float]:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    if isinstance(value, (int, float)) and pd.notna(value):
+        v = float(value)
+        if 1900 <= abs(v) <= 2100:
+            return None
+        return v * 1000.0
+    txt = str(value or "").strip()
+    if not txt or "%" in txt:
+        return None
+    raw = coerce_number(txt)
+    if raw is None:
+        return None
+    if 1900 <= abs(float(raw)) <= 2100 and re.fullmatch(r"\d{4}", re.sub(r"\D", "", txt)):
+        return None
+    return float(raw) * 1000.0
+
+
+def _anf_segment_label(value: Any) -> str:
+    txt = re.sub(r"\s+", " ", str(value or "")).strip()
+    low = txt.lower()
+    if not low:
+        return ""
+    if "total" in low and ("company" in low or "comp" in low or "sales" in low):
+        return "Total Company"
+    if "americas" in low:
+        return "Americas"
+    if "emea" in low:
+        return "EMEA"
+    if "apac" in low or "asia pacific" in low:
+        return "APAC"
+    if "hollister" in low:
+        return "Hollister"
+    if "abercrombie" in low or re.fullmatch(r"a&f", low):
+        return "Abercrombie"
+    return ""
+
+
+def _anf_period_end_for_fy_q(
+    fiscal_year: Optional[int],
+    quarter_num: Optional[int],
+    fiscal_periods: Optional[Dict[Tuple[int, int], dt.date]] = None,
+) -> Optional[dt.date]:
+    if fiscal_year is None:
+        return None
+    if quarter_num is None:
+        quarter_num = 4
+    if fiscal_periods and (int(fiscal_year), int(quarter_num)) in fiscal_periods:
+        return fiscal_periods[(int(fiscal_year), int(quarter_num))]
+    # Conservative fallback used in unit tests and for metadata-only local files.
+    fy = int(fiscal_year)
+    q = int(quarter_num)
+    fallback = {
+        1: dt.date(fy, 5, 3),
+        2: dt.date(fy, 8, 2),
+        3: dt.date(fy, 11, 1),
+        4: dt.date(fy + 1, 1, 31),
+    }
+    return fallback.get(q)
+
+
+def _parse_anf_sales_mix_tables_from_html(path_in: Path, q_end: Optional[dt.date]) -> pd.DataFrame:
+    """Parse ANF earnings-release region/brand tables into normalized segment rows."""
+    try:
+        tables = pd.read_html(str(path_in), header=None)
+    except Exception:
+        return pd.DataFrame()
+    rows: List[Dict[str, Any]] = []
+    doc = str(path_in)
+    for table in tables:
+        if table is None or table.empty:
+            continue
+        table_txt = " ".join([*(str(c) for c in table.columns), *table.astype(str).fillna("").values.ravel().tolist()])
+        table_low = table_txt.lower()
+        if not any(tok in table_low for tok in ("net sales by segment", "net sales by brand family", "comparable sales")):
+            continue
+        section = ""
+        current_period_type = "annual" if "full year" in table_low and "fourth quarter" not in table_low else "quarter"
+        for _, raw_row in table.iterrows():
+            cells = [str(x if pd.notna(x) else "").strip() for x in raw_row.tolist()]
+            row_txt = " ".join(c for c in cells if c).strip()
+            row_low = row_txt.lower()
+            if not row_txt:
+                continue
+            if "full year" in row_low:
+                current_period_type = "annual"
+                continue
+            if "fourth quarter" in row_low or re.search(r"\bquarter\s+fiscal\s+20\d{2}\b", row_low):
+                current_period_type = "quarter"
+                continue
+            if "net sales by segment" in row_low:
+                section = "region"
+                continue
+            if "net sales by brand family" in row_low:
+                section = "brand"
+                continue
+            segment = _anf_segment_label(cells[0] if cells else "")
+            if not segment:
+                continue
+            if segment == "Total Company" and not section:
+                section = "total"
+            amount: Optional[float] = None
+            for cell in cells[1:]:
+                amount = _parse_anf_amount_thousands(cell)
+                if amount is not None and amount > 1_000_000.0:
+                    break
+            pct_tokens = re.findall(r"\(?-?\d+(?:\.\d+)?\)?\s*%", row_txt)
+            pcts = [_parse_anf_pct_value(tok) for tok in pct_tokens]
+            pcts = [float(v) for v in pcts if v is not None]
+            growth = pcts[0] if pcts else None
+            comp = pcts[-1] if pcts else None
+            if amount is not None and amount > 0:
+                source_period_label = "FY" if current_period_type == "annual" else "Q"
+                rows.append(
+                    {
+                        "quarter": q_end,
+                        "segment": segment,
+                        "metric": "revenue",
+                        "value": float(amount),
+                        "unit": "USD",
+                        "period_type": current_period_type,
+                        "source_period_label": source_period_label,
+                        "source_type": "earnings_release_table",
+                        "source": "earnings_release",
+                        "doc": doc,
+                        "source_snippet": row_txt[:320],
+                    }
+                )
+            if growth is not None and segment != "Total Company":
+                source_period_label = "FY" if current_period_type == "annual" else "Q"
+                rows.append(
+                    {
+                        "quarter": q_end,
+                        "segment": segment,
+                        "metric": "net_sales_growth",
+                        "value": float(growth),
+                        "unit": "%",
+                        "period_type": current_period_type,
+                        "source_period_label": source_period_label,
+                        "source_type": "earnings_release_table",
+                        "source": "earnings_release",
+                        "doc": doc,
+                        "source_snippet": row_txt[:320],
+                    }
+                )
+            if comp is not None:
+                source_period_label = "FY" if current_period_type == "annual" else "Q"
+                rows.append(
+                    {
+                        "quarter": q_end,
+                        "segment": segment,
+                        "metric": "comparable_sales",
+                        "value": float(comp),
+                        "unit": "%",
+                        "period_type": current_period_type,
+                        "source_period_label": source_period_label,
+                        "source_type": "earnings_release_table",
+                        "source": "earnings_release",
+                        "doc": doc,
+                        "source_snippet": row_txt[:320],
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def _parse_anf_quarterly_history_retail_driver_rows(
+    path_in: Path,
+    *,
+    fiscal_periods: Optional[Dict[Tuple[int, int], dt.date]] = None,
+) -> pd.DataFrame:
+    """Parse ANF quarterly-history XLSX comparable sales and store-count schedules."""
+    if path_in is None or not Path(path_in).exists():
+        return pd.DataFrame()
+    try:
+        from openpyxl import load_workbook
+    except Exception:  # pragma: no cover - optional dependency guard
+        return pd.DataFrame()
+    try:
+        wb = load_workbook(str(path_in), data_only=True, read_only=True)
+    except Exception:
+        return pd.DataFrame()
+    rows: List[Dict[str, Any]] = []
+    doc = str(path_in)
+
+    def _fy_from_text(value: Any) -> Optional[int]:
+        m = re.search(r"\b(20\d{2})\b", str(value or ""))
+        return int(m.group(1)) if m else None
+
+    default_fy = _fy_from_text(Path(path_in).name)
+
+    if "Historical Comparable Sales" in wb.sheetnames:
+        ws = wb["Historical Comparable Sales"]
+        col_meta: Dict[int, Tuple[Optional[int], Optional[int], str, str]] = {}
+        last_fy: Optional[int] = None
+        for col in range(2, ws.max_column + 1):
+            fy_val = _fy_from_text(ws.cell(row=4, column=col).value)
+            if fy_val is not None:
+                last_fy = fy_val
+            fy = fy_val or last_fy or default_fy
+            period_raw = str(ws.cell(row=5, column=col).value or "").strip()
+            q_match = re.search(r"\bQ([1-4])\b", period_raw, re.I)
+            quarter_num = int(q_match.group(1)) if q_match else None
+            period_type = "quarter" if quarter_num is not None else "annual"
+            if fy is not None:
+                col_meta[col] = (fy, quarter_num, period_type, period_raw)
+        for row_idx in range(1, ws.max_row + 1):
+            label = str(ws.cell(row=row_idx, column=1).value or "").strip()
+            if not label:
+                continue
+            segment = _anf_segment_label(label)
+            if not segment:
+                continue
+            for col, (fy, q_num, period_type, period_raw) in col_meta.items():
+                val = _parse_anf_pct_value(ws.cell(row=row_idx, column=col).value)
+                if val is None:
+                    continue
+                qd = _anf_period_end_for_fy_q(fy, q_num or 4, fiscal_periods)
+                if qd is None:
+                    continue
+                rows.append(
+                    {
+                        "quarter": qd,
+                        "segment": segment,
+                        "metric": "comparable_sales",
+                        "value": float(val),
+                        "unit": "%",
+                        "period_type": period_type,
+                        "source_period_label": period_raw or ("FY" if period_type == "annual" else f"Q{q_num}"),
+                        "source_type": "quarterly_history",
+                        "source": "slides",
+                        "doc": doc,
+                        "source_snippet": f"{label} {period_raw}: {val:.1%}",
+                    }
+                )
+
+    if "Store Count" in wb.sheetnames:
+        ws = wb["Store Count"]
+        fy = default_fy
+        if fy is None:
+            for row_idx in range(1, min(ws.max_row, 12) + 1):
+                fy = fy or _fy_from_text(ws.cell(row=row_idx, column=1).value)
+        q_end = _anf_period_end_for_fy_q(fy, 4, fiscal_periods) if fy is not None else None
+        col_segment: Dict[int, str] = {}
+        col_region_brand: Dict[int, Tuple[str, str]] = {}
+        current_region = ""
+        for col in range(2, ws.max_column + 1):
+            region_raw = str(ws.cell(row=4, column=col).value or "").strip()
+            if region_raw:
+                current_region = _anf_segment_label(region_raw)
+            brand_raw = str(ws.cell(row=5, column=col).value or "").strip()
+            brand = _anf_segment_label(brand_raw)
+            if current_region or brand:
+                col_region_brand[col] = (current_region, brand)
+            header_bits: List[str] = []
+            for row_idx in range(1, 8):
+                val = str(ws.cell(row=row_idx, column=col).value or "").strip()
+                if val:
+                    header_bits.append(val)
+            header = " ".join(header_bits)
+            seg = _anf_segment_label(header) or ("Total Company" if col == 2 else "")
+            if seg:
+                col_segment[col] = seg
+        metric_map = [
+            ("new", "new_stores", "annual", False),
+            ("permanently closed", "closed_stores", "annual", True),
+            ("closed", "closed_stores", "annual", True),
+            ("franchise", "franchise_stores", "quarter", False),
+            ("total including franchise", "total_stores_including_franchise", "quarter", False),
+        ]
+        store_section = "company_owned"
+        for row_idx in range(1, ws.max_row + 1):
+            label = str(ws.cell(row=row_idx, column=1).value or "").strip()
+            low = label.lower()
+            if not label or q_end is None:
+                continue
+            if low == "franchise":
+                store_section = "franchise"
+                continue
+            if low == "total":
+                store_section = "total"
+                continue
+            metric: Optional[str] = None
+            period_type = "annual"
+            abs_value = False
+            if ("january" in low or (fy is not None and str(fy + 1) in low and re.search(r"\b31\b", low))) and store_section == "franchise":
+                metric = "franchise_stores"
+                period_type = "quarter"
+            elif ("january" in low or (fy is not None and str(fy + 1) in low and re.search(r"\b31\b", low))) and store_section == "total":
+                metric = "total_stores_including_franchise"
+                period_type = "quarter"
+            elif "february" in low or (fy is not None and f"{fy}-02" in low):
+                metric = "store_count_beginning"
+                period_type = "annual"
+            elif "january" in low or (fy is not None and str(fy + 1) in low and re.search(r"\b31\b", low)):
+                metric = "store_count_end"
+                period_type = "quarter"
+            for token, metric_name, ptype, make_abs in metric_map:
+                if token in low:
+                    metric = metric_name
+                    period_type = ptype
+                    abs_value = make_abs
+            if metric is None:
+                continue
+            row_values: Dict[str, float] = {}
+            region_values: Dict[str, float] = {}
+            brand_total_values: Dict[str, float] = {}
+            for col in range(2, ws.max_column + 1):
+                raw = ws.cell(row=row_idx, column=col).value
+                num = pd.to_numeric(raw, errors="coerce")
+                if pd.isna(num):
+                    continue
+                value = abs(float(num)) if abs_value else float(num)
+                region, brand = col_region_brand.get(col, ("", ""))
+                if region in {"Americas", "EMEA", "APAC"}:
+                    region_values[region] = region_values.get(region, 0.0) + value
+                if region == "Total Company" and brand in {"Abercrombie", "Hollister"}:
+                    brand_total_values[brand] = value
+                fallback_seg = col_segment.get(col, "")
+                if not region_values and fallback_seg:
+                    row_values[fallback_seg] = value
+            if brand_total_values:
+                row_values.update(brand_total_values)
+                row_values["Total Company"] = sum(brand_total_values.values())
+            elif region_values:
+                row_values.update(region_values)
+                row_values["Total Company"] = sum(region_values.values())
+
+            for seg, value in row_values.items():
+                rows.append(
+                    {
+                        "quarter": q_end,
+                        "segment": seg,
+                        "metric": metric,
+                        "value": value,
+                        "unit": "stores",
+                        "period_type": period_type,
+                        "source_period_label": "FY" if period_type == "annual" else "Q4",
+                        "source_type": "quarterly_history",
+                        "source": "slides",
+                        "doc": doc,
+                        "source_snippet": f"{label} {seg}: {value:g}",
+                    }
+                )
+    try:
+        wb.close()
+    except Exception:
+        pass
+    return pd.DataFrame(rows)
+
+
+def _parse_anf_retail_text_driver_rows_from_lines(
+    lines: List[str],
+    *,
+    quarter_end: Optional[dt.date],
+    source_doc: str = "",
+    source_type: str = "",
+) -> pd.DataFrame:
+    """Extract high-signal ANF retail/brand drivers from narrative sources."""
+    q_end = quarter_end
+    if q_end is None:
+        return pd.DataFrame()
+    rows: List[Dict[str, Any]] = []
+    seen: set[Tuple[str, str]] = set()
+
+    def _clean(txt: Any) -> str:
+        return re.sub(r"\s+", " ", str(txt or "")).strip()
+
+    def _add(
+        metric: str,
+        value: Any,
+        unit: str,
+        note: str,
+        *,
+        segment: str = "Total Company",
+        period_type: str = "quarter",
+        driver_group: str = "ANF retail drivers",
+        source_period_label: str = "",
+    ) -> None:
+        if not metric or value is None:
+            return
+        note_txt = _clean(note)
+        key = (metric, note_txt[:180])
+        if key in seen:
+            return
+        seen.add(key)
+        rows.append(
+            {
+                "quarter": q_end,
+                "segment": segment,
+                "metric": metric,
+                "value": value,
+                "unit": unit,
+                "period_type": period_type,
+                "source_period_label": source_period_label or ("FY" if period_type == "annual" else "Q"),
+                "driver_group": driver_group,
+                "driver": metric.replace("_", " ").title(),
+                "note": note_txt,
+                "commentary": note_txt,
+                "source_excerpt": note_txt,
+                "source_snippet": note_txt,
+                "source_doc": source_doc,
+                "doc": source_doc,
+                "source": source_type,
+                "source_type": source_type,
+            }
+        )
+
+    blob = "\n".join(_clean(line) for line in lines if _clean(line))
+    for line in [_clean(line) for line in lines if _clean(line)]:
+        low = line.lower()
+        if re.search(r"\b44%\s+of\s+total\s+sales\s+were\s+digital\b", low) or ("digital" in low and "44%" in low):
+            _add("digital_sales_mix", 0.44, "%", line, period_type="annual", driver_group="Digital / omnichannel")
+            holl = re.search(r"hollister\s+(?:around\s+)?(\d+(?:\.\d+)?)%", low)
+            ab = re.search(r"abercrombie\s+(?:around\s+)?(\d+(?:\.\d+)?)%", low)
+            if holl:
+                _add("digital_sales_mix", float(holl.group(1)) / 100.0, "%", line, segment="Hollister", period_type="annual", driver_group="Digital / omnichannel")
+            if ab:
+                _add("digital_sales_mix", float(ab.group(1)) / 100.0, "%", line, segment="Abercrombie", period_type="annual", driver_group="Digital / omnichannel")
+        if "1 billion" in low and re.search(r"\b(visits|platforms?)\b", low):
+            _add("digital_visits", 1000.0, "m visits", line, period_type="annual", driver_group="Digital / omnichannel")
+        if "omnichannel" in low and ("valuable" in low or "customer" in low):
+            _add("omnichannel_customer_value", 1.0, "signal", line, period_type="annual", driver_group="Digital / omnichannel")
+        if "record fourth quarter" in low and "brand" in low:
+            _add("brand_record_q4_sales", 1.0, "signal", line, driver_group="Brand-family momentum")
+        if "abercrombie" in low and "returned to growth" in low:
+            _add("abercrombie_returned_to_growth", 1.0, "signal", line, segment="Abercrombie", driver_group="Brand-family momentum")
+        if "hollister" in low and ("11th consecutive" in low or "consecutive quarter" in low):
+            _add("hollister_consecutive_growth", 11.0, "quarters", line, segment="Hollister", driver_group="Brand-family momentum")
+        if "new store" in low or "right size" in low or "remodel" in low or "closed" in low:
+            m_new = re.search(r"(\d+)\s+new\s+stores?", low)
+            m_rs = re.search(r"(\d+)\s+right\s*sizes?", low)
+            m_rem = re.search(r"(\d+)\s+remodels?", low)
+            m_closed = re.search(r"closed\s+(\d+)\s+stores?", low) or re.search(r"(\d+)\s+closures?", low)
+            m_end = re.search(r"ended\s+the\s+year\s+with\s+(\d+)\s+stores?", low)
+            m_holl = re.search(r"(\d+)\s+hollister", low)
+            m_ab = re.search(r"(\d+)\s+(?:a&f|abercrombie)", low)
+            if m_new:
+                _add("new_stores", float(m_new.group(1)), "stores", line, period_type="annual", driver_group="Stores / real estate")
+            if m_rs:
+                _add("right_sized_stores", float(m_rs.group(1)), "stores", line, period_type="annual", driver_group="Stores / real estate")
+            if m_rem:
+                _add("remodeled_stores", float(m_rem.group(1)), "stores", line, period_type="annual", driver_group="Stores / real estate")
+            if m_closed:
+                _add("closed_stores", float(m_closed.group(1)), "stores", line, period_type="annual", driver_group="Stores / real estate")
+            if m_end:
+                _add("store_count_end", float(m_end.group(1)), "stores", line, driver_group="Stores / real estate")
+            if m_holl:
+                _add("store_count_end", float(m_holl.group(1)), "stores", line, segment="Hollister", driver_group="Stores / real estate")
+            if m_ab:
+                _add("store_count_end", float(m_ab.group(1)), "stores", line, segment="Abercrombie", driver_group="Stores / real estate")
+        if "inventory" in low:
+            m_cost = re.search(r"inventory(?:\s+at)?\s+cost\s+(?:was\s+)?up\s+(\d+(?:\.\d+)?)%", low)
+            m_tar = re.search(r"(\d+(?:\.\d+)?)\s+points?\s+from\s+tariffs?", low)
+            m_unit = re.search(r"units?\s+(?:were\s+)?up\s+(\d+(?:\.\d+)?)%", low)
+            m_erp = re.search(r"(\d+(?:\.\d+)?)\s+points?\s+from\s+strategic\s+receipts|(\d+(?:\.\d+)?)\s+points?\s+.*erp", low)
+            m_ex = re.search(r"up\s+roughly\s+(\d+(?:\.\d+)?)%\s+excluding\s+erp", low)
+            if m_cost:
+                _add("inventory_cost_growth", float(m_cost.group(1)) / 100.0, "%", line, period_type="annual", driver_group="Inventory quality")
+            if m_tar:
+                _add("inventory_cost_tariff_points", float(m_tar.group(1)), "pts", line, period_type="annual", driver_group="Inventory quality")
+            if m_unit:
+                _add("inventory_unit_growth", float(m_unit.group(1)) / 100.0, "%", line, period_type="annual", driver_group="Inventory quality")
+            if m_erp:
+                erp_val = m_erp.group(1) or m_erp.group(2)
+                _add("inventory_unit_growth_erp_points", float(erp_val), "pts", line, period_type="annual", driver_group="Inventory quality")
+            if m_ex:
+                _add("inventory_unit_growth_ex_erp", float(m_ex.group(1)) / 100.0, "%", line, period_type="annual", driver_group="Inventory quality")
+        if "tariff" in low or "freight" in low or "erp" in low or "aur" in low or "marketing" in low:
+            if "q1" in low or "first quarter" in low:
+                m_tar = re.search(r"tariff[^.]{0,80}?(\d+(?:\.\d+)?)\s+basis\s+points?", low)
+                m_tar_m = re.search(r"tariff[^.]{0,120}?\$(\d+(?:\.\d+)?)\s+million", low)
+                m_fr = re.search(r"freight[^.]{0,80}?(\d+(?:\.\d+)?)\s+basis\s+points?", low)
+                m_erp_sales = re.search(r"(\d+(?:\.\d+)?)\s+to\s+(\d+(?:\.\d+)?)\s+percentage\s+point\s+sales\s+headwind", low)
+                m_erp_margin = re.search(r"over\s+(\d+(?:\.\d+)?)\s+basis\s+points?\s+of\s+operating\s+margin", low)
+                m_marketing = re.search(r"marketing[^.]{0,80}?(\d+(?:\.\d+)?)\s+basis\s+points?", low)
+                if m_tar:
+                    _add("q1_fy2026_tariff_headwind_bps", float(m_tar.group(1)), "bps", line, driver_group="FY2026 margin bridge", source_period_label="Q1 FY2026")
+                if m_tar_m:
+                    _add("q1_fy2026_tariff_headwind", float(m_tar_m.group(1)), "$m", line, driver_group="FY2026 margin bridge", source_period_label="Q1 FY2026")
+                if m_fr:
+                    _add("q1_fy2026_freight_tailwind_bps", float(m_fr.group(1)), "bps", line, driver_group="FY2026 margin bridge", source_period_label="Q1 FY2026")
+                if m_erp_sales:
+                    _add("q1_fy2026_erp_sales_headwind_low", float(m_erp_sales.group(1)), "ppt", line, driver_group="FY2026 margin bridge", source_period_label="Q1 FY2026")
+                    _add("q1_fy2026_erp_sales_headwind_high", float(m_erp_sales.group(2)), "ppt", line, driver_group="FY2026 margin bridge", source_period_label="Q1 FY2026")
+                if m_erp_margin:
+                    _add("q1_fy2026_erp_margin_headwind_bps", float(m_erp_margin.group(1)), "bps", line, driver_group="FY2026 margin bridge", source_period_label="Q1 FY2026")
+                if m_marketing:
+                    _add("q1_fy2026_marketing_headwind_bps", float(m_marketing.group(1)), "bps", line, driver_group="FY2026 margin bridge", source_period_label="Q1 FY2026")
+            if "fiscal 2026" in low or "fy2026" in low or "full year" in low:
+                fy_tar_vals = re.findall(r"(\d+(?:\.\d+)?)\s+basis\s+points?", low)
+                m_fy_tar_m = re.search(r"\$(\d+(?:\.\d+)?)\s+million\s+incremental", low)
+                if fy_tar_vals:
+                    fy_tar = fy_tar_vals[-1] if "full year" in low and len(fy_tar_vals) > 1 else fy_tar_vals[0]
+                    _add("fy2026_tariff_headwind_bps", float(fy_tar), "bps", line, period_type="annual", driver_group="FY2026 margin bridge", source_period_label="FY2026")
+                if m_fy_tar_m:
+                    _add("fy2026_tariff_headwind", float(m_fy_tar_m.group(1)), "$m", line, period_type="annual", driver_group="FY2026 margin bridge", source_period_label="FY2026")
+            if "aur" in low:
+                _add("fy2026_aur_expansion", 1.0, "signal", line, period_type="annual", driver_group="FY2026 margin bridge", source_period_label="FY2026")
+            if "mitigation" in low or "supplier negotiation" in low or "selective pricing" in low:
+                _add("tariff_mitigation", 1.0, "signal", line, period_type="annual", driver_group="FY2026 margin bridge", source_period_label="FY2026")
+        if "repurchases" in low or "repurchased" in low or "buyback" in low:
+            if re.search(r"\b(outlook|guidance|expects?|at least|around)\b", low) and not re.search(r"\b(full year share repurchases|returned|for the full year|repurchased\s+\d)", low):
+                continue
+            cash_vals = re.findall(r"\$(\d+(?:\.\d+)?)\s+million", low)
+            share_vals = re.findall(r"(\d+(?:\.\d+)?)\s+million\s+shares", low)
+            if cash_vals and "remaining" in low and len(cash_vals) > 1:
+                cash_val = cash_vals[0]
+            elif cash_vals and re.search(r"\b(full year|returned|for the full year)\b", low):
+                cash_val = cash_vals[-1]
+            else:
+                cash_val = cash_vals[0] if cash_vals else None
+            share_val = share_vals[-1] if (share_vals and re.search(r"\b(full year|for the full year)\b", low)) else (share_vals[0] if share_vals else None)
+            m_pct = re.search(r"(\d+(?:\.\d+)?)%\s+of\s+shares", low)
+            m_auth = re.search(r"\$(\d+(?:\.\d+)?)\s+million\s+remaining", low)
+            if cash_val:
+                _add("share_repurchases", float(cash_val), "$m", line, period_type="annual", driver_group="Capital allocation")
+            if share_val:
+                _add("shares_repurchased", float(share_val), "m shares", line, period_type="annual", driver_group="Capital allocation")
+            if cash_val and share_val and float(share_val) > 0:
+                _add("average_buyback_price", float(cash_val) / float(share_val), "$/share", line, period_type="annual", driver_group="Capital allocation")
+            if m_pct:
+                _add("shares_repurchased_opening_share_pct", float(m_pct.group(1)) / 100.0, "%", line, period_type="annual", driver_group="Capital allocation")
+            if m_auth:
+                _add("remaining_buyback_authorization", float(m_auth.group(1)), "$m", line, period_type="annual", driver_group="Capital allocation")
+    if "store" in blob.lower() and "digital halo" in blob.lower():
+        _add("store_digital_halo", 1.0, "signal", "Stores create a digital halo, especially in international markets.", period_type="annual", driver_group="Digital / omnichannel")
+    return pd.DataFrame(rows)
+
+
+def _normalize_anf_guidance_rows(rows_in: Optional[pd.DataFrame]) -> pd.DataFrame:
+    if rows_in is None or rows_in.empty:
+        return pd.DataFrame()
+    df = rows_in.copy()
+    for col in ("quarter", "period_label", "metric_hint", "numbers", "line", "source", "doc", "unit"):
+        if col not in df.columns:
+            df[col] = ""
+    df["quarter"] = pd.to_datetime(df["quarter"], errors="coerce")
+    df = df[df["quarter"].notna()].copy()
+    if df.empty:
+        return df
+    df["period_label"] = df["period_label"].astype(str).str.strip()
+    df["metric_hint"] = df["metric_hint"].astype(str).str.strip()
+    df["numbers"] = df["numbers"].astype(str).str.strip()
+    df["line"] = df["line"].astype(str).str.strip()
+    df["source"] = df["source"].astype(str).str.strip()
+    df["doc"] = df["doc"].astype(str).str.strip()
+    df["unit"] = df["unit"].astype(str).str.strip()
+
+    def _visible_period_label(period_label: str) -> str:
+        raw = str(period_label or "").strip()
+        q_match = re.fullmatch(r"Q([1-4])\s*FY(20\d{2})", raw, re.I)
+        if q_match:
+            return f"Q{int(q_match.group(1))} {int(q_match.group(2))}"
+        fy_match = re.fullmatch(r"FY(20\d{2})", raw, re.I)
+        if fy_match:
+            return f"{int(fy_match.group(1))} year"
+        return raw
+
+    def _stated_in_label(q_raw: Any) -> str:
+        q_ts = pd.to_datetime(q_raw, errors="coerce")
+        if pd.isna(q_ts):
+            return ""
+        qd = pd.Timestamp(q_ts).date()
+        fp = _anf_fiscal_period_from_date(qd)
+        if fp is None:
+            return ""
+        return f"Q{fp[1]} {fp[0]}"
+
+    def _maybe_reclassify_period(period: str, metric: str, line: str) -> Tuple[str, str]:
+        period_txt = str(period or "").strip()
+        metric_low = str(metric or "").strip().lower()
+        line_low = str(line or "").lower()
+        annual_context = bool(re.search(r"\b(full[- ]year|full year|fiscal\s+20\d{2}|for the year|annual outlook)\b", line_low, re.I))
+        q_match = re.fullmatch(r"Q([1-4])\s+FY(20\d{2})", period_txt, re.I)
+        if q_match and metric_low in {"adj eps", "eps"}:
+            eps_vals = [
+                float(x)
+                for x in re.findall(r"\$\s*(\d+(?:\.\d+)?)", str(line or ""))
+                if pd.notna(pd.to_numeric(x, errors="coerce"))
+            ]
+            if any(v >= 5.0 for v in eps_vals):
+                return f"FY{int(q_match.group(2))}", "annual"
+        if q_match and annual_context and metric_low in {"revenue", "operating margin", "adj eps", "share repurchases", "diluted shares", "capex", "real estate activity", "tariffs"}:
+            return f"FY{int(q_match.group(2))}", "annual"
+        if period_txt.upper().startswith("FY"):
+            return period_txt, "annual"
+        if period_txt.upper().startswith("Q"):
+            return period_txt, "quarter"
+        return period_txt, ""
+
+    def _metric_unit_ok(metric: str, unit: str, numbers: str, line: str) -> bool:
+        metric_low = str(metric or "").strip().lower()
+        unit_low = str(unit or "").strip().lower()
+        blob = f"{numbers} {line}".lower()
+        if "revenue" in metric_low:
+            return unit_low == "%" or "%" in blob
+        if "eps" in metric_low:
+            return unit_low in {"", "$", "$/share"} or "$" in blob
+        if "operating margin" in metric_low or "margin" == metric_low:
+            return unit_low in {"", "%"} or "%" in blob
+        if "share repurchase" in metric_low:
+            return unit_low in {"", "$m", "$"} and "share" not in unit_low
+        if "diluted shares" in metric_low:
+            return unit_low in {"", "m shares", "shares"} and "$" not in blob
+        if "capex" in metric_low:
+            return unit_low in {"", "$m", "$"} or "$" in blob
+        if "tariff" in metric_low:
+            return unit_low in {"bps", "$m", "$", ""}
+        return True
+
+    def _is_business_update_row(source: str, doc: str, line: str) -> bool:
+        blob = f"{source} {doc} {line}".lower().replace("-", " ")
+        return "business update" in blob or "business_update" in blob or "businessupdate" in blob
+
+    def _is_clean_business_update_same_year(metric: str, line: str, numbers: str) -> bool:
+        metric_low = str(metric or "").strip().lower()
+        blob = f"{line} {numbers}".lower()
+        if "business update" in blob or "currently expects" in blob:
+            return True
+        if "revenue" in metric_low:
+            return "at least" in blob and "6" in blob
+        if "operating margin" in metric_low:
+            return "around 13" in blob
+        if "eps" in metric_low:
+            return "10.30" in blob and "10.40" in blob
+        if "share repurchase" in metric_low:
+            return "450" in blob
+        if "capex" in metric_low:
+            return "245" in blob
+        return False
+
+    def _target_quarter(period: str) -> Optional[Tuple[int, int]]:
+        q_match = re.fullmatch(r"Q([1-4])\s+FY(20\d{2})", str(period or "").strip(), re.I)
+        if not q_match:
+            return None
+        return int(q_match.group(2)), int(q_match.group(1))
+
+    allowed_source_re = re.compile(r"\b(earnings_release|press_release|slides|presentation)\b", re.I)
+    explicit_context_re = re.compile(
+        r"\b(outlook|guidance|expects?|anticipates?|currently expects|business update|fiscal outlook|"
+        r"first quarter outlook|full year outlook|in the range|around|at least)\b",
+        re.I,
+    )
+    bad_line_re = re.compile(
+        r"\b(actual results?|reported results?|net sales increased|delivered record|table of contents|safe harbor|"
+        r"forward-looking statements?|risk factors|annual report|form 10-k)\b",
+        re.I,
+    )
+
+    keep: List[bool] = []
+    for rec in df.to_dict("records"):
+        period = str(rec.get("period_label") or "")
+        metric = str(rec.get("metric_hint") or "")
+        nums = str(rec.get("numbers") or "")
+        line = str(rec.get("line") or "")
+        source = str(rec.get("source") or "")
+        doc = str(rec.get("doc") or "")
+        unit = str(rec.get("unit") or "")
+        low_line = line.lower()
+        if not period or not metric or not nums:
+            keep.append(False)
+            continue
+        period, inferred_period_type = _maybe_reclassify_period(period, metric, line)
+        df.loc[df.index[len(keep)], "period_label"] = period
+        if inferred_period_type:
+            df.loc[df.index[len(keep)], "period_type"] = inferred_period_type
+        if not re.match(r"^(?:Q[1-4]\s+FY20\d{2}|FY20\d{2})$", period):
+            keep.append(False)
+            continue
+        if not _metric_unit_ok(metric, unit, nums, line):
+            keep.append(False)
+            continue
+        if not unit and re.search(r"\b(?:approximately|around|~)\s*\d+(?:\.\d+)?\b", nums or line, re.I) and not re.search(r"[%$]|bps|basis points?|shares?|stores?|openings?|closures?", nums or line, re.I):
+            keep.append(False)
+            continue
+        if metric.lower() in {"other", "reported results", "actuals"}:
+            keep.append(False)
+            continue
+        source_ok = (
+            bool(allowed_source_re.search(source) or allowed_source_re.search(doc) or "businessupdate" in doc.lower())
+            or (not source.strip() and not doc.strip() and bool(explicit_context_re.search(line)))
+        )
+        if not source_ok:
+            keep.append(False)
+            continue
+        if re.search(r"\.(?:htm|html|pdf|txt|xlsx)\b", low_line) and len(line.split()) <= 4:
+            keep.append(False)
+            continue
+        if bad_line_re.search(line) and not explicit_context_re.search(line):
+            keep.append(False)
+            continue
+        if metric == "Revenue" and ("$" in nums or unit.lower() in {"$m", "usd", "dollars"}):
+            keep.append(False)
+            continue
+        target_year_match = re.search(r"\bFY(20\d{2})\b", period)
+        target_fy = int(target_year_match.group(1)) if target_year_match else None
+        source_q = pd.to_datetime(rec.get("quarter"), errors="coerce")
+        source_period = _anf_fiscal_period_from_date(pd.Timestamp(source_q).date()) if pd.notna(source_q) else None
+        source_fy = source_period[0] if source_period is not None else None
+        if target_fy is not None and source_fy is not None and (target_fy < source_fy or target_fy > source_fy + 2):
+            keep.append(False)
+            continue
+        target_quarter = _target_quarter(period)
+        if target_quarter is not None and source_period is not None:
+            target_q_fy, target_q_num = target_quarter
+            source_q_num = source_period[1]
+            if target_q_fy < source_fy or (target_q_fy == source_fy and target_q_num < source_q_num):
+                keep.append(False)
+                continue
+        if (
+            target_fy is not None
+            and source_period is not None
+            and str(period).upper().startswith("FY")
+            and target_fy == source_fy
+            and source_period[1] >= 4
+        ):
+            is_business_update = _is_business_update_row(source, doc, line)
+            if not is_business_update or not _is_clean_business_update_same_year(metric, line, nums):
+                keep.append(False)
+                continue
+        keep.append(True)
+    out = df.loc[keep].copy()
+    if out.empty:
+        return out
+    if "period_type" not in out.columns:
+        out["period_type"] = out["period_label"].str.startswith("Q").map({True: "quarter", False: "annual"})
+    else:
+        out["period_type"] = out["period_type"].where(out["period_type"].astype(str).str.strip().ne(""), out["period_label"].str.startswith("Q").map({True: "quarter", False: "annual"}))
+    if "source_context" not in out.columns:
+        out["source_context"] = "normalized_outlook"
+    out["horizon_label"] = out["period_label"].map(_visible_period_label)
+    out["horizon_type"] = out["period_type"].astype(str).str.lower().map(lambda x: "annual" if x == "annual" else ("quarter" if x == "quarter" else x))
+    out["stated_in_label"] = out["quarter"].map(_stated_in_label)
+    business_update_mask = out.apply(
+        lambda rec: _is_business_update_row(str(rec.get("source") or ""), str(rec.get("doc") or ""), str(rec.get("line") or ""))
+        and str(rec.get("horizon_label") or "").strip() == "2025 year",
+        axis=1,
+    )
+    out.loc[business_update_mask, "stated_in_label"] = "Jan 2026 pre-release update"
+    out["period_label"] = out["horizon_label"].map(lambda x: re.sub(r"^(20\d{2}) year$", r"FY\1", str(x)) if re.fullmatch(r"20\d{2} year", str(x)) else re.sub(r"^Q([1-4]) (20\d{2})$", r"Q\1 FY\2", str(x)))
+    out["_dedupe_key"] = (
+        out["quarter"].dt.strftime("%Y-%m-%d")
+        + "|"
+        + out["period_label"].astype(str)
+        + "|"
+        + out["metric_hint"].astype(str)
+        + "|"
+        + out["numbers"].astype(str)
+        + "|"
+        + out["doc"].astype(str)
+    )
+    out = out.drop_duplicates("_dedupe_key", keep="first").drop(columns=["_dedupe_key"], errors="ignore")
+    return out.reset_index(drop=True)
+
+
+def _build_anf_guidance_progress_rows(
+    slides_guidance: Optional[pd.DataFrame],
+    *,
+    hist: Optional[pd.DataFrame] = None,
+    adj_metrics: Optional[pd.DataFrame] = None,
+) -> pd.DataFrame:
+    """Build a compact ANF guidance-revision progress table from normalized guidance rows."""
+    if slides_guidance is None or slides_guidance.empty:
+        return pd.DataFrame()
+    sg = _normalize_anf_guidance_rows(slides_guidance)
+    if sg.empty:
+        return pd.DataFrame()
+    sg["quarter"] = pd.to_datetime(sg["quarter"], errors="coerce")
+    sg = sg[sg["quarter"].notna()].copy()
+    sg = sg.sort_values(["period_label", "metric_hint", "quarter"], kind="stable")
+    hist_local = hist.copy() if isinstance(hist, pd.DataFrame) and not hist.empty else pd.DataFrame()
+    adj_local = adj_metrics.copy() if isinstance(adj_metrics, pd.DataFrame) and not adj_metrics.empty else pd.DataFrame()
+    if not hist_local.empty and "quarter" in hist_local.columns:
+        hist_local["quarter"] = pd.to_datetime(hist_local["quarter"], errors="coerce")
+    if not adj_local.empty and "quarter" in adj_local.columns:
+        adj_local["quarter"] = pd.to_datetime(adj_local["quarter"], errors="coerce")
+
+    def _period_complete(period_label: str) -> bool:
+        m = re.fullmatch(r"FY(20\d{2})", str(period_label or "").strip())
+        if not m or hist_local.empty:
+            return False
+        fy = int(m.group(1))
+        expected_q4 = dt.date(fy + 1, 1, 31)
+        return bool((hist_local["quarter"].dt.date == expected_q4).any())
+
+    def _actual_display(period_label: str, metric: str) -> str:
+        if hist_local.empty:
+            return ""
+        m = re.fullmatch(r"FY(20\d{2})", str(period_label or "").strip())
+        if not m:
+            return ""
+        fy = int(m.group(1))
+        q4_ts = pd.Timestamp(dt.date(fy + 1, 1, 31))
+        cur = hist_local[hist_local["quarter"].eq(q4_ts)].copy()
+        prev = hist_local[hist_local["quarter"].eq(pd.Timestamp(dt.date(fy, 2, 1)))].copy()
+        if cur.empty:
+            return ""
+        rec = cur.iloc[-1]
+        metric_l = str(metric or "").lower()
+        if metric_l == "revenue":
+            rev = pd.to_numeric(rec.get("revenue"), errors="coerce")
+            if pd.notna(rev) and not prev.empty:
+                prev_rev = pd.to_numeric(prev.iloc[-1].get("revenue"), errors="coerce")
+                if pd.notna(prev_rev) and abs(float(prev_rev)) > 1e-9:
+                    return f"actual +{((float(rev) - float(prev_rev)) / abs(float(prev_rev))) * 100.0:.1f}% sales growth"
+            return f"actual ${float(rev) / 1e6:.1f}m revenue" if pd.notna(rev) else ""
+        if metric_l == "operating margin":
+            rev = pd.to_numeric(rec.get("revenue"), errors="coerce")
+            op = pd.to_numeric(rec.get("op_income"), errors="coerce")
+            if pd.notna(rev) and pd.notna(op) and abs(float(rev)) > 1e-9:
+                return f"actual {float(op) / float(rev) * 100.0:.1f}% GAAP operating margin"
+        if metric_l == "adj eps":
+            if not adj_local.empty:
+                adj = adj_local[adj_local["quarter"].eq(q4_ts)].copy()
+                if not adj.empty and "period_type" in adj.columns:
+                    adj = adj[adj["period_type"].astype(str).str.lower().eq("annual")]
+                if not adj.empty:
+                    eps = pd.to_numeric(adj.iloc[-1].get("adj_eps"), errors="coerce")
+                    if pd.notna(eps):
+                        return f"actual ${float(eps):.2f} adjusted EPS"
+            eps = pd.to_numeric(rec.get("eps_diluted"), errors="coerce")
+            return f"actual ${float(eps):.2f} GAAP EPS" if pd.notna(eps) else ""
+        if metric_l == "capex":
+            capex = pd.to_numeric(rec.get("capex"), errors="coerce")
+            return f"actual ${float(capex) / 1e6:.1f}m capex" if pd.notna(capex) else ""
+        return ""
+
+    metric_display = {
+        "Revenue": "Revenue guidance",
+        "Operating margin": "Operating margin guidance",
+        "Adj EPS": "EPS guidance",
+        "Share repurchases": "Share repurchase guidance",
+        "Diluted shares": "Diluted-share guidance",
+        "Capex": "Capex guidance",
+        "Real estate activity": "Real-estate guidance",
+        "Tariffs": "Tariff-impact guidance",
+    }
+    rows: List[Dict[str, Any]] = []
+    for (period_label, metric), sub in sg.groupby(["period_label", "metric_hint"], sort=True):
+        sub = sub.sort_values("quarter", kind="stable").reset_index(drop=True)
+        complete = _period_complete(str(period_label))
+        actual_txt = _actual_display(str(period_label), str(metric)) if complete else ""
+        for idx, rec in sub.iterrows():
+            qv = pd.Timestamp(rec.get("quarter"))
+            target = str(rec.get("numbers") or "").strip()
+            status = "open"
+            rationale = f"{period_label} {metric} guidance: {target}."
+            if complete:
+                status = "resolved_pass" if actual_txt else "resolved_watch"
+                rationale = f"{period_label} {metric} guidance revised to {target}; {actual_txt or 'period complete, actual needs review'}."
+            rows.append(
+                {
+                    "promise_id": f"ANF:{period_label}:{metric}:{idx + 1}",
+                    "quarter": qv,
+                    "status": status,
+                    "score": 90 if complete else 80,
+                    "metric_ref": metric_display.get(str(metric), f"{metric} guidance"),
+                    "metric_display": metric_display.get(str(metric), f"{metric} guidance"),
+                    "target": target,
+                    "target_display": target,
+                    "actual": actual_txt,
+                    "rationale": rationale,
+                    "guidance_type": "ANF normalized guidance",
+                    "target_period_norm": period_label,
+                    "target_period_label": period_label,
+                    "first_seen_quarter": qv,
+                    "last_seen_quarter": qv,
+                    "first_seen_evidence_quarter": qv,
+                    "last_seen_evidence_quarter": qv,
+                    "source_evidence_json": json.dumps(
+                        {
+                            "doc": rec.get("doc"),
+                            "line": rec.get("line"),
+                            "numbers": target,
+                            "period_label": period_label,
+                            "metric": metric,
+                        },
+                        ensure_ascii=False,
+                        default=str,
+                    ),
+                    "promise_type": "guidance",
+                    "scorable": bool(complete),
+                    "numeric_update_this_quarter": True,
+                    "evaluated_through": qv,
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 def _apply_anf_company_overview_overrides(
@@ -1143,7 +2219,8 @@ def _apply_anf_company_overview_overrides(
     context_fallback = (
         "ANF's current model is driven by brand momentum across Abercrombie and Hollister, comparable sales, "
         "gross margin discipline, inventory control, store optimization, digital/omnichannel engagement, "
-        "international growth in EMEA/APAC, and capital returns supported by a net-cash balance sheet."
+        "international growth in EMEA/APAC, and capital returns supported by a net-cash balance sheet. "
+        "Digital represented about 44% of FY2025 sales, supported by more than 1 billion platform visits."
     )
     advantage_fallback = (
         "The core advantage is the combination of two refreshed global brand families, an omnichannel store "
@@ -1162,10 +2239,18 @@ def _apply_anf_company_overview_overrides(
             return True
         return bool(noise_re.search(txt))
 
+    def _weak_anf_context(value: Any) -> bool:
+        txt = str(value or "").strip().lower()
+        if not txt:
+            return True
+        if "cash flow and capital allocation" in txt and not re.search(r"\b(abercrombie|hollister|comparable|gross margin|digital|omnichannel|stores?|emea|apac)\b", txt, re.I):
+            return True
+        return not bool(re.search(r"\b(abercrombie|hollister|comparable|gross margin|inventory|digital|omnichannel|stores?|emea|apac|brand)\b", txt, re.I))
+
     if _bad_text(out.get("what_it_does")):
         out["what_it_does"] = business_fallback
         out["what_it_does_source"] = source
-    if _bad_text(out.get("current_strategic_context")):
+    if _bad_text(out.get("current_strategic_context")) or _weak_anf_context(out.get("current_strategic_context")):
         out["current_strategic_context"] = context_fallback
         out["current_strategic_context_source"] = source
     if _bad_text(out.get("key_advantage")):
@@ -1250,15 +2335,21 @@ def _build_anf_source_quarter_notes(
     if not target_dates:
         return pd.DataFrame()
     target_set = set(target_dates)
+    hist_by_q: Dict[dt.date, Dict[str, Any]] = {}
+    for rec in h.to_dict("records"):
+        qv = pd.to_datetime(rec.get("quarter"), errors="coerce")
+        if pd.isna(qv):
+            continue
+        hist_by_q[pd.Timestamp(qv).date()] = dict(rec)
     fiscal_map = _anf_fiscal_periods_from_history(h)
     aliases = _retail_fiscal_aliases_from_history(h)
     source_dirs: List[Tuple[str, int, Path]] = [
         ("earnings_release", 100, base_dir / "earnings_release"),
-        ("earnings_presentation", 90, base_dir / "earnings_presentation"),
-        ("earnings_transcript", 80, base_dir / "earnings_transcripts"),
+        ("presentation", 90, base_dir / "earnings_presentation"),
+        ("transcript", 80, base_dir / "earnings_transcripts"),
         ("press_release", 65, base_dir / "press_release"),
-        ("conference_transcript", 55, base_dir / "conferences"),
-        ("annual_report", 20, base_dir / "annual_reports"),
+        ("transcript", 55, base_dir / "conferences"),
+        ("10-k", 20, base_dir / "annual_reports"),
     ]
     theme_patterns: List[Tuple[str, str, str]] = [
         ("Sales", "revenue", r"\b(net sales|sales growth|top line)\b"),
@@ -1284,6 +2375,134 @@ def _build_anf_source_quarter_notes(
         txt = re.sub(r"\s+([,.;:%])", r"\1", txt)
         return txt
 
+    def _fmt_money_short(val: Any) -> Optional[str]:
+        num = pd.to_numeric(val, errors="coerce")
+        if pd.isna(num):
+            return None
+        return f"${float(num) / 1_000_000.0:,.1f}m"
+
+    def _fmt_pct_short(val: Any) -> Optional[str]:
+        num = pd.to_numeric(val, errors="coerce")
+        if pd.isna(num):
+            return None
+        return f"{float(num) * 100.0:.1f}%"
+
+    def _close_to_history(metric: str, parsed_val: Any, q_end: dt.date, *, pct_tol: float = 0.08) -> bool:
+        hist_val = pd.to_numeric((hist_by_q.get(q_end) or {}).get(metric), errors="coerce")
+        parsed_num = pd.to_numeric(parsed_val, errors="coerce")
+        if pd.isna(hist_val) or pd.isna(parsed_num):
+            return True
+        denom = max(abs(float(hist_val)), 1.0)
+        return abs(float(parsed_num) - float(hist_val)) <= max(5_000_000.0, denom * pct_tol)
+
+    def _statement_note_values_ok(values: Dict[str, Any], q_end: dt.date) -> bool:
+        revenue = pd.to_numeric(values.get("revenue"), errors="coerce")
+        gross = pd.to_numeric(values.get("gross_profit"), errors="coerce")
+        op_income = pd.to_numeric(values.get("op_income"), errors="coerce")
+        if pd.isna(revenue) or pd.isna(gross) or pd.isna(op_income):
+            return False
+        revenue_f = float(revenue)
+        gross_f = float(gross)
+        op_f = float(op_income)
+        if revenue_f <= 10_000_000.0:
+            return False
+        gross_margin = gross_f / revenue_f
+        op_margin = op_f / revenue_f
+        if gross_margin <= 0.0 or gross_margin >= 0.90:
+            return False
+        if op_margin <= -0.50 or op_margin >= 0.60:
+            return False
+        return (
+            _close_to_history("revenue", revenue_f, q_end)
+            and _close_to_history("gross_profit", gross_f, q_end)
+            and _close_to_history("op_income", op_f, q_end)
+        )
+
+    def _balance_note_values_ok(values: Dict[str, Any], q_end: dt.date) -> bool:
+        cash = pd.to_numeric(values.get("cash"), errors="coerce")
+        inventory = pd.to_numeric(values.get("inventory"), errors="coerce")
+        if pd.isna(cash) or pd.isna(inventory):
+            return False
+        if float(cash) <= 10_000_000.0 or float(inventory) <= 10_000_000.0:
+            return False
+        return _close_to_history("cash", cash, q_end, pct_tol=0.10) and _close_to_history("inventory", inventory, q_end, pct_tol=0.10)
+
+    def _append_note(
+        *,
+        q_end: dt.date,
+        category: str,
+        metric_ref: str,
+        text: str,
+        src_type: str,
+        path_in: Path,
+        priority: int,
+        boost: float = 20.0,
+    ) -> None:
+        txt = _clean_line(text)
+        if len(txt) < 24 or anti_re.search(txt) or _looks_low_signal_anf_note(txt):
+            return
+        key = (q_end, category, re.sub(r"[^a-z0-9]+", " ", txt.lower()).strip()[:140])
+        if key in seen:
+            return
+        seen.add(key)
+        note_id = hashlib.sha1(f"ANF|{q_end}|{category}|{key[2]}".encode("utf-8", errors="ignore")).hexdigest()[:12]
+        rows.append(
+            {
+                "quarter": q_end,
+                "category": category,
+                "tag": category,
+                "topic": category,
+                "metric_ref": metric_ref,
+                "claim": txt,
+                "note": txt,
+                "source_excerpt": txt,
+                "evidence_snippet": txt,
+                "evidence_json": json.dumps(
+                    {
+                        "source_type": src_type,
+                        "doc": str(path_in),
+                        "quote": txt,
+                        "period": str(q_end),
+                    },
+                    ensure_ascii=False,
+                ),
+                "source_type": src_type,
+                "doc": str(path_in),
+                "source_doc": str(path_in),
+                "severity": "info",
+                "severity_score": float(priority) + float(boost),
+                "score": float(priority) + float(boost),
+                "rank": 1,
+                "note_id": note_id,
+            }
+        )
+
+    def _guidance_lookup(rows_in: List[Dict[str, Any]]) -> Dict[Tuple[str, str], str]:
+        out: Dict[Tuple[str, str], str] = {}
+        for rec in rows_in:
+            period = str(rec.get("period_label") or "").strip()
+            metric = str(rec.get("metric_hint") or "").strip()
+            nums = str(rec.get("numbers") or "").strip()
+            if period and metric and nums and (period, metric) not in out:
+                out[(period, metric)] = nums
+        return out
+
+    def _looks_low_signal_anf_note(txt: Any) -> bool:
+        t = _clean_line(txt)
+        low = t.lower()
+        if not t:
+            return True
+        if re.search(r"\b(form\s+10-k|table of contents|chief executive officer|chief financial officer|vp of investor relations)\b", low):
+            return True
+        numeric_tokens = re.findall(r"-?\d+(?:,\d{3})*(?:\.\d+)?%?", t)
+        if len(numeric_tokens) >= 5 and not re.search(r"\b(growth|expects?|outlook|guidance|inventory|digital|stores?|repurchas|tariff|freight|margin|brand|record|returned|delivered)\b", low):
+            return True
+        if re.match(r"^(americas|emea|apac|abercrombie|hollister|total company)\b", low) and len(numeric_tokens) >= 3:
+            return True
+        if low.count(" n/a") >= 2:
+            return True
+        return False
+
     for src_type, priority, folder in source_dirs:
         if not folder.exists():
             continue
@@ -1304,13 +2523,259 @@ def _build_anf_source_quarter_notes(
             q_end = _infer_anf_quarter_from_material(path_in, text, fiscal_map=fiscal_map, aliases=aliases)
             if q_end not in target_set:
                 continue
+            scale = _detect_local_non_gaap_text_scale(text)
+            if src_type in {"earnings_release", "presentation"}:
+                statement_values = _parse_anf_statement_values_from_lines(lines, scale=scale)
+                statement_ok = bool(statement_values and _statement_note_values_ok(statement_values, q_end))
+                if statement_ok:
+                    sales = _fmt_money_short(statement_values.get("revenue"))
+                    gross = _fmt_money_short(statement_values.get("gross_profit"))
+                    op_inc = _fmt_money_short(statement_values.get("op_income"))
+                    gross_margin = _fmt_pct_short(
+                        float(statement_values["gross_profit"]) / float(statement_values["revenue"])
+                        if statement_values.get("gross_profit") is not None and statement_values.get("revenue")
+                        else None
+                    )
+                    op_margin = _fmt_pct_short(
+                        float(statement_values["op_income"]) / float(statement_values["revenue"])
+                        if statement_values.get("op_income") is not None and statement_values.get("revenue")
+                        else None
+                    )
+                    if sales and gross and op_inc:
+                        _append_note(
+                            q_end=q_end,
+                            category="Sales / margin",
+                            metric_ref="revenue_margin",
+                            text=(
+                                f"For the quarter ended {q_end.isoformat()}, net sales were {sales}, gross profit was {gross} "
+                                f"and operating income was {op_inc}, reflecting gross margin {gross_margin or 'n/a'} "
+                                f"and operating margin {op_margin or 'n/a'}."
+                            ),
+                            src_type=src_type,
+                            path_in=path_in,
+                            priority=priority,
+                        )
+                    eps = pd.to_numeric(statement_values.get("eps_diluted"), errors="coerce")
+                    shares = pd.to_numeric(statement_values.get("shares_diluted"), errors="coerce")
+                    ebitda = _fmt_money_short(statement_values.get("ebitda"))
+                    if pd.notna(eps) and pd.notna(shares) and float(shares) > 1_000_000.0:
+                        share_txt = f"{float(shares) / 1_000_000.0:,.3f}m"
+                        _append_note(
+                            q_end=q_end,
+                            category="EPS / adjusted EBITDA",
+                            metric_ref="eps_adj_ebitda",
+                            text=(
+                                f"Diluted EPS was ${float(eps):.2f} on {share_txt} diluted shares"
+                                + (f", while EBITDA/adjusted EBITDA was {ebitda}" if ebitda else "")
+                                + ", supporting the quarter-specific valuation actuals."
+                            ),
+                            src_type=src_type,
+                            path_in=path_in,
+                            priority=priority,
+                        )
+                balance_values = _parse_anf_balance_sheet_values_from_lines(lines, scale=scale)
+                if balance_values and _balance_note_values_ok(balance_values, q_end):
+                    cash = _fmt_money_short(balance_values.get("cash"))
+                    securities = _fmt_money_short(balance_values.get("marketable_securities"))
+                    inventory = _fmt_money_short(balance_values.get("inventory"))
+                    debt_core = pd.to_numeric(balance_values.get("debt_core"), errors="coerce")
+                    if cash and inventory:
+                        debt_phrase = "with no conventional core debt identified" if pd.notna(debt_core) and abs(float(debt_core)) < 1 else "with core debt reviewed separately"
+                        _append_note(
+                            q_end=q_end,
+                            category="Inventory / liquidity",
+                            metric_ref="inventory_liquidity",
+                            text=(
+                                f"Balance-sheet support shows cash and equivalents of {cash}"
+                                + (f" plus marketable securities of {securities}" if securities else "")
+                                + f" and inventory of {inventory}, {debt_phrase}, supporting net-cash flexibility."
+                            ),
+                            src_type=src_type,
+                            path_in=path_in,
+                            priority=priority,
+                        )
+                guidance_rows = _parse_anf_guidance_rows_from_lines(lines, q_end)
+                guidance_map = _guidance_lookup(guidance_rows)
+                if guidance_map:
+                    quarter_labels = sorted({period for period, _metric in guidance_map.keys() if str(period).startswith("Q")})
+                    annual_labels = sorted({period for period, _metric in guidance_map.keys() if str(period).startswith("FY")})
+                    near_q_label = quarter_labels[0] if quarter_labels else ""
+                    fy_label = annual_labels[0] if annual_labels else ""
+                    q_rev = guidance_map.get((near_q_label, "Revenue"))
+                    q_margin = guidance_map.get((near_q_label, "Operating margin"))
+                    q_eps = guidance_map.get((near_q_label, "Adj EPS"))
+                    fy_rev = guidance_map.get((fy_label, "Revenue"))
+                    fy_margin = guidance_map.get((fy_label, "Operating margin"))
+                    fy_eps = guidance_map.get((fy_label, "Adj EPS"))
+                    if near_q_label and fy_label and (q_rev or q_margin or q_eps) and (fy_rev or fy_margin or fy_eps):
+                        _append_note(
+                            q_end=q_end,
+                            category="Guidance / outlook",
+                            metric_ref="guidance",
+                            text=(
+                                "Management outlook calls for "
+                                f"{near_q_label} net sales growth {q_rev or 'n/a'}, operating margin {q_margin or 'n/a'} and EPS {q_eps or 'n/a'}, "
+                                f"with {fy_label} net sales growth {fy_rev or 'n/a'}, operating margin {fy_margin or 'n/a'} and EPS {fy_eps or 'n/a'}."
+                            ),
+                            src_type=src_type,
+                            path_in=path_in,
+                            priority=priority,
+                        )
+                    q_buy = guidance_map.get((near_q_label, "Share repurchases"))
+                    fy_buy = guidance_map.get((fy_label, "Share repurchases"))
+                    fy_capex = guidance_map.get((fy_label, "Capex"))
+                    fy_stores = guidance_map.get((fy_label, "Real estate activity"))
+                    q_tariff = guidance_map.get((near_q_label, "Tariffs"))
+                    fy_tariff = guidance_map.get((fy_label, "Tariffs"))
+                    if near_q_label and fy_label and (q_buy or fy_buy or fy_capex or fy_stores):
+                        _append_note(
+                            q_end=q_end,
+                            category="Capital allocation / stores",
+                            metric_ref="buybacks_capex_stores",
+                            text=(
+                                "The outlook includes "
+                                f"{near_q_label} share repurchases {q_buy or 'n/a'}, {fy_label} repurchases {fy_buy or 'n/a'}, "
+                                f"capex {fy_capex or 'n/a'} and real-estate activity {fy_stores or 'n/a'}, "
+                                f"with tariff impact {q_tariff or 'n/a'} in {near_q_label} and {fy_tariff or 'n/a'} for {fy_label}."
+                            ),
+                            src_type=src_type,
+                            path_in=path_in,
+                            priority=priority,
+                        )
+            retail_rows = _parse_anf_retail_text_driver_rows_from_lines(
+                lines,
+                quarter_end=q_end,
+                source_doc=str(path_in),
+                source_type=src_type,
+            )
+            if retail_rows is not None and not retail_rows.empty:
+                metric_values: Dict[str, float] = {}
+                try:
+                    for retail_rec in retail_rows.to_dict("records"):
+                        metric_name = str(retail_rec.get("metric") or "")
+                        val_num = pd.to_numeric(retail_rec.get("value"), errors="coerce")
+                        if metric_name and pd.notna(val_num) and metric_name not in metric_values:
+                            metric_values[metric_name] = float(val_num)
+                except Exception:
+                    metric_values = {}
+                for rec in retail_rows.to_dict("records"):
+                    note_txt = str(rec.get("note") or rec.get("source_snippet") or "").strip()
+                    metric = str(rec.get("metric") or "")
+                    group = str(rec.get("driver_group") or "")
+                    if not note_txt:
+                        continue
+                    category = "Results / drivers / better vs prior"
+                    metric_ref = "operating_drivers"
+                    if "guidance" in group.lower() or "margin bridge" in group.lower() or "fy2026" in metric.lower():
+                        category = "Guidance / outlook"
+                        metric_ref = "guidance_margin_bridge"
+                    elif "capital allocation" in group.lower() or "repurchase" in metric.lower() or "buyback" in metric.lower():
+                        category = "Debt / liquidity / balance sheet"
+                        metric_ref = "buybacks"
+                    elif "inventory" in group.lower():
+                        category = "Inventory / liquidity"
+                        metric_ref = "inventory_quality"
+                    _append_note(
+                        q_end=q_end,
+                        category=category,
+                        metric_ref=metric_ref,
+                        text=note_txt,
+                        src_type=src_type,
+                        path_in=path_in,
+                        priority=priority,
+                        boost=30.0,
+                    )
+                if {"brand_record_q4_sales", "abercrombie_returned_to_growth", "hollister_consecutive_growth"}.intersection(metric_values):
+                    _append_note(
+                        q_end=q_end,
+                        category="Results / drivers / better vs prior",
+                        metric_ref="brand_family_momentum",
+                        text=(
+                            "Q4 FY2025 brand momentum was explicit in source materials: both brands delivered record Q4 net sales, "
+                            "Abercrombie returned to growth and Hollister extended its consecutive-quarter growth streak."
+                        ),
+                        src_type=src_type,
+                        path_in=path_in,
+                        priority=priority,
+                        boost=220.0,
+                    )
+                if "digital_sales_mix" in metric_values:
+                    digital_pct = metric_values.get("digital_sales_mix", 0.0) * 100.0
+                    visits = metric_values.get("digital_visits")
+                    _append_note(
+                        q_end=q_end,
+                        category="Results / drivers / better vs prior",
+                        metric_ref="digital_omnichannel",
+                        text=(
+                            f"Digital/omnichannel is sourced as a material ANF driver: digital was about {digital_pct:.0f}% of FY2025 sales"
+                            + (f" and ANF platforms generated more than {visits / 1000.0:.0f} billion visits." if visits else ".")
+                        ),
+                        src_type=src_type,
+                        path_in=path_in,
+                        priority=priority,
+                        boost=215.0,
+                    )
+                if "inventory_cost_growth" in metric_values and "inventory_unit_growth" in metric_values:
+                    inv_cost_pct = metric_values.get("inventory_cost_growth", 0.0) * 100.0
+                    inv_unit_pct = metric_values.get("inventory_unit_growth", 0.0) * 100.0
+                    inv_tar = metric_values.get("inventory_cost_tariff_points")
+                    inv_erp = metric_values.get("inventory_unit_growth_erp_points")
+                    inv_ex = metric_values.get("inventory_unit_growth_ex_erp")
+                    _append_note(
+                        q_end=q_end,
+                        category="Inventory / liquidity",
+                        metric_ref="inventory_quality",
+                        text=(
+                            f"Inventory quality note: year-end inventory cost was up about {inv_cost_pct:.0f}%"
+                            + (f", including roughly {inv_tar:.0f} pts from tariffs" if inv_tar is not None else "")
+                            + f"; units were up about {inv_unit_pct:.0f}%"
+                            + (f", including roughly {inv_erp:.0f} pts of ERP prebuild, or {inv_ex * 100.0:.0f}% ex-ERP." if inv_erp is not None and inv_ex is not None else ".")
+                        ),
+                        src_type=src_type,
+                        path_in=path_in,
+                        priority=priority,
+                        boost=210.0,
+                    )
+                if "q1_fy2026_tariff_headwind_bps" in metric_values or "fy2026_tariff_headwind_bps" in metric_values:
+                    _append_note(
+                        q_end=q_end,
+                        category="Guidance / outlook",
+                        metric_ref="guidance_margin_bridge",
+                        text=(
+                            "FY2026 margin bridge is sourced: Q1 includes tariff headwind, freight tailwind, ERP operating disruption, "
+                            "higher marketing as a percent of sales and modest AUR/selective pricing mitigation."
+                        ),
+                        src_type=src_type,
+                        path_in=path_in,
+                        priority=priority,
+                        boost=205.0,
+                    )
+                if "share_repurchases" in metric_values:
+                    rep = metric_values.get("share_repurchases")
+                    shares = metric_values.get("shares_repurchased")
+                    avg = metric_values.get("average_buyback_price")
+                    auth = metric_values.get("remaining_buyback_authorization")
+                    _append_note(
+                        q_end=q_end,
+                        category="Debt / liquidity / balance sheet",
+                        metric_ref="buyback_bridge",
+                        text=(
+                            f"Buyback bridge: FY2025 repurchases were about ${rep:.0f}m"
+                            + (f" for {shares:.1f}m shares at roughly ${avg:.2f} per share" if shares is not None and avg is not None else "")
+                            + (f", with about ${auth:.0f}m remaining authorization." if auth is not None else ".")
+                        ),
+                        src_type=src_type,
+                        path_in=path_in,
+                        priority=priority,
+                        boost=205.0,
+                    )
             per_theme_count: Dict[str, int] = {}
             for line in lines:
                 txt = _clean_line(line)
                 if len(txt) < 24 or len(txt) > 360:
                     continue
                 low = txt.lower()
-                if anti_re.search(low):
+                if anti_re.search(low) or _looks_low_signal_anf_note(txt):
                     continue
                 for category, metric_ref, pat in theme_patterns:
                     if per_theme_count.get(category, 0) >= 2:
@@ -1334,6 +2799,7 @@ def _build_anf_source_quarter_notes(
                             "metric_ref": metric_ref,
                             "claim": txt,
                             "note": txt,
+                            "source_excerpt": txt,
                             "evidence_snippet": txt,
                             "evidence_json": json.dumps(
                                 {
@@ -1626,6 +3092,79 @@ def _prune_local_non_gaap_metrics_against_existing(
     return pruned.loc[keep_indices].reset_index(drop=True)
 
 
+def _sanitize_anf_adjusted_metric_units(
+    adj_metrics: pd.DataFrame,
+    adj_breakdown: pd.DataFrame,
+    hist: pd.DataFrame,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Normalize ANF adjusted metrics that generic SEC HTML parsing reads 1,000x high."""
+    if adj_metrics is None or adj_metrics.empty:
+        return adj_metrics, adj_breakdown
+    out = adj_metrics.copy()
+    if "quarter" not in out.columns:
+        return out, adj_breakdown
+    out["quarter"] = pd.to_datetime(out["quarter"], errors="coerce")
+
+    revenue_by_q: Dict[pd.Timestamp, float] = {}
+    if hist is not None and not hist.empty and {"quarter", "revenue"}.issubset(hist.columns):
+        h = hist.copy()
+        h["quarter"] = pd.to_datetime(h["quarter"], errors="coerce")
+        h["revenue"] = pd.to_numeric(h["revenue"], errors="coerce")
+        for rec in h.dropna(subset=["quarter", "revenue"]).to_dict("records"):
+            revenue_by_q[pd.Timestamp(rec["quarter"])] = float(rec["revenue"])
+
+    scaled_quarters: set[pd.Timestamp] = set()
+    metric_cols = [c for c in ("adj_ebit", "adj_ebitda", "adj_fcf") if c in out.columns]
+    for idx, row in out.iterrows():
+        q_raw = row.get("quarter")
+        if pd.isna(q_raw):
+            continue
+        q_ts = pd.Timestamp(q_raw)
+        rev = revenue_by_q.get(q_ts)
+        for col in metric_cols:
+            val = pd.to_numeric(row.get(col), errors="coerce")
+            if pd.isna(val):
+                continue
+            val_f = float(val)
+            abs_val = abs(val_f)
+            scale_down = False
+            if abs_val >= 5_000_000_000.0:
+                scale_down = True
+            elif rev is not None and rev > 0 and abs_val > rev * 10.0 and (abs_val / 1000.0) <= rev * 1.5:
+                scale_down = True
+            if scale_down:
+                out.at[idx, col] = val_f / 1000.0
+                scaled_quarters.add(q_ts)
+                if "source_snippet" in out.columns:
+                    prior_note = str(out.at[idx, "source_snippet"] or "")
+                    note = "ANF unit-normalized from 1,000x generic SEC parse"
+                    if note not in prior_note:
+                        out.at[idx, "source_snippet"] = (prior_note + " | " + note).strip(" |")
+
+    if adj_breakdown is None or adj_breakdown.empty or "quarter" not in adj_breakdown.columns or "value" not in adj_breakdown.columns:
+        return out, adj_breakdown
+    bd = adj_breakdown.copy()
+    bd["quarter"] = pd.to_datetime(bd["quarter"], errors="coerce")
+    bd["value"] = pd.to_numeric(bd["value"], errors="coerce")
+    for idx, row in bd.iterrows():
+        q_raw = row.get("quarter")
+        val = row.get("value")
+        if pd.isna(q_raw) or pd.isna(val):
+            continue
+        q_ts = pd.Timestamp(q_raw)
+        val_f = float(val)
+        rev = revenue_by_q.get(q_ts)
+        if abs(val_f) >= 5_000_000_000.0 or (
+            q_ts in scaled_quarters
+            and rev is not None
+            and rev > 0
+            and abs(val_f) > rev * 10.0
+            and (abs(val_f) / 1000.0) <= rev * 1.5
+        ):
+            bd.at[idx, "value"] = val_f / 1000.0
+    return out, bd
+
+
 def _local_non_gaap_pdf_cache_dirs(base_dir: Path, src_name: str) -> Tuple[Path, Path]:
     cache_root = preferred_ticker_cache_root_from_base_dir(base_dir)
     if str(src_name or "").strip().lower() == "slides":
@@ -1848,6 +3387,7 @@ def run_pipeline_impl(
     slides_segments = pd.DataFrame()
     slides_debt = pd.DataFrame()
     slides_guidance = pd.DataFrame()
+    slides_guidance_raw = pd.DataFrame()
 
     if config.enable_tier3_non_gaap:
         def _load_or_build_tier3(mode_name: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -1918,7 +3458,7 @@ def run_pipeline_impl(
 
     existing_metrics_by_quarter_for_local_fallback: Dict[pd.Timestamp, set[str]] = {}
 
-    def build_non_gaap_local_fallback() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    def build_non_gaap_local_fallback() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         rows_m: List[Dict[str, Any]] = []
         rows_f: List[Dict[str, Any]] = []
         rows_seg: List[Dict[str, Any]] = []
@@ -1959,12 +3499,10 @@ def run_pipeline_impl(
             if not _allow_actuals_from_local_page(src_name, path_in, txt):
                 return False
             if tkr_u == "ANF":
-                src_low = str(src_name or "").strip().lower()
-                name_low = str(path_in.name or "").strip().lower()
-                if src_low in {"transcripts", "annual_reports"}:
-                    return False
-                if src_low == "slides" and "financial_schedules" not in name_low and "earnings_release" not in name_low:
-                    return False
+                # ANF financial schedules are parsed by the dedicated table parser
+                # above. The generic relaxed OCR parser mis-scales several EX-99
+                # HTML releases and creates noisy 1,000x adjusted metrics.
+                return False
             return True
 
         def _detect_scale_txt(t: str) -> float:
@@ -2206,9 +3744,7 @@ def run_pipeline_impl(
             if not lines:
                 return out
             if tkr_u == "ANF":
-                anf_rows = _parse_anf_guidance_rows_from_lines(lines, q_end)
-                if anf_rows:
-                    return anf_rows
+                return _parse_anf_guidance_rows_from_lines(lines, q_end)
             anchor_re = re.compile(
                 r"\b(guidance|outlook|financial outlook|updated guidance|full[- ]year outlook|next[- ]year outlook|targets?)\b",
                 re.I,
@@ -2539,6 +4075,17 @@ def run_pipeline_impl(
             for p in files[:200]:
                 if not p.is_file():
                     continue
+                if tkr_u == "ANF" and src_name == "slides" and p.suffix.lower() == ".xlsx":
+                    try:
+                        hist_rows = _parse_anf_quarterly_history_retail_driver_rows(
+                            p,
+                            fiscal_periods=anf_fiscal_map,
+                        )
+                    except Exception:
+                        hist_rows = pd.DataFrame()
+                    if hist_rows is not None and not hist_rows.empty:
+                        rows_seg.extend(hist_rows.to_dict("records"))
+                    continue
                 if p.suffix.lower() not in (".txt", ".htm", ".html", ".pdf"):
                     continue
                 # For slides, skip very old decks outside the configured window (perf).
@@ -2592,6 +4139,18 @@ def run_pipeline_impl(
                                 for r0 in anf_guidance_rows:
                                     r0.update({"doc": str(p), "page": None, "source": src_name})
                                 rows_guid.extend(anf_guidance_rows)
+                            if p.suffix.lower() in {".htm", ".html"}:
+                                mix_rows = _parse_anf_sales_mix_tables_from_html(p, q_full)
+                                if mix_rows is not None and not mix_rows.empty:
+                                    rows_seg.extend(mix_rows.to_dict("records"))
+                            retail_text_rows = _parse_anf_retail_text_driver_rows_from_lines(
+                                full_lines,
+                                quarter_end=q_full,
+                                source_doc=str(p),
+                                source_type=src_name,
+                            )
+                            if retail_text_rows is not None and not retail_text_rows.empty:
+                                rows_seg.extend(retail_text_rows.to_dict("records"))
                 if p.suffix.lower() == ".pdf":
                     try:
                         import pdfplumber  # type: ignore
@@ -2691,6 +4250,8 @@ def run_pipeline_impl(
                                     if seg_rows:
                                         for r0 in seg_rows:
                                             r0.update({"doc": str(p), "page": idx + 1, "source": src_name})
+                                            if src_name == "annual_reports":
+                                                r0.update({"period_type": "annual", "source_period_label": "annual"})
                                         rows_seg.extend(seg_rows)
                                 if actuals_allowed and scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
                                     src_name,
@@ -2819,6 +4380,8 @@ def run_pipeline_impl(
                                     if seg_rows:
                                         for r0 in seg_rows:
                                             r0.update({"doc": str(p), "page": idx + 1, "source": src_name})
+                                            if src_name == "annual_reports":
+                                                r0.update({"period_type": "annual", "source_period_label": "annual"})
                                         rows_seg.extend(seg_rows)
                                 if actuals_allowed and scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
                                     src_name,
@@ -2866,6 +4429,15 @@ def run_pipeline_impl(
                     )
                     if q_end is None:
                         continue
+                    if tkr_u == "ANF":
+                        retail_text_rows = _parse_anf_retail_text_driver_rows_from_lines(
+                            [re.sub(r"\s+", " ", ln).strip() for ln in txt.splitlines() if ln.strip()],
+                            quarter_end=q_end,
+                            source_doc=str(p),
+                            source_type=src_name,
+                        )
+                        if retail_text_rows is not None and not retail_text_rows.empty:
+                            rows_seg.extend(retail_text_rows.to_dict("records"))
                     actuals_allowed = _allow_actuals_from_local_page(src_name, p, txt)
                     if _allow_non_gaap_metrics_from_local_page(src_name, p, txt) and scores.get("non_gaap", 0) >= 2 and _page_is_recon(txt):
                         for q_end_use in _local_non_gaap_metric_quarters(txt, q_end):
@@ -2909,6 +4481,8 @@ def run_pipeline_impl(
                         if seg_rows:
                             for r0 in seg_rows:
                                 r0.update({"doc": str(p), "page": None, "source": src_name})
+                                if src_name == "annual_reports":
+                                    r0.update({"period_type": "annual", "source_period_label": "annual"})
                             rows_seg.extend(seg_rows)
                     if actuals_allowed and scores.get("debt", 0) >= 2 and _local_non_gaap_debt_source_allowed(
                         src_name,
@@ -3004,7 +4578,16 @@ def run_pipeline_impl(
             pass
         df_debt = _limit_recent_financial_statement_debt_rows(pd.DataFrame(rows_debt))
         df_debt = _drop_financial_statement_debt_rows_covered_by_slides(df_debt)
-        return df_m, pd.DataFrame(rows_f), _dedupe_local_non_gaap_segment_rows(pd.DataFrame(rows_seg)), df_debt, pd.DataFrame(rows_guid)
+        df_guid_raw = _dedupe_slides_guidance_rows(pd.DataFrame(rows_guid))
+        df_guid = _normalize_anf_guidance_rows(df_guid_raw) if tkr_u == "ANF" else df_guid_raw
+        return (
+            df_m,
+            pd.DataFrame(rows_f),
+            _dedupe_local_non_gaap_segment_rows(pd.DataFrame(rows_seg)),
+            df_debt,
+            df_guid_raw,
+            df_guid,
+        )
 
     # Use local fallback only when EX-99 (strict/relaxed) missing for a quarter
     if config.enable_tier3_non_gaap:
@@ -3047,10 +4630,11 @@ def run_pipeline_impl(
             local_files = local_fallback_cached.get("files", pd.DataFrame())
             local_segments = local_fallback_cached.get("segments", pd.DataFrame())
             local_debt = local_fallback_cached.get("debt", pd.DataFrame())
+            local_guidance_raw = local_fallback_cached.get("guidance_raw", pd.DataFrame())
             local_guidance = local_fallback_cached.get("guidance", pd.DataFrame())
         else:
             with _timed_stage(stage_timings, "local_non_gaap_fallback", enabled=config.profile_timings):
-                local_metrics, local_files, local_segments, local_debt, local_guidance = build_non_gaap_local_fallback()
+                local_metrics, local_files, local_segments, local_debt, local_guidance_raw, local_guidance = build_non_gaap_local_fallback()
             _save_stage_cache(
                 "local_non_gaap_fallback",
                 local_fallback_key,
@@ -3059,6 +4643,7 @@ def run_pipeline_impl(
                     "files": local_files,
                     "segments": local_segments,
                     "debt": local_debt,
+                    "guidance_raw": local_guidance_raw,
                     "guidance": local_guidance,
                 },
             )
@@ -3081,7 +4666,10 @@ def run_pipeline_impl(
         # stash local slide/segment/debt/guidance extracts for Excel (if any)
         slides_segments = local_segments
         slides_debt = local_debt
+        slides_guidance_raw = local_guidance_raw
         slides_guidance = local_guidance
+    if tkr_u == "ANF":
+        adj_metrics, adj_breakdown = _sanitize_anf_adjusted_metric_units(adj_metrics, adj_breakdown, hist)
 
     non_gaap_needs = pd.DataFrame()
     non_gaap_info = pd.DataFrame()
@@ -3618,6 +5206,41 @@ def run_pipeline_impl(
             if missing_rows:
                 revolver_history = pd.concat([revolver_history, pd.DataFrame(missing_rows)], ignore_index=True, sort=False)
             revolver_history = revolver_history.sort_values("quarter").reset_index(drop=True)
+    if str(ticker or "").upper() == "ANF":
+        anf_abl_q = pd.Timestamp("2026-01-31")
+        anf_abl_row = {
+            "quarter": anf_abl_q,
+            "revolver_commitment": 500_000_000.0,
+            "revolver_facility_size": 500_000_000.0,
+            "revolver_drawn": 0.0,
+            "revolver_letters_of_credit": 454_000.0,
+            "revolver_availability": 449_546_000.0,
+            "revolver_utilization": 0.0,
+            "commitment_source_type": "10-K debt note",
+            "facility_source_type": "10-K debt note",
+            "drawn_source_type": "10-K debt note",
+            "lc_source_type": "10-K debt note",
+            "availability_source_type": "10-K debt note",
+            "source_type": "10-K debt note",
+            "source_snippet": (
+                "ABL Facility up to $500 million, matures August 2, 2029; no borrowings outstanding "
+                "as of January 31, 2026; borrowing capacity available $449.546m."
+            ),
+            "note": "ANF latest ABL facility from FY2025 10-K.",
+        }
+        if revolver_history is None or revolver_history.empty:
+            revolver_history = pd.DataFrame([anf_abl_row])
+        else:
+            revolver_history = revolver_history.copy()
+            revolver_history["quarter"] = pd.to_datetime(revolver_history["quarter"], errors="coerce")
+            mask = revolver_history["quarter"].dt.normalize().eq(anf_abl_q)
+            if mask.any():
+                idx = revolver_history.index[mask][-1]
+                for col, val in anf_abl_row.items():
+                    revolver_history.at[idx, col] = val
+            else:
+                revolver_history = pd.concat([revolver_history, pd.DataFrame([anf_abl_row])], ignore_index=True, sort=False)
+            revolver_history = revolver_history.sort_values("quarter").reset_index(drop=True)
     debt_buckets, debt_bucket_qa = build_debt_buckets(debt_tranches_latest, hist, maturity_df=debt_maturity)
     try:
         if debt_buckets is not None and not debt_buckets.empty and debt_profile is not None and not debt_profile.empty:
@@ -3738,6 +5361,13 @@ def run_pipeline_impl(
         anf_source_notes = _build_anf_source_quarter_notes(hist=hist, base_dir=base_dir, config=config)
         if not anf_source_notes.empty:
             quarter_notes = pd.concat([quarter_notes, anf_source_notes], ignore_index=True, sort=False) if quarter_notes is not None and not quarter_notes.empty else anf_source_notes
+        anf_progress = _build_anf_guidance_progress_rows(slides_guidance, hist=hist, adj_metrics=adj_metrics)
+        if not anf_progress.empty:
+            promise_progress = (
+                pd.concat([promise_progress, anf_progress], ignore_index=True, sort=False)
+                if promise_progress is not None and not promise_progress.empty
+                else anf_progress
+            )
     quarter_notes_qa = validate_quarter_notes(quarter_notes, hist)
     promise_qa_df = build_promise_qa_checks(promises, promise_progress)
     non_gaap_qa_df = build_non_gaap_cred_qa(non_gaap_cred)
@@ -3844,5 +5474,6 @@ def run_pipeline_impl(
         promise_progress=promise_progress,
         non_gaap_cred=non_gaap_cred,
         company_overview=company_overview,
+        guidance_raw=slides_guidance_raw,
         stage_timings=stage_timings,
     )

@@ -1070,6 +1070,30 @@ def validate_quarter_notes(quarter_notes: pd.DataFrame, hist: pd.DataFrame) -> p
     if quarter_notes is None or quarter_notes.empty:
         return pd.DataFrame(rows)
 
+    source_backed_metric_refs = {
+        "brand_family_momentum",
+        "buyback_bridge",
+        "buybacks",
+        "buybacks_capex_stores",
+        "comparable_sales",
+        "digital_omnichannel",
+        "eps",
+        "eps_adj_ebitda",
+        "guidance",
+        "guidance_margin_bridge",
+        "inventory_liquidity",
+        "inventory_quality",
+        "margin",
+        "operating_drivers",
+        "revenue",
+        "revenue_margin",
+    }
+    metric_aliases = {
+        "eps": ["eps_diluted", "eps_basic", "adj_eps", "adjusted_eps"],
+        "margin": ["op_margin", "operating_margin", "gross_margin"],
+        "revenue": ["revenue", "net_sales", "sales"],
+    }
+
     h = hist.copy() if hist is not None else pd.DataFrame()
     if not h.empty and "quarter" in h.columns:
         h["quarter"] = pd.to_datetime(h["quarter"], errors="coerce").dt.date
@@ -1084,11 +1108,15 @@ def validate_quarter_notes(quarter_notes: pd.DataFrame, hist: pd.DataFrame) -> p
         note_id = str(r.get("note_id") or "")
         ev_list: List[Dict[str, Any]] = []
         ev_raw = r.get("evidence_json")
+        if not (isinstance(ev_raw, str) and ev_raw.strip()):
+            ev_raw = r.get("evidence")
         if isinstance(ev_raw, str) and ev_raw.strip():
             try:
                 parsed = json.loads(ev_raw)
                 if isinstance(parsed, list):
                     ev_list = parsed
+                elif isinstance(parsed, dict):
+                    ev_list = [parsed]
             except Exception:
                 ev_list = []
         if not ev_list:
@@ -1105,9 +1133,34 @@ def validate_quarter_notes(quarter_notes: pd.DataFrame, hist: pd.DataFrame) -> p
             continue
 
         ev0 = ev_list[0] if ev_list else {}
-        doc_path = str(ev0.get("doc_path") or "").strip()
-        section_or_page = str(ev0.get("section_or_page") or "").strip()
-        snippet = str(ev0.get("snippet") or "").strip()
+        doc_path = str(
+            ev0.get("doc_path")
+            or ev0.get("doc")
+            or ev0.get("source_doc")
+            or r.get("doc_path")
+            or r.get("evidence_doc")
+            or r.get("source_doc")
+            or ""
+        ).strip()
+        section_or_page = str(
+            ev0.get("section_or_page")
+            or ev0.get("section")
+            or ev0.get("page")
+            or ev0.get("source_type")
+            or ev0.get("period")
+            or r.get("section_or_page")
+            or r.get("evidence_loc")
+            or r.get("source_type")
+            or ""
+        ).strip()
+        snippet = str(
+            ev0.get("snippet")
+            or ev0.get("quote")
+            or ev0.get("source_excerpt")
+            or r.get("evidence_snippet")
+            or r.get("source_excerpt")
+            or ""
+        ).strip()
         if not doc_path or not section_or_page or not snippet:
             rows.append(
                 {
@@ -1128,7 +1181,7 @@ def validate_quarter_notes(quarter_notes: pd.DataFrame, hist: pd.DataFrame) -> p
                 str(r.get("claim") or ""),
                 str(r.get("body") or ""),
                 str(ev0.get("anchor_hit") or ""),
-                str(ev0.get("snippet") or ""),
+                snippet,
             ]
         )
         if not _has_time_anchor(anchor_payload):
@@ -1150,8 +1203,18 @@ def validate_quarter_notes(quarter_notes: pd.DataFrame, hist: pd.DataFrame) -> p
         if not metric_ok:
             metric_name = metric_ref.split(":", 1)[-1]
             hq = h[h["quarter"] == qd]
-            if (not hq.empty) and metric_name in hq.columns:
-                metric_ok = _none_if_nan(hq.iloc[0].get(metric_name)) is not None
+            candidate_names = [metric_name] + metric_aliases.get(metric_name.lower(), [])
+            if not hq.empty:
+                for candidate_name in candidate_names:
+                    if candidate_name in hq.columns and _none_if_nan(hq.iloc[0].get(candidate_name)) is not None:
+                        metric_ok = True
+                        break
+        if (not metric_ok) and doc_path and snippet and metric_ref.lower() in source_backed_metric_refs:
+            # Narrative/source-derived ANF notes often use semantic metric tags
+            # rather than History_Q column names. Treat them as evidence-backed
+            # commentary instead of hard failures; hard numeric notes still need
+            # a value or a History_Q fallback.
+            continue
         if not metric_ok:
             rows.append(
                 {

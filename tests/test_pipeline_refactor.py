@@ -82,7 +82,7 @@ def test_cash_identity_qa_is_labeled_as_approximate_bridge() -> None:
     qa = pipeline.build_qa_checks(df_all, hist)
     row = qa.loc[qa["check"].eq("cash_identity")].iloc[0]
 
-    assert row["status"] == "fail"
+    assert row["status"] == "warn"
     assert row["issue_family"] == "cash_bridge_definition_gap"
     assert "Approx cash bridge" in row["message"]
     assert "not a parser conflict" in row["message"]

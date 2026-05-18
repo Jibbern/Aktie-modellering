@@ -892,6 +892,9 @@ def main() -> None:
             )
         _save_pipeline_bundle_cache(cfg.cache_dir, args.ticker, pipeline_cache_key, pipeline_bundle)
 
+    bundle_items = tuple(pipeline_bundle)
+    guidance_raw = bundle_items[35] if len(bundle_items) > 35 and isinstance(bundle_items[35], pd.DataFrame) else pd.DataFrame()
+
     (
         hist,
         audit,
@@ -928,7 +931,7 @@ def main() -> None:
         promise_progress,
         non_gaap_cred,
         company_overview,
-    ) = pipeline_bundle
+    ) = bundle_items[:35]
 
     partial_debug_scope = str(args.excel_debug_scope or "full").strip().lower() != "full"
     out_path = _default_out_path(args.ticker) if not args.out else _normalize_out_path_xlsm(args.out)
@@ -981,6 +984,7 @@ def main() -> None:
             promise_progress=promise_progress,
             non_gaap_cred=non_gaap_cred,
             company_overview=company_overview,
+            guidance_raw=guidance_raw,
             ticker=args.ticker,
             price=cfg.price,
             strictness=cfg.strictness,

@@ -54,6 +54,7 @@ PIPELINE_BUNDLE_FIELD_NAMES: Tuple[str, ...] = (
     "promise_progress",
     "non_gaap_cred",
     "company_overview",
+    "guidance_raw",
 )
 
 STATUS_NOT_FOUND = "not_found"

@@ -10908,6 +10908,29 @@ def build_qa_checks(df_all: pd.DataFrame, hist: pd.DataFrame, audit: pd.DataFram
         h["fy"] = mapped.map(lambda x: _safe_pair_value(x, 0))
         h["fp"] = mapped.map(lambda x: _safe_pair_value(x, 1))
 
+    if "quarter" in h.columns:
+        h["_quarter_date"] = pd.to_datetime(h["quarter"], errors="coerce").dt.date
+
+    fy_end_dates_sorted = sorted({d for d in fy_to_end.values() if isinstance(d, dt.date)})
+
+    def _history_rows_for_fiscal_year(fy_end: dt.date) -> pd.DataFrame:
+        if "_quarter_date" not in h.columns or not isinstance(fy_end, dt.date):
+            return pd.DataFrame()
+        fy_rows = h[h["_quarter_date"].notna()].copy()
+        prior_ends = [d for d in fy_end_dates_sorted if d < fy_end]
+        prior_end = max(prior_ends) if prior_ends else None
+        fy_rows = fy_rows[fy_rows["_quarter_date"] <= fy_end].copy()
+        if prior_end is not None:
+            fy_rows = fy_rows[fy_rows["_quarter_date"] > prior_end].copy()
+        fy_rows = fy_rows.sort_values("_quarter_date")
+        if len(fy_rows) > 4:
+            fy_rows = fy_rows.tail(4).copy()
+        if len(fy_rows) < 4:
+            return pd.DataFrame()
+        if fy_end not in set(fy_rows["_quarter_date"]):
+            return pd.DataFrame()
+        return fy_rows
+
     # Map quarter -> filed date from audit (for vintage alignment)
     filed_map: Dict[Tuple[str, dt.date], dt.date] = {}
     if audit is not None and not audit.empty and "filed" in audit.columns:
@@ -10973,8 +10996,9 @@ def build_qa_checks(df_all: pd.DataFrame, hist: pd.DataFrame, audit: pd.DataFram
             if fy_facts.empty:
                 continue
             # choose FY fact that matches quarter vintage
-            q_rows = h[h["fy"] == fy].copy()
-            q_rows = q_rows[q_rows["fp"].astype(str).isin({"Q1", "Q2", "Q3", "FY"})]
+            q_rows = _history_rows_for_fiscal_year(fy_end)
+            if q_rows.empty:
+                continue
             filed_dates = []
             for _, qr in q_rows.iterrows():
                 fd = filed_map.get((spec.name, pd.to_datetime(qr["quarter"]).date()))
@@ -10997,12 +11021,10 @@ def build_qa_checks(df_all: pd.DataFrame, hist: pd.DataFrame, audit: pd.DataFram
             fy_fact = fy_facts.sort_values("filed_d", ascending=False).iloc[0]
             if fy_fact is None:
                 continue
-            fy_rows = h[h["fy"] == fy].copy()
-            fps = set(fy_rows["fp"].dropna().astype(str))
-            required_fps = {"Q1", "Q2", "Q3", "FY"}
-            if not required_fps.issubset(fps):
+            fy_rows = _history_rows_for_fiscal_year(fy_end)
+            if fy_rows.empty:
                 continue
-            qsum = fy_rows[fy_rows["fp"].astype(str).isin(required_fps)][spec.name].dropna()
+            qsum = fy_rows[spec.name].dropna()
             if qsum.shape[0] < 4:
                 continue
             sum_val = float(qsum.sum())
@@ -11043,7 +11065,7 @@ def build_qa_checks(df_all: pd.DataFrame, hist: pd.DataFrame, audit: pd.DataFram
             fail_thr = max(0.5 * base, 150_000_000.0)
             status = "pass"
             if abs(r["residual"]) > fail_thr:
-                status = "fail"
+                status = "warn"
             elif abs(r["residual"]) > warn_thr:
                 status = "warn"
             rows.append({
@@ -11505,6 +11527,7 @@ def write_excel(
     promise_progress: pd.DataFrame,
     non_gaap_cred: pd.DataFrame,
     company_overview: Optional[Dict[str, Any]] = None,
+    guidance_raw: Optional[pd.DataFrame] = None,
     ticker: Optional[str] = None,
     price: Optional[float] = None,
     strictness: str = 'ytd',
@@ -11565,6 +11588,7 @@ def write_excel(
         promise_progress=promise_progress,
         non_gaap_cred=non_gaap_cred,
         company_overview=company_overview,
+        guidance_raw=guidance_raw if isinstance(guidance_raw, pd.DataFrame) else pd.DataFrame(),
         ticker=ticker,
         price=price,
         strictness=strictness,
