@@ -23,7 +23,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from ..conference_metadata import conference_source_role, parse_metadata_key_values, parse_metadata_number
+from ..conference_metadata import parse_metadata_key_values, parse_metadata_number, source_material_role
 from ..company_profiles import get_company_profile
 from ..debt_parser import read_html_tables_any
 from .aggregations import aggregate_quarterly, parse_quarter_like, quarter_end_from_date
@@ -13560,6 +13560,7 @@ def _gpre_futures_timing_commentary_audit(ticker_root: Optional[Path]) -> pd.Dat
         return pd.DataFrame()
     paths = _gpre_local_doc_paths(
         ticker_root,
+        "earnings_transcripts/*_METADATA_EN.txt",
         "earnings_transcripts/GPRE_Q*_transcript.txt",
         "conferences/*_METADATA_EN.txt",
         "conferences/*.txt",
@@ -13579,7 +13580,7 @@ def _gpre_futures_timing_commentary_audit(ticker_root: Optional[Path]) -> pd.Dat
         commodities: tuple[str, ...],
         text: str,
     ) -> None:
-        role = conference_source_role(path) if str(path).lower().endswith(".txt") and "conferences" in str(path).lower() else "source"
+        role = source_material_role(path)
         key = (signal_type, _quarter_label(target_quarter), ", ".join(commodities))
         if key in seen:
             return
@@ -13603,7 +13604,7 @@ def _gpre_futures_timing_commentary_audit(ticker_root: Optional[Path]) -> pd.Dat
         if not text:
             continue
         text_low = text.lower()
-        source_role = conference_source_role(path)
+        source_role = source_material_role(path)
         metadata_text = text
         if source_role == "metadata_primary":
             try:

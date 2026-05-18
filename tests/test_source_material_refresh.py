@@ -1082,6 +1082,60 @@ def test_normalize_and_collect_local_materials_merges_transcript_alias_and_renam
         shutil.rmtree(case_dir, ignore_errors=True)
 
 
+def test_normalize_and_collect_local_materials_preserves_transcript_metadata_role_and_flags() -> None:
+    case_dir = _make_case_dir()
+    try:
+        material_root = case_dir / "GPRE"
+        alias_dir = material_root / "earnings_transcript"
+        alias_dir.mkdir(parents=True, exist_ok=True)
+        src = alias_dir / "GPRE_Q4_2025_transcript_METADATA_EN.txt"
+        src.write_text(
+            "\n".join(
+                [
+                    "[METADATA]",
+                    "source_file = GPRE_Q4_2025_transcript.txt",
+                    "source_file_type = txt",
+                    "audit_flag = transcript_contains_possible_NOL_value_error",
+                    "",
+                    "[MODEL_INPUT_SIGNALS]",
+                    "q4_hedged_pct = approximately_75",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        result = smr._normalize_and_collect_local_materials(
+            repo_root=case_dir,
+            ticker="GPRE",
+            manifest={},
+            dry_run=False,
+        )
+
+        final_path = material_root / "earnings_transcripts" / "GPRE_Q4_2025_transcript_METADATA_EN.txt"
+        assert final_path.exists()
+        assert any(
+            row["to_path"].endswith("GPRE_Q4_2025_transcript_METADATA_EN.txt")
+            for row in [*result.moved_files, *result.renamed_files]
+        )
+        metadata_candidates = [cand for cand in result.candidates if str(cand.local_path or "").endswith("_METADATA_EN.txt")]
+        assert metadata_candidates
+        assert metadata_candidates[0].selection_reason == "manual/local metadata primary"
+        manifest: dict[str, dict[str, object]] = {}
+        event = smr._materialize_candidate(
+            repo_root=case_dir,
+            ticker="GPRE",
+            candidate=metadata_candidates[0],
+            manifest=manifest,
+            dry_run=False,
+        )
+        assert event.status in {"added", "recognized", "skipped"}
+        entry = next(iter(manifest.values()))
+        assert entry["source_role"] == "metadata_primary"
+        assert "transcript_contains_possible_NOL_value_error" in entry["audit_flags"]
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
 def test_normalize_and_collect_local_materials_renames_manual_presentations_and_ceo_letters() -> None:
     case_dir = _make_case_dir()
     try:

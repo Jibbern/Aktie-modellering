@@ -17,6 +17,12 @@ import requests
 
 from .cache_layout import canonical_ticker_cache_root
 from .company_profiles import CompanyProfile, SourceMaterialSeed, get_company_profile
+from .conference_metadata import (
+    is_structured_metadata_path,
+    metadata_audit_flags,
+    parse_metadata_key_values,
+    source_material_role,
+)
 from .doc_intel import extract_pdf_text_cached
 from .excel_writer_sources import infer_q_from_name
 from .non_gaap import find_ex99_docs, infer_quarter_end_from_text, strip_html
@@ -98,6 +104,8 @@ class MaterialCandidate:
     quarter_assignment_status: str = ""
     quarter_assignment_reason: str = ""
     subject_slug: str = ""
+    source_role: str = ""
+    audit_flags: Tuple[str, ...] = tuple()
 
 
 @dataclasses.dataclass
@@ -1251,6 +1259,8 @@ def _manifest_entry(candidate: MaterialCandidate, resolved_dir: Path, dst_path: 
         "sha256": sha256,
         "status": status,
         "selection_reason": candidate.selection_reason,
+        "source_role": candidate.source_role or source_material_role(dst_path),
+        "audit_flags": tuple(candidate.audit_flags or ()),
     }
 
 
@@ -1264,6 +1274,13 @@ def _candidate_extension(candidate: MaterialCandidate) -> str:
 
 
 def _destination_name(candidate: MaterialCandidate, *, ext: str) -> str:
+    if (
+        candidate.origin == "manual_local"
+        and candidate.canonical_family == "earnings_transcripts"
+        and candidate.local_path is not None
+        and is_structured_metadata_path(candidate.local_path)
+    ):
+        return candidate.local_path.name
     form_tok = re.sub(r"\s+", "", str(candidate.form or "8-K").upper()) or "8-K"
     date_tok = str(candidate.filed_date or candidate.report_date or "unknown")[:10]
     quarter_tok = _quarter_label(candidate.quarter)
@@ -1692,6 +1709,7 @@ def _collect_manual_local_candidates(
                 continue
             if str(inspected.get("canonical_family") or "") == "annual_reports":
                 continue
+            source_role_txt = str(inspected.get("source_role") or source_material_role(path_in))
             candidate = MaterialCandidate(
                 canonical_family=str(inspected.get("canonical_family") or ""),
                 quarter=inspected.get("quarter"),
@@ -1699,11 +1717,13 @@ def _collect_manual_local_candidates(
                 source_url="",
                 title=str(inspected.get("stable_title") or inspected.get("title") or path_in.name),
                 origin="manual_local",
-                selection_reason="manual/local rescan",
+                selection_reason="manual/local metadata primary" if source_role_txt == "metadata_primary" else "manual/local rescan",
                 source_doc_title=str(inspected.get("title") or path_in.name),
                 quarter_assignment_status=str(inspected.get("quarter_assignment_status") or ""),
                 quarter_assignment_reason=str(inspected.get("quarter_assignment_reason") or ""),
                 subject_slug=str(inspected.get("subject_slug") or ""),
+                source_role=source_role_txt,
+                audit_flags=tuple(inspected.get("audit_flags") or ()),
             )
             out.append(candidate)
     return out
@@ -1901,6 +1921,13 @@ def _manual_local_inspection_payload(
     assignment: QuarterAssignment,
     subject_slug: str,
 ) -> Dict[str, Any]:
+    metadata_values: Dict[str, str] = {}
+    role = source_material_role(path_in)
+    if role == "metadata_primary":
+        try:
+            metadata_values = parse_metadata_key_values(path_in.read_text(encoding="utf-8", errors="ignore"))
+        except Exception:
+            metadata_values = {}
     desired_name = _manual_local_destination_name(
         ticker=ticker,
         canonical_family=canonical_family,
@@ -1918,6 +1945,8 @@ def _manual_local_inspection_payload(
         "quarter_assignment_reason": assignment.reason,
         "desired_name": desired_name,
         "subject_slug": subject_slug,
+        "source_role": role,
+        "audit_flags": metadata_audit_flags(metadata_values),
         "review_reason": "",
     }
 
@@ -1952,6 +1981,8 @@ def _manual_local_destination_name(
             suffix = f"_{role_hint}" if role_hint in {"financial_schedules", "quarterly_history"} else ""
             return f"{ticker_txt}_{quarter_txt}_earnings_presentation{suffix}{ext}"
         if canonical_family == "earnings_transcripts":
+            if is_structured_metadata_path(path_in):
+                return f"{ticker_txt}_{quarter_txt}_transcript_METADATA_EN.txt"
             return f"{ticker_txt}_{quarter_txt}_transcript{ext}"
     return path_in.name
 
@@ -2407,7 +2438,14 @@ def _recognized_manual_transcript_candidates(material_root: Path, quarter_target
             qd = assignment.quarter
             if quarter_targets and qd is not None and qd.isoformat() not in quarter_targets:
                 continue
-            out.append(MaterialCandidate(canonical_family="earnings_transcripts", quarter=qd, local_path=path_in, source_url="", title=path_in.name, origin="manual_local", selection_reason="manual/local transcript fallback", source_doc_title=path_in.name, quarter_assignment_status=assignment.status, quarter_assignment_reason=assignment.reason))
+            role = source_material_role(path_in)
+            audit_flags = tuple()
+            if role == "metadata_primary":
+                try:
+                    audit_flags = metadata_audit_flags(parse_metadata_key_values(path_in.read_text(encoding="utf-8", errors="ignore")))
+                except Exception:
+                    audit_flags = tuple()
+            out.append(MaterialCandidate(canonical_family="earnings_transcripts", quarter=qd, local_path=path_in, source_url="", title=path_in.name, origin="manual_local", selection_reason="manual/local metadata primary" if role == "metadata_primary" else "manual/local transcript fallback", source_doc_title=path_in.name, quarter_assignment_status=assignment.status, quarter_assignment_reason=assignment.reason, source_role=role, audit_flags=audit_flags))
     return out
 
 

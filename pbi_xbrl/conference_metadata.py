@@ -1,6 +1,6 @@
-"""Helpers for local conference transcript metadata companions.
+"""Helpers for local structured transcript/source metadata companions.
 
-Conference folders often contain two files for the same event:
+Conference and transcript folders often contain two files for the same event:
 - a raw transcript/source text, useful for source QA and audit trail
 - a `*_METADATA_EN.txt` companion, useful for deterministic extraction
 
@@ -11,18 +11,36 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
+
+
+METADATA_SUFFIX = "_METADATA_EN.TXT"
 
 
 def is_conference_metadata_path(path: Any) -> bool:
-    """Return True for structured conference metadata companion files."""
+    """Return True for structured metadata companion files.
+
+    The original helper name is kept for compatibility; the suffix convention is
+    now shared by conferences, earnings transcripts, and similar narrative
+    source companions.
+    """
+    return is_structured_metadata_path(path)
+
+
+def is_structured_metadata_path(path: Any) -> bool:
+    """Return True for curated `*_METADATA_EN.txt` source companions."""
     name = str(getattr(path, "name", path) or "").strip()
-    return name.upper().endswith("_METADATA_EN.TXT")
+    return name.upper().endswith(METADATA_SUFFIX)
 
 
 def conference_source_role(path: Any) -> str:
-    """Workbook/audit role label for conference files."""
-    return "metadata_primary" if is_conference_metadata_path(path) else "source_qa_raw"
+    """Workbook/audit role label for structured conference files."""
+    return source_material_role(path)
+
+
+def source_material_role(path: Any) -> str:
+    """Workbook/audit role label for a local source companion."""
+    return "metadata_primary" if is_structured_metadata_path(path) else "source_qa_raw"
 
 
 def parse_metadata_key_values(text: str) -> Dict[str, str]:
@@ -60,3 +78,23 @@ def parse_metadata_number(value: Any) -> float | None:
     except Exception:
         return None
 
+
+def metadata_audit_flags(value: Any) -> Tuple[str, ...]:
+    """Return normalized audit flags from metadata text or parsed key-values.
+
+    Flags are advisory guardrails for downstream code: they tell model builders
+    which curated datapoints still need filing confirmation before becoming
+    filing-grade facts.
+    """
+    if isinstance(value, dict):
+        raw = value.get("audit_flag") or value.get("audit_flags") or ""
+    else:
+        raw = parse_metadata_key_values(str(value or "")).get("audit_flag", "")
+    parts = re.split(r"[;\n,]+", str(raw or ""))
+    return tuple(part.strip() for part in parts if part.strip())
+
+
+def metadata_has_audit_flag_for(value: Any, *terms: str) -> bool:
+    """Return True when metadata audit flags mention one of the requested terms."""
+    flags_blob = " ".join(metadata_audit_flags(value)).replace("_", " ").lower()
+    return any(str(term or "").replace("_", " ").lower() in flags_blob for term in terms if str(term or "").strip())

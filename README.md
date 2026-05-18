@@ -53,7 +53,7 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
   - `Derivative_OCI_Bridge` is the accounting source/audit sheet for P&L derivative impact, OCI/AOCI, net derivative exposure, and open hedge notional.
   - `Derivative_Crush_Tests` is diagnostic only; it tests whether reported income-statement derivative P&L helps explain reported margin versus market/proxy crush lenses.
   - OCI/AOCI and net derivative asset/liability never feed current-quarter reported margin, valuation, or the production GPRE crush proxy.
-- For conference and transcript folders, curated `*_METADATA_EN.txt` companion files are the preferred deterministic extraction source. The matching raw `.txt` transcript stays useful as source QA / audit material, but metadata should win when both files cover the same event.
+- For conference and transcript folders, curated `*_METADATA_EN.txt` companion files are the preferred deterministic extraction source. The matching raw `.txt` transcript or PDF stays useful as source QA / audit material, but metadata should win when both files cover the same event. Metadata `audit_flag` values are carried into source-material provenance so questionable transcript-only datapoints stay review-gated instead of becoming filing-grade facts silently.
 - Source selection should prefer explicit support and safe blanks over contaminated values.
 - Readback validation exists so fixes are measured against the saved workbook, not only in-memory dataframes.
 

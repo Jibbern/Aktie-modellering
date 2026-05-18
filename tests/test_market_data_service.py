@@ -9202,6 +9202,42 @@ def test_gpre_futures_timing_commentary_prefers_conference_metadata() -> None:
         shutil.rmtree(ticker_root, ignore_errors=True)
 
 
+def test_gpre_futures_timing_commentary_prefers_earnings_transcript_metadata() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_earnings_metadata_")
+    try:
+        transcript_dir = ticker_root / "earnings_transcripts"
+        transcript_dir.mkdir(parents=True, exist_ok=True)
+        (transcript_dir / "GPRE_Q4_2025_transcript_METADATA_EN.txt").write_text(
+            "\n".join(
+                [
+                    "[METADATA]",
+                    "source_file = GPRE_Q4_2025_transcript.txt",
+                    "source_file_type = txt",
+                    "audit_flag = transcript_contains_possible_NOL_value_error",
+                    "",
+                    "[MODEL_INPUT_SIGNALS]",
+                    "q4_hedged_pct = approximately_75",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (transcript_dir / "GPRE_Q4_2025_transcript.txt").write_text(
+            "Raw transcript retained for source QA. It does not repeat the structured Q4 hedge percent.",
+            encoding="utf-8",
+        )
+
+        audit = market_service._gpre_futures_timing_commentary_audit(ticker_root)
+        q4 = audit[audit["signal_type"].astype(str) == "q4_2025_crush_hedge_share"]
+
+        assert len(q4) == 1
+        row = q4.iloc[0].to_dict()
+        assert row["hedge_share"] == pytest.approx(0.75)
+        assert str(row["source_doc"]).endswith("_METADATA_EN.txt")
+        assert row["source_role"] == "metadata_primary"
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
+
+
 def test_gpre_quarter_open_frozen_snapshot_wins_over_manual_local_snapshot() -> None:
     ticker_root = _local_test_dir(".pytest_tmp_gpre_qopen_precedence_")
     try:
