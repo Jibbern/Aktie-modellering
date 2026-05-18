@@ -11744,14 +11744,20 @@ def test_gpre_progress_can_add_targeted_qnote_outlooks_even_when_block_is_not_sp
                     str(ws.cell(row=rr, column=1).value or "").strip(),
                     str(ws.cell(row=rr, column=3).value or ws.cell(row=rr, column=2).value or "").strip(),
                     str(ws.cell(row=rr, column=6).value or ws.cell(row=rr, column=5).value or "").strip(),
+                    str(ws.cell(row=rr, column=7).value or "").strip(),
+                    str(ws.cell(row=rr, column=8).value or "").strip(),
                 )
                 for rr in range(1, ws.max_row + 1)
                 if str(ws.cell(row=rr, column=1).value or "").strip() not in {"", "Metric"}
             ]
 
-            assert any(metric == "Interest expense outlook" for metric, _, _ in rows)
-            assert any(metric == "45Z monetization" and "$15m-$25m" in target for metric, target, _ in rows)
-            assert any("interest expense expected" in rationale.lower() for _, _, rationale in rows)
+            assert any(metric == "Interest expense outlook" for metric, _, _, _, _ in rows)
+            assert any(
+                metric == "Interest expense outlook" and horizon == "2026 year"
+                for metric, _, _, horizon, _ in rows
+            )
+            assert any(metric == "45Z monetization" and "$15m-$25m" in target for metric, target, _, _, _ in rows)
+            assert any("interest expense expected" in rationale.lower() for _, _, rationale, _, _ in rows)
 
 
 def test_gpre_progress_collapses_duplicate_same_promise_id_rows_after_hydration(
@@ -14291,6 +14297,15 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
             progress_rows = _promise_rows(wb["Promise_Progress_UI"])
             panel_blob = _panel_text(wb["Valuation"])
             quarter_note_metrics = _quarter_note_metrics(wb["Quarter_Notes_UI"])
+            if ticker in {"PBI", "GPRE"}:
+                misleading_guidance_refs = []
+                for sheet_name in ["Valuation", "Promise_Progress_UI", "Operating_Drivers", "Quarter_Notes_UI", f"{ticker}_Investment_Case"]:
+                    ws_visible = wb[sheet_name]
+                    for row in ws_visible.iter_rows():
+                        for cell in row:
+                            if "Guidance_Normalized" in str(cell.value or ""):
+                                misleading_guidance_refs.append((sheet_name, cell.coordinate, str(cell.value)))
+                assert misleading_guidance_refs == []
 
             if ticker == "PBI":
                 assert all("FY 2043" not in " | ".join(row) for row in progress_rows)
@@ -14456,6 +14471,31 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 }
                 assert updated_fills.issubset({"00FFFFFF", "00F6F9FC", "00F7F9FC"})
             else:
+                timeline_rows = [
+                    tuple(str(wb["Promise_Progress_UI"].cell(row=rr, column=cc).value or "").strip() for cc in range(1, 11))
+                    for rr in range(1, wb["Promise_Progress_UI"].max_row + 1)
+                    if str(wb["Promise_Progress_UI"].cell(row=rr, column=1).value or "").strip()
+                    and str(wb["Promise_Progress_UI"].cell(row=rr, column=1).value or "").strip() != "Metric"
+                ]
+                assert any(
+                    row[0] == "Interest expense outlook"
+                    and row[6] == "2026 year"
+                    and row[7] == "2025-Q4"
+                    for row in timeline_rows
+                )
+                assert not any(
+                    row[0] == "Cost savings target"
+                    and row[7] == "2025-Q1"
+                    and re.search(r"\b2025-Q2\b|\bQ2\s+2025\b", " | ".join(row), flags=re.I)
+                    for row in timeline_rows
+                )
+                duplicate_keys: dict[tuple[str, str, str, str, str, str, str, str], int] = {}
+                for row in timeline_rows:
+                    if row[0].startswith(("Promise Progress", "Current guidance", "Open guidance", "Quarterly guidance", "20")):
+                        continue
+                    key = (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7])
+                    duplicate_keys[key] = duplicate_keys.get(key, 0) + 1
+                assert {key: count for key, count in duplicate_keys.items() if count > 1} == {}
                 junk_metrics = {
                     "year ended December cost savings",
                     "least 45Z monetization / EBITDA",

@@ -698,7 +698,6 @@ def test_sector_investment_case_data_is_sector_specific_without_cross_contaminat
             "What Moves EPS",
             "Segment Health",
             "Segment Trend / Lapping Risk",
-            "Segment / Business Health",
             "Capital Structure / Refinancing Risk",
             "Guidance Beat/Miss Setup",
             "Valuation Sensitivity",
@@ -706,6 +705,7 @@ def test_sector_investment_case_data_is_sector_specific_without_cross_contaminat
             "FCF Yield Implied Equity Value",
         }
     )
+    assert "Segment / Business Health" not in set(pbi["section"])
     assert set(gpre["section"]).issuperset(
         {
             "Investment Snapshot",
@@ -787,7 +787,8 @@ def test_sector_investment_case_writer_creates_readable_visible_and_audit_sheets
             "Guidance Beat/Miss Setup",
         }.issubset(rendered_sections)
         if ticker == "PBI":
-            assert {"Segment Trend / Lapping Risk", "Segment / Business Health"}.issubset(rendered_sections)
+            assert {"Segment Trend / Lapping Risk", "Segment Health"}.issubset(rendered_sections)
+            assert "Segment / Business Health" not in rendered_sections
         else:
             assert {"Margin Cycle / Lapping Risk", "Ethanol / Policy Health"}.issubset(rendered_sections)
         adj_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Adj EBITDA x EV/EBITDA")
@@ -1834,6 +1835,9 @@ def test_sector_investment_case_data_replaces_generic_gpre_overlay_placeholders(
     policy = out[(out["section"].eq("Policy / 45Z / RFS Bridge")) & (out["metric"].eq("45Z expected benefit"))]
     assert not policy.empty
     assert "$200m-$225m" in str(policy.iloc[0]["display"])
+    visible_blob = " | ".join(str(v or "") for v in out.astype(object).to_numpy().ravel())
+    assert "Guidance_Normalized" not in visible_blob
+    assert "Slides_Guidance / curated guidance profile" in visible_blob
 
 
 def test_shared_readable_source_type_label_for_side_panels() -> None:

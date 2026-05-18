@@ -23,6 +23,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ..conference_metadata import conference_source_role, parse_metadata_key_values, parse_metadata_number
 from ..company_profiles import get_company_profile
 from ..debt_parser import read_html_tables_any
 from .aggregations import aggregate_quarterly, parse_quarter_like, quarter_end_from_date
@@ -10611,7 +10612,11 @@ def _gpre_footprint_for_quarter(
     ticker_root: Optional[Path] = None,
     plant_capacity_history: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    stephens_doc = _gpre_local_doc_name(ticker_root, "conferences/Stephens_Annual_Investment_Conference_2025.txt")
+    stephens_doc = _gpre_local_doc_name(
+        ticker_root,
+        "conferences/Stephens_Annual_Investment_Conference_2025_METADATA_EN.txt",
+        "conferences/Stephens_Annual_Investment_Conference_2025.txt",
+    )
     q3_doc = _gpre_local_doc_name(ticker_root, "earnings_transcripts/GPRE_Q3_2025_transcript.txt")
     q4_doc = _gpre_local_doc_name(ticker_root, "earnings_transcripts/GPRE_Q4_2025_transcript.txt")
     obion_doc = _gpre_local_doc_name(ticker_root, "press_release/8-K_2025-09-26_press_release_doc_*")
@@ -13556,6 +13561,7 @@ def _gpre_futures_timing_commentary_audit(ticker_root: Optional[Path]) -> pd.Dat
     paths = _gpre_local_doc_paths(
         ticker_root,
         "earnings_transcripts/GPRE_Q*_transcript.txt",
+        "conferences/*_METADATA_EN.txt",
         "conferences/*.txt",
         "earnings_release/*",
         "annual_reports/*",
@@ -13573,7 +13579,8 @@ def _gpre_futures_timing_commentary_audit(ticker_root: Optional[Path]) -> pd.Dat
         commodities: tuple[str, ...],
         text: str,
     ) -> None:
-        key = (path.name, signal_type, _quarter_label(target_quarter))
+        role = conference_source_role(path) if str(path).lower().endswith(".txt") and "conferences" in str(path).lower() else "source"
+        key = (signal_type, _quarter_label(target_quarter), ", ".join(commodities))
         if key in seen:
             return
         seen.add(key)
@@ -13587,6 +13594,7 @@ def _gpre_futures_timing_commentary_audit(ticker_root: Optional[Path]) -> pd.Dat
                 "hedge_share": hedge_share,
                 "commodities": ", ".join(commodities),
                 "commentary_excerpt": str(text or "").strip()[:240],
+                "source_role": role,
             }
         )
 
@@ -13595,6 +13603,25 @@ def _gpre_futures_timing_commentary_audit(ticker_root: Optional[Path]) -> pd.Dat
         if not text:
             continue
         text_low = text.lower()
+        source_role = conference_source_role(path)
+        metadata_text = text
+        if source_role == "metadata_primary":
+            try:
+                metadata_text = path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                metadata_text = text
+        metadata_values = parse_metadata_key_values(metadata_text) if source_role == "metadata_primary" else {}
+        q4_metadata_pct = parse_metadata_number(metadata_values.get("q4_hedged_pct"))
+        if q4_metadata_pct is not None and pd.notna(q4_metadata_pct):
+            _add(
+                path=path,
+                target_quarter=date(2025, 12, 31),
+                signal_type="q4_2025_crush_hedge_share",
+                status="explicit_share_candidate",
+                hedge_share=float(q4_metadata_pct) / 100.0,
+                commodities=("ethanol", "corn", "natural_gas"),
+                text=f"q4_hedged_pct = {metadata_values.get('q4_hedged_pct')}",
+            )
         q4_match = re.search(r"q4[^.]{0,100}?about\s+(\d{1,3})\s*%\s+hedged[^.]{0,80}?crush|q4[^.]{0,100}?(\d{1,3})\s*%\s+hedged[^.]{0,80}?crush|(\d{1,3})\s*%\s+hedged[^.]{0,80}?crush[^.]{0,100}?q4", text, re.I)
         if q4_match:
             share_txt = next((grp for grp in q4_match.groups() if grp), "")

@@ -9165,6 +9165,43 @@ def test_gpre_futures_timing_commentary_explicit_share_creates_scored_sandbox_ca
         shutil.rmtree(ticker_root, ignore_errors=True)
 
 
+def test_gpre_futures_timing_commentary_prefers_conference_metadata() -> None:
+    ticker_root = _local_test_dir(".pytest_tmp_gpre_commentary_metadata_")
+    try:
+        conf_dir = ticker_root / "conferences"
+        conf_dir.mkdir(parents=True, exist_ok=True)
+        (conf_dir / "Stephens_Annual_Investment_Conference_2025_METADATA_EN.txt").write_text(
+            "\n".join(
+                [
+                    "[METADATA]",
+                    "source_txt_file = Stephens_Annual_Investment_Conference_2025.txt",
+                    "source_event_name = Stephens Annual Investment Conference",
+                    "event_date = November 19",
+                    "event_year = 2025",
+                    "",
+                    "[KEY_METRICS]",
+                    "q4_hedged_pct = approximately_75",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (conf_dir / "Stephens_Annual_Investment_Conference_2025.txt").write_text(
+            "Raw conference transcript retained for source QA. It does not repeat the structured hedge percent.",
+            encoding="utf-8",
+        )
+
+        audit = market_service._gpre_futures_timing_commentary_audit(ticker_root)
+        q4 = audit[audit["signal_type"].astype(str) == "q4_2025_crush_hedge_share"]
+
+        assert len(q4) == 1
+        row = q4.iloc[0].to_dict()
+        assert row["hedge_share"] == pytest.approx(0.75)
+        assert str(row["source_doc"]).endswith("_METADATA_EN.txt")
+        assert row["source_role"] == "metadata_primary"
+    finally:
+        shutil.rmtree(ticker_root, ignore_errors=True)
+
+
 def test_gpre_quarter_open_frozen_snapshot_wins_over_manual_local_snapshot() -> None:
     ticker_root = _local_test_dir(".pytest_tmp_gpre_qopen_precedence_")
     try:
