@@ -342,6 +342,7 @@ class AMS3617Provider(BaseMarketProvider):
     public_data_url = "https://mymarketnews.ams.usda.gov/public_data?slug_id=3617"
     public_data_slug_id = "3617"
     public_data_latest_refresh_sufficient = True
+    download_audit_pdf_companion = True
     report_token = "/3617/"
     stable_name_prefix = "ams_3617"
     local_dir_name = "USDA_daily_data"

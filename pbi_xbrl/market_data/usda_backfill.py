@@ -93,7 +93,61 @@ def _normalize_archive_doc(provider: Any, doc: Dict[str, Any]) -> Optional[Dict[
         "label": str(doc.get("title") or "Archived Report"),
         "asset_type": "pdf",
         "report_date": report_ts,
+        "report_title": str(doc.get("title") or "Archived Report"),
     }
+
+
+def _collect_public_data_archive_assets(provider: Any, start_date: date, end_date: date) -> List[Dict[str, Any]]:
+    """Return public_data JSON archive candidates for all report dates in range.
+
+    The month-archive endpoint remains the PDF source, while the public_data filter
+    endpoint exposes the structured rows. Keeping both candidates lets JSON parse
+    first and PDF serve as same-date audit provenance.
+    """
+    slug = str(provider._public_data_slug() or "").strip()
+    public_url = str(provider._public_data_base_url() or "").strip()
+    if not slug or not public_url:
+        return []
+    headers = {
+        "Accept": "application/json,*/*",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": public_url,
+    }
+    try:
+        filter_payload = json.loads(_fetch_text_retry(provider, provider._public_data_filter_url(slug), extra_headers=headers))
+    except Exception:
+        return []
+    if not isinstance(filter_payload, dict):
+        return []
+    begin_values = list(filter_payload.get("reportBeginDates") or [])
+    end_values = list(filter_payload.get("reportEndDates") or [])
+    out: List[Dict[str, Any]] = []
+    for idx, begin_value in enumerate(begin_values):
+        begin_ts = provider._date_from_value(begin_value)
+        if begin_ts is None:
+            continue
+        end_ts = provider._date_from_value(end_values[idx] if idx < len(end_values) else begin_value) or begin_ts
+        begin_dt = begin_ts.date()
+        end_dt = end_ts.date()
+        if not (start_date <= end_dt <= end_date):
+            continue
+        for section in tuple(getattr(provider, "public_data_sections", None) or ("Report Detail",)):
+            search_url = provider._public_data_search_url(slug, section, begin_dt, end_dt)
+            item = {
+                "url": search_url,
+                "label": f"USDA public_data {section} {begin_dt.isoformat()} to {end_dt.isoformat()}",
+                "asset_type": "json",
+                "asset_role": "primary_parse",
+                "source_role": "primary_structured_json",
+                "report_date": pd.Timestamp(end_dt),
+                "report_begin_date": pd.Timestamp(begin_dt),
+            }
+            try:
+                item = provider._annotate_remote_candidate(item, structured_json_available=True)
+            except Exception:
+                pass
+            out.append(item)
+    return out
 
 
 def collect_archive_assets(
@@ -120,6 +174,8 @@ def collect_archive_assets(
             continue
         if start_date <= report_ts.date() <= end_date:
             assets[str(item.get("url") or "")] = dict(item)
+    for item in _collect_public_data_archive_assets(provider, start_date, end_date):
+        assets[str(item.get("url") or "")] = dict(item)
     archive_debug["latest_refresh_candidates"] = [provider._sanitize_candidate_debug(item) for item in assets.values()]
 
     previous_release_url = _previous_release_fragment_url(provider)
@@ -163,6 +219,21 @@ def collect_archive_assets(
             month_diag["status"] = "error"
             month_diag["error"] = f"{type(exc).__name__}: {exc}"
         archive_debug["month_fetches"].append(month_diag)
+    json_dates = {
+        provider._date_from_value(item.get("report_date")).date().isoformat()
+        for item in assets.values()
+        if str(item.get("asset_type") or "") == "json" and provider._date_from_value(item.get("report_date")) is not None
+    }
+    for item in assets.values():
+        asset_type = str(item.get("asset_type") or "").strip().lower()
+        report_ts = provider._date_from_value(item.get("report_date"))
+        if asset_type == "pdf" and report_ts is not None and report_ts.date().isoformat() in json_dates:
+            item.setdefault("source_role", "audit_pdf")
+            item.setdefault("asset_role", "audit_provenance")
+        elif asset_type == "pdf":
+            item.setdefault("source_role", "primary_pdf")
+            item.setdefault("asset_role", "primary_parse")
+
     selected_assets = sorted(
         assets.values(),
         key=lambda item: (

@@ -77,6 +77,9 @@ class BaseMarketProvider:
     # the more fragile legacy viewReport/AJAX/PDF discovery path unless public_data
     # returns no usable candidate.
     public_data_latest_refresh_sufficient = False
+    # When enabled, public_data JSON remains the primary parser source while the
+    # downloadable PDF is retained beside it as source-of-record/audit provenance.
+    download_audit_pdf_companion = False
     report_token = ""
     stable_name_prefix = ""
     local_dir_name = ""
@@ -352,9 +355,43 @@ class BaseMarketProvider:
             "url": str(candidate.get("url") or ""),
             "label": str(candidate.get("label") or ""),
             "asset_type": str(candidate.get("asset_type") or ""),
+            "asset_role": str(candidate.get("asset_role") or ""),
+            "source_role": str(candidate.get("source_role") or ""),
             "report_date": self._date_from_value(candidate.get("report_date")),
+            "report_begin_date": self._date_from_value(candidate.get("report_begin_date")),
+            "date_alignment_note": str(candidate.get("date_alignment_note") or ""),
         }
         return self._debug_json_ready(payload)
+
+    def _annotate_remote_candidate(
+        self,
+        candidate: Dict[str, Any],
+        *,
+        structured_json_available: bool = False,
+    ) -> Dict[str, Any]:
+        """Attach parse/audit role metadata without changing the source payload.
+
+        USDA public_data JSON is the preferred parser surface. A matching PDF is
+        still valuable, but it should be labeled as provenance so downstream code
+        does not accidentally treat both assets as equally authoritative inputs.
+        """
+        item = dict(candidate or {})
+        asset_type = str(item.get("asset_type") or self._asset_type_for_name(str(item.get("url") or ""))).strip().lower()
+        item["asset_type"] = asset_type
+        item.setdefault("report_title", str(item.get("label") or ""))
+        if asset_type == "json":
+            item.setdefault("source_role", "primary_structured_json")
+            item.setdefault("asset_role", "primary_parse")
+        elif asset_type == "pdf" and structured_json_available:
+            item.setdefault("source_role", "audit_pdf")
+            item.setdefault("asset_role", "audit_provenance")
+        elif asset_type == "pdf":
+            item.setdefault("source_role", "primary_pdf")
+            item.setdefault("asset_role", "primary_parse")
+        else:
+            item.setdefault("source_role", "supplemental_data")
+            item.setdefault("asset_role", "supplemental")
+        return item
 
     def _load_remote_debug(self, cache_root: Optional[Path]) -> Dict[str, Any]:
         if not isinstance(cache_root, Path):
@@ -700,7 +737,10 @@ class BaseMarketProvider:
                             "url": search_url,
                             "label": f"USDA public_data {section} {begin_date.isoformat()} to {end_date.isoformat()}",
                             "asset_type": "json",
+                            "asset_role": "primary_parse",
+                            "source_role": "primary_structured_json",
                             "report_date": pd.Timestamp(end_date),
+                            "report_begin_date": pd.Timestamp(begin_date),
                             "prefetched_payload": payload,
                         }
                     )
@@ -746,8 +786,15 @@ class BaseMarketProvider:
         return candidates
 
     def discover_remote_assets(self, as_of: Optional[date] = None, cache_root: Optional[Path] = None) -> List[Dict[str, Any]]:
-        public_candidates = self._discover_public_data_assets(as_of=as_of, cache_root=cache_root)
-        if public_candidates and bool(getattr(self, "public_data_latest_refresh_sufficient", False)):
+        public_candidates = [
+            self._annotate_remote_candidate(cand, structured_json_available=True)
+            for cand in self._discover_public_data_assets(as_of=as_of, cache_root=cache_root)
+        ]
+        if (
+            public_candidates
+            and bool(getattr(self, "public_data_latest_refresh_sufficient", False))
+            and not bool(getattr(self, "download_audit_pdf_companion", False))
+        ):
             return public_candidates
         landing_url = str(self.landing_page_url or "").strip()
         if not landing_url:
@@ -808,12 +855,15 @@ class BaseMarketProvider:
             label = str(link.get("label") or "")
             if self._looks_like_source_asset(url):
                 direct_candidates.append(
-                    {
-                        "url": url,
-                        "label": label,
-                        "asset_type": self._asset_type_for_name(url),
-                        "report_date": self._remote_date_from_text(url, label),
-                    }
+                    self._annotate_remote_candidate(
+                        {
+                            "url": url,
+                            "label": label,
+                            "asset_type": self._asset_type_for_name(url),
+                            "report_date": self._remote_date_from_text(url, label),
+                        },
+                        structured_json_available=bool(public_candidates),
+                    )
                 )
             elif self._looks_like_documents_page(url, label) and url not in seen_pages:
                 pages_to_scan.append(url)
@@ -870,12 +920,15 @@ class BaseMarketProvider:
                 if not self._looks_like_source_asset(url):
                     continue
                 direct_candidates.append(
-                    {
-                        "url": url,
-                        "label": label,
-                        "asset_type": self._asset_type_for_name(url),
-                        "report_date": self._remote_date_from_text(url, label, fragment_url),
-                    }
+                    self._annotate_remote_candidate(
+                        {
+                            "url": url,
+                            "label": label,
+                            "asset_type": self._asset_type_for_name(url),
+                            "report_date": self._remote_date_from_text(url, label, fragment_url),
+                        },
+                        structured_json_available=bool(public_candidates),
+                    )
                 )
         debug_payload["latest_refresh"]["documents_pages_scanned"] = list(pages_to_scan[1:])
         for page_url in pages_to_scan[1:]:
@@ -909,12 +962,15 @@ class BaseMarketProvider:
                 if not self._looks_like_source_asset(url):
                     continue
                 direct_candidates.append(
-                    {
-                        "url": url,
-                        "label": label,
-                        "asset_type": self._asset_type_for_name(url),
-                        "report_date": self._remote_date_from_text(url, label, page_url),
-                    }
+                    self._annotate_remote_candidate(
+                        {
+                            "url": url,
+                            "label": label,
+                            "asset_type": self._asset_type_for_name(url),
+                            "report_date": self._remote_date_from_text(url, label, page_url),
+                        },
+                        structured_json_available=bool(public_candidates),
+                    )
                 )
         direct_candidates = self._align_direct_asset_dates_to_public_data_ranges(direct_candidates, public_candidates)
         deduped: Dict[tuple[str, str], Dict[str, Any]] = {}
@@ -943,7 +999,10 @@ class BaseMarketProvider:
                 debug_payload["latest_refresh"]["final_classification"] = "no_candidates_found"
             self._write_remote_debug(cache_root, debug_payload, merge=True)
             return public_candidates
-        selected = self._select_remote_candidates(candidates, as_of=as_of)
+        selected = [
+            self._annotate_remote_candidate(cand, structured_json_available=bool(public_candidates))
+            for cand in self._select_remote_candidates(candidates, as_of=as_of)
+        ]
         combined: List[Dict[str, Any]] = []
         seen_candidates: set[tuple[str, str]] = set()
         for cand in [*public_candidates, *selected]:
@@ -965,6 +1024,7 @@ class BaseMarketProvider:
         return combined
 
     def discover_available(self, ticker_root: Path, refresh: bool = False, cache_root: Optional[Path] = None) -> List[Dict[str, Any]]:
+        local_asset_meta: Dict[str, Dict[str, Any]] = {}
         if refresh:
             local_dir = self._local_dir(ticker_root)
             remote_candidates = self.discover_remote_assets(as_of=self._today(), cache_root=cache_root)
@@ -983,6 +1043,16 @@ class BaseMarketProvider:
                     continue
                 local_name = self._stable_local_name(report_date, asset_type, url)
                 local_path = local_dir / local_name
+                local_meta = {
+                    "asset_role": str(cand.get("asset_role") or ""),
+                    "source_role": str(cand.get("source_role") or ""),
+                    "report_title": str(cand.get("report_title") or cand.get("label") or ""),
+                    "date_alignment_note": str(cand.get("date_alignment_note") or ""),
+                }
+                try:
+                    local_asset_meta[str(local_path.resolve()).lower()] = local_meta
+                except Exception:
+                    local_asset_meta[str(local_path).lower()] = local_meta
                 if local_path.exists():
                     refresh_payload["download_attempts"].append(
                         {
@@ -993,6 +1063,7 @@ class BaseMarketProvider:
                             "status": "skipped",
                             "classification": "success",
                             "saved_local_path": str(local_path),
+                            **local_meta,
                         }
                     )
                     if not str(refresh_payload.get("chosen_url") or "").strip():
@@ -1021,6 +1092,7 @@ class BaseMarketProvider:
                             "fetch_attempts": list(fetch_attempts or []),
                             "saved_local_path": str(local_path),
                             "bytes": len(payload),
+                            **local_meta,
                         }
                     )
                     if not str(refresh_payload.get("chosen_url") or "").strip():
@@ -1044,6 +1116,7 @@ class BaseMarketProvider:
                             "fetch_attempts": list(exc.attempts or []),
                             "saved_local_path": str(local_path),
                             "error": f"{type(exc.final_exc).__name__}: {exc.final_exc}",
+                            **local_meta,
                         }
                     )
                     print(
@@ -1061,6 +1134,7 @@ class BaseMarketProvider:
                             "classification": "download_failure",
                             "saved_local_path": str(local_path),
                             "error": f"{type(exc).__name__}: {exc}",
+                            **local_meta,
                         }
                     )
                     print(
@@ -1096,6 +1170,11 @@ class BaseMarketProvider:
                     continue
                 seen.add(resolved)
                 report_date = self.infer_local_report_date(path)
+                asset_type = self._asset_type_for_name(path.name)
+                try:
+                    meta = dict(local_asset_meta.get(str(resolved).lower()) or {})
+                except Exception:
+                    meta = {}
                 out.append(
                     {
                         "source": self.source,
@@ -1103,9 +1182,21 @@ class BaseMarketProvider:
                         "report_date": report_date.isoformat() if report_date is not None else "",
                         "publication_date": report_date.isoformat() if report_date is not None else "",
                         "path": resolved,
-                        "asset_type": self._asset_type_for_name(path.name),
+                        "asset_type": asset_type,
+                        "asset_role": str(meta.get("asset_role") or ("primary_parse" if asset_type == "json" else "")),
+                        "source_role": str(meta.get("source_role") or ("primary_structured_json" if asset_type == "json" else "")),
+                        "report_title": str(meta.get("report_title") or ""),
+                        "date_alignment_note": str(meta.get("date_alignment_note") or ""),
                     }
                 )
+        json_dates = {str(item.get("report_date") or "") for item in out if str(item.get("asset_type") or "") == "json"}
+        for item in out:
+            if str(item.get("asset_type") or "") == "pdf" and str(item.get("report_date") or "") in json_dates:
+                item["asset_role"] = str(item.get("asset_role") or "audit_provenance")
+                item["source_role"] = str(item.get("source_role") or "audit_pdf")
+            elif str(item.get("asset_type") or "") == "pdf":
+                item["asset_role"] = str(item.get("asset_role") or "primary_parse")
+                item["source_role"] = str(item.get("source_role") or "primary_pdf")
         out.sort(
             key=lambda item: (
                 pd.to_datetime(item.get("report_date"), errors="coerce")
@@ -1157,6 +1248,10 @@ class BaseMarketProvider:
                     "checksum": dst_fp,
                     "download_status": "cached",
                     "asset_type": str(item.get("asset_type") or self._asset_type_for_name(src.name)),
+                    "asset_role": str(item.get("asset_role") or ""),
+                    "source_role": str(item.get("source_role") or ""),
+                    "report_title": str(item.get("report_title") or ""),
+                    "date_alignment_note": str(item.get("date_alignment_note") or ""),
                 }
             )
         return {

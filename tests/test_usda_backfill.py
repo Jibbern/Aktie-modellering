@@ -102,6 +102,106 @@ def test_usda_public_data_latest_refresh_can_skip_legacy_view_report(monkeypatch
     assert "viewReport" not in " ".join(calls)
 
 
+def test_usda_latest_refresh_can_pair_public_data_json_with_pdf_audit_companion(monkeypatch, tmp_path) -> None:
+    class DemoUsdaProvider(BaseMarketProvider):
+        source = "demo_usda"
+        stable_name_prefix = "demo_usda"
+        local_dir_name = "USDA_demo"
+        local_patterns = ("USDA_demo/*",)
+        landing_page_url = "https://example.test/viewReport/999"
+        public_data_url = "https://example.test/public_data?slug_id=999"
+        public_data_slug_id = "999"
+        report_token = "/999/"
+        public_data_latest_refresh_sufficient = True
+        download_audit_pdf_companion = True
+
+    provider = DemoUsdaProvider()
+    calls: list[str] = []
+
+    def _fake_fetch_text_diagnostic(url: str, *, extra_headers: dict[str, str] | None = None):
+        del extra_headers
+        calls.append(url)
+        if "ajax-get-conditions" in url:
+            payload = {
+                "reportBeginDates": ["05/04/2026"],
+                "reportEndDates": ["05/08/2026"],
+            }
+            return json.dumps(payload), [{"status": "ok"}]
+        if "viewReport" in url:
+            return (
+                '<html><body><a href="/filerepo/sites/default/files/999/2026-05-04/123/demo.pdf">'
+                "Demo USDA PDF</a></body></html>"
+            ), [{"status": "ok"}]
+        raise AssertionError(f"unexpected text fetch: {url}")
+
+    def _fake_fetch_bytes_diagnostic(url: str, *, extra_headers: dict[str, str] | None = None):
+        del extra_headers
+        calls.append(url)
+        assert "ajax-search-data" in url
+        payload = {"results": [{"report_begin_date": "05/04/2026", "report_end_date": "05/08/2026", "value": 123}]}
+        return json.dumps(payload).encode("utf-8"), [{"status": "ok"}]
+
+    monkeypatch.setattr(provider, "_fetch_text_diagnostic", _fake_fetch_text_diagnostic)
+    monkeypatch.setattr(provider, "_fetch_bytes_diagnostic", _fake_fetch_bytes_diagnostic)
+
+    candidates = provider.discover_remote_assets(as_of=date(2026, 5, 8), cache_root=tmp_path)
+    by_type = {str(item.get("asset_type")): item for item in candidates}
+
+    assert set(by_type) == {"json", "pdf"}
+    assert by_type["json"]["source_role"] == "primary_structured_json"
+    assert by_type["json"]["asset_role"] == "primary_parse"
+    assert by_type["pdf"]["source_role"] == "audit_pdf"
+    assert by_type["pdf"]["asset_role"] == "audit_provenance"
+    assert str(by_type["pdf"]["report_date"])[:10] == "2026-05-08"
+    assert by_type["pdf"]["date_alignment_note"] == "pdf_url_begin_date_aligned_to_public_data_report_end"
+    assert any("viewReport" in url for url in calls)
+
+
+def test_usda_refresh_downloads_public_data_json_primary_and_pdf_audit_files(monkeypatch, tmp_path) -> None:
+    class DemoUsdaProvider(BaseMarketProvider):
+        source = "demo_usda"
+        stable_name_prefix = "demo_usda"
+        local_dir_name = "USDA_demo"
+        local_patterns = ("USDA_demo/*",)
+
+    provider = DemoUsdaProvider()
+    ticker_root = tmp_path / "GPRE"
+    ticker_root.mkdir(parents=True, exist_ok=True)
+    candidates = [
+        {
+            "url": "https://example.test/public_data/demo",
+            "label": "USDA public_data Report Detail 2026-05-04 to 2026-05-08",
+            "asset_type": "json",
+            "report_date": pd.Timestamp("2026-05-08"),
+            "source_role": "primary_structured_json",
+            "asset_role": "primary_parse",
+            "prefetched_payload": b'{"results":[{"report_end_date":"05/08/2026"}]}',
+        },
+        {
+            "url": "https://example.test/filerepo/sites/default/files/999/2026-05-04/demo.pdf",
+            "label": "Demo USDA PDF",
+            "asset_type": "pdf",
+            "report_date": pd.Timestamp("2026-05-08"),
+            "source_role": "audit_pdf",
+            "asset_role": "audit_provenance",
+            "date_alignment_note": "pdf_url_begin_date_aligned_to_public_data_report_end",
+        },
+    ]
+
+    monkeypatch.setattr(provider, "discover_remote_assets", lambda as_of=None, cache_root=None: candidates)
+    monkeypatch.setattr(provider, "_fetch_bytes_diagnostic", lambda url, extra_headers=None: (b"%PDF-1.4 demo", [{"status": "ok"}]))
+
+    discovered = provider.discover_available(ticker_root, refresh=True, cache_root=tmp_path)
+    by_name = {Path(item["path"]).name: item for item in discovered}
+
+    assert (ticker_root / "USDA_demo" / "demo_usda_2026-05-08_data.json").exists()
+    assert (ticker_root / "USDA_demo" / "demo_usda_2026-05-08.pdf").exists()
+    assert by_name["demo_usda_2026-05-08_data.json"]["asset_role"] == "primary_parse"
+    assert by_name["demo_usda_2026-05-08_data.json"]["source_role"] == "primary_structured_json"
+    assert by_name["demo_usda_2026-05-08.pdf"]["asset_role"] == "audit_provenance"
+    assert by_name["demo_usda_2026-05-08.pdf"]["source_role"] == "audit_pdf"
+
+
 def test_collect_archive_assets_merges_latest_and_month_archive(monkeypatch) -> None:
     provider = NWERProvider()
     landing_html = """
@@ -201,6 +301,59 @@ def test_collect_archive_assets_prefers_report_end_date_over_url_folder_date(mon
 
     assert len(assets) == 1
     assert str(assets[0].get("report_date"))[:10] == "2026-04-24"
+
+
+def test_collect_archive_assets_includes_public_data_json_and_pdf_when_available(monkeypatch) -> None:
+    class DemoUsdaProvider(BaseMarketProvider):
+        source = "demo_usda"
+        stable_name_prefix = "demo_usda"
+        local_dir_name = "USDA_demo"
+        landing_page_url = "https://example.test/viewReport/999"
+        public_data_url = "https://example.test/public_data?slug_id=999"
+        public_data_slug_id = "999"
+        report_token = "/999/"
+        public_data_sections = ("Report Detail",)
+
+    provider = DemoUsdaProvider()
+    month_payload = json.dumps(
+        {
+            "data": [
+                {
+                    "title": "Demo USDA Report",
+                    "document_date": "05/08/2026 13:53:01",
+                    "file_extension": "PDF",
+                    "document_url": "/filerepo/sites/default/files/999/2026-05-04/123/demo.pdf",
+                    "report_date": "05/04/2026 - Fri, 05/08/2026",
+                    "slug_id": "999",
+                    "report_end_date": "Fri, 05/08/2026 - 00:00",
+                }
+            ]
+        }
+    )
+
+    monkeypatch.setattr("pbi_xbrl.market_data.usda_backfill._previous_release_fragment_url", lambda provider_in: "https://example.test/get_previous_release/999")
+
+    def _fake_fetch_text(provider_in, url: str, *, extra_headers: dict[str, str] | None = None) -> str:
+        del provider_in, extra_headers
+        if "ajax-get-conditions" in url:
+            return json.dumps({"reportBeginDates": ["05/04/2026"], "reportEndDates": ["05/08/2026"]})
+        if "type=month" in url:
+            return month_payload
+        raise AssertionError(f"unexpected fetch: {url}")
+
+    monkeypatch.setattr("pbi_xbrl.market_data.usda_backfill._fetch_text_retry", _fake_fetch_text)
+    monkeypatch.setattr(provider, "discover_remote_assets", lambda as_of=None, cache_root=None: [])
+
+    assets = collect_archive_assets(provider, date(2026, 5, 8), date(2026, 5, 8))
+    by_type = {str(item.get("asset_type")): item for item in assets}
+
+    assert set(by_type) == {"json", "pdf"}
+    assert by_type["json"]["source_role"] == "primary_structured_json"
+    assert by_type["json"]["asset_role"] == "primary_parse"
+    assert by_type["pdf"]["source_role"] == "audit_pdf"
+    assert by_type["pdf"]["asset_role"] == "audit_provenance"
+    assert str(by_type["json"]["report_date"])[:10] == "2026-05-08"
+    assert str(by_type["pdf"]["report_date"])[:10] == "2026-05-08"
 
 
 def test_download_archive_assets_writes_stable_files_and_skips_existing(monkeypatch) -> None:
