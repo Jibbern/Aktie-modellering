@@ -48,6 +48,7 @@ from .pdf_utils import silence_pdfminer_warnings
 from .sec_xbrl import SecClient, SecConfig, cik10_from_int, cik_from_ticker, companyfacts_to_df, parse_date
 from .validators import info_log_from_audit, needs_review_from_audit, validate_debt_tieout, validate_history
 from .cache_layout import preferred_ticker_cache_root_from_base_dir
+from .conference_metadata import is_structured_metadata_path, metadata_source_file, parse_metadata_key_values
 
 from .pipeline_qa import (
     build_non_gaap_cred_qa,
@@ -2506,9 +2507,45 @@ def _build_anf_source_quarter_notes(
     for src_type, priority, folder in source_dirs:
         if not folder.exists():
             continue
-        for path_in in sorted(folder.glob("*"))[:250]:
+        folder_files = sorted(folder.glob("*"))
+        metadata_primary_raw_targets: set[str] = set()
+        if src_type in {"transcript", "conference", "ceo_letter"}:
+            for meta_path in folder_files:
+                if not meta_path.is_file() or not is_structured_metadata_path(meta_path):
+                    continue
+                try:
+                    meta_values = parse_metadata_key_values(meta_path.read_text(encoding="utf-8", errors="ignore"))
+                except Exception:
+                    meta_values = {}
+                source_file = metadata_source_file(meta_values)
+                raw_candidates: List[Path] = []
+                if source_file:
+                    raw_candidates.append(meta_path.parent / source_file)
+                base_stem = re.sub(r"_METADATA_EN$", "", meta_path.stem, flags=re.I)
+                if base_stem and base_stem != meta_path.stem:
+                    raw_candidates.extend(
+                        [
+                            meta_path.with_name(f"{base_stem}.txt"),
+                            meta_path.with_name(f"{base_stem}.pdf"),
+                            meta_path.with_name(f"{base_stem}.htm"),
+                            meta_path.with_name(f"{base_stem}.html"),
+                        ]
+                    )
+                for raw_candidate in raw_candidates:
+                    try:
+                        metadata_primary_raw_targets.add(str(raw_candidate.resolve()).lower())
+                    except Exception:
+                        metadata_primary_raw_targets.add(str(raw_candidate).lower())
+        for path_in in folder_files[:250]:
             if not path_in.is_file() or path_in.suffix.lower() not in {".txt", ".htm", ".html", ".pdf"}:
                 continue
+            if metadata_primary_raw_targets and not is_structured_metadata_path(path_in):
+                try:
+                    raw_key = str(path_in.resolve()).lower()
+                except Exception:
+                    raw_key = str(path_in).lower()
+                if raw_key in metadata_primary_raw_targets:
+                    continue
             try:
                 text, lines = _anf_extract_material_lines(
                     path_in,

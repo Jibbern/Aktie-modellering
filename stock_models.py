@@ -147,6 +147,10 @@ def _material_signature(repo_root: Path, ticker: Optional[str]) -> str:
         return "missing"
     dirs = [
         ticker_root / "annual_reports",
+        ticker_root / "CEO_letters",
+        ticker_root / "CEO letters",
+        ticker_root / "ceo_letters",
+        ticker_root / "conferences",
         ticker_root / "earnings_presentation",
         ticker_root / "earnings_transcripts",
         ticker_root / "historical_segment",

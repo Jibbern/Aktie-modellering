@@ -15,6 +15,15 @@ from typing import Any, Dict, Tuple
 
 
 METADATA_SUFFIX = "_METADATA_EN.TXT"
+METADATA_SOURCE_FILE_KEYS = (
+    "source_file",
+    "source_txt_file",
+    "source_pdf_file",
+    "source_htm_file",
+    "source_html_file",
+    "source_document",
+    "source_doc",
+)
 
 
 def is_conference_metadata_path(path: Any) -> bool:
@@ -60,6 +69,23 @@ def parse_metadata_key_values(text: str) -> Dict[str, str]:
         if key_norm and value_norm:
             out[key_norm] = value_norm
     return out
+
+
+def metadata_source_file(values: Any) -> str:
+    """Return the raw source companion filename declared by metadata.
+
+    Older conference files used explicit keys such as `source_txt_file`, while
+    transcript/CEO-letter files mostly use `source_file`. Treat these as the same
+    provenance pointer so metadata can be the primary extraction source and the
+    raw transcript/PDF can still be retained as source-QA support.
+    """
+    if not isinstance(values, dict):
+        values = parse_metadata_key_values(str(values or ""))
+    for key in METADATA_SOURCE_FILE_KEYS:
+        raw = str(values.get(key) or "").strip()
+        if raw:
+            return raw
+    return ""
 
 
 def parse_metadata_number(value: Any) -> float | None:
