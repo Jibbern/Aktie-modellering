@@ -34,6 +34,8 @@ from pbi_xbrl.excel_writer_context import (
     _anf_visible_quarter_note_summaries,
     _anf_yoy_map_for_fiscal_periods,
     _investment_case_sheet_order,
+    _guidance_source_contract_label,
+    _insert_management_credibility_scorecard,
     _net_debt_yoy_flag_label_and_status_for_position,
     _sector_build_investment_case_data,
     _shared_readable_source_type_label,
@@ -816,6 +818,7 @@ def test_sector_investment_case_writer_creates_readable_visible_and_audit_sheets
             for cell in row
             if isinstance(cell.value, str)
             and len(cell.value) > 25
+            and not cell.value.startswith("=")
             and cell.alignment.horizontal == "right"
         ]
         assert not long_right_aligned
@@ -1279,6 +1282,7 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
     assert _has_merge(current_section_row + 2, 6, 10)
     assert _has_merge(open_section_row + 1, 5, 10)
     assert _has_merge(open_section_row + 2, 5, 10)
+    assert ws.column_dimensions["A"].width >= 36
 
 
 def test_shared_promise_progress_rewrite_compacts_long_guidance_value_cells() -> None:
@@ -1479,12 +1483,15 @@ def test_shared_quarter_notes_category_polish_is_sector_specific_and_removes_deb
     ws.append(["Quarter", "Category", "Note", "Metric"])
     ws.append(["2025-Q4", "Programs / initiatives", "Cost savings flowed through...", "Cost savings"])
     ws.append(["", "Debt / refi / covenants", "[NEW] Liquidity improved\u2026", "Debt"])
+    ws.append(["", "Capital allocation", "[UPDATED] Quarterly dividend set at $0.09/share.", "Dividend"])
     _standardize_quarter_notes_ui_categories(ws, ticker="PBI")
     assert ws["B2"].value == "Cost savings"
     assert ws["B3"].value == "Balance sheet / liquidity"
     assert "..." not in str(ws["C2"].value)
     assert "\u2026" not in str(ws["C3"].value)
     assert "[NEW]" not in str(ws["C3"].value)
+    assert "[UPDATED]" not in str(ws["C4"].value)
+    assert ws["C4"].value == "Quarterly dividend set at $0.09/share."
 
     wb_g = Workbook()
     ws_g = wb_g.active
@@ -1495,6 +1502,24 @@ def test_shared_quarter_notes_category_polish_is_sector_specific_and_removes_deb
     _standardize_quarter_notes_ui_categories(ws_g, ticker="GPRE")
     assert ws_g["B2"].value == "45Z / carbon"
     assert ws_g["B3"].value == "Production / gallons"
+
+    wb_a = Workbook()
+    ws_a = wb_a.active
+    ws_a.title = "Quarter_Notes_UI"
+    ws_a.append(["Quarter", "Category", "Note", "Metric"])
+    ws_a.append(["2025-Q4", "Brand / demand", "We will leverage the strong foundation we have built over the past several years specifically: two healthy.", "We will leverage the strong foundation we have built over the."])
+    ws_a.append(["2024-Q2", "Margin bridge", "Operating margin expands 590 basis points to 15.5%, with record second quarter operating.", "Margin bridge"])
+    ws_a.append(["2024-Q1", "Guidance / outlook", "Management raised full-year 2024 year sales and operating-margin expectations, citing Q1 outperformance and Q2 outlook while keeping the.", "Guidance update"])
+    _standardize_quarter_notes_ui_categories(ws_a, ticker="ANF")
+    assert ws_a.max_row == 3
+    assert ws_a["C2"].value == "Operating margin expands 590 basis points to 15.5%, with record second-quarter operating-margin expansion."
+    assert ws_a["C3"].value == "Management raised full-year 2024 year sales and operating-margin expectations, citing Q1 outperformance and Q2 outlook."
+
+
+def test_guidance_source_contract_uses_clean_empty_over_noisy_normalized_rows() -> None:
+    assert _guidance_source_contract_label("ANF") == "Guidance_Normalized"
+    assert _guidance_source_contract_label("PBI") == "Slides_Guidance / curated guidance profile"
+    assert _guidance_source_contract_label("GPRE") == "Slides_Guidance / curated guidance profile"
 
 
 def test_sector_operating_driver_intro_tables_are_ordered_and_sector_specific() -> None:
@@ -1836,8 +1861,194 @@ def test_sector_investment_case_data_replaces_generic_gpre_overlay_placeholders(
     assert not policy.empty
     assert "$200m-$225m" in str(policy.iloc[0]["display"])
     visible_blob = " | ".join(str(v or "") for v in out.astype(object).to_numpy().ravel())
+    assert "$55.2m" in visible_blob
+    assert "$15m-$25m" in visible_blob
+    assert "$140m-$165m" in visible_blob
     assert "Guidance_Normalized" not in visible_blob
     assert "Slides_Guidance / curated guidance profile" in visible_blob
+
+
+def test_investment_case_data_includes_integrated_debate_scenario_market_and_quality_sections() -> None:
+    hist = pd.DataFrame(
+        [
+            {"quarter": "2025-06-30", "revenue": 400_000_000, "ebitda": 20_000_000, "cfo": 10_000_000, "capex": 4_000_000, "debt_core": 450_000_000, "cash": 90_000_000, "net_income": 5_000_000, "shares_diluted": 50_000_000},
+            {"quarter": "2025-09-30", "revenue": 420_000_000, "ebitda": 30_000_000, "cfo": 20_000_000, "capex": 5_000_000, "debt_core": 455_000_000, "cash": 95_000_000, "net_income": 8_000_000, "shares_diluted": 49_000_000},
+            {"quarter": "2025-12-31", "revenue": 430_000_000, "ebitda": 40_000_000, "cfo": 30_000_000, "capex": 6_000_000, "debt_core": 456_000_000, "cash": 96_000_000, "net_income": 10_000_000, "shares_diluted": 48_000_000},
+            {"quarter": "2026-03-31", "revenue": 445_800_000, "ebitda": 49_500_000, "cfo": 66_400_000, "capex": 26_900_000, "debt_core": 458_200_000, "cash": 95_700_000, "net_income": 12_000_000, "shares_diluted": 47_000_000},
+        ]
+    )
+    guidance = pd.DataFrame(
+        [
+            {"metric": "45Z EBITDA guidance", "target_display": "$200m-$225m", "horizon_label": "2026 year"},
+            {"metric": "Cost savings target", "target_display": "$180m-$200m", "horizon_label": "2026 year"},
+        ]
+    )
+
+    pbi = _sector_build_investment_case_data(ticker="PBI", hist=hist, guidance_normalized=guidance)
+    gpre = _sector_build_investment_case_data(ticker="GPRE", hist=hist, guidance_normalized=guidance)
+    anf = _anf_build_investment_case_data(
+        hist=hist,
+        operating_driver_rows=[],
+        guidance_normalized=pd.DataFrame(),
+        slides_segments=pd.DataFrame(),
+        valuation_summary=pd.DataFrame(),
+    )
+
+    required = {"Key Debates", "Bear / Base / Bull Scenario", "What Market Is Pricing", "Quality of Earnings"}
+    for df in (pbi, gpre, anf):
+        assert required.issubset(set(df["section"].astype(str)))
+        assert "Missing market price" in set(df[df["section"].eq("What Market Is Pricing")]["metric"].astype(str))
+
+
+def test_promise_progress_management_credibility_scorecard_is_inserted_near_top() -> None:
+    for ticker in ("PBI", "GPRE", "ANF"):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Promise_Progress_UI"
+        ws["A1"] = "Promise Progress"
+        ws["A2"] = f"{ticker} guidance dashboard | newest periods first"
+        ws["A3"] = "Current guidance progression"
+        ws["A4"] = "Metric"
+        ws["E4"] = "Status"
+        ws["A5"] = "Revenue"
+        ws["E5"] = "Open"
+
+        _insert_management_credibility_scorecard(ws, ticker)
+
+        values = [str(ws.cell(r, 1).value or "").strip() for r in range(1, 12)]
+        assert "Management Credibility Scorecard" in values
+        header_row = values.index("Management Credibility Scorecard") + 2
+        assert [ws.cell(header_row, c).value for c in (1, 2, 3, 7)] == ["Category", "Score", "Evidence", "Read"]
+        first_score = ws.cell(header_row + 1, 2)
+        assert not bool(first_score.font.bold)
+        assert ws.column_dimensions["A"].width >= 36
+        assert ws.freeze_panes == "A2"
+
+
+def test_investment_case_key_debates_render_as_readable_cards() -> None:
+    wb = Workbook()
+    df = pd.DataFrame(
+        [
+            {"section": "Investment Snapshot", "metric": "Model read", "display": "Turnaround case."},
+            {"section": "Investment Snapshot", "metric": "Key debate", "display": "Can execution hold?"},
+            {
+                "section": "Key Debates",
+                "metric": "FCF durability",
+                "bull_evidence": "FCF and savings are visible in the model.",
+                "bear_evidence": "Debt and refinancing still matter.",
+                "next_proof_point": "Next CFO, capex and FCF update.",
+                "current_read": "Constructive if cash conversion holds.",
+            },
+        ]
+    )
+
+    _write_sector_investment_case_sheet(wb, "PBI", df)
+    ws = wb["PBI_Investment_Case"]
+    key_row = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "Key Debates")
+
+    debate_header = str(ws.cell(key_row + 1, 1).value or "")
+    assert debate_header.startswith("FCF durability")
+    assert "Current read:" in debate_header
+    assert "Constructive if cash conversion holds." in debate_header
+    assert any(rng.min_row == key_row + 1 and rng.min_col == 1 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
+
+    assert ws.cell(key_row + 2, 1).value == "Bull evidence"
+    assert ws.cell(key_row + 2, 6).value == "Bear evidence"
+    assert ws.cell(key_row + 2, 2).value == "FCF and savings are visible in the model."
+    assert ws.cell(key_row + 2, 7).value == "Debt and refinancing still matter."
+    assert any(rng.min_row == key_row + 2 and rng.min_col == 2 and rng.max_col == 5 for rng in ws.merged_cells.ranges)
+    assert any(rng.min_row == key_row + 2 and rng.min_col == 7 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
+
+    assert ws.cell(key_row + 3, 1).value == "Next proof point"
+    assert ws.cell(key_row + 3, 2).value == "Next CFO, capex and FCF update."
+    assert any(rng.min_row == key_row + 3 and rng.min_col == 2 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
+    assert float(ws.row_dimensions[key_row + 2].height or 0) <= 42.0
+    assert float(ws.row_dimensions[key_row + 3].height or 0) <= 30.0
+
+
+def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> None:
+    sector_df = pd.DataFrame(
+        [
+            {"section": "Investment Snapshot", "metric": "Model read", "display": "Turnaround case."},
+            {"section": "Investment Snapshot", "metric": "Key debate", "display": "Can FCF hold?"},
+            {"section": "What Market Is Pricing", "metric": "Missing market price", "display": "Manual current share price needed."},
+            {"section": "Bear / Base / Bull Scenario", "metric": "Base", "display": "Base case."},
+            {"section": "Valuation Sensitivity", "metric": "EPS $1.00", "value": 1.0, "pe_10": 10, "pe_12": 12, "pe_14": 14, "pe_16": 16},
+            {"section": "Adj EBITDA x EV/EBITDA", "metric": "8.0x EV/EBITDA", "display": "$80m EV / $50m equity / equity/share $5"},
+            {"section": "FCF Yield Implied Equity Value", "metric": "5.0% FCF yield", "display": "$100m equity / share $10"},
+        ]
+    )
+    anf_df = pd.DataFrame(
+        [
+            {"section": "Investment Snapshot", "metric": "Model read", "display": "Constructive."},
+            {"section": "Investment Snapshot", "metric": "Key debate", "display": "Can margins hold?"},
+            {"section": "Valuation Sensitivity", "metric": "Base scenario", "scenario": "Base", "eps": 10.6, "multiple": 13, "share_price": 138},
+            {"section": "Adj EBITDA x EV/EBITDA", "metric": "8.0x EV/EBITDA", "display": "$6,525m EV", "equity_value_core_net_cash": 7310.0},
+            {"section": "FCF Yield Implied Equity Value", "metric": "5.0% FCF yield", "display": "$7,567m equity value", "share_price": 168.2},
+        ]
+    )
+
+    cases = []
+    for ticker in ("PBI", "GPRE"):
+        wb = Workbook()
+        del wb[wb.sheetnames[0]]
+        _write_sector_investment_case_sheet(wb, ticker, sector_df)
+        cases.append((ticker, wb[f"{ticker}_Investment_Case"]))
+    wb = Workbook()
+    del wb[wb.sheetnames[0]]
+    _write_anf_investment_case_sheet(wb, anf_df)
+    cases.append(("ANF", wb["ANF_Investment_Case"]))
+
+    for ticker, ws in cases:
+        manual_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Manual Market / Scenario Inputs")
+        assert manual_row > 4
+        assert [ws.cell(manual_row + 1, c).value for c in range(1, 6)] == [
+            "Input",
+            "Model default",
+            "Manual override",
+            "Active value",
+            "Notes",
+        ]
+        price_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Current share price")
+        assert ws.cell(price_row, 3).fill.fgColor.rgb == "00FFF2CC"
+        assert str(ws.cell(price_row, 4).value).startswith(f'=IF(C{price_row}<>"",C{price_row},B{price_row})')
+        if ticker == "GPRE":
+            manual_labels = [str(ws.cell(r, 1).value or "") for r in range(manual_row + 1, manual_row + 30)]
+            assert "Policy / RVO / E15 / export" in manual_labels
+            assert "Policy / RVO / E15 / export upside/downside" not in manual_labels
+
+        market_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "What Market Is Pricing")
+        market_values = [str(ws.cell(r, c).value or "") for r in range(market_row, min(ws.max_row, market_row + 10) + 1) for c in range(1, 11)]
+        assert any("Manual current share price needed" in value for value in market_values)
+        assert any(f"$D${price_row}" in value for value in market_values if value.startswith("="))
+        for r in range(market_row + 2, min(ws.max_row, market_row + 8) + 1):
+            if ws.cell(r, 2).value not in (None, ""):
+                assert ws.cell(r, 2).alignment.horizontal == "left"
+
+        scenario_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Bear / Base / Bull Scenario")
+        assert [ws.cell(scenario_row + 1, c).value for c in range(1, 10)] == [
+            "Scenario",
+            "Key assumptions",
+            None,
+            "EPS",
+            "Adj EBITDA",
+            "FCF",
+            "Multiple/Yield",
+            "Implied value/share",
+            "Read",
+        ]
+        assert any(rng.min_row == scenario_row + 1 and rng.min_col == 2 and rng.max_col == 3 for rng in ws.merged_cells.ranges)
+        assert any(rng.min_row == scenario_row + 1 and rng.min_col == 9 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
+        scenario_formulas = [
+            str(ws.cell(r, c).value or "")
+            for r in range(scenario_row + 2, min(ws.max_row, scenario_row + 6) + 1)
+            for c in range(1, 11)
+        ]
+        assert any("$D$" in value and value.startswith("=") for value in scenario_formulas)
+
+        valuation_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Valuation Sensitivity")
+        sensitivity_values = [str(ws.cell(r, c).value or "") for r in range(valuation_row, min(ws.max_row, valuation_row + 8) + 1) for c in range(1, 6)]
+        assert any("$D$" in value and value.startswith("=") for value in sensitivity_values)
 
 
 def test_shared_readable_source_type_label_for_side_panels() -> None:

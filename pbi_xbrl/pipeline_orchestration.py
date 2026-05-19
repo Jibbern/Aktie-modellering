@@ -1822,13 +1822,37 @@ def _parse_anf_retail_text_driver_rows_from_lines(
                 continue
             cash_vals = re.findall(r"\$(\d+(?:\.\d+)?)\s+million", low)
             share_vals = re.findall(r"(\d+(?:\.\d+)?)\s+million\s+shares", low)
-            if cash_vals and "remaining" in low and len(cash_vals) > 1:
+            paired_cash_val: Optional[str] = None
+            paired_share_val: Optional[str] = None
+            pair_cash_first = re.search(
+                r"(?:share\s+repurchases|repurchases|repurchased|buybacks?)[^.]{0,180}?"
+                r"\$(\d+(?:\.\d+)?)\s+million[^.]{0,160}?(\d+(?:\.\d+)?)\s+million\s+shares",
+                low,
+            )
+            pair_shares_first = re.search(
+                r"(?:share\s+repurchases|repurchases|repurchased|buybacks?)[^.]{0,180}?"
+                r"(\d+(?:\.\d+)?)\s+million\s+shares[^.]{0,160}?\$(\d+(?:\.\d+)?)\s+million",
+                low,
+            )
+            if pair_cash_first:
+                paired_cash_val = pair_cash_first.group(1)
+                paired_share_val = pair_cash_first.group(2)
+            elif pair_shares_first:
+                paired_share_val = pair_shares_first.group(1)
+                paired_cash_val = pair_shares_first.group(2)
+            if paired_cash_val is not None:
+                cash_val = paired_cash_val
+            elif cash_vals and "remaining" in low and len(cash_vals) > 1:
                 cash_val = cash_vals[0]
             elif cash_vals and re.search(r"\b(full year|returned|for the full year)\b", low):
-                cash_val = cash_vals[-1]
+                cash_val = cash_vals[0]
             else:
                 cash_val = cash_vals[0] if cash_vals else None
-            share_val = share_vals[-1] if (share_vals and re.search(r"\b(full year|for the full year)\b", low)) else (share_vals[0] if share_vals else None)
+            share_val = (
+                paired_share_val
+                if paired_share_val is not None
+                else (share_vals[-1] if (share_vals and re.search(r"\b(full year|for the full year)\b", low)) else (share_vals[0] if share_vals else None))
+            )
             m_pct = re.search(r"(\d+(?:\.\d+)?)%\s+of\s+shares", low)
             m_auth = re.search(r"\$(\d+(?:\.\d+)?)\s+million\s+remaining", low)
             if cash_val:
@@ -2496,7 +2520,7 @@ def _build_anf_source_quarter_notes(
         if re.search(r"\b(form\s+10-k|table of contents|chief executive officer|chief financial officer|vp of investor relations)\b", low):
             return True
         numeric_tokens = re.findall(r"-?\d+(?:,\d{3})*(?:\.\d+)?%?", t)
-        if len(numeric_tokens) >= 5 and not re.search(r"\b(growth|expects?|outlook|guidance|inventory|digital|stores?|repurchas|tariff|freight|margin|brand|record|returned|delivered)\b", low):
+        if len(numeric_tokens) >= 5 and not re.search(r"\b(growth|expects?|outlook|guidance|inventory|digital|stores?|repurchas\w*|buybacks?|tariff|freight|margin|brand|record|returned|delivered)\b", low):
             return True
         if re.match(r"^(americas|emea|apac|abercrombie|hollister|total company)\b", low) and len(numeric_tokens) >= 3:
             return True
@@ -2792,12 +2816,14 @@ def _build_anf_source_quarter_notes(
                     shares = metric_values.get("shares_repurchased")
                     avg = metric_values.get("average_buyback_price")
                     auth = metric_values.get("remaining_buyback_authorization")
+                    if rep is not None and rep < 300.0 and shares is None and auth is None:
+                        continue
                     _append_note(
                         q_end=q_end,
                         category="Debt / liquidity / balance sheet",
                         metric_ref="buyback_bridge",
                         text=(
-                            f"Buyback bridge: FY2025 repurchases were about ${rep:.0f}m"
+                            f"Buyback bridge: 2025 year repurchases were about ${rep:.0f}m"
                             + (f" for {shares:.1f}m shares at roughly ${avg:.2f} per share" if shares is not None and avg is not None else "")
                             + (f", with about ${auth:.0f}m remaining authorization." if auth is not None else ".")
                         ),

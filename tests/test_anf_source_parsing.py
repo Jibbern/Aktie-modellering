@@ -500,6 +500,42 @@ def test_anf_retail_text_driver_extracts_digital_inventory_margin_and_buybacks()
     assert avg_price == pytest.approx(83.33, abs=0.01)
 
 
+def test_anf_buyback_source_note_does_not_mislabel_tariff_cost_as_full_year_buybacks(tmp_path) -> None:
+    transcript_dir = tmp_path / "earnings_transcripts"
+    transcript_dir.mkdir()
+    (transcript_dir / "ANF_Q4_2025_transcript.txt").write_text(
+        "\n".join(
+            [
+                "Full year share repurchases were $450 million, or 5.4 million shares, representing 11% of shares outstanding at February 1, 2025, with $850 million remaining authorization; tariff impact around $90 million cost pressure.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    hist = pd.DataFrame(
+        [
+            {
+                "quarter": pd.Timestamp("2026-01-31"),
+                "revenue": 1_669_802_000.0,
+                "gross_profit": 993_311_000.0,
+                "op_income": 235_931_000.0,
+            }
+        ]
+    )
+
+    notes = _build_anf_source_quarter_notes(
+        hist=hist,
+        base_dir=tmp_path,
+        config=PipelineConfig(cache_dir=tmp_path / "cache"),
+        max_quarters=1,
+    )
+    note_blob = " | ".join(notes.get("note", pd.Series(dtype=str)).astype(str).tolist())
+
+    assert "2025 year repurchases were about $90m" not in note_blob
+    assert "FY2025 repurchases were about $90m" not in note_blob
+    assert "2025 year repurchases were about $450m" in note_blob
+    assert "5.4m shares" in note_blob
+
+
 def test_anf_guidance_normalization_excludes_actuals_headers_and_wrong_units() -> None:
     raw = pd.DataFrame(
         [

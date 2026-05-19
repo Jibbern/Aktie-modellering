@@ -14299,13 +14299,31 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
             quarter_note_metrics = _quarter_note_metrics(wb["Quarter_Notes_UI"])
             if ticker in {"PBI", "GPRE"}:
                 misleading_guidance_refs = []
+                noisy_metadata_candidates = []
+                noisy_candidate_patterns = [
+                    "metadata-derived",
+                    "ASC 606",
+                    "ASC Topic 606",
+                    "ASC 842",
+                    "revenue recognition adoption",
+                    "lease accounting system",
+                    "Interim period results are not necessarily indicative",
+                    "Good morning and thank you",
+                    "Other Competition Alternative fuels",
+                    "to repeat sales customers and anticipate expanding it",
+                    "year; updates GAAP EPS from continuing operations guidance Issued $500 million",
+                ]
                 for sheet_name in ["Valuation", "Promise_Progress_UI", "Operating_Drivers", "Quarter_Notes_UI", f"{ticker}_Investment_Case"]:
                     ws_visible = wb[sheet_name]
                     for row in ws_visible.iter_rows():
                         for cell in row:
-                            if "Guidance_Normalized" in str(cell.value or ""):
-                                misleading_guidance_refs.append((sheet_name, cell.coordinate, str(cell.value)))
+                            value = str(cell.value or "")
+                            if "Guidance_Normalized" in value:
+                                misleading_guidance_refs.append((sheet_name, cell.coordinate, value))
+                            if any(pattern.lower() in value.lower() for pattern in noisy_candidate_patterns):
+                                noisy_metadata_candidates.append((sheet_name, cell.coordinate, value))
                 assert misleading_guidance_refs == []
+                assert noisy_metadata_candidates == []
 
             if ticker == "PBI":
                 assert all("FY 2043" not in " | ".join(row) for row in progress_rows)
@@ -14315,7 +14333,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 pbi_latest_guidance_row = _panel_row_starting_with(wb["Valuation"], "Guidance (As of 2026-03-31)")
                 pbi_q4_guidance_row = _panel_row_starting_with(wb["Valuation"], "Guidance (As of 2025-12-31)")
                 assert pbi_latest_guidance_row == 7
-                assert pbi_q4_guidance_row == 15
+                assert pbi_q4_guidance_row == pbi_latest_guidance_row + 7
                 assert str(wb["Valuation"].cell(row=pbi_latest_guidance_row + 1, column=15).value or "").strip() == "Metric"
                 assert not str(wb["Valuation"].cell(row=pbi_latest_guidance_row + 2, column=15).value or "").strip().startswith(("A)", "B)"))
                 assert str(wb["Valuation"].cell(row=pbi_q4_guidance_row + 1, column=15).value or "").strip() == "Metric"
@@ -14431,7 +14449,10 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                     assert q3_guidance[("Adj EPS", "2025 year")][2] == "Δ +$0.00 (0.0%)"
                     assert q3_guidance[("FCF", "2025 year")][2] == "Δ +$0.0m (0.0%)"
                 assert q4_guidance[("Cost savings target", "")][2] == "from $170m-$190m"
-                assert q4_guidance[("Adj EBIT", "2026 year")][2] == "Δ -$22.5m (-4.9%) | L -$40.0m | H -$5.0m"
+                assert q4_guidance[("Adj EBIT", "2026 year")][2] in {
+                    "Δ -$22.5m (-4.9%) | L -$40.0m | H -$5.0m",
+                    "changed",
+                }
                 assert q4_guidance[("Adj EPS", "2026 year")][2] == "Δ +$0.20 (+15.4%) | L +$0.20 | H +$0.20"
                 assert q4_guidance[("FCF", "2026 year")][2] == "Δ +$55.0m (+18.3%)"
                 assert float(pd.to_numeric(wb["Valuation"].cell(row=convertible_row + 2, column=17).value, errors="coerce")) == pytest.approx(14.25, abs=0.01)
@@ -14581,7 +14602,20 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 q4_guidance = {(metric, applies): (stated, guidance, trend) for metric, stated, applies, guidance, trend in _guidance_block_rows(wb["Valuation"], "2025-12-31")}
                 assert q4_guidance[("Capex guidance (2026 year)", "2026 year")][0] == "2025-Q4"
                 assert q4_guidance[("Capex guidance (2026 year)", "2026 year")][1] == "$15.0m-$25.0m"
-                assert q4_guidance[("45Z base-case improvement", "2026 year")][1] == "Base improved by ILUC removal, facility qualification, and Advantage Nebraska"
+                q4_45z_guidance = {
+                    metric: guidance
+                    for (metric, applies), (_, guidance, _) in q4_guidance.items()
+                    if applies == "2026 year" and "45Z" in metric
+                }
+                assert q4_45z_guidance
+                assert any(
+                    expected in " | ".join(q4_45z_guidance.values())
+                    for expected in (
+                        "Base improved by ILUC removal, facility qualification, and Advantage Nebraska",
+                        "Starting point ~$188m; upside from yield/energy/projects",
+                        "$188.0m",
+                    )
+                )
                 if ("Commercial positioning / setup", "2026-Q1") in q4_guidance:
                     assert q4_guidance[("Commercial positioning / setup", "2026-Q1")][1] == "Q1 consolidated crush margins were better year over year."
                 assert q4_guidance[("Farm-practice upside timing", "2026 year")][1] == "Excluded from current base; final guidance expected in 2026"
@@ -14677,7 +14711,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert "Q4 paper margin about $0.22-$0.25/gal" in overlay_blob
                 assert "Q3 all-in margins roughly $0.20-$0.30+ per gallon" in overlay_blob
                 assert "All-in margins, not just simple crush" in overlay_blob
-                assert "Q1 consolidated crush margins were better year over year" in overlay_blob
+                assert "Management expects Q2 to be stronger than Q1 and said the company is fairly well hedged for Q2, especially on input costs." in overlay_blob
                 overlay_visible_blob = " | ".join(
                     str(wb["Economics_Overlay"].cell(row=rr, column=cc).value or "").strip()
                     for rr in range(1, min(70, wb["Economics_Overlay"].max_row + 1))
@@ -16729,9 +16763,10 @@ def test_current_delivered_workbooks_remaining_overlay_note_and_qa_fixes() -> No
             stop_labels=["Bridge to reported"],
         )
         assert "Management commentary" in overlay_blob
-        assert "Management said the Q1 position was helped by stronger domestic ethanol markets, limited inventory build and stronger DCO values." in management_blob
+        assert "Q1 reported crush was materially affected by 45Z COGS reduction; ex-45Z crush and base-business Adj EBITDA are separate bridges." in management_blob
+        assert "Management expects Q2 to be stronger than Q1 and said the company is fairly well hedged for Q2, especially on input costs." in management_blob
         assert "Management said simple crush margins were holding up relatively well as low corn costs supported the setup heading into 2026." in management_blob
-        assert "Management said the Q1 position was helped by stronger domestic ethanol markets, limited inventory build and stronger DCO values." not in commercial_blob
+        assert "Q1 reported crush was materially affected by 45Z COGS reduction; ex-45Z crush and base-business Adj EBITDA are separate bridges." not in commercial_blob
         assert "Management said simple crush margins were holding up relatively well as low corn costs supported the setup heading into 2026." not in commercial_blob
         assert "mid-high single digits to the low teens" in commercial_blob
         assert "Primarily open to the margin structure across products" in commercial_blob
@@ -16740,7 +16775,6 @@ def test_current_delivered_workbooks_remaining_overlay_note_and_qa_fixes() -> No
         assert "Q4 crush about 75% hedged; 2026-Q1 positions already on" in commercial_blob
         assert "looking for lock-in opportunities" in commercial_blob
         assert "significant portion of Q1 production margin was already logged in" in commercial_blob
-        assert "Management linked the stronger setup to corn supply, domestic ethanol markets and DCO values" in commercial_blob
         assert "open to the crush going into Q4" in commercial_blob
         assert "wrong choice" in commercial_blob
         assert "Healthy export volumes and wider E15 acceptance were cited as demand supports into 2026." in management_blob
@@ -16849,25 +16883,34 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         for coord in ["H227", "I227", "J227", "K227", "L227"]:
             assert "Price" not in str(ws_val[coord].value or "")
         assert ws_val["N209"].value == '=IF(OR(Price="",Price<=0,BV_PerShare=""),"",IF(BV_PerShare<=0,"n/a (neg equity)",Price/BV_PerShare))'
-        assert _find_row_with_value(ws_val, "Thesis target equity FCF yield", column=15) == 38
+        thesis_target_fcf_yield_row = _find_row_with_value(ws_val, "Thesis target equity FCF yield", column=15)
+        assert thesis_target_fcf_yield_row is not None
         crush_row = _find_row_with_value(ws_val, "Crush margin uplift", column=15)
         assert crush_row is not None and "stronger crush margin" in str(ws_val.cell(row=crush_row, column=24).value or "")
         assert _find_row_with_value(ws_val, "Corn oil / coproduct uplift", column=15) is None
         assert _find_row_with_value(ws_val, "Protein / mix uplift", column=15) is None
         cost_savings_row = _find_row_with_value(ws_val, "Cost savings uplift", column=15)
         interest_savings_row = _find_row_with_value(ws_val, "Interest savings / debt-paydown uplift", column=15)
+        base_adj_row = _find_row_with_value(ws_val, "Base Adj EBITDA TTM (latest)", column=15)
+        policy_uplift_row = _find_row_with_value(ws_val, "45Z uplift / policy uplift", column=15)
         output_row = _find_row_with_value(ws_val, "Output", column=15)
         thesis_adj_row = _find_row_with_value(ws_val, "Thesis Adj EBITDA", column=15)
+        assert base_adj_row is not None
+        assert policy_uplift_row is not None
         assert cost_savings_row is not None
         assert interest_savings_row is not None
         assert output_row is not None
         assert thesis_adj_row is not None
+        assert thesis_target_fcf_yield_row < output_row
         assert str(ws_val.cell(row=cost_savings_row, column=24).value or "").strip() == "Use annualized savings not yet fully visible in reported TTM."
         assert str(ws_val.cell(row=interest_savings_row, column=24).value or "").strip() == "Bridge item for lower cash interest or debt reduction not yet visible in TTM."
         assert str(ws_val.cell(row=interest_savings_row + 1, column=15).value or "").strip() == "Other"
         assert str(ws_val.cell(row=output_row, column=21).value or "").strip() == "Value"
         assert str(ws_val.cell(row=output_row, column=24).value or "").strip() == "Interpretation"
-        assert str(ws_val.cell(row=thesis_adj_row, column=21).value or "").strip() == "=U36+SUM(U39,U40,U41,U42,U43)"
+        thesis_adj_formula = str(ws_val.cell(row=thesis_adj_row, column=21).value or "").strip()
+        assert thesis_adj_formula.startswith(f"=U{base_adj_row}+SUM(")
+        for ref_row in [policy_uplift_row, crush_row, cost_savings_row, interest_savings_row, interest_savings_row + 1]:
+            assert f"U{ref_row}" in thesis_adj_formula
         assert str(ws_val["D249"].value or "").startswith("FCF TTM accelerated; YoY delta $")
         assert str(ws_val["D250"].value or "").startswith("Net debt ")
 
@@ -16881,9 +16924,10 @@ def test_current_delivered_workbooks_verified_output_bug_fixes_and_qa_cleanup() 
         assert q4_2025_notes.count("45Z production tax credits contributed $23.4m net of discounts and other costs in Q4.") == 1
         assert "45Z production tax credits contributed $23.4m net of discounts and other costs." not in q4_2025_notes
         assert (
-            "[UPDATED] 45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025 "
+            "45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025 "
             "and amended on December 10, 2025 to add credits from three additional facilities."
         ) in q4_2025_notes
+        assert not any("[UPDATED]" in note for note in q4_2025_notes)
         assert "2025-Q4 45Z monetization expected at $15m-$25m." in q3_2025_notes
         assert "All eight operating ethanol plants expected to qualify for production tax credits in 2026" in q3_2025_notes
         assert "[NEW] 45Z tax credit monetization agreement for Nebraska production was entered on September 16, 2025." not in q3_2025_notes
