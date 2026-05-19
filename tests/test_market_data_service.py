@@ -2165,6 +2165,72 @@ def test_sync_market_cache_audits_wrong_owner_raw_cache_files_without_moving_by_
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_sync_market_cache_ignores_legacy_duplicate_raw_cache_pdfs(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_market_raw_duplicate_orphans_")
+    try:
+        cache_dir = tmp_path / "sec_cache" / "TEST"
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ensure_market_cache_dirs(cache_root)
+        raw_dir = cache_root / "raw" / "demo_usda" / "2026"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        canonical_pdf = raw_dir / "demo_usda_2026-04-17.pdf"
+        legacy_numbered_pdf = raw_dir / "demo_usda_00023.pdf"
+        canonical_pdf.write_bytes(b"%PDF-1.4 same USDA report bytes")
+        legacy_numbered_pdf.write_bytes(b"%PDF-1.4 same USDA report bytes")
+
+        class DemoUsdaProvider(BaseMarketProvider):
+            source = "demo_usda"
+            stable_name_prefix = "demo_usda"
+
+            def owns_local_asset(self, path: Path) -> bool:
+                return path.name.startswith("demo_usda_")
+
+            def infer_pdf_report_date_from_content(self, path: Path) -> pd.Timestamp | None:
+                del path
+                return pd.Timestamp("2026-04-17")
+
+        provider = DemoUsdaProvider()
+
+        def _fake_parse(cache_root_in: Path, ticker_root_in: Path, raw_entries: list[dict[str, object]]) -> pd.DataFrame:
+            del cache_root_in, ticker_root_in
+            source_files = {Path(str(entry.get("local_path") or "")).name for entry in raw_entries}
+            assert source_files == {"demo_usda_2026-04-17.pdf"}
+            return pd.DataFrame(
+                [
+                    _parsed_row(
+                        source="demo_usda",
+                        report_type="demo_usda_pdf",
+                        source_type="demo_usda_pdf",
+                        market_family="corn_price",
+                        series_key="corn_nebraska",
+                        instrument="Corn",
+                        location="Nebraska",
+                        region="nebraska",
+                        source_file="demo_usda_2026-04-17.pdf",
+                        observation_date="2026-04-17",
+                        publication_date="2026-04-17",
+                        quarter="2026-06-30",
+                        price_value=4.21,
+                    )
+                ]
+            )
+
+        monkeypatch.setitem(market_service.PROVIDERS, "demo_usda", provider)
+        monkeypatch.setattr(provider, "parse_raw_to_rows", _fake_parse)
+
+        class _Profile:
+            enabled_market_sources = ("demo_usda",)
+
+        summary = sync_market_cache(cache_dir, "TEST", profile=_Profile(), reparse=True)
+
+        assert summary.raw_orphans_detected == 0
+        assert not (cache_root / "raw_orphan_audit" / "demo_usda").exists()
+        assert canonical_pdf.exists()
+        assert legacy_numbered_pdf.exists()
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_ams3617_provider_prefers_json_over_pdf_on_same_date(monkeypatch: pytest.MonkeyPatch) -> None:
     tmp_path = _local_test_dir(".pytest_tmp_ams3617_json_first_")
     try:

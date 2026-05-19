@@ -517,7 +517,14 @@ def _dedupe_raw_pdf_entries_by_content_report_date(
     return out
 
 
-def _raw_orphan_reason(path: Path, *, source: str, provider: Any, kept_paths: set[str]) -> str:
+def _raw_orphan_reason(
+    path: Path,
+    *,
+    source: str,
+    provider: Any,
+    kept_paths: set[str],
+    kept_content_fingerprints: set[str],
+) -> str:
     try:
         resolved = path.resolve()
     except Exception:
@@ -530,6 +537,12 @@ def _raw_orphan_reason(path: Path, *, source: str, provider: Any, kept_paths: se
     if not owns_asset:
         return "wrong_owner"
     if path_key not in kept_paths:
+        content_fp = _raw_entry_content_fingerprint({"local_path": str(resolved)})
+        if content_fp and content_fp in kept_content_fingerprints:
+            # Raw manifests intentionally keep only the canonical date-named USDA PDF
+            # when older numbered/archive copies have identical bytes. Those legacy
+            # duplicates are harmless cache baggage, not stale source coverage gaps.
+            return ""
         return "manifest_orphan"
     return ""
 
@@ -558,11 +571,22 @@ def _quarantine_raw_cache_orphans(
         for entry in manifest_entries
         if str(entry.get("local_path") or "").strip()
     }
+    kept_content_fingerprints = {
+        fp
+        for fp in (_raw_entry_content_fingerprint(entry) for entry in manifest_entries)
+        if fp
+    }
     orphan_rows: List[Dict[str, Any]] = []
     for path in sorted(raw_root.rglob("*")):
         if not path.is_file():
             continue
-        reason = _raw_orphan_reason(path, source=source, provider=provider, kept_paths=kept_paths)
+        reason = _raw_orphan_reason(
+            path,
+            source=source,
+            provider=provider,
+            kept_paths=kept_paths,
+            kept_content_fingerprints=kept_content_fingerprints,
+        )
         if not reason:
             continue
         try:
