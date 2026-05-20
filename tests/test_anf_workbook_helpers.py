@@ -2008,11 +2008,36 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         [
             {"section": "Investment Snapshot", "metric": "Model read", "display": "Turnaround case."},
             {"section": "Investment Snapshot", "metric": "Key debate", "display": "Can FCF hold?"},
+            {"section": "Assumptions", "metric": "Tax rate", "value": 0.25, "display": "25%"},
             {"section": "What Market Is Pricing", "metric": "Missing market price", "display": "Manual current share price needed."},
             {"section": "Bear / Base / Bull Scenario", "metric": "Base", "display": "Base case."},
             {"section": "Valuation Sensitivity", "metric": "EPS $1.00", "value": 1.0, "pe_10": 10, "pe_12": 12, "pe_14": 14, "pe_16": 16},
             {"section": "Adj EBITDA x EV/EBITDA", "metric": "8.0x EV/EBITDA", "display": "$80m EV / $50m equity / equity/share $5"},
             {"section": "FCF Yield Implied Equity Value", "metric": "5.0% FCF yield", "display": "$100m equity / share $10"},
+            {
+                "section": "Segment Scenario Inputs",
+                "metric": "Presort",
+                "value": 622.3,
+                "unit": "$m",
+                "segment_type": "Segment / business line",
+                "revenue_basis": "Slides_Segments TTM revenue",
+                "margin_conversion": "",
+                "margin_basis": "",
+                "feeds_bridge": "No",
+                "source_note": "Missing segment margin",
+            },
+            {
+                "section": "Segment Scenario Inputs",
+                "metric": "SendTech",
+                "value": 1_254.4,
+                "unit": "$m",
+                "segment_type": "Segment / business line",
+                "revenue_basis": "Slides_Segments TTM revenue",
+                "margin_conversion": "",
+                "margin_basis": "",
+                "feeds_bridge": "No",
+                "source_note": "Missing segment margin",
+            },
         ]
     )
     anf_df = pd.DataFrame(
@@ -2024,6 +2049,66 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             {"section": "Valuation Sensitivity", "metric": "Base scenario", "scenario": "Base", "eps": 10.6, "multiple": 13, "share_price": 138},
             {"section": "Adj EBITDA x EV/EBITDA", "metric": "8.0x EV/EBITDA", "display": "$6,525m EV", "equity_value_core_net_cash": 7310.0},
             {"section": "FCF Yield Implied Equity Value", "metric": "5.0% FCF yield", "display": "$7,567m equity value", "share_price": 168.2},
+            {
+                "section": "Segment Scenario Inputs",
+                "metric": "Abercrombie (brand)",
+                "value": 2_523.7,
+                "unit": "$m",
+                "segment_type": "Brand",
+                "revenue_basis": "2025 year net sales",
+                "margin_conversion": "",
+                "margin_basis": "",
+                "feeds_bridge": "No",
+                "source_note": "Separate revenue cut; not summed",
+            },
+            {
+                "section": "Segment Scenario Inputs",
+                "metric": "Hollister (brand)",
+                "value": 2_742.6,
+                "unit": "$m",
+                "segment_type": "Brand",
+                "revenue_basis": "2025 year net sales",
+                "margin_conversion": "",
+                "margin_basis": "",
+                "feeds_bridge": "No",
+                "source_note": "Separate revenue cut; not summed",
+            },
+            {
+                "section": "Segment Scenario Inputs",
+                "metric": "Americas (geography / stores)",
+                "value": 4_290.4,
+                "unit": "$m",
+                "segment_type": "Geography / stores",
+                "revenue_basis": "2025 year net sales",
+                "margin_conversion": "",
+                "margin_basis": "",
+                "feeds_bridge": "No",
+                "source_note": "Separate revenue cut; not summed",
+            },
+            {
+                "section": "Segment Scenario Inputs",
+                "metric": "EMEA (geography / stores)",
+                "value": 818.1,
+                "unit": "$m",
+                "segment_type": "Geography / stores",
+                "revenue_basis": "2025 year net sales",
+                "margin_conversion": "",
+                "margin_basis": "",
+                "feeds_bridge": "No",
+                "source_note": "Separate revenue cut; not summed",
+            },
+            {
+                "section": "Segment Scenario Inputs",
+                "metric": "APAC (geography / stores)",
+                "value": 157.8,
+                "unit": "$m",
+                "segment_type": "Geography / stores",
+                "revenue_basis": "2025 year net sales",
+                "margin_conversion": "",
+                "margin_basis": "",
+                "feeds_bridge": "No",
+                "source_note": "Separate revenue cut; not summed",
+            },
         ]
     )
 
@@ -2038,13 +2123,43 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             od.append(["Quarter", "2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4", "2026-Q1"])
             od.append(["45Z value realized ($m)", None, 26.0, 27.0, None, 55.2])
         _write_sector_investment_case_sheet(wb, ticker, sector_df)
-        cases.append((ticker, wb[f"{ticker}_Investment_Case"]))
+        cases.append((ticker, wb, wb[f"{ticker}_Investment_Case"]))
     wb = Workbook()
     del wb[wb.sheetnames[0]]
     _write_anf_investment_case_sheet(wb, anf_df)
-    cases.append(("ANF", wb["ANF_Investment_Case"]))
+    cases.append(("ANF", wb, wb["ANF_Investment_Case"]))
 
-    for ticker, ws in cases:
+    for ticker, wb, ws in cases:
+        assert "Scenario_Bridge_Tax_Treatment" in wb.sheetnames
+        assert "Scenario_Driver_Assumptions" in wb.sheetnames
+        audit = wb["Scenario_Bridge_Tax_Treatment"]
+        driver_audit = wb["Scenario_Driver_Assumptions"]
+        assert [driver_audit.cell(1, c).value for c in range(1, 11)] == [
+            "Ticker",
+            "Section",
+            "Segment / category",
+            "Type",
+            "Baseline revenue",
+            "Revenue basis",
+            "Margin / conversion",
+            "Margin basis",
+            "Feeds bridge?",
+            "Source / note",
+        ]
+        driver_audit_rows = [
+            [driver_audit.cell(r, c).value for c in range(1, 11)]
+            for r in range(2, driver_audit.max_row + 1)
+        ]
+        assert [audit.cell(1, c).value for c in range(1, 9)] == [
+            "Ticker",
+            "Bridge item",
+            "Driver type",
+            "Tax treatment",
+            "Tax rate / conversion used",
+            "Source / basis",
+            "EPS impact rule",
+            "Notes",
+        ]
         manual_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Manual Market / Scenario Inputs")
         assert manual_row > 4
         manual_headers = [ws.cell(manual_row + 1, c).value for c in range(1, 9)]
@@ -2074,6 +2189,13 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         price_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Current share price")
         assert ws.cell(price_row, 6).fill.fgColor.rgb == "00FFF2CC"
         assert str(ws.cell(price_row, 7).value).startswith(f'=IF(F{price_row}<>"",F{price_row},"")')
+        tax_rate_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Scenario tax rate")
+        assert ws.cell(tax_rate_row, 6).fill.fgColor.rgb == "00FFF2CC"
+        assert ws.cell(tax_rate_row, 7).number_format == "0.0%"
+        tax_rate_formula = str(ws.cell(tax_rate_row, 7).value or "")
+        assert f'IF(F{tax_rate_row}<>"",F{tax_rate_row}' in tax_rate_formula
+        assert "0.25" in tax_rate_formula
+        assert "default scenario tax rate" in str(ws.cell(tax_rate_row, 8).value)
         shares_labels = [str(ws.cell(r, 1).value or "") for r in range(manual_row + 1, manual_row + 20)]
         assert "Diluted shares" in shares_labels
         assert "Shares diluted / valuation share count" not in shares_labels
@@ -2082,6 +2204,48 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         shares_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Diluted shares")
         capex_input_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Capex")
         assert str(ws.cell(eps_row, 7).value).startswith(f'=IF(F{eps_row}<>"",F{eps_row},IF(C{eps_row}<>"",C{eps_row},IF(B{eps_row}<>"",B{eps_row},IF(D{eps_row}<>"",D{eps_row},E{eps_row}))))')
+        visible_titles = [ws.cell(r, 1).value for r in range(1, ws.max_row + 1)]
+        if ticker in {"PBI", "ANF"}:
+            segment_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Segment Scenario Inputs")
+            assert segment_row > manual_row
+            assert segment_row < next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Scenario Driver Bridge")
+            assert [ws.cell(segment_row + 1, c).value for c in range(1, 9)] == [
+                "Segment / category",
+                "Type",
+                "Baseline revenue",
+                "Revenue % override",
+                "Revenue impact",
+                "Margin / conversion",
+                "EBITDA/EBIT impact",
+                "Notes",
+            ]
+            labels = [str(ws.cell(r, 1).value or "") for r in range(segment_row + 2, segment_row + 10)]
+            if ticker == "PBI":
+                assert "Presort" in labels
+                assert "SendTech" in labels
+                presort_row = next(r for r in range(segment_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Presort")
+                assert ws.cell(presort_row, 2).value == "Segment / business line"
+                assert ws.cell(presort_row, 4).fill.fgColor.rgb == "00FFF2CC"
+                assert str(ws.cell(presort_row, 5).value) == f'=IFERROR(IF(D{presort_row}="",0,C{presort_row}*D{presort_row}),0)'
+                assert str(ws.cell(presort_row, 7).value) in {"", "0", "0.0"}
+                assert ws.cell(presort_row, 8).value == "Missing segment margin"
+                assert any(row[0] == "PBI" and row[2] == "Presort" and row[8] == "No" for row in driver_audit_rows)
+            else:
+                assert "Abercrombie (brand)" in labels
+                assert "Hollister (brand)" in labels
+                assert "Americas (geography / stores)" in labels
+                assert "EMEA (geography / stores)" in labels
+                assert "APAC (geography / stores)" in labels
+                anf_brand_row = next(r for r in range(segment_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Abercrombie (brand)")
+                anf_geo_row = next(r for r in range(segment_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Americas (geography / stores)")
+                assert ws.cell(anf_brand_row, 2).value == "Brand"
+                assert ws.cell(anf_geo_row, 2).value == "Geography / stores"
+                assert ws.cell(anf_brand_row, 8).value == "Separate revenue cut; not summed"
+                assert ws.cell(anf_geo_row, 8).value == "Separate revenue cut; not summed"
+                assert all(row[0] == "ANF" and row[8] == "No" for row in driver_audit_rows)
+        else:
+            assert "Segment Scenario Inputs" not in visible_titles
+            assert any(row[0] == "GPRE" and row[2] == "Not enabled" and row[8] == "No" for row in driver_audit_rows)
         if ticker == "GPRE":
             manual_labels = [str(ws.cell(r, 1).value or "") for r in range(manual_row + 1, manual_row + 30)]
             assert "Crush margin uplift ($m)" in manual_labels
@@ -2109,7 +2273,9 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
 
         bridge_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Scenario Driver Bridge")
         assert bridge_row > manual_row
-        assert [ws.cell(bridge_row + 1, c).value for c in range(1, 9)] == [
+        assert ws.cell(bridge_row + 1, 1).value == "Taxable EPS impacts use active scenario tax rate."
+        assert any(rng.min_row == bridge_row + 1 and rng.min_col == 1 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
+        assert [ws.cell(bridge_row + 2, c).value for c in range(1, 9)] == [
             "Bridge item",
             "Baseline included",
             "Active / guide",
@@ -2119,7 +2285,7 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             "FCF impact",
             "Read",
         ]
-        assert any(rng.min_row == bridge_row + 1 and rng.min_col == 8 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
+        assert any(rng.min_row == bridge_row + 2 and rng.min_col == 8 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
         summary_row = next(
             r
             for r in range(bridge_row + 2, ws.max_row + 1)
@@ -2158,11 +2324,17 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         summary_reads = [str(ws.cell(r, 8).value or "") for r in range(summary_row + 1, summary_row + 4)]
         assert "Share count and bridge impacts apply." in summary_reads
         assert "Manual EPS override wins; otherwise share count and bridge impacts apply." not in summary_reads
-        incremental_labels = [str(ws.cell(r, 1).value or "") for r in range(bridge_row + 2, summary_row - 1)]
+        incremental_labels = [str(ws.cell(r, 1).value or "") for r in range(bridge_row + 3, summary_row - 1)]
         bridge_by_label = {
             str(ws.cell(r, 1).value or ""): [str(ws.cell(r, c).value or "") for c in range(1, 9)]
-            for r in range(bridge_row + 2, summary_row - 1)
+            for r in range(bridge_row + 3, summary_row - 1)
         }
+        audit_by_label = {
+            str(audit.cell(r, 2).value or ""): [audit.cell(r, c).value for c in range(1, 9)]
+            for r in range(2, audit.max_row + 1)
+        }
+        assert sorted(audit_by_label) == sorted(incremental_labels)
+        assert all(row[0] == ticker for row in audit_by_label.values())
         if ticker == "GPRE":
             assert not any("Economics_Overlay" in value for value in bridge_formulas if value.startswith("="))
             assert "Gallons / utilization" not in incremental_labels
@@ -2172,7 +2344,9 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert "Policy / RVO / E15 / export" in incremental_labels
             fortyfive_z_row = bridge_by_label["Incremental 45Z uplift vs baseline"]
             assert "Manual-required" not in fortyfive_z_row[4]
-            assert f"$G${eps_row}" in fortyfive_z_row[4] and f"$G${shares_row}" in fortyfive_z_row[4]
+            assert f"$G${shares_row}" in fortyfive_z_row[4]
+            assert f"$G${eps_row}" not in fortyfive_z_row[4]
+            assert f"$G${ebitda_row}" not in fortyfive_z_row[4]
             assert f"$F${eps_row}" not in fortyfive_z_row[4]
             assert f"D" in fortyfive_z_row[4] and f"/$G${shares_row}" in fortyfive_z_row[4]
             assert f'$G${eps_row}=""' not in fortyfive_z_row[4]
@@ -2180,18 +2354,29 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert "D" in fortyfive_z_row[5]
             assert "$C$" in fortyfive_z_row[1]
             assert fortyfive_z_row[7] == "Incremental 45Z vs TTM Operating_Drivers baseline."
+            fortyfive_z_audit = audit_by_label["Incremental 45Z uplift vs baseline"]
+            assert fortyfive_z_audit[3] == "non_taxable_credit"
+            assert fortyfive_z_audit[4] == "100% conversion"
+            assert "incremental / diluted shares" in str(fortyfive_z_audit[6])
             crush_row = bridge_by_label["Crush margin uplift ($m)"]
             assert f"$F${eps_row}" not in crush_row[4]
+            assert f"$G${tax_rate_row}" in crush_row[4]
+            assert f"$G${tax_rate_row}<0" in crush_row[4] and f"$G${tax_rate_row}>0.35" in crush_row[4]
             assert f"/$G${shares_row}" in crush_row[4]
             assert crush_row[7] == "Direct manual EBITDA uplift."
+            assert audit_by_label["Crush margin uplift ($m)"][3] == "taxable"
+            assert "active scenario tax rate" in str(audit_by_label["Crush margin uplift ($m)"][4])
             policy_row = bridge_by_label["Policy / RVO / E15 / export"]
             assert f"$F${eps_row}" not in policy_row[4]
+            assert f"$G${tax_rate_row}" in policy_row[4]
             assert f"/$G${shares_row}" in policy_row[4]
             assert policy_row[7] == "Explicit manual EBITDA uplift/drag."
+            assert audit_by_label["Policy / RVO / E15 / export"][3] == "taxable"
             capex_row = bridge_by_label["Capex change vs baseline"]
             assert not any("capex" in value.lower() for value in capex_row[4:6])
             assert any("capex" in value.lower() for value in capex_row[6:])
             assert "C" in capex_row[6] and "B" in capex_row[6]
+            assert audit_by_label["Capex change vs baseline"][3] == "cash_only"
         elif ticker == "PBI":
             assert "Incremental cost savings vs baseline" in incremental_labels
             assert "Interest/refinancing effect vs baseline" in incremental_labels
@@ -2199,31 +2384,46 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert "Debt paydown / net debt" in incremental_labels
             assert "Capex change vs baseline" in incremental_labels
             cost_row = bridge_by_label["Incremental cost savings vs baseline"]
-            assert "Manual-required" not in cost_row[4]
-            assert f"$G${eps_row}" in cost_row[4] and f"$G${ebitda_row}" in cost_row[4]
+            assert cost_row[4] != "Manual-required"
+            assert f"$G${tax_rate_row}" in cost_row[4]
+            assert f"$G${tax_rate_row}<0" in cost_row[4] and f"$G${tax_rate_row}>0.35" in cost_row[4]
+            assert f"/$G${shares_row}" in cost_row[4]
+            assert f"$G${eps_row}" not in cost_row[4] and f"$G${ebitda_row}" not in cost_row[4]
             assert f"$F${eps_row}" not in cost_row[4]
             assert "$C$" in cost_row[1]
             assert "D" in cost_row[5]
             assert cost_row[7] == "Run-rate baseline vs active target."
+            cost_audit = audit_by_label["Incremental cost savings vs baseline"]
+            assert cost_audit[3] == "taxable"
+            assert "active scenario tax rate" in str(cost_audit[4])
+            assert "default scenario tax rate" in str(cost_audit[4])
+            assert "incremental * (1 - tax rate) / diluted shares" in str(cost_audit[6])
             interest_row = bridge_by_label["Interest/refinancing effect vs baseline"]
-            assert "Manual-required" in interest_row[4]
+            assert f"$G${tax_rate_row}" in interest_row[4]
+            assert f"/$G${shares_row}" in interest_row[4]
+            assert audit_by_label["Interest/refinancing effect vs baseline"][3] == "taxable"
             assert interest_row[7] == "Lower interest vs baseline lifts FCF; EPS needs tax conversion."
             capex_row = bridge_by_label["Capex change vs baseline"]
             assert f"$C${capex_input_row}" in capex_row[1]
             assert str(capex_row[4]) in {"0", "0.0", ""}
             assert str(capex_row[5]) in {"0", "0.0", ""}
             assert "C" in capex_row[6] and "B" in capex_row[6]
+            assert audit_by_label["Capex change vs baseline"][3] == "cash_only"
         else:
             assert "Buyback/share-count effect" in incremental_labels
             assert "Margin bridge vs baseline" in incremental_labels
             assert "Capex change vs baseline" in incremental_labels
             buyback_row = bridge_by_label["Buyback/share-count effect"]
             assert buyback_row[5] in {"0", "0.0", ""}
+            buyback_audit = audit_by_label["Buyback/share-count effect"]
+            assert buyback_audit[3] == "no_eps_impact"
+            assert "EPS affected through diluted shares" in str(buyback_audit[6])
             capex_row = bridge_by_label["Capex change vs baseline"]
             assert f"$C${capex_input_row}" in capex_row[1]
             assert str(capex_row[4]) in {"0", "0.0", ""}
             assert str(capex_row[5]) in {"0", "0.0", ""}
             assert "C" in capex_row[6] and "B" in capex_row[6]
+            assert audit_by_label["Capex change vs baseline"][3] == "cash_only"
 
         market_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "What Market Is Pricing")
         market_values = [str(ws.cell(r, c).value or "") for r in range(market_row, min(ws.max_row, market_row + 10) + 1) for c in range(1, 11)]

@@ -69,6 +69,13 @@ SCENARIO_DRIVER_SHARE_COUNT_BUYBACK = "share_count_buyback"
 SCENARIO_DRIVER_TAX_CREDIT_SUBSIDY = "tax_credit_subsidy"
 SCENARIO_DRIVER_MANUAL_INCREMENTAL = "manual_incremental"
 
+SCENARIO_TAX_TAXABLE = "taxable"
+SCENARIO_TAX_NON_TAXABLE = "non_taxable"
+SCENARIO_TAX_NON_TAXABLE_CREDIT = "non_taxable_credit"
+SCENARIO_TAX_CASH_ONLY = "cash_only"
+SCENARIO_TAX_NO_EPS_IMPACT = "no_eps_impact"
+SCENARIO_TAX_UNKNOWN_MANUAL_REQUIRED = "unknown_manual_required"
+
 
 @dataclass(frozen=True)
 class _ScenarioDriverBridgeSpec:
@@ -90,6 +97,167 @@ class _ScenarioDriverBridgeSpec:
     fcf_impact: str = "auto"
     eps_impact: str = "auto"
     subsidy_basis: str = ""
+    tax_treatment: str = SCENARIO_TAX_UNKNOWN_MANUAL_REQUIRED
+    tax_source_basis: str = ""
+    eps_impact_rule: str = ""
+    audit_notes: str = ""
+
+
+@dataclass(frozen=True)
+class _SegmentScenarioInputSpec:
+    """Visible Segment Scenario Inputs row plus audit metadata."""
+
+    label: str
+    category_type: str
+    baseline_revenue_m: Optional[float] = None
+    revenue_basis: str = ""
+    margin_conversion: Optional[float] = None
+    margin_basis: str = ""
+    feeds_bridge: bool = False
+    source_note: str = ""
+
+
+def _segment_scenario_revenue_m(value: Any, unit: Any = "") -> Optional[float]:
+    val = pd.to_numeric(value, errors="coerce")
+    if pd.isna(val):
+        return None
+    out = float(val)
+    unit_txt = str(unit or "").strip().lower()
+    if out and (abs(out) > 10000.0 or unit_txt in {"$", "usd"}):
+        out /= 1_000_000.0
+    return out if math.isfinite(out) else None
+
+
+def _segment_scenario_specs_from_records(records: Sequence[Dict[str, Any]]) -> List[_SegmentScenarioInputSpec]:
+    specs: List[_SegmentScenarioInputSpec] = []
+    for rec in records or []:
+        label = str(rec.get("metric") or rec.get("segment") or rec.get("label") or "").strip()
+        if not label:
+            continue
+        margin_raw = rec.get("margin_conversion")
+        margin_num = pd.to_numeric(margin_raw, errors="coerce")
+        margin = float(margin_num) if pd.notna(margin_num) else None
+        if margin is not None and abs(margin) > 1.5:
+            margin /= 100.0
+        baseline_m = _segment_scenario_revenue_m(rec.get("value"), rec.get("unit"))
+        feeds_txt = str(rec.get("feeds_bridge") or "").strip().lower()
+        feeds_bridge = feeds_txt in {"yes", "true", "1"} and baseline_m is not None and margin is not None
+        note = str(rec.get("source_note") or rec.get("notes") or rec.get("note") or "").strip()
+        if not note:
+            if baseline_m is None:
+                note = "Missing segment revenue"
+            elif margin is None:
+                note = "Missing segment margin"
+            elif not feeds_bridge:
+                note = "Informational only"
+        specs.append(
+            _SegmentScenarioInputSpec(
+                label=label,
+                category_type=str(rec.get("segment_type") or rec.get("type") or "").strip() or "Segment / category",
+                baseline_revenue_m=baseline_m,
+                revenue_basis=str(rec.get("revenue_basis") or rec.get("source") or "").strip(),
+                margin_conversion=margin,
+                margin_basis=str(rec.get("margin_basis") or "").strip(),
+                feeds_bridge=feeds_bridge,
+                source_note=note,
+            )
+        )
+    return specs
+
+
+def _write_scenario_driver_assumptions_sheet(
+    wb: Workbook,
+    *,
+    ticker: Any,
+    segment_specs: Sequence[_SegmentScenarioInputSpec] = (),
+    enabled: bool = True,
+    disabled_note: str = "",
+) -> None:
+    sheet_name = "Scenario_Driver_Assumptions"
+    if sheet_name in wb.sheetnames:
+        del wb[sheet_name]
+    ticker_txt = str(ticker or "").strip().upper()
+    preferred_after = None
+    tax_sheet = "Scenario_Bridge_Tax_Treatment"
+    data_sheet = f"{ticker_txt}_Investment_Case_Data" if ticker_txt else ""
+    case_sheet = f"{ticker_txt}_Investment_Case" if ticker_txt else ""
+    for candidate in (tax_sheet, data_sheet, case_sheet):
+        if candidate in wb.sheetnames:
+            preferred_after = wb.sheetnames.index(candidate) + 1
+            break
+    ws = wb.create_sheet(sheet_name, index=preferred_after if preferred_after is not None else None)
+    headers = [
+        "Ticker",
+        "Section",
+        "Segment / category",
+        "Type",
+        "Baseline revenue",
+        "Revenue basis",
+        "Margin / conversion",
+        "Margin basis",
+        "Feeds bridge?",
+        "Source / note",
+    ]
+    header_fill = PatternFill("solid", fgColor="EAF3F8")
+    thin = Border(
+        left=Side(style="thin", color="D9E2EA"),
+        right=Side(style="thin", color="D9E2EA"),
+        top=Side(style="thin", color="D9E2EA"),
+        bottom=Side(style="thin", color="D9E2EA"),
+    )
+    for cc, label in enumerate(headers, start=1):
+        cell = ws.cell(1, cc, label)
+        cell.fill = header_fill
+        cell.font = Font(bold=True, size=11, color="1F2933")
+        cell.border = thin
+        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    rows: List[List[Any]] = []
+    if enabled:
+        for spec in segment_specs:
+            rows.append(
+                [
+                    ticker_txt,
+                    "Segment Scenario Inputs",
+                    spec.label,
+                    spec.category_type,
+                    spec.baseline_revenue_m if spec.baseline_revenue_m is not None else "",
+                    spec.revenue_basis,
+                    spec.margin_conversion if spec.margin_conversion is not None else "",
+                    spec.margin_basis,
+                    "Yes" if spec.feeds_bridge else "No",
+                    spec.source_note,
+                ]
+            )
+    else:
+        rows.append(
+            [
+                ticker_txt,
+                "Segment Scenario Inputs",
+                "Not enabled",
+                "Disabled",
+                "",
+                "",
+                "",
+                "",
+                "No",
+                disabled_note or "Segment scenario disabled for this ticker profile.",
+            ]
+        )
+    for rr, values in enumerate(rows, start=2):
+        for cc, value in enumerate(values, start=1):
+            cell = ws.cell(rr, cc, value)
+            cell.border = thin
+            cell.font = Font(size=10, color="1F2933")
+            cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+            if cc == 5:
+                cell.number_format = "#,##0.0"
+            if cc == 7:
+                cell.number_format = "0.0%"
+        ws.row_dimensions[rr].height = 24
+    widths = {1: 10, 2: 24, 3: 34, 4: 24, 5: 18, 6: 30, 7: 20, 8: 24, 9: 14, 10: 42}
+    for cc, width in widths.items():
+        ws.column_dimensions[get_column_letter(cc)].width = width
+    ws.freeze_panes = "A2"
 
 
 def _scenario_bridge_active_value_formula(ref: str) -> str:
@@ -126,6 +294,155 @@ def _scenario_bridge_eps_manual_required(spec: _ScenarioDriverBridgeSpec) -> boo
     }
 
 
+def _scenario_bridge_tax_conversion_label(
+    tax_treatment: str,
+    *,
+    after_tax_factor: Optional[float] = None,
+    tax_rate_ref: str = "",
+    tax_source_basis: str = "",
+) -> str:
+    treatment = str(tax_treatment or "").strip()
+    if treatment == SCENARIO_TAX_TAXABLE:
+        if tax_rate_ref:
+            return "active scenario tax rate; default scenario tax rate if no clean source"
+        if after_tax_factor is None:
+            return "No valid tax conversion"
+        tax_rate = max(0.0, min(1.0, 1.0 - float(after_tax_factor)))
+        return f"{tax_rate * 100:.1f}% tax rate / {float(after_tax_factor) * 100:.1f}% after-tax"
+    if treatment in {SCENARIO_TAX_NON_TAXABLE, SCENARIO_TAX_NON_TAXABLE_CREDIT}:
+        return "100% conversion"
+    if treatment in {SCENARIO_TAX_CASH_ONLY, SCENARIO_TAX_NO_EPS_IMPACT}:
+        return "n/a"
+    if treatment == SCENARIO_TAX_UNKNOWN_MANUAL_REQUIRED:
+        return "Manual-required"
+    return tax_source_basis or "n/a"
+
+
+def _scenario_bridge_default_eps_rule(
+    spec: _ScenarioDriverBridgeSpec,
+    *,
+    after_tax_factor: Optional[float] = None,
+    tax_rate_ref: str = "",
+) -> str:
+    if spec.eps_impact_rule:
+        return spec.eps_impact_rule
+    if spec.eps_impact == "share_count":
+        return "EPS affected through diluted shares; no direct earnings impact"
+    if spec.eps_impact == "direct_per_share":
+        return "direct EPS/share delta"
+    if spec.eps_impact == "none" or spec.tax_treatment == SCENARIO_TAX_NO_EPS_IMPACT:
+        return "no EPS impact"
+    if spec.tax_treatment == SCENARIO_TAX_CASH_ONLY:
+        return "no EPS impact; cash flow only"
+    if spec.tax_treatment in {SCENARIO_TAX_NON_TAXABLE, SCENARIO_TAX_NON_TAXABLE_CREDIT}:
+        return "incremental / diluted shares"
+    if spec.tax_treatment == SCENARIO_TAX_TAXABLE:
+        return (
+            "incremental * (1 - tax rate) / diluted shares"
+            if after_tax_factor is not None or tax_rate_ref
+            else "Manual-required until valid tax conversion exists"
+        )
+    return "Manual-required"
+
+
+def _scenario_bridge_tax_audit_rows(
+    ticker: Any,
+    specs: Sequence[_ScenarioDriverBridgeSpec],
+    *,
+    after_tax_factor: Optional[float] = None,
+    tax_rate_ref: str = "",
+    tax_source_basis: str = "",
+) -> List[List[Any]]:
+    ticker_txt = str(ticker or "").strip().upper()
+    rows: List[List[Any]] = []
+    for spec in specs:
+        basis = spec.tax_source_basis or tax_source_basis or "Scenario bridge classification"
+        rows.append(
+            [
+                ticker_txt,
+                spec.label,
+                spec.driver_type,
+                spec.tax_treatment,
+                _scenario_bridge_tax_conversion_label(
+                    spec.tax_treatment,
+                    after_tax_factor=after_tax_factor,
+                    tax_rate_ref=tax_rate_ref,
+                    tax_source_basis=basis,
+                ),
+                basis,
+                _scenario_bridge_default_eps_rule(spec, after_tax_factor=after_tax_factor, tax_rate_ref=tax_rate_ref),
+                spec.audit_notes,
+            ]
+        )
+    return rows
+
+
+def _write_scenario_bridge_tax_treatment_sheet(
+    wb: Workbook,
+    *,
+    ticker: Any,
+    specs: Sequence[_ScenarioDriverBridgeSpec],
+    after_tax_factor: Optional[float] = None,
+    tax_rate_ref: str = "",
+    tax_source_basis: str = "",
+) -> None:
+    sheet_name = "Scenario_Bridge_Tax_Treatment"
+    if sheet_name in wb.sheetnames:
+        del wb[sheet_name]
+    ticker_txt = str(ticker or "").strip().upper()
+    preferred_after = None
+    data_sheet = f"{ticker_txt}_Investment_Case_Data" if ticker_txt else ""
+    case_sheet = f"{ticker_txt}_Investment_Case" if ticker_txt else ""
+    if data_sheet in wb.sheetnames:
+        preferred_after = wb.sheetnames.index(data_sheet) + 1
+    elif case_sheet in wb.sheetnames:
+        preferred_after = wb.sheetnames.index(case_sheet) + 1
+    ws = wb.create_sheet(sheet_name, index=preferred_after if preferred_after is not None else None)
+    headers = [
+        "Ticker",
+        "Bridge item",
+        "Driver type",
+        "Tax treatment",
+        "Tax rate / conversion used",
+        "Source / basis",
+        "EPS impact rule",
+        "Notes",
+    ]
+    header_fill = PatternFill("solid", fgColor="EAF3F8")
+    thin = Border(
+        left=Side(style="thin", color="D9E2EA"),
+        right=Side(style="thin", color="D9E2EA"),
+        top=Side(style="thin", color="D9E2EA"),
+        bottom=Side(style="thin", color="D9E2EA"),
+    )
+    for cc, label in enumerate(headers, start=1):
+        cell = ws.cell(1, cc, label)
+        cell.fill = header_fill
+        cell.font = Font(bold=True, size=11, color="1F2933")
+        cell.border = thin
+        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    for rr, row_vals in enumerate(
+        _scenario_bridge_tax_audit_rows(
+            ticker_txt,
+            specs,
+            after_tax_factor=after_tax_factor,
+            tax_rate_ref=tax_rate_ref,
+            tax_source_basis=tax_source_basis,
+        ),
+        start=2,
+    ):
+        for cc, value in enumerate(row_vals, start=1):
+            cell = ws.cell(rr, cc, value)
+            cell.border = thin
+            cell.font = Font(size=10, color="1F2933")
+            cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+        ws.row_dimensions[rr].height = 30
+    widths = {1: 10, 2: 34, 3: 28, 4: 22, 5: 26, 6: 42, 7: 42, 8: 32}
+    for cc, width in widths.items():
+        ws.column_dimensions[get_column_letter(cc)].width = width
+    ws.freeze_panes = "A2"
+
+
 def _scenario_bridge_row_values(
     spec: _ScenarioDriverBridgeSpec,
     row: int,
@@ -136,6 +453,7 @@ def _scenario_bridge_row_values(
     baseline_shares_ref: str,
     eps_override_ref: str,
     after_tax_factor: Optional[float] = None,
+    tax_rate_ref: str = "",
 ) -> Tuple[Any, Any, Any, Any, Any, Any, Any, str]:
     incremental = _scenario_bridge_incremental_formula(row, spec)
 
@@ -175,28 +493,26 @@ def _scenario_bridge_row_values(
             f'B{row}="Unknown",C{row}="",C{row}=0),"",'
             f'{active_eps_ref}*(B{row}/C{row})-{active_eps_ref}),"")'
         )
-    elif spec.eps_impact == "earnings_conversion" or (
-        spec.eps_impact == "auto"
-        and spec.driver_type in {
-            SCENARIO_DRIVER_MARGIN_EBITDA,
-            SCENARIO_DRIVER_MANUAL_INCREMENTAL,
-            SCENARIO_DRIVER_TAX_CREDIT_SUBSIDY,
-        }
-        and spec.ebitda_impact != "none"
-        and active_ebitda_ref
-    ):
-        share_base = f'IF({baseline_shares_ref}<>"",{baseline_shares_ref},{active_shares_ref})'
+    elif spec.tax_treatment in {SCENARIO_TAX_NON_TAXABLE, SCENARIO_TAX_NON_TAXABLE_CREDIT}:
         eps_impact = (
             f'=IFERROR(IF(OR({active_shares_ref}="",{active_shares_ref}=0,D{row}=""),"",'
-            f'IF(AND({active_eps_ref}<>"",{active_eps_ref}>0,{active_ebitda_ref}<>"",{active_ebitda_ref}>0),'
-            f'D{row}*({active_eps_ref}*{share_base}/{active_ebitda_ref})/{active_shares_ref},'
-            f'D{row}/{active_shares_ref})),"")'
+            f'D{row}/{active_shares_ref}),"")'
         )
-    elif after_tax_factor is not None and spec.eps_impact in {"after_tax", "auto"}:
+    elif spec.tax_treatment == SCENARIO_TAX_TAXABLE and tax_rate_ref:
+        eps_impact = (
+            f'=IFERROR(IF(OR({tax_rate_ref}="",{tax_rate_ref}<0,{tax_rate_ref}>0.35,'
+            f'{active_shares_ref}="",{active_shares_ref}=0,D{row}=""),'
+            f'"Manual-required",D{row}*(1-{tax_rate_ref})/{active_shares_ref}),"Manual-required")'
+        )
+    elif spec.tax_treatment == SCENARIO_TAX_TAXABLE and after_tax_factor is not None:
         eps_impact = (
             f'=IFERROR(IF(OR({active_shares_ref}="",'
             f'{active_shares_ref}=0,D{row}=""),"",D{row}*{float(after_tax_factor):.6f}/{active_shares_ref}),"")'
         )
+    elif spec.tax_treatment == SCENARIO_TAX_TAXABLE:
+        eps_impact = "Manual-required"
+    elif spec.tax_treatment in {SCENARIO_TAX_CASH_ONLY, SCENARIO_TAX_NO_EPS_IMPACT}:
+        eps_impact = 0
     elif _scenario_bridge_eps_manual_required(spec):
         eps_impact = "Manual-required"
     else:
@@ -3880,6 +4196,8 @@ def _investment_case_sheet_order(
         return tuple(desired), tuple(raw)
     case_sheet = f"{ticker_txt}_Investment_Case"
     data_sheet = f"{ticker_txt}_Investment_Case_Data"
+    tax_audit_sheet = "Scenario_Bridge_Tax_Treatment"
+    driver_assumptions_sheet = "Scenario_Driver_Assumptions"
     desired = [x for x in desired if x != case_sheet]
     insert_at = desired.index("Operating_Drivers") + 1 if "Operating_Drivers" in desired else 0
     desired.insert(insert_at, case_sheet)
@@ -3890,9 +4208,11 @@ def _investment_case_sheet_order(
         # operating driver dashboard and the investment-case page.
         desired = [x for x in desired if x != "Economics_Overlay"]
         desired.insert(desired.index("Quarter_Notes_UI") + 1, "Economics_Overlay")
-    raw = [x for x in raw if x != data_sheet]
+    raw = [x for x in raw if x not in {data_sheet, tax_audit_sheet, driver_assumptions_sheet}]
     raw_insert = raw.index("operating_drivers_raw") + 1 if "operating_drivers_raw" in raw else len(raw)
     raw.insert(raw_insert, data_sheet)
+    raw.insert(raw_insert + 1, tax_audit_sheet)
+    raw.insert(raw_insert + 2, driver_assumptions_sheet)
     return tuple(desired), tuple(raw)
 
 
@@ -4091,6 +4411,9 @@ def _anf_build_investment_case_data(
 
     ab_annual_sales = _seg_value("Abercrombie", "revenue", "annual", default=2_523_662_000.0)
     ho_annual_sales = _seg_value("Hollister", "revenue", "annual", default=2_742_630_000.0)
+    americas_annual_sales = _seg_value("Americas", "revenue", "annual", default=4_290_395_000.0)
+    emea_annual_sales = _seg_value("EMEA", "revenue", "annual", default=818_140_000.0)
+    apac_annual_sales = _seg_value("APAC", "revenue", "annual", default=157_757_000.0)
     annual_revenue = (
         (ab_annual_sales or 0.0) + (ho_annual_sales or 0.0)
         if ab_annual_sales is not None and ho_annual_sales is not None
@@ -4369,6 +4692,29 @@ def _anf_build_investment_case_data(
     _add("Brand Health", "Hollister Q4 comp", ho_q4_comp, "%", _fmt_pct(ho_q4_comp, decimals=0))
     _add("Brand Health", "Interpretation", display="Hollister is currently the main growth engine; Abercrombie slowed in 2025 but returned to growth in Q4.")
 
+    for label, category_type, revenue_value in [
+        ("Abercrombie (brand)", "Brand", ab_annual_sales),
+        ("Hollister (brand)", "Brand", ho_annual_sales),
+        ("Americas (geography / stores)", "Geography / stores", americas_annual_sales),
+        ("EMEA (geography / stores)", "Geography / stores", emea_annual_sales),
+        ("APAC (geography / stores)", "Geography / stores", apac_annual_sales),
+    ]:
+        revenue_m = (float(revenue_value) / 1_000_000.0) if revenue_value is not None else None
+        _add(
+            "Segment Scenario Inputs",
+            label,
+            revenue_m,
+            "$m",
+            f"${revenue_m:,.1f}m" if revenue_m is not None else "",
+            source="Slides_Segments / annual report" if revenue_m is not None else "model-derived",
+            source_note="Separate revenue cut; not summed" if revenue_m is not None else "Missing segment revenue",
+            segment_type=category_type,
+            revenue_basis="2025 year net sales" if revenue_m is not None else "",
+            margin_conversion="",
+            margin_basis="",
+            feeds_bridge="No",
+        )
+
     inv_cost = _drv_value("inventory_cost_growth", 0.05)
     inv_tariff = _drv_value("inventory_cost_tariff_points", 3.0)
     inv_units = _drv_value("inventory_unit_growth", 0.05)
@@ -4441,6 +4787,7 @@ def _sector_build_investment_case_data(
     operating_driver_rows: Sequence[Dict[str, Any]] = (),
     valuation_summary: Any = None,
     economics_market_rows: Sequence[Dict[str, Any]] = (),
+    slides_segments: Any = None,
 ) -> pd.DataFrame:
     """Build a compact sector-specific investment-case audit table for non-ANF tickers."""
     ticker_txt = str(ticker or "").strip().upper()
@@ -4451,6 +4798,7 @@ def _sector_build_investment_case_data(
     guidance_df = guidance_normalized.copy() if isinstance(guidance_normalized, pd.DataFrame) else pd.DataFrame()
     drivers = [dict(r) for r in (operating_driver_rows or [])]
     econ_rows = [dict(r) for r in (economics_market_rows or [])]
+    seg_df = slides_segments.copy() if isinstance(slides_segments, pd.DataFrame) else pd.DataFrame()
     rows: List[Dict[str, Any]] = []
 
     def _num(x: Any) -> Optional[float]:
@@ -4493,6 +4841,45 @@ def _sector_build_investment_case_data(
         pct = raw * 100.0 if abs(raw) <= 1.5 else raw
         sign = "+" if pct > 0 else ""
         return f"{sign}{pct:.{decimals}f}%"
+
+    def _segment_ttm_revenue_m(segment_aliases: Sequence[str]) -> Tuple[Optional[float], str]:
+        if seg_df.empty or not {"quarter", "segment", "metric", "value"}.issubset(set(seg_df.columns)):
+            return None, ""
+        tmp = seg_df.copy()
+        tmp["_q_sort"] = pd.to_datetime(tmp.get("quarter"), errors="coerce")
+        tmp["_value"] = pd.to_numeric(tmp.get("value"), errors="coerce")
+        tmp = tmp[tmp["_q_sort"].notna() & tmp["_value"].notna()].copy()
+        if tmp.empty:
+            return None, ""
+        aliases = [str(alias or "").strip().lower() for alias in segment_aliases if str(alias or "").strip()]
+        seg_ser = tmp["segment"].astype(str).str.strip().str.lower()
+        metric_ser = tmp["metric"].astype(str).str.strip().str.lower()
+        mask = metric_ser.str.contains("revenue", regex=False, na=False)
+        if aliases:
+            mask &= seg_ser.apply(lambda txt: any(alias in txt for alias in aliases))
+        tmp = tmp[mask].copy()
+        if tmp.empty:
+            return None, ""
+        tmp["_unit"] = tmp.get("unit", pd.Series([""] * len(tmp), index=tmp.index)).astype(str).str.strip().str.lower()
+        tmp["_value_m"] = tmp.apply(
+            lambda rec: _segment_scenario_revenue_m(rec.get("_value"), rec.get("_unit")),
+            axis=1,
+        )
+        tmp = tmp[pd.to_numeric(tmp["_value_m"], errors="coerce").notna()].copy()
+        tmp = tmp[(tmp["_value_m"].abs() >= 10.0) & (tmp["_value_m"].abs() <= 10000.0)].copy()
+        if tmp.empty:
+            return None, ""
+        tmp["_q_date"] = tmp["_q_sort"].dt.date
+        latest_by_q = (
+            tmp.sort_values(["_q_sort", "_value_m"], kind="stable")
+            .groupby("_q_date", as_index=False)
+            .tail(1)
+            .sort_values("_q_sort")
+        )
+        if len(latest_by_q) >= 4:
+            return float(latest_by_q.tail(4)["_value_m"].sum()), "Slides_Segments TTM revenue"
+        latest = latest_by_q.iloc[-1]
+        return float(latest.get("_value_m")), "Slides_Segments latest revenue"
 
     def _guidance_snip(*needles: str, max_chars: int = 96) -> str:
         if guidance_df.empty:
@@ -4572,6 +4959,28 @@ def _sector_build_investment_case_data(
     eps_base = None
     if shares_m and net_income_ttm_m is not None and shares_m > 0:
         eps_base = net_income_ttm_m / shares_m
+    pretax_ttm = _first_ttm(["pretax_income", "income_before_taxes", "income_before_income_taxes"])
+    tax_expense_ttm = _first_ttm(["income_tax_expense", "tax_expense", "provision_for_income_taxes"])
+    tax_rate = None
+    if (
+        pretax_ttm is not None
+        and tax_expense_ttm is not None
+        and float(pretax_ttm) > 0
+        and float(tax_expense_ttm) >= 0
+    ):
+        candidate_tax_rate = float(tax_expense_ttm) / float(pretax_ttm)
+        if 0.0 <= candidate_tax_rate <= 0.35:
+            tax_rate = candidate_tax_rate
+    if tax_rate is not None:
+        _add(
+            "Assumptions",
+            "Tax rate",
+            value=tax_rate,
+            unit="%",
+            display=f"{tax_rate * 100:.1f}%",
+            source="History_Q",
+            source_note="TTM tax expense divided by positive pretax income; capped to 0-35% for scenario EPS conversion.",
+        )
 
     def _add_eps_pe_sensitivity(section: str = "Valuation Sensitivity") -> None:
         if eps_base is None or not math.isfinite(float(eps_base)):
@@ -4709,6 +5118,26 @@ def _sector_build_investment_case_data(
             ("Other / corporate", "Keep corporate cost and residual items from masking segment trend."),
         ]:
             _add("Segment Health", seg, read, source="SUMMARY / Operating_Drivers", investment_read="Segment trend must support the turnaround thesis.")
+
+        for label, aliases in [
+            ("Presort", ("presort services", "presort")),
+            ("SendTech", ("sendtech solutions", "sendtech")),
+        ]:
+            revenue_m, revenue_basis = _segment_ttm_revenue_m(aliases)
+            _add(
+                "Segment Scenario Inputs",
+                label,
+                _fmt_money_m(revenue_m),
+                value=revenue_m,
+                unit="$m",
+                source="Slides_Segments" if revenue_m is not None else "model-derived",
+                source_note="Missing segment margin" if revenue_m is not None else "Missing segment revenue",
+                segment_type="Segment / business line",
+                revenue_basis=revenue_basis,
+                margin_conversion="",
+                margin_basis="",
+                feeds_bridge="No",
+            )
 
         _add("Capital Structure / Refinancing Risk", "Debt core", _fmt_money_m(debt_m), value=debt_m, unit="$m", source="History_Q")
         _add("Capital Structure / Refinancing Risk", "Cash", _fmt_money_m(cash_m), value=cash_m, unit="$m", source="History_Q")
@@ -5085,6 +5514,12 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
         except Exception:
             return None
 
+    def _numeric_value(section: str, metric: str) -> Optional[float]:
+        for rec in _records(section):
+            if str(rec.get("metric") or "").strip().lower() == str(metric or "").strip().lower():
+                return _num(rec.get("value"))
+        return None
+
     def _manual_period_labels() -> Tuple[str, str, str]:
         return "2025 year", "2026-Q2", "2026 year"
 
@@ -5093,6 +5528,16 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
         gpre_45z_ttm = _operating_driver_ttm_sum_from_workbook(wb, "45Z value realized ($m)") if ticker_txt == "GPRE" else None
         pbi_cost_savings_run_rate = 157.0 if ticker_txt == "PBI" else None
         pbi_cost_savings_target_midpoint = 190.0 if ticker_txt == "PBI" else None
+        scenario_tax_rate = _numeric_value("Assumptions", "Tax rate")
+        if scenario_tax_rate is not None and float(scenario_tax_rate) > 1.0:
+            scenario_tax_rate = float(scenario_tax_rate) / 100.0
+        if scenario_tax_rate is None or not (0.0 <= float(scenario_tax_rate) <= 0.35):
+            scenario_tax_rate = None
+        scenario_tax_note = (
+            "Clean model tax rate; 25% default scenario tax rate if unavailable."
+            if scenario_tax_rate is not None
+            else "Uses 25% default scenario tax rate if no clean source."
+        )
         specs: List[Tuple[str, str, Any, Any, Any, Any, str, str]] = [
             ("price", "Current share price", '=""', '=""', '=""', '=""', "Manual input only.", "$0.00"),
             ("shares", "Diluted shares", '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=""', '=""', "Model share denominator.", "#,##0.0"),
@@ -5101,6 +5546,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             ("eps", "Forward EPS", '=""', '=IFERROR(IF(Adj_EPS_TTM<>"",Adj_EPS_TTM,EPS_TTM),"")', '=""', '=""', "Adjusted EPS preferred.", "$0.00"),
             ("ebitda", "Forward Adj EBITDA", '=""', '=IFERROR(IF(ThesisBaseAdjEBITDA_FY<>"",ThesisBaseAdjEBITDA_FY,Adj_EBITDA),"")', '=""', '=""', "Adjusted EBITDA base.", "#,##0.0"),
             ("fcf", "Forward FCF", '=""', '=IFERROR(IF(Adj_FCF_TTM<>"",Adj_FCF_TTM,FCF_TTM),"")', '=""', '=""', "FCF base.", "#,##0.0"),
+            ("scenario_tax_rate", "Scenario tax rate", '=""', scenario_tax_rate if scenario_tax_rate is not None else '=""', '=""', '=""', scenario_tax_note, "0.0%"),
             ("capex", "Capex", '=""', '=IFERROR(Capex_TTM,"")', "=20" if ticker_txt == "GPRE" else '=""', '=""', "Capex changes affect FCF only.", "#,##0.0"),
             ("pe", "P/E multiple", '=IFERROR(IF(Target_PE<>"",Target_PE,10),10)', '=IFERROR(IF(Target_PE<>"",Target_PE,10),10)', '=""', '=""', "Scenario P/E lens.", "0.0x"),
             ("ev_multiple", "EV/Adj EBITDA multiple", '=IFERROR(IF(Target_EV_AdjEBITDA<>"",Target_EV_AdjEBITDA,8),8)', '=IFERROR(IF(Target_EV_AdjEBITDA<>"",Target_EV_AdjEBITDA,8),8)', '=""', '=""', "Scenario EV/EBITDA lens.", "0.0x"),
@@ -5167,6 +5613,12 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             current_row = row
             if key == "price":
                 active_formula = f'=IF(F{current_row}<>"",F{current_row},"")'
+            elif key == "scenario_tax_rate":
+                active_formula = (
+                    f'=IF(F{current_row}<>"",F{current_row},IF(C{current_row}<>"",C{current_row},'
+                    f'IF(B{current_row}<>"",B{current_row},IF(D{current_row}<>"",D{current_row},'
+                    f'IF(E{current_row}<>"",E{current_row},0.25)))))'
+                )
             elif key in {"cost_savings", "credit_45z", "capex"}:
                 active_formula = (
                     f'=IF(F{current_row}<>"",F{current_row},'
@@ -5192,6 +5644,72 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             refs[f"{key}__guidance_next"] = f"$E${current_row}"
             refs[f"{key}__override"] = f"$F${current_row}"
         return row + 1, refs
+
+    def _segment_scenario_specs() -> List[_SegmentScenarioInputSpec]:
+        if ticker_txt != "PBI":
+            return []
+        specs = _segment_scenario_specs_from_records(_records("Segment Scenario Inputs"))
+        if specs:
+            return specs
+        return [
+            _SegmentScenarioInputSpec("Presort", "Segment / business line", revenue_basis="", source_note="Missing segment revenue"),
+            _SegmentScenarioInputSpec("SendTech", "Segment / business line", revenue_basis="", source_note="Missing segment revenue"),
+        ]
+
+    def _write_segment_scenario_inputs(row: int) -> int:
+        specs = _segment_scenario_specs()
+        if ticker_txt != "PBI":
+            _write_scenario_driver_assumptions_sheet(
+                wb,
+                ticker=ticker_txt,
+                enabled=False,
+                disabled_note="GPRE segment scenario disabled; use ethanol, 45Z, crush and policy drivers.",
+            )
+            return row
+        _write_scenario_driver_assumptions_sheet(wb, ticker=ticker_txt, segment_specs=specs, enabled=True)
+        row = _section(row, "Segment Scenario Inputs")
+        row = _header(
+            row,
+            [
+                "Segment / category",
+                "Type",
+                "Baseline revenue",
+                "Revenue % override",
+                "Revenue impact",
+                "Margin / conversion",
+                "EBITDA/EBIT impact",
+                "Notes",
+            ],
+            merge_spans=[(8, max_col)],
+        )
+        for idx, spec in enumerate(specs):
+            current_row = row
+            note = spec.source_note or ("Missing segment margin" if spec.margin_conversion is None else "Informational only")
+            ebitda_impact: Any = f'=IFERROR(E{current_row}*F{current_row},0)' if spec.margin_conversion is not None else ""
+            row = _row(
+                row,
+                [
+                    spec.label,
+                    spec.category_type,
+                    spec.baseline_revenue_m if spec.baseline_revenue_m is not None else "",
+                    "",
+                    f'=IFERROR(IF(D{current_row}="",0,C{current_row}*D{current_row}),0)',
+                    spec.margin_conversion if spec.margin_conversion is not None else "",
+                    ebitda_impact,
+                    note,
+                ],
+                fill=alt_fill if idx % 2 else white_fill,
+                spans=[(8, max_col)],
+            )
+            ws.cell(current_row, 3).number_format = "#,##0.0"
+            ws.cell(current_row, 4).number_format = "0.0%"
+            ws.cell(current_row, 4).fill = copy(input_fill)
+            ws.cell(current_row, 5).number_format = "#,##0.0"
+            ws.cell(current_row, 6).number_format = "0.0%"
+            ws.cell(current_row, 7).number_format = "#,##0.0"
+            for cc in range(1, max_col + 1):
+                ws.cell(current_row, cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc in {1, 2, 8})
+        return row + 1
 
     def _manual_ref(refs: Dict[str, str], key: str) -> str:
         return refs.get(key, '""')
@@ -5238,8 +5756,15 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
         shares = _manual_ref(refs, "shares")
         eps_override = _manual_part_ref(refs, "eps", "override")
         shares_ttm = _manual_part_ref(refs, "shares", "ttm")
+        scenario_tax_rate = _manual_ref(refs, "scenario_tax_rate")
         refs_out: Dict[str, str] = {}
         row = _section(row, "Scenario Driver Bridge")
+        row = _row(
+            row,
+            ["Taxable EPS impacts use active scenario tax rate."],
+            fill=white_fill,
+            spans=[(1, max_col)],
+        )
         row = _header(
             row,
             [
@@ -5255,6 +5780,8 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             merge_spans=[(8, max_col)],
         )
         incremental_start = row
+        after_tax_factor = None
+        tax_source_basis = "Manual Market / Scenario Inputs active Scenario tax rate; defaults to 25% if no clean source."
 
         if ticker_txt == "PBI":
             cost_savings = _manual_ref(refs, "cost_savings")
@@ -5275,6 +5802,8 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     ebitda_impact="none",
                     fcf_impact="none",
                     eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
+                    tax_source_basis="Base row; no incremental bridge effect.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Incremental cost savings vs baseline",
@@ -5284,7 +5813,9 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     "Run-rate baseline vs active target.",
                     ebitda_impact="same",
                     fcf_impact="none",
-                    eps_impact="earnings_conversion",
+                    eps_impact="auto",
+                    tax_treatment=SCENARIO_TAX_TAXABLE,
+                    tax_source_basis="Operating cost savings assumed taxable; baseline is the visible run-rate/TTM savings row.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Interest/refinancing effect vs baseline",
@@ -5295,7 +5826,9 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     reverse_incremental=True,
                     ebitda_impact="none",
                     fcf_impact="same",
-                    eps_impact="manual_required",
+                    eps_impact="auto",
+                    tax_treatment=SCENARIO_TAX_TAXABLE,
+                    tax_source_basis="Interest/refinancing is treated as pre-tax interest effect when tax conversion is available.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Presort / SendTech stabilization",
@@ -5306,7 +5839,9 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     explicit_incremental=True,
                     ebitda_impact="same",
                     fcf_impact="none",
-                    eps_impact="earnings_conversion",
+                    eps_impact="auto",
+                    tax_treatment=SCENARIO_TAX_TAXABLE,
+                    tax_source_basis="Manual operating uplift is treated as taxable EBITDA-like improvement.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Capex change vs baseline",
@@ -5317,6 +5852,8 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     ebitda_impact="none",
                     fcf_impact="negative",
                     eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_CASH_ONLY,
+                    tax_source_basis="Capex affects cash flow, not direct EPS or Adj EBITDA.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Debt paydown / net debt",
@@ -5328,6 +5865,8 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     ebitda_impact="none",
                     fcf_impact="none",
                     eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
+                    tax_source_basis="Debt paydown changes net debt/equity bridge only unless a separate interest effect is modeled.",
                 ),
             ]
         else:
@@ -5350,6 +5889,8 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     ebitda_impact="none",
                     fcf_impact="none",
                     eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
+                    tax_source_basis="Base row; no incremental bridge effect.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Incremental 45Z uplift vs baseline",
@@ -5359,8 +5900,10 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     credit_45z_read,
                     ebitda_impact="same",
                     fcf_impact="none",
-                    eps_impact="earnings_conversion",
+                    eps_impact="auto",
                     subsidy_basis="ebitda_like",
+                    tax_treatment=SCENARIO_TAX_NON_TAXABLE_CREDIT,
+                    tax_source_basis="45Z is source-backed as an EBITDA-like tax-credit contribution in Operating_Drivers/management guidance.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Crush margin uplift ($m)",
@@ -5371,7 +5914,9 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     explicit_incremental=True,
                     ebitda_impact="same",
                     fcf_impact="none",
-                    eps_impact="earnings_conversion",
+                    eps_impact="auto",
+                    tax_treatment=SCENARIO_TAX_TAXABLE,
+                    tax_source_basis="Crush margin uplift is an operating EBITDA uplift and taxable unless a tax-credit basis is documented.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Capex change vs baseline",
@@ -5382,6 +5927,8 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     ebitda_impact="none",
                     fcf_impact="negative",
                     eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_CASH_ONLY,
+                    tax_source_basis="Capex affects cash flow, not direct EPS or Adj EBITDA.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Policy / RVO / E15 / export",
@@ -5392,10 +5939,20 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     explicit_incremental=True,
                     ebitda_impact="same",
                     fcf_impact="none",
-                    eps_impact="earnings_conversion",
+                    eps_impact="auto",
+                    tax_treatment=SCENARIO_TAX_TAXABLE,
+                    tax_source_basis="Numeric policy/RVO/E15/export input is treated as taxable operating uplift unless explicitly tax-like.",
                 ),
             ]
 
+        _write_scenario_bridge_tax_treatment_sheet(
+            wb,
+            ticker=ticker_txt,
+            specs=bridge_specs,
+            after_tax_factor=after_tax_factor,
+            tax_rate_ref=scenario_tax_rate,
+            tax_source_basis=tax_source_basis,
+        )
         incremental_rows = [
             _scenario_bridge_row_values(
                 spec,
@@ -5405,7 +5962,8 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                 active_shares_ref=shares,
                 baseline_shares_ref=shares_ttm,
                 eps_override_ref=eps_override,
-                after_tax_factor=None,
+                after_tax_factor=after_tax_factor,
+                tax_rate_ref=scenario_tax_rate,
             )
             for idx, spec in enumerate(bridge_specs)
         ]
@@ -5654,6 +6212,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
     row += 1
 
     row, manual_refs = _write_manual_inputs(row)
+    row = _write_segment_scenario_inputs(row)
     row, bridge_refs = _write_scenario_driver_bridge(row, manual_refs)
     row = _write_market_pricing(row, manual_refs)
     row += 1
@@ -6086,6 +6645,16 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             if capex_guidance_midpoint is not None and capex_guidance_display
             else "Current-year capex guide midpoint when clean."
         )
+        scenario_tax_rate = _numeric_value("Assumptions", "Tax rate")
+        if scenario_tax_rate is not None and float(scenario_tax_rate) > 1.0:
+            scenario_tax_rate = float(scenario_tax_rate) / 100.0
+        if scenario_tax_rate is None or not (0.0 <= float(scenario_tax_rate) <= 0.35):
+            scenario_tax_rate = None
+        scenario_tax_note = (
+            "Clean model tax rate; 25% default scenario tax rate if unavailable."
+            if scenario_tax_rate is not None
+            else "Uses 25% default scenario tax rate if no clean source."
+        )
         specs: List[Tuple[str, str, Any, Any, Any, Any, str, str]] = [
             ("price", "Current share price", '=""', '=""', '=""', '=""', "Manual input only.", "$0.00"),
             ("shares", "Diluted shares", '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=""', '=""', "Model share denominator.", "#,##0.0"),
@@ -6094,6 +6663,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             ("eps", "Forward EPS", '=""', '=IFERROR(IF(Adj_EPS_TTM<>"",Adj_EPS_TTM,EPS_TTM),"")', "=10.6", '=""', "Adjusted EPS preferred.", "$0.00"),
             ("ebitda", "Forward Adj EBITDA", '=""', '=IFERROR(IF(ThesisBaseAdjEBITDA_FY<>"",ThesisBaseAdjEBITDA_FY,Adj_EBITDA),"")', '=""', '=""', "Adjusted EBITDA base.", "#,##0.0"),
             ("fcf", "Forward FCF", '=""', '=IFERROR(IF(Adj_FCF_TTM<>"",Adj_FCF_TTM,FCF_TTM),"")', '=""', '=""', "FCF base.", "#,##0.0"),
+            ("scenario_tax_rate", "Scenario tax rate", '=""', scenario_tax_rate if scenario_tax_rate is not None else '=""', '=""', '=""', scenario_tax_note, "0.0%"),
             (
                 "capex",
                 "Capex",
@@ -6137,9 +6707,13 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 f'=IF(F{current_row}<>"",F{current_row},"")'
                 if key == "price"
                 else (
+                    f'=IF(F{current_row}<>"",F{current_row},IF(C{current_row}<>"",C{current_row},IF(B{current_row}<>"",B{current_row},IF(D{current_row}<>"",D{current_row},IF(E{current_row}<>"",E{current_row},0.25)))))'
+                    if key == "scenario_tax_rate"
+                    else (
                     f'=IF(F{current_row}<>"",F{current_row},IF(D{current_row}<>"",D{current_row},IF(C{current_row}<>"",C{current_row},IF(B{current_row}<>"",B{current_row},E{current_row}))))'
                     if key == "capex"
                     else f'=IF(F{current_row}<>"",F{current_row},IF(C{current_row}<>"",C{current_row},IF(B{current_row}<>"",B{current_row},IF(D{current_row}<>"",D{current_row},E{current_row}))))'
+                    )
                 )
             )
             row = _write_cells(
@@ -6161,6 +6735,80 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             refs[f"{key}__guidance_next"] = f"$E${current_row}"
             refs[f"{key}__override"] = f"$F${current_row}"
         return row + 1, refs
+
+    def _segment_scenario_specs() -> List[_SegmentScenarioInputSpec]:
+        specs = _segment_scenario_specs_from_records(_records("Segment Scenario Inputs"))
+        if specs:
+            return specs
+        fallback_rows = [
+            ("Abercrombie (brand)", "Brand", _numeric_value("Brand Health", "Abercrombie 2025 sales")),
+            ("Hollister (brand)", "Brand", _numeric_value("Brand Health", "Hollister 2025 sales")),
+            ("Americas (geography / stores)", "Geography / stores", None),
+            ("EMEA (geography / stores)", "Geography / stores", None),
+            ("APAC (geography / stores)", "Geography / stores", None),
+        ]
+        out: List[_SegmentScenarioInputSpec] = []
+        for label, category_type, raw_value in fallback_rows:
+            out.append(
+                _SegmentScenarioInputSpec(
+                    label=label,
+                    category_type=category_type,
+                    baseline_revenue_m=_segment_scenario_revenue_m(raw_value, "$"),
+                    revenue_basis="2025 year net sales" if raw_value is not None else "",
+                    source_note="Separate revenue cut; not summed" if raw_value is not None else "Missing segment revenue",
+                )
+            )
+        return out
+
+    def _write_segment_scenario_inputs(row: int) -> int:
+        specs = _segment_scenario_specs()
+        _write_scenario_driver_assumptions_sheet(wb, ticker="ANF", segment_specs=specs, enabled=True)
+        row = _section(row, "Segment Scenario Inputs")
+        row = _headers(
+            row,
+            [
+                "Segment / category",
+                "Type",
+                "Baseline revenue",
+                "Revenue % override",
+                "Revenue impact",
+                "Margin / conversion",
+                "EBITDA/EBIT impact",
+                "Notes",
+            ],
+            end_col=visible_max_col,
+            merge_spans=[(8, visible_max_col)],
+        )
+        for idx, spec in enumerate(specs):
+            current_row = row
+            note = spec.source_note or ("Missing segment margin" if spec.margin_conversion is None else "Informational only")
+            ebitda_impact: Any = f'=IFERROR(E{current_row}*F{current_row},0)' if spec.margin_conversion is not None else ""
+            row = _write_cells(
+                row,
+                [
+                    spec.label,
+                    spec.category_type,
+                    spec.baseline_revenue_m if spec.baseline_revenue_m is not None else "",
+                    "",
+                    f'=IFERROR(IF(D{current_row}="",0,C{current_row}*D{current_row}),0)',
+                    spec.margin_conversion if spec.margin_conversion is not None else "",
+                    ebitda_impact,
+                    note,
+                ],
+                end_col=visible_max_col,
+                fill=neutral_alt if idx % 2 == 0 else neutral,
+                wrap_cols={1, 2, 8},
+                merge_spans=[(8, visible_max_col)],
+            )
+            ws.cell(row=current_row, column=3).number_format = "#,##0.0"
+            ws.cell(row=current_row, column=4).number_format = "0.0%"
+            ws.cell(row=current_row, column=4).fill = copy(input_fill)
+            ws.cell(row=current_row, column=5).number_format = "#,##0.0"
+            ws.cell(row=current_row, column=6).number_format = "0.0%"
+            ws.cell(row=current_row, column=7).number_format = "#,##0.0"
+            for cc in range(1, visible_max_col + 1):
+                ws.cell(row=current_row, column=cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc in {1, 2, 8})
+        return row + 1
 
     def _manual_ref(refs: Dict[str, str], key: str) -> str:
         return refs.get(key, '""')
@@ -6209,8 +6857,16 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
         shares = _manual_ref(refs, "shares")
         eps_override = _manual_part_ref(refs, "eps", "override")
         shares_ttm = _manual_part_ref(refs, "shares", "ttm")
+        scenario_tax_rate = _manual_ref(refs, "scenario_tax_rate")
         refs_out: Dict[str, str] = {}
         row = _section(row, "Scenario Driver Bridge")
+        row = _write_cells(
+            row,
+            ["Taxable EPS impacts use active scenario tax rate."],
+            end_col=visible_max_col,
+            fill=neutral,
+            merge_spans=[(1, visible_max_col)],
+        )
         row = _headers(
             row,
             [
@@ -6242,6 +6898,8 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 ebitda_impact="none",
                 fcf_impact="none",
                 eps_impact="none",
+                tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
+                tax_source_basis="Base row; no incremental bridge effect.",
             ),
             _ScenarioDriverBridgeSpec(
                 "Margin bridge vs baseline",
@@ -6252,6 +6910,8 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 ebitda_impact="none",
                 fcf_impact="none",
                 eps_impact="manual_required",
+                tax_treatment=SCENARIO_TAX_UNKNOWN_MANUAL_REQUIRED,
+                tax_source_basis="Margin bridge is entered in bps; no automatic dollar/EPS conversion is assumed.",
             ),
             _ScenarioDriverBridgeSpec(
                 "Buyback/share-count effect",
@@ -6263,6 +6923,8 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 ebitda_impact="none",
                 fcf_impact="none",
                 eps_impact="share_count",
+                tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
+                tax_source_basis="Buybacks affect EPS through diluted shares, not earnings.",
             ),
             _ScenarioDriverBridgeSpec(
                 "Capex change vs baseline",
@@ -6273,6 +6935,8 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 ebitda_impact="none",
                 fcf_impact="negative",
                 eps_impact="none",
+                tax_treatment=SCENARIO_TAX_CASH_ONLY,
+                tax_source_basis="Capex affects cash flow, not direct EPS or Adj EBITDA.",
             ),
             _ScenarioDriverBridgeSpec(
                 "EPS guide/manual adjustment",
@@ -6283,13 +6947,22 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 ebitda_impact="none",
                 fcf_impact="none",
                 eps_impact="direct_per_share",
+                tax_treatment=SCENARIO_TAX_NON_TAXABLE_CREDIT,
+                tax_source_basis="EPS guide is already a per-share net-income outcome.",
+                eps_impact_rule="direct EPS/share delta",
             ),
         ]
-        tax_rate = _numeric_value("Assumptions", "Tax rate")
         after_tax_factor = None
-        if tax_rate is not None and 0.0 <= tax_rate <= 0.6:
-            after_tax_factor = 1.0 - float(tax_rate)
+        tax_source_basis = "Manual Market / Scenario Inputs active Scenario tax rate; defaults to 25% if no clean source."
 
+        _write_scenario_bridge_tax_treatment_sheet(
+            wb,
+            ticker="ANF",
+            specs=bridge_specs,
+            after_tax_factor=after_tax_factor,
+            tax_rate_ref=scenario_tax_rate,
+            tax_source_basis=tax_source_basis,
+        )
         incremental_rows = [
             _scenario_bridge_row_values(
                 spec,
@@ -6299,6 +6972,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 baseline_shares_ref=shares_ttm,
                 eps_override_ref=eps_override,
                 after_tax_factor=after_tax_factor,
+                tax_rate_ref=scenario_tax_rate,
             )
             for idx, spec in enumerate(bridge_specs)
         ]
@@ -6574,6 +7248,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
     row += 1
 
     row, manual_refs = _write_manual_inputs(row)
+    row = _write_segment_scenario_inputs(row)
     row, bridge_refs = _write_scenario_driver_bridge(row, manual_refs)
     row = _write_market_pricing(row, manual_refs)
     row += 1
@@ -91635,6 +92310,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             guidance_normalized=guidance_for_case,
             valuation_summary=valuation_summary_df,
             economics_market_rows=economics_market_rows,
+            slides_segments=slides_segments,
         )
         _write_sector_investment_case_sheet(wb, ticker_txt, case_data)
         _write_sector_investment_case_data_sheet(wb, ticker_txt, case_data)
