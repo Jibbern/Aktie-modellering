@@ -2029,6 +2029,12 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
     for ticker in ("PBI", "GPRE"):
         wb = Workbook()
         del wb[wb.sheetnames[0]]
+        if ticker == "GPRE":
+            od = wb.create_sheet("Operating_Drivers")
+            od.append(["Operating Drivers"])
+            od.append(["Actuals - latest 12 quarters"])
+            od.append(["Quarter", "2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4", "2026-Q1"])
+            od.append(["45Z value realized ($m)", None, 26.0, 27.0, None, 55.2])
         _write_sector_investment_case_sheet(wb, ticker, sector_df)
         cases.append((ticker, wb[f"{ticker}_Investment_Case"]))
     wb = Workbook()
@@ -2070,6 +2076,9 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         assert "Diluted shares" in shares_labels
         assert "Shares diluted / valuation share count" not in shares_labels
         eps_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Forward EPS")
+        ebitda_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Forward Adj EBITDA")
+        shares_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Diluted shares")
+        capex_input_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Capex")
         assert str(ws.cell(eps_row, 7).value).startswith(f'=IF(F{eps_row}<>"",F{eps_row},IF(C{eps_row}<>"",C{eps_row},IF(B{eps_row}<>"",B{eps_row},IF(D{eps_row}<>"",D{eps_row},E{eps_row}))))')
         if ticker == "GPRE":
             manual_labels = [str(ws.cell(r, 1).value or "") for r in range(manual_row + 1, manual_row + 30)]
@@ -2077,6 +2086,19 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert "Gallons / utilization" not in manual_labels
             assert "Policy / RVO / E15 / export" in manual_labels
             assert "Policy / RVO / E15 / export upside/downside" not in manual_labels
+            credit_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "45Z contribution / guide ($m)")
+            assert ws.cell(credit_row, 2).value == 53.0
+            assert ws.cell(credit_row, 3).value == 108.2
+            assert ws.cell(credit_row, 4).value == 212.5
+            credit_active_formula = str(ws.cell(credit_row, 7).value or "")
+            assert f'IF(F{credit_row}<>"",F{credit_row},IF(D{credit_row}<>"",D{credit_row},IF(C{credit_row}<>"",C{credit_row}' in credit_active_formula
+        if ticker == "PBI":
+            cost_input_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Cost savings target / run-rate ($m)")
+            assert ws.cell(cost_input_row, 2).value == 157.0
+            assert ws.cell(cost_input_row, 3).value == 157.0
+            assert ws.cell(cost_input_row, 4).value == 190.0
+            cost_active_formula = str(ws.cell(cost_input_row, 7).value or "")
+            assert f'IF(F{cost_input_row}<>"",F{cost_input_row},IF(D{cost_input_row}<>"",D{cost_input_row},IF(C{cost_input_row}<>"",C{cost_input_row}' in cost_active_formula
         for c in range(2, 8):
             assert ws.cell(eps_row, c).alignment.horizontal == "left"
 
@@ -2139,18 +2161,17 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         if ticker == "GPRE":
             assert not any("Economics_Overlay" in value for value in bridge_formulas if value.startswith("="))
             assert "Gallons / utilization" not in incremental_labels
-            assert "45Z contribution uplift vs baseline" in incremental_labels
+            assert "Incremental 45Z uplift vs baseline" in incremental_labels
             assert "Crush margin uplift ($m)" in incremental_labels
             assert "Capex change vs baseline" in incremental_labels
             assert "Policy / RVO / E15 / export" in incremental_labels
-            fortyfive_z_row = bridge_by_label["45Z contribution uplift vs baseline"]
-            assert "Manual-required" in fortyfive_z_row[4]
+            fortyfive_z_row = bridge_by_label["Incremental 45Z uplift vs baseline"]
+            assert "Manual-required" not in fortyfive_z_row[4]
+            assert f"$G${eps_row}" in fortyfive_z_row[4] and f"$G${shares_row}" in fortyfive_z_row[4]
             assert "C" in fortyfive_z_row[3] and "B" in fortyfive_z_row[3]
             assert "D" in fortyfive_z_row[5]
-            if "Unknown" in fortyfive_z_row[1]:
-                assert "Unknown" in fortyfive_z_row[5]
-            else:
-                assert "Operating_Drivers baseline" in fortyfive_z_row[7]
+            assert "$C$" in fortyfive_z_row[1]
+            assert "Operating_Drivers baseline" in fortyfive_z_row[7]
             capex_row = bridge_by_label["Capex change vs baseline"]
             assert not any("capex" in value.lower() for value in capex_row[4:6])
             assert any("capex" in value.lower() for value in capex_row[6:])
@@ -2160,17 +2181,31 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert "Interest/refinancing effect vs baseline" in incremental_labels
             assert "Presort / SendTech stabilization" in incremental_labels
             assert "Debt paydown / net debt" in incremental_labels
+            assert "Capex change vs baseline" in incremental_labels
             cost_row = bridge_by_label["Incremental cost savings vs baseline"]
-            assert "Manual-required" in cost_row[4]
-            assert "Unknown" in cost_row[5]
+            assert "Manual-required" not in cost_row[4]
+            assert f"$G${eps_row}" in cost_row[4] and f"$G${ebitda_row}" in cost_row[4]
+            assert "$C$" in cost_row[1]
+            assert "D" in cost_row[5]
             interest_row = bridge_by_label["Interest/refinancing effect vs baseline"]
             assert "Manual-required" in interest_row[4]
             assert "no rate" in interest_row[7].lower() or "tax" in interest_row[7].lower()
+            capex_row = bridge_by_label["Capex change vs baseline"]
+            assert f"$C${capex_input_row}" in capex_row[1]
+            assert str(capex_row[4]) in {"0", "0.0", ""}
+            assert str(capex_row[5]) in {"0", "0.0", ""}
+            assert "C" in capex_row[6] and "B" in capex_row[6]
         else:
             assert "Buyback/share-count effect" in incremental_labels
             assert "Margin bridge vs baseline" in incremental_labels
+            assert "Capex change vs baseline" in incremental_labels
             buyback_row = bridge_by_label["Buyback/share-count effect"]
             assert buyback_row[5] in {"0", "0.0", ""}
+            capex_row = bridge_by_label["Capex change vs baseline"]
+            assert f"$C${capex_input_row}" in capex_row[1]
+            assert str(capex_row[4]) in {"0", "0.0", ""}
+            assert str(capex_row[5]) in {"0", "0.0", ""}
+            assert "C" in capex_row[6] and "B" in capex_row[6]
 
         market_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "What Market Is Pricing")
         market_values = [str(ws.cell(r, c).value or "") for r in range(market_row, min(ws.max_row, market_row + 10) + 1) for c in range(1, 11)]
