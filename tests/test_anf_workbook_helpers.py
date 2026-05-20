@@ -2124,10 +2124,18 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert ws.cell(summary_row + 1, c).alignment.horizontal == "left"
         summary_labels = [str(ws.cell(r, 1).value or "") for r in range(summary_row + 1, summary_row + 4)]
         assert summary_labels == ["Bridge EPS ($/sh)", "Bridge Adj EBITDA ($m)", "Bridge FCF ($m)"]
+        bridge_eps_formula = str(ws.cell(summary_row + 1, 6).value or "")
+        assert "SUM(E" in bridge_eps_formula
+        assert "*" in bridge_eps_formula and "/" in bridge_eps_formula
+        assert f"$F${eps_row}" in bridge_eps_formula
         summary_reads = [str(ws.cell(r, 8).value or "") for r in range(summary_row + 1, summary_row + 4)]
         assert "Share count and bridge impacts apply." in summary_reads
         assert "Manual EPS override wins; otherwise share count and bridge impacts apply." not in summary_reads
         incremental_labels = [str(ws.cell(r, 1).value or "") for r in range(bridge_row + 2, summary_row - 1)]
+        bridge_by_label = {
+            str(ws.cell(r, 1).value or ""): [str(ws.cell(r, c).value or "") for c in range(1, 9)]
+            for r in range(bridge_row + 2, summary_row - 1)
+        }
         if ticker == "GPRE":
             assert not any("Economics_Overlay" in value for value in bridge_formulas if value.startswith("="))
             assert "Gallons / utilization" not in incremental_labels
@@ -2135,22 +2143,34 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert "Crush margin uplift ($m)" in incremental_labels
             assert "Capex change vs baseline" in incremental_labels
             assert "Policy / RVO / E15 / export" in incremental_labels
-            bridge_by_label = {
-                str(ws.cell(r, 1).value or ""): [str(ws.cell(r, c).value or "") for c in range(1, 9)]
-                for r in range(bridge_row + 2, summary_row - 1)
-            }
+            fortyfive_z_row = bridge_by_label["45Z contribution uplift vs baseline"]
+            assert "Manual-required" in fortyfive_z_row[4]
+            assert "C" in fortyfive_z_row[3] and "B" in fortyfive_z_row[3]
+            assert "D" in fortyfive_z_row[5]
+            if "Unknown" in fortyfive_z_row[1]:
+                assert "Unknown" in fortyfive_z_row[5]
+            else:
+                assert "Operating_Drivers baseline" in fortyfive_z_row[7]
             capex_row = bridge_by_label["Capex change vs baseline"]
             assert not any("capex" in value.lower() for value in capex_row[4:6])
             assert any("capex" in value.lower() for value in capex_row[6:])
-            assert "Unknown" in bridge_by_label["45Z contribution uplift vs baseline"][1]
+            assert "C" in capex_row[6] and "B" in capex_row[6]
         elif ticker == "PBI":
             assert "Incremental cost savings vs baseline" in incremental_labels
             assert "Interest/refinancing effect vs baseline" in incremental_labels
             assert "Presort / SendTech stabilization" in incremental_labels
             assert "Debt paydown / net debt" in incremental_labels
+            cost_row = bridge_by_label["Incremental cost savings vs baseline"]
+            assert "Manual-required" in cost_row[4]
+            assert "Unknown" in cost_row[5]
+            interest_row = bridge_by_label["Interest/refinancing effect vs baseline"]
+            assert "Manual-required" in interest_row[4]
+            assert "no rate" in interest_row[7].lower() or "tax" in interest_row[7].lower()
         else:
             assert "Buyback/share-count effect" in incremental_labels
             assert "Margin bridge vs baseline" in incremental_labels
+            buyback_row = bridge_by_label["Buyback/share-count effect"]
+            assert buyback_row[5] in {"0", "0.0", ""}
 
         market_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "What Market Is Pricing")
         market_values = [str(ws.cell(r, c).value or "") for r in range(market_row, min(ws.max_row, market_row + 10) + 1) for c in range(1, 11)]
