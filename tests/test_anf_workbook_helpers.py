@@ -2169,15 +2169,19 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert "Manual-required" not in fortyfive_z_row[4]
             assert f"$G${eps_row}" in fortyfive_z_row[4] and f"$G${shares_row}" in fortyfive_z_row[4]
             assert f"$F${eps_row}" not in fortyfive_z_row[4]
+            assert f"D" in fortyfive_z_row[4] and f"/$G${shares_row}" in fortyfive_z_row[4]
+            assert f'$G${eps_row}=""' not in fortyfive_z_row[4]
             assert "C" in fortyfive_z_row[3] and "B" in fortyfive_z_row[3]
             assert "D" in fortyfive_z_row[5]
             assert "$C$" in fortyfive_z_row[1]
             assert fortyfive_z_row[7] == "Incremental 45Z vs TTM Operating_Drivers baseline."
             crush_row = bridge_by_label["Crush margin uplift ($m)"]
             assert f"$F${eps_row}" not in crush_row[4]
+            assert f"/$G${shares_row}" in crush_row[4]
             assert crush_row[7] == "Direct manual EBITDA uplift."
             policy_row = bridge_by_label["Policy / RVO / E15 / export"]
             assert f"$F${eps_row}" not in policy_row[4]
+            assert f"/$G${shares_row}" in policy_row[4]
             assert policy_row[7] == "Explicit manual EBITDA uplift/drag."
             capex_row = bridge_by_label["Capex change vs baseline"]
             assert not any("capex" in value.lower() for value in capex_row[4:6])
