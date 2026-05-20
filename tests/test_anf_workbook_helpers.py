@@ -2019,6 +2019,8 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         [
             {"section": "Investment Snapshot", "metric": "Model read", "display": "Constructive."},
             {"section": "Investment Snapshot", "metric": "Key debate", "display": "Can margins hold?"},
+            {"section": "Guidance Beat/Miss Setup", "metric": "Capex", "display": "$210-$230m"},
+            {"section": "Policy / 45Z / RFS Bridge", "metric": "45Z expected benefit", "value": 212.5, "display": "$200-$225m"},
             {"section": "Valuation Sensitivity", "metric": "Base scenario", "scenario": "Base", "eps": 10.6, "multiple": 13, "share_price": 138},
             {"section": "Adj EBITDA x EV/EBITDA", "metric": "8.0x EV/EBITDA", "display": "$6,525m EV", "equity_value_core_net_cash": 7310.0},
             {"section": "FCF Yield Implied Equity Value", "metric": "5.0% FCF yield", "display": "$7,567m equity value", "share_price": 168.2},
@@ -2099,6 +2101,9 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert ws.cell(cost_input_row, 4).value == 190.0
             cost_active_formula = str(ws.cell(cost_input_row, 7).value or "")
             assert f'IF(F{cost_input_row}<>"",F{cost_input_row},IF(D{cost_input_row}<>"",D{cost_input_row},IF(C{cost_input_row}<>"",C{cost_input_row}' in cost_active_formula
+        if ticker == "ANF":
+            assert ws.cell(capex_input_row, 4).value == 220.0
+            assert ws.cell(capex_input_row, 8).value == "ANF capex guide midpoint from $210-$230m."
         for c in range(2, 8):
             assert ws.cell(eps_row, c).alignment.horizontal == "left"
 
