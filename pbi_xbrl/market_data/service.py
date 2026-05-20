@@ -3657,6 +3657,45 @@ def download_gpre_corn_bids_snapshot(
     return summary
 
 
+def load_or_download_gpre_corn_bids_snapshot(
+    ticker_root: Path,
+    *,
+    as_of_date: Optional[date] = None,
+    timeout_seconds: float = 8.0,
+    selection_mode: str = "current_qtd",
+) -> Dict[str, Any]:
+    """Return a usable retained GPRE bid snapshot before attempting a live fetch.
+
+    Workbook rendering should not rewrite the same corn-bid archive on every run:
+    those archive files are part of the market-input fingerprint and unnecessary
+    rewrites make the export cache look stale. Explicit market refresh still uses
+    `download_gpre_corn_bids_snapshot`; this helper is for read-mostly workbook
+    paths that only need a fresh-enough current snapshot.
+    """
+    root = Path(ticker_root).expanduser().resolve()
+    try:
+        local_summary = _load_local_gpre_corn_bids_snapshot(
+            ticker_root=root,
+            as_of_date=as_of_date,
+            target_date=as_of_date,
+            selection_mode=selection_mode,
+        )
+    except Exception:
+        local_summary = {}
+    if str(local_summary.get("status") or "").strip().lower() == "ok":
+        out = dict(local_summary)
+        out["cache_hit"] = True
+        return out
+    downloaded = download_gpre_corn_bids_snapshot(
+        root,
+        as_of_date=as_of_date,
+        timeout_seconds=timeout_seconds,
+    )
+    if isinstance(downloaded, dict):
+        downloaded["cache_hit"] = False
+    return downloaded
+
+
 def _refresh_gpre_corn_bids_download(
     ticker_root: Path,
     *,

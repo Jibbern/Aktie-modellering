@@ -3193,6 +3193,45 @@ def test_load_local_gpre_corn_bids_snapshot_bootstraps_archive_from_latest() -> 
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_load_or_download_gpre_corn_bids_snapshot_prefers_fresh_local_archive(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir("gpre_corn_bids_cached_first")
+    try:
+        rows = [
+            {
+                "location": "Central City",
+                "region": "nebraska",
+                "delivery_label": "May 2026",
+                "delivery_end": date(2026, 5, 31),
+                "cash_price": 4.12,
+                "basis_usd_per_bu": -0.18,
+                "basis_cents_per_bu": -18.0,
+                "symbol": "@C6K",
+                "source_url": "fixture://cached",
+            }
+        ]
+        _write_gpre_corn_bids_archive_snapshot(
+            tmp_path,
+            snapshot_date=date(2026, 5, 20),
+            rows=rows,
+        )
+
+        def _fail_fetch(**kwargs: object) -> dict[str, object]:
+            raise AssertionError("fresh local workbook snapshot should avoid live fetch")
+
+        monkeypatch.setattr(market_service, "_fetch_gpre_corn_bids_html_payload", _fail_fetch)
+        snap = market_service.load_or_download_gpre_corn_bids_snapshot(
+            tmp_path,
+            as_of_date=date(2026, 5, 20),
+            timeout_seconds=0.01,
+        )
+        assert str(snap.get("status") or "") == "ok"
+        assert snap.get("cache_hit") is True
+        assert str(snap.get("source_kind") or "") in {"archived_parsed_csv", "archived_raw_html"}
+        assert {str(rec.get("location") or "") for rec in list(snap.get("rows") or [])} == {"Central City"}
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_load_local_gpre_corn_bids_snapshot_does_not_use_late_legacy_file_for_historical_quarter() -> None:
     tmp_path = _local_test_dir("gpre_corn_bids_late_legacy_file")
     try:
