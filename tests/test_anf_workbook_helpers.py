@@ -757,10 +757,20 @@ def test_sector_investment_case_writer_creates_readable_visible_and_audit_sheets
             assert ws.row_dimensions[row].height == 21
             assert ws.cell(row, 1).font.sz == 12
         assert ws.cell(section_rows[0] + 2, 1).font.sz == 12
-        assert 40 <= ws.column_dimensions["A"].width <= 44
-        assert ws.column_dimensions["B"].width >= 24
-        assert ws.column_dimensions["D"].width >= 24
-        assert ws.column_dimensions["E"].width >= 24
+        expected_widths = {
+            "A": 42,
+            "B": 32,
+            "C": 30,
+            "D": 28,
+            "E": 32,
+            "F": 24,
+            "G": 24,
+            "H": 24,
+            "I": 22,
+            "J": 22,
+        }
+        for col, expected in expected_widths.items():
+            assert ws.column_dimensions[col].width == pytest.approx(expected, abs=0.01)
         snapshot_rows = range(section_rows[0] + 1, section_rows[0] + 8)
         assert all(float(ws.row_dimensions[r].height or 0.0) == pytest.approx(21.0, abs=0.1) for r in snapshot_rows)
         top_values = [
@@ -1762,10 +1772,21 @@ def test_anf_investment_case_writer_applies_readable_style_and_formula_grid() ->
     assert ws.row_dimensions[4].height == 21
     assert ws.cell(4, 1).value == "Investment Snapshot"
     assert any(ws.cell(r, 1).value == "Key Debate" for r in range(1, ws.max_row + 1))
-    assert ws.column_dimensions["B"].width >= 38
-    assert ws.column_dimensions["C"].width >= 44
-    assert ws.column_dimensions["D"].width >= 38
-    assert ws.column_dimensions["J"].width >= 20
+    expected_widths = {
+        "A": 42,
+        "B": 32,
+        "C": 30,
+        "D": 28,
+        "E": 32,
+        "F": 24,
+        "G": 24,
+        "H": 24,
+        "I": 22,
+        "J": 22,
+    }
+    for col, expected in expected_widths.items():
+        assert ws.column_dimensions[col].width == pytest.approx(expected, abs=0.01)
+    assert ws.column_dimensions["K"].width == pytest.approx(24, abs=0.01)
     tariff_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Tariff / Margin Bridge")
     tariff_header_row = tariff_row + 1
     assert ws.cell(tariff_row, 1).font.sz == 12
@@ -1775,11 +1796,26 @@ def test_anf_investment_case_writer_applies_readable_style_and_formula_grid() ->
     merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
     assert f"B{tariff_header_row}:C{tariff_header_row}" in merged_ranges
     assert f"D{tariff_header_row}:E{tariff_header_row}" in merged_ranges
-    assert f"F{tariff_header_row}:J{tariff_header_row}" in merged_ranges
+    assert f"F{tariff_header_row}:K{tariff_header_row}" in merged_ranges
+    bridge_read_row = next(r for r in range(tariff_row, ws.max_row + 1) if ws.cell(r, 1).value == "Bridge read")
+    assert f"F{bridge_read_row}:K{bridge_read_row}" in merged_ranges
     eps_header_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "EPS Bridge") + 1
     guide_header_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "2026 Guide → Implied Earnings") + 1
-    assert f"D{eps_header_row}:J{eps_header_row}" in merged_ranges
+    assert f"B{eps_header_row}:E{eps_header_row}" in merged_ranges
+    assert f"F{eps_header_row}:J{eps_header_row}" in merged_ranges
     assert f"D{guide_header_row}:J{guide_header_row}" in merged_ranges
+    moves_header_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "What Moves EPS") + 1
+    assert f"B{moves_header_row}:E{moves_header_row}" in merged_ranges
+    assert f"F{moves_header_row}:K{moves_header_row}" in merged_ranges
+    comp_header_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Comp Stack / Lapping Risk") + 1
+    assert f"I{comp_header_row}:K{comp_header_row}" in merged_ranges
+    store_header_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Store Productivity / Real Estate ROI") + 1
+    assert f"B{store_header_row}:E{store_header_row}" in merged_ranges
+    assert f"F{store_header_row}:J{store_header_row}" in merged_ranges
+    beat_header_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Guidance Beat/Miss Setup") + 1
+    assert f"B{beat_header_row}:C{beat_header_row}" in merged_ranges
+    assert f"D{beat_header_row}:G{beat_header_row}" in merged_ranges
+    assert f"H{beat_header_row}:J{beat_header_row}" in merged_ranges
     assert any(ws.cell(r, 1).value == "2026 Guide → Implied Earnings" for r in range(1, ws.max_row + 1))
     assert any(str(ws.cell(r, c).value or "").startswith("=") for r in range(1, ws.max_row + 1) for c in range(1, ws.max_column + 1))
     data_ws = wb["ANF_Investment_Case_Data"]
@@ -1950,6 +1986,7 @@ def test_investment_case_key_debates_render_as_readable_cards() -> None:
     assert debate_header.startswith("FCF durability")
     assert "Current read:" in debate_header
     assert "Constructive if cash conversion holds." in debate_header
+    assert ws.cell(key_row + 1, 1).fill.fgColor.rgb == "00DDEBF7"
     assert any(rng.min_row == key_row + 1 and rng.min_col == 1 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
 
     assert ws.cell(key_row + 2, 1).value == "Bull evidence"
@@ -2002,53 +2039,164 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
     for ticker, ws in cases:
         manual_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Manual Market / Scenario Inputs")
         assert manual_row > 4
-        assert [ws.cell(manual_row + 1, c).value for c in range(1, 6)] == [
-            "Input",
-            "Model default",
+        manual_headers = [ws.cell(manual_row + 1, c).value for c in range(1, 9)]
+        assert manual_headers[0] == "Input"
+        assert str(manual_headers[1]).startswith("Model default (")
+        assert manual_headers[2] == "Model default (TTM)"
+        assert str(manual_headers[3]).startswith("Guidance (")
+        assert str(manual_headers[4]).startswith("Guidance (")
+        assert manual_headers[5:] == [
             "Manual override",
             "Active value",
             "Notes",
         ]
+        assert "year" in str(manual_headers[1])
+        assert "year" in str(manual_headers[3])
+        assert "-Q" in str(manual_headers[4])
+        assert any(rng.min_row == manual_row + 1 and rng.min_col == 8 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
+        assert [ws.cell(manual_row + 1, c).value for c in range(1, 8)] == [
+            "Input",
+            manual_headers[1],
+            "Model default (TTM)",
+            manual_headers[3],
+            manual_headers[4],
+            "Manual override",
+            "Active value",
+        ]
         price_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Current share price")
-        assert ws.cell(price_row, 3).fill.fgColor.rgb == "00FFF2CC"
-        assert str(ws.cell(price_row, 4).value).startswith(f'=IF(C{price_row}<>"",C{price_row},B{price_row})')
+        assert ws.cell(price_row, 6).fill.fgColor.rgb == "00FFF2CC"
+        assert str(ws.cell(price_row, 7).value).startswith(f'=IF(F{price_row}<>"",F{price_row},"")')
+        shares_labels = [str(ws.cell(r, 1).value or "") for r in range(manual_row + 1, manual_row + 20)]
+        assert "Diluted shares" in shares_labels
+        assert "Shares diluted / valuation share count" not in shares_labels
+        eps_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Forward EPS")
+        assert str(ws.cell(eps_row, 7).value).startswith(f'=IF(F{eps_row}<>"",F{eps_row},IF(C{eps_row}<>"",C{eps_row},IF(B{eps_row}<>"",B{eps_row},IF(D{eps_row}<>"",D{eps_row},E{eps_row}))))')
         if ticker == "GPRE":
             manual_labels = [str(ws.cell(r, 1).value or "") for r in range(manual_row + 1, manual_row + 30)]
+            assert "Crush margin uplift ($m)" in manual_labels
+            assert "Gallons / utilization" not in manual_labels
             assert "Policy / RVO / E15 / export" in manual_labels
             assert "Policy / RVO / E15 / export upside/downside" not in manual_labels
+        for c in range(2, 8):
+            assert ws.cell(eps_row, c).alignment.horizontal == "left"
+
+        bridge_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Scenario Driver Bridge")
+        assert bridge_row > manual_row
+        assert [ws.cell(bridge_row + 1, c).value for c in range(1, 9)] == [
+            "Bridge item",
+            "Baseline included",
+            "Active / guide",
+            "Incremental effect",
+            "EPS impact",
+            "EBITDA impact",
+            "FCF impact",
+            "Read",
+        ]
+        assert any(rng.min_row == bridge_row + 1 and rng.min_col == 8 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
+        summary_row = next(
+            r
+            for r in range(bridge_row + 2, ws.max_row + 1)
+            if ws.cell(r, 1).value == "Metric" and ws.cell(r, 2).value == "Active input"
+        )
+        assert summary_row > bridge_row + 4
+        assert all(ws.cell(summary_row - 1, c).value in (None, "") for c in range(1, 11))
+        assert [ws.cell(summary_row, c).value for c in (1, 2, 4, 6, 8)] == [
+            "Metric",
+            "Active input",
+            "Adjustment",
+            "Bridge-adjusted value",
+            "Read",
+        ]
+        bridge_formulas = [
+            str(ws.cell(r, c).value or "")
+            for r in range(bridge_row + 2, min(ws.max_row, summary_row + 5) + 1)
+            for c in range(1, 11)
+        ]
+        bridge_active_values = [
+            str(ws.cell(r, 2).value or "")
+            for r in range(summary_row + 1, min(ws.max_row, summary_row + 4) + 1)
+            if str(ws.cell(r, 1).value or "").startswith("Bridge")
+        ]
+        assert all(value.startswith("=") for value in bridge_active_values if value)
+        assert not any(value.startswith("$G$") for value in bridge_active_values)
+        assert any("$G$" in value and value.startswith("=") for value in bridge_formulas)
+        for c in (2, 4, 6):
+            assert ws.cell(summary_row + 1, c).alignment.horizontal == "left"
+        summary_labels = [str(ws.cell(r, 1).value or "") for r in range(summary_row + 1, summary_row + 4)]
+        assert summary_labels == ["Bridge EPS ($/sh)", "Bridge Adj EBITDA ($m)", "Bridge FCF ($m)"]
+        summary_reads = [str(ws.cell(r, 8).value or "") for r in range(summary_row + 1, summary_row + 4)]
+        assert "Share count and bridge impacts apply." in summary_reads
+        assert "Manual EPS override wins; otherwise share count and bridge impacts apply." not in summary_reads
+        incremental_labels = [str(ws.cell(r, 1).value or "") for r in range(bridge_row + 2, summary_row - 1)]
+        if ticker == "GPRE":
+            assert not any("Economics_Overlay" in value for value in bridge_formulas if value.startswith("="))
+            assert "Gallons / utilization" not in incremental_labels
+            assert "45Z contribution uplift vs baseline" in incremental_labels
+            assert "Crush margin uplift ($m)" in incremental_labels
+            assert "Capex change vs baseline" in incremental_labels
+            assert "Policy / RVO / E15 / export" in incremental_labels
+            bridge_by_label = {
+                str(ws.cell(r, 1).value or ""): [str(ws.cell(r, c).value or "") for c in range(1, 9)]
+                for r in range(bridge_row + 2, summary_row - 1)
+            }
+            capex_row = bridge_by_label["Capex change vs baseline"]
+            assert not any("capex" in value.lower() for value in capex_row[4:6])
+            assert any("capex" in value.lower() for value in capex_row[6:])
+            assert "Unknown" in bridge_by_label["45Z contribution uplift vs baseline"][1]
+        elif ticker == "PBI":
+            assert "Incremental cost savings vs baseline" in incremental_labels
+            assert "Interest/refinancing effect vs baseline" in incremental_labels
+            assert "Presort / SendTech stabilization" in incremental_labels
+            assert "Debt paydown / net debt" in incremental_labels
+        else:
+            assert "Buyback/share-count effect" in incremental_labels
+            assert "Margin bridge vs baseline" in incremental_labels
 
         market_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "What Market Is Pricing")
         market_values = [str(ws.cell(r, c).value or "") for r in range(market_row, min(ws.max_row, market_row + 10) + 1) for c in range(1, 11)]
         assert any("Manual current share price needed" in value for value in market_values)
-        assert any(f"$D${price_row}" in value for value in market_values if value.startswith("="))
+        assert any(f"$G${price_row}" in value for value in market_values if value.startswith("="))
         for r in range(market_row + 2, min(ws.max_row, market_row + 8) + 1):
             if ws.cell(r, 2).value not in (None, ""):
                 assert ws.cell(r, 2).alignment.horizontal == "left"
 
         scenario_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Bear / Base / Bull Scenario")
-        assert [ws.cell(scenario_row + 1, c).value for c in range(1, 10)] == [
+        assert [ws.cell(scenario_row + 1, c).value for c in range(1, 11)] == [
             "Scenario",
             "Key assumptions",
             None,
             "EPS",
             "Adj EBITDA",
             "FCF",
-            "Multiple/Yield",
-            "Implied value/share",
-            "Read",
+            "Value/share @ P/E",
+            "Value/share @ EV/Adj EBITDA",
+            "Value/share @ FCF yield",
+            "Value range",
         ]
         assert any(rng.min_row == scenario_row + 1 and rng.min_col == 2 and rng.max_col == 3 for rng in ws.merged_cells.ranges)
-        assert any(rng.min_row == scenario_row + 1 and rng.min_col == 9 and rng.max_col == 10 for rng in ws.merged_cells.ranges)
+        assert any(rng.min_row == scenario_row + 2 and rng.min_col == 2 and rng.max_col == 3 for rng in ws.merged_cells.ranges)
         scenario_formulas = [
             str(ws.cell(r, c).value or "")
             for r in range(scenario_row + 2, min(ws.max_row, scenario_row + 6) + 1)
             for c in range(1, 11)
         ]
-        assert any("$D$" in value and value.startswith("=") for value in scenario_formulas)
+        assert any("$G$" in value and value.startswith("=") for value in scenario_formulas)
+        assert any("$F$" in value and value.startswith("=") for value in scenario_formulas)
+        assert any("N/M" in value for value in scenario_formulas)
+        assert any("MIN(G" in value and "MAX(G" in value for value in scenario_formulas)
+        assert any("COUNT(G" in value for value in scenario_formulas)
+        assert any(
+            "Uses Investment_Case manual inputs; may differ from Valuation Thesis Bridge." in str(ws.cell(r, 1).value or "")
+            for r in range(scenario_row + 2, scenario_row + 8)
+        )
 
         valuation_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Valuation Sensitivity")
         sensitivity_values = [str(ws.cell(r, c).value or "") for r in range(valuation_row, min(ws.max_row, valuation_row + 8) + 1) for c in range(1, 6)]
-        assert any("$D$" in value and value.startswith("=") for value in sensitivity_values)
+        assert any("$G$" in value and value.startswith("=") for value in sensitivity_values)
+        for r in range(valuation_row + 2, min(ws.max_row, valuation_row + 5) + 1):
+            for c in range(1, 6):
+                if ws.cell(r, c).value not in (None, ""):
+                    assert ws.cell(r, c).alignment.horizontal == "left"
 
 
 def test_shared_readable_source_type_label_for_side_panels() -> None:
