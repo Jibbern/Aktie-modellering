@@ -2168,10 +2168,17 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             fortyfive_z_row = bridge_by_label["Incremental 45Z uplift vs baseline"]
             assert "Manual-required" not in fortyfive_z_row[4]
             assert f"$G${eps_row}" in fortyfive_z_row[4] and f"$G${shares_row}" in fortyfive_z_row[4]
+            assert f"$F${eps_row}" not in fortyfive_z_row[4]
             assert "C" in fortyfive_z_row[3] and "B" in fortyfive_z_row[3]
             assert "D" in fortyfive_z_row[5]
             assert "$C$" in fortyfive_z_row[1]
-            assert "Operating_Drivers baseline" in fortyfive_z_row[7]
+            assert fortyfive_z_row[7] == "Incremental 45Z vs TTM Operating_Drivers baseline."
+            crush_row = bridge_by_label["Crush margin uplift ($m)"]
+            assert f"$F${eps_row}" not in crush_row[4]
+            assert crush_row[7] == "Direct manual EBITDA uplift."
+            policy_row = bridge_by_label["Policy / RVO / E15 / export"]
+            assert f"$F${eps_row}" not in policy_row[4]
+            assert policy_row[7] == "Explicit manual EBITDA uplift/drag."
             capex_row = bridge_by_label["Capex change vs baseline"]
             assert not any("capex" in value.lower() for value in capex_row[4:6])
             assert any("capex" in value.lower() for value in capex_row[6:])
@@ -2185,11 +2192,13 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             cost_row = bridge_by_label["Incremental cost savings vs baseline"]
             assert "Manual-required" not in cost_row[4]
             assert f"$G${eps_row}" in cost_row[4] and f"$G${ebitda_row}" in cost_row[4]
+            assert f"$F${eps_row}" not in cost_row[4]
             assert "$C$" in cost_row[1]
             assert "D" in cost_row[5]
+            assert cost_row[7] == "Run-rate baseline vs active target."
             interest_row = bridge_by_label["Interest/refinancing effect vs baseline"]
             assert "Manual-required" in interest_row[4]
-            assert "no rate" in interest_row[7].lower() or "tax" in interest_row[7].lower()
+            assert interest_row[7] == "Lower interest vs baseline lifts FCF; EPS needs tax conversion."
             capex_row = bridge_by_label["Capex change vs baseline"]
             assert f"$C${capex_input_row}" in capex_row[1]
             assert str(capex_row[4]) in {"0", "0.0", ""}
