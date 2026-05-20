@@ -92,6 +92,7 @@ _GPRE_CORN_BIDS_CSV_FILENAME = "gpre_corn_bids_snapshot.csv"
 _GPRE_CORN_BIDS_RAW_SNAPSHOTS_DIRNAME = "raw_snapshots"
 _GPRE_CORN_BIDS_PARSED_SNAPSHOTS_DIRNAME = "parsed_snapshots"
 _GPRE_CORN_BIDS_MANIFEST_FILENAME = "manifest.json"
+_GPRE_CORN_BIDS_PARSE_REPAIR_NOTE_KEY = "parse_repair_note"
 _GPRE_CURRENT_QTD_BIDS_MAX_AGE_DAYS = 7
 _GPRE_NONCURRENT_BIDS_MAX_AGE_DAYS = 14
 _GPRE_LOCAL_FORWARD_FUTURES_MAX_AGE_DAYS = 3
@@ -2542,22 +2543,130 @@ def parse_gpre_corn_bids_html(
     return _dedupe_gpre_corn_bids_rows(rows)
 
 
+def _gpre_corn_bids_row_sanity_issue(rec: Dict[str, Any]) -> str:
+    if not isinstance(rec, dict):
+        return "not a row object"
+    location = str(rec.get("location") or "").strip()
+    delivery_label = str(rec.get("delivery_label") or "").strip()
+    cash_num = pd.to_numeric(rec.get("cash_price"), errors="coerce")
+    basis_num = pd.to_numeric(rec.get("basis_usd_per_bu"), errors="coerce")
+    if not location:
+        return "missing location"
+    if not delivery_label:
+        return "missing delivery label"
+    if pd.isna(basis_num):
+        return "missing basis"
+    # GPRE bid pages occasionally expose a stale/incorrect NoScrapeOffset on
+    # one location-specific page. When that happens, cash prices can become
+    # negative and basis can land near -$10/bu. Treat those as impossible rather
+    # than allowing a bad location page to override the consolidated table.
+    if pd.notna(cash_num) and not (0.0 < float(cash_num) < 12.0):
+        return "impossible cash price"
+    if not (-2.0 < float(basis_num) < 2.0):
+        return "impossible basis"
+    return ""
+
+
+def _gpre_corn_bids_repair_key(rec: Dict[str, Any]) -> Tuple[str, Optional[date], str, str]:
+    delivery_end = rec.get("delivery_end") if isinstance(rec.get("delivery_end"), date) else _gpre_parse_snapshot_date_like(rec.get("delivery_end"))
+    delivery_label = str(rec.get("delivery_label") or "").strip()
+    return (
+        str(rec.get("location") or "").strip(),
+        delivery_end,
+        str(rec.get("symbol") or "").strip(),
+        delivery_label if delivery_end is None else "",
+    )
+
+
 def _valid_gpre_corn_bids_rows(rows: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     valid_rows: List[Dict[str, Any]] = []
     for rec in rows or []:
-        if not isinstance(rec, dict):
+        if _gpre_corn_bids_row_sanity_issue(rec):
             continue
-        location = str(rec.get("location") or "").strip()
-        delivery_label = str(rec.get("delivery_label") or "").strip()
+        cash_num = pd.to_numeric(rec.get("cash_price"), errors="coerce")
         basis_num = pd.to_numeric(rec.get("basis_usd_per_bu"), errors="coerce")
-        if not location or not delivery_label or pd.isna(basis_num):
-            continue
         row = dict(rec)
+        if pd.notna(cash_num):
+            row["cash_price"] = float(cash_num)
         row["basis_usd_per_bu"] = float(basis_num)
         if pd.isna(pd.to_numeric(row.get("basis_cents_per_bu"), errors="coerce")):
             row["basis_cents_per_bu"] = float(basis_num) * 100.0
         valid_rows.append(row)
     return _dedupe_gpre_corn_bids_rows(valid_rows)
+
+
+def _repair_gpre_corn_bids_rows_from_raw_html(
+    rows: Iterable[Dict[str, Any]],
+    *,
+    raw_path: Optional[Path],
+    snapshot_date: Optional[date],
+    source_url: str = "",
+) -> List[Dict[str, Any]]:
+    row_list = [dict(rec) for rec in (rows or []) if isinstance(rec, dict)]
+    bad_items = [
+        (idx, _gpre_corn_bids_row_sanity_issue(rec))
+        for idx, rec in enumerate(row_list)
+        if _gpre_corn_bids_row_sanity_issue(rec)
+    ]
+    if not bad_items:
+        return _valid_gpre_corn_bids_rows(row_list)
+
+    raw_rows: List[Dict[str, Any]] = []
+    if isinstance(raw_path, Path) and raw_path.exists() and raw_path.is_file():
+        try:
+            html_text = raw_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            html_text = ""
+        if html_text.strip():
+            raw_rows = _valid_gpre_corn_bids_rows(
+                parse_gpre_corn_bids_html(
+                    html_text,
+                    as_of_date=snapshot_date,
+                    source_url=str(source_url or raw_path),
+                )
+            )
+    raw_by_key = {_gpre_corn_bids_repair_key(rec): rec for rec in raw_rows}
+    bad_index = {idx: issue for idx, issue in bad_items}
+    repaired = 0
+    dropped = 0
+    out: List[Dict[str, Any]] = []
+    for idx, rec in enumerate(row_list):
+        issue = bad_index.get(idx)
+        if not issue:
+            out.append(rec)
+            continue
+        replacement = raw_by_key.get(_gpre_corn_bids_repair_key(rec))
+        if replacement is None:
+            dropped += 1
+            continue
+        repaired += 1
+        fixed = dict(replacement)
+        sources = {
+            str(item).strip()
+            for item in [
+                rec.get("source_url"),
+                fixed.get("source_url"),
+                *(list(rec.get("candidate_source_urls") or []) if isinstance(rec.get("candidate_source_urls"), list) else []),
+                *(list(fixed.get("candidate_source_urls") or []) if isinstance(fixed.get("candidate_source_urls"), list) else []),
+            ]
+            if str(item).strip()
+        }
+        if sources:
+            fixed["candidate_source_urls"] = sorted(sources)
+        fixed[_GPRE_CORN_BIDS_PARSE_REPAIR_NOTE_KEY] = "pending"
+        fixed["parse_repair_issue"] = str(issue)
+        out.append(fixed)
+
+    note_prefix = "reparsed raw HTML" if raw_rows else "parsed CSV guardrail"
+    note = (
+        f"{note_prefix} because parsed CSV had {len(bad_items)} impossible row(s); "
+        f"repaired {repaired} row(s); dropped {dropped} unrepaired row(s)"
+    )
+    valid = _valid_gpre_corn_bids_rows(out)
+    if note and valid:
+        for rec in valid:
+            rec[_GPRE_CORN_BIDS_PARSE_REPAIR_NOTE_KEY] = note
+    return valid
 
 
 def _gpre_corn_bids_storage_root(ticker_root: Optional[Path]) -> Optional[Path]:
@@ -2935,12 +3044,20 @@ def _gpre_annotated_corn_bids_summary(
     manifest_path: Optional[Path] = None,
     page_last_updated_text: str = "",
 ) -> Dict[str, Any]:
-    summary = _summarize_gpre_corn_bids_rows(rows, as_of_date=target_date, source_url=source_url)
+    row_list = [dict(rec) for rec in (rows or []) if isinstance(rec, dict)]
+    summary = _summarize_gpre_corn_bids_rows(row_list, as_of_date=target_date, source_url=source_url)
     summary["source_kind"] = str(source_kind or "")
     summary["snapshot_date"] = snapshot_date
     summary["selection_rule"] = str(selection_rule or "")
     summary["selection_note"] = str(selection_note or "")
     summary["page_last_updated_text"] = str(page_last_updated_text or "")
+    repair_notes = sorted({
+        str(rec.get(_GPRE_CORN_BIDS_PARSE_REPAIR_NOTE_KEY) or "").strip()
+        for rec in row_list
+        if str(rec.get(_GPRE_CORN_BIDS_PARSE_REPAIR_NOTE_KEY) or "").strip()
+    })
+    if repair_notes:
+        summary[_GPRE_CORN_BIDS_PARSE_REPAIR_NOTE_KEY] = "; ".join(repair_notes)
     if isinstance(raw_path, Path):
         summary["raw_path"] = raw_path
     if isinstance(parsed_path, Path):
@@ -3105,15 +3222,23 @@ def _load_gpre_corn_bids_rows_from_manifest_entry(
     rows: List[Dict[str, Any]] = []
     if isinstance(parsed_path, Path) and parsed_path.exists() and parsed_path.is_file():
         rows = _gpre_corn_bids_rows_from_csv(parsed_path)
+        rows = _repair_gpre_corn_bids_rows_from_raw_html(
+            rows,
+            raw_path=raw_path,
+            snapshot_date=_gpre_parse_snapshot_date_like(entry.get("snapshot_date")),
+            source_url=str(entry.get("source_url") or raw_path or parsed_path or ""),
+        )
     if not rows and isinstance(raw_path, Path) and raw_path.exists() and raw_path.is_file():
         try:
             html_text = raw_path.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             html_text = ""
-        rows = parse_gpre_corn_bids_html(
-            html_text,
-            as_of_date=_gpre_parse_snapshot_date_like(entry.get("snapshot_date")),
-            source_url=str(entry.get("source_url") or raw_path),
+        rows = _valid_gpre_corn_bids_rows(
+            parse_gpre_corn_bids_html(
+                html_text,
+                as_of_date=_gpre_parse_snapshot_date_like(entry.get("snapshot_date")),
+                source_url=str(entry.get("source_url") or raw_path),
+            )
         )
     return rows, raw_path, parsed_path
 

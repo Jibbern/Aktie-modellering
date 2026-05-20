@@ -2747,6 +2747,41 @@ def test_dedupe_gpre_corn_bids_rows_prefers_location_specific_source_for_duplica
     assert str(row.get("source_url") or "").endswith("theLocation=3&layout=19")
 
 
+def test_valid_gpre_corn_bids_rows_drops_impossible_offset_rows_before_dedupe() -> None:
+    rows = market_service._valid_gpre_corn_bids_rows(
+        [
+            {
+                "location": "Superior",
+                "region": "iowa_west",
+                "delivery_label": "July",
+                "delivery_end": date(2026, 7, 31),
+                "cash_price": 4.39,
+                "basis_usd_per_bu": -0.36,
+                "basis_cents_per_bu": -36.0,
+                "symbol": "@C6N",
+                "source_url": "https://grain.gpreinc.com/index.cfm",
+            },
+            {
+                "location": "Superior",
+                "region": "iowa_west",
+                "delivery_label": "July",
+                "delivery_end": date(2026, 7, 31),
+                "cash_price": -5.6099,
+                "basis_usd_per_bu": -10.3599,
+                "basis_cents_per_bu": -1035.99,
+                "symbol": "@C6N",
+                "source_url": "https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation=11&layout=19",
+            },
+        ]
+    )
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert str(row.get("location") or "") == "Superior"
+    assert float(pd.to_numeric(row.get("cash_price"), errors="coerce")) == pytest.approx(4.39, abs=1e-9)
+    assert float(pd.to_numeric(row.get("basis_usd_per_bu"), errors="coerce")) == pytest.approx(-0.36, abs=1e-9)
+
+
 def test_fetch_gpre_corn_bids_html_payload_unions_best_candidate_sources_for_split_locations(monkeypatch: pytest.MonkeyPatch) -> None:
     entry_url = "https://gpreinc.com/corn-bids/"
     grain_url = "https://grain.gpreinc.com/index.cfm"
@@ -3228,6 +3263,61 @@ def test_load_or_download_gpre_corn_bids_snapshot_prefers_fresh_local_archive(mo
         assert snap.get("cache_hit") is True
         assert str(snap.get("source_kind") or "") in {"archived_parsed_csv", "archived_raw_html"}
         assert {str(rec.get("location") or "") for rec in list(snap.get("rows") or [])} == {"Central City"}
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_load_local_gpre_corn_bids_snapshot_repairs_bad_parsed_rows_from_raw_html() -> None:
+    tmp_path = _local_test_dir("gpre_corn_bids_parse_repair")
+    raw_html = """
+    <html><body>
+      <select name="Location">
+        <option value="19" selected="selected">Superior</option>
+      </select>
+      <table name="cashbids-data-table">
+        <tr><th>Delivery</th><th>Cash Price</th><th>Basis</th><th>Futures Month</th></tr>
+        <tr>
+          <td>June 30, 2026</td>
+          <td><script>displayNumber(-201.2784,2);</script></td>
+          <td><script>displayNumber(-206.0284,2);</script></td>
+          <td><a class="basisMonth">@C6N</a></td>
+        </tr>
+      </table>
+      <script>// NoScrapeOffset: -205.6284</script>
+    </body></html>
+    """.strip()
+    bad_rows = [
+        {
+            "location": "Superior",
+            "region": "iowa_west",
+            "delivery_label": "June 30, 2026",
+            "delivery_end": date(2026, 6, 30),
+            "cash_price": -5.61,
+            "basis_usd_per_bu": -10.36,
+            "basis_cents_per_bu": -1036.0,
+            "symbol": "@C6N",
+            "source_url": "fixture://bad-location-page",
+        }
+    ]
+    try:
+        _write_gpre_corn_bids_archive_snapshot(
+            tmp_path,
+            snapshot_date=date(2026, 5, 19),
+            rows=bad_rows,
+            html_text=raw_html,
+            source_url="fixture://superior-raw",
+        )
+
+        snap = market_service._load_local_gpre_corn_bids_snapshot(
+            ticker_root=tmp_path,
+            as_of_date=date(2026, 5, 20),
+        )
+
+        assert str(snap.get("status") or "") == "ok"
+        repaired = next(rec for rec in snap["rows"] if str(rec.get("location") or "") == "Superior")
+        assert float(pd.to_numeric(repaired.get("cash_price"), errors="coerce")) == pytest.approx(4.35, abs=0.01)
+        assert float(pd.to_numeric(repaired.get("basis_usd_per_bu"), errors="coerce")) == pytest.approx(-0.40, abs=0.01)
+        assert "reparsed raw HTML" in str(snap.get("parse_repair_note") or "")
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
