@@ -42,6 +42,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils.cell import range_boundaries
 from openpyxl.utils.datetime import to_excel
 from openpyxl.workbook.defined_name import DefinedName
+from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from .conference_metadata import metadata_audit_flags, metadata_source_file, parse_metadata_key_values, source_material_role
@@ -75,6 +76,7 @@ SCENARIO_TAX_NON_TAXABLE_CREDIT = "non_taxable_credit"
 SCENARIO_TAX_CASH_ONLY = "cash_only"
 SCENARIO_TAX_NO_EPS_IMPACT = "no_eps_impact"
 SCENARIO_TAX_UNKNOWN_MANUAL_REQUIRED = "unknown_manual_required"
+SCENARIO_TAX_DIRECT_EPS = "direct_eps"
 
 
 @dataclass(frozen=True)
@@ -103,7 +105,7 @@ class _ScenarioDriverBridgeSpec:
     audit_notes: str = ""
 
 
-@dataclass(frozen=True)
+@dataclass
 class _SegmentScenarioInputSpec:
     """Visible Segment Scenario Inputs row plus audit metadata."""
 
@@ -111,10 +113,15 @@ class _SegmentScenarioInputSpec:
     category_type: str
     baseline_revenue_m: Optional[float] = None
     revenue_basis: str = ""
-    margin_conversion: Optional[float] = None
+    margin_conversion: Any = None
     margin_basis: str = ""
     feeds_bridge: bool = False
     source_note: str = ""
+    view_basis: str = ""
+    revenue_change_ref: str = ""
+    revenue_impact_ref: str = ""
+    ebitda_impact_ref: str = ""
+    feeds_bridge_ref: str = ""
 
 
 def _segment_scenario_revenue_m(value: Any, unit: Any = "") -> Optional[float]:
@@ -128,38 +135,122 @@ def _segment_scenario_revenue_m(value: Any, unit: Any = "") -> Optional[float]:
     return out if math.isfinite(out) else None
 
 
-def _segment_scenario_specs_from_records(records: Sequence[Dict[str, Any]]) -> List[_SegmentScenarioInputSpec]:
+def _segment_scenario_view_basis(label: Any, category_type: Any = "") -> str:
+    text = f"{label or ''} {category_type or ''}".strip().lower()
+    if "brand" in text:
+        return "Brand"
+    if "geography" in text or "stores" in text or "emea" in text or "apac" in text or "americas" in text:
+        return "Geography"
+    return ""
+
+
+def _segment_scenario_margin_value(value: Any) -> Any:
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith("="):
+            return stripped
+        if re.match(r"^\$?[A-Z]{1,3}\$?\d+$", stripped):
+            return f'=IF({stripped}="","",{stripped})'
+    margin_num = pd.to_numeric(value, errors="coerce")
+    if pd.isna(margin_num):
+        return None
+    margin = float(margin_num)
+    if abs(margin) > 1.5:
+        margin /= 100.0
+    return margin if math.isfinite(margin) else None
+
+
+def _company_operating_margin_proxy_from_workbook(wb: Workbook) -> Tuple[Optional[float], str]:
+    """Return the latest visible company operating-margin proxy from Valuation.
+
+    This deliberately returns a concrete value, not a defined-name formula, so
+    Investment_Case segment scenarios never depend on undefined names.
+    """
+
+    if wb is None or "Valuation" not in getattr(wb, "sheetnames", []):
+        return None, ""
+    ws = wb["Valuation"]
+    candidates = [
+        ("Operating margin %", "Company operating margin proxy"),
+        ("EBIT margin %", "EBIT margin proxy"),
+        ("Adj EBIT margin %", "Adjusted operating margin proxy"),
+        ("Adj EBITDA margin %", "Adjusted EBITDA margin proxy"),
+    ]
+    for label, basis in candidates:
+        for rr in range(1, int(ws.max_row or 0) + 1):
+            if str(ws.cell(rr, 1).value or "").strip().lower() != label.lower():
+                continue
+            for cc in range(int(ws.max_column or 1), 1, -1):
+                raw = ws.cell(rr, cc).value
+                val = pd.to_numeric(raw, errors="coerce")
+                if pd.isna(val):
+                    continue
+                margin = float(val)
+                if abs(margin) > 1.5:
+                    margin /= 100.0
+                if math.isfinite(margin) and -0.5 <= margin <= 0.5:
+                    return margin, basis
+    return None, ""
+
+
+def _segment_scenario_note_for_view(note: str, view_basis: str) -> str:
+    txt = str(note or "").strip()
+    low = txt.lower()
+    if "separate revenue cut" in low or "not summed" in low:
+        if view_basis == "Brand":
+            return "Summed if Brand selected"
+        if view_basis == "Geography":
+            return "Summed if Geography selected"
+    return txt
+
+
+def _segment_scenario_specs_from_records(
+    records: Sequence[Dict[str, Any]],
+    *,
+    default_margin_proxy: Any = None,
+    default_margin_basis: str = "Company operating margin proxy",
+) -> List[_SegmentScenarioInputSpec]:
     specs: List[_SegmentScenarioInputSpec] = []
     for rec in records or []:
         label = str(rec.get("metric") or rec.get("segment") or rec.get("label") or "").strip()
         if not label:
             continue
-        margin_raw = rec.get("margin_conversion")
-        margin_num = pd.to_numeric(margin_raw, errors="coerce")
-        margin = float(margin_num) if pd.notna(margin_num) else None
-        if margin is not None and abs(margin) > 1.5:
-            margin /= 100.0
+        category_type = str(rec.get("segment_type") or rec.get("type") or "").strip() or "Segment / category"
+        margin = _segment_scenario_margin_value(rec.get("operating_margin", rec.get("margin_conversion")))
         baseline_m = _segment_scenario_revenue_m(rec.get("value"), rec.get("unit"))
+        margin_basis = str(rec.get("margin_basis") or "").strip()
+        view_basis = str(rec.get("view_basis") or "").strip() or _segment_scenario_view_basis(label, category_type)
+        used_default_margin = False
+        if margin is None and baseline_m is not None and default_margin_proxy not in (None, ""):
+            margin = _segment_scenario_margin_value(default_margin_proxy)
+            margin_basis = margin_basis or default_margin_basis
+            used_default_margin = margin is not None
         feeds_txt = str(rec.get("feeds_bridge") or "").strip().lower()
-        feeds_bridge = feeds_txt in {"yes", "true", "1"} and baseline_m is not None and margin is not None
+        feeds_bridge = (feeds_txt in {"yes", "true", "1"} or used_default_margin) and baseline_m is not None and margin is not None
         note = str(rec.get("source_note") or rec.get("notes") or rec.get("note") or "").strip()
-        if not note:
+        if used_default_margin and (not note or "missing segment margin" in note.lower()):
+            note = "Company operating margin proxy"
+        elif not note:
             if baseline_m is None:
                 note = "Missing segment revenue"
             elif margin is None:
                 note = "Missing segment margin"
+            elif "company operating margin proxy" in margin_basis.lower():
+                note = "Company operating margin proxy"
             elif not feeds_bridge:
                 note = "Informational only"
+        note = _segment_scenario_note_for_view(note, view_basis)
         specs.append(
             _SegmentScenarioInputSpec(
                 label=label,
-                category_type=str(rec.get("segment_type") or rec.get("type") or "").strip() or "Segment / category",
+                category_type=category_type,
                 baseline_revenue_m=baseline_m,
                 revenue_basis=str(rec.get("revenue_basis") or rec.get("source") or "").strip(),
                 margin_conversion=margin,
-                margin_basis=str(rec.get("margin_basis") or "").strip(),
+                margin_basis=margin_basis,
                 feeds_bridge=feeds_bridge,
                 source_note=note,
+                view_basis=view_basis,
             )
         )
     return specs
@@ -191,10 +282,13 @@ def _write_scenario_driver_assumptions_sheet(
         "Section",
         "Segment / category",
         "Type",
-        "Baseline revenue",
         "Revenue basis",
-        "Margin / conversion",
+        "Baseline revenue",
+        "Revenue % change",
+        "Revenue impact",
         "Margin basis",
+        "Operating margin",
+        "EBITDA impact",
         "Feeds bridge?",
         "Source / note",
     ]
@@ -220,11 +314,14 @@ def _write_scenario_driver_assumptions_sheet(
                     "Segment Scenario Inputs",
                     spec.label,
                     spec.category_type,
-                    spec.baseline_revenue_m if spec.baseline_revenue_m is not None else "",
                     spec.revenue_basis,
-                    spec.margin_conversion if spec.margin_conversion is not None else "",
+                    spec.baseline_revenue_m if spec.baseline_revenue_m is not None else "",
+                    spec.revenue_change_ref,
+                    spec.revenue_impact_ref,
                     spec.margin_basis,
-                    "Yes" if spec.feeds_bridge else "No",
+                    spec.margin_conversion if spec.margin_conversion is not None else "",
+                    spec.ebitda_impact_ref,
+                    spec.feeds_bridge_ref or ("Yes" if spec.feeds_bridge else "No"),
                     spec.source_note,
                 ]
             )
@@ -239,6 +336,9 @@ def _write_scenario_driver_assumptions_sheet(
                 "",
                 "",
                 "",
+                "",
+                "",
+                "",
                 "No",
                 disabled_note or "Segment scenario disabled for this ticker profile.",
             ]
@@ -249,12 +349,28 @@ def _write_scenario_driver_assumptions_sheet(
             cell.border = thin
             cell.font = Font(size=10, color="1F2933")
             cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-            if cc == 5:
+            if cc == 6:
                 cell.number_format = "#,##0.0"
-            if cc == 7:
+            if cc in {7, 10}:
                 cell.number_format = "0.0%"
+            if cc in {8, 11}:
+                cell.number_format = "#,##0.0"
         ws.row_dimensions[rr].height = 24
-    widths = {1: 10, 2: 24, 3: 34, 4: 24, 5: 18, 6: 30, 7: 20, 8: 24, 9: 14, 10: 42}
+    widths = {
+        1: 10,
+        2: 24,
+        3: 34,
+        4: 24,
+        5: 30,
+        6: 18,
+        7: 18,
+        8: 18,
+        9: 28,
+        10: 18,
+        11: 18,
+        12: 14,
+        13: 42,
+    }
     for cc, width in widths.items():
         ws.column_dimensions[get_column_letter(cc)].width = width
     ws.freeze_panes = "A2"
@@ -262,6 +378,24 @@ def _write_scenario_driver_assumptions_sheet(
 
 def _scenario_bridge_active_value_formula(ref: str) -> str:
     return f'=IF({ref}="","",{ref})'
+
+
+def _excel_percent_value_expr(ref: str) -> str:
+    """Return an Excel expression that accepts either 7% or 7 for percent inputs."""
+    return f"IF({ref}>1,{ref}/100,{ref})"
+
+
+def _excel_manual_percent_active_formula(row: int) -> str:
+    def _candidate(ref: str) -> str:
+        return _excel_percent_value_expr(ref)
+
+    return (
+        f'=IF(F{row}<>"",{_candidate(f"F{row}")},'
+        f'IF(C{row}<>"",{_candidate(f"C{row}")},'
+        f'IF(B{row}<>"",{_candidate(f"B{row}")},'
+        f'IF(D{row}<>"",{_candidate(f"D{row}")},'
+        f'IF(E{row}<>"",{_candidate(f"E{row}")},"")))))'
+    )
 
 
 def _scenario_bridge_incremental_formula(row: int, spec: _ScenarioDriverBridgeSpec) -> str:
@@ -313,6 +447,8 @@ def _scenario_bridge_tax_conversion_label(
         return "100% conversion"
     if treatment in {SCENARIO_TAX_CASH_ONLY, SCENARIO_TAX_NO_EPS_IMPACT}:
         return "n/a"
+    if treatment == SCENARIO_TAX_DIRECT_EPS:
+        return "direct EPS/share"
     if treatment == SCENARIO_TAX_UNKNOWN_MANUAL_REQUIRED:
         return "Manual-required"
     return tax_source_basis or "n/a"
@@ -4707,7 +4843,15 @@ def _anf_build_investment_case_data(
             "$m",
             f"${revenue_m:,.1f}m" if revenue_m is not None else "",
             source="Slides_Segments / annual report" if revenue_m is not None else "model-derived",
-            source_note="Separate revenue cut; not summed" if revenue_m is not None else "Missing segment revenue",
+            source_note=(
+                "Summed if Brand selected"
+                if category_type == "Brand"
+                else "Summed if Geography selected"
+                if category_type == "Geography / stores"
+                else "Informational only"
+            )
+            if revenue_m is not None
+            else "Missing segment revenue",
             segment_type=category_type,
             revenue_basis="2025 year net sales" if revenue_m is not None else "",
             margin_conversion="",
@@ -4982,6 +5126,41 @@ def _sector_build_investment_case_data(
             source_note="TTM tax expense divided by positive pretax income; capped to 0-35% for scenario EPS conversion.",
         )
 
+    def _clean_margin_candidate(value: Any) -> Optional[float]:
+        val = pd.to_numeric(value, errors="coerce")
+        if pd.isna(val):
+            return None
+        margin = float(val)
+        if abs(margin) > 1.5:
+            margin /= 100.0
+        return margin if math.isfinite(margin) and -0.5 <= margin <= 0.5 else None
+
+    def _company_operating_margin_proxy_for_case() -> Tuple[Optional[float], str]:
+        for col in ("operating_margin", "operating_margin_pct", "op_margin", "ebit_margin"):
+            candidate = _clean_margin_candidate(_latest(col))
+            if candidate is not None:
+                basis = "Company operating margin proxy" if "operating" in col or "op_" in col else "EBIT margin proxy"
+                return candidate, basis
+        revenue_ttm_raw = _ttm("revenue")
+        if revenue_ttm_raw is None or abs(float(revenue_ttm_raw)) <= 1e-9:
+            return None, ""
+        numerator_candidates = [
+            (("op_income", "operating_income", "operating_profit"), "Company operating margin proxy"),
+            (("ebit",), "EBIT margin proxy"),
+            (("adjusted_ebit", "adj_ebit", "adjusted_operating_income"), "Adjusted operating margin proxy"),
+            (("adjusted_ebitda", "adj_ebitda"), "Adjusted EBITDA margin proxy"),
+        ]
+        for cols, basis in numerator_candidates:
+            numerator = _first_ttm(cols)
+            if numerator is None:
+                continue
+            candidate = _clean_margin_candidate(float(numerator) / float(revenue_ttm_raw))
+            if candidate is not None:
+                return candidate, basis
+        return None, ""
+
+    company_operating_margin_proxy, company_operating_margin_basis = _company_operating_margin_proxy_for_case()
+
     def _add_eps_pe_sensitivity(section: str = "Valuation Sensitivity") -> None:
         if eps_base is None or not math.isfinite(float(eps_base)):
             _add(section, "Missing EPS base", _missing_note("TTM net income and diluted share denominator"), source="History_Q")
@@ -5124,6 +5303,7 @@ def _sector_build_investment_case_data(
             ("SendTech", ("sendtech solutions", "sendtech")),
         ]:
             revenue_m, revenue_basis = _segment_ttm_revenue_m(aliases)
+            margin_proxy = company_operating_margin_proxy if revenue_m is not None else None
             _add(
                 "Segment Scenario Inputs",
                 label,
@@ -5131,12 +5311,12 @@ def _sector_build_investment_case_data(
                 value=revenue_m,
                 unit="$m",
                 source="Slides_Segments" if revenue_m is not None else "model-derived",
-                source_note="Missing segment margin" if revenue_m is not None else "Missing segment revenue",
+                source_note="Company operating margin proxy" if margin_proxy is not None else ("Missing segment margin" if revenue_m is not None else "Missing segment revenue"),
                 segment_type="Segment / business line",
                 revenue_basis=revenue_basis,
-                margin_conversion="",
-                margin_basis="",
-                feeds_bridge="No",
+                margin_conversion=margin_proxy if margin_proxy is not None else "",
+                margin_basis=company_operating_margin_basis if margin_proxy is not None else "",
+                feeds_bridge="Yes" if margin_proxy is not None else "No",
             )
 
         _add("Capital Structure / Refinancing Risk", "Debt core", _fmt_money_m(debt_m), value=debt_m, unit="$m", source="History_Q")
@@ -5546,7 +5726,6 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             ("eps", "Forward EPS", '=""', '=IFERROR(IF(Adj_EPS_TTM<>"",Adj_EPS_TTM,EPS_TTM),"")', '=""', '=""', "Adjusted EPS preferred.", "$0.00"),
             ("ebitda", "Forward Adj EBITDA", '=""', '=IFERROR(IF(ThesisBaseAdjEBITDA_FY<>"",ThesisBaseAdjEBITDA_FY,Adj_EBITDA),"")', '=""', '=""', "Adjusted EBITDA base.", "#,##0.0"),
             ("fcf", "Forward FCF", '=""', '=IFERROR(IF(Adj_FCF_TTM<>"",Adj_FCF_TTM,FCF_TTM),"")', '=""', '=""', "FCF base.", "#,##0.0"),
-            ("scenario_tax_rate", "Scenario tax rate", '=""', scenario_tax_rate if scenario_tax_rate is not None else '=""', '=""', '=""', scenario_tax_note, "0.0%"),
             ("capex", "Capex", '=""', '=IFERROR(Capex_TTM,"")', "=20" if ticker_txt == "GPRE" else '=""', '=""', "Capex changes affect FCF only.", "#,##0.0"),
             ("pe", "P/E multiple", '=IFERROR(IF(Target_PE<>"",Target_PE,10),10)', '=IFERROR(IF(Target_PE<>"",Target_PE,10),10)', '=""', '=""', "Scenario P/E lens.", "0.0x"),
             ("ev_multiple", "EV/Adj EBITDA multiple", '=IFERROR(IF(Target_EV_AdjEBITDA<>"",Target_EV_AdjEBITDA,8),8)', '=IFERROR(IF(Target_EV_AdjEBITDA<>"",Target_EV_AdjEBITDA,8),8)', '=""', '=""', "Scenario EV/EBITDA lens.", "0.0x"),
@@ -5589,6 +5768,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     ("policy_upside", "Policy / RVO / E15 / export", '=""', '=""', '=""', '=""', "Manual $m uplift/drag.", "#,##0.0"),
                 ]
             )
+        specs.append(("scenario_tax_rate", "Scenario tax rate", '=""', scenario_tax_rate if scenario_tax_rate is not None else '=""', '=""', '=""', scenario_tax_note, "0.0%"))
         return specs
 
     def _write_manual_inputs(row: int) -> Tuple[int, Dict[str, str]]:
@@ -5619,6 +5799,8 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     f'IF(B{current_row}<>"",B{current_row},IF(D{current_row}<>"",D{current_row},'
                     f'IF(E{current_row}<>"",E{current_row},0.25)))))'
                 )
+            elif key == "fcf_yield":
+                active_formula = _excel_manual_percent_active_formula(current_row)
             elif key in {"cost_savings", "credit_45z", "capex"}:
                 active_formula = (
                     f'=IF(F{current_row}<>"",F{current_row},'
@@ -5648,7 +5830,12 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
     def _segment_scenario_specs() -> List[_SegmentScenarioInputSpec]:
         if ticker_txt != "PBI":
             return []
-        specs = _segment_scenario_specs_from_records(_records("Segment Scenario Inputs"))
+        default_margin_proxy, default_margin_basis = _company_operating_margin_proxy_from_workbook(wb)
+        specs = _segment_scenario_specs_from_records(
+            _records("Segment Scenario Inputs"),
+            default_margin_proxy=default_margin_proxy,
+            default_margin_basis=default_margin_basis or "Company operating margin proxy",
+        )
         if specs:
             return specs
         return [
@@ -5656,7 +5843,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             _SegmentScenarioInputSpec("SendTech", "Segment / business line", revenue_basis="", source_note="Missing segment revenue"),
         ]
 
-    def _write_segment_scenario_inputs(row: int) -> int:
+    def _write_segment_scenario_inputs(row: int) -> Tuple[int, Dict[str, str]]:
         specs = _segment_scenario_specs()
         if ticker_txt != "PBI":
             _write_scenario_driver_assumptions_sheet(
@@ -5665,8 +5852,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                 enabled=False,
                 disabled_note="GPRE segment scenario disabled; use ethanol, 45Z, crush and policy drivers.",
             )
-            return row
-        _write_scenario_driver_assumptions_sheet(wb, ticker=ticker_txt, segment_specs=specs, enabled=True)
+            return row, {}
         row = _section(row, "Segment Scenario Inputs")
         row = _header(
             row,
@@ -5674,18 +5860,27 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                 "Segment / category",
                 "Type",
                 "Baseline revenue",
-                "Revenue % override",
+                "Revenue % change",
                 "Revenue impact",
-                "Margin / conversion",
-                "EBITDA/EBIT impact",
+                "Operating margin",
+                "EBITDA impact",
+                "Feeds bridge?",
                 "Notes",
             ],
-            merge_spans=[(8, max_col)],
+            merge_spans=[(9, max_col)],
         )
+        impact_start: Optional[int] = None
+        impact_end: Optional[int] = None
         for idx, spec in enumerate(specs):
             current_row = row
             note = spec.source_note or ("Missing segment margin" if spec.margin_conversion is None else "Informational only")
-            ebitda_impact: Any = f'=IFERROR(E{current_row}*F{current_row},0)' if spec.margin_conversion is not None else ""
+            has_margin = spec.margin_conversion is not None
+            ebitda_impact: Any = f'=IFERROR(IF(OR(D{current_row}="",F{current_row}=""),0,E{current_row}*F{current_row}),0)' if has_margin else ""
+            feeds_formula: Any = (
+                f'=IF(AND(C{current_row}<>"",D{current_row}<>"",F{current_row}<>""),"Yes","No")'
+                if spec.feeds_bridge and has_margin and spec.baseline_revenue_m is not None
+                else "No"
+            )
             row = _row(
                 row,
                 [
@@ -5696,20 +5891,35 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     f'=IFERROR(IF(D{current_row}="",0,C{current_row}*D{current_row}),0)',
                     spec.margin_conversion if spec.margin_conversion is not None else "",
                     ebitda_impact,
+                    feeds_formula,
                     note,
                 ],
                 fill=alt_fill if idx % 2 else white_fill,
-                spans=[(8, max_col)],
+                spans=[(9, max_col)],
             )
+            impact_start = current_row if impact_start is None else impact_start
+            impact_end = current_row
+            sheet_ref = f"'{ws.title}'"
+            spec.revenue_change_ref = f"={sheet_ref}!$D${current_row}"
+            spec.revenue_impact_ref = f"={sheet_ref}!$E${current_row}"
+            spec.ebitda_impact_ref = f"={sheet_ref}!$G${current_row}"
+            spec.feeds_bridge_ref = f"={sheet_ref}!$H${current_row}"
             ws.cell(current_row, 3).number_format = "#,##0.0"
             ws.cell(current_row, 4).number_format = "0.0%"
             ws.cell(current_row, 4).fill = copy(input_fill)
             ws.cell(current_row, 5).number_format = "#,##0.0"
             ws.cell(current_row, 6).number_format = "0.0%"
             ws.cell(current_row, 7).number_format = "#,##0.0"
+            ws.cell(current_row, 8).alignment = Alignment(horizontal="left", vertical="center")
             for cc in range(1, max_col + 1):
-                ws.cell(current_row, cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc in {1, 2, 8})
-        return row + 1
+                ws.cell(current_row, cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc in {1, 2, 9})
+        _write_scenario_driver_assumptions_sheet(wb, ticker=ticker_txt, segment_specs=specs, enabled=True)
+        selected_formula = (
+            f'=SUMIF(H{impact_start}:H{impact_end},"Yes",G{impact_start}:G{impact_end})'
+            if impact_start is not None and impact_end is not None
+            else ""
+        )
+        return row + 1, {"selected_segment_impact": selected_formula} if selected_formula else {}
 
     def _manual_ref(refs: Dict[str, str], key: str) -> str:
         return refs.get(key, '""')
@@ -5749,7 +5959,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             ws.cell(current_row, 2).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
         return row
 
-    def _write_scenario_driver_bridge(row: int, refs: Dict[str, str]) -> Tuple[int, Dict[str, str]]:
+    def _write_scenario_driver_bridge(row: int, refs: Dict[str, str], segment_refs: Optional[Dict[str, str]] = None) -> Tuple[int, Dict[str, str]]:
         eps = _manual_ref(refs, "eps")
         ebitda = _manual_ref(refs, "ebitda")
         fcf = _manual_ref(refs, "fcf")
@@ -5757,11 +5967,13 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
         eps_override = _manual_part_ref(refs, "eps", "override")
         shares_ttm = _manual_part_ref(refs, "shares", "ttm")
         scenario_tax_rate = _manual_ref(refs, "scenario_tax_rate")
+        segment_refs = segment_refs or {}
+        selected_segment_impact = segment_refs.get("selected_segment_impact", "")
         refs_out: Dict[str, str] = {}
         row = _section(row, "Scenario Driver Bridge")
         row = _row(
             row,
-            ["Taxable EPS impacts use active scenario tax rate."],
+            ["Bridge-adjusted values start from active inputs and add incremental effects below | Taxable EPS impacts use active scenario tax rate."],
             fill=white_fill,
             spans=[(1, max_col)],
         )
@@ -5794,18 +6006,6 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             capex_baseline = _manual_part_ref(refs, "capex", "ttm")
             bridge_specs = [
                 _ScenarioDriverBridgeSpec(
-                    "Base active values",
-                    SCENARIO_DRIVER_REVENUE_VOLUME,
-                    "Included in active inputs",
-                    "",
-                    "Baseline is already in active EPS, EBITDA and FCF.",
-                    ebitda_impact="none",
-                    fcf_impact="none",
-                    eps_impact="none",
-                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis="Base row; no incremental bridge effect.",
-                ),
-                _ScenarioDriverBridgeSpec(
                     "Incremental cost savings vs baseline",
                     SCENARIO_DRIVER_MARGIN_EBITDA,
                     f'=IF({cost_savings_baseline}="","Unknown",{cost_savings_baseline})',
@@ -5835,13 +6035,27 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     SCENARIO_DRIVER_MANUAL_INCREMENTAL,
                     0,
                     _active_value_formula(segment_stability),
-                    "Explicit manual EBITDA uplift.",
+                    "Manual non-revenue uplift; avoid duplicating selected segment impact.",
                     explicit_incremental=True,
                     ebitda_impact="same",
                     fcf_impact="none",
                     eps_impact="auto",
                     tax_treatment=SCENARIO_TAX_TAXABLE,
                     tax_source_basis="Manual operating uplift is treated as taxable EBITDA-like improvement.",
+                ),
+                _ScenarioDriverBridgeSpec(
+                    "Selected segment revenue/margin impact",
+                    SCENARIO_DRIVER_MARGIN_EBITDA,
+                    0,
+                    selected_segment_impact or 0,
+                    "Selected Segment Scenario Inputs feed taxable EBITDA uplift.",
+                    explicit_incremental=True,
+                    ebitda_impact="same",
+                    fcf_impact="none",
+                    eps_impact="auto",
+                    tax_treatment=SCENARIO_TAX_TAXABLE,
+                    tax_source_basis="Segment Scenario Inputs selected Feeds bridge? rows.",
+                    audit_notes="Avoid double-counting the same uplift in manual stabilization rows.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Capex change vs baseline",
@@ -5880,18 +6094,6 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                 "Incremental 45Z vs TTM Operating_Drivers baseline."
             )
             bridge_specs = [
-                _ScenarioDriverBridgeSpec(
-                    "Base active values",
-                    SCENARIO_DRIVER_REVENUE_VOLUME,
-                    "Included in active inputs",
-                    "",
-                    "Baseline is already in active EPS, EBITDA and FCF.",
-                    ebitda_impact="none",
-                    fcf_impact="none",
-                    eps_impact="none",
-                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis="Base row; no incremental bridge effect.",
-                ),
                 _ScenarioDriverBridgeSpec(
                     "Incremental 45Z uplift vs baseline",
                     SCENARIO_DRIVER_TAX_CREDIT_SUBSIDY,
@@ -6050,6 +6252,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
         pe = _manual_ref(refs, "pe")
         ev_multiple = _manual_ref(refs, "ev_multiple")
         fcf_yield = _manual_ref(refs, "fcf_yield")
+        fcf_yield_rate = _excel_percent_value_expr(fcf_yield)
         shares = _manual_ref(refs, "shares")
         net_debt = _manual_ref(refs, "net_debt")
         row = _section(row, "Bear / Base / Bull Scenario")
@@ -6079,7 +6282,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     f'=IFERROR(IF({fcf}="","",{fcf}*{fcf_factor}),"")',
                     f'=IFERROR(IF(OR({eps_cell}="",{eps_cell}<=0,{pe}=""),"N/M",{eps_cell}*{pe}*{pe_factor}),"N/M")',
                     f'=IFERROR(IF(OR({ebitda_cell}="",{ev_multiple}="",{shares}="",{shares}=0),"",({ebitda_cell}*{ev_multiple}*{ev_factor}-{net_debt})/{shares}),"")',
-                    f'=IFERROR(IF(OR({fcf_cell}="",{fcf_yield}="",{shares}="",{shares}=0),"",({fcf_cell}/({fcf_yield}*{yield_factor}))/{shares}),"")',
+                    f'=IFERROR(IF(OR({fcf_cell}="",{fcf_yield}="",{shares}="",{shares}=0),"",({fcf_cell}/(({fcf_yield_rate})*{yield_factor}))/{shares}),"")',
                     f'=IFERROR(IF(COUNT(G{current_row}:I{current_row})=0,"","$"&TEXT(MIN(G{current_row}:I{current_row}),"0.00")&"-$"&TEXT(MAX(G{current_row}:I{current_row}),"0.00")),"")',
                 ],
                 fill=alt_fill if idx % 2 else white_fill,
@@ -6107,6 +6310,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
         pe = _manual_ref(refs, "pe")
         ev_multiple = _manual_ref(refs, "ev_multiple")
         fcf_yield = _manual_ref(refs, "fcf_yield")
+        fcf_yield_rate = _excel_percent_value_expr(fcf_yield)
         shares = _manual_ref(refs, "shares")
         net_debt = _manual_ref(refs, "net_debt")
         row = _section(row, "Valuation Sensitivity")
@@ -6176,7 +6380,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             row = _row(
                 row,
                 [
-                    f'=IFERROR({fcf_yield}*{factor},"")',
+                    f'=IFERROR(({fcf_yield_rate})*{factor},"")',
                     f'=IFERROR({fcf}/A{current_row},"")',
                     f'=IFERROR(B{current_row}/{shares},"")',
                     "Active FCF capitalized by scenario equity FCF yield.",
@@ -6212,8 +6416,8 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
     row += 1
 
     row, manual_refs = _write_manual_inputs(row)
-    row = _write_segment_scenario_inputs(row)
-    row, bridge_refs = _write_scenario_driver_bridge(row, manual_refs)
+    row, segment_refs = _write_segment_scenario_inputs(row)
+    row, bridge_refs = _write_scenario_driver_bridge(row, manual_refs, segment_refs)
     row = _write_market_pricing(row, manual_refs)
     row += 1
 
@@ -6663,7 +6867,6 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             ("eps", "Forward EPS", '=""', '=IFERROR(IF(Adj_EPS_TTM<>"",Adj_EPS_TTM,EPS_TTM),"")', "=10.6", '=""', "Adjusted EPS preferred.", "$0.00"),
             ("ebitda", "Forward Adj EBITDA", '=""', '=IFERROR(IF(ThesisBaseAdjEBITDA_FY<>"",ThesisBaseAdjEBITDA_FY,Adj_EBITDA),"")', '=""', '=""', "Adjusted EBITDA base.", "#,##0.0"),
             ("fcf", "Forward FCF", '=""', '=IFERROR(IF(Adj_FCF_TTM<>"",Adj_FCF_TTM,FCF_TTM),"")', '=""', '=""', "FCF base.", "#,##0.0"),
-            ("scenario_tax_rate", "Scenario tax rate", '=""', scenario_tax_rate if scenario_tax_rate is not None else '=""', '=""', '=""', scenario_tax_note, "0.0%"),
             (
                 "capex",
                 "Capex",
@@ -6683,6 +6886,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             ("buyback_shares", "Buyback-adjusted shares", '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=""', '=""', "Override for post-buyback count.", "#,##0.0"),
             ("eps_guide_mid", "EPS guide midpoint", '=""', '=""', "=10.6", '=""', "$10.20-$11.00 midpoint.", "$0.00"),
             ("margin_bridge", "Tariff / freight / ERP / marketing bridge", '=""', '=""', '=""', '=""', "Manual bps bridge.", "0"),
+            ("scenario_tax_rate", "Scenario tax rate", '=""', scenario_tax_rate if scenario_tax_rate is not None else '=""', '=""', '=""', scenario_tax_note, "0.0%"),
         ]
         refs: Dict[str, str] = {}
         row = _section(row, "Manual Market / Scenario Inputs")
@@ -6710,9 +6914,13 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                     f'=IF(F{current_row}<>"",F{current_row},IF(C{current_row}<>"",C{current_row},IF(B{current_row}<>"",B{current_row},IF(D{current_row}<>"",D{current_row},IF(E{current_row}<>"",E{current_row},0.25)))))'
                     if key == "scenario_tax_rate"
                     else (
+                    _excel_manual_percent_active_formula(current_row)
+                    if key == "fcf_yield"
+                    else (
                     f'=IF(F{current_row}<>"",F{current_row},IF(D{current_row}<>"",D{current_row},IF(C{current_row}<>"",C{current_row},IF(B{current_row}<>"",B{current_row},E{current_row}))))'
                     if key == "capex"
                     else f'=IF(F{current_row}<>"",F{current_row},IF(C{current_row}<>"",C{current_row},IF(B{current_row}<>"",B{current_row},IF(D{current_row}<>"",D{current_row},E{current_row}))))'
+                    )
                     )
                 )
             )
@@ -6736,8 +6944,12 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             refs[f"{key}__override"] = f"$F${current_row}"
         return row + 1, refs
 
-    def _segment_scenario_specs() -> List[_SegmentScenarioInputSpec]:
-        specs = _segment_scenario_specs_from_records(_records("Segment Scenario Inputs"))
+    def _segment_scenario_specs(default_margin_proxy: Any = None) -> List[_SegmentScenarioInputSpec]:
+        specs = _segment_scenario_specs_from_records(
+            _records("Segment Scenario Inputs"),
+            default_margin_proxy=default_margin_proxy,
+            default_margin_basis="Company operating margin proxy",
+        )
         if specs:
             return specs
         fallback_rows = [
@@ -6755,14 +6967,25 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                     category_type=category_type,
                     baseline_revenue_m=_segment_scenario_revenue_m(raw_value, "$"),
                     revenue_basis="2025 year net sales" if raw_value is not None else "",
-                    source_note="Separate revenue cut; not summed" if raw_value is not None else "Missing segment revenue",
+                    margin_conversion=default_margin_proxy if raw_value is not None and default_margin_proxy not in (None, "") else None,
+                    margin_basis="Company operating margin proxy" if raw_value is not None and default_margin_proxy not in (None, "") else "",
+                    feeds_bridge=raw_value is not None and default_margin_proxy not in (None, ""),
+                    source_note=(
+                        "Summed if Brand selected"
+                        if _segment_scenario_view_basis(label, category_type) == "Brand"
+                        else "Summed if Geography selected"
+                        if _segment_scenario_view_basis(label, category_type) == "Geography"
+                        else "Informational only"
+                    )
+                    if raw_value is not None
+                    else "Missing segment revenue",
+                    view_basis=_segment_scenario_view_basis(label, category_type),
                 )
             )
         return out
 
-    def _write_segment_scenario_inputs(row: int) -> int:
-        specs = _segment_scenario_specs()
-        _write_scenario_driver_assumptions_sheet(wb, ticker="ANF", segment_specs=specs, enabled=True)
+    def _write_segment_scenario_inputs(row: int, refs: Dict[str, str]) -> Tuple[int, Dict[str, str]]:
+        specs = _segment_scenario_specs(refs.get("operating_margin"))
         row = _section(row, "Segment Scenario Inputs")
         row = _headers(
             row,
@@ -6770,19 +6993,64 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 "Segment / category",
                 "Type",
                 "Baseline revenue",
-                "Revenue % override",
+                "Revenue % change",
                 "Revenue impact",
-                "Margin / conversion",
-                "EBITDA/EBIT impact",
+                "Operating margin",
+                "EBITDA impact",
+                "Feeds bridge?",
                 "Notes",
             ],
             end_col=visible_max_col,
-            merge_spans=[(8, visible_max_col)],
+            merge_spans=[(9, visible_max_col)],
         )
-        for idx, spec in enumerate(specs):
+        basis_row = row
+        row = _write_cells(
+            row,
+            ["Active basis", "None", "", "", "", "", "", "", "Select category"],
+            end_col=visible_max_col,
+            fill=neutral,
+            wrap_cols={1, 9},
+            merge_spans=[(9, visible_max_col)],
+        )
+        ws.cell(row=basis_row, column=2).fill = copy(input_fill)
+        validation = DataValidation(type="list", formula1='"None,Brand,Geography"', allow_blank=False)
+        ws.add_data_validation(validation)
+        validation.add(ws.cell(row=basis_row, column=2))
+
+        def _subheader(title: str, row_num: int) -> int:
+            sub_fill = PatternFill("solid", fgColor="DDEBF7")
+            for cc in range(1, visible_max_col + 1):
+                cell = ws.cell(row=row_num, column=cc)
+                cell.fill = sub_fill
+                cell.font = Font(bold=True, size=12, color=dark)
+                cell.border = thin
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            ws.cell(row=row_num, column=1, value=title)
+            ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=visible_max_col)
+            ws.row_dimensions[row_num].height = 21
+            return row_num + 1
+
+        ordered_specs: List[_SegmentScenarioInputSpec] = []
+        brand_specs = [spec for spec in specs if spec.view_basis == "Brand"]
+        geo_specs = [spec for spec in specs if spec.view_basis == "Geography"]
+        other_specs = [spec for spec in specs if spec.view_basis not in {"Brand", "Geography"}]
+        if brand_specs:
+            row = _subheader("Brand view — summed only when Brand selected", row)
+            ordered_specs.extend(brand_specs)
+        if geo_specs:
+            geo_header_pending = True
+        else:
+            geo_header_pending = False
+        for idx, spec in enumerate(brand_specs):
             current_row = row
             note = spec.source_note or ("Missing segment margin" if spec.margin_conversion is None else "Informational only")
-            ebitda_impact: Any = f'=IFERROR(E{current_row}*F{current_row},0)' if spec.margin_conversion is not None else ""
+            has_margin = spec.margin_conversion is not None
+            ebitda_impact: Any = f'=IFERROR(IF(OR(D{current_row}="",F{current_row}=""),0,E{current_row}*F{current_row}),0)' if has_margin else ""
+            feeds_formula: Any = (
+                f'=IF(AND($B${basis_row}="Brand",C{current_row}<>"",D{current_row}<>"",F{current_row}<>""),"Yes","No")'
+                if spec.feeds_bridge and has_margin and spec.baseline_revenue_m is not None
+                else "No"
+            )
             row = _write_cells(
                 row,
                 [
@@ -6793,13 +7061,64 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                     f'=IFERROR(IF(D{current_row}="",0,C{current_row}*D{current_row}),0)',
                     spec.margin_conversion if spec.margin_conversion is not None else "",
                     ebitda_impact,
+                    feeds_formula,
                     note,
                 ],
                 end_col=visible_max_col,
                 fill=neutral_alt if idx % 2 == 0 else neutral,
-                wrap_cols={1, 2, 8},
-                merge_spans=[(8, visible_max_col)],
+                wrap_cols={1, 2, 9},
+                merge_spans=[(9, visible_max_col)],
             )
+            sheet_ref = f"'{ws.title}'"
+            spec.revenue_change_ref = f"={sheet_ref}!$D${current_row}"
+            spec.revenue_impact_ref = f"={sheet_ref}!$E${current_row}"
+            spec.ebitda_impact_ref = f"={sheet_ref}!$G${current_row}"
+            spec.feeds_bridge_ref = f"={sheet_ref}!$H${current_row}"
+            ws.cell(row=current_row, column=3).number_format = "#,##0.0"
+            ws.cell(row=current_row, column=4).number_format = "0.0%"
+            ws.cell(row=current_row, column=4).fill = copy(input_fill)
+            ws.cell(row=current_row, column=5).number_format = "#,##0.0"
+            ws.cell(row=current_row, column=6).number_format = "0.0%"
+            ws.cell(row=current_row, column=7).number_format = "#,##0.0"
+            ws.cell(row=current_row, column=8).alignment = Alignment(horizontal="left", vertical="center")
+            for cc in range(1, visible_max_col + 1):
+                ws.cell(row=current_row, column=cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc in {1, 2, 9})
+        if geo_header_pending:
+            row = _subheader("Geography view — summed only when Geography selected", row)
+            ordered_specs.extend(geo_specs)
+        for idx, spec in enumerate(geo_specs):
+            current_row = row
+            note = spec.source_note or ("Missing segment margin" if spec.margin_conversion is None else "Informational only")
+            has_margin = spec.margin_conversion is not None
+            ebitda_impact = f'=IFERROR(IF(OR(D{current_row}="",F{current_row}=""),0,E{current_row}*F{current_row}),0)' if has_margin else ""
+            feeds_formula = (
+                f'=IF(AND($B${basis_row}="Geography",C{current_row}<>"",D{current_row}<>"",F{current_row}<>""),"Yes","No")'
+                if spec.feeds_bridge and has_margin and spec.baseline_revenue_m is not None
+                else "No"
+            )
+            row = _write_cells(
+                row,
+                [
+                    spec.label,
+                    spec.category_type,
+                    spec.baseline_revenue_m if spec.baseline_revenue_m is not None else "",
+                    "",
+                    f'=IFERROR(IF(D{current_row}="",0,C{current_row}*D{current_row}),0)',
+                    spec.margin_conversion if spec.margin_conversion is not None else "",
+                    ebitda_impact,
+                    feeds_formula,
+                    note,
+                ],
+                end_col=visible_max_col,
+                fill=neutral_alt if idx % 2 == 0 else neutral,
+                wrap_cols={1, 2, 9},
+                merge_spans=[(9, visible_max_col)],
+            )
+            sheet_ref = f"'{ws.title}'"
+            spec.revenue_change_ref = f"={sheet_ref}!$D${current_row}"
+            spec.revenue_impact_ref = f"={sheet_ref}!$E${current_row}"
+            spec.ebitda_impact_ref = f"={sheet_ref}!$G${current_row}"
+            spec.feeds_bridge_ref = f"={sheet_ref}!$H${current_row}"
             ws.cell(row=current_row, column=3).number_format = "#,##0.0"
             ws.cell(row=current_row, column=4).number_format = "0.0%"
             ws.cell(row=current_row, column=4).fill = copy(input_fill)
@@ -6807,8 +7126,55 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             ws.cell(row=current_row, column=6).number_format = "0.0%"
             ws.cell(row=current_row, column=7).number_format = "#,##0.0"
             for cc in range(1, visible_max_col + 1):
-                ws.cell(row=current_row, column=cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc in {1, 2, 8})
-        return row + 1
+                ws.cell(row=current_row, column=cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc in {1, 2, 9})
+        for idx, spec in enumerate(other_specs):
+            current_row = row
+            note = spec.source_note or ("Missing segment margin" if spec.margin_conversion is None else "Informational only")
+            has_margin = spec.margin_conversion is not None
+            ebitda_impact = f'=IFERROR(IF(OR(D{current_row}="",F{current_row}=""),0,E{current_row}*F{current_row}),0)' if has_margin else ""
+            feeds_formula = (
+                f'=IF(AND(C{current_row}<>"",D{current_row}<>"",F{current_row}<>""),"Yes","No")'
+                if spec.feeds_bridge and has_margin and spec.baseline_revenue_m is not None
+                else "No"
+            )
+            row = _write_cells(
+                row,
+                [
+                    spec.label,
+                    spec.category_type,
+                    spec.baseline_revenue_m if spec.baseline_revenue_m is not None else "",
+                    "",
+                    f'=IFERROR(IF(D{current_row}="",0,C{current_row}*D{current_row}),0)',
+                    spec.margin_conversion if spec.margin_conversion is not None else "",
+                    ebitda_impact,
+                    feeds_formula,
+                    note,
+                ],
+                end_col=visible_max_col,
+                fill=neutral_alt if idx % 2 == 0 else neutral,
+                wrap_cols={1, 2, 9},
+                merge_spans=[(9, visible_max_col)],
+            )
+            sheet_ref = f"'{ws.title}'"
+            spec.revenue_change_ref = f"={sheet_ref}!$D${current_row}"
+            spec.revenue_impact_ref = f"={sheet_ref}!$E${current_row}"
+            spec.ebitda_impact_ref = f"={sheet_ref}!$G${current_row}"
+            spec.feeds_bridge_ref = f"={sheet_ref}!$H${current_row}"
+            for cc in range(1, visible_max_col + 1):
+                ws.cell(row=current_row, column=cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc in {1, 2, 9})
+            ordered_specs.append(spec)
+        _write_scenario_driver_assumptions_sheet(wb, ticker="ANF", segment_specs=ordered_specs, enabled=True)
+        all_rows = [
+            int(str(spec.ebitda_impact_ref).split("$G$")[-1])
+            for spec in ordered_specs
+            if "$G$" in str(spec.ebitda_impact_ref)
+        ]
+        selected_formula = (
+            f'=IF($B${basis_row}="None",0,SUMIF(H{min(all_rows)}:H{max(all_rows)},"Yes",G{min(all_rows)}:G{max(all_rows)}))'
+            if all_rows
+            else ""
+        )
+        return row + 1, {"selected_segment_impact": selected_formula} if selected_formula else {}
 
     def _manual_ref(refs: Dict[str, str], key: str) -> str:
         return refs.get(key, '""')
@@ -6850,7 +7216,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             ws.cell(row=current_row, column=2).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
         return row
 
-    def _write_scenario_driver_bridge(row: int, refs: Dict[str, str]) -> Tuple[int, Dict[str, str]]:
+    def _write_scenario_driver_bridge(row: int, refs: Dict[str, str], segment_refs: Optional[Dict[str, str]] = None) -> Tuple[int, Dict[str, str]]:
         eps = _manual_ref(refs, "eps")
         ebitda = _manual_ref(refs, "ebitda")
         fcf = _manual_ref(refs, "fcf")
@@ -6858,11 +7224,13 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
         eps_override = _manual_part_ref(refs, "eps", "override")
         shares_ttm = _manual_part_ref(refs, "shares", "ttm")
         scenario_tax_rate = _manual_ref(refs, "scenario_tax_rate")
+        segment_refs = segment_refs or {}
+        selected_segment_impact = segment_refs.get("selected_segment_impact", "")
         refs_out: Dict[str, str] = {}
         row = _section(row, "Scenario Driver Bridge")
         row = _write_cells(
             row,
-            ["Taxable EPS impacts use active scenario tax rate."],
+            ["Bridge-adjusted values start from active inputs and add incremental effects below | Taxable EPS impacts use active scenario tax rate."],
             end_col=visible_max_col,
             fill=neutral,
             merge_spans=[(1, visible_max_col)],
@@ -6890,18 +7258,6 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
         capex_baseline = _manual_part_ref(refs, "capex", "ttm")
         bridge_specs = [
             _ScenarioDriverBridgeSpec(
-                "Base active values",
-                SCENARIO_DRIVER_REVENUE_VOLUME,
-                "Included in active inputs",
-                "",
-                "Baseline is already in active EPS, EBITDA and FCF.",
-                ebitda_impact="none",
-                fcf_impact="none",
-                eps_impact="none",
-                tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                tax_source_basis="Base row; no incremental bridge effect.",
-            ),
-            _ScenarioDriverBridgeSpec(
                 "Margin bridge vs baseline",
                 SCENARIO_DRIVER_MARGIN_EBITDA,
                 "Unknown",
@@ -6927,6 +7283,20 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 tax_source_basis="Buybacks affect EPS through diluted shares, not earnings.",
             ),
             _ScenarioDriverBridgeSpec(
+                "Selected segment revenue/margin impact",
+                SCENARIO_DRIVER_MARGIN_EBITDA,
+                0,
+                selected_segment_impact or 0,
+                "Selected Segment Scenario Inputs feed taxable EBITDA uplift.",
+                explicit_incremental=True,
+                ebitda_impact="same",
+                fcf_impact="none",
+                eps_impact="auto",
+                tax_treatment=SCENARIO_TAX_TAXABLE,
+                tax_source_basis="Segment Scenario Inputs selected Feeds bridge? rows.",
+                audit_notes="ANF active basis prevents summing brand and geography together.",
+            ),
+            _ScenarioDriverBridgeSpec(
                 "Capex change vs baseline",
                 SCENARIO_DRIVER_CASH_FLOW_CAPEX,
                 f'=IF({capex_baseline}="","Unknown",{capex_baseline})',
@@ -6947,7 +7317,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 ebitda_impact="none",
                 fcf_impact="none",
                 eps_impact="direct_per_share",
-                tax_treatment=SCENARIO_TAX_NON_TAXABLE_CREDIT,
+                tax_treatment=SCENARIO_TAX_DIRECT_EPS,
                 tax_source_basis="EPS guide is already a per-share net-income outcome.",
                 eps_impact_rule="direct EPS/share delta",
             ),
@@ -7063,6 +7433,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
         pe = _manual_ref(refs, "pe")
         ev_multiple = _manual_ref(refs, "ev_multiple")
         fcf_yield = _manual_ref(refs, "fcf_yield")
+        fcf_yield_rate = _excel_percent_value_expr(fcf_yield)
         shares = _manual_ref(refs, "shares")
         net_debt = _manual_ref(refs, "net_debt")
         row = _section(row, "Bear / Base / Bull Scenario")
@@ -7093,7 +7464,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                     f'=IFERROR(IF({fcf}="","",{fcf}*{fcf_factor}),"")',
                     f'=IFERROR(IF(OR({eps_cell}="",{eps_cell}<=0,{pe}=""),"N/M",{eps_cell}*{pe}*{pe_factor}),"N/M")',
                     f'=IFERROR(IF(OR({ebitda_cell}="",{ev_multiple}="",{shares}="",{shares}=0),"",({ebitda_cell}*{ev_multiple}*{ev_factor}-{net_debt})/{shares}),"")',
-                    f'=IFERROR(IF(OR({fcf_cell}="",{fcf_yield}="",{shares}="",{shares}=0),"",({fcf_cell}/({fcf_yield}*{yield_factor}))/{shares}),"")',
+                    f'=IFERROR(IF(OR({fcf_cell}="",{fcf_yield}="",{shares}="",{shares}=0),"",({fcf_cell}/(({fcf_yield_rate})*{yield_factor}))/{shares}),"")',
                     f'=IFERROR(IF(COUNT(G{current_row}:I{current_row})=0,"","$"&TEXT(MIN(G{current_row}:I{current_row}),"0.00")&"-$"&TEXT(MAX(G{current_row}:I{current_row}),"0.00")),"")',
                 ],
                 end_col=visible_max_col,
@@ -7124,6 +7495,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
         pe = _manual_ref(refs, "pe")
         ev_multiple = _manual_ref(refs, "ev_multiple")
         fcf_yield = _manual_ref(refs, "fcf_yield")
+        fcf_yield_rate = _excel_percent_value_expr(fcf_yield)
         shares = _manual_ref(refs, "shares")
         net_debt = _manual_ref(refs, "net_debt")
         row = _section(row, "Valuation Sensitivity")
@@ -7196,7 +7568,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             row = _write_cells(
                 row,
                 [
-                    f'=IFERROR({fcf_yield}*{factor},"")',
+                    f'=IFERROR(({fcf_yield_rate})*{factor},"")',
                     f'=IFERROR({fcf}/A{current_row},"")',
                     f'=IFERROR(B{current_row}/{shares},"")',
                     "Active FCF capitalized by scenario equity FCF yield.",
@@ -7248,8 +7620,8 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
     row += 1
 
     row, manual_refs = _write_manual_inputs(row)
-    row = _write_segment_scenario_inputs(row)
-    row, bridge_refs = _write_scenario_driver_bridge(row, manual_refs)
+    row, segment_refs = _write_segment_scenario_inputs(row, manual_refs)
+    row, bridge_refs = _write_scenario_driver_bridge(row, manual_refs, segment_refs)
     row = _write_market_pricing(row, manual_refs)
     row += 1
 
@@ -55811,7 +56183,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         r += 1
         _set_row(r, "Gross margin %", _margin(gross_profit_map, rev_map), "0.0%")
         r += 1
-        _set_row(r, "Operating margin %", _margin(ebit_map, rev_map), "0.0%")
+        row_operating_margin_pct = r
+        company_operating_margin_map = _margin(ebit_map, rev_map)
+        _set_row(r, "Operating margin %", company_operating_margin_map, "0.0%")
         r += 1
         _set_row(r, "R&D % of revenue", _margin(rd_map, rev_map), "0.0%")
         r += 1
@@ -55857,6 +56231,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         r += 1
         _set_row(r, "EBIT (TTM)", {k: (v / 1e6) if v is not None else None for k, v in ebit_ttm_map.items()}, "#,##0.000")
         r += 1
+        row_ebit_margin_ttm_pct = r
         _set_row(r, "EBIT margin (TTM)", _margin(ebit_ttm_map, rev_ttm_map), "0.0%")
         r += 1
         net_income_label = "Net income attrib. to A&F" if is_anf_profile else "Net income"
@@ -57399,6 +57774,11 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             input_cell = ws.cell(row=_r, column=input_value_col)
             input_cell.value = _normalize_thesis_bridge_basis(_n, input_cell.value)
             _set_named_range(_n, _r, input_value_col)
+        if quarter_columns:
+            latest_visible_col = get_column_letter(quarter_columns[-1])
+            _set_named_range_ref("CompanyOperatingMargin_Latest", f"'Valuation'!${latest_visible_col}${row_operating_margin_pct}")
+            _set_named_range_ref("OperatingMargin_Latest", f"'Valuation'!${latest_visible_col}${row_operating_margin_pct}")
+            _set_named_range_ref("CompanyOperatingMargin_TTM", f"'Valuation'!${latest_visible_col}${row_ebit_margin_ttm_pct}")
         # Inline normalized target-yield expression (accepts both 0.10 and 10%/10).
         # Keep it inline in formulas to avoid helper cells / workbook defined-name issues.
         target_ev_yield_n_expr = 'IF(OR(Target_EV_Yield="",Target_EV_Yield<=0),"",IF(Target_EV_Yield>1,Target_EV_Yield/100,Target_EV_Yield))'
@@ -74474,6 +74854,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                                 margin_map.setdefault(seg_name, {})[q_key] = float(op_num) / float(rev_val)
                     if margin_map:
                         store["EBIT margin %"] = margin_map
+                        store["Segment operating margin %"] = margin_map
 
                 if is_anf_profile:
                     store = _anf_add_total_company_quarter_revenue_from_history(
@@ -75131,6 +75512,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
 
         quarterly_segment_data = _load_latest_quarterly_segment_data()
         quarterly_metrics = dict(quarterly_segment_data.get("metrics") or {})
+        if "Segment operating margin %" not in quarterly_metrics and "EBIT margin %" in quarterly_metrics:
+            quarterly_metrics["Segment operating margin %"] = quarterly_metrics.get("EBIT margin %", {})
         quarterly_source_note = str(quarterly_segment_data.get("source_doc") or "").strip()
         if is_anf_profile:
             quarterly_metrics = _anf_add_total_company_quarter_revenue_from_history(
@@ -75158,6 +75541,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             quarterly_metric_order = [
                 ("Revenue", "#,##0.0", 1e6),
                 ("Adjusted EBIT", "#,##0.0", 1e6),
+                ("Segment operating margin %", "0.0%", 1.0),
                 ("EBIT margin %", "0.0%", 1.0),
                 ("Depreciation & amortization", "#,##0.0", 1e6),
                 ("Adjusted EBITDA", "#,##0.0", 1e6),
