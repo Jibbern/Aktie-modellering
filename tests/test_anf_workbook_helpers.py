@@ -1,4 +1,5 @@
 import datetime as dt
+import re
 
 import pandas as pd
 import pytest
@@ -35,6 +36,9 @@ from pbi_xbrl.excel_writer_context import (
     _anf_yoy_map_for_fiscal_periods,
     _investment_case_sheet_order,
     _guidance_source_contract_label,
+    _history_q_latest_full_year_actuals_from_workbook,
+    _history_q_latest_full_year_period_set,
+    _history_q_year_default_formulas,
     _insert_management_credibility_scorecard,
     _net_debt_yoy_flag_label_and_status_for_position,
     _sector_build_investment_case_data,
@@ -54,6 +58,136 @@ from pbi_xbrl.excel_writer_context import (
     _slides_guidance_has_explicit_metric,
 )
 from pbi_xbrl.quarter_notes import validate_quarter_notes
+
+
+def _history_q_test_workbook(rows: list[tuple[dt.date, float]], *, summary_note: str = "") -> Workbook:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "History_Q"
+    ws.append(["quarter", "revenue", "op_income", "net_income", "cfo", "capex", "shares_diluted", "buybacks_cash"])
+    for qd, revenue_m in rows:
+        ws.append([
+            dt.datetime(qd.year, qd.month, qd.day),
+            revenue_m * 1_000_000,
+            revenue_m * 100_000,
+            revenue_m * 50_000,
+            revenue_m * 80_000,
+            revenue_m * 10_000,
+            10_000_000,
+            revenue_m * 20_000,
+        ])
+    if summary_note:
+        summary = wb.create_sheet("SUMMARY")
+        summary["A1"] = summary_note
+    return wb
+
+
+def test_history_q_latest_full_year_uses_fiscal_quarters_for_retail_year_end() -> None:
+    wb = _history_q_test_workbook(
+        [
+            (dt.date(2024, 5, 4), 10),
+            (dt.date(2024, 8, 3), 20),
+            (dt.date(2024, 11, 2), 30),
+            (dt.date(2025, 2, 1), 40),
+            (dt.date(2025, 5, 3), 100),
+            (dt.date(2025, 8, 2), 200),
+            (dt.date(2025, 11, 1), 300),
+            (dt.date(2026, 1, 31), 400),
+            (dt.date(2026, 5, 2), 500),
+        ],
+        summary_note="Business model / revenue streams (% of total revenue) (FY end 2026-01-31)",
+    )
+
+    period_set = _history_q_latest_full_year_period_set(wb, ticker="ANF")
+    assert period_set["fiscal_year"] == 2025
+    assert period_set["labels"] == ["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"]
+    assert period_set["quarter_dates"] == [
+        dt.date(2025, 5, 3),
+        dt.date(2025, 8, 2),
+        dt.date(2025, 11, 1),
+        dt.date(2026, 1, 31),
+    ]
+    assert dt.date(2025, 2, 1) not in period_set["quarter_dates"]
+
+    actuals = _history_q_latest_full_year_actuals_from_workbook(wb, ticker="ANF")
+    assert actuals["year"] == pytest.approx(2025)
+    assert actuals["revenue_m"] == pytest.approx(1000.0)
+    assert actuals["buybacks_m"] == pytest.approx(20.0)
+
+    formulas = _history_q_year_default_formulas(
+        quarter_dates=period_set["quarter_dates"],
+        previous_quarter_dates=period_set["previous_quarter_dates"],
+    )
+    assert "DATE(2025,2,1)" not in formulas["revenue_m"]
+    assert "DATE(2025,5,3)" in formulas["revenue_m"]
+    assert "DATE(2026,1,31)" in formulas["revenue_m"]
+    assert "DATE(2024,5,4)" in formulas["revenue_growth"]
+
+
+def test_history_q_latest_full_year_keeps_calendar_reporters_calendar_year() -> None:
+    wb = _history_q_test_workbook(
+        [
+            (dt.date(2025, 3, 31), 100),
+            (dt.date(2025, 6, 30), 200),
+            (dt.date(2025, 9, 30), 300),
+            (dt.date(2025, 12, 31), 400),
+            (dt.date(2026, 3, 31), 500),
+        ]
+    )
+
+    period_set = _history_q_latest_full_year_period_set(wb, ticker="PBI")
+    assert period_set["fiscal_year"] == 2025
+    assert period_set["labels"] == ["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"]
+    assert period_set["quarter_dates"] == [
+        dt.date(2025, 3, 31),
+        dt.date(2025, 6, 30),
+        dt.date(2025, 9, 30),
+        dt.date(2025, 12, 31),
+    ]
+    actuals = _history_q_latest_full_year_actuals_from_workbook(wb, ticker="PBI")
+    assert actuals["revenue_m"] == pytest.approx(1000.0)
+
+
+def test_history_q_fiscal_profile_supports_future_non_calendar_tickers() -> None:
+    wb = _history_q_test_workbook(
+        [
+            (dt.date(2025, 5, 3), 100),
+            (dt.date(2025, 8, 2), 200),
+            (dt.date(2025, 11, 1), 300),
+            (dt.date(2026, 1, 31), 400),
+        ]
+    )
+
+    period_set = _history_q_latest_full_year_period_set(
+        wb,
+        fiscal_profile={"year_end_month": 1, "year_end_day": 31, "year_label": "start"},
+    )
+
+    assert period_set["fiscal_year"] == 2025
+    assert period_set["labels"] == ["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"]
+
+
+def test_history_q_fiscal_year_formula_fallback_excludes_prior_year_end_boundary() -> None:
+    formulas = _history_q_year_default_formulas(
+        (2025, 2, 1),
+        (2026, 1, 31),
+        start_exclusive=True,
+        end_inclusive=True,
+    )
+
+    assert '">"&DATE(2025,2,1)' in formulas["revenue_m"]
+    assert '"<="&DATE(2026,1,31)' in formulas["revenue_m"]
+    assert '">="&DATE(2025,2,1)' not in formulas["revenue_m"]
+
+
+def test_history_q_fiscal_year_formulas_can_use_resolved_fiscal_year_columns() -> None:
+    formulas = _history_q_year_default_formulas(fiscal_year=2025)
+
+    assert 'MATCH("fiscal_year",History_Q!$1:$1,0)' in formulas["revenue_m"]
+    assert 'MATCH("fiscal_quarter",History_Q!$1:$1,0)' in formulas["revenue_m"]
+    assert ",2025," in formulas["revenue_m"]
+    assert ",2024," in formulas["revenue_growth"]
+    assert "DATE(2025,2,1)" not in formulas["revenue_growth"]
 
 
 def test_anf_annual_segment_data_from_slides_segments_includes_fy2025_regions() -> None:
@@ -377,7 +511,15 @@ def test_anf_promise_progress_sections_are_clean_and_open_for_2026() -> None:
         ]
     )
 
-    sections = _anf_build_promise_progress_sections(guidance, pd.DataFrame())
+    hist = pd.DataFrame(
+        [
+            {"quarter": pd.Timestamp("2024-11-02"), "revenue": 1_208_000_000, "op_income": 170_000_000, "capex": 55_000_000},
+            {"quarter": pd.Timestamp("2025-08-02"), "revenue": 1_214_000_000, "op_income": 163_890_000, "capex": 58_000_000},
+            {"quarter": pd.Timestamp("2025-11-01"), "revenue": 1_316_000_000, "op_income": 184_240_000, "capex": 62_000_000},
+        ]
+    )
+
+    sections = _anf_build_promise_progress_sections(guidance, hist)
     progression = sections["2025 guidance progression"]
     open_rows = sections["2026 open guidance"]
 
@@ -391,6 +533,9 @@ def test_anf_promise_progress_sections_are_clean_and_open_for_2026() -> None:
     eps_row = next(r for r in progression if r["Metric"] == "Adjusted EPS / EPS")
     assert eps_row["Initial guide"] == "$10.40-$11.40"
     assert eps_row["Q1 update"] == "$9.50-$10.50"
+    capex_row = next(r for r in progression if r["Metric"] == "Capex")
+    assert capex_row["Actual"] == "$240.8m"
+    assert capex_row["Status"] == "Hit"
     assert all(r["Status"] == "Open" for r in open_rows)
     assert any(r["Horizon"] == "2026 year" and r["Metric"] == "Net sales growth" for r in open_rows)
     timeline = sections["Quarterly guidance timeline / revision log"]
@@ -404,6 +549,10 @@ def test_anf_promise_progress_sections_are_clean_and_open_for_2026() -> None:
     assert all(r["Horizon"] == "2025 year" for r in jan_rows)
     assert all("before 2025 actual report" in r["Source / note"] for r in jan_rows)
     assert any(r["Metric"] == "Net sales growth" and r["Previous guide"] == "+3-6%" and r["New/current guide"] == "+5-7%" for r in timeline)
+    q2_margin = next(r for r in timeline if r["Stated in"] == "2025-Q2" and r["Metric"] == "Operating margin")
+    assert q2_margin["Actual"] == "13.5%"
+    assert q2_margin["Status"] == "On track"
+    assert q2_margin["Actual"] != "13.3% GAAP / 12.5% adjusted"
     assert all("FY" not in " ".join(str(v) for v in r.values()) for r in timeline)
 
 
@@ -883,7 +1032,7 @@ def test_shared_promise_progress_postprocess_dedupes_all_timeline_metrics() -> N
         "Previous guide",
         "New/current guide",
         "Change type",
-        "Actual / latest actual",
+        "Actual",
         "Status",
         "Horizon",
         "Stated in",
@@ -947,7 +1096,7 @@ def test_shared_promise_progress_postprocess_removes_semantic_carry_forward_rows
         "Previous guide",
         "New/current guide",
         "Change type",
-        "Actual / latest actual",
+        "Actual",
         "Status",
         "Horizon",
         "Stated in",
@@ -1054,7 +1203,7 @@ def test_shared_promise_progress_postprocess_preserves_true_initial_rows() -> No
         "Previous guide",
         "New/current guide",
         "Change type",
-        "Actual / latest actual",
+        "Actual",
         "Status",
         "Horizon",
         "Stated in",
@@ -1240,8 +1389,10 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
         ["Revenue guidance", "$1.76bn-$1.86bn", "not yet measurable", "Open", "2026 year Revenue guidance $1.76bn-$1.86bn.", "2025-Q4", "2025-Q4", "2026-Q1", "2026-03-31", ""],
         ["Promise progress (As of 2025-09-30)"],
         ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
-        ["Revenue actual", "$1.8bn", "1892629000.0", "Completed", "Actual revenue was 1892629000.0.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-09-30", ""],
-        ["Adj EPS actual", "$1.36", "1.36", "Completed", "Actual adjusted EPS was 1.36.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-09-30", ""],
+        ["Revenue guidance", "$1.9bn-$1.95bn", "$1.89bn", "Missed", "2025 year Revenue guidance tracking against final actual.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-12-31", ""],
+        ["Adjusted EBIT guidance", "$450m-$465m", "$461.3m", "Hit", "2025 year Adjusted EBIT guidance tracking against final actual.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-12-31", ""],
+        ["Revenue actual", "$1.8bn", "1892629000.0", "Completed", "Actual revenue was 1892629000.0.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-12-31", ""],
+        ["Adj EPS actual", "$1.36", "1.36", "Completed", "Actual adjusted EPS was 1.36.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-12-31", ""],
     ]
     for rr, row in enumerate(rows, start=1):
         for cc, value in enumerate(row, start=1):
@@ -1250,14 +1401,31 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
     _rewrite_shared_promise_progress_ui_from_blocks(ws, ticker="PBI")
 
     values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
-    assert any(row[0] == "Current guidance progression" for row in values)
-    assert any(row[0] == "Open guidance" for row in values)
+    assert any(row[0] == "2025 guidance progression" for row in values)
+    assert any(row[0] == "2026 open guidance" for row in values)
+    assert not any(row[0] == "Current guidance progression" for row in values)
+    assert not any(row[0] == "Open guidance" for row in values)
+    annual_header = next(row for row in values if row[:9] == [
+        "Metric",
+        "Initial guide",
+        "Q1 update",
+        "Q2 update",
+        "Q3 update",
+        "Q4 update",
+        "Actual",
+        "Status",
+        "Notes/source",
+    ])
+    assert annual_header[0] == "Metric"
+    annual_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[4] == "$1.9bn-$1.95bn")
+    assert annual_revenue[6] == "$1.89bn"
+    assert annual_revenue[7] == "Missed"
     timeline_header = next(row for row in values if row[:10] == [
         "Metric",
         "Previous guide",
         "New/current guide",
         "Change type",
-        "Actual / latest actual",
+        "Actual",
         "Status",
         "Horizon",
         "Stated in",
@@ -1269,9 +1437,18 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
     assert first_revenue[2] == "$1.8bn-$1.86bn"
     assert first_revenue[5] == "Open"
     assert first_revenue[7] == "2026-Q1"
-    timeline_metric_rows = [row for row in values if row[0] in {"Revenue guidance", "Adjusted EBIT guidance"} and row[8]]
+    timeline_metric_rows = [
+        row
+        for row in values
+        if row[0] in {"Revenue guidance", "Adjusted EBIT guidance"}
+        and re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(row[8] or ""))
+    ]
     assert timeline_metric_rows[0][7] == "2026-Q1"
-    assert timeline_metric_rows[-1][7] == "2025-Q4"
+    q4_initial_revenue = next(row for row in timeline_metric_rows if row[0] == "Revenue guidance" and row[7] == "2025-Q4")
+    assert q4_initial_revenue[3] == "Initial"
+    assert q4_initial_revenue[5] == "Open"
+    assert q4_initial_revenue[6] == "2026 year"
+    assert timeline_metric_rows[-1][7] == "2025-Q3"
     formatted_actual = next(row for row in values if row[0] == "Revenue actual" and row[8] == "2025-09-30")
     assert formatted_actual[4] == "$1.89bn"
     formatted_eps = next(row for row in values if row[0] == "Adj EPS actual" and row[8] == "2025-09-30")
@@ -1286,13 +1463,61 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
             for rng in ws.merged_cells.ranges
         )
 
-    current_section_row = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "Current guidance progression")
-    open_section_row = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "Open guidance")
-    assert _has_merge(current_section_row + 1, 6, 10)
-    assert _has_merge(current_section_row + 2, 6, 10)
+    annual_section_row = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "2025 guidance progression")
+    open_section_row = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "2026 open guidance")
+    assert _has_merge(annual_section_row + 1, 9, 10)
+    assert _has_merge(annual_section_row + 2, 9, 10)
     assert _has_merge(open_section_row + 1, 5, 10)
     assert _has_merge(open_section_row + 2, 5, 10)
     assert ws.column_dimensions["A"].width >= 36
+
+
+def test_shared_promise_progress_uses_matching_quarter_actuals_for_interim_annual_rows() -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Promise_Progress_UI"
+    history = wb.create_sheet("History_Q")
+    history.append(["quarter", "revenue", "fiscal_year", "fiscal_quarter", "fiscal_label"])
+    history.append([dt.datetime(2025, 3, 31), 480_000_000, 2025, 1, "2025-Q1"])
+    history.append([dt.datetime(2025, 6, 30), 470_000_000, 2025, 2, "2025-Q2"])
+    history.append([dt.datetime(2025, 9, 30), 460_000_000, 2025, 3, "2025-Q3"])
+    history.append([dt.datetime(2025, 12, 31), 482_629_000, 2025, 4, "2025-Q4"])
+    adjusted = wb.create_sheet("Adjusted_Metrics")
+    adjusted.append(["quarter", "adj_ebit", "adj_ebitda", "adj_eps", "adj_fcf", "period_type"])
+    adjusted.append([dt.datetime(2025, 3, 31), 119_689_000, 148_013_000, 0.33, -16_679_000, "quarter"])
+    adjusted.append([dt.datetime(2025, 6, 30), 102_293_000, 131_055_000, 0.27, 111_388_000, "quarter"])
+    adjusted.append([dt.datetime(2025, 9, 30), 107_335_000, 134_753_000, 0.31, 66_848_000, "quarter"])
+    adjusted.append([dt.datetime(2025, 12, 31), 131_976_000, 159_048_000, 0.45, 221_699_000, "quarter"])
+    rows = [
+        ["Promise Progress"],
+        ["Generated at 2026-05-15 00:00:00 UTC | Quarter blocks"],
+        ["Promise progress (As of 2025-09-30)"],
+        ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
+        ["Revenue guidance", "$1.9bn-$1.95bn", "$1.89bn", "Missed", "2025 year Revenue guidance tracking against final actual.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-12-31", ""],
+        ["Adjusted EBIT guidance", "$450m-$465m", "$461.3m", "Hit", "2025 year Adjusted EBIT guidance tracking against final actual.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-12-31", ""],
+        ["Promise progress (As of 2025-06-30)"],
+        ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
+        ["Revenue guidance", "$1.95bn-$2bn", "$1.89bn", "Missed", "2025 year Revenue guidance tracking against final actual.", "2025-Q2", "2025-Q2", "2025-Q2", "2025-12-31", ""],
+        ["Adjusted EBIT guidance", "$450m-$465m", "$461.3m", "Hit", "2025 year Adjusted EBIT guidance tracking against final actual.", "2025-Q2", "2025-Q2", "2025-Q2", "2025-12-31", ""],
+    ]
+    for rr, row in enumerate(rows, start=1):
+        for cc, value in enumerate(row, start=1):
+            ws.cell(rr, cc, value)
+
+    _rewrite_shared_promise_progress_ui_from_blocks(ws, ticker="PBI")
+
+    values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
+    q3_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[7] == "2025-Q3")
+    assert q3_revenue[4] == "$460.0m"
+    assert q3_revenue[5] in {"On track", "Open"}
+    assert q3_revenue[4] != "$1.89bn"
+    q3_ebit = next(row for row in values if row[0] == "Adjusted EBIT guidance" and row[7] == "2025-Q3")
+    assert q3_ebit[4] == "$107.3m"
+    assert q3_ebit[5] in {"On track", "Open"}
+    annual_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[4] == "$1.9bn-$1.95bn")
+    assert annual_revenue[5] == "$1.89bn actual"
+    assert annual_revenue[6] == "$1.89bn"
+    assert annual_revenue[7] == "Missed"
 
 
 def test_shared_promise_progress_rewrite_compacts_long_guidance_value_cells() -> None:
@@ -1337,11 +1562,48 @@ def test_shared_promise_progress_rewrite_compacts_long_guidance_value_cells() ->
     values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
     facility_row = next(row for row in values if row[0] == "45Z facility qualification" and row[8] == "2026-03-31")
     assert facility_row[2] == "All 8 qualified"
-    assert facility_row[4] == "All 8 qualified"
+    assert facility_row[4] in {"", None, "not yet measurable"}
     assert len(facility_row[2]) < 22
-    assert len(facility_row[4]) < 22
+    assert len(str(facility_row[4] or "")) < 22
     nebraska_row = next(row for row in values if row[0] == "Advantage Nebraska EBITDA opportunity" and row[8] == "2026-03-31")
-    assert nebraska_row[4] == "AN operational"
+    assert nebraska_row[4] in {"", None, "not yet measurable"}
+
+
+def test_gpre_shared_promise_progress_adds_2025_milestone_progression_without_fake_annual_guidance() -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Promise_Progress_UI"
+    rows = [
+        ["Promise Progress"],
+        ["Promise progress (As of 2026-03-31)"],
+        ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
+        ["45Z EBITDA guidance", "$200m-$225m", "$55.2m Q1 realized", "On track", "2026 year 45Z EBITDA guidance has Q1 tracking only.", "2026-Q1", "2026-Q1", "2026-Q1", "2026-03-31", ""],
+        ["Promise progress (As of 2025-12-31)"],
+        ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
+        ["45Z monetization", "$15m-$25m", "$23.4m", "Hit", "2025-Q4 45Z monetization target evaluated against cash received.", "2025-Q4", "2025-Q4", "2025-Q4", "2025-12-31", ""],
+        ["Advantage Nebraska startup", "Early 2025-Q4", "AN operational", "Completed", "Advantage Nebraska startup milestone reached.", "2025-Q4", "2025-Q4", "2025-Q4", "2025-12-31", ""],
+        ["Promise progress (As of 2025-09-30)"],
+        ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
+        ["Debt reduction", "$130.7m", "$130.7m", "Completed", "Debt reduction milestone completed.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-09-30", ""],
+        ["45Z facility qualification", "All 8 qualified in 2026", "not yet measurable", "On track", "2026 year facility qualification tracking.", "2025-Q3", "2025-Q3", "2026-Q1", "2025-09-30", ""],
+    ]
+    for rr, row in enumerate(rows, start=1):
+        for cc, value in enumerate(row, start=1):
+            ws.cell(rr, cc, value)
+
+    _rewrite_shared_promise_progress_ui_from_blocks(ws, ticker="GPRE")
+
+    values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
+    assert any(row[0] == "2025 milestone progression" for row in values)
+    assert not any(row[0] == "2025 guidance progression" for row in values)
+    section_idx = next(idx for idx, row in enumerate(values) if row[0] == "2025 milestone progression")
+    next_section_idx = next(
+        idx for idx, row in enumerate(values[section_idx + 1 :], start=section_idx + 1) if str(row[0] or "").endswith("guidance") or str(row[0] or "").endswith("timeline / revision log")
+    )
+    milestone_rows = [row for row in values[section_idx:next_section_idx] if row[0] in {"45Z monetization", "Advantage Nebraska startup", "Debt reduction"}]
+    assert {row[0] for row in milestone_rows} == {"45Z monetization", "Advantage Nebraska startup", "Debt reduction"}
+    assert all(row[3] in {"Hit", "Completed"} for row in milestone_rows)
+    assert not any(row[0] == "45Z facility qualification" and row[6] == "2026 year" and row[3] in {"Hit", "Completed"} for row in values)
 
 
 def test_shared_promise_progress_rewrite_keeps_future_annual_guidance_open_or_on_track() -> None:
@@ -1372,9 +1634,14 @@ def test_shared_promise_progress_rewrite_keeps_future_annual_guidance_open_or_on
     _rewrite_shared_promise_progress_ui_from_blocks(ws, ticker="GPRE")
 
     values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
+    timeline_header = next(row for row in values if row[:4] == ["Metric", "Previous guide", "New/current guide", "Change type"])
+    assert timeline_header[4] == "Actual"
+    assert "Actual / latest actual" not in timeline_header
     annual_row = next(row for row in values if row[0] == "45Z EBITDA guidance" and row[6] == "2026 year")
     assert annual_row[5] in {"On track", "Open"}
     assert annual_row[5] != "Completed"
+    assert annual_row[4] in {"", None, "not yet measurable"}
+    assert "$55.2m" not in str(annual_row[4] or "")
 
 
 def test_shared_ui_polish_cleans_guidance_normalized_and_downgrades_pbi_qsum() -> None:
@@ -2045,6 +2312,14 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             {"section": "Investment Snapshot", "metric": "Model read", "display": "Constructive."},
             {"section": "Investment Snapshot", "metric": "Key debate", "display": "Can margins hold?"},
             {"section": "Guidance Beat/Miss Setup", "metric": "Capex", "display": "$210-$230m"},
+            {"section": "Buybacks vs FCF", "metric": "Buybacks", "value": 450.0, "display": "~$450m"},
+            {"section": "Buybacks vs FCF", "metric": "Guided buybacks", "value": 450.0, "display": "~$450m"},
+            {"section": "Tariff / Margin Bridge", "metric": "2026 tariff headwind", "value": 70.0, "unit": "bps", "display": "~70 bps / ~$40m incremental"},
+            {"section": "Tariff / Margin Bridge", "metric": "Q1 2026 tariff headwind", "value": 290.0, "unit": "bps", "display": "~290 bps / ~$30m"},
+            {"section": "Tariff / Margin Bridge", "metric": "Freight tailwind", "value": 160.0, "unit": "bps", "display": "~160 bps"},
+            {"section": "Tariff / Margin Bridge", "metric": "ERP disruption", "value": 100.0, "unit": "bps", "display": ">100 bps op margin headwind"},
+            {"section": "Tariff / Margin Bridge", "metric": "Marketing", "value": 50.0, "unit": "bps", "display": "+50 bps headwind Q1"},
+            {"section": "Tariff / Margin Bridge", "metric": "Implied decline", "value": -105.0, "unit": "bps", "display": "-80 to -130 bps"},
             {"section": "Policy / 45Z / RFS Bridge", "metric": "45Z expected benefit", "value": 212.5, "display": "$200-$225m"},
             {"section": "Valuation Sensitivity", "metric": "Base scenario", "scenario": "Base", "eps": 10.6, "multiple": 13, "share_price": 138},
             {"section": "Adj EBITDA x EV/EBITDA", "metric": "8.0x EV/EBITDA", "display": "$6,525m EV", "equity_value_core_net_cash": 7310.0},
@@ -2116,6 +2391,27 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
     for ticker in ("PBI", "GPRE"):
         wb = Workbook()
         del wb[wb.sheetnames[0]]
+        if ticker == "PBI":
+            valuation = wb.create_sheet("Valuation")
+            valuation.append(["Metric", "2025-Q4", "2026-Q1"])
+            valuation.append(["Adj EBIT (TTM)", 438.34, 439.205])
+            adj = wb.create_sheet("Adjusted_Metrics")
+            adj.append(["quarter", "adj_ebit", "adj_ebitda", "adj_eps", "adj_fcf"])
+            adj.append(["2025-Q1", 119_689_000, 148_013_000, 0.33, -16_679_000])
+            adj.append(["2025-Q2", 102_293_000, 131_055_000, 0.27, 111_388_000])
+            adj.append(["2025-Q3", 107_335_000, 134_753_000, 0.31, 66_848_000])
+            adj.append(["2025-Q4", 131_976_000, 159_048_000, 0.45, 221_699_000])
+            bs = wb.create_sheet("BS_Segments")
+            bs.append(["Quarter", "2025-Q3", "2025-Q4", "2026-Q1"])
+            bs.append(["Segment operating margin %", None, None, None])
+            bs.append(["SendTech Solutions", 0.31, 0.35, 0.3616])
+            bs.append(["Presort Services", 0.22, 0.23, 0.2397])
+            hq = wb.create_sheet("History_Q")
+            hq.append(["quarter", "revenue", "ebitda", "net_income", "cfo", "capex", "shares_diluted", "op_income", "pretax_income", "income_tax_expense"])
+            hq.append(["2025-Q1", 1_000_000_000, 120_000_000, 20_000_000, 60_000_000, 25_000_000, 100_000_000, 80_000_000, 30_000_000, 7_500_000])
+            hq.append(["2025-Q2", 1_100_000_000, 130_000_000, 22_000_000, 65_000_000, 26_000_000, 100_000_000, 82_000_000, 32_000_000, 8_000_000])
+            hq.append(["2025-Q3", 1_200_000_000, 140_000_000, 24_000_000, 70_000_000, 27_000_000, 100_000_000, 84_000_000, 34_000_000, 8_500_000])
+            hq.append(["2025-Q4", 1_300_000_000, 150_000_000, 26_000_000, 75_000_000, 28_000_000, 100_000_000, 86_000_000, 36_000_000, 9_000_000])
         if ticker == "GPRE":
             od = wb.create_sheet("Operating_Drivers")
             od.append(["Operating Drivers"])
@@ -2126,6 +2422,16 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         cases.append((ticker, wb, wb[f"{ticker}_Investment_Case"]))
     wb = Workbook()
     del wb[wb.sheetnames[0]]
+    hq = wb.create_sheet("History_Q")
+    hq.append(["quarter", "revenue", "ebitda", "net_income", "cfo", "capex", "shares_diluted", "op_income", "pretax_income", "income_tax_expense"])
+    hq.append(["2025-Q1", 1_000_000_000, 120_000_000, 20_000_000, 60_000_000, 25_000_000, 100_000_000, 80_000_000, 30_000_000, 7_500_000])
+    hq.append(["2025-Q2", 1_100_000_000, 130_000_000, 22_000_000, 65_000_000, 26_000_000, 100_000_000, 82_000_000, 32_000_000, 8_000_000])
+    hq.append(["2025-Q3", 1_200_000_000, 140_000_000, 24_000_000, 70_000_000, 27_000_000, 100_000_000, 84_000_000, 34_000_000, 8_500_000])
+    hq.append(["2025-Q4", 1_300_000_000, 150_000_000, 26_000_000, 75_000_000, 28_000_000, 100_000_000, 86_000_000, 36_000_000, 9_000_000])
+    valuation = wb.create_sheet("Valuation")
+    valuation.append(["Metric", "2025-Q4"])
+    valuation.append(["Revenue YoY %", 0.054])
+    valuation.append(["Buybacks (TTM, cash)", 450.0])
     _write_anf_investment_case_sheet(wb, anf_df)
     cases.append(("ANF", wb, wb["ANF_Investment_Case"]))
 
@@ -2209,10 +2515,16 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         assert "Diluted shares" in shares_labels
         assert "Shares diluted / valuation share count" not in shares_labels
         eps_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Forward EPS")
+        revenue_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Forward revenue")
         ebitda_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Forward Adj EBITDA")
         shares_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Diluted shares")
         capex_input_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Capex")
         fcf_yield_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "FCF yield")
+        if ticker != "GPRE":
+            assert ws.cell(revenue_row, 2).value == pytest.approx(4600.0)
+            assert ws.cell(eps_row, 2).value == pytest.approx(0.92)
+            assert ws.cell(ebitda_row, 2).value == pytest.approx(540.0)
+            assert ws.cell(capex_input_row, 2).value == pytest.approx(106.0)
         assert str(ws.cell(eps_row, 7).value).startswith(f'=IF(F{eps_row}<>"",F{eps_row},IF(C{eps_row}<>"",C{eps_row},IF(B{eps_row}<>"",B{eps_row},IF(D{eps_row}<>"",D{eps_row},E{eps_row}))))')
         fcf_yield_formula = str(ws.cell(fcf_yield_row, 7).value or "")
         assert f"F{fcf_yield_row}>1" in fcf_yield_formula and f"F{fcf_yield_row}/100" in fcf_yield_formula
@@ -2245,18 +2557,21 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
                 assert ws.cell(presort_row, 2).value == "Segment / business line"
                 assert ws.cell(presort_row, 4).fill.fgColor.rgb == "00FFF2CC"
                 assert str(ws.cell(presort_row, 5).value) == f'=IFERROR(IF(D{presort_row}="",0,C{presort_row}*D{presort_row}),0)'
-                assert ws.cell(presort_row, 6).value == pytest.approx(0.12)
+                assert str(ws.cell(presort_row, 6).value) == "='BS_Segments'!$D$4"
                 assert str(ws.cell(presort_row, 7).value) == f'=IFERROR(IF(OR(D{presort_row}="",F{presort_row}=""),0,E{presort_row}*F{presort_row}),0)'
                 assert str(ws.cell(presort_row, 8).value).startswith("=IF(AND(")
                 assert "Yes" in str(ws.cell(presort_row, 8).value)
-                assert ws.cell(presort_row, 9).value == "Company operating margin proxy"
+                assert ws.cell(presort_row, 9).value == "Segment operating margin"
+                sendtech_row = next(r for r in range(segment_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "SendTech")
+                assert str(ws.cell(sendtech_row, 6).value) == "='BS_Segments'!$D$3"
+                assert ws.cell(sendtech_row, 9).value == "Segment operating margin"
                 pbi_audit = next(row for row in driver_audit_rows if row[0] == "PBI" and row[2] == "Presort")
                 assert pbi_audit[4] == "Slides_Segments TTM revenue"
                 assert pbi_audit[5] == 622.3
                 assert f"'{ticker}_Investment_Case'!$D${presort_row}" in str(pbi_audit[6])
                 assert f"'{ticker}_Investment_Case'!$E${presort_row}" in str(pbi_audit[7])
-                assert pbi_audit[8] == "Company operating margin proxy"
-                assert pbi_audit[9] == pytest.approx(0.12)
+                assert pbi_audit[8] == "Segment operating margin"
+                assert str(pbi_audit[9]) == "='BS_Segments'!$D$4"
                 assert f"'{ticker}_Investment_Case'!$G${presort_row}" in str(pbi_audit[10])
             else:
                 basis_row = segment_row + 2
@@ -2282,10 +2597,10 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
                 assert str(ws.cell(anf_geo_row, 6).value).startswith("=IF($G$")
                 assert str(ws.cell(anf_brand_row, 8).value).startswith(f'=IF(AND($B${basis_row}="Brand"')
                 assert str(ws.cell(anf_geo_row, 8).value).startswith(f'=IF(AND($B${basis_row}="Geography"')
-                assert ws.cell(anf_brand_row, 9).value == "Summed if Brand selected"
-                assert ws.cell(anf_geo_row, 9).value == "Summed if Geography selected"
-                assert any(row[0] == "ANF" and row[2] == "Abercrombie (brand)" and row[8] == "Company operating margin proxy" for row in driver_audit_rows)
-                assert any(row[0] == "ANF" and row[2] == "Americas (geography / stores)" and row[8] == "Company operating margin proxy" for row in driver_audit_rows)
+                assert ws.cell(anf_brand_row, 9).value == "Active company operating margin proxy"
+                assert ws.cell(anf_geo_row, 9).value == "Active company operating margin proxy"
+                assert any(row[0] == "ANF" and row[2] == "Abercrombie (brand)" and row[8] == "Active company operating margin proxy" for row in driver_audit_rows)
+                assert any(row[0] == "ANF" and row[2] == "Americas (geography / stores)" and row[8] == "Active company operating margin proxy" for row in driver_audit_rows)
                 assert not any("Brand view" in str(row[2]) or "Geography / stores view" in str(row[2]) for row in driver_audit_rows)
                 assert not any("Separate revenue cut; not summed" in str(ws.cell(r, c).value or "") for r in range(1, ws.max_row + 1) for c in range(1, 11))
         else:
@@ -2304,6 +2619,23 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             credit_active_formula = str(ws.cell(credit_row, 7).value or "")
             assert f'IF(F{credit_row}<>"",F{credit_row},IF(D{credit_row}<>"",D{credit_row},IF(C{credit_row}<>"",C{credit_row}' in credit_active_formula
         if ticker == "PBI":
+            fcf_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Forward FCF")
+            adjusted_ebit_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Adjusted EBIT")
+            manual_labels = [str(ws.cell(r, 1).value or "") for r in range(manual_row + 2, next_section_row)]
+            assert "Presort / SendTech stabilization" not in manual_labels
+            assert ws.cell(fcf_row, 3).value == '=IFERROR(FCF_TTM,"")'
+            assert ws.cell(revenue_row, 4).value == pytest.approx(1830.0)
+            assert ws.cell(eps_row, 4).value == pytest.approx(1.575)
+            assert ws.cell(fcf_row, 4).value == pytest.approx(362.5)
+            assert "SUMIFS(INDEX(Adjusted_Metrics!$A:$Z" in str(ws.cell(adjusted_ebit_row, 2).value)
+            assert 'MATCH("adj_ebit",Adjusted_Metrics!$1:$1,0)' in str(ws.cell(adjusted_ebit_row, 2).value)
+            assert '">="&DATE(2025,1,1)' not in str(ws.cell(adjusted_ebit_row, 2).value)
+            assert '"2025-Q1"' in str(ws.cell(adjusted_ebit_row, 2).value)
+            assert '"2025-Q4"' in str(ws.cell(adjusted_ebit_row, 2).value)
+            assert str(ws.cell(adjusted_ebit_row, 3).value).startswith("=IFERROR(LOOKUP(2,1/(INDEX(Valuation!$B:$M")
+            assert 'MATCH("Adj EBIT (TTM)",Valuation!$A:$A,0)' in str(ws.cell(adjusted_ebit_row, 3).value)
+            assert ws.cell(adjusted_ebit_row, 4).value == pytest.approx(445.0)
+            assert "2026 guide midpoint" in str(ws.cell(adjusted_ebit_row, 8).value)
             cost_input_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Cost savings target / run-rate ($m)")
             assert ws.cell(cost_input_row, 2).value == 157.0
             assert ws.cell(cost_input_row, 3).value == 157.0
@@ -2427,7 +2759,7 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         elif ticker == "PBI":
             assert "Incremental cost savings vs baseline" in incremental_labels
             assert "Interest/refinancing effect vs baseline" in incremental_labels
-            assert "Presort / SendTech stabilization" in incremental_labels
+            assert "Presort / SendTech stabilization" not in incremental_labels
             assert "Selected segment revenue/margin impact" in incremental_labels
             assert "Debt paydown / net debt" in incremental_labels
             assert "Capex change vs baseline" in incremental_labels
@@ -2470,6 +2802,30 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert "Margin bridge vs baseline" in incremental_labels
             assert "Selected segment revenue/margin impact" in incremental_labels
             assert "Capex change vs baseline" in incremental_labels
+            manual_labels = [str(ws.cell(r, 1).value or "") for r in range(manual_row + 2, next_section_row)]
+            assert "EPS guide midpoint" not in manual_labels
+            assert "Tariff / freight / ERP / marketing bridge" not in manual_labels
+            assert "Tariff / freight / ERP / marketing bridge (bps)" not in manual_labels
+            assert "Tariff impact (bps)" in manual_labels
+            assert "Freight tailwind (bps)" in manual_labels
+            assert "ERP disruption (bps)" in manual_labels
+            assert "Marketing headwind (bps)" in manual_labels
+            sales_growth_row = next(r for r in range(manual_row + 2, next_section_row) if ws.cell(r, 1).value == "Sales growth")
+            buyback_amount_row = next(r for r in range(manual_row + 2, next_section_row) if ws.cell(r, 1).value == "Buyback amount")
+            assert str(ws.cell(sales_growth_row, 2).value).startswith("=IFERROR(IF(")
+            assert "SUMIFS(INDEX(History_Q!$A:$ZZ" in str(ws.cell(sales_growth_row, 2).value)
+            assert 'MATCH("revenue",History_Q!$1:$1,0)' in str(ws.cell(sales_growth_row, 2).value)
+            assert str(ws.cell(sales_growth_row, 3).value).startswith("=IFERROR(LOOKUP(2,1/(INDEX(Valuation!$B:$M")
+            assert 'MATCH("Revenue YoY %",Valuation!$A:$A,0)' in str(ws.cell(sales_growth_row, 3).value)
+            assert ws.cell(buyback_amount_row, 2).value == pytest.approx(450.0)
+            assert str(ws.cell(buyback_amount_row, 3).value).startswith("=IFERROR(LOOKUP(2,1/(INDEX(Valuation!$B:$M")
+            assert ws.cell(buyback_amount_row, 4).value == pytest.approx(450.0)
+            margin_bridge_row = bridge_by_label["Margin bridge vs baseline"]
+            assert "$G$" in str(margin_bridge_row[2])
+            assert "/10000" in str(margin_bridge_row[2])
+            assert "SUM(" in str(margin_bridge_row[2])
+            assert f"$G${tax_rate_row}" in str(margin_bridge_row[4])
+            assert "Converts bps margin bridge to $m using active revenue." == margin_bridge_row[7]
             segment_bridge_row = bridge_by_label["Selected segment revenue/margin impact"]
             assert "$B$" in segment_bridge_row[2]
             assert "SUMIF(" in segment_bridge_row[2]
@@ -2490,9 +2846,7 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert str(capex_row[5]) in {"0", "0.0", ""}
             assert "C" in capex_row[6] and "B" in capex_row[6]
             assert audit_by_label["Capex change vs baseline"][3] == "cash_only"
-            eps_guide_audit = audit_by_label["EPS guide/manual adjustment"]
-            assert eps_guide_audit[3] == "direct_eps"
-            assert "direct EPS/share delta" in str(eps_guide_audit[6])
+            assert "EPS guide/manual adjustment" not in audit_by_label
 
         market_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "What Market Is Pricing")
         market_values = [str(ws.cell(r, c).value or "") for r in range(market_row, min(ws.max_row, market_row + 10) + 1) for c in range(1, 11)]
@@ -2542,6 +2896,41 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             for c in range(1, 6):
                 if ws.cell(r, c).value not in (None, ""):
                     assert ws.cell(r, c).alignment.horizontal == "left"
+
+
+def test_anf_investment_case_keeps_generated_history_formulas_intact() -> None:
+    wb = Workbook()
+    del wb[wb.sheetnames[0]]
+    data = pd.DataFrame(
+        [
+            {"section": "Investment Snapshot", "metric": "Model read", "display": "Constructive."},
+            {"section": "Assumptions", "metric": "Tax rate", "value": None, "display": ""},
+            {"section": "Guidance Beat/Miss Setup", "metric": "Capex", "display": "$200-$225m"},
+        ]
+    )
+    _write_anf_investment_case_sheet(wb, data)
+    ws = wb["ANF_Investment_Case"]
+
+    eps_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Forward EPS")
+    fcf_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Forward FCF")
+    tax_row = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == "Scenario tax rate")
+
+    eps_formula = str(ws.cell(eps_row, 2).value or "")
+    fcf_formula = str(ws.cell(fcf_row, 2).value or "")
+    tax_formula = str(ws.cell(tax_row, 2).value or "")
+    assert eps_formula.startswith("=")
+    assert 'MATCH("fiscal_year",History_Q!$1:$1,0)' in eps_formula
+    assert ",2025," in eps_formula
+    assert 'MATCH("shares_diluted",History_Q!$1:$1,0)' in eps_formula
+    assert "AVERAGEIFS(" in eps_formula
+    assert not eps_formula.endswith(".")
+    assert 'MATCH("capex",History_Q!$1:$1,0)' in fcf_formula
+    assert 'MATCH("fiscal_year",History_Q!$1:$1,0)' in fcf_formula
+    assert not fcf_formula.endswith(".")
+    assert 'MATCH("income_tax_expense",History_Q!$1:$1,0)' in tax_formula
+    assert 'MATCH("pretax_income",History_Q!$1:$1,0)' in tax_formula
+    assert 'MATCH("fiscal_year",History_Q!$1:$1,0)' in tax_formula
+    assert not tax_formula.endswith(".")
 
 
 def test_shared_readable_source_type_label_for_side_panels() -> None:

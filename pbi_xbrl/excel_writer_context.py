@@ -23,7 +23,7 @@ from copy import copy
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Pattern, Sequence, Set, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Pattern, Sequence, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -193,6 +193,658 @@ def _company_operating_margin_proxy_from_workbook(wb: Workbook) -> Tuple[Optiona
     return None, ""
 
 
+def _segment_scenario_label_aliases(label: Any) -> Set[str]:
+    """Return normalized aliases used to match visible segment labels to BS_Segments.
+
+    Company source sheets often use fuller names than the Investment_Case UI
+    (for example, "Presort Services" vs "Presort").  Keep this matcher narrow:
+    it should improve source-backed segment margin selection without turning
+    into a fuzzy segment parser.
+    """
+
+    text = str(label or "").strip().lower()
+
+    def _norm(value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+    aliases = {_norm(text)}
+    if "presort" in text:
+        aliases.update({_norm("Presort"), _norm("Presort Services")})
+    if "sendtech" in text or "send tech" in text:
+        aliases.update({_norm("SendTech"), _norm("SendTech Solutions"), _norm("SendTech Services")})
+    if "abercrombie" in text:
+        aliases.update({_norm("Abercrombie"), _norm("Abercrombie brand")})
+    if "hollister" in text:
+        aliases.update({_norm("Hollister"), _norm("Hollister brand")})
+    if "americas" in text:
+        aliases.add(_norm("Americas"))
+    if "emea" in text:
+        aliases.add(_norm("EMEA"))
+    if "apac" in text:
+        aliases.add(_norm("APAC"))
+    return {alias for alias in aliases if alias}
+
+
+def _bs_segments_latest_segment_margin_from_workbook(wb: Workbook, label: Any) -> Tuple[Any, str]:
+    """Return latest source-backed segment margin ref from BS_Segments if present."""
+
+    if wb is None or "BS_Segments" not in getattr(wb, "sheetnames", []):
+        return None, ""
+    aliases = _segment_scenario_label_aliases(label)
+    if not aliases:
+        return None, ""
+    ws = wb["BS_Segments"]
+    margin_sections = [
+        ("segment operating margin %", "Segment operating margin"),
+        ("operating margin %", "Segment operating margin"),
+        ("segment ebit margin %", "Segment EBIT margin"),
+        ("ebit margin %", "Segment EBIT margin"),
+        ("segment adjusted ebit margin %", "Segment adjusted EBIT margin"),
+        ("adjusted ebit margin %", "Segment adjusted EBIT margin"),
+        ("segment adjusted ebitda margin %", "Segment adjusted EBITDA margin"),
+        ("adjusted ebitda margin %", "Segment adjusted EBITDA margin"),
+        ("ebitda margin %", "Segment EBITDA margin proxy"),
+    ]
+    section_basis: Dict[int, str] = {}
+    for rr in range(1, int(ws.max_row or 0) + 1):
+        row_label = str(ws.cell(rr, 1).value or "").strip().lower()
+        for section_label, basis in margin_sections:
+            if row_label == section_label:
+                section_basis[rr] = basis
+                break
+    if not section_basis:
+        return None, ""
+
+    max_row = int(ws.max_row or 0)
+    max_col = int(ws.max_column or 1)
+    for section_row, basis in sorted(section_basis.items()):
+        next_section = min([r for r in section_basis if r > section_row] or [max_row + 1])
+        for rr in range(section_row + 1, min(next_section, section_row + 30, max_row + 1)):
+            row_name = str(ws.cell(rr, 1).value or "").strip()
+            row_key = re.sub(r"[^a-z0-9]+", "", row_name.lower())
+            if not row_key or not any(alias in row_key or row_key in alias for alias in aliases):
+                continue
+            for cc in range(max_col, 1, -1):
+                raw = ws.cell(rr, cc).value
+                val = pd.to_numeric(raw, errors="coerce")
+                if pd.isna(val):
+                    continue
+                margin = float(val)
+                if abs(margin) > 1.5:
+                    margin /= 100.0
+                if math.isfinite(margin) and -0.75 <= margin <= 1.0:
+                    ref = f"='BS_Segments'!${get_column_letter(cc)}${rr}"
+                    return ref, basis
+    return None, ""
+
+
+@dataclass(frozen=True)
+class _FiscalPeriodProfile:
+    year_end_month: int = 12
+    year_end_day: int = 31
+    year_label: str = "end"
+
+
+def _date_or_none(value: Any) -> Optional[date]:
+    ts = pd.to_datetime(value, errors="coerce")
+    if pd.isna(ts):
+        return None
+    return pd.Timestamp(ts).date()
+
+
+def _safe_date(year: int, month: int, day: int) -> date:
+    month = max(1, min(12, int(month)))
+    day = max(1, min(31, int(day)))
+    while True:
+        try:
+            return date(int(year), month, day)
+        except ValueError:
+            day -= 1
+
+
+def _fiscal_profile_from_workbook(
+    wb: Optional[Workbook],
+    ticker: Any = "",
+    fiscal_profile: Any = None,
+) -> _FiscalPeriodProfile:
+    """Resolve fiscal-year-end behavior for visible period labels and annual defaults.
+
+    Priority is explicit caller profile, workbook/profile text, known company
+    profile fallback, then calendar-year reporting.  The year-label mode is
+    intentionally explicit because retailers like ANF label the year ended
+    January 2026 as 2025 year, while calendar reporters use the end year.
+    """
+
+    def _profile(month: Any, day: Any, label: Any = "") -> _FiscalPeriodProfile:
+        m = int(month or 12)
+        d = int(day or 31)
+        mode = str(label or "").strip().lower()
+        if mode not in {"start", "end"}:
+            mode = "start" if m <= 2 else "end"
+        return _FiscalPeriodProfile(m, d, mode)
+
+    if isinstance(fiscal_profile, _FiscalPeriodProfile):
+        return fiscal_profile
+    if isinstance(fiscal_profile, Mapping):
+        month = fiscal_profile.get("year_end_month") or fiscal_profile.get("fiscal_year_end_month")
+        day = fiscal_profile.get("year_end_day") or fiscal_profile.get("fiscal_year_end_day")
+        if month and day:
+            return _profile(month, day, fiscal_profile.get("year_label") or fiscal_profile.get("fiscal_year_label"))
+    if isinstance(fiscal_profile, (tuple, list)) and len(fiscal_profile) >= 2:
+        return _profile(fiscal_profile[0], fiscal_profile[1], fiscal_profile[2] if len(fiscal_profile) > 2 else "")
+
+    if wb is not None:
+        for sheet_name in ("SUMMARY", "Summary", "Model_Info", "QA_Checks"):
+            if sheet_name not in getattr(wb, "sheetnames", []):
+                continue
+            ws = wb[sheet_name]
+            for row in ws.iter_rows(min_row=1, max_row=min(int(ws.max_row or 0), 80), min_col=1, max_col=min(int(ws.max_column or 0), 10), values_only=True):
+                blob = " ".join(str(v) for v in row if v not in (None, ""))
+                if not blob:
+                    continue
+                m = re.search(r"\b(?:FY|fiscal year|year)\s*end(?:ed)?\s*(?:\(|:)?\s*(20\d{2})-(\d{1,2})-(\d{1,2})", blob, re.I)
+                if m:
+                    return _profile(m.group(2), m.group(3), "")
+                m = re.search(r"\b(?:FY|fiscal year|year)\s*end(?:ed)?\s*(?:\(|:)?\s*([A-Za-z]+)\s+(\d{1,2})", blob, re.I)
+                if m:
+                    try:
+                        month = pd.to_datetime(m.group(1), format="%B", errors="coerce")
+                        if pd.isna(month):
+                            month = pd.to_datetime(m.group(1), format="%b", errors="coerce")
+                        if not pd.isna(month):
+                            return _profile(int(pd.Timestamp(month).month), int(m.group(2)), "")
+                    except Exception:
+                        pass
+
+    ticker_txt = str(ticker or "").strip().upper()
+    ticker_profiles = {
+        "ANF": _FiscalPeriodProfile(1, 31, "start"),
+    }
+    return ticker_profiles.get(ticker_txt, _FiscalPeriodProfile())
+
+
+def _explicit_quarter_label_key(value: Any) -> Optional[Tuple[int, int]]:
+    txt = str(value or "").strip()
+    m = re.search(r"\b(20\d{2})\s*[-_/ ]?\s*Q([1-4])\b", txt, flags=re.I)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    m = re.search(r"\bQ([1-4])\s*[-_/ ]?\s*(20\d{2})\b", txt, flags=re.I)
+    if m:
+        return int(m.group(2)), int(m.group(1))
+    return None
+
+
+def _resolve_fiscal_period_from_date(qd: date, profile: _FiscalPeriodProfile) -> Tuple[int, int, str, date]:
+    candidates = [
+        _safe_date(int(qd.year) + year_offset, profile.year_end_month, profile.year_end_day)
+        for year_offset in (-1, 0, 1)
+    ]
+    eligible = [cand for cand in candidates if -10 <= (cand - qd).days <= 370]
+    fy_end = min(eligible or candidates, key=lambda cand: abs((cand - qd).days))
+    days_to_fy_end = (fy_end - qd).days
+    if days_to_fy_end <= 45:
+        fq = 4
+    elif days_to_fy_end <= 135:
+        fq = 3
+    elif days_to_fy_end <= 225:
+        fq = 2
+    else:
+        fq = 1
+    fy = int(fy_end.year) - 1 if profile.year_label == "start" else int(fy_end.year)
+    return fy, fq, f"{fy}-Q{fq}", fy_end
+
+
+def _resolve_history_q_fiscal_periods_from_workbook(
+    wb: Workbook,
+    *,
+    ticker: Any = "",
+    fiscal_profile: Any = None,
+) -> List[Dict[str, Any]]:
+    if wb is None or "History_Q" not in getattr(wb, "sheetnames", []):
+        return []
+    ws = wb["History_Q"]
+    if int(ws.max_row or 0) < 2 or int(ws.max_column or 0) < 1:
+        return []
+
+    def _norm(value: Any) -> str:
+        return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+
+    headers = {_norm(ws.cell(1, cc).value): cc for cc in range(1, int(ws.max_column or 0) + 1)}
+
+    def _col(*aliases: str) -> Optional[int]:
+        for alias in aliases:
+            cc = headers.get(_norm(alias))
+            if cc is not None:
+                return cc
+        return None
+
+    quarter_col = _col("quarter", "period", "fiscal quarter", "fiscal_period")
+    fiscal_year_col = _col("fiscal_year", "fiscal year", "fy")
+    fiscal_quarter_col = _col("fiscal_quarter", "fiscal quarter", "fq")
+    if quarter_col is None:
+        return []
+    profile = _fiscal_profile_from_workbook(wb, ticker=ticker, fiscal_profile=fiscal_profile)
+    out: List[Dict[str, Any]] = []
+    for rr in range(2, int(ws.max_row or 0) + 1):
+        raw_quarter = ws.cell(rr, quarter_col).value
+        explicit = _explicit_quarter_label_key(raw_quarter)
+        qd = None if explicit is not None and isinstance(raw_quarter, str) else _date_or_none(raw_quarter)
+        fy: Optional[int] = None
+        fq: Optional[int] = None
+        fy_end_date: Optional[date] = None
+        if fiscal_year_col is not None and fiscal_quarter_col is not None:
+            fy_val = pd.to_numeric(ws.cell(rr, fiscal_year_col).value, errors="coerce")
+            fq_val = pd.to_numeric(ws.cell(rr, fiscal_quarter_col).value, errors="coerce")
+            if pd.notna(fy_val) and pd.notna(fq_val) and 1 <= int(fq_val) <= 4:
+                fy, fq = int(fy_val), int(fq_val)
+        if fy is None or fq is None:
+            if explicit is not None:
+                fy, fq = explicit
+            elif qd is not None:
+                fy, fq, _label, fy_end_date = _resolve_fiscal_period_from_date(qd, profile)
+        if fy is None or fq is None:
+            continue
+        label = f"{int(fy)}-Q{int(fq)}"
+        if fy_end_date is None and qd is not None:
+            _fy, _fq, _label, fy_end_date = _resolve_fiscal_period_from_date(qd, profile)
+        out.append(
+            {
+                "row": rr,
+                "quarter_date": qd,
+                "fiscal_year": int(fy),
+                "fiscal_quarter": int(fq),
+                "label": label,
+                "fy_end_date": fy_end_date,
+            }
+        )
+    out.sort(
+        key=lambda rec: (
+            int(rec.get("fiscal_year") or 0),
+            int(rec.get("fiscal_quarter") or 0),
+            rec.get("quarter_date") or date.min,
+            int(rec.get("row") or 0),
+        )
+    )
+    return out
+
+
+def _history_q_latest_full_year_period_set(
+    wb: Workbook,
+    *,
+    ticker: Any = "",
+    fiscal_profile: Any = None,
+) -> Dict[str, Any]:
+    periods = _resolve_history_q_fiscal_periods_from_workbook(wb, ticker=ticker, fiscal_profile=fiscal_profile)
+    by_year: Dict[int, Dict[int, Dict[str, Any]]] = {}
+    for rec in periods:
+        fy = int(rec.get("fiscal_year") or 0)
+        fq = int(rec.get("fiscal_quarter") or 0)
+        if fy <= 0 or fq not in {1, 2, 3, 4}:
+            continue
+        existing = by_year.setdefault(fy, {}).get(fq)
+        if existing is None or (rec.get("quarter_date") or date.min) >= (existing.get("quarter_date") or date.min):
+            by_year[fy][fq] = rec
+    full_years = [fy for fy, quarters in by_year.items() if all(q in quarters for q in (1, 2, 3, 4))]
+    if not full_years:
+        return {}
+    latest_year = max(full_years)
+    rows = [by_year[latest_year][q]["row"] for q in (1, 2, 3, 4)]
+    quarter_dates = [by_year[latest_year][q].get("quarter_date") for q in (1, 2, 3, 4)]
+    labels = [by_year[latest_year][q].get("label") for q in (1, 2, 3, 4)]
+    quarter_criteria = [
+        by_year[latest_year][q].get("quarter_date") or by_year[latest_year][q].get("label")
+        for q in (1, 2, 3, 4)
+    ]
+    previous_quarter_dates: List[date] = []
+    previous_quarter_criteria: List[Any] = []
+    if latest_year - 1 in by_year and all(q in by_year[latest_year - 1] for q in (1, 2, 3, 4)):
+        previous_quarter_dates = [by_year[latest_year - 1][q].get("quarter_date") for q in (1, 2, 3, 4)]
+        previous_quarter_criteria = [
+            by_year[latest_year - 1][q].get("quarter_date") or by_year[latest_year - 1][q].get("label")
+            for q in (1, 2, 3, 4)
+        ]
+    return {
+        "fiscal_year": latest_year,
+        "rows": rows,
+        "quarter_dates": [qd for qd in quarter_dates if isinstance(qd, date)],
+        "previous_quarter_dates": [qd for qd in previous_quarter_dates if isinstance(qd, date)],
+        "quarter_criteria": [crit for crit in quarter_criteria if crit not in (None, "")],
+        "previous_quarter_criteria": [crit for crit in previous_quarter_criteria if crit not in (None, "")],
+        "labels": labels,
+    }
+
+
+def _history_q_latest_full_year_actuals_from_workbook(
+    wb: Workbook,
+    *,
+    ticker: Any = "",
+    fiscal_profile: Any = None,
+) -> Dict[str, float]:
+    """Return conservative latest full-year actuals from History_Q in workbook units.
+
+    Values returned for money metrics are in $m, matching Investment_Case
+    manual-input conventions.  The helper only uses years with all four
+    quarter labels present, so it does not turn a partial YTD period into a
+    full-year default.
+    """
+
+    if wb is None or "History_Q" not in getattr(wb, "sheetnames", []):
+        return {}
+    ws = wb["History_Q"]
+    if int(ws.max_row or 0) < 2 or int(ws.max_column or 0) < 2:
+        return {}
+
+    def _norm(value: Any) -> str:
+        return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+
+    headers = {_norm(ws.cell(1, cc).value): cc for cc in range(1, int(ws.max_column or 0) + 1)}
+
+    def _col(*aliases: str) -> Optional[int]:
+        for alias in aliases:
+            cc = headers.get(_norm(alias))
+            if cc is not None:
+                return cc
+        return None
+
+    quarter_col = _col("quarter", "period", "fiscal quarter", "fiscal_period")
+    if quarter_col is None:
+        return {}
+
+    period_set = _history_q_latest_full_year_period_set(wb, ticker=ticker, fiscal_profile=fiscal_profile)
+    if not period_set:
+        return {}
+    latest_year = int(period_set["fiscal_year"])
+    rows = [int(rr) for rr in period_set.get("rows", [])]
+    if len(rows) != 4:
+        return {}
+
+    def _num_at(row: int, col: Optional[int]) -> Optional[float]:
+        if col is None:
+            return None
+        val = pd.to_numeric(ws.cell(row, col).value, errors="coerce")
+        if pd.isna(val):
+            return None
+        out = float(val)
+        return out if math.isfinite(out) else None
+
+    def _sum_money(*aliases: str) -> Optional[float]:
+        cc = _col(*aliases)
+        vals = [_num_at(rr, cc) for rr in rows]
+        clean = [float(v) for v in vals if v is not None]
+        if not clean:
+            return None
+        total = sum(clean)
+        if abs(total) > 10000.0:
+            total /= 1_000_000.0
+        return total if math.isfinite(total) else None
+
+    def _latest_numeric(*aliases: str) -> Optional[float]:
+        cc = _col(*aliases)
+        for rr in reversed(rows):
+            val = _num_at(rr, cc)
+            if val is not None:
+                return val
+        return None
+
+    def _shares_m() -> Optional[float]:
+        shares = _latest_numeric("shares_diluted", "diluted shares", "weighted average diluted shares", "shares")
+        if shares is None:
+            return None
+        if abs(shares) > 10000.0:
+            shares /= 1_000_000.0
+        return shares if math.isfinite(shares) and shares > 0 else None
+
+    def _sum_money_for_rows(rows_in: Sequence[int], *aliases: str) -> Optional[float]:
+        cc = _col(*aliases)
+        vals = [_num_at(rr, cc) for rr in rows_in]
+        clean = [float(v) for v in vals if v is not None]
+        if not clean:
+            return None
+        total = sum(clean)
+        if abs(total) > 10000.0:
+            total /= 1_000_000.0
+        return total if math.isfinite(total) else None
+
+    revenue_m = _sum_money("revenue", "net sales", "sales")
+    ebitda_m = _sum_money("adj_ebitda", "adjusted ebitda", "ebitda")
+    net_income_m = _sum_money("net_income", "net income", "net income attributable")
+    cfo_m = _sum_money("cfo", "cash from operations", "operating cash flow", "net cash provided by operating activities")
+    capex_m = _sum_money("capex", "capital expenditures", "capital expenditure", "property and equipment additions")
+    fcf_m = _sum_money("fcf", "free cash flow")
+    if fcf_m is None and cfo_m is not None and capex_m is not None:
+        fcf_m = cfo_m - abs(capex_m)
+    op_income_m = _sum_money("op_income", "operating income", "operating profit")
+    pretax_m = _sum_money("pretax_income", "pre-tax income", "income before taxes", "income before income taxes")
+    tax_m = _sum_money("income_tax_expense", "provision for income taxes", "tax expense", "income tax provision")
+    buybacks_m = _sum_money("buybacks_cash", "share repurchases", "stock repurchases", "repurchases of common stock")
+    shares_m = _shares_m()
+    out: Dict[str, float] = {"year": float(latest_year)}
+    for key, value in {
+        "revenue_m": revenue_m,
+        "ebitda_m": ebitda_m,
+        "fcf_m": fcf_m,
+        "capex_m": abs(capex_m) if capex_m is not None else None,
+        "buybacks_m": abs(buybacks_m) if buybacks_m is not None else None,
+    }.items():
+        if value is not None and math.isfinite(float(value)):
+            out[key] = float(value)
+    previous_year = latest_year - 1
+    previous_periods = _resolve_history_q_fiscal_periods_from_workbook(wb, ticker=ticker, fiscal_profile=fiscal_profile)
+    prev_rows_by_q = {
+        int(rec.get("fiscal_quarter") or 0): int(rec.get("row") or 0)
+        for rec in previous_periods
+        if int(rec.get("fiscal_year") or 0) == previous_year
+    }
+    if all(q in prev_rows_by_q for q in (1, 2, 3, 4)):
+        previous_revenue_m = _sum_money_for_rows([prev_rows_by_q[q] for q in (1, 2, 3, 4)], "revenue", "net sales", "sales")
+        if revenue_m is not None and previous_revenue_m and previous_revenue_m > 0:
+            growth = (float(revenue_m) / float(previous_revenue_m)) - 1.0
+            if math.isfinite(growth):
+                out["revenue_growth"] = growth
+    if net_income_m is not None and shares_m:
+        eps = float(net_income_m) / float(shares_m)
+        if math.isfinite(eps):
+            out["eps"] = eps
+    if op_income_m is not None and revenue_m and revenue_m > 0:
+        margin = float(op_income_m) / float(revenue_m)
+        if math.isfinite(margin) and -0.75 <= margin <= 1.0:
+            out["operating_margin"] = margin
+    if tax_m is not None and pretax_m and pretax_m > 0:
+        tax_rate = float(tax_m) / float(pretax_m)
+        if math.isfinite(tax_rate) and 0.0 <= tax_rate <= 0.35:
+            out["tax_rate"] = tax_rate
+    return out
+
+
+def _augment_history_q_frame_for_writer(
+    df: pd.DataFrame,
+    *,
+    ticker: Any = "",
+    fiscal_profile: Any = None,
+) -> pd.DataFrame:
+    """Add reusable fiscal-period and operating-margin columns to History_Q."""
+
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return df
+    out = df.copy()
+
+    def _norm(value: Any) -> str:
+        return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+
+    col_by_norm = {_norm(col): col for col in out.columns}
+
+    def _col(*aliases: str) -> Optional[Any]:
+        for alias in aliases:
+            col = col_by_norm.get(_norm(alias))
+            if col is not None:
+                return col
+        return None
+
+    quarter_col = _col("quarter", "period", "fiscal quarter", "fiscal_period")
+    if quarter_col is not None and not {"fiscal_year", "fiscal_quarter", "fiscal_label"}.issubset(set(map(str, out.columns))):
+        profile = _fiscal_profile_from_workbook(None, ticker=ticker, fiscal_profile=fiscal_profile)
+        fiscal_years: List[Any] = []
+        fiscal_quarters: List[Any] = []
+        fiscal_labels: List[Any] = []
+        for raw in out[quarter_col].tolist():
+            explicit = _explicit_quarter_label_key(raw)
+            qd = None if explicit is not None and isinstance(raw, str) else _date_or_none(raw)
+            if explicit is not None:
+                fy, fq = explicit
+                label = f"{fy}-Q{fq}"
+            elif qd is not None:
+                fy, fq, label, _fy_end = _resolve_fiscal_period_from_date(qd, profile)
+            else:
+                fy = fq = label = pd.NA
+            fiscal_years.append(fy)
+            fiscal_quarters.append(fq)
+            fiscal_labels.append(label)
+        if "fiscal_year" not in out.columns:
+            out["fiscal_year"] = fiscal_years
+        if "fiscal_quarter" not in out.columns:
+            out["fiscal_quarter"] = fiscal_quarters
+        if "fiscal_label" not in out.columns:
+            out["fiscal_label"] = fiscal_labels
+
+    if "operating_margin" not in out.columns:
+        revenue_col = _col("revenue", "net sales", "sales")
+        numerator_col = _col("op_income", "operating income", "operating profit")
+        basis = "operating income / revenue"
+        if numerator_col is None:
+            numerator_col = _col("ebit", "income from operations", "operating earnings")
+            basis = "EBIT margin proxy"
+        if numerator_col is None:
+            numerator_col = _col("adj_ebit", "adjusted ebit", "adjusted operating income")
+            basis = "adjusted EBIT margin proxy"
+        if revenue_col is not None and numerator_col is not None:
+            revenue = pd.to_numeric(out[revenue_col], errors="coerce")
+            numerator = pd.to_numeric(out[numerator_col], errors="coerce")
+            margin = numerator / revenue.replace({0: pd.NA})
+            margin = margin.where(margin.between(-0.75, 1.0))
+            out["operating_margin"] = margin
+            if "operating_margin_basis" not in out.columns:
+                out["operating_margin_basis"] = basis
+
+    return out
+
+
+def _history_q_year_default_formulas(
+    start_date: Optional[Tuple[int, int, int]] = None,
+    end_date: Optional[Tuple[int, int, int]] = None,
+    *,
+    fiscal_year: Optional[int] = None,
+    quarter_dates: Optional[Sequence[date]] = None,
+    previous_quarter_dates: Optional[Sequence[date]] = None,
+    quarter_criteria: Optional[Sequence[Any]] = None,
+    previous_quarter_criteria: Optional[Sequence[Any]] = None,
+    start_exclusive: bool = False,
+    end_inclusive: bool = False,
+) -> Dict[str, str]:
+    """Excel formulas for latest full-year defaults when History_Q is written later.
+
+    Prefer exact fiscal-quarter dates from the resolver.  Date ranges are kept
+    only as a fallback for legacy calendar-year callers.
+    """
+
+    exact_criteria = [crit for crit in (quarter_criteria or []) if crit not in (None, "")]
+    exact_prev_criteria = [crit for crit in (previous_quarter_criteria or []) if crit not in (None, "")]
+    if not exact_criteria:
+        exact_criteria = [qd for qd in (quarter_dates or []) if isinstance(qd, date)]
+    if not exact_prev_criteria:
+        exact_prev_criteria = [qd for qd in (previous_quarter_dates or []) if isinstance(qd, date)]
+    fiscal_year_int: Optional[int]
+    try:
+        fiscal_year_int = int(fiscal_year) if fiscal_year is not None else None
+    except Exception:
+        fiscal_year_int = None
+    use_fiscal_columns = not exact_criteria and fiscal_year_int is not None
+    if not exact_criteria:
+        start_date = start_date or (2025, 1, 1)
+        end_date = end_date or (2026, 1, 1)
+        start = f"DATE({start_date[0]},{start_date[1]},{start_date[2]})"
+        end = f"DATE({end_date[0]},{end_date[1]},{end_date[2]})"
+        prev_start = f"DATE({start_date[0] - 1},{start_date[1]},{start_date[2]})"
+        prev_end = f"DATE({end_date[0] - 1},{end_date[1]},{end_date[2]})"
+        start_op = ">" if start_exclusive else ">="
+        end_op = "<=" if end_inclusive else "<"
+    dates = "History_Q!$A:$A"
+
+    def _range(metric: str) -> str:
+        return f'INDEX(History_Q!$A:$ZZ,0,MATCH("{metric}",History_Q!$1:$1,0))'
+
+    fiscal_year_range = 'INDEX(History_Q!$A:$ZZ,0,MATCH("fiscal_year",History_Q!$1:$1,0))'
+    fiscal_quarter_range = 'INDEX(History_Q!$A:$ZZ,0,MATCH("fiscal_quarter",History_Q!$1:$1,0))'
+
+    def _date_expr(qd: date) -> str:
+        return f"DATE({int(qd.year)},{int(qd.month)},{int(qd.day)})"
+
+    def _criteria_expr(crit: Any) -> str:
+        if isinstance(crit, date):
+            return _date_expr(crit)
+        txt = str(crit or "").replace('"', '""')
+        return f'"{txt}"'
+
+    def _sum_exact(metric: str, criteria: Sequence[Any]) -> str:
+        terms = [f"SUMIFS({_range(metric)},{dates},{_criteria_expr(crit)})" for crit in criteria]
+        if not terms:
+            return "0"
+        return "(" + "+".join(terms) + ")"
+
+    def _sum(metric: str) -> str:
+        if exact_criteria:
+            return _sum_exact(metric, exact_criteria)
+        if use_fiscal_columns and fiscal_year_int is not None:
+            return (
+                f'SUMIFS({_range(metric)},{fiscal_year_range},{fiscal_year_int},'
+                f'{fiscal_quarter_range},">=1",{fiscal_quarter_range},"<=4")'
+            )
+        return f'SUMIFS({_range(metric)},{dates},"{start_op}"&{start},{dates},"{end_op}"&{end})'
+
+    def _sum_prev(metric: str) -> str:
+        if exact_criteria:
+            return _sum_exact(metric, exact_prev_criteria)
+        if use_fiscal_columns and fiscal_year_int is not None:
+            return (
+                f'SUMIFS({_range(metric)},{fiscal_year_range},{fiscal_year_int - 1},'
+                f'{fiscal_quarter_range},">=1",{fiscal_quarter_range},"<=4")'
+            )
+        return f'SUMIFS({_range(metric)},{dates},"{start_op}"&{prev_start},{dates},"{end_op}"&{prev_end})'
+
+    revenue = f'=IFERROR({_sum("revenue")}/1000000,"")'
+    ebitda = f'=IFERROR({_sum("ebitda")}/1000000,"")'
+    capex = f'=IFERROR(ABS({_sum("capex")})/1000000,"")'
+    fcf = f'=IFERROR(({_sum("cfo")}-ABS({_sum("capex")}))/1000000,"")'
+    buybacks = f'=IFERROR(ABS({_sum("buybacks_cash")})/1000000,"")'
+    revenue_growth = f'=IFERROR(IF({_sum_prev("revenue")}>0,{_sum("revenue")}/{_sum_prev("revenue")}-1,""),"")'
+    share_denominator = (
+        f'({_sum("shares_diluted")}/{max(len(exact_criteria), 1)})'
+        if exact_criteria
+        else (
+            f'AVERAGEIFS({_range("shares_diluted")},{fiscal_year_range},{fiscal_year_int},'
+            f'{fiscal_quarter_range},">=1",{fiscal_quarter_range},"<=4")'
+            if use_fiscal_columns and fiscal_year_int is not None
+            else f'AVERAGEIFS({_range("shares_diluted")},{dates},"{start_op}"&{start},{dates},"{end_op}"&{end})'
+        )
+    )
+    eps = (
+        f'=IFERROR(({_sum("net_income")}/1000000)'
+        f'/({share_denominator}/1000000),"")'
+    )
+    op_margin = f'=IFERROR({_sum("op_income")}/{_sum("revenue")},"")'
+    tax_rate = f'=IFERROR(IF(AND({_sum("pretax_income")}>0,{_sum("income_tax_expense")}>=0,{_sum("income_tax_expense")}/{_sum("pretax_income")}<=0.35),{_sum("income_tax_expense")}/{_sum("pretax_income")},""),"")'
+    return {
+        "revenue_m": revenue,
+        "ebitda_m": ebitda,
+        "fcf_m": fcf,
+        "capex_m": capex,
+        "buybacks_m": buybacks,
+        "revenue_growth": revenue_growth,
+        "eps": eps,
+        "operating_margin": op_margin,
+        "tax_rate": tax_rate,
+    }
+
+
 def _segment_scenario_note_for_view(note: str, view_basis: str) -> str:
     txt = str(note or "").strip()
     low = txt.lower()
@@ -228,15 +880,21 @@ def _segment_scenario_specs_from_records(
         feeds_txt = str(rec.get("feeds_bridge") or "").strip().lower()
         feeds_bridge = (feeds_txt in {"yes", "true", "1"} or used_default_margin) and baseline_m is not None and margin is not None
         note = str(rec.get("source_note") or rec.get("notes") or rec.get("note") or "").strip()
-        if used_default_margin and (not note or "missing segment margin" in note.lower()):
-            note = "Company operating margin proxy"
+        if used_default_margin and (
+            not note
+            or "missing segment margin" in note.lower()
+            or "company operating margin proxy" in note.lower()
+            or "separate revenue cut" in note.lower()
+            or note.lower().startswith("summed if ")
+        ):
+            note = default_margin_basis if default_margin_basis else "Company operating margin proxy"
         elif not note:
             if baseline_m is None:
                 note = "Missing segment revenue"
             elif margin is None:
                 note = "Missing segment margin"
             elif "company operating margin proxy" in margin_basis.lower():
-                note = "Company operating margin proxy"
+                note = margin_basis
             elif not feeds_bridge:
                 note = "Informational only"
         note = _segment_scenario_note_for_view(note, view_basis)
@@ -1299,6 +1957,7 @@ def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -
                         "status": _shared_visible_period_text(str(ws.cell(rr, 4).value or "")),
                         "note": _shared_visible_period_text(str(ws.cell(rr, 5).value or "")),
                         "stated": _shared_visible_period_text(str(ws.cell(rr, 6).value or "")) or current_block_label,
+                        "evaluated_through": _shared_visible_period_text(str(ws.cell(rr, 9).value or "")),
                         "source_date": current_asof,
                         "asof_date": current_asof_date,
                         "block_label": current_block_label,
@@ -1388,6 +2047,218 @@ def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -
                 return f"${val:,.0f}"
         return txt
 
+    def _promise_actual_lookup_from_workbook() -> Tuple[Dict[str, Dict[str, float]], Dict[int, Dict[str, float]]]:
+        wb = getattr(ws, "parent", None)
+        by_period: Dict[str, Dict[str, float]] = {}
+        by_year: Dict[int, Dict[str, float]] = {}
+        if wb is None:
+            return by_period, by_year
+
+        def _norm_header(value: Any) -> str:
+            return re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
+
+        def _num(value: Any) -> Optional[float]:
+            out = pd.to_numeric(value, errors="coerce")
+            if pd.isna(out):
+                return None
+            val = float(out)
+            return val if math.isfinite(val) else None
+
+        def _period_labels(qd: date, row_map: Mapping[str, Any]) -> List[str]:
+            labels = {f"{qd.year}-Q{((qd.month - 1) // 3) + 1}", str(qd)}
+            fiscal_label = str(row_map.get("fiscal_label") or "").strip()
+            if fiscal_label:
+                labels.add(fiscal_label)
+            fy = _num(row_map.get("fiscal_year"))
+            fq = _num(row_map.get("fiscal_quarter"))
+            if fy is not None and fq is not None and 1 <= int(fq) <= 4:
+                labels.add(f"{int(fy)}-Q{int(fq)}")
+            return [label for label in labels if label]
+
+        def _year_for_row(qd: date, row_map: Mapping[str, Any]) -> int:
+            fy = _num(row_map.get("fiscal_year"))
+            return int(fy) if fy is not None else int(qd.year)
+
+        def _add_period(labels: Iterable[str], key: str, value: Optional[float]) -> None:
+            if value is None:
+                return
+            for label in labels:
+                by_period.setdefault(label, {})[key] = value
+
+        def _add_year(year: int, key: str, value: Optional[float]) -> None:
+            if value is None:
+                return
+            by_year.setdefault(int(year), {})[key] = by_year.setdefault(int(year), {}).get(key, 0.0) + value
+
+        if "History_Q" in getattr(wb, "sheetnames", []):
+            hist_ws = wb["History_Q"]
+            headers = {
+                _norm_header(hist_ws.cell(1, cc).value): cc
+                for cc in range(1, int(hist_ws.max_column or 0) + 1)
+            }
+            q_col = headers.get("quarter")
+            if q_col:
+                for rr in range(2, int(hist_ws.max_row or 0) + 1):
+                    qd = _date_or_none(hist_ws.cell(rr, q_col).value)
+                    if qd is None:
+                        continue
+                    row_map = {
+                        name: hist_ws.cell(rr, cc).value
+                        for name, cc in headers.items()
+                    }
+                    labels = _period_labels(qd, row_map)
+                    year = _year_for_row(qd, row_map)
+                    revenue = _num(row_map.get("revenue"))
+                    op_income = _num(row_map.get("op_income"))
+                    cfo = _num(row_map.get("cfo"))
+                    capex = _num(row_map.get("capex"))
+                    eps = _num(row_map.get("eps_diluted"))
+                    shares = _num(row_map.get("shares_diluted"))
+                    buybacks = _num(row_map.get("buybacks_cash"))
+                    operating_margin = None
+                    if revenue and op_income is not None:
+                        operating_margin = op_income / revenue
+                    fcf = (cfo - capex) if cfo is not None and capex is not None else None
+                    for key, val in (
+                        ("revenue", revenue),
+                        ("operating_margin", operating_margin),
+                        ("fcf", fcf),
+                        ("capex", capex),
+                        ("eps", eps),
+                        ("shares", shares),
+                        ("buybacks", buybacks),
+                    ):
+                        _add_period(labels, key, val)
+                        _add_year(year, key, val)
+
+        if "Adjusted_Metrics" in getattr(wb, "sheetnames", []):
+            adj_ws = wb["Adjusted_Metrics"]
+            headers = {
+                _norm_header(adj_ws.cell(1, cc).value): cc
+                for cc in range(1, int(adj_ws.max_column or 0) + 1)
+            }
+            q_col = headers.get("quarter")
+            if q_col:
+                for rr in range(2, int(adj_ws.max_row or 0) + 1):
+                    qd = _date_or_none(adj_ws.cell(rr, q_col).value)
+                    if qd is None:
+                        continue
+                    period_type = str(adj_ws.cell(rr, headers.get("period_type", 0)).value or "").strip().lower() if headers.get("period_type") else ""
+                    if period_type and "annual" in period_type:
+                        continue
+                    row_map = {name: adj_ws.cell(rr, cc).value for name, cc in headers.items()}
+                    labels = {f"{qd.year}-Q{((qd.month - 1) // 3) + 1}", str(qd)}
+                    year = int(qd.year)
+                    for key, source_name in (
+                        ("adj_ebit", "adj_ebit"),
+                        ("adj_ebitda", "adj_ebitda"),
+                        ("adj_eps", "adj_eps"),
+                        ("adj_fcf", "adj_fcf"),
+                    ):
+                        val = _num(row_map.get(source_name))
+                        _add_period(labels, key, val)
+                        _add_year(year, key, val)
+
+        return by_period, by_year
+
+    actuals_by_period, actuals_by_year = _promise_actual_lookup_from_workbook()
+
+    def _promise_metric_actual_key(metric_in: Any) -> str:
+        metric_low = str(metric_in or "").strip().lower()
+        if "adjusted ebitda" in metric_low or "adj ebitda" in metric_low:
+            return "adj_ebitda"
+        if "adjusted ebit" in metric_low or "adj ebit" in metric_low:
+            return "adj_ebit"
+        if "fcf" in metric_low or "free cash" in metric_low:
+            return "adj_fcf" if "adjusted" in metric_low or "adj" in metric_low else "fcf"
+        if "capex" in metric_low or "capital expenditure" in metric_low:
+            return "capex"
+        if "operating margin" in metric_low or "op margin" in metric_low:
+            return "operating_margin"
+        if "eps" in metric_low:
+            return "adj_eps" if "adjusted" in metric_low or "adj" in metric_low else "eps"
+        if "share" in metric_low and "repurchase" not in metric_low and "buyback" not in metric_low:
+            return "shares"
+        if "repurchase" in metric_low or "buyback" in metric_low:
+            return "buybacks"
+        if "revenue" in metric_low or "sales" in metric_low:
+            return "revenue"
+        return ""
+
+    def _format_lookup_actual_value(metric_in: Any, key: str, value: Any) -> str:
+        val = pd.to_numeric(value, errors="coerce")
+        if pd.isna(val):
+            return ""
+        num = float(val)
+        if key == "operating_margin":
+            return f"{num * 100:.1f}%"
+        if key in {"adj_eps", "eps"}:
+            return f"${num:,.2f}"
+        if key == "shares":
+            return f"{num / 1_000_000:,.1f}m" if abs(num) > 1_000_000 else f"{num:,.1f}m"
+        return _format_promise_value_text(str(num), metric_in)
+
+    def _actual_for_stated_quarter(row: Mapping[str, Any]) -> str:
+        key = _promise_metric_actual_key(row.get("metric"))
+        if not key:
+            return ""
+        stated_txt = str(row.get("stated") or row.get("block_label") or "").strip()
+        labels = [stated_txt]
+        m = re.search(r"\b(20\d{2})-Q([1-4])\b", stated_txt, flags=re.I)
+        if m:
+            labels.append(f"{int(m.group(1))}-Q{int(m.group(2))}")
+        for label in labels:
+            period_vals = actuals_by_period.get(label, {})
+            if key in period_vals:
+                return _format_lookup_actual_value(row.get("metric"), key, period_vals[key])
+            if key == "adj_fcf" and "fcf" in period_vals:
+                return _format_lookup_actual_value(row.get("metric"), "fcf", period_vals["fcf"])
+        return ""
+
+    def _annual_actual_for_metric(year: int, metric_in: Any) -> str:
+        key = _promise_metric_actual_key(metric_in)
+        if not key:
+            return ""
+        annual_vals = actuals_by_year.get(int(year), {})
+        if key in annual_vals:
+            return _format_lookup_actual_value(metric_in, key, annual_vals[key])
+        if key == "adj_fcf" and "fcf" in annual_vals:
+            return _format_lookup_actual_value(metric_in, "fcf", annual_vals["fcf"])
+        return ""
+
+    def _numbers_for_status(txt: Any) -> List[float]:
+        values: List[float] = []
+        for match in re.findall(r"(?<![A-Za-z])\d+(?:,\d{3})*(?:\.\d+)?", str(txt or "")):
+            try:
+                values.append(float(match.replace(",", "")))
+            except Exception:
+                continue
+        return values
+
+    def _status_from_guidance_actual(metric_in: Any, guide_in: Any, actual_in: Any) -> str:
+        metric_low = str(metric_in or "").lower()
+        guide_nums = _numbers_for_status(guide_in)
+        actual_nums = _numbers_for_status(actual_in)
+        if not actual_nums:
+            return ""
+        if not guide_nums:
+            return "Hit"
+        actual_val = actual_nums[0]
+        low = min(guide_nums)
+        high = max(guide_nums)
+        if len(guide_nums) == 1:
+            low = high = guide_nums[0]
+        tolerance = max(abs(high) * 0.001, 0.001)
+        if "capex" in metric_low or "capital expenditure" in metric_low:
+            return "Hit" if low - tolerance <= actual_val <= high + tolerance else "Mixed"
+        if "share" in metric_low and "repurchase" not in metric_low and "buyback" not in metric_low:
+            return "Hit" if low - tolerance <= actual_val <= high + tolerance else "Mixed"
+        if actual_val > high + tolerance:
+            return "Beat"
+        if actual_val < low - tolerance:
+            return "Missed"
+        return "Hit"
+
     def _horizon_from_row(row: Dict[str, Any]) -> str:
         blob = " ".join(str(row.get(k) or "") for k in ("note", "target", "metric"))
         blob = _shared_visible_period_text(blob)
@@ -1447,6 +2318,37 @@ def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -
             )
         )
 
+    def _row_evaluation_date(row: Mapping[str, Any]) -> date:
+        for key in ("evaluated_through", "source_date"):
+            try:
+                txt = str(row.get(key) or "").strip()
+                if txt:
+                    return pd.Timestamp(txt).date()
+            except Exception:
+                continue
+        return date.min
+
+    def _promise_actual_for_horizon(row: Mapping[str, Any], horizon_txt: Any, status_txt: Any) -> str:
+        latest_txt = str(row.get("latest") or "").strip()
+        if not latest_txt or not _has_measurable_actual_text(latest_txt):
+            return ""
+        status_low = str(_canonical_promise_status(status_txt, metric_hint=row.get("metric"), horizon_hint=horizon_txt)).strip().lower()
+        complete_statuses = {"completed", "beat", "hit", "missed", "basis-dependent", "mixed"}
+        horizon_end = _horizon_end_from_label(horizon_txt)
+        evaluation_dt = _row_evaluation_date(row)
+        annual_match = re.fullmatch(r"(20\d{2})\s+year", str(horizon_txt or "").strip(), flags=re.I)
+        if annual_match:
+            if evaluation_dt < (horizon_end or date(int(annual_match.group(1)), 12, 31)):
+                return ""
+            if _is_partial_tracking_text(latest_txt):
+                return ""
+            return _format_promise_value_text(latest_txt, row.get("metric")) if status_low in complete_statuses else ""
+        if horizon_end is not None and evaluation_dt < horizon_end:
+            return ""
+        if status_low in complete_statuses or re.search(r"\bactual\b", str(row.get("metric") or ""), flags=re.I):
+            return _format_promise_value_text(latest_txt, row.get("metric"))
+        return ""
+
     def _promise_lifecycle_id(metric_in: Any, horizon_in: Any) -> str:
         metric_slug = re.sub(r"[^a-z0-9]+", "_", str(metric_in or "").strip().lower()).strip("_")
         horizon_slug = re.sub(r"[^a-z0-9]+", "_", str(horizon_in or "").strip().lower()).strip("_")
@@ -1461,14 +2363,25 @@ def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -
         key=lambda row: row.get("asof_date") or date.min,
         reverse=True,
     )
+    row_horizons: Dict[int, str] = {idx: _horizon_from_row(row) for idx, row in enumerate(rows_sorted)}
     older_by_metric: Dict[int, Dict[str, Any]] = {}
     for idx, row in enumerate(rows_sorted):
+        row_horizon = row_horizons.get(idx, "")
         for j, cand in enumerate(rows_sorted):
             if j <= idx:
                 continue
-            if str(cand.get("metric") or "").lower() == str(row.get("metric") or "").lower():
+            if (
+                str(cand.get("metric") or "").lower() == str(row.get("metric") or "").lower()
+                and row_horizons.get(j, "") == row_horizon
+            ):
                 older_by_metric[idx] = cand
                 break
+
+    def _stated_quarter(label: Any) -> Tuple[Optional[int], Optional[int]]:
+        m = re.search(r"\b(20\d{2})-Q([1-4])\b", str(label or ""), flags=re.I)
+        if not m:
+            return None, None
+        return int(m.group(1)), int(m.group(2))
 
     timeline_rows: List[Dict[str, str]] = []
     for idx, row in enumerate(rows_sorted):
@@ -1481,7 +2394,7 @@ def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -
             change = "Maintained"
         else:
             change = "Updated"
-        horizon_txt = _horizon_from_row(row)
+        horizon_txt = row_horizons.get(idx, "") or _horizon_from_row(row)
         status_txt = _canonical_promise_status(row.get("status"), metric_hint=row.get("metric"), horizon_hint=horizon_txt)
         if ticker_txt == "GPRE":
             metric_low = str(row.get("metric") or "").strip().lower()
@@ -1497,32 +2410,39 @@ def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -
             ):
                 continue
         annual_match = re.fullmatch(r"(20\d{2})\s+year", str(horizon_txt or "").strip(), flags=re.I)
-        if annual_match and str(status_txt).strip().lower() in {"completed", "beat"}:
+        if annual_match and str(status_txt).strip().lower() in {"completed", "beat", "hit", "missed"}:
             latest_txt = str(row.get("latest") or "").strip()
             try:
                 horizon_year = int(annual_match.group(1))
-                source_dt = pd.Timestamp(str(row.get("source_date") or "")).date()
             except Exception:
                 horizon_year = 0
-                source_dt = date.min
-            if horizon_year and source_dt < date(horizon_year, 12, 31):
+            evaluation_dt = _row_evaluation_date(row)
+            if horizon_year and evaluation_dt < date(horizon_year, 12, 31):
                 note_txt = str(row.get("note") or "").strip()
-                if _has_measurable_actual_text(latest_txt) and not _is_partial_tracking_text(latest_txt):
-                    final_note = f"Final {horizon_year} actual shown for evaluation."
-                    if final_note.lower() not in note_txt.lower():
-                        row["note"] = f"{note_txt} {final_note}".strip()
-                else:
-                    partial_note = f"Partial/latest tracking only; {horizon_year} annual horizon is not complete."
-                    if latest_txt and partial_note.lower() not in note_txt.lower():
-                        row["note"] = f"{note_txt} {partial_note}".strip()
-                    status_txt = "On track" if latest_txt else "Open"
+                partial_note = f"Partial/latest tracking only; {horizon_year} annual horizon is not complete."
+                if latest_txt and partial_note.lower() not in note_txt.lower():
+                    row["note"] = f"{note_txt} {partial_note}".strip()
+                status_txt = "On track" if latest_txt else "Open"
+        actual_for_horizon = _promise_actual_for_horizon(row, horizon_txt, status_txt)
+        if annual_match:
+            try:
+                horizon_year = int(annual_match.group(1))
+            except Exception:
+                horizon_year = 0
+            stated_year, stated_q = _stated_quarter(row.get("stated") or row.get("block_label"))
+            if horizon_year and stated_year == horizon_year and stated_q in {1, 2, 3}:
+                stated_actual = _actual_for_stated_quarter(row)
+                if stated_actual:
+                    actual_for_horizon = stated_actual
+                    if status_txt in {"Completed", "Beat", "Hit", "Missed", "Mixed", "Basis-dependent"}:
+                        status_txt = "On track"
         timeline_rows.append(
             {
                 "Metric": str(row.get("metric") or ""),
                 "Previous guide": _format_promise_value_text(prev, row.get("metric")),
                 "New/current guide": _format_promise_value_text(new, row.get("metric")),
                 "Change type": change,
-                "Actual / latest actual": _format_promise_value_text(row.get("latest"), row.get("metric")),
+                "Actual": actual_for_horizon,
                 "Status": status_txt,
                 "Horizon": horizon_txt,
                 "Stated in": str(row.get("stated") or row.get("block_label") or ""),
@@ -1557,10 +2477,134 @@ def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -
         horizon_end = _horizon_end_from_label(horizon_txt)
         if status_txt not in {"Open", "On track"}:
             continue
-        if horizon_end is not None and _has_measurable_actual_text(actual_txt):
+        if horizon_end is not None and _promise_actual_for_horizon(r, horizon_txt, status_txt):
             continue
         open_rows.append(r)
     current_rows = latest_rows[:8]
+
+    def _annual_guidance_year(label: Any) -> Optional[int]:
+        m = re.fullmatch(r"(20\d{2})\s+year", str(label or "").strip(), flags=re.I)
+        return int(m.group(1)) if m else None
+
+    def _stated_quarter(label: Any) -> Tuple[Optional[int], Optional[int]]:
+        m = re.search(r"\b(20\d{2})-Q([1-4])\b", str(label or ""), flags=re.I)
+        if not m:
+            return None, None
+        return int(m.group(1)), int(m.group(2))
+
+    open_annual_years = [_annual_guidance_year(_horizon_from_row(r)) for r in open_rows]
+    open_annual_years = [year for year in open_annual_years if year is not None]
+    current_open_year = max(open_annual_years) if open_annual_years else None
+
+    annual_years = sorted(
+        {
+            year
+            for year in (_annual_guidance_year(rec.get("Horizon")) for rec in timeline_rows)
+            if year is not None and year != current_open_year
+        },
+        reverse=True,
+    )
+
+    def _annual_progression_rows(year: int) -> List[Dict[str, str]]:
+        by_metric: Dict[str, Dict[str, str]] = {}
+        metric_order: List[str] = []
+        metric_latest_sort: Dict[str, Tuple[int, date]] = {}
+        for rec in sorted(timeline_rows, key=_timeline_sort_key):
+            if _annual_guidance_year(rec.get("Horizon")) != year:
+                continue
+            metric = str(rec.get("Metric") or "").strip()
+            if not metric:
+                continue
+            if metric not in by_metric:
+                by_metric[metric] = {
+                    "Metric": metric,
+                    "Initial guide": "",
+                    "Q1 update": "",
+                    "Q2 update": "",
+                    "Q3 update": "",
+                    "Q4 update": "",
+                    "Actual": "",
+                    "Status": "",
+                    "Notes/source": "",
+                }
+                metric_order.append(metric)
+            row = by_metric[metric]
+            stated_year, stated_q = _stated_quarter(rec.get("Stated in"))
+            if stated_year is not None and stated_q is not None:
+                col_name = "Initial guide" if stated_year < year else f"Q{stated_q} update"
+            else:
+                col_name = "Initial guide" if not row.get("Initial guide") else "Q4 update"
+            if col_name in row:
+                row[col_name] = str(rec.get("New/current guide") or "")
+            actual_txt = str(rec.get("Actual") or "").strip()
+            if actual_txt and _has_measurable_actual_text(actual_txt):
+                row["Actual"] = actual_txt
+            status_txt = str(rec.get("Status") or "").strip()
+            if status_txt:
+                row["Status"] = status_txt
+            note_txt = str(rec.get("Source / note") or "").strip()
+            if note_txt:
+                row["Notes/source"] = note_txt
+            metric_latest_sort[metric] = _timeline_sort_key(rec)
+        for metric, row in by_metric.items():
+            final_actual = _annual_actual_for_metric(year, metric)
+            if not final_actual:
+                continue
+            latest_guide = ""
+            for col_name in ("Q4 update", "Q3 update", "Q2 update", "Q1 update", "Initial guide"):
+                candidate = str(row.get(col_name) or "").strip()
+                if candidate and not re.search(r"\bactual\b", candidate, flags=re.I):
+                    latest_guide = candidate
+                    break
+            row["Actual"] = final_actual
+            if not row.get("Q4 update"):
+                row["Q4 update"] = f"{final_actual} actual"
+            final_status = _status_from_guidance_actual(metric, latest_guide, final_actual)
+            if final_status:
+                row["Status"] = final_status
+        metric_order.sort(key=lambda metric: metric_latest_sort.get(metric, (0, date.min)), reverse=True)
+        return [by_metric[metric] for metric in metric_order]
+
+    def _milestone_progression_rows(year: int) -> List[Dict[str, str]]:
+        if ticker_txt != "GPRE":
+            return []
+        milestone_patterns = (
+            "45z monetization",
+            "advantage nebraska",
+            "debt reduction",
+            "cost savings target",
+            "cost savings",
+        )
+        out: List[Dict[str, str]] = []
+        seen: Set[Tuple[str, str]] = set()
+        for rec in timeline_rows:
+            metric_txt = str(rec.get("Metric") or "").strip()
+            metric_low = metric_txt.lower()
+            if not metric_txt or not any(pattern in metric_low for pattern in milestone_patterns):
+                continue
+            if _annual_guidance_year(rec.get("Horizon")) is not None:
+                continue
+            stated_year, _ = _stated_quarter(rec.get("Stated in"))
+            horizon_year, _ = _stated_quarter(rec.get("Horizon"))
+            if stated_year != year and horizon_year != year:
+                continue
+            status_txt = str(rec.get("Status") or "").strip()
+            if status_txt.lower() in {"", "open", "not assessed"}:
+                continue
+            key = (metric_low, str(rec.get("Horizon") or "").strip().lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(
+                {
+                    "Milestone": metric_txt,
+                    "Target / plan": str(rec.get("New/current guide") or ""),
+                    "Actual": str(rec.get("Actual") or ""),
+                    "Status": status_txt,
+                    "Notes/source": str(rec.get("Source / note") or ""),
+                }
+            )
+        return out
 
     for rng in list(ws.merged_cells.ranges):
         ws.unmerge_cells(str(rng))
@@ -1661,25 +2705,64 @@ def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -
         ws.cell(data_row, 7).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
     row_idx += 1
 
-    _section("Current guidance progression")
-    header_row = row_idx
-    _headers(["Metric", "Previous guide", "Latest guide", "Actual / latest actual", "Status", "Notes/source"])
-    ws.merge_cells(start_row=header_row, start_column=6, end_row=header_row, end_column=max_col)
-    ws.cell(header_row, 6).alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-    for row in current_rows:
-        metric = str(row.get("metric") or "")
-        prev = next((tr["Previous guide"] for tr in timeline_rows if tr["Metric"] == metric and tr["Stated in"] == str(row.get("stated") or "")), "")
-        data_row = row_idx
-        _write_row(
-            [metric, prev, row.get("target"), row.get("latest"), row.get("status"), row.get("note")],
-            status_col=5,
-            wrap_cols={6},
-        )
-        ws.merge_cells(start_row=data_row, start_column=6, end_row=data_row, end_column=max_col)
-        ws.cell(data_row, 6).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    for annual_year in annual_years:
+        annual_rows = _annual_progression_rows(annual_year)
+        if not annual_rows:
+            continue
+        _section(f"{annual_year} guidance progression")
+        header_row = row_idx
+        _headers(["Metric", "Initial guide", "Q1 update", "Q2 update", "Q3 update", "Q4 update", "Actual", "Status", "Notes/source"])
+        ws.merge_cells(start_row=header_row, start_column=9, end_row=header_row, end_column=max_col)
+        ws.cell(header_row, 9).alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+        for annual_row in annual_rows:
+            data_row = row_idx
+            _write_row(
+                [
+                    annual_row.get("Metric"),
+                    annual_row.get("Initial guide"),
+                    annual_row.get("Q1 update"),
+                    annual_row.get("Q2 update"),
+                    annual_row.get("Q3 update"),
+                    annual_row.get("Q4 update"),
+                    annual_row.get("Actual"),
+                    annual_row.get("Status"),
+                    annual_row.get("Notes/source"),
+                ],
+                status_col=8,
+                wrap_cols={9},
+            )
+            ws.merge_cells(start_row=data_row, start_column=9, end_row=data_row, end_column=max_col)
+            ws.cell(data_row, 9).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        row_idx += 1
 
-    row_idx += 1
-    _section("Open guidance")
+    for milestone_year in [2025]:
+        milestone_rows = _milestone_progression_rows(milestone_year)
+        if not milestone_rows:
+            continue
+        _section(f"{milestone_year} milestone progression")
+        header_row = row_idx
+        _headers(["Milestone", "Target / plan", "Actual", "Status", "Notes/source"])
+        ws.merge_cells(start_row=header_row, start_column=5, end_row=header_row, end_column=max_col)
+        ws.cell(header_row, 5).alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+        for milestone_row in milestone_rows:
+            data_row = row_idx
+            _write_row(
+                [
+                    milestone_row.get("Milestone"),
+                    milestone_row.get("Target / plan"),
+                    milestone_row.get("Actual"),
+                    milestone_row.get("Status"),
+                    milestone_row.get("Notes/source"),
+                ],
+                status_col=4,
+                wrap_cols={5},
+            )
+            ws.merge_cells(start_row=data_row, start_column=5, end_row=data_row, end_column=max_col)
+            ws.cell(data_row, 5).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        row_idx += 1
+
+    open_section_title = f"{current_open_year} open guidance" if current_open_year else "Open guidance"
+    _section(open_section_title)
     header_row = row_idx
     _headers(["Metric", "Current guide", "Horizon", "Status", "Notes/source"])
     ws.merge_cells(start_row=header_row, start_column=5, end_row=header_row, end_column=max_col)
@@ -1701,15 +2784,28 @@ def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -
         "Previous guide",
         "New/current guide",
         "Change type",
-        "Actual / latest actual",
+        "Actual",
         "Status",
         "Horizon",
         "Stated in",
         "Source date",
         "Source / note",
     ]
+    def _is_prior_period_current_open_annual_row(rec: Mapping[str, Any]) -> bool:
+        if current_open_year is None:
+            return False
+        if _annual_guidance_year(rec.get("Horizon")) != current_open_year:
+            return False
+        stated_year, _stated_q = _stated_quarter(rec.get("Stated in"))
+        if stated_year is None or stated_year >= current_open_year:
+            return False
+        return str(rec.get("Change type") or "").strip().lower() == "maintained"
+
+    display_timeline_rows = [
+        rec for rec in timeline_rows if not _is_prior_period_current_open_annual_row(rec)
+    ]
     last_group = ""
-    for rec in timeline_rows:
+    for rec in display_timeline_rows:
         group = str(rec.get("Stated in") or "")
         if group != last_group:
             if last_group:
@@ -1973,7 +3069,7 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                 "previous guide",
                 "new/current guide",
                 "change type",
-                "actual / latest actual",
+                "actual",
                 "status",
             }
             active_cols: Dict[str, int] = {}
@@ -1986,6 +3082,8 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                 out: Dict[str, int] = {}
                 for col_idx in range(1, int(ws.max_column or 0) + 1):
                     txt = str(ws.cell(row_idx, col_idx).value or "").strip().lower()
+                    if txt in {"actual / latest actual", "actual / latest", "latest actual", "latest result"}:
+                        txt = "actual"
                     if txt:
                         out[txt] = col_idx
                 return out
@@ -2025,7 +3123,7 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                     _norm_key(ws.cell(rr, active_cols["previous guide"]).value),
                     _norm_key(ws.cell(rr, active_cols["new/current guide"]).value),
                     _norm_key(ws.cell(rr, active_cols["change type"]).value),
-                    _norm_key(ws.cell(rr, active_cols["actual / latest actual"]).value),
+                    _norm_key(ws.cell(rr, active_cols["actual"]).value),
                     _norm_key(ws.cell(rr, active_cols["status"]).value),
                 )
                 if key in seen:
@@ -2045,7 +3143,7 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                             "previous": _norm_key(ws.cell(rr, active_cols["previous guide"]).value),
                             "new": _norm_key(ws.cell(rr, active_cols["new/current guide"]).value),
                             "change": _norm_key(ws.cell(rr, active_cols["change type"]).value),
-                            "actual": _norm_key(ws.cell(rr, active_cols["actual / latest actual"]).value),
+                            "actual": _norm_key(ws.cell(rr, active_cols["actual"]).value),
                             "status": _norm_key(ws.cell(rr, active_cols["status"]).value),
                             "source_date": _norm_key(
                                 ws.cell(rr, active_cols.get("source date", 0)).value
@@ -2158,6 +3256,8 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                 out: Dict[str, int] = {}
                 for col_idx in range(1, local_max_col + 1):
                     txt = str(ws.cell(row_idx, col_idx).value or "").strip().lower()
+                    if txt in {"actual / latest actual", "actual / latest", "latest actual", "latest result"}:
+                        txt = "actual"
                     if txt:
                         out[txt] = col_idx
                 return out
@@ -2181,7 +3281,7 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                 metric_txt = str(ws.cell(rr, metric_col).value or "").strip()
                 if "cost savings target" not in metric_txt.lower():
                     continue
-                actual_col = active_cols.get("actual / latest actual")
+                actual_col = active_cols.get("actual")
                 note_col = active_cols.get("source / note")
                 change_col = active_cols.get("change type")
                 prev_col = active_cols.get("previous guide")
@@ -2232,6 +3332,8 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                 out: Dict[str, int] = {}
                 for col_idx in range(1, local_max_col + 1):
                     txt = str(ws.cell(row_idx, col_idx).value or "").strip().lower()
+                    if txt in {"actual / latest actual", "actual / latest", "latest actual", "latest result"}:
+                        txt = "actual"
                     if txt:
                         out[txt] = col_idx
                 return out
@@ -2290,7 +3392,7 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                 first_txt = str(ws.cell(rr, 1).value or "").strip()
                 first_fill = str(ws.cell(rr, 1).fill.fgColor.rgb or "").upper()
                 row_map = _row_header_map(rr)
-                if {"metric", "new/current guide", "actual / latest actual", "status", "horizon"}.issubset(set(row_map)):
+                if {"metric", "new/current guide", "actual", "status", "horizon"}.issubset(set(row_map)):
                     active_cols = row_map
                     continue
                 if first_txt and first_fill.endswith(("5B9BD5", "6FA8DC", "4472C4")):
@@ -2301,7 +3403,7 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                     continue
                 metric_col = active_cols.get("metric")
                 new_col = active_cols.get("new/current guide")
-                actual_col = active_cols.get("actual / latest actual")
+                actual_col = active_cols.get("actual")
                 status_col = active_cols.get("status")
                 horizon_col = active_cols.get("horizon")
                 note_col = active_cols.get("source / note")
@@ -5712,11 +6814,93 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
         return "2025 year", "2026-Q2", "2026 year"
 
     def _manual_input_specs() -> List[Tuple[str, str, Any, Any, Any, Any, str, str]]:
+        history_period_set = _history_q_latest_full_year_period_set(wb, ticker=ticker_txt)
+        if not history_period_set.get("quarter_criteria"):
+            full_year_label = _manual_period_labels()[0]
+            year_match = re.search(r"\b(20\d{2})\b", str(full_year_label or ""))
+            profile = _fiscal_profile_from_workbook(wb, ticker=ticker_txt)
+            if year_match and profile.year_end_month == 12 and profile.year_end_day == 31 and profile.year_label == "end":
+                fy = int(year_match.group(1))
+                history_period_set = dict(history_period_set)
+                history_period_set["fiscal_year"] = fy
+                history_period_set["quarter_criteria"] = [
+                    date(fy, 3, 31),
+                    date(fy, 6, 30),
+                    date(fy, 9, 30),
+                    date(fy, 12, 31),
+                ]
+                history_period_set["previous_quarter_criteria"] = [
+                    date(fy - 1, 3, 31),
+                    date(fy - 1, 6, 30),
+                    date(fy - 1, 9, 30),
+                    date(fy - 1, 12, 31),
+                ]
+                history_period_set["quarter_dates"] = list(history_period_set["quarter_criteria"])
+                history_period_set["previous_quarter_dates"] = list(history_period_set["previous_quarter_criteria"])
+        history_fy = _history_q_latest_full_year_actuals_from_workbook(wb, ticker=ticker_txt)
+        history_fy_formulas = _history_q_year_default_formulas(
+            (2025, 1, 1),
+            (2026, 1, 1),
+            fiscal_year=history_period_set.get("fiscal_year"),
+            quarter_dates=history_period_set.get("quarter_dates"),
+            previous_quarter_dates=history_period_set.get("previous_quarter_dates"),
+            quarter_criteria=history_period_set.get("quarter_criteria"),
+            previous_quarter_criteria=history_period_set.get("previous_quarter_criteria"),
+        )
+
+        def _fy_default(key: str) -> Any:
+            val = history_fy.get(key)
+            return round(float(val), 2) if val is not None else history_fy_formulas.get(key, '=""')
+
+        def _valuation_latest_row_value_formula(label: str) -> str:
+            safe_label = str(label).replace('"', '""')
+            row_expr = f'INDEX(Valuation!$B:$M,MATCH("{safe_label}",Valuation!$A:$A,0),0)'
+            return f'=IFERROR(LOOKUP(2,1/({row_expr}<>""),{row_expr}),"")'
+
+        def _valuation_latest_row_value_formula(label: str) -> str:
+            if "Valuation" not in wb.sheetnames:
+                return '=""'
+            safe_label = str(label).replace('"', '""')
+            row_expr = f'INDEX(Valuation!$B:$M,MATCH("{safe_label}",Valuation!$A:$A,0),0)'
+            return f'=IFERROR(LOOKUP(2,1/({row_expr}<>""),{row_expr}),"")'
+
+        def _adjusted_metrics_year_sum_formula(metric: str) -> str:
+            safe_metric = str(metric).replace('"', '""')
+            metric_range = f'INDEX(Adjusted_Metrics!$A:$Z,0,MATCH("{safe_metric}",Adjusted_Metrics!$1:$1,0))'
+            date_range = f'INDEX(Adjusted_Metrics!$A:$Z,0,MATCH("quarter",Adjusted_Metrics!$1:$1,0))'
+            criteria = list(history_period_set.get("quarter_criteria") or history_period_set.get("quarter_dates") or [])
+
+            def _criteria_expr(value: Any) -> str:
+                if isinstance(value, str):
+                    return f'"{value.replace(chr(34), chr(34) + chr(34))}"'
+                qd = _date_or_none(value)
+                if qd is not None:
+                    return f"DATE({qd.year},{qd.month},{qd.day})"
+                return f'"{str(value or "").replace(chr(34), chr(34) + chr(34))}"'
+
+            terms = [
+                f"SUMIFS({metric_range},{date_range},{_criteria_expr(crit)})"
+                for crit in criteria
+                if crit not in (None, "")
+            ]
+            if terms:
+                return f'=IFERROR(({"+".join(terms)})/1000000,"")'
+            return (
+                f'=IFERROR(SUMIFS({metric_range},{date_range},">="&DATE(2025,1,1),'
+                f'{date_range},"<"&DATE(2026,1,1))/1000000,"")'
+            )
+
         gpre_45z_fy = _operating_driver_latest_full_year_sum_from_workbook(wb, "45Z value realized ($m)") if ticker_txt == "GPRE" else None
         gpre_45z_ttm = _operating_driver_ttm_sum_from_workbook(wb, "45Z value realized ($m)") if ticker_txt == "GPRE" else None
+        pbi_revenue_guidance_midpoint = 1830.0 if ticker_txt == "PBI" else None
+        pbi_eps_guidance_midpoint = 1.575 if ticker_txt == "PBI" else None
+        pbi_fcf_guidance_midpoint = 362.5 if ticker_txt == "PBI" else None
+        pbi_adjusted_ebit_guidance_midpoint = 445.0 if ticker_txt == "PBI" else None
         pbi_cost_savings_run_rate = 157.0 if ticker_txt == "PBI" else None
         pbi_cost_savings_target_midpoint = 190.0 if ticker_txt == "PBI" else None
         scenario_tax_rate = _numeric_value("Assumptions", "Tax rate")
+        if scenario_tax_rate is None:
+            scenario_tax_rate = history_fy.get("tax_rate")
         if scenario_tax_rate is not None and float(scenario_tax_rate) > 1.0:
             scenario_tax_rate = float(scenario_tax_rate) / 100.0
         if scenario_tax_rate is None or not (0.0 <= float(scenario_tax_rate) <= 0.35):
@@ -5730,11 +6914,11 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             ("price", "Current share price", '=""', '=""', '=""', '=""', "Manual input only.", "$0.00"),
             ("shares", "Diluted shares", '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=""', '=""', "Model share denominator.", "#,##0.0"),
             ("net_debt", "Net debt / net cash", '=IFERROR(NetDebt,"")', '=IFERROR(NetDebt,"")', '=""', '=""', "Positive = net debt; negative = net cash.", "#,##0.0"),
-            ("revenue", "Forward revenue", '=""', '=IFERROR(Revenue_TTM,"")', '=""', '=""', "TTM default.", "#,##0.0"),
-            ("eps", "Forward EPS", '=""', '=IFERROR(IF(Adj_EPS_TTM<>"",Adj_EPS_TTM,EPS_TTM),"")', '=""', '=""', "Adjusted EPS preferred.", "$0.00"),
-            ("ebitda", "Forward Adj EBITDA", '=""', '=IFERROR(IF(ThesisBaseAdjEBITDA_FY<>"",ThesisBaseAdjEBITDA_FY,Adj_EBITDA),"")', '=""', '=""', "Adjusted EBITDA base.", "#,##0.0"),
-            ("fcf", "Forward FCF", '=""', '=IFERROR(IF(Adj_FCF_TTM<>"",Adj_FCF_TTM,FCF_TTM),"")', '=""', '=""', "FCF base.", "#,##0.0"),
-            ("capex", "Capex", '=""', '=IFERROR(Capex_TTM,"")', "=20" if ticker_txt == "GPRE" else '=""', '=""', "Capex changes affect FCF only.", "#,##0.0"),
+            ("revenue", "Forward revenue", _fy_default("revenue_m"), '=IFERROR(Revenue_TTM,"")', pbi_revenue_guidance_midpoint if pbi_revenue_guidance_midpoint is not None else '=""', '=""', "TTM default; clean guide visible when available.", "#,##0.0"),
+            ("eps", "Forward EPS", _fy_default("eps"), '=IFERROR(IF(Adj_EPS_TTM<>"",Adj_EPS_TTM,EPS_TTM),"")', pbi_eps_guidance_midpoint if pbi_eps_guidance_midpoint is not None else '=""', '=""', "Adjusted EPS preferred; guide visible when available.", "$0.00"),
+            ("ebitda", "Forward Adj EBITDA", _fy_default("ebitda_m"), '=IFERROR(IF(ThesisBaseAdjEBITDA_FY<>"",ThesisBaseAdjEBITDA_FY,Adj_EBITDA),"")', '=""', '=""', "Adjusted EBITDA base.", "#,##0.0"),
+            ("fcf", "Forward FCF", _fy_default("fcf_m"), '=IFERROR(FCF_TTM,"")' if ticker_txt == "PBI" else '=IFERROR(IF(Adj_FCF_TTM<>"",Adj_FCF_TTM,FCF_TTM),"")', pbi_fcf_guidance_midpoint if pbi_fcf_guidance_midpoint is not None else '=""', '=""', "FCF base; guide visible when available.", "#,##0.0"),
+            ("capex", "Capex", _fy_default("capex_m"), '=IFERROR(Capex_TTM,"")', "=20" if ticker_txt == "GPRE" else '=""', '=""', "Capex changes affect FCF only.", "#,##0.0"),
             ("pe", "P/E multiple", '=IFERROR(IF(Target_PE<>"",Target_PE,10),10)', '=IFERROR(IF(Target_PE<>"",Target_PE,10),10)', '=""', '=""', "Scenario P/E lens.", "0.0x"),
             ("ev_multiple", "EV/Adj EBITDA multiple", '=IFERROR(IF(Target_EV_AdjEBITDA<>"",Target_EV_AdjEBITDA,8),8)', '=IFERROR(IF(Target_EV_AdjEBITDA<>"",Target_EV_AdjEBITDA,8),8)', '=""', '=""', "Scenario EV/EBITDA lens.", "0.0x"),
             ("fcf_yield", "FCF yield", '=IFERROR(IF(Target_EV_Yield>1,Target_EV_Yield/100,Target_EV_Yield),0.07)', '=IFERROR(IF(Target_EV_Yield>1,Target_EV_Yield/100,Target_EV_Yield),0.07)', '=""', '=""', "Scenario FCF yield.", "0.0%"),
@@ -5742,7 +6926,16 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
         if ticker_txt == "PBI":
             specs.extend(
                 [
-                    ("adjusted_ebit", "Adjusted EBIT", '=""', '=""', '=""', '=""', "Add manual EBIT if needed.", "#,##0.0"),
+                    (
+                        "adjusted_ebit",
+                        "Adjusted EBIT",
+                        _adjusted_metrics_year_sum_formula("adj_ebit"),
+                        _valuation_latest_row_value_formula("Adj EBIT (TTM)"),
+                        pbi_adjusted_ebit_guidance_midpoint if pbi_adjusted_ebit_guidance_midpoint is not None else '=""',
+                        '=""',
+                        "TTM default from Valuation; 2026 guide midpoint.",
+                        "#,##0.0",
+                    ),
                     ("debt_paydown", "Debt paydown", '=""', '=""', '=""', '=""', "Manual deleveraging input.", "#,##0.0"),
                     ("interest_refi", "Interest/refinancing cost", '=""', '=IFERROR(InterestPaid_TTM,"")', '=""', '=""', "Current interest burden default.", "#,##0.0"),
                     (
@@ -5755,7 +6948,6 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                         "Run-rate baseline; target midpoint when clean.",
                         "#,##0.0",
                     ),
-                    ("segment_stability", "Presort / SendTech stabilization", '=""', '=""', '=""', '=""', "Manual segment uplift.", "#,##0.0"),
                 ]
             )
         elif ticker_txt == "GPRE":
@@ -5776,7 +6968,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     ("policy_upside", "Policy / RVO / E15 / export", '=""', '=""', '=""', '=""', "Manual $m uplift/drag.", "#,##0.0"),
                 ]
             )
-        specs.append(("scenario_tax_rate", "Scenario tax rate", '=""', scenario_tax_rate if scenario_tax_rate is not None else '=""', '=""', '=""', scenario_tax_note, "0.0%"))
+        specs.append(("scenario_tax_rate", "Scenario tax rate", _fy_default("tax_rate"), scenario_tax_rate if scenario_tax_rate is not None else '=""', '=""', '=""', scenario_tax_note, "0.0%"))
         return specs
 
     def _write_manual_inputs(row: int) -> Tuple[int, Dict[str, str]]:
@@ -5844,6 +7036,13 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             default_margin_proxy=default_margin_proxy,
             default_margin_basis=default_margin_basis or "Company operating margin proxy",
         )
+        for spec in specs:
+            segment_margin, segment_margin_basis = _bs_segments_latest_segment_margin_from_workbook(wb, spec.label)
+            if segment_margin is not None:
+                spec.margin_conversion = segment_margin
+                spec.margin_basis = segment_margin_basis
+                spec.source_note = segment_margin_basis
+                spec.feeds_bridge = spec.baseline_revenue_m is not None
         if specs:
             return specs
         return [
@@ -6008,7 +7207,6 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
             cost_savings_baseline = _manual_part_ref(refs, "cost_savings", "ttm")
             interest_refi = _manual_ref(refs, "interest_refi")
             interest_baseline = _manual_part_ref(refs, "interest_refi", "ttm")
-            segment_stability = _manual_ref(refs, "segment_stability")
             debt_paydown = _manual_ref(refs, "debt_paydown")
             capex = _manual_ref(refs, "capex")
             capex_baseline = _manual_part_ref(refs, "capex", "ttm")
@@ -6039,19 +7237,6 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     tax_source_basis="Interest/refinancing is treated as pre-tax interest effect when tax conversion is available.",
                 ),
                 _ScenarioDriverBridgeSpec(
-                    "Presort / SendTech stabilization",
-                    SCENARIO_DRIVER_MANUAL_INCREMENTAL,
-                    0,
-                    _active_value_formula(segment_stability),
-                    "Manual non-revenue uplift; avoid duplicating selected segment impact.",
-                    explicit_incremental=True,
-                    ebitda_impact="same",
-                    fcf_impact="none",
-                    eps_impact="auto",
-                    tax_treatment=SCENARIO_TAX_TAXABLE,
-                    tax_source_basis="Manual operating uplift is treated as taxable EBITDA-like improvement.",
-                ),
-                _ScenarioDriverBridgeSpec(
                     "Selected segment revenue/margin impact",
                     SCENARIO_DRIVER_MARGIN_EBITDA,
                     0,
@@ -6063,7 +7248,6 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     eps_impact="auto",
                     tax_treatment=SCENARIO_TAX_TAXABLE,
                     tax_source_basis="Segment Scenario Inputs selected Feeds bridge? rows.",
-                    audit_notes="Avoid double-counting the same uplift in manual stabilization rows.",
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Capex change vs baseline",
@@ -6835,7 +8019,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
         row_fill = fill or neutral
         for cc in range(1, last + 1):
             value = vals[cc - 1] if cc <= len(vals) else ""
-            if isinstance(value, str):
+            if isinstance(value, str) and not value.startswith("="):
                 value = _anf_clean_visible_ui_text(value, max_chars=220)
             cell = ws.cell(row=row, column=cc, value=value)
             cell.fill = copy(row_fill)
@@ -6847,6 +8031,50 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
         return row + 1
 
     def _write_manual_inputs(row: int) -> Tuple[int, Dict[str, str]]:
+        history_period_set = _history_q_latest_full_year_period_set(wb, ticker="ANF")
+        history_fy = _history_q_latest_full_year_actuals_from_workbook(wb, ticker="ANF")
+        fallback_fiscal_year = int(history_period_set.get("fiscal_year") or 2025)
+        history_fy_formulas = _history_q_year_default_formulas(
+            (2025, 2, 1),
+            (2026, 1, 31),
+            fiscal_year=fallback_fiscal_year,
+            quarter_dates=history_period_set.get("quarter_dates"),
+            previous_quarter_dates=history_period_set.get("previous_quarter_dates"),
+            quarter_criteria=history_period_set.get("quarter_criteria"),
+            previous_quarter_criteria=history_period_set.get("previous_quarter_criteria"),
+            start_exclusive=True,
+            end_inclusive=True,
+        )
+
+        def _fy_default(key: str) -> Any:
+            val = history_fy.get(key)
+            return round(float(val), 2) if val is not None else history_fy_formulas.get(key, '=""')
+
+        def _valuation_latest_row_value_formula(label: str) -> str:
+            safe_label = str(label).replace('"', '""')
+            row_expr = f'INDEX(Valuation!$B:$M,MATCH("{safe_label}",Valuation!$A:$A,0),0)'
+            return f'=IFERROR(LOOKUP(2,1/({row_expr}<>""),{row_expr}),"")'
+
+        def _numeric_or_display_midpoint(section: str, metric: str) -> Optional[float]:
+            val = _numeric_value(section, metric)
+            if val is not None:
+                return float(val)
+            display = _display(section, metric)
+            nums = [
+                float(match.group(0).replace(",", ""))
+                for match in re.finditer(r"[-+]?\d+(?:,\d{3})*(?:\.\d+)?", str(display or ""))
+            ]
+            if len(nums) >= 2:
+                return sum(nums[:2]) / 2.0
+            if len(nums) == 1:
+                return nums[0]
+            return None
+
+        def _signed_bps(value: Optional[float], sign: int) -> Any:
+            if value is None:
+                return '=""'
+            return round(float(value) * (1 if sign >= 0 else -1), 1)
+
         latest_year_label = "2025 year"
         next_q_label = "2026-Q1"
         current_year_label = "2026 year"
@@ -6858,6 +8086,8 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             else "Current-year capex guide midpoint when clean."
         )
         scenario_tax_rate = _numeric_value("Assumptions", "Tax rate")
+        if scenario_tax_rate is None:
+            scenario_tax_rate = history_fy.get("tax_rate")
         if scenario_tax_rate is not None and float(scenario_tax_rate) > 1.0:
             scenario_tax_rate = float(scenario_tax_rate) / 100.0
         if scenario_tax_rate is None or not (0.0 <= float(scenario_tax_rate) <= 0.35):
@@ -6867,18 +8097,29 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             if scenario_tax_rate is not None
             else "Uses 25% default scenario tax rate if no clean source."
         )
+        buyback_actual = _numeric_value("Buybacks vs FCF", "Buybacks")
+        if buyback_actual is None:
+            buyback_actual = _numeric_value("Buybacks vs FCF", "2025 buybacks")
+        buyback_guidance = _numeric_value("Buybacks vs FCF", "Guided buybacks")
+        if buyback_guidance is None:
+            buyback_guidance = 450.0
+        fy_tariff_bps = _numeric_or_display_midpoint("Tariff / Margin Bridge", "2026 tariff headwind")
+        q1_tariff_bps = _numeric_or_display_midpoint("Tariff / Margin Bridge", "Q1 2026 tariff headwind")
+        freight_bps = _numeric_or_display_midpoint("Tariff / Margin Bridge", "Freight tailwind")
+        erp_bps = _numeric_or_display_midpoint("Tariff / Margin Bridge", "ERP disruption")
+        marketing_bps = _numeric_or_display_midpoint("Tariff / Margin Bridge", "Marketing")
         specs: List[Tuple[str, str, Any, Any, Any, Any, str, str]] = [
             ("price", "Current share price", '=""', '=""', '=""', '=""', "Manual input only.", "$0.00"),
             ("shares", "Diluted shares", '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=""', '=""', "Model share denominator.", "#,##0.0"),
             ("net_debt", "Net debt / net cash", '=IFERROR(NetDebt,"")', '=IFERROR(NetDebt,"")', '=""', '=""', "Positive = net debt; negative = net cash.", "#,##0.0"),
-            ("revenue", "Forward revenue", '=""', '=IFERROR(Revenue_TTM,"")', '=""', '=""', "TTM default.", "#,##0.0"),
-            ("eps", "Forward EPS", '=""', '=IFERROR(IF(Adj_EPS_TTM<>"",Adj_EPS_TTM,EPS_TTM),"")', "=10.6", '=""', "Adjusted EPS preferred.", "$0.00"),
-            ("ebitda", "Forward Adj EBITDA", '=""', '=IFERROR(IF(ThesisBaseAdjEBITDA_FY<>"",ThesisBaseAdjEBITDA_FY,Adj_EBITDA),"")', '=""', '=""', "Adjusted EBITDA base.", "#,##0.0"),
-            ("fcf", "Forward FCF", '=""', '=IFERROR(IF(Adj_FCF_TTM<>"",Adj_FCF_TTM,FCF_TTM),"")', '=""', '=""', "FCF base.", "#,##0.0"),
+            ("revenue", "Forward revenue", _fy_default("revenue_m"), '=IFERROR(Revenue_TTM,"")', '=""', '=""', "TTM default.", "#,##0.0"),
+            ("eps", "Forward EPS", _fy_default("eps"), '=IFERROR(IF(Adj_EPS_TTM<>"",Adj_EPS_TTM,EPS_TTM),"")', "=10.6", '=""', "Adjusted EPS preferred.", "$0.00"),
+            ("ebitda", "Forward Adj EBITDA", _fy_default("ebitda_m"), '=IFERROR(IF(ThesisBaseAdjEBITDA_FY<>"",ThesisBaseAdjEBITDA_FY,Adj_EBITDA),"")', '=""', '=""', "Adjusted EBITDA base.", "#,##0.0"),
+            ("fcf", "Forward FCF", _fy_default("fcf_m"), '=IFERROR(IF(Adj_FCF_TTM<>"",Adj_FCF_TTM,FCF_TTM),"")', '=""', '=""', "FCF base.", "#,##0.0"),
             (
                 "capex",
                 "Capex",
-                '=""',
+                _fy_default("capex_m"),
                 '=IFERROR(Capex_TTM,"")',
                 round(float(capex_guidance_midpoint), 1) if capex_guidance_midpoint is not None else '=""',
                 '=""',
@@ -6888,13 +8129,24 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             ("pe", "P/E multiple", '=IFERROR(IF(Target_PE<>"",Target_PE,13),13)', '=IFERROR(IF(Target_PE<>"",Target_PE,13),13)', '=""', '=""', "Scenario P/E lens.", "0.0x"),
             ("ev_multiple", "EV/Adj EBITDA multiple", '=IFERROR(IF(Target_EV_AdjEBITDA<>"",Target_EV_AdjEBITDA,8),8)', '=IFERROR(IF(Target_EV_AdjEBITDA<>"",Target_EV_AdjEBITDA,8),8)', '=""', '=""', "Scenario EV/EBITDA lens.", "0.0x"),
             ("fcf_yield", "FCF yield", '=IFERROR(IF(Target_EV_Yield>1,Target_EV_Yield/100,Target_EV_Yield),0.07)', '=IFERROR(IF(Target_EV_Yield>1,Target_EV_Yield/100,Target_EV_Yield),0.07)', '=""', '=""', "Scenario FCF yield.", "0.0%"),
-            ("sales_growth", "Sales growth", '=""', '=""', "=0.04", '=""', "Current-year guide when clean.", "0.0%"),
-            ("operating_margin", "Operating margin", '=""', '=""', "=0.1225", '=""', "12.0-12.5% guide midpoint.", "0.0%"),
-            ("buybacks", "Buyback amount", '=""', '=""', "=450", '=""', "Current guide/latest pace.", "#,##0.0"),
+            ("sales_growth", "Sales growth", _fy_default("revenue_growth"), _valuation_latest_row_value_formula("Revenue YoY %"), "=0.04", '=""', "Current-year guide when clean.", "0.0%"),
+            ("operating_margin", "Operating margin", _fy_default("operating_margin"), '=IFERROR(CompanyOperatingMargin_TTM,"")', "=0.1225", '=""', "12.0-12.5% guide midpoint.", "0.0%"),
+            (
+                "buybacks",
+                "Buyback amount",
+                round(float(buyback_actual), 1) if buyback_actual is not None else _valuation_latest_row_value_formula("Buybacks (TTM, cash)"),
+                _valuation_latest_row_value_formula("Buybacks (TTM, cash)"),
+                round(float(buyback_guidance), 1) if buyback_guidance is not None else '=""',
+                '=""',
+                "2026 guide; actual from capital-return readback.",
+                "#,##0.0",
+            ),
             ("buyback_shares", "Buyback-adjusted shares", '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=IFERROR(IF(SharesDiluted<>"",SharesDiluted,Shares),"")', '=""', '=""', "Override for post-buyback count.", "#,##0.0"),
-            ("eps_guide_mid", "EPS guide midpoint", '=""', '=""', "=10.6", '=""', "$10.20-$11.00 midpoint.", "$0.00"),
-            ("margin_bridge", "Tariff / freight / ERP / marketing bridge", '=""', '=""', '=""', '=""', "Manual bps bridge.", "0"),
-            ("scenario_tax_rate", "Scenario tax rate", '=""', scenario_tax_rate if scenario_tax_rate is not None else '=""', '=""', '=""', scenario_tax_note, "0.0%"),
+            ("tariff_bps", "Tariff impact (bps)", '=""', '=""', _signed_bps(fy_tariff_bps, -1), _signed_bps(q1_tariff_bps, -1), "Current-year/Q1 tariff headwind.", "0"),
+            ("freight_bps", "Freight tailwind (bps)", '=""', '=""', '=""', _signed_bps(freight_bps, 1), "Q1 freight tailwind.", "0"),
+            ("erp_bps", "ERP disruption (bps)", '=""', '=""', '=""', _signed_bps(erp_bps, -1), "Q1 ERP headwind.", "0"),
+            ("marketing_bps", "Marketing headwind (bps)", '=""', '=""', '=""', _signed_bps(marketing_bps, -1), "Q1 marketing headwind.", "0"),
+            ("scenario_tax_rate", "Scenario tax rate", _fy_default("tax_rate"), scenario_tax_rate if scenario_tax_rate is not None else '=""', '=""', '=""', scenario_tax_note, "0.0%"),
         ]
         refs: Dict[str, str] = {}
         row = _section(row, "Manual Market / Scenario Inputs")
@@ -6956,7 +8208,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
         specs = _segment_scenario_specs_from_records(
             _records("Segment Scenario Inputs"),
             default_margin_proxy=default_margin_proxy,
-            default_margin_basis="Company operating margin proxy",
+            default_margin_basis="Active company operating margin proxy",
         )
         if specs:
             return specs
@@ -6976,17 +8228,9 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                     baseline_revenue_m=_segment_scenario_revenue_m(raw_value, "$"),
                     revenue_basis="2025 year net sales" if raw_value is not None else "",
                     margin_conversion=default_margin_proxy if raw_value is not None and default_margin_proxy not in (None, "") else None,
-                    margin_basis="Company operating margin proxy" if raw_value is not None and default_margin_proxy not in (None, "") else "",
+                    margin_basis="Active company operating margin proxy" if raw_value is not None and default_margin_proxy not in (None, "") else "",
                     feeds_bridge=raw_value is not None and default_margin_proxy not in (None, ""),
-                    source_note=(
-                        "Summed if Brand selected"
-                        if _segment_scenario_view_basis(label, category_type) == "Brand"
-                        else "Summed if Geography selected"
-                        if _segment_scenario_view_basis(label, category_type) == "Geography"
-                        else "Informational only"
-                    )
-                    if raw_value is not None
-                    else "Missing segment revenue",
+                    source_note="Active company operating margin proxy" if raw_value is not None else "Missing segment revenue",
                     view_basis=_segment_scenario_view_basis(label, category_type),
                 )
             )
@@ -7259,23 +8503,34 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
             merge_spans=[(8, visible_max_col)],
         )
         incremental_start = row
-        eps_guide = _manual_ref(refs, "eps_guide_mid")
-        margin_bridge = _manual_ref(refs, "margin_bridge")
         buyback_shares = _manual_ref(refs, "buyback_shares")
         capex = _manual_ref(refs, "capex")
         capex_baseline = _manual_part_ref(refs, "capex", "ttm")
+        revenue = _manual_ref(refs, "revenue")
+        margin_bps_refs = [
+            _manual_ref(refs, "tariff_bps"),
+            _manual_ref(refs, "freight_bps"),
+            _manual_ref(refs, "erp_bps"),
+            _manual_ref(refs, "marketing_bps"),
+        ]
+        margin_bridge_impact = (
+            f'=IFERROR(IF({revenue}="",0,{revenue}*SUM('
+            + ",".join(f'IF({ref}="",0,{ref})' for ref in margin_bps_refs)
+            + ")/10000),0)"
+        )
         bridge_specs = [
             _ScenarioDriverBridgeSpec(
                 "Margin bridge vs baseline",
                 SCENARIO_DRIVER_MARGIN_EBITDA,
-                "Unknown",
-                _active_value_formula(margin_bridge),
-                "Manual bps bridge; EPS translation requires a clean earnings conversion.",
-                ebitda_impact="none",
+                0,
+                margin_bridge_impact,
+                "Converts bps margin bridge to $m using active revenue.",
+                explicit_incremental=True,
+                ebitda_impact="same",
                 fcf_impact="none",
-                eps_impact="manual_required",
-                tax_treatment=SCENARIO_TAX_UNKNOWN_MANUAL_REQUIRED,
-                tax_source_basis="Margin bridge is entered in bps; no automatic dollar/EPS conversion is assumed.",
+                eps_impact="auto",
+                tax_treatment=SCENARIO_TAX_TAXABLE,
+                tax_source_basis="Tariff/freight/ERP/marketing bps rows converted to $m using active revenue.",
             ),
             _ScenarioDriverBridgeSpec(
                 "Buyback/share-count effect",
@@ -7315,19 +8570,6 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                 eps_impact="none",
                 tax_treatment=SCENARIO_TAX_CASH_ONLY,
                 tax_source_basis="Capex affects cash flow, not direct EPS or Adj EBITDA.",
-            ),
-            _ScenarioDriverBridgeSpec(
-                "EPS guide/manual adjustment",
-                SCENARIO_DRIVER_MANUAL_INCREMENTAL,
-                _active_value_formula(eps),
-                _active_value_formula(eps_guide),
-                "Guide midpoint delta only when no manual EPS override.",
-                ebitda_impact="none",
-                fcf_impact="none",
-                eps_impact="direct_per_share",
-                tax_treatment=SCENARIO_TAX_DIRECT_EPS,
-                tax_source_basis="EPS guide is already a per-share net-income outcome.",
-                eps_impact_rule="direct EPS/share delta",
             ),
         ]
         after_tax_factor = None
@@ -8406,13 +9648,13 @@ def _anf_format_guidance_value(metric: str, low: Any = None, high: Any = None, v
     return nums_txt
 
 
-def _anf_build_guidance_timeline_rows(guidance_df: Optional[pd.DataFrame] = None) -> List[Dict[str, str]]:
+def _anf_build_guidance_timeline_rows(guidance_df: Optional[pd.DataFrame] = None, hist_df: Optional[pd.DataFrame] = None) -> List[Dict[str, str]]:
     base_rows = [
         ("Q4 2024", "2025-03-06 / Q4 2024", "2025 year", "Net sales growth", "", "+3-5%", "initial", "+6%", "met", "Initial 2025 year outlook."),
         ("Q4 2024", "2025-03-06 / Q4 2024", "2025 year", "Operating margin", "", "14-15%", "initial", "13.3% GAAP / 12.5% adjusted", "mixed", "Initial annual margin guide."),
         ("Q4 2024", "2025-03-06 / Q4 2024", "2025 year", "Adjusted EPS / EPS", "", "$10.40-$11.40", "initial", "$10.46 GAAP / $9.86 adjusted", "basis-dependent", "Initial EPS guide; basis shown separately."),
         ("Q4 2024", "2025-03-06 / Q4 2024", "2025 year", "Share repurchases", "", "~$400m", "initial", "~$450m", "met", "Initial capital allocation outlook."),
-        ("Q4 2024", "2025-03-06 / Q4 2024", "2025 year", "Capex", "", "~$200m", "initial", "$240.8m", "met-ish", "Initial capex outlook."),
+        ("Q4 2024", "2025-03-06 / Q4 2024", "2025 year", "Capex", "", "~$200m", "initial", "$240.8m", "Hit", "Initial capex outlook."),
         ("Q1 2025", "2025-05-29 / Q1 2025", "2025 year", "Net sales growth", "+3-5%", "+3-6%", "raised upper end", "+6%", "met", "Q1 update."),
         ("Q1 2025", "2025-05-29 / Q1 2025", "2025 year", "Operating margin", "14-15%", "12.5-13.5%", "lowered", "13.3% GAAP / 12.5% adjusted", "mixed", "Q1 update after tariff/cost pressure."),
         ("Q1 2025", "2025-05-29 / Q1 2025", "2025 year", "Adjusted EPS / EPS", "$10.40-$11.40", "$9.50-$10.50", "lowered", "$10.46 GAAP / $9.86 adjusted", "basis-dependent", "Adjusted EPS basis differs from GAAP actual."),
@@ -8420,7 +9662,7 @@ def _anf_build_guidance_timeline_rows(guidance_df: Optional[pd.DataFrame] = None
         ("Q2 2025", "2025-08-28 / Q2 2025", "2025 year", "Net sales growth", "+3-6%", "+5-7%", "raised", "+6%", "met", "Q2 update."),
         ("Q2 2025", "2025-08-28 / Q2 2025", "2025 year", "Operating margin", "12.5-13.5%", "13.0-13.5%", "raised lower end", "13.3% GAAP / 12.5% adjusted", "mixed", "Q2 margin update."),
         ("Q2 2025", "2025-08-28 / Q2 2025", "2025 year", "Adjusted EPS / EPS", "$9.50-$10.50", "$10.00-$10.50", "raised lower end", "$10.46 GAAP / $9.86 adjusted", "basis-dependent", "Q2 EPS update."),
-        ("Q2 2025", "2025-08-28 / Q2 2025", "2025 year", "Capex", "~$200m", "~$225m", "raised", "$240.8m", "met-ish", "Q2 capex update."),
+        ("Q2 2025", "2025-08-28 / Q2 2025", "2025 year", "Capex", "~$200m", "~$225m", "raised", "$240.8m", "Hit", "Q2 capex update."),
         ("Q3 2025", "2025-11-26 / Q3 2025", "2025 year", "Net sales growth", "+5-7%", "+6-7%", "raised lower end", "+6%", "met", "Q3 update."),
         ("Q3 2025", "2025-11-26 / Q3 2025", "2025 year", "Adjusted EPS / EPS", "$10.00-$10.50", "$10.20-$10.50", "raised lower end", "$10.46 GAAP / $9.86 adjusted", "basis-dependent", "Q3 EPS update."),
         ("Q3 2025", "2025-11-26 / Q3 2025", "2025 year", "Share repurchases", "~$400m", "~$450m", "raised", "~$450m", "met", "Q3 buyback update."),
@@ -8428,7 +9670,7 @@ def _anf_build_guidance_timeline_rows(guidance_df: Optional[pd.DataFrame] = None
         ("Jan 2026 pre-release update", "2026-01-12 / Jan 2026 pre-release", "2025 year", "Net sales growth", "+6-7%", "at least +6%", "narrowed", "+6%", "met", "Pre-release update before 2025 actual report."),
         ("Jan 2026 pre-release update", "2026-01-12 / Jan 2026 pre-release", "2025 year", "Operating margin", "13.0-13.5%", "around 13%", "narrowed", "13.3% GAAP / 12.5% adjusted", "mixed", "Pre-release update before 2025 actual report."),
         ("Jan 2026 pre-release update", "2026-01-12 / Jan 2026 pre-release", "2025 year", "Adjusted EPS / EPS", "$10.20-$10.50", "$10.30-$10.40", "narrowed", "$10.46 GAAP / $9.86 adjusted", "basis-dependent", "Pre-release update before 2025 actual report; EPS basis shown separately."),
-        ("Jan 2026 pre-release update", "2026-01-12 / Jan 2026 pre-release", "2025 year", "Capex", "~$225m", "~$245m", "raised", "$240.8m", "met-ish", "Pre-release update before 2025 actual report."),
+        ("Jan 2026 pre-release update", "2026-01-12 / Jan 2026 pre-release", "2025 year", "Capex", "~$225m", "~$245m", "raised", "$240.8m", "Hit", "Pre-release update before 2025 actual report."),
         ("Q4 2025", "2026-03-04 / Q4 2025", "2026 year", "Net sales growth", "", "+3-5%", "initial", "", "Open", "2026 year outlook."),
         ("Q4 2025", "2026-03-04 / Q4 2025", "2026 year", "Operating margin", "", "12.0-12.5%", "initial", "", "Open", "2026 year outlook."),
         ("Q4 2025", "2026-03-04 / Q4 2025", "2026 year", "Adjusted EPS / EPS", "", "$10.20-$11.00", "initial", "", "Open", "2026 year outlook."),
@@ -8446,6 +9688,88 @@ def _anf_build_guidance_timeline_rows(guidance_df: Optional[pd.DataFrame] = None
         "Q4 2024": 5,
     }
     base_rows = sorted(base_rows, key=lambda row: (stated_order.get(row[0], 99), base_rows.index(row)))
+
+    def _m_display(value: Any) -> str:
+        val = pd.to_numeric(value, errors="coerce")
+        if pd.isna(val):
+            return ""
+        num = float(val)
+        if abs(num) > 100_000:
+            num /= 1_000_000.0
+        return f"${num:,.1f}m"
+
+    def _pct_display(value: Any) -> str:
+        val = pd.to_numeric(value, errors="coerce")
+        if pd.isna(val):
+            return ""
+        num = float(val)
+        if abs(num) <= 1.5:
+            num *= 100.0
+        return f"{num:.1f}%"
+
+    def _anf_quarter_actuals() -> Dict[str, Dict[str, str]]:
+        out: Dict[str, Dict[str, str]] = {}
+        if hist_df is None or hist_df.empty or "quarter" not in hist_df.columns:
+            return out
+        h = hist_df.copy()
+        h["quarter"] = pd.to_datetime(h["quarter"], errors="coerce")
+        h = h[h["quarter"].notna()].copy()
+        if h.empty:
+            return out
+        h["_qd"] = h["quarter"].dt.date
+        h = h.sort_values("_qd")
+        revenue_by_qd: Dict[date, float] = {}
+        for _, rec in h.iterrows():
+            rev = pd.to_numeric(rec.get("revenue"), errors="coerce")
+            if pd.notna(rev):
+                revenue_by_qd[pd.Timestamp(rec["_qd"]).date()] = float(rev)
+        for _, rec in h.iterrows():
+            qd = pd.Timestamp(rec["_qd"]).date()
+            label = _anf_visible_quarter_label(qd)
+            actuals: Dict[str, str] = {}
+            rev = pd.to_numeric(rec.get("revenue"), errors="coerce")
+            op = pd.to_numeric(rec.get("op_income"), errors="coerce")
+            if pd.notna(rev):
+                actuals["Net sales growth"] = _m_display(rev)
+                target_prior = qd - timedelta(days=364)
+                prior_qd = min(
+                    [cand for cand in revenue_by_qd if cand < qd],
+                    key=lambda cand: abs((cand - target_prior).days),
+                    default=None,
+                )
+                prior_rev = revenue_by_qd.get(prior_qd) if prior_qd and abs((prior_qd - target_prior).days) <= 21 else None
+                if prior_rev and prior_rev > 0:
+                    actuals["Net sales growth"] = _pct_display(float(rev) / prior_rev - 1.0)
+            if pd.notna(rev) and float(rev) and pd.notna(op):
+                actuals["Operating margin"] = _pct_display(float(op) / float(rev))
+            capex = pd.to_numeric(rec.get("capex"), errors="coerce")
+            if pd.notna(capex):
+                actuals["Capex"] = _m_display(capex)
+            buybacks = pd.to_numeric(rec.get("buybacks_cash"), errors="coerce")
+            if pd.notna(buybacks):
+                actuals["Share repurchases"] = _m_display(buybacks)
+            shares = pd.to_numeric(rec.get("shares_diluted"), errors="coerce")
+            if pd.notna(shares):
+                val = float(shares)
+                actuals["Diluted shares"] = f"{val / 1_000_000:,.1f}m diluted" if abs(val) > 1_000_000 else f"{val:,.1f}m diluted"
+            if actuals:
+                out[label] = actuals
+        return out
+
+    quarter_actuals = _anf_quarter_actuals()
+
+    def _with_matching_quarter_actual(stated: str, metric: str, actual: str, status: str) -> Tuple[str, str]:
+        if stated in {"Q1 2025", "Q2 2025", "Q3 2025"}:
+            label = {"Q1 2025": "2025-Q1", "Q2 2025": "2025-Q2", "Q3 2025": "2025-Q3"}.get(stated, "")
+            actual_for_quarter = quarter_actuals.get(label, {}).get(metric, "")
+            if actual_for_quarter:
+                return actual_for_quarter, "On track"
+        if stated == "Jan 2026 pre-release update":
+            return "", "On track"
+        if stated == "Q4 2024" and str(metric) in {"Net sales growth", "Operating margin", "Adjusted EPS / EPS", "Share repurchases", "Diluted shares", "Capex"}:
+            return "", "Open"
+        return actual, status
+
     rows = [
         {
             "Stated in": stated,
@@ -8455,8 +9779,8 @@ def _anf_build_guidance_timeline_rows(guidance_df: Optional[pd.DataFrame] = None
             "Previous guide": previous,
             "New/current guide": new,
             "Change type": change,
-            "Actual / latest actual": actual,
-            "Status": status,
+            "Actual": _with_matching_quarter_actual(stated, metric, actual, status)[0],
+            "Status": _with_matching_quarter_actual(stated, metric, actual, status)[1],
             "Source / note": note,
         }
         for stated, source_q, horizon, metric, previous, new, change, actual, status, note in base_rows
@@ -8517,7 +9841,7 @@ def _anf_build_promise_progress_sections(guidance_df: Optional[pd.DataFrame], hi
         ("Adjusted EPS / EPS", "Adj EPS", "$10.40-$11.40", "$9.50-$10.50", "$10.00-$10.50", "$10.20-$10.50", "$10.30-$10.40", "basis-dependent"),
         ("Share repurchases", "Share repurchases", "~$400m", "~$400m", "~$400m", "~$450m", "~$450m", "met"),
         ("Diluted shares", "Diluted shares", "~51m", "~49m", "~49m", "~48m", "~48m", "met"),
-        ("Capex", "Capex", "~$200m", "~$200m", "~$225m", "~$225m", "~$245m", "met-ish"),
+        ("Capex", "Capex", "~$200m", "~$200m", "~$225m", "~$225m", "~$245m", "Hit"),
         ("Real estate activity", "Real estate activity", "~40 net openings", "~40 net openings", "~40 net openings", "~40 net openings", "~40 net openings", "met"),
         ("Tariff impact", "Tariffs", "", "", "~$90m / 170 bps", "~170 bps", "~170 bps", "basis-dependent"),
     ]
@@ -8561,7 +9885,7 @@ def _anf_build_promise_progress_sections(guidance_df: Optional[pd.DataFrame], hi
     return {
         "2025 guidance progression": _clean_rows(progression),
         "2026 open guidance": _clean_rows(open_rows),
-        "Quarterly guidance timeline / revision log": _clean_rows(_anf_build_guidance_timeline_rows(guidance_df)),
+        "Quarterly guidance timeline / revision log": _clean_rows(_anf_build_guidance_timeline_rows(guidance_df, hist_df)),
     }
 
 
@@ -16254,6 +17578,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
 
     def _write_sheet(name: str, df: pd.DataFrame) -> None:
         ws = wb.create_sheet(name)
+        if str(name or "") == "History_Q" and isinstance(df, pd.DataFrame) and not df.empty:
+            df = _augment_history_q_frame_for_writer(df, ticker=ticker, fiscal_profile=company_profile)
         if df is None or df.empty:
             write_empty_sheet_placeholder(ws)
             return
@@ -43463,7 +44789,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 "Previous guide",
                 "New/current guide",
                 "Change type",
-                "Actual / latest actual",
+                "Actual",
                 "Status",
                 "Horizon",
                 "Stated in",
@@ -43486,7 +44812,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     rec.get("Previous guide", ""),
                     rec.get("New/current guide", ""),
                     rec.get("Change type", ""),
-                    rec.get("Actual / latest actual", ""),
+                    rec.get("Actual", ""),
                     rec.get("Status", ""),
                     rec.get("Horizon", ""),
                     rec.get("Stated in", ""),
