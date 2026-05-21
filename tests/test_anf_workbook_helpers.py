@@ -2528,6 +2528,8 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         assert any("MIN(G" in value and "MAX(G" in value for value in scenario_formulas)
         assert any("COUNT(G" in value for value in scenario_formulas)
         assert any(f"$G${fcf_yield_row}>1" in value and f"$G${fcf_yield_row}/100" in value for value in scenario_formulas)
+        assert any("FIXED(MIN(G" in value and "FIXED(MAX(G" in value for value in scenario_formulas)
+        assert not any('TEXT(MIN(G' in value or 'TEXT(MAX(G' in value for value in scenario_formulas)
         assert any(
             "Uses Investment_Case manual inputs; may differ from Valuation Thesis Bridge." in str(ws.cell(r, 1).value or "")
             for r in range(scenario_row + 2, scenario_row + 8)

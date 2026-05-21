@@ -398,6 +398,14 @@ def _excel_manual_percent_active_formula(row: int) -> str:
     )
 
 
+def _excel_visible_value_range_formula(row: int) -> str:
+    """Locale-safe text range for visible per-share scenario outputs."""
+    return (
+        f'=IFERROR(IF(COUNT(G{row}:I{row})=0,"",'
+        f'"$"&FIXED(MIN(G{row}:I{row}),2,TRUE)&"-$"&FIXED(MAX(G{row}:I{row}),2,TRUE)),"")'
+    )
+
+
 def _scenario_bridge_incremental_formula(row: int, spec: _ScenarioDriverBridgeSpec) -> str:
     if spec.explicit_incremental:
         return f'=IFERROR(IF(C{row}="",0,C{row}),0)'
@@ -6283,7 +6291,7 @@ def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.Data
                     f'=IFERROR(IF(OR({eps_cell}="",{eps_cell}<=0,{pe}=""),"N/M",{eps_cell}*{pe}*{pe_factor}),"N/M")',
                     f'=IFERROR(IF(OR({ebitda_cell}="",{ev_multiple}="",{shares}="",{shares}=0),"",({ebitda_cell}*{ev_multiple}*{ev_factor}-{net_debt})/{shares}),"")',
                     f'=IFERROR(IF(OR({fcf_cell}="",{fcf_yield}="",{shares}="",{shares}=0),"",({fcf_cell}/(({fcf_yield_rate})*{yield_factor}))/{shares}),"")',
-                    f'=IFERROR(IF(COUNT(G{current_row}:I{current_row})=0,"","$"&TEXT(MIN(G{current_row}:I{current_row}),"0.00")&"-$"&TEXT(MAX(G{current_row}:I{current_row}),"0.00")),"")',
+                    _excel_visible_value_range_formula(current_row),
                 ],
                 fill=alt_fill if idx % 2 else white_fill,
                 spans=[(2, 3)],
@@ -7465,7 +7473,7 @@ def _write_anf_investment_case_sheet(wb: Workbook, data: pd.DataFrame) -> None:
                     f'=IFERROR(IF(OR({eps_cell}="",{eps_cell}<=0,{pe}=""),"N/M",{eps_cell}*{pe}*{pe_factor}),"N/M")',
                     f'=IFERROR(IF(OR({ebitda_cell}="",{ev_multiple}="",{shares}="",{shares}=0),"",({ebitda_cell}*{ev_multiple}*{ev_factor}-{net_debt})/{shares}),"")',
                     f'=IFERROR(IF(OR({fcf_cell}="",{fcf_yield}="",{shares}="",{shares}=0),"",({fcf_cell}/(({fcf_yield_rate})*{yield_factor}))/{shares}),"")',
-                    f'=IFERROR(IF(COUNT(G{current_row}:I{current_row})=0,"","$"&TEXT(MIN(G{current_row}:I{current_row}),"0.00")&"-$"&TEXT(MAX(G{current_row}:I{current_row}),"0.00")),"")',
+                    _excel_visible_value_range_formula(current_row),
                 ],
                 end_col=visible_max_col,
                 fill=neutral_alt if idx % 2 == 0 else neutral,
