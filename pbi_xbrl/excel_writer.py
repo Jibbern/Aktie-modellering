@@ -13,7 +13,7 @@ import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
-from .excel_writer_context import build_writer_context
+from .excel_writer_context import build_writer_context, _polish_promise_scorecard_layout
 from .excel_writer_core import finalize_workbook, prepare_writer_inputs, timed_writer_stage, write_qa_sheets, write_raw_data_sheets
 from .excel_writer_drivers import write_driver_sheets
 from .excel_writer_financials import write_debt_sheets, write_report_sheets, write_summary_sheets, write_valuation_sheets
@@ -688,6 +688,88 @@ def validate_needs_review_export(path: Path, expected_snapshot: Optional[Dict[st
     _validate_sheet_rows_export(path, expected_snapshot, "Needs_Review")
 
 
+def _prune_saved_promise_progress_stub_rows(workbook_path: Path) -> None:
+    """Remove serialized Promise_Progress_UI metric stubs with no row data."""
+    if not Path(workbook_path).exists():
+        return
+    wb = load_workbook(workbook_path)
+    if "Promise_Progress_UI" not in wb.sheetnames:
+        return
+    ws = wb["Promise_Progress_UI"]
+    active_header: Dict[str, int] = {}
+    rows_to_delete: List[int] = []
+
+    def _header_map(row_idx: int) -> Dict[str, int]:
+        out: Dict[str, int] = {}
+        for cc in range(1, min(int(ws.max_column or 0), 10) + 1):
+            label = str(ws.cell(row_idx, cc).value or "").strip().lower()
+            if label:
+                out[label] = cc
+        if "actual / latest actual" in out and "actual" not in out:
+            out["actual"] = out["actual / latest actual"]
+        return out
+
+    for rr in range(1, int(ws.max_row or 0) + 1):
+        first_txt = str(ws.cell(rr, 1).value or "").strip()
+        first_fill = str(ws.cell(rr, 1).fill.fgColor.rgb or "").upper()
+        if first_txt and (first_fill.endswith(("5B9BD5", "6FA8DC", "4472C4")) or first_txt.endswith("revisions")):
+            active_header = {}
+            continue
+        header_map = _header_map(rr)
+        if "actual" in header_map and ("metric" in header_map or "milestone" in header_map):
+            active_header = header_map
+            continue
+        metric_col = (active_header.get("metric") or active_header.get("milestone")) if active_header else None
+        if not metric_col:
+            continue
+        metric_txt = str(ws.cell(rr, metric_col).value or "").strip()
+        if not metric_txt or metric_txt.lower() in {"metric", "milestone"}:
+            continue
+        if all(
+            str(ws.cell(rr, cc).value or "").strip() == ""
+            for cc in range(1, min(int(ws.max_column or 0), 10) + 1)
+            if cc != metric_col
+        ):
+            rows_to_delete.append(rr)
+    if not rows_to_delete:
+        return
+    for rr in sorted(set(rows_to_delete), reverse=True):
+        ws.delete_rows(rr, 1)
+    max_row = int(ws.max_row or 0)
+    section_rows: List[int] = []
+    for rr in range(1, max_row + 1):
+        first_txt = str(ws.cell(rr, 1).value or "").strip()
+        first_fill = str(ws.cell(rr, 1).fill.fgColor.rgb or "").upper()
+        if first_txt.endswith("revisions") and first_fill.endswith(("5B9BD5", "6FA8DC", "4472C4")):
+            section_rows.append(rr)
+    delete_ranges: List[Tuple[int, int]] = []
+    for idx, start_row in enumerate(section_rows):
+        next_section = section_rows[idx + 1] if idx + 1 < len(section_rows) else max_row + 1
+        end_row = next_section - 1
+        has_data = False
+        for rr in range(start_row + 1, end_row + 1):
+            first_txt = str(ws.cell(rr, 1).value or "").strip()
+            if not first_txt or first_txt.lower() in {"metric", "milestone", "category"}:
+                continue
+            if any(str(ws.cell(rr, cc).value or "").strip() for cc in range(2, min(int(ws.max_column or 0), 10) + 1)):
+                has_data = True
+                break
+        if not has_data:
+            delete_ranges.append((start_row, end_row))
+    for start_row, end_row in sorted(delete_ranges, reverse=True):
+        ws.delete_rows(start_row, max(1, end_row - start_row + 1))
+    for merge_range in list(ws.merged_cells.ranges):
+        if merge_range.min_row == merge_range.max_row:
+            row_idx = int(merge_range.min_row)
+            if not any(
+                str(ws.cell(row_idx, cc).value or "").strip()
+                for cc in range(1, min(int(ws.max_column or 0), 10) + 1)
+            ):
+                ws.unmerge_cells(str(merge_range))
+    _polish_promise_scorecard_layout(ws)
+    wb.save(workbook_path)
+
+
 def validate_saved_workbook_export(
     path: Path,
     *,
@@ -1092,6 +1174,7 @@ def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
             write_qa_sheets(ctx, ui_qa_rows)
     with timed_writer_stage(writer_timings, "write_excel.save", enabled=bool(inputs.profile_timings)):
         finalize_workbook(ctx)
+        _prune_saved_promise_progress_stub_rows(Path(inputs.out_path))
     if "SUMMARY" in ctx.wb.sheetnames:
         ctx.derived.summary_export_expectation = {"rows": _summary_snapshot_from_ws(ctx.wb["SUMMARY"])}
     snapshot = (

@@ -1987,9 +1987,77 @@ def finalize_workbook(ctx: WriterContext) -> None:
                 )
 
     try:
+        final_promise_cleanup = ctx.callbacks.extra_callbacks.get("_final_promise_progress_cleanup")
+        if callable(final_promise_cleanup):
+            final_promise_cleanup()
+    except Exception:
+        pass
+
+    try:
         shared_ui_polish = ctx.callbacks.extra_callbacks.get("_apply_shared_ui_conventions")
         if callable(shared_ui_polish):
             shared_ui_polish()
+    except Exception:
+        pass
+
+    try:
+        final_promise_cleanup = ctx.callbacks.extra_callbacks.get("_final_promise_progress_cleanup")
+        if callable(final_promise_cleanup):
+            final_promise_cleanup()
+    except Exception:
+        pass
+
+    try:
+        ws_pp = wb["Promise_Progress_UI"] if "Promise_Progress_UI" in wb.sheetnames else None
+        if ws_pp is not None:
+            active_header: Dict[str, int] = {}
+            rows_to_delete: List[int] = []
+
+            def _pp_header_map(row_idx: int) -> Dict[str, int]:
+                out: Dict[str, int] = {}
+                for cc in range(1, min(int(ws_pp.max_column or 0), 10) + 1):
+                    label = str(ws_pp.cell(row_idx, cc).value or "").strip().lower()
+                    if label:
+                        out[label] = cc
+                if "actual / latest actual" in out and "actual" not in out:
+                    out["actual"] = out["actual / latest actual"]
+                return out
+
+            for rr in range(1, int(ws_pp.max_row or 0) + 1):
+                first_txt = str(ws_pp.cell(rr, 1).value or "").strip()
+                first_fill = str(ws_pp.cell(rr, 1).fill.fgColor.rgb or "").upper()
+                if first_txt and (first_fill.endswith(("5B9BD5", "6FA8DC", "4472C4")) or first_txt.endswith("revisions")):
+                    active_header = {}
+                    continue
+                header_map = _pp_header_map(rr)
+                if "actual" in header_map and ("metric" in header_map or "milestone" in header_map):
+                    active_header = header_map
+                    continue
+                metric_col = (active_header.get("metric") or active_header.get("milestone")) if active_header else None
+                if not metric_col:
+                    continue
+                metric_txt = str(ws_pp.cell(rr, metric_col).value or "").strip()
+                if not metric_txt or metric_txt.lower() in {"metric", "milestone"}:
+                    continue
+                if all(
+                    str(ws_pp.cell(rr, cc).value or "").strip() == ""
+                    for cc in range(1, min(int(ws_pp.max_column or 0), 10) + 1)
+                    if cc != metric_col
+                ):
+                    rows_to_delete.append(rr)
+            for rr in sorted(set(rows_to_delete), reverse=True):
+                ws_pp.delete_rows(rr, 1)
+            for merge_range in list(ws_pp.merged_cells.ranges):
+                if merge_range.min_row == merge_range.max_row:
+                    row_idx = int(merge_range.min_row)
+                    if not any(
+                        str(ws_pp.cell(row_idx, cc).value or "").strip()
+                        for cc in range(1, min(int(ws_pp.max_column or 0), 10) + 1)
+                    ):
+                        ws_pp.unmerge_cells(str(merge_range))
+            shared_ui_polish = ctx.callbacks.extra_callbacks.get("_apply_shared_ui_conventions")
+            if callable(shared_ui_polish):
+                shared_ui_polish()
     except Exception:
         pass
 

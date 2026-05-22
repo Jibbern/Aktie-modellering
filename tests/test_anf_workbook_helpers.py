@@ -3,13 +3,14 @@ import re
 
 import pandas as pd
 import pytest
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import PatternFill
 
 from pbi_xbrl.excel_writer_context import (
     ANF_SEGMENT_BRAND_EXPLANATION,
     _anf_add_total_company_quarter_revenue_from_history,
     _anf_annual_segment_data_from_slides_segments,
+    _anf_build_guidance_timeline_rows,
     _anf_buyback_execution_is_year_or_ttm,
     _anf_build_promise_progress_sections,
     _anf_build_investment_case_data,
@@ -47,6 +48,7 @@ from pbi_xbrl.excel_writer_context import (
     _source_backed_debt_tranches_from_slides,
     _standardize_quarter_notes_ui_categories,
     _rewrite_shared_promise_progress_ui_from_blocks,
+    _final_repair_promise_progress_ui,
     _write_anf_valuation_side_panel,
     _write_anf_investment_case_sheet,
     _write_anf_investment_case_data_sheet,
@@ -538,6 +540,15 @@ def test_anf_promise_progress_sections_are_clean_and_open_for_2026() -> None:
     assert capex_row["Status"] == "Hit"
     assert all(r["Status"] == "Open" for r in open_rows)
     assert any(r["Horizon"] == "2026 year" and r["Metric"] == "Net sales growth" for r in open_rows)
+    open_metrics = {r["Metric"] for r in open_rows}
+    assert "Margin bridge" not in open_metrics
+    assert {
+        "2026 tariff headwind",
+        "Q1 tariff headwind",
+        "Q1 freight tailwind",
+        "Q1 ERP disruption",
+        "Q1 marketing headwind",
+    }.issubset(open_metrics)
     timeline = sections["Quarterly guidance timeline / revision log"]
     assert len(timeline) >= 8
     assert {r["Stated in"] for r in timeline} >= {"2025-Q1", "2025-Q2", "2025-Q3", "Jan 2026 pre-release update", "2025-Q4"}
@@ -1245,7 +1256,7 @@ def test_shared_promise_progress_postprocess_evaluates_completed_horizons_with_a
     ws.title = "Promise_Progress_UI"
     section_fill = PatternFill("solid", fgColor="5B9BD5")
     ws.cell(1, 1, "Promise Progress")
-    ws.cell(3, 1, "2025-Q2 revisions").fill = section_fill
+    ws.cell(3, 1, "2025-Q4 revisions").fill = section_fill
     headers = [
         "Metric",
         "Previous guide",
@@ -1261,9 +1272,9 @@ def test_shared_promise_progress_postprocess_evaluates_completed_horizons_with_a
     for cc, header in enumerate(headers, start=1):
         ws.cell(4, cc, header)
     rows = [
-        ["FCF target", "$330m-$370m", "$330m-$370m", "Maintained", "$383.3m", "On track", "2025 year", "2025-Q2", "2025-06-30", "Final 2025 actual shown for evaluation."],
-        ["Capex", "~$245m", "~$245m", "Maintained", "$240.8m", "On track", "2025 year", "2025-Q2", "2025-06-30", "Final 2025 actual shown for evaluation."],
-        ["Adjusted EPS / EPS", "$10.20-$10.50", "$10.20-$10.50", "Maintained", "$10.46 GAAP / $9.86 adjusted", "On track", "2025 year", "2025-Q2", "2025-06-30", "Basis differs."],
+        ["FCF target", "$330m-$370m", "$330m-$370m", "Maintained", "$383.3m", "On track", "2025 year", "2025-Q4", "2025-12-31", "Final 2025 actual shown for evaluation."],
+        ["Capex", "~$245m", "~$245m", "Maintained", "$240.8m", "On track", "2025 year", "2025-Q4", "2025-12-31", "Final 2025 actual shown for evaluation."],
+        ["Adjusted EPS / EPS", "$10.20-$10.50", "$10.20-$10.50", "Maintained", "$10.46 GAAP / $9.86 adjusted", "On track", "2025 year", "2025-Q4", "2025-12-31", "Basis differs."],
     ]
     for rr, row in enumerate(rows, start=5):
         for cc, value in enumerate(row, start=1):
@@ -1387,6 +1398,8 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
         ["Promise progress (As of 2025-12-31)"],
         ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
         ["Revenue guidance", "$1.76bn-$1.86bn", "not yet measurable", "Open", "2026 year Revenue guidance $1.76bn-$1.86bn.", "2025-Q4", "2025-Q4", "2026-Q1", "2026-03-31", ""],
+        ["Q4 margin actual", "12.5%", "12.5%", "Completed", "2025-Q4 margin actual result.", "2025-Q4", "2025-Q4", "2025-Q4", "2025-12-31", ""],
+        ["FCF guidance", "$340m-$370m", "not yet measurable", "Open", "2026 year FCF guidance $340m-$370m.", "2025-Q4", "2025-Q4", "2026-Q1", "2026-03-31", ""],
         ["Promise progress (As of 2025-09-30)"],
         ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
         ["Revenue guidance", "$1.9bn-$1.95bn", "$1.89bn", "Missed", "2025 year Revenue guidance tracking against final actual.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-12-31", ""],
@@ -1448,6 +1461,16 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
     assert q4_initial_revenue[3] == "Initial"
     assert q4_initial_revenue[5] == "Open"
     assert q4_initial_revenue[6] == "2026 year"
+    q4_block_start = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "2025-Q4 revisions")
+    q4_horizons = []
+    for rr in range(q4_block_start + 2, ws.max_row + 1):
+        first = ws.cell(rr, 1).value
+        if first and str(first).endswith("revisions"):
+            break
+        if first:
+            q4_horizons.append(str(ws.cell(rr, 7).value or ""))
+    assert q4_horizons[:2] == ["2026 year", "2026 year"]
+    assert q4_horizons[-1] == "2025-Q4"
     assert timeline_metric_rows[-1][7] == "2025-Q3"
     formatted_actual = next(row for row in values if row[0] == "Revenue actual" and row[8] == "2025-09-30")
     assert formatted_actual[4] == "$1.89bn"
@@ -1470,6 +1493,44 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
     assert _has_merge(open_section_row + 1, 5, 10)
     assert _has_merge(open_section_row + 2, 5, 10)
     assert ws.column_dimensions["A"].width >= 36
+    assert ws.column_dimensions["B"].width >= 26.43
+    assert ws.column_dimensions["C"].width >= 38.57
+    assert ws.column_dimensions["J"].width >= 114
+
+
+def test_gpre_45z_guidance_without_explicit_2026_does_not_leak_into_future_horizon() -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Promise_Progress_UI"
+    rows = [
+        ["Promise Progress"],
+        ["Promise progress (As of 2025-06-30)"],
+        ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
+        [
+            "45Z EBITDA guidance",
+            "$200m-$225m",
+            "$55.2m Q1 realized",
+            "Completed",
+            "45Z EBITDA guidance discussed without a future-year horizon in this 2025-Q2 block.",
+            "2025-Q2",
+            "2025-Q2",
+            "2025-Q2",
+            "2025-06-30",
+            "",
+        ],
+    ]
+    for rr, row in enumerate(rows, start=1):
+        for cc, value in enumerate(row, start=1):
+            ws.cell(rr, cc, value)
+
+    _rewrite_shared_promise_progress_ui_from_blocks(ws, ticker="GPRE")
+
+    values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
+    timeline_row = next(row for row in values if row[0] == "45Z EBITDA guidance" and row[8] == "2025-06-30")
+    assert timeline_row[6] == "2025-Q2"
+    assert timeline_row[4] in {"", None, "not yet measurable"}
+    assert timeline_row[5] in {"Open", "On track"}
+    assert not any(row[0] == "2026 open guidance" for row in values)
 
 
 def test_shared_promise_progress_uses_matching_quarter_actuals_for_interim_annual_rows() -> None:
@@ -1518,6 +1579,302 @@ def test_shared_promise_progress_uses_matching_quarter_actuals_for_interim_annua
     assert annual_revenue[5] == "$1.89bn actual"
     assert annual_revenue[6] == "$1.89bn"
     assert annual_revenue[7] == "Missed"
+
+
+def test_shared_promise_progress_rewrite_drops_blank_rows_without_creating_q4_actual_rows() -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Promise_Progress_UI"
+    history = wb.create_sheet("History_Q")
+    history.append(["quarter", "revenue", "cfo", "capex", "fiscal_year", "fiscal_quarter", "fiscal_label"])
+    history.append([dt.datetime(2025, 3, 31), 480_000_000, 20_000_000, 5_000_000, 2025, 1, "2025-Q1"])
+    history.append([dt.datetime(2025, 6, 30), 470_000_000, 120_000_000, 10_000_000, 2025, 2, "2025-Q2"])
+    history.append([dt.datetime(2025, 9, 30), 460_000_000, 95_000_000, 15_000_000, 2025, 3, "2025-Q3"])
+    history.append([dt.datetime(2025, 12, 31), 482_000_000, 135_000_000, 23_000_000, 2025, 4, "2025-Q4"])
+    rows = [
+        ["Promise Progress"],
+        ["Generated at 2026-05-15 00:00:00 UTC | Quarter blocks"],
+        ["Promise progress (As of 2025-12-31)"],
+        ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
+        ["FCF target", "", "", "", "", "", "", "", "", ""],
+        ["Promise progress (As of 2025-09-30)"],
+        ["Metric", "Target", "Latest", "Result", "Rationale", "Stated", "Last Seen", "Carried To", "Evaluated Through", "Evidence"],
+        ["FCF target", "$330m-$370m", "$317m", "On track", "2025 year FCF target tracking.", "2025-Q3", "2025-Q3", "2025-Q3", "2025-12-31", ""],
+    ]
+    for rr, row in enumerate(rows, start=1):
+        for cc, value in enumerate(row, start=1):
+            ws.cell(rr, cc, value)
+
+    _rewrite_shared_promise_progress_ui_from_blocks(ws, ticker="PBI")
+
+    values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
+    assert not any(row[0] == "FCF target" and all(value in {None, ""} for value in row[1:]) for row in values)
+    assert not any(row[0] == "FCF target" and row[7] == "2025-Q4" for row in values)
+
+
+def test_shared_promise_postprocess_replaces_latest_actuals_without_adding_q4_rows() -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Promise_Progress_UI"
+    section_fill = PatternFill("solid", fgColor="5B9BD5")
+    history = wb.create_sheet("History_Q")
+    history.append(["quarter", "revenue", "fiscal_year", "fiscal_quarter", "fiscal_label"])
+    history.append([dt.datetime(2025, 3, 31), 493_420_000, 2025, 1, "2025-Q1"])
+    history.append([dt.datetime(2025, 6, 30), 461_909_000, 2025, 2, "2025-Q2"])
+    history.append([dt.datetime(2025, 9, 30), 459_675_000, 2025, 3, "2025-Q3"])
+    history.append([dt.datetime(2025, 12, 31), 477_625_000, 2025, 4, "2025-Q4"])
+    adjusted = wb.create_sheet("Adjusted_Metrics")
+    adjusted.append(["quarter", "adj_ebit", "adj_ebitda", "adj_eps", "adj_fcf", "period_type"])
+    adjusted.append([dt.datetime(2025, 3, 31), 119_689_000, 148_013_000, 0.33, -16_679_000, "quarter"])
+    adjusted.append([dt.datetime(2025, 6, 30), 102_293_000, 131_055_000, 0.27, 111_388_000, "quarter"])
+    adjusted.append([dt.datetime(2025, 9, 30), 107_335_000, 134_753_000, 0.31, 66_848_000, "quarter"])
+    adjusted.append([dt.datetime(2025, 12, 31), 131_976_000, 159_048_000, 0.45, 221_699_000, "quarter"])
+    headers = [
+        "Metric",
+        "Previous guide",
+        "New/current guide",
+        "Change type",
+        "Actual",
+        "Status",
+        "Horizon",
+        "Stated in",
+        "Source date",
+        "Source / note",
+    ]
+    rows = [
+        ["Promise Progress"],
+        ["2025-Q4 revisions"],
+        headers,
+        ["Revenue guidance", "", "$1.76bn-$1.86bn", "Initial", "", "Open", "2026 year", "2025-Q4", "2025-12-31", "Initial 2026 guide."],
+        ["2025-Q3 revisions"],
+        headers,
+        ["Revenue guidance", "$1.9bn-$1.95bn", "$1.9bn-$1.95bn", "Maintained", "$1.89bn", "Missed", "2025 year", "2025-Q3", "2025-09-30", "Later final actual was incorrectly carried into Q3."],
+        ["Adjusted EBIT guidance", "$450m-$465m", "$450m-$465m", "Maintained", "$461.3m", "Hit", "2025 year", "2025-Q3", "2025-09-30", "Later final actual was incorrectly carried into Q3."],
+        ["2024-Q4 revisions"],
+        headers,
+        ["Revenue guidance", "", "", "", "", "", "", "", "", ""],
+    ]
+    for rr, row in enumerate(rows, start=1):
+        if len(row) == 1 and str(row[0]).endswith("revisions"):
+            ws.cell(rr, 1, row[0]).fill = section_fill
+            continue
+        for cc, value in enumerate(row, start=1):
+            ws.cell(rr, cc, value)
+
+    _apply_shared_ui_conventions_to_workbook(wb, "PBI")
+
+    values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
+    q3_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[7] == "2025-Q3")
+    assert q3_revenue[4] == "$459.7m"
+    assert q3_revenue[5] in {"Open", "On track"}
+    q3_ebit = next(row for row in values if row[0] == "Adjusted EBIT guidance" and row[7] == "2025-Q3")
+    assert q3_ebit[4] == "$107.3m"
+    assert q3_ebit[5] in {"Open", "On track"}
+    assert not any(row[0] == "Revenue guidance" and row[7] == "2025-Q4" and row[6] == "2025 year" for row in values)
+    assert not any(row[0] == "Revenue guidance" and all(value in {None, ""} for value in row[1:]) for row in values)
+
+
+def test_final_promise_cleanup_removes_blank_v2_rows_and_empty_revision_blocks(tmp_path) -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Promise_Progress_UI"
+    section_fill = PatternFill("solid", fgColor="5B9BD5")
+    history = wb.create_sheet("History_Q")
+    history.append(["quarter", "revenue", "cfo", "capex", "fiscal_year", "fiscal_quarter", "fiscal_label"])
+    history.append([dt.datetime(2025, 3, 31), 480_000_000, 20_000_000, 5_000_000, 2025, 1, "2025-Q1"])
+    history.append([dt.datetime(2025, 6, 30), 470_000_000, 120_000_000, 10_000_000, 2025, 2, "2025-Q2"])
+    history.append([dt.datetime(2025, 9, 30), 460_000_000, 95_000_000, 15_000_000, 2025, 3, "2025-Q3"])
+    history.append([dt.datetime(2025, 12, 31), 482_000_000, 135_000_000, 23_000_000, 2025, 4, "2025-Q4"])
+    headers = [
+        "Metric",
+        "Previous guide",
+        "New/current guide",
+        "Change type",
+        "Actual",
+        "Status",
+        "Horizon",
+        "Stated in",
+        "Source date",
+        "Source / note",
+    ]
+    rows = [
+        ["Promise Progress"],
+        ["2025-Q4 revisions"],
+        headers,
+        ["FCF target", "", "", "", "", "", "", "", "", ""],
+        ["2025-Q3 revisions"],
+        headers,
+        ["FCF target", "$330m-$370m", "$330m-$370m", "Maintained", "$317m", "On track", "2025 year", "2025-Q3", "2025-09-30", "2025 year FCF target tracking."],
+    ]
+    for rr, row in enumerate(rows, start=1):
+        if len(row) == 1 and str(row[0]).endswith("revisions"):
+            ws.cell(rr, 1, row[0]).fill = section_fill
+            continue
+        for cc, value in enumerate(row, start=1):
+            ws.cell(rr, cc, value)
+
+    _final_repair_promise_progress_ui(wb, "PBI")
+
+    values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
+    assert not any(row[0] == "FCF target" and all(value in {None, ""} for value in row[1:]) for row in values)
+    assert not any(row[0] == "FCF target" and row[7] == "2025-Q4" for row in values)
+    assert not any(row[0] == "2025-Q4 revisions" for row in values)
+
+    out_path = tmp_path / "promise_cleanup.xlsx"
+    wb.save(out_path)
+    reloaded = load_workbook(out_path, data_only=False)
+    ws_reloaded = reloaded["Promise_Progress_UI"]
+    values_reloaded = [[ws_reloaded.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws_reloaded.max_row + 1)]
+    assert not any(row[0] == "FCF target" and all(value in {None, ""} for value in row[1:]) for row in values_reloaded)
+    assert not any(row[0] == "FCF target" and row[7] == "2025-Q4" for row in values_reloaded)
+    assert not any(row[0] == "2025-Q4 revisions" for row in values_reloaded)
+
+
+def test_shared_promise_ui_polish_keeps_headers_wide_and_scorecard_compact() -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Promise_Progress_UI"
+    section_fill = PatternFill("solid", fgColor="5B9BD5")
+    rows = [
+        ["Promise Progress"],
+        ["Management Credibility Scorecard"],
+        ["Category", "Score", "Evidence", "", "", "", "Read", "", "", ""],
+        ["FCF delivery", "Mixed", "FCF is central to the turnaround and debt case.", "", "", "", "Cash conversion must remain credible.", "", "", ""],
+        ["Cost savings delivery", "Good", "Current savings target/run-rate is tracked in Promise and Valuation.", "", "", "", "Execution is credible if savings continue.", "", "", ""],
+        ["2025-Q4 revisions"],
+        ["Metric", "Previous guide", "New/current guide", "Change type", "Actual", "Status", "Horizon", "Stated in", "Source date", "Source / note"],
+        ["Revenue guidance", "$1.9bn-$1.95bn", "Final actual", "Updated", "$1.89bn", "Missed", "2025 year", "2025-Q4", "2025-12-31", "Final actual."],
+    ]
+    for rr, row in enumerate(rows, start=1):
+        if len(row) == 1 and (row[0] == "Management Credibility Scorecard" or str(row[0]).endswith("revisions")):
+            ws.cell(rr, 1, row[0]).fill = section_fill
+            continue
+        for cc, value in enumerate(row, start=1):
+            ws.cell(rr, cc, value)
+
+    _apply_shared_ui_conventions_to_workbook(wb, "PBI")
+
+    section_rows = [2, 6]
+    merged_ranges = list(ws.merged_cells.ranges)
+    for row_idx in section_rows:
+        assert any(rng.min_row == row_idx and rng.max_row == row_idx and rng.min_col == 1 and rng.max_col == 10 for rng in merged_ranges)
+    assert all(str(ws.cell(7, col_idx).fill.fgColor.rgb or "").upper() not in {"00000000", "00FFFFFF"} for col_idx in range(1, 11))
+    assert float(ws.row_dimensions[4].height or 0) <= 26.0
+    assert float(ws.row_dimensions[5].height or 0) <= 26.0
+    assert float(ws.column_dimensions["B"].width or 0) >= 26.0
+    assert float(ws.column_dimensions["C"].width or 0) >= 38.0
+    assert float(ws.column_dimensions["J"].width or 0) >= 100.0
+
+
+def test_final_promise_cleanup_adds_latest_pbi_cost_savings_run_rate_row() -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Promise_Progress_UI"
+    section_fill = PatternFill("solid", fgColor="5B9BD5")
+    rows = [
+        ["Promise Progress"],
+        ["2026 open guidance"],
+        ["Metric", "Current guide", "Horizon", "Status", "Notes/source"],
+        ["Cost savings target", "$180m-$200m", "2025-Q1", "On track", "Raised target to $180m-$200m annualized savings; latest disclosed $157m run-rate."],
+        ["Quarterly guidance timeline / revision log"],
+        ["2026-Q1 revisions"],
+        ["Metric", "Previous guide", "New/current guide", "Change type", "Actual", "Status", "Horizon", "Stated in", "Source date", "Source / note"],
+        ["Revenue guidance", "$1.76bn-$1.86bn", "$1.8bn-$1.86bn", "Updated", "$477.4m", "On track", "2026 year", "2026-Q1", "2026-03-31", "2026 revenue guide update."],
+        [None, None, None, None, None, None, None, None, None, None],
+        ["2025-Q4 revisions"],
+        ["Metric", "Previous guide", "New/current guide", "Change type", "Actual", "Status", "Horizon", "Stated in", "Source date", "Source / note"],
+        ["Revenue guidance", "", "$1.76bn-$1.86bn", "Initial", "", "Open", "2026 year", "2025-Q4", "2025-12-31", "Initial 2026 guide."],
+    ]
+    for rr, row in enumerate(rows, start=1):
+        if len(row) == 1 and str(row[0]) in {"2026 open guidance", "Quarterly guidance timeline / revision log", "2026-Q1 revisions"}:
+            ws.cell(rr, 1, row[0]).fill = section_fill
+            continue
+        for cc, value in enumerate(row, start=1):
+            ws.cell(rr, cc, value)
+
+    _final_repair_promise_progress_ui(wb, "PBI")
+
+    values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
+    q1_cost = next(row for row in values if row[0] == "Cost savings target" and row[7] == "2026-Q1")
+    assert q1_cost[1] == "$180m-$200m"
+    assert q1_cost[4] == "$157m run-rate"
+    assert q1_cost[5] == "On track"
+    q1_header_idx = next(idx for idx, row in enumerate(values, start=1) if row[0] == "2026-Q1 revisions")
+    q4_header_idx = next(idx for idx, row in enumerate(values, start=1) if row[0] == "2025-Q4 revisions")
+    q1_cost_idx = next(idx for idx, row in enumerate(values, start=1) if row[0] == "Cost savings target" and row[7] == "2026-Q1")
+    assert q1_header_idx < q1_cost_idx < q4_header_idx
+
+
+def test_shared_promise_postprocess_keeps_cost_savings_run_rate_and_debt_actuals() -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Promise_Progress_UI"
+    section_fill = PatternFill("solid", fgColor="5B9BD5")
+    headers = [
+        "Metric",
+        "Previous guide",
+        "New/current guide",
+        "Change type",
+        "Actual",
+        "Status",
+        "Horizon",
+        "Stated in",
+        "Source date",
+        "Source / note",
+    ]
+    rows = [
+        ["Promise Progress"],
+        ["2025-Q1 revisions"],
+        headers,
+        ["Cost savings target", "", "$180m-$200m", "Initial", "", "On track", "2025-Q1", "2025-Q1", "2025-03-31", "Annualized savings target; latest disclosed $157m run-rate."],
+        ["2025-Q3 revisions"],
+        headers,
+        ["Debt reduction", "", "$130.7m", "Initial", "", "Completed", "2025-Q3", "2025-Q3", "2025-09-30", "Sale proceeds used to repay junior mezzanine debt."],
+    ]
+    for rr, row in enumerate(rows, start=1):
+        if len(row) == 1 and str(row[0]).endswith("revisions"):
+            ws.cell(rr, 1, row[0]).fill = section_fill
+            continue
+        for cc, value in enumerate(row, start=1):
+            ws.cell(rr, cc, value)
+
+    _apply_shared_ui_conventions_to_workbook(wb, "PBI")
+
+    values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
+    cost = next(row for row in values if row[0] == "Cost savings target")
+    assert cost[4] == "$157m run-rate"
+    assert cost[5] == "On track"
+    debt = next(row for row in values if row[0] == "Debt reduction")
+    assert debt[4] == "Debt repaid"
+    assert debt[5] == "Completed"
+
+
+def test_anf_guidance_timeline_keeps_q4_actuals_out_of_special_annual_rows() -> None:
+    hist = pd.DataFrame(
+        [
+            {
+                "quarter": dt.date(2025, 2, 1),
+                "revenue": 1_584_917_000.0,
+                "op_income": 256_064_000.0,
+                "capex": 50_863_000.0,
+            },
+            {
+                "quarter": dt.date(2026, 1, 31),
+                "revenue": 1_669_802_000.0,
+                "op_income": 235_931_000.0,
+                "capex": 76_028_000.0,
+                "shares_diluted": 48_500_000.0,
+                "buybacks_cash": 450_000_000.0,
+            },
+        ]
+    )
+
+    rows = _anf_build_guidance_timeline_rows(pd.DataFrame(), hist)
+    q4_2025_actual = [row for row in rows if row["Stated in"] == "2025-Q4" and row["Horizon"] == "2025 year"]
+    assert q4_2025_actual == []
+    q4_2024_actual = [row for row in rows if row["Stated in"] == "2024-Q4" and row["Horizon"] == "2024-Q4"]
+    assert any(row["Metric"] == "Net sales growth" and row["Actual"] for row in q4_2024_actual)
+    assert any(row["Metric"] == "Operating margin" and row["Actual"] for row in q4_2024_actual)
 
 
 def test_shared_promise_progress_rewrite_compacts_long_guidance_value_cells() -> None:
@@ -1700,6 +2057,18 @@ def test_shared_ui_polish_cleans_guidance_normalized_and_downgrades_pbi_qsum() -
     assert needs.column_dimensions["E"].width >= 13
     assert needs.column_dimensions["F"].width >= 13
     assert needs["E2"].number_format == "yyyy-mm-dd"
+
+    wb_anf = Workbook()
+    wb_anf.active.title = "Valuation"
+    anf_needs = wb_anf.create_sheet("Needs_Review")
+    anf_needs.append(["priority", "severity", "check", "latest_message", "first_seen", "last_seen", "recommended_action"])
+    anf_needs.append(["P1", "fail", "qsum_vs_fy", "Sum of 4 quarters vs FY fact.", "2019-02-02", "2019-02-02", ""])
+
+    _apply_shared_ui_conventions_to_workbook(wb_anf, ticker="ANF")
+
+    assert anf_needs["A2"].value == "P2"
+    assert anf_needs["B2"].value == "warn"
+    assert "older fiscal/YTD" in str(anf_needs["G2"].value)
 
 
 def test_shared_ui_polish_standardizes_promise_statuses_and_valuation_row_heights() -> None:
@@ -2088,6 +2457,56 @@ def test_anf_investment_case_writer_applies_readable_style_and_formula_grid() ->
     data_ws = wb["ANF_Investment_Case_Data"]
     headers = [data_ws.cell(1, c).value for c in range(1, data_ws.max_column + 1)]
     assert "source_note" in headers
+    header_map = {str(header): idx for idx, header in enumerate(headers, start=1)}
+    audit_rows = {
+        str(data_ws.cell(r, header_map["metric"]).value): r
+        for r in range(2, data_ws.max_row + 1)
+        if data_ws.cell(r, header_map["section"]).value == "Scenario Driver Bridge Audit"
+    }
+    expected_audit_metrics = {
+        "Active revenue used",
+        "Tariff bps",
+        "Freight bps",
+        "ERP bps",
+        "Marketing bps",
+        "Total bps",
+        "Calculated $m impact",
+        "Bridge active / guide check",
+    }
+    assert expected_audit_metrics.issubset(audit_rows)
+
+    case_rows = {
+        label: next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == label)
+        for label in [
+            "Forward revenue",
+            "Tariff impact (bps)",
+            "Freight tailwind (bps)",
+            "ERP disruption (bps)",
+            "Marketing headwind (bps)",
+            "Margin bridge vs baseline",
+        ]
+    }
+    value_col = header_map["value"]
+    assert data_ws.cell(audit_rows["Active revenue used"], value_col).value == f"='ANF_Investment_Case'!$G${case_rows['Forward revenue']}"
+    assert data_ws.cell(audit_rows["Tariff bps"], value_col).value == f"='ANF_Investment_Case'!$G${case_rows['Tariff impact (bps)']}"
+    assert data_ws.cell(audit_rows["Freight bps"], value_col).value == f"='ANF_Investment_Case'!$G${case_rows['Freight tailwind (bps)']}"
+    assert data_ws.cell(audit_rows["ERP bps"], value_col).value == f"='ANF_Investment_Case'!$G${case_rows['ERP disruption (bps)']}"
+    assert data_ws.cell(audit_rows["Marketing bps"], value_col).value == f"='ANF_Investment_Case'!$G${case_rows['Marketing headwind (bps)']}"
+    assert data_ws.cell(audit_rows["Total bps"], value_col).value == (
+        f"=SUM(C{audit_rows['Tariff bps']}:C{audit_rows['Marketing bps']})"
+    )
+    assert data_ws.cell(audit_rows["Calculated $m impact"], value_col).value == (
+        f"=C{audit_rows['Active revenue used']}*C{audit_rows['Total bps']}/10000"
+    )
+    assert data_ws.cell(audit_rows["Bridge active / guide check"], value_col).value == (
+        f"='ANF_Investment_Case'!$C${case_rows['Margin bridge vs baseline']}"
+    )
+    assert data_ws.cell(audit_rows["Tariff bps"], header_map["source_note"]).value == "Headwind is negative."
+    assert data_ws.cell(audit_rows["Freight bps"], header_map["source_note"]).value == "Tailwind is positive."
+    assert data_ws.cell(audit_rows["Total bps"], header_map["source_note"]).value == "Tailwinds positive; headwinds negative."
+    assert wb.calculation.calcMode == "auto"
+    assert wb.calculation.fullCalcOnLoad is True
+    assert wb.calculation.forceFullCalc is True
 
 
 def test_sector_investment_case_writer_uses_anf_style_callout_and_wrapped_labels() -> None:
@@ -2517,14 +2936,22 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
         eps_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Forward EPS")
         revenue_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Forward revenue")
         ebitda_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Forward Adj EBITDA")
+        operating_margin_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Operating margin")
         shares_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Diluted shares")
         capex_input_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "Capex")
         fcf_yield_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "FCF yield")
+        assert ws.cell(operating_margin_row, 6).fill.fgColor.rgb == "00FFF2CC"
+        assert ws.cell(operating_margin_row, 7).number_format == "0.0%"
+        assert str(ws.cell(operating_margin_row, 3).value or "") == '=IFERROR(CompanyOperatingMargin_TTM,"")'
+        assert str(ws.cell(operating_margin_row, 7).value or "").startswith(
+            f'=IF(F{operating_margin_row}<>"",F{operating_margin_row},IF(C{operating_margin_row}<>"",C{operating_margin_row},'
+        )
         if ticker != "GPRE":
             assert ws.cell(revenue_row, 2).value == pytest.approx(4600.0)
             assert ws.cell(eps_row, 2).value == pytest.approx(0.92)
             assert ws.cell(ebitda_row, 2).value == pytest.approx(540.0)
             assert ws.cell(capex_input_row, 2).value == pytest.approx(106.0)
+            assert ws.cell(operating_margin_row, 2).value == pytest.approx(332.0 / 4600.0)
         assert str(ws.cell(eps_row, 7).value).startswith(f'=IF(F{eps_row}<>"",F{eps_row},IF(C{eps_row}<>"",C{eps_row},IF(B{eps_row}<>"",B{eps_row},IF(D{eps_row}<>"",D{eps_row},E{eps_row}))))')
         fcf_yield_formula = str(ws.cell(fcf_yield_row, 7).value or "")
         assert f"F{fcf_yield_row}>1" in fcf_yield_formula and f"F{fcf_yield_row}/100" in fcf_yield_formula
@@ -2708,6 +3135,10 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             str(ws.cell(r, 1).value or ""): [str(ws.cell(r, c).value or "") for c in range(1, 9)]
             for r in range(bridge_row + 3, summary_row - 1)
         }
+        bridge_row_by_label = {
+            str(ws.cell(r, 1).value or ""): r
+            for r in range(bridge_row + 3, summary_row - 1)
+        }
         audit_by_label = {
             str(audit.cell(r, 2).value or ""): [audit.cell(r, c).value for c in range(1, 9)]
             for r in range(2, audit.max_row + 1)
@@ -2812,6 +3243,10 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert "Marketing headwind (bps)" in manual_labels
             sales_growth_row = next(r for r in range(manual_row + 2, next_section_row) if ws.cell(r, 1).value == "Sales growth")
             buyback_amount_row = next(r for r in range(manual_row + 2, next_section_row) if ws.cell(r, 1).value == "Buyback amount")
+            tariff_bps_row = next(r for r in range(manual_row + 2, next_section_row) if ws.cell(r, 1).value == "Tariff impact (bps)")
+            freight_bps_row = next(r for r in range(manual_row + 2, next_section_row) if ws.cell(r, 1).value == "Freight tailwind (bps)")
+            erp_bps_row = next(r for r in range(manual_row + 2, next_section_row) if ws.cell(r, 1).value == "ERP disruption (bps)")
+            marketing_bps_row = next(r for r in range(manual_row + 2, next_section_row) if ws.cell(r, 1).value == "Marketing headwind (bps)")
             assert str(ws.cell(sales_growth_row, 2).value).startswith("=IFERROR(IF(")
             assert "SUMIFS(INDEX(History_Q!$A:$ZZ" in str(ws.cell(sales_growth_row, 2).value)
             assert 'MATCH("revenue",History_Q!$1:$1,0)' in str(ws.cell(sales_growth_row, 2).value)
@@ -2821,11 +3256,22 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert str(ws.cell(buyback_amount_row, 3).value).startswith("=IFERROR(LOOKUP(2,1/(INDEX(Valuation!$B:$M")
             assert ws.cell(buyback_amount_row, 4).value == pytest.approx(450.0)
             margin_bridge_row = bridge_by_label["Margin bridge vs baseline"]
+            margin_bridge_row_number = bridge_row_by_label["Margin bridge vs baseline"]
             assert "$G$" in str(margin_bridge_row[2])
+            assert f"$G${revenue_row}" in str(margin_bridge_row[2])
+            for bps_row in (tariff_bps_row, freight_bps_row, erp_bps_row, marketing_bps_row):
+                assert f"$G${bps_row}" in str(margin_bridge_row[2])
             assert "/10000" in str(margin_bridge_row[2])
             assert "SUM(" in str(margin_bridge_row[2])
             assert f"$G${tax_rate_row}" in str(margin_bridge_row[4])
+            assert f"D{margin_bridge_row_number}" in str(margin_bridge_row[4])
+            assert f"D{margin_bridge_row_number}" in str(margin_bridge_row[5])
+            assert str(margin_bridge_row[6]) in {"0", "0.0", ""}
             assert "Converts bps margin bridge to $m using active revenue." == margin_bridge_row[7]
+            assert ws.cell(tariff_bps_row, 4).value < 0
+            assert ws.cell(freight_bps_row, 5).value > 0
+            assert ws.cell(erp_bps_row, 5).value < 0
+            assert ws.cell(marketing_bps_row, 5).value < 0
             segment_bridge_row = bridge_by_label["Selected segment revenue/margin impact"]
             assert "$B$" in segment_bridge_row[2]
             assert "SUMIF(" in segment_bridge_row[2]
