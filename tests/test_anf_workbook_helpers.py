@@ -551,10 +551,10 @@ def test_anf_promise_progress_sections_are_clean_and_open_for_2026() -> None:
     }.issubset(open_metrics)
     timeline = sections["Quarterly guidance timeline / revision log"]
     assert len(timeline) >= 8
-    assert {r["Stated in"] for r in timeline} >= {"2025-Q1", "2025-Q2", "2025-Q3", "Jan 2026 pre-release update", "2025-Q4"}
+    assert {r["Stated in"] for r in timeline} >= {"2026-Q1", "2025-Q1", "2025-Q2", "2025-Q3", "Jan 2026 pre-release update"}
     stated_order = [r["Stated in"] for r in timeline]
-    assert stated_order[0] == "2025-Q4"
-    assert stated_order.index("2025-Q4") < stated_order.index("Jan 2026 pre-release update") < stated_order.index("2025-Q3") < stated_order.index("2025-Q2") < stated_order.index("2025-Q1")
+    assert stated_order[0] == "2026-Q1"
+    assert stated_order.index("2026-Q1") < stated_order.index("Jan 2026 pre-release update") < stated_order.index("2025-Q3") < stated_order.index("2025-Q2") < stated_order.index("2025-Q1")
     jan_rows = [r for r in timeline if r["Stated in"] == "Jan 2026 pre-release update"]
     assert jan_rows
     assert all(r["Horizon"] == "2025 year" for r in jan_rows)
@@ -565,6 +565,7 @@ def test_anf_promise_progress_sections_are_clean_and_open_for_2026() -> None:
     assert q2_margin["Status"] == "On track"
     assert q2_margin["Actual"] != "13.3% GAAP / 12.5% adjusted"
     assert all("FY" not in " ".join(str(v) for v in r.values()) for r in timeline)
+    assert not any(str(r.get("New/current guide") or "").lower() == "actual reported" for r in timeline)
 
 
 def test_anf_visible_guidance_normalized_adds_stated_and_horizon_labels() -> None:
@@ -1462,6 +1463,7 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
     assert q4_initial_revenue[5] == "Open"
     assert q4_initial_revenue[6] == "2026 year"
     q4_block_start = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "2025-Q4 revisions")
+    assert all(ws.cell(q4_block_start - 1, cc).value in {None, ""} for cc in range(1, 11))
     q4_horizons = []
     for rr in range(q4_block_start + 2, ws.max_row + 1):
         first = ws.cell(rr, 1).value
@@ -1469,13 +1471,9 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
             break
         if first:
             q4_horizons.append(str(ws.cell(rr, 7).value or ""))
-    assert q4_horizons[:2] == ["2026 year", "2026 year"]
-    assert q4_horizons[-1] == "2025-Q4"
+    assert q4_horizons and all(horizon == "2026 year" for horizon in q4_horizons)
     assert timeline_metric_rows[-1][7] == "2025-Q3"
-    formatted_actual = next(row for row in values if row[0] == "Revenue actual" and row[8] == "2025-09-30")
-    assert formatted_actual[4] == "$1.89bn"
-    formatted_eps = next(row for row in values if row[0] == "Adj EPS actual" and row[8] == "2025-09-30")
-    assert formatted_eps[4] == "$1.36"
+    assert not any(str(row[0] or "").lower().endswith(" actual") for row in values)
     assert ws.freeze_panes in {"A2", None}
     def _has_merge(row_idx: int, start_col: int, end_col: int) -> bool:
         return any(
@@ -1576,7 +1574,7 @@ def test_shared_promise_progress_uses_matching_quarter_actuals_for_interim_annua
     assert q3_ebit[4] == "$107.3m"
     assert q3_ebit[5] in {"On track", "Open"}
     annual_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[4] == "$1.9bn-$1.95bn")
-    assert annual_revenue[5] == "$1.89bn actual"
+    assert annual_revenue[5] in {None, ""}
     assert annual_revenue[6] == "$1.89bn"
     assert annual_revenue[7] == "Missed"
 
@@ -1743,7 +1741,7 @@ def test_shared_promise_ui_polish_keeps_headers_wide_and_scorecard_compact() -> 
         ["Cost savings delivery", "Good", "Current savings target/run-rate is tracked in Promise and Valuation.", "", "", "", "Execution is credible if savings continue.", "", "", ""],
         ["2025-Q4 revisions"],
         ["Metric", "Previous guide", "New/current guide", "Change type", "Actual", "Status", "Horizon", "Stated in", "Source date", "Source / note"],
-        ["Revenue guidance", "$1.9bn-$1.95bn", "Final actual", "Updated", "$1.89bn", "Missed", "2025 year", "2025-Q4", "2025-12-31", "Final actual."],
+        ["Revenue guidance", "$1.9bn-$1.95bn", "$1.9bn-$1.95bn", "Maintained", "$1.89bn", "Missed", "2025 year", "2025-Q4", "2025-12-31", "Q4 result filled Actual."],
     ]
     for rr, row in enumerate(rows, start=1):
         if len(row) == 1 and (row[0] == "Management Credibility Scorecard" or str(row[0]).endswith("revisions")):
@@ -1754,11 +1752,21 @@ def test_shared_promise_ui_polish_keeps_headers_wide_and_scorecard_compact() -> 
 
     _apply_shared_ui_conventions_to_workbook(wb, "PBI")
 
-    section_rows = [2, 6]
+    section_rows = [
+        rr
+        for rr in range(1, ws.max_row + 1)
+        if str(ws.cell(rr, 1).value or "") in {"Management Credibility Scorecard", "2025-Q4 revisions"}
+    ]
+    assert len(section_rows) == 2
     merged_ranges = list(ws.merged_cells.ranges)
     for row_idx in section_rows:
         assert any(rng.min_row == row_idx and rng.max_row == row_idx and rng.min_col == 1 and rng.max_col == 10 for rng in merged_ranges)
-    assert all(str(ws.cell(7, col_idx).fill.fgColor.rgb or "").upper() not in {"00000000", "00FFFFFF"} for col_idx in range(1, 11))
+    timeline_header_row = next(
+        rr
+        for rr in range(1, ws.max_row + 1)
+        if ws.cell(rr, 1).value == "Metric" and ws.cell(rr, 2).value == "Previous guide"
+    )
+    assert all(str(ws.cell(timeline_header_row, col_idx).fill.fgColor.rgb or "").upper() not in {"00000000", "00FFFFFF"} for col_idx in range(1, 11))
     assert float(ws.row_dimensions[4].height or 0) <= 26.0
     assert float(ws.row_dimensions[5].height or 0) <= 26.0
     assert float(ws.column_dimensions["B"].width or 0) >= 26.0
@@ -1803,6 +1811,70 @@ def test_final_promise_cleanup_adds_latest_pbi_cost_savings_run_rate_row() -> No
     q4_header_idx = next(idx for idx, row in enumerate(values, start=1) if row[0] == "2025-Q4 revisions")
     q1_cost_idx = next(idx for idx, row in enumerate(values, start=1) if row[0] == "Cost savings target" and row[7] == "2026-Q1")
     assert q1_header_idx < q1_cost_idx < q4_header_idx
+
+
+def test_promise_actual_lookup_prefers_fiscal_label_over_calendar_quarter() -> None:
+    wb = Workbook()
+    hist = wb.active
+    hist.title = "History_Q"
+    hist.append([
+        "quarter",
+        "fiscal_label",
+        "fiscal_year",
+        "fiscal_quarter",
+        "revenue",
+        "op_income",
+        "cfo",
+        "capex",
+    ])
+    hist.append([
+        dt.datetime(2026, 1, 31),
+        "2025-Q4",
+        2025,
+        4,
+        1_600_000_000,
+        250_000_000,
+        200_000_000,
+        50_000_000,
+    ])
+    adj = wb.create_sheet("Adjusted_Metrics")
+    adj.append(["quarter", "period_type", "adj_eps"])
+    adj.append([dt.datetime(2026, 1, 31), "quarter", 3.68])
+
+    ws = wb.create_sheet("Promise_Progress_UI")
+    section_fill = PatternFill("solid", fgColor="5B9BD5")
+    ws.cell(1, 1, "Promise Progress").fill = section_fill
+    ws.cell(2, 1, "2026-Q1 revisions").fill = section_fill
+    ws.append(["Metric", "Previous guide", "New/current guide", "Change type", "Actual", "Status", "Horizon", "Stated in", "Source date", "Source / note"])
+    ws.append(["Revenue guidance", "$1.7bn-$1.8bn", "$1.8bn-$1.86bn", "Updated", "", "Open", "2026 year", "2026-Q1", "2026-03-31", "2026 guide update."])
+    ws.append(["Adjusted EPS / EPS", "$10.20-$11.00", "$10.30-$11.00", "Updated", "", "Open", "2026 year", "2026-Q1", "2026-03-31", "2026 guide update."])
+
+    _final_repair_promise_progress_ui(wb, "ANF")
+
+    assert ws.cell(4, 5).value in {None, ""}
+    assert ws.cell(4, 6).value == "Open"
+    assert ws.cell(5, 5).value in {None, ""}
+    assert ws.cell(5, 6).value == "Open"
+
+
+def test_promise_eps_guidance_uses_adjusted_eps_actual_when_gaap_eps_missing() -> None:
+    wb = Workbook()
+    adj = wb.active
+    adj.title = "Adjusted_Metrics"
+    adj.append(["quarter", "adj_eps"])
+    adj.append([dt.datetime(2025, 3, 31), 0.33])
+
+    ws = wb.create_sheet("Promise_Progress_UI")
+    section_fill = PatternFill("solid", fgColor="5B9BD5")
+    ws.cell(1, 1, "Promise Progress").fill = section_fill
+    ws.cell(2, 1, "2025-Q1 revisions").fill = section_fill
+    ws.append(["Metric", "Previous guide", "New/current guide", "Change type", "Actual", "Status", "Horizon", "Stated in", "Source date", "Source / note"])
+    ws.append(["EPS guidance", "$1.10-$1.30", "$1.10-$1.30", "Maintained", "", "Open", "2025 year", "2025-Q1", "2025-03-31", "Quarterly tracking."])
+
+    _final_repair_promise_progress_ui(wb, "PBI")
+
+    assert ws.cell(4, 5).value == "$0.33"
+    assert ws.cell(4, 6).value == "On track"
 
 
 def test_shared_promise_postprocess_keeps_cost_savings_run_rate_and_debt_actuals() -> None:
@@ -1873,8 +1945,8 @@ def test_anf_guidance_timeline_keeps_q4_actuals_out_of_special_annual_rows() -> 
     q4_2025_actual = [row for row in rows if row["Stated in"] == "2025-Q4" and row["Horizon"] == "2025 year"]
     assert q4_2025_actual == []
     q4_2024_actual = [row for row in rows if row["Stated in"] == "2024-Q4" and row["Horizon"] == "2024-Q4"]
-    assert any(row["Metric"] == "Net sales growth" and row["Actual"] for row in q4_2024_actual)
-    assert any(row["Metric"] == "Operating margin" and row["Actual"] for row in q4_2024_actual)
+    assert q4_2024_actual == []
+    assert not any(str(row["New/current guide"]).lower() == "actual reported" for row in rows)
 
 
 def test_shared_promise_progress_rewrite_compacts_long_guidance_value_cells() -> None:
