@@ -551,11 +551,11 @@ def test_anf_promise_progress_sections_are_clean_and_open_for_2026() -> None:
     }.issubset(open_metrics)
     timeline = sections["Quarterly guidance timeline / revision log"]
     assert len(timeline) >= 8
-    assert {r["Stated in"] for r in timeline} >= {"2026-Q1", "2025-Q1", "2025-Q2", "2025-Q3", "Jan 2026 pre-release update"}
+    assert {r["Stated in"] for r in timeline} >= {"2026-Q1", "2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4 pre-release update"}
     stated_order = [r["Stated in"] for r in timeline]
     assert stated_order[0] == "2026-Q1"
-    assert stated_order.index("2026-Q1") < stated_order.index("Jan 2026 pre-release update") < stated_order.index("2025-Q3") < stated_order.index("2025-Q2") < stated_order.index("2025-Q1")
-    jan_rows = [r for r in timeline if r["Stated in"] == "Jan 2026 pre-release update"]
+    assert stated_order.index("2026-Q1") < stated_order.index("2025-Q4 pre-release update") < stated_order.index("2025-Q3") < stated_order.index("2025-Q2") < stated_order.index("2025-Q1")
+    jan_rows = [r for r in timeline if r["Stated in"] == "2025-Q4 pre-release update"]
     assert jan_rows
     assert all(r["Horizon"] == "2025 year" for r in jan_rows)
     assert all("before 2025 actual report" in r["Source / note"] for r in jan_rows)
@@ -1458,20 +1458,7 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
         and re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(row[8] or ""))
     ]
     assert timeline_metric_rows[0][7] == "2026-Q1"
-    q4_initial_revenue = next(row for row in timeline_metric_rows if row[0] == "Revenue guidance" and row[7] == "2025-Q4")
-    assert q4_initial_revenue[3] == "Initial"
-    assert q4_initial_revenue[5] == "Open"
-    assert q4_initial_revenue[6] == "2026 year"
-    q4_block_start = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "2025-Q4 revisions")
-    assert all(ws.cell(q4_block_start - 1, cc).value in {None, ""} for cc in range(1, 11))
-    q4_horizons = []
-    for rr in range(q4_block_start + 2, ws.max_row + 1):
-        first = ws.cell(rr, 1).value
-        if first and str(first).endswith("revisions"):
-            break
-        if first:
-            q4_horizons.append(str(ws.cell(rr, 7).value or ""))
-    assert q4_horizons and all(horizon == "2026 year" for horizon in q4_horizons)
+    assert not any(row[0] == "Revenue guidance" and row[7] == "2025-Q4" and row[6] == "2026 year" for row in timeline_metric_rows)
     assert timeline_metric_rows[-1][7] == "2025-Q3"
     assert not any(str(row[0] or "").lower().endswith(" actual") for row in values)
     assert ws.freeze_panes in {"A2", None}
@@ -1574,7 +1561,7 @@ def test_shared_promise_progress_uses_matching_quarter_actuals_for_interim_annua
     assert q3_ebit[4] == "$107.3m"
     assert q3_ebit[5] in {"On track", "Open"}
     annual_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[4] == "$1.9bn-$1.95bn")
-    assert annual_revenue[5] in {None, ""}
+    assert annual_revenue[5] == "$1.9bn-$1.95bn"
     assert annual_revenue[6] == "$1.89bn"
     assert annual_revenue[7] == "Missed"
 
@@ -1607,7 +1594,9 @@ def test_shared_promise_progress_rewrite_drops_blank_rows_without_creating_q4_ac
 
     values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
     assert not any(row[0] == "FCF target" and all(value in {None, ""} for value in row[1:]) for row in values)
-    assert not any(row[0] == "FCF target" and row[7] == "2025-Q4" for row in values)
+    q4_fcf = next(row for row in values if row[0] == "FCF target" and row[7] == "2025-Q4")
+    assert q4_fcf[2] != "Final actual"
+    assert q4_fcf[4] not in {"", None}
 
 
 def test_shared_promise_postprocess_replaces_latest_actuals_without_adding_q4_rows() -> None:
@@ -1943,9 +1932,11 @@ def test_anf_guidance_timeline_keeps_q4_actuals_out_of_special_annual_rows() -> 
 
     rows = _anf_build_guidance_timeline_rows(pd.DataFrame(), hist)
     q4_2025_actual = [row for row in rows if row["Stated in"] == "2025-Q4" and row["Horizon"] == "2025 year"]
-    assert q4_2025_actual == []
+    assert q4_2025_actual
+    assert all(str(row["New/current guide"]).lower() != "actual reported" for row in q4_2025_actual)
+    assert all(str(row["Actual"]).strip() for row in q4_2025_actual)
     q4_2024_actual = [row for row in rows if row["Stated in"] == "2024-Q4" and row["Horizon"] == "2024-Q4"]
-    assert q4_2024_actual == []
+    assert q4_2024_actual
     assert not any(str(row["New/current guide"]).lower() == "actual reported" for row in rows)
 
 
@@ -1991,10 +1982,10 @@ def test_shared_promise_progress_rewrite_compacts_long_guidance_value_cells() ->
     values = [[ws.cell(rr, cc).value for cc in range(1, 11)] for rr in range(1, ws.max_row + 1)]
     facility_row = next(row for row in values if row[0] == "45Z facility qualification" and row[8] == "2026-03-31")
     assert facility_row[2] == "All 8 qualified"
-    assert facility_row[4] in {"", None, "not yet measurable"}
+    assert facility_row[4] == "3 of 8 qualified"
     assert len(facility_row[2]) < 22
     assert len(str(facility_row[4] or "")) < 22
-    nebraska_row = next(row for row in values if row[0] == "Advantage Nebraska EBITDA opportunity" and row[8] == "2026-03-31")
+    nebraska_row = next(row for row in values if row[0] == "2026 year 45Z EBITDA guidance" and row[8] == "2026-03-31")
     assert nebraska_row[4] in {"", None, "not yet measurable"}
 
 
@@ -2066,7 +2057,7 @@ def test_shared_promise_progress_rewrite_keeps_future_annual_guidance_open_or_on
     timeline_header = next(row for row in values if row[:4] == ["Metric", "Previous guide", "New/current guide", "Change type"])
     assert timeline_header[4] == "Actual"
     assert "Actual / latest actual" not in timeline_header
-    annual_row = next(row for row in values if row[0] == "45Z EBITDA guidance" and row[6] == "2026 year")
+    annual_row = next(row for row in values if row[0] == "2026 year 45Z EBITDA guidance" and row[6] == "2026 year")
     assert annual_row[5] in {"On track", "Open"}
     assert annual_row[5] != "Completed"
     assert annual_row[4] in {"", None, "not yet measurable"}
