@@ -21,6 +21,15 @@ from pbi_xbrl.pipeline_types import PipelineArtifacts, PipelineConfig, WorkbookI
 from pbi_xbrl.valuation_precompute_runtime import ValuationPrecomputeRuntime, analyze_cap_alloc_doc
 
 
+def test_doc_intel_cache_key_tracks_local_source_material_signature() -> None:
+    source = Path(pipeline_orchestration.__file__).read_text(encoding="utf-8")
+    start = source.index("doc_intel_key =")
+    end = source.index("doc_intel_cached =", start)
+    doc_intel_block = source[start:end]
+
+    assert "materials={local_material_sig}" in doc_intel_block
+
+
 def test_debt_parser_keeps_summary_rows_on_current_period_column() -> None:
     html = """
     <html><body><table>

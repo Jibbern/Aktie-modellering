@@ -5374,6 +5374,7 @@ def run_pipeline_impl(
             f"revh={_df_quick_sig(revolver_history, ['quarter', 'revolver_commitment', 'revolver_drawn', 'revolver_availability'])}",
             f"db={_df_quick_sig(debt_buckets, ['quarter', 'maturity_year', 'amount_total'])}",
             f"er={earnings_release_sig}",
+            f"materials={local_material_sig}",
             f"max_docs={config.doc_intel_max_docs}",
             f"max_quarters={config.doc_intel_max_quarters}",
             "doc_text_cache=v2",

@@ -85121,6 +85121,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         }
         for letter, width in col_widths.items():
             ws.column_dimensions[letter].width = width
+        large_raw_sheet_fast_path = len(rows) > 20000
+        if large_raw_sheet_fast_path:
+            # This audit sheet can exceed 80k rows for GPRE market history. The
+            # workbook-facing quality comes from preserving the data and headers; per-cell
+            # borders/alignment on every raw row dominate write time without adding much
+            # audit value.
+            for rec in rows:
+                out_row: List[Any] = []
+                for header in headers:
+                    value = rec.get(header)
+                    if isinstance(value, str):
+                        value = ILLEGAL_CHARACTERS_RE.sub("", value)
+                    elif value is not None:
+                        try:
+                            value = _safe_cell(value)
+                        except Exception:
+                            pass
+                    out_row.append(value)
+                ws.append(out_row)
+            for row_idx in range(2, ws.max_row + 1):
+                ws.cell(row=row_idx, column=1).number_format = "yyyy-mm-dd"
+                ws.cell(row=row_idx, column=2).number_format = "yyyy-mm-dd"
+                ws.cell(row=row_idx, column=11).number_format = "#,##0.000"
+            ws.freeze_panes = "A2"
+            ws.auto_filter.ref = f"A1:N{ws.max_row}"
+            ws.sheet_format.defaultRowHeight = 18
+            ws.sheet_view.zoomScale = 110
+            return
         for row_idx, rec in enumerate(rows, start=2):
             for col_idx, header in enumerate(headers, start=1):
                 value = rec.get(header)

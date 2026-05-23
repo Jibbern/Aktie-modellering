@@ -1743,6 +1743,178 @@ def test_sync_market_cache_rebuilds_raw_manifest_from_existing_raw_files(monkeyp
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_sync_market_cache_reuses_unchanged_export_for_incremental_reparse(monkeypatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_market_incremental_reparse_")
+    try:
+        cache_dir = tmp_path / "sec_cache" / "GPRE"
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ensure_market_cache_dirs(cache_root)
+        raw_dir = cache_root / "raw" / "demo_fast" / "2026"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        raw_file = raw_dir / "demo_fast_2026-01-23.pdf"
+        raw_file.write_bytes(b"%PDF-1.4 demo raw file")
+
+        parse_calls = {"count": 0}
+
+        class _DemoProvider(BaseMarketProvider):
+            source = "demo_fast"
+            stable_name_prefix = "demo_fast"
+            provider_parse_version = "v1"
+
+            def owns_local_asset(self, path: Path) -> bool:
+                return path.name.startswith("demo_fast_")
+
+            def parse_raw_to_rows(self, cache_root_in: Path, ticker_root_in: Path, raw_entries: list[dict[str, object]]) -> pd.DataFrame:
+                del cache_root_in, ticker_root_in
+                parse_calls["count"] += 1
+                assert len(raw_entries) == 1
+                return pd.DataFrame(
+                    [
+                        _parsed_row(
+                            source="demo_fast",
+                            report_type="demo_pdf",
+                            source_type="demo_pdf",
+                            market_family="corn_price",
+                            series_key="corn_cash_demo",
+                            instrument="Corn",
+                            location="Demo",
+                            region="demo",
+                            source_file="demo_fast_2026-01-23.pdf",
+                            observation_date="2026-01-23",
+                            publication_date="2026-01-23",
+                            quarter="2026-03-31",
+                            price_value=4.11,
+                        )
+                    ]
+                )
+
+        monkeypatch.setitem(market_service.PROVIDERS, "demo_fast", _DemoProvider())
+
+        class _Profile:
+            enabled_market_sources = ("demo_fast",)
+
+        first = sync_market_cache(cache_dir, "GPRE", profile=_Profile(), reparse=True)
+        second = sync_market_cache(cache_dir, "GPRE", profile=_Profile(), reparse=True)
+
+        assert first.parsed_sources == ("demo_fast",)
+        assert second.parsed_sources == tuple()
+        assert first.export_rows == second.export_rows == 3
+        assert parse_calls["count"] == 1
+
+        manifest = json.loads((cache_root / "index" / "export_inputs" / "GPRE.json").read_text(encoding="utf-8"))
+        assert manifest["export_cache_version"]
+        assert manifest["export_cache_key"]
+        assert manifest["export_rows"] == 3
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_sync_market_cache_force_reparse_bypasses_export_cache(monkeypatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_market_force_reparse_")
+    try:
+        cache_dir = tmp_path / "sec_cache" / "GPRE"
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ensure_market_cache_dirs(cache_root)
+        raw_dir = cache_root / "raw" / "demo_force" / "2026"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        (raw_dir / "demo_force_2026-01-23.pdf").write_bytes(b"%PDF-1.4 demo raw file")
+
+        parse_calls = {"count": 0}
+
+        class _DemoProvider(BaseMarketProvider):
+            source = "demo_force"
+            stable_name_prefix = "demo_force"
+            provider_parse_version = "v1"
+
+            def owns_local_asset(self, path: Path) -> bool:
+                return path.name.startswith("demo_force_")
+
+            def parse_raw_to_rows(self, cache_root_in: Path, ticker_root_in: Path, raw_entries: list[dict[str, object]]) -> pd.DataFrame:
+                del cache_root_in, ticker_root_in, raw_entries
+                parse_calls["count"] += 1
+                return pd.DataFrame(
+                    [
+                        _parsed_row(
+                            source="demo_force",
+                            report_type="demo_pdf",
+                            source_type="demo_pdf",
+                            source_file="demo_force_2026-01-23.pdf",
+                            observation_date="2026-01-23",
+                            publication_date="2026-01-23",
+                            quarter="2026-03-31",
+                            price_value=4.12,
+                        )
+                    ]
+                )
+
+        monkeypatch.setitem(market_service.PROVIDERS, "demo_force", _DemoProvider())
+
+        class _Profile:
+            enabled_market_sources = ("demo_force",)
+
+        sync_market_cache(cache_dir, "GPRE", profile=_Profile(), reparse=True)
+        forced = sync_market_cache(cache_dir, "GPRE", profile=_Profile(), reparse=True, force_reparse=True)
+
+        assert forced.parsed_sources == ("demo_force",)
+        assert parse_calls["count"] == 2
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_sync_market_cache_incremental_reparse_detects_changed_raw_file(monkeypatch) -> None:
+    tmp_path = _local_test_dir(".pytest_tmp_market_incremental_changed_raw_")
+    try:
+        cache_dir = tmp_path / "sec_cache" / "GPRE"
+        cache_root = tmp_path / "sec_cache" / "market_data"
+        ensure_market_cache_dirs(cache_root)
+        raw_dir = cache_root / "raw" / "demo_changed" / "2026"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        raw_file = raw_dir / "demo_changed_2026-01-23.pdf"
+        raw_file.write_bytes(b"%PDF-1.4 demo raw file")
+
+        parse_calls = {"count": 0}
+
+        class _DemoProvider(BaseMarketProvider):
+            source = "demo_changed"
+            stable_name_prefix = "demo_changed"
+            provider_parse_version = "v1"
+
+            def owns_local_asset(self, path: Path) -> bool:
+                return path.name.startswith("demo_changed_")
+
+            def parse_raw_to_rows(self, cache_root_in: Path, ticker_root_in: Path, raw_entries: list[dict[str, object]]) -> pd.DataFrame:
+                del cache_root_in, ticker_root_in, raw_entries
+                parse_calls["count"] += 1
+                return pd.DataFrame(
+                    [
+                        _parsed_row(
+                            source="demo_changed",
+                            report_type="demo_pdf",
+                            source_type="demo_pdf",
+                            source_file="demo_changed_2026-01-23.pdf",
+                            observation_date="2026-01-23",
+                            publication_date="2026-01-23",
+                            quarter="2026-03-31",
+                            price_value=4.10 + parse_calls["count"],
+                        )
+                    ]
+                )
+
+        monkeypatch.setitem(market_service.PROVIDERS, "demo_changed", _DemoProvider())
+
+        class _Profile:
+            enabled_market_sources = ("demo_changed",)
+
+        sync_market_cache(cache_dir, "GPRE", profile=_Profile(), reparse=True)
+        raw_file.write_bytes(b"%PDF-1.4 demo raw file changed")
+        changed = sync_market_cache(cache_dir, "GPRE", profile=_Profile(), reparse=True)
+
+        assert changed.parsed_sources == ("demo_changed",)
+        assert parse_calls["count"] == 2
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_raw_cache_merge_drops_stale_usda_begin_date_duplicate() -> None:
     tmp_path = _local_test_dir(".pytest_tmp_market_raw_usda_duplicate_")
     try:

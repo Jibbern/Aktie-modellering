@@ -101,6 +101,7 @@ _GPRE_QUARTER_OPEN_FORWARD_FUTURES_LOOKAROUND_DAYS = 7
 _GPRE_AMS_BASIS_DEFAULT_STRATEGY = "exact1"
 _GPRE_COPRODUCT_SOURCE_PRIORITY: Tuple[str, ...] = ("nwer", "ams_3618")
 _MARKET_INPUT_FINGERPRINT_VERSION = "v1"
+_MARKET_EXPORT_CACHE_VERSION = "v2"
 _LOCAL_BARCHART_CORN_SOURCE_TYPE = "local_barchart_corn_futures_csv"
 _LOCAL_BARCHART_GAS_SOURCE_TYPE = "local_barchart_gas_futures_csv"
 _LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE = "local_chicago_ethanol_futures_csv"
@@ -693,6 +694,64 @@ def _market_export_inputs_manifest_path(cache_root: Path, ticker: str) -> Path:
     return export_inputs_manifest_path(cache_root, ticker)
 
 
+def _raw_tree_fingerprint_manifest_path(cache_root: Path) -> Path:
+    out_dir = cache_root / "index"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir / "raw_tree_fingerprints.json"
+
+
+def _raw_tree_fingerprint(cache_root: Path, source: str) -> str:
+    raw_root = cache_root / "raw" / str(source)
+    if not raw_root.exists() or not raw_root.is_dir():
+        return "none"
+    tokens: List[str] = []
+    for path in sorted(raw_root.rglob("*")):
+        if not path.is_file():
+            continue
+        try:
+            st = path.stat()
+            rel = path.relative_to(raw_root).as_posix()
+            tokens.append(f"{rel}|{int(st.st_size)}|{int(getattr(st, 'st_mtime_ns', int(st.st_mtime * 1000000000)))}")
+        except Exception:
+            continue
+    return batch_fingerprint(tokens)
+
+
+def _market_export_cache_key(
+    *,
+    ticker: str,
+    enabled_sources: Iterable[str],
+    source_states: Iterable[Dict[str, Any]],
+    input_fingerprint: str,
+) -> str:
+    tokens: List[str] = [
+        f"ver={_MARKET_EXPORT_CACHE_VERSION}",
+        f"ticker={str(ticker or '').strip().upper()}",
+        f"input={str(input_fingerprint or '')}",
+    ]
+    tokens.extend(f"src={str(src or '').strip()}" for src in enabled_sources)
+    for state in source_states:
+        tokens.append(
+            "|".join(
+                [
+                    f"source={str(state.get('source') or '')}",
+                    f"raw={str(state.get('combined_raw_fingerprint') or '')}",
+                    f"parse={str(state.get('parse_version') or '')}",
+                ]
+            )
+        )
+    return batch_fingerprint(tokens)
+
+
+def _coerce_manifest_int(value: Any, default: int = 0) -> int:
+    try:
+        if value is None or value == "":
+            return int(default)
+        return int(float(value))
+    except Exception:
+        return int(default)
+
+
 def _sorted_unique_existing_files(paths: Iterable[Path]) -> List[Path]:
     resolved: Dict[str, Path] = {}
     for raw_path in paths or ():
@@ -1152,6 +1211,7 @@ def sync_market_cache(
     sync_raw: bool = False,
     refresh: bool = False,
     reparse: bool = False,
+    force_reparse: bool = False,
     quarantine_raw_orphans: bool = False,
 ) -> SyncSummary:
     """Keep market-data raw, parsed, and export layers aligned for one ticker.
@@ -1184,6 +1244,8 @@ def sync_market_cache(
     enabled_sources = tuple(src for src in _enabled_sources_for_profile(profile) if src in PROVIDERS)
     raw_manifest = load_manifest(raw_manifest_path(cache_root))
     parsed_manifest = load_manifest(parsed_manifest_path(cache_root))
+    raw_tree_manifest_path = _raw_tree_fingerprint_manifest_path(cache_root)
+    raw_tree_manifest = load_manifest(raw_tree_manifest_path)
 
     raw_added = raw_refreshed = raw_skipped = 0
     raw_entries_by_source: Dict[str, List[Dict[str, Any]]] = {}
@@ -1201,7 +1263,13 @@ def sync_market_cache(
                 for row in list(sync_result.get("entries") or [])
                 if isinstance(row, dict)
             ]
-        disk_entries = _raw_entries_from_disk(cache_root, source, provider)
+        raw_tree_fp = _raw_tree_fingerprint(cache_root, source)
+        previous_tree_fp = str(raw_tree_manifest.get(source) or "")
+        raw_tree_unchanged = bool(manifest_entries and previous_tree_fp == raw_tree_fp and not refresh)
+        if raw_tree_unchanged:
+            disk_entries = []
+        else:
+            disk_entries = _raw_entries_from_disk(cache_root, source, provider)
         raw_entries = _merge_raw_entries(
             manifest_entries,
             disk_entries,
@@ -1210,13 +1278,24 @@ def sync_market_cache(
         )
         raw_entries_by_source[source] = raw_entries
         raw_manifest[source] = raw_entries
-        quarantine_result = _quarantine_raw_cache_orphans(
-            cache_root,
-            source=source,
-            provider=provider,
-            manifest_entries=raw_entries,
-            move_orphans=bool(quarantine_raw_orphans),
-        )
+        if raw_tree_unchanged and not quarantine_raw_orphans:
+            quarantine_result = {
+                "source": source,
+                "orphan_count": 0,
+                "action": "cached",
+                "audit_root": None,
+                "quarantine_root": None,
+                "manifest_path": None,
+                "entries": [],
+            }
+        else:
+            quarantine_result = _quarantine_raw_cache_orphans(
+                cache_root,
+                source=source,
+                provider=provider,
+                manifest_entries=raw_entries,
+                move_orphans=bool(quarantine_raw_orphans),
+            )
         raw_orphan_results[source] = quarantine_result
         if int(quarantine_result.get("orphan_count") or 0) > 0:
             action_txt = "quarantined" if quarantine_raw_orphans else "detected"
@@ -1226,10 +1305,11 @@ def sync_market_cache(
                 f"at {destination}",
                 flush=True,
             )
+        raw_tree_manifest[source] = raw_tree_fp
     save_manifest(raw_manifest_path(cache_root), raw_manifest)
+    save_manifest(raw_tree_manifest_path, raw_tree_manifest)
 
-    parsed_sources: List[str] = []
-    all_export_parts: List[pd.DataFrame] = []
+    source_states: List[Dict[str, Any]] = []
     for source in enabled_sources:
         provider = PROVIDERS[source]
         # Parsed/export reuse depends on both the normalized raw fingerprint and any
@@ -1239,14 +1319,73 @@ def sync_market_cache(
         raw_fp = batch_fingerprint([str(x.get("checksum") or "") for x in raw_entries])
         combined_raw_fp = batch_fingerprint([bootstrap_fp, raw_fp])
         parse_version = str(getattr(provider, "provider_parse_version", "v1") or "v1")
+        source_states.append(
+            {
+                "source": source,
+                "provider": provider,
+                "bootstrap_df": bootstrap_df,
+                "bootstrap_fingerprint": bootstrap_fp,
+                "raw_entries": raw_entries,
+                "raw_fingerprint": raw_fp,
+                "combined_raw_fingerprint": combined_raw_fp,
+                "parse_version": parse_version,
+            }
+        )
+
+    export_path = export_rows_path(cache_root, ticker_u)
+    export_path.parent.mkdir(parents=True, exist_ok=True)
+    export_input_payload = market_input_fingerprint(
+        cache_dir,
+        ticker_u,
+        profile=profile,
+        include_sidecars=False,
+    )
+    export_cache_key = _market_export_cache_key(
+        ticker=ticker_u,
+        enabled_sources=enabled_sources,
+        source_states=source_states,
+        input_fingerprint=str(export_input_payload.get("fingerprint") or ""),
+    )
+    export_manifest_path = _market_export_inputs_manifest_path(cache_root, ticker_u)
+    export_manifest = load_manifest(export_manifest_path)
+    if (
+        export_path.exists()
+        and not bool(force_reparse)
+        and str(export_manifest.get("export_cache_version") or "") == _MARKET_EXPORT_CACHE_VERSION
+        and str(export_manifest.get("export_cache_key") or "") == export_cache_key
+        and tuple(export_manifest.get("sources_enabled") or ()) == tuple(enabled_sources)
+    ):
+        return SyncSummary(
+            sources_enabled=enabled_sources,
+            raw_added=raw_added,
+            raw_refreshed=raw_refreshed,
+            raw_skipped=raw_skipped,
+            raw_orphans_detected=sum(int(result.get("orphan_count") or 0) for result in raw_orphan_results.values()),
+            raw_orphan_results=tuple(dict(result) for result in raw_orphan_results.values()),
+            parsed_sources=tuple(),
+            export_rows=_coerce_manifest_int(export_manifest.get("export_rows"), default=0),
+            export_path=export_path,
+        )
+
+    parsed_sources: List[str] = []
+    all_export_parts: List[pd.DataFrame] = []
+    for state in source_states:
+        source = str(state.get("source") or "")
+        provider = state.get("provider")
+        bootstrap_df = state.get("bootstrap_df")
+        if not isinstance(bootstrap_df, pd.DataFrame):
+            bootstrap_df = pd.DataFrame(columns=PARSED_SCHEMA_COLUMNS)
+        raw_entries = list(state.get("raw_entries") or [])
+        combined_raw_fp = str(state.get("combined_raw_fingerprint") or "")
+        parse_version = str(state.get("parse_version") or "v1")
         manifest_entry = parsed_manifest.get(source) if isinstance(parsed_manifest.get(source), dict) else {}
         obs_path = parsed_obs_path(cache_root, source)
         qtr_path = parsed_quarter_path(cache_root, source)
-        # Parsed outputs can be reused only when the normalized raw fingerprint and
-        # parser behavior version still match. Otherwise we reparse from raw/bootstrap
-        # sources and refresh the parsed manifest entry.
+        # Parsed outputs can be reused whenever the normalized raw fingerprint and
+        # parser behavior version still match. `reparse=True` reconciles stale sources
+        # incrementally; `force_reparse=True` is the explicit full rebuild escape hatch.
         can_reuse = (
-            not reparse
+            not force_reparse
             and obs_path.exists()
             and qtr_path.exists()
             and str(manifest_entry.get("raw_fingerprint") or "") == combined_raw_fp
@@ -1278,8 +1417,6 @@ def sync_market_cache(
     # dataset so workbook code can stay provider-agnostic. This is the layer the
     # workbook actually consumes; raw and parsed trees mainly support building it.
     export_df = pd.concat(all_export_parts, ignore_index=True) if all_export_parts else pd.DataFrame()
-    export_path = export_rows_path(cache_root, ticker_u)
-    export_path.parent.mkdir(parents=True, exist_ok=True)
     if export_df.empty:
         pd.DataFrame(
             columns=[
@@ -1302,14 +1439,8 @@ def sync_market_cache(
         ).to_parquet(export_path, index=False)
     else:
         export_df.to_parquet(export_path, index=False)
-    export_input_payload = market_input_fingerprint(
-        cache_dir,
-        ticker_u,
-        profile=profile,
-        include_sidecars=False,
-    )
     save_manifest(
-        _market_export_inputs_manifest_path(cache_root, ticker_u),
+        export_manifest_path,
         {
             "ticker": ticker_u,
             "generated_at": pd.Timestamp.now("UTC").isoformat(),
@@ -1317,6 +1448,17 @@ def sync_market_cache(
             "input_fingerprint": str(export_input_payload.get("fingerprint") or ""),
             "tracked_paths": list(export_input_payload.get("tracked_paths") or []),
             "fingerprint_version": str(export_input_payload.get("fingerprint_version") or _MARKET_INPUT_FINGERPRINT_VERSION),
+            "export_cache_version": _MARKET_EXPORT_CACHE_VERSION,
+            "export_cache_key": export_cache_key,
+            "export_rows": int(len(export_df)),
+            "source_states": [
+                {
+                    "source": str(state.get("source") or ""),
+                    "combined_raw_fingerprint": str(state.get("combined_raw_fingerprint") or ""),
+                    "parse_version": str(state.get("parse_version") or ""),
+                }
+                for state in source_states
+            ],
         },
     )
 
@@ -20371,10 +20513,9 @@ def load_market_export_rows(
         profile=profile,
         include_sidecars=False,
     )
-    df = _load_parquet(export_path)
     if ensure_cache and str(export_inputs_manifest.get("input_fingerprint") or "") != str(current_input_payload.get("fingerprint") or ""):
         sync_market_cache(cache_dir, ticker_u, profile=profile, sync_raw=True, refresh=False, reparse=True)
-        df = _load_parquet(export_path)
+    df = _load_parquet(export_path)
     if ensure_cache and _export_needs_history_repair(df, ticker_root=ticker_root, enabled_sources=enabled_sources):
         sync_market_cache(cache_dir, ticker_u, profile=profile, sync_raw=True, refresh=False, reparse=True)
         df = _load_parquet(export_path)

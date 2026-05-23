@@ -138,11 +138,11 @@ def _hash_file_stats(paths: Iterable[Path], max_files: int = 1200) -> str:
     return hashlib.sha1("||".join(rows).encode("utf-8", errors="ignore")).hexdigest()
 
 
-def _material_signature(repo_root: Path, ticker: Optional[str]) -> str:
+def _material_signature(repo_root: Path, ticker: Optional[str], material_root: Optional[Path] = None) -> str:
     t = str(ticker or "").strip().upper()
     if not t:
         return "none"
-    ticker_root = repo_root / t
+    ticker_root = Path(material_root).expanduser().resolve() if material_root is not None else repo_root / t
     if not ticker_root.exists():
         return "missing"
     dirs = [
@@ -196,10 +196,11 @@ def _default_history_export_path(ticker: str | None, suffix: str) -> Path:
     return (_excel_output_root(repo_root) / f"{stem}{suffix}").resolve()
 
 
-def _default_cache_dir_for_ticker(repo_root: Path, ticker: str) -> Path:
+def _default_cache_dir_for_ticker(repo_root: Path, ticker: str, data_root: Optional[Path] = None) -> Path:
     ticker_u = str(ticker or "").strip().upper()
-    cache_dir = canonical_ticker_cache_root(repo_root, ticker_u).resolve()
-    migration = bootstrap_canonical_ticker_cache(repo_root, ticker_u)
+    root = Path(data_root).expanduser().resolve() if data_root is not None else repo_root
+    cache_dir = canonical_ticker_cache_root(root, ticker_u).resolve()
+    migration = bootstrap_canonical_ticker_cache(root, ticker_u)
     if migration.get("status") == "copied":
         print(
             "[sec_cache] "
@@ -254,7 +255,7 @@ def _pipeline_bundle_cache_key(args: argparse.Namespace, cfg: PipelineConfig, re
             f"quiet_pdf={int(cfg.quiet_pdf_warnings)}",
             f"skip_doc_intel={int(cfg.use_cached_doc_intel_only)}",
             f"sec={_sec_cache_signature(cfg.cache_dir)}",
-            f"materials={_material_signature(repo_root, args.ticker)}",
+            f"materials={_material_signature(repo_root, args.ticker, cfg.material_root)}",
             f"code={_code_signature(repo_root)}",
             f"market={str(market_fp.get('fingerprint') or 'none')}",
         ]
@@ -383,6 +384,16 @@ def main() -> None:
     )
     ap.add_argument("--cache-dir", default=None, help="Cache directory (default: ../{TICKER}/sec_cache)")
     ap.add_argument(
+        "--data-root",
+        default="",
+        help="Portable data root containing sec_cache plus ticker folders; useful for OneDrive/shared data layouts.",
+    )
+    ap.add_argument(
+        "--material-root",
+        default="",
+        help="Ticker-specific source-material folder override, e.g. .../StockModelData/GPRE.",
+    )
+    ap.add_argument(
         "--market-sync",
         action="store_true",
         help="Sync cached external market reports/parsed data for the current ticker before workbook generation.",
@@ -395,7 +406,12 @@ def main() -> None:
     ap.add_argument(
         "--market-reparse",
         action="store_true",
-        help="Rebuild parsed market-data cache from existing raw/bootstrap sources.",
+        help="Incrementally reconcile parsed market-data cache from existing raw/bootstrap sources.",
+    )
+    ap.add_argument(
+        "--market-force-reparse",
+        action="store_true",
+        help="Force all parsed market-data sources and ticker export to rebuild even when fingerprints match.",
     )
     ap.add_argument(
         "--market-only",
@@ -516,6 +532,8 @@ def main() -> None:
 
     ua = _require_user_agent(args.user_agent)
     repo_root = _project_root()
+    data_root = Path(args.data_root).expanduser().resolve() if str(args.data_root or "").strip() else None
+    explicit_material_root = Path(args.material_root).expanduser().resolve() if str(args.material_root or "").strip() else None
 
     if args.refresh_source_materials:
         if args.cache_dir and not str(args.ticker or "").strip():
@@ -579,7 +597,7 @@ def main() -> None:
             cache_dir = (
                 Path(args.cache_dir).expanduser().resolve()
                 if args.cache_dir and len(refresh_tickers) == 1
-                else _default_cache_dir_for_ticker(repo_root, refresh_ticker)
+                else _default_cache_dir_for_ticker(repo_root, refresh_ticker, data_root=data_root)
             )
             market_profile = get_company_profile(refresh_ticker)
             market_summary = sync_market_cache(
@@ -608,7 +626,11 @@ def main() -> None:
     if args.cache_dir:
         cache_dir = Path(args.cache_dir).expanduser().resolve()
     else:
-        cache_dir = _default_cache_dir_for_ticker(repo_root, tkr_u)
+        cache_dir = _default_cache_dir_for_ticker(repo_root, tkr_u, data_root=data_root)
+
+    material_root = explicit_material_root
+    if material_root is None and data_root is not None and str(args.ticker or "").strip():
+        material_root = data_root / str(args.ticker or "").strip().upper()
 
     min_year = args.min_year
 
@@ -628,6 +650,8 @@ def main() -> None:
         profile_timings=bool(args.profile_timings),
         debug_regression_gate=bool(args.debug_regression_gate),
         allow_regression_gate_fail=bool(args.allow_regression_gate_fail),
+        repo_root=repo_root,
+        material_root=material_root,
     )
 
     sec_cfg = SecConfig(user_agent=ua)
@@ -638,6 +662,7 @@ def main() -> None:
         f"ticker={args.ticker} "
         f"cik={args.cik or 'auto'} "
         f"cache_dir={cfg.cache_dir} "
+        f"material_root={cfg.material_root or 'default'} "
         f"max_quarters={cfg.max_quarters} "
         f"min_year={cfg.min_year or 'None'} "
         f"tier2={'on' if cfg.enable_tier2_debt else 'off'} "
@@ -653,10 +678,10 @@ def main() -> None:
         f"allow_regression_gate_fail={'on' if cfg.allow_regression_gate_fail else 'off'}"
     )
 
-    market_requested = bool(args.market_sync or args.market_refresh or args.market_reparse or args.market_only)
+    market_requested = bool(args.market_sync or args.market_refresh or args.market_reparse or args.market_force_reparse or args.market_only)
     if market_requested:
         if not str(args.ticker or "").strip():
-            raise SystemExit("ERROR: --ticker is required for --market-sync/--market-refresh/--market-reparse/--market-only.")
+            raise SystemExit("ERROR: --ticker is required for --market-sync/--market-refresh/--market-reparse/--market-force-reparse/--market-only.")
         market_profile = get_company_profile(args.ticker)
         market_timings: Dict[str, float] = {}
         with _timed("market_cache", enabled=cfg.profile_timings, store=market_timings):
@@ -666,7 +691,8 @@ def main() -> None:
                 profile=market_profile,
                 sync_raw=bool(args.market_sync or args.market_refresh),
                 refresh=bool(args.market_refresh),
-                reparse=bool(args.market_reparse),
+                reparse=bool(args.market_reparse or args.market_force_reparse),
+                force_reparse=bool(args.market_force_reparse),
             )
         print(
             "[market_data] "
