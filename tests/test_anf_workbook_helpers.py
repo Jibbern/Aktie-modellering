@@ -8,6 +8,7 @@ from openpyxl.styles import PatternFill
 
 from pbi_xbrl.excel_writer_context import (
     ANF_SEGMENT_BRAND_EXPLANATION,
+    QUARTER_NARRATIVE_DATA_HEADERS,
     _anf_add_total_company_quarter_revenue_from_history,
     _anf_annual_segment_data_from_slides_segments,
     _anf_build_guidance_timeline_rows,
@@ -42,6 +43,8 @@ from pbi_xbrl.excel_writer_context import (
     _history_q_year_default_formulas,
     _insert_management_credibility_scorecard,
     _net_debt_yoy_flag_label_and_status_for_position,
+    _quarter_narrative_records_for_ticker,
+    _write_quarter_narrative_data_sheet,
     _sector_build_investment_case_data,
     _shared_readable_source_type_label,
     _sector_operating_driver_intro_tables,
@@ -82,6 +85,89 @@ def _history_q_test_workbook(rows: list[tuple[dt.date, float]], *, summary_note:
         summary = wb.create_sheet("SUMMARY")
         summary["A1"] = summary_note
     return wb
+
+
+def test_quarter_narrative_records_cover_required_ticker_themes() -> None:
+    pbi = _quarter_narrative_records_for_ticker("PBI")
+    gpre = _quarter_narrative_records_for_ticker("GPRE")
+    anf = _quarter_narrative_records_for_ticker("ANF")
+
+    pbi_text = " | ".join(
+        f"{r.category} {r.theme} {r.what_happened} {r.double_count_guardrail} {r.linked_metric}" for r in pbi
+    ).lower()
+    assert "$70m annualized reductions" in pbi_text
+    assert "$120m-$160m annual savings target" in pbi_text
+    assert "gec loss removal" in pbi_text
+    assert "cash optimization" in pbi_text
+    assert "fcf and adjusted fcf" in pbi_text
+    assert "target is not achieved savings" in pbi_text
+
+    gpre_text = " | ".join(
+        f"{r.category} {r.theme} {r.what_happened} {r.model_implication} {r.double_count_guardrail}" for r in gpre
+    ).lower()
+    assert "45z monetization" in gpre_text
+    assert "facility qualification" in gpre_text
+    assert "operational/running/monetizing" in gpre_text
+    assert "do not add full 45z guide" in gpre_text
+    assert "capex guidance" in gpre_text
+    assert "debt reduction" in gpre_text
+
+    anf_text = " | ".join(
+        f"{r.category} {r.theme} {r.what_happened} {r.model_implication} {r.double_count_guardrail}" for r in anf
+    ).lower()
+    assert "tariff headwind" in anf_text
+    assert "freight tailwind" in anf_text
+    assert "erp disruption" in anf_text
+    assert "marketing headwind" in anf_text
+    assert "buybacks and share count" in anf_text
+    assert "do not merge adjusted eps and gaap eps" in anf_text
+    assert "never sum brand and geography rows together" in anf_text
+
+
+def test_quarter_narrative_data_sheet_has_required_headers_and_clean_rows() -> None:
+    wb = Workbook()
+    _write_quarter_narrative_data_sheet(wb, "PBI")
+
+    assert "Quarter_Narrative_Data" in wb.sheetnames
+    ws = wb["Quarter_Narrative_Data"]
+    headers = [ws.cell(row=1, column=cc).value for cc in range(1, len(QUARTER_NARRATIVE_DATA_HEADERS) + 1)]
+    assert headers == QUARTER_NARRATIVE_DATA_HEADERS
+
+    body = [
+        [ws.cell(row=rr, column=cc).value for cc in range(1, len(QUARTER_NARRATIVE_DATA_HEADERS) + 1)]
+        for rr in range(2, ws.max_row + 1)
+    ]
+    assert body
+    assert all(row[0] == "PBI" for row in body)
+    assert all(row[2] for row in body)
+    assert all(row[3] for row in body)
+    assert all(row[4] for row in body)
+    assert all(row[7] for row in body)
+    joined = " ".join(str(cell or "") for row in body for cell in row)
+    assert "[UPDATED]" not in joined
+    assert "metadata:" not in joined.lower()
+    assert max(len(str(cell or "")) for row in body for cell in row) < 500
+
+
+def test_quarter_narrative_records_link_to_model_surfaces() -> None:
+    records = []
+    for ticker in ("PBI", "GPRE", "ANF"):
+        records.extend(_quarter_narrative_records_for_ticker(ticker))
+
+    def _has(ticker: str, theme: str, sheet_text: str) -> bool:
+        return any(
+            r.ticker == ticker
+            and theme.lower() in r.theme.lower()
+            and sheet_text.lower() in r.linked_sheet.lower()
+            for r in records
+        )
+
+    assert _has("PBI", "Annual savings target", "Promise_Progress_UI")
+    assert _has("PBI", "Run-rate savings progress", "Scenario Driver Bridge")
+    assert _has("GPRE", "45Z monetization", "Operating_Drivers")
+    assert _has("GPRE", "Capex guidance", "Scenario Driver Bridge")
+    assert _has("ANF", "Tariff headwind", "Scenario Driver Bridge")
+    assert _has("ANF", "Brand and geography cuts", "Scenario_Driver_Assumptions")
 
 
 def test_history_q_latest_full_year_uses_fiscal_quarters_for_retail_year_end() -> None:

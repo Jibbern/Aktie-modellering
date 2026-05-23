@@ -80,6 +80,642 @@ SCENARIO_TAX_DIRECT_EPS = "direct_eps"
 
 
 @dataclass(frozen=True)
+class QuarterNarrativeRecord:
+    ticker: str
+    fiscal_period: str
+    source_period: str = ""
+    source_date: str = ""
+    source_type: str = ""
+    source_file: str = ""
+    source_note: str = ""
+    category: str = ""
+    theme: str = ""
+    what_happened: str = ""
+    management_framing: str = ""
+    why_it_matters: str = ""
+    model_implication: str = ""
+    valuation_implication: str = ""
+    double_count_guardrail: str = ""
+    linked_sheet: str = ""
+    linked_metric: str = ""
+    amount: Any = ""
+    unit: str = ""
+    confidence: str = "medium"
+    include_in_quarter_notes: bool = True
+    include_in_promise_progress: bool = False
+    include_in_investment_case: bool = False
+    raw_quote_short: str = ""
+    raw_quote_exact: str = ""
+
+
+QUARTER_NARRATIVE_DATA_HEADERS = [
+    "Ticker",
+    "Quarter",
+    "Category",
+    "Theme",
+    "What happened",
+    "Management framing",
+    "Why it matters",
+    "Model implication",
+    "Valuation implication",
+    "Double-count guardrail",
+    "Linked sheet",
+    "Linked metric",
+    "Amount",
+    "Unit",
+    "Source date",
+    "Source type",
+    "Source / note",
+    "Confidence",
+    "Include in UI",
+]
+
+
+def _quarter_narrative_record_to_audit_row(record: QuarterNarrativeRecord) -> List[Any]:
+    source_bits = [record.source_file, record.source_note]
+    source_note = " | ".join(str(bit).strip() for bit in source_bits if str(bit or "").strip())
+    if record.source_period:
+        source_note = f"{source_note} | stated in {record.source_period}" if source_note else f"stated in {record.source_period}"
+    return [
+        record.ticker,
+        record.fiscal_period,
+        record.category,
+        record.theme,
+        record.what_happened,
+        record.management_framing,
+        record.why_it_matters,
+        record.model_implication,
+        record.valuation_implication,
+        record.double_count_guardrail,
+        record.linked_sheet,
+        record.linked_metric,
+        record.amount,
+        record.unit,
+        record.source_date,
+        record.source_type,
+        source_note,
+        record.confidence,
+        "Yes" if record.include_in_quarter_notes else "No",
+    ]
+
+
+def _quarter_narrative_records_for_ticker(ticker: Any) -> List[QuarterNarrativeRecord]:
+    """Conservative structured backing records for Quarter_Notes_UI."""
+    ticker_txt = str(ticker or "").strip().upper()
+    records: List[QuarterNarrativeRecord] = []
+
+    def _rec(**kwargs: Any) -> None:
+        kwargs.setdefault("ticker", ticker_txt)
+        records.append(QuarterNarrativeRecord(**kwargs))
+
+    if ticker_txt == "PBI":
+        base_source_type = "earnings release / presentation / transcript metadata"
+        _rec(
+            fiscal_period="2024-Q2",
+            source_period="2024-Q2",
+            source_date="2024-08-08",
+            source_type=base_source_type,
+            source_file="PBI/earnings_release/8-K_2024-08-08_earnings_release_q2_2024.htm",
+            category="Cost savings / restructuring",
+            theme="Implemented cost reductions",
+            what_happened="$70m annualized reductions were disclosed as implemented progress.",
+            management_framing="Savings came from corporate, SendTech and Presort actions.",
+            why_it_matters="It is evidence of run-rate progress, not the full program target.",
+            model_implication="Use as achieved/run-rate context for cost savings baseline.",
+            valuation_implication="Supports the EBIT bridge only if not double-counted with targets.",
+            double_count_guardrail="Do not treat achieved run-rate as the full cost savings target.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Quarter_Notes_UI",
+            linked_metric="Cost savings target / run-rate",
+            amount=70.0,
+            unit="$m annualized",
+            confidence="high",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+            raw_quote_short="$70m annualized reductions",
+        )
+        _rec(
+            fiscal_period="2024-Q2",
+            source_period="2024-Q2",
+            source_date="2024-08-08",
+            source_type=base_source_type,
+            source_file="PBI/earnings_release/8-K_2024-08-08_earnings_release_q2_2024.htm",
+            category="Cost savings / restructuring",
+            theme="Annual savings target",
+            what_happened="$120m-$160m annual savings target was reiterated.",
+            management_framing="Management presented the target as a program goal.",
+            why_it_matters="The target is a commitment to track against later progress.",
+            model_implication="Manual inputs can show the total target, while the bridge uses incremental savings vs baseline.",
+            valuation_implication="Only source-backed incremental savings should lift EBITDA/EPS.",
+            double_count_guardrail="Target is not achieved savings and should not be added on top of realized run-rate.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Scenario Driver Bridge",
+            linked_metric="Incremental cost savings vs baseline",
+            amount="$120m-$160m",
+            unit="$m annualized target",
+            confidence="high",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+            raw_quote_short="$120m-$160m annual savings",
+        )
+        _rec(
+            fiscal_period="2024-Q2",
+            source_period="2024-Q2",
+            source_date="2024-08-08",
+            source_type=base_source_type,
+            source_file="PBI/earnings_release/8-K_2024-08-08_earnings_release_q2_2024.htm",
+            category="Cost savings / restructuring",
+            theme="GEC loss removal",
+            what_happened="GEC exit was presented as eliminating $136m of annualized net losses.",
+            management_framing="Management separated GEC exit economics from operating cost reductions.",
+            why_it_matters="Structural loss removal can improve earnings power but is not the same item as cost savings.",
+            model_implication="Track separately from cost savings and illustrative EBIT bridge.",
+            valuation_implication="May inform normalized EBIT but should not be stacked with the same bridge item twice.",
+            double_count_guardrail="Do not double-count GEC loss removal with cost savings or the illustrative EBIT bridge.",
+            linked_sheet="Investment_Case; Quarter_Notes_UI",
+            linked_metric="GEC loss removal",
+            amount=136.0,
+            unit="$m annualized loss removal",
+            confidence="high",
+            include_in_investment_case=True,
+            raw_quote_short="$136m annualized net loss removal",
+        )
+        _rec(
+            fiscal_period="2024-Q2",
+            source_period="2024-Q2",
+            source_date="2024-08-08",
+            source_type=base_source_type,
+            source_file="PBI/earnings_release/8-K_2024-08-08_earnings_release_q2_2024.htm",
+            category="FCF / cash flow",
+            theme="Cash optimization",
+            what_happened="Go-forward cash needs were framed around $240m after cash optimization.",
+            management_framing="Management described cash optimization separately from FCF guidance.",
+            why_it_matters="It affects liquidity and refinancing analysis but is not an FCF target.",
+            model_implication="Use as cash/liquidity context, not as ordinary FCF actual.",
+            valuation_implication="Relevant to debt runway and financing risk.",
+            double_count_guardrail="Do not map cash-needs optimization into FCF guidance.",
+            linked_sheet="Quarter_Notes_UI; Valuation; Debt_Profile",
+            linked_metric="Cash optimization / go-forward cash needs",
+            amount=240.0,
+            unit="$m go-forward cash needs",
+            confidence="high",
+            raw_quote_short="$240m go-forward cash needs",
+        )
+        _rec(
+            fiscal_period="2024-Q2",
+            source_period="2024-Q2",
+            source_date="2024-08-08",
+            source_type=base_source_type,
+            source_file="PBI/earnings_release/8-K_2024-08-08_earnings_release_q2_2024.htm",
+            category="Accounting / non-GAAP definitions",
+            theme="Illustrative EBIT bridge",
+            what_happened="$481m illustrative EBIT bridge was shown as a non-GAAP bridge, not formal guidance.",
+            management_framing="Bridge used TTM EBIT, GEC loss removal and cost-cut midpoint.",
+            why_it_matters="It is useful context but not a guidance promise by itself.",
+            model_implication="Keep separate from Forward Adj EBIT and cost savings inputs.",
+            valuation_implication="Can frame upside case after reconciliation.",
+            double_count_guardrail="Do not treat the illustrative EBIT bridge as a forecast or add it to cost savings again.",
+            linked_sheet="Quarter_Notes_UI; Investment_Case",
+            linked_metric="Illustrative EBIT bridge",
+            amount=481.0,
+            unit="$m illustrative EBIT",
+            confidence="high",
+            raw_quote_short="$481m illustrative EBIT bridge",
+        )
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-05-05",
+            source_type="earnings release / presentation",
+            source_file="PBI/earnings_release/8-K_2026-05-05_earnings_release_q1_2026.htm",
+            category="Cost savings / restructuring",
+            theme="Run-rate savings progress",
+            what_happened="$157m annualized run-rate savings were disclosed against the current target.",
+            management_framing="Management used run-rate progress to show execution toward the savings program.",
+            why_it_matters="It is the baseline for incremental cost savings bridge math.",
+            model_implication="Manual inputs can show total target/run-rate context; bridge uses target minus baseline.",
+            valuation_implication="Incremental savings can affect EBITDA and EPS after tax.",
+            double_count_guardrail="Do not backfill later run-rate savings into earlier quarters.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Scenario Driver Bridge",
+            linked_metric="Incremental cost savings vs baseline",
+            amount=157.0,
+            unit="$m annualized run-rate",
+            confidence="high",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+            raw_quote_short="$157m run-rate",
+        )
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="2025-Q4",
+            source_date="2025-12-31",
+            source_type="earnings release / guidance profile",
+            source_file="PBI/earnings_release/8-K_2026-02-17_earnings_release_q4_2025.htm",
+            category="FCF / cash flow",
+            theme="FCF definition",
+            what_happened="FCF and Adjusted FCF targets are source-specific and should not be collapsed.",
+            management_framing="Cash generation guidance is central to debt reduction execution.",
+            why_it_matters="Actual/progress must match the source definition used for the target.",
+            model_implication="Forward FCF input should use ordinary FCF when the company guides ordinary FCF.",
+            valuation_implication="FCF yield and deleveraging analysis depend on the same definition.",
+            double_count_guardrail="Do not use adjusted FCF as ordinary FCF, or TTM FCF as annual actual, unless the row says so.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Valuation",
+            linked_metric="FCF target / Adjusted FCF target",
+            unit="definition",
+            confidence="medium",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+        )
+    elif ticker_txt == "GPRE":
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="2025-Q4",
+            source_date="2025-12-31",
+            source_type="earnings release / operating drivers",
+            source_file="GPRE/earnings_release/8-K_2026-02-05_earnings_release_q4_2025.htm",
+            category="Policy / regulatory",
+            theme="45Z monetization",
+            what_happened="$23.4m of 45Z production tax credit value was monetized net of discounts and other costs.",
+            management_framing="Management framed 45Z as a material policy-linked earnings and cash driver.",
+            why_it_matters="It creates a realized baseline for later 45Z uplift.",
+            model_implication="Bridge uses incremental 45Z uplift vs the TTM/reported baseline.",
+            valuation_implication="Supports EBITDA/EPS bridge only for incremental uplift.",
+            double_count_guardrail="Do not add full 45Z guide on top of TTM if baseline 45Z is already included.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Operating_Drivers; Scenario Driver Bridge",
+            linked_metric="Incremental 45Z uplift vs baseline",
+            amount=23.4,
+            unit="$m",
+            confidence="high",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+            raw_quote_short="$23.4m in 45Z production tax credit value",
+        )
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-03-31",
+            source_type="earnings release / guidance profile",
+            source_file="GPRE/earnings_release/GPRE_Q1_2026_earnings_release.pdf",
+            category="Guidance / promise",
+            theme="45Z contribution guidance",
+            what_happened="2026 year 45Z contribution guidance was stated at $200m-$225m.",
+            management_framing="Management excluded on-farm practice upside pending final Treasury guidance/calculator.",
+            why_it_matters="The guide is a total contribution view, not an incremental add-on by itself.",
+            model_implication="Active guide minus baseline included drives the Scenario Driver Bridge.",
+            valuation_implication="Policy upside can move EBITDA/EPS if the incremental amount is source-backed.",
+            double_count_guardrail="Use incremental uplift vs baseline, not the full guidance amount.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Scenario Driver Bridge",
+            linked_metric="45Z contribution / guide ($m)",
+            amount="$200m-$225m",
+            unit="$m guide",
+            confidence="high",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+            raw_quote_short="$200m-$225m",
+        )
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-03-31",
+            source_type="earnings release / operating drivers",
+            source_file="GPRE/earnings_release/GPRE_Q1_2026_earnings_release.pdf",
+            category="Policy / regulatory",
+            theme="45Z facility qualification progress",
+            what_happened="Advantage Nebraska operating status supports progress toward 45Z facility qualification.",
+            management_framing="Remaining facilities are expected to qualify in 2026.",
+            why_it_matters="Operational/running/monetizing language is valid progress evidence unless contradicted.",
+            model_implication="Track as progress toward all-8 qualification, not as completed until all are confirmed.",
+            valuation_implication="Facility progress improves credibility of the 45Z bridge.",
+            double_count_guardrail="Operational/running/monetizing progress is evidence, but do not mark full facility qualification completed from partial progress.",
+            linked_sheet="Promise_Progress_UI; Operating_Drivers; Quarter_Notes_UI",
+            linked_metric="45Z facility qualification",
+            amount="3 of 8 progress evidence",
+            unit="facilities",
+            confidence="medium",
+            include_in_promise_progress=True,
+            raw_quote_short="Advantage Nebraska operational",
+        )
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="2025-Q4",
+            source_date="2025-12-31",
+            source_type="earnings release / operating drivers",
+            source_file="GPRE/earnings_release/8-K_2026-02-05_earnings_release_q4_2025.htm",
+            category="Policy / regulatory",
+            theme="Advantage Nebraska",
+            what_happened="Advantage Nebraska was described as operational.",
+            management_framing="Management tied the facility to 45Z contribution potential.",
+            why_it_matters="It is facility-specific evidence supporting the broader 45Z qualification pathway.",
+            model_implication="Use as progress evidence, not separate unrelated milestone economics.",
+            valuation_implication="Improves confidence in 45Z monetization timing.",
+            double_count_guardrail="Avoid counting Advantage Nebraska both as facility progress and full 45Z guidance.",
+            linked_sheet="Promise_Progress_UI; Operating_Drivers; Quarter_Notes_UI",
+            linked_metric="Advantage Nebraska startup",
+            amount="AN operational",
+            unit="status",
+            confidence="high",
+            include_in_promise_progress=True,
+        )
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="2025-Q4",
+            source_date="2025-12-31",
+            source_type="earnings release / guidance profile",
+            source_file="GPRE/earnings_release/8-K_2026-02-05_earnings_release_q4_2025.htm",
+            category="FCF / cash flow",
+            theme="Capex guidance",
+            what_happened="2026 sustaining capex guidance was stated at $15m-$25m.",
+            management_framing="Capex was framed as a cash-flow item.",
+            why_it_matters="Capex affects FCF but not EBITDA or EPS directly.",
+            model_implication="Scenario bridge uses capex change vs TTM baseline.",
+            valuation_implication="Lower capex can lift FCF after baseline adjustment.",
+            double_count_guardrail="Do not subtract total capex again from active FCF.",
+            linked_sheet="Investment_Case; Scenario Driver Bridge",
+            linked_metric="Capex change vs baseline",
+            amount="$15m-$25m",
+            unit="$m guide",
+            confidence="high",
+            include_in_investment_case=True,
+        )
+        _rec(
+            fiscal_period="2025-Q3",
+            source_period="2025-Q3",
+            source_date="2025-09-30",
+            source_type="earnings release / debt detail",
+            source_file="GPRE/earnings_release/8-K_2025-11-05_earnings_release_q3_2025.htm",
+            category="Debt / liquidity / refinancing",
+            theme="Debt reduction",
+            what_happened="Sale proceeds were used to repay junior mezzanine debt.",
+            management_framing="Management used the action to reduce balance-sheet risk.",
+            why_it_matters="Debt repayment supports liquidity and equity value analysis.",
+            model_implication="Track in debt detail and valuation, not as EBITDA uplift.",
+            valuation_implication="Lower net debt can improve equity value per share.",
+            double_count_guardrail="Do not treat debt repayment as operating EBITDA.",
+            linked_sheet="Promise_Progress_UI; Debt_Profile; Valuation",
+            linked_metric="Debt reduction",
+            amount=130.7,
+            unit="$m debt repaid",
+            confidence="high",
+            include_in_promise_progress=True,
+            raw_quote_short="Debt repaid",
+        )
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="2025-Q4",
+            source_date="2025-12-31",
+            source_type="earnings release / market commentary",
+            source_file="GPRE/earnings_release/8-K_2026-02-05_earnings_release_q4_2025.htm",
+            category="Commodity / market drivers",
+            theme="Crush and policy drivers",
+            what_happened="Crush margin and policy/RVO/E15/export rows remain scenario-driven operating reads.",
+            management_framing="Commodity spreads are cyclical and policy outcomes can move the case.",
+            why_it_matters="They can be material but require explicit numeric scenario inputs.",
+            model_implication="Use manual incremental bridge values when a clean dollar effect is entered.",
+            valuation_implication="Upside should flow through taxable operating uplift if source-backed.",
+            double_count_guardrail="No hidden Economics_Overlay dependency in Scenario Driver Bridge formulas.",
+            linked_sheet="Investment_Case; Scenario Driver Bridge; Quarter_Notes_UI",
+            linked_metric="Crush margin uplift / Policy uplift",
+            unit="scenario input",
+            confidence="medium",
+            include_in_investment_case=True,
+        )
+    elif ticker_txt == "ANF":
+        source_type = "earnings release / guidance profile"
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-03-04",
+            source_type=source_type,
+            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            category="Earnings / margin",
+            theme="Tariff headwind",
+            what_happened="Tariffs were disclosed as a margin headwind that can be modeled in bps.",
+            management_framing="Management expected tariff pressure to be partly offset by other levers.",
+            why_it_matters="Bps margin effects can be translated into dollar earnings impact using active revenue.",
+            model_implication="Convert tariff bps to $m using active revenue and feed the margin bridge.",
+            valuation_implication="Taxable operating drag affects EBITDA and EPS after tax.",
+            double_count_guardrail="Do not also add the same tariff effect through operating margin guidance.",
+            linked_sheet="Investment_Case; Scenario Driver Bridge; Quarter_Notes_UI",
+            linked_metric="Tariff impact (bps)",
+            amount="-290 / -70",
+            unit="bps",
+            confidence="high",
+            include_in_investment_case=True,
+            raw_quote_short="tariff headwind",
+        )
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-03-04",
+            source_type=source_type,
+            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            category="Earnings / margin",
+            theme="Freight tailwind",
+            what_happened="Freight was identified as a positive margin offset.",
+            management_framing="Freight relief helps offset tariff, ERP and marketing headwinds.",
+            why_it_matters="Tailwinds should preserve positive sign in the margin bridge.",
+            model_implication="Convert freight bps to $m using active revenue.",
+            valuation_implication="Taxable operating uplift can lift bridge-adjusted EBITDA/EPS.",
+            double_count_guardrail="Do not net freight into tariff if individual rows are modeled.",
+            linked_sheet="Investment_Case; Scenario Driver Bridge; Quarter_Notes_UI",
+            linked_metric="Freight tailwind (bps)",
+            amount=160,
+            unit="bps",
+            confidence="high",
+            include_in_investment_case=True,
+        )
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-03-04",
+            source_type=source_type,
+            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            category="Earnings / margin",
+            theme="ERP disruption",
+            what_happened="ERP transition costs/disruption were framed as a margin headwind.",
+            management_framing="Management treated ERP as a temporary operating drag.",
+            why_it_matters="ERP headwind belongs in the margin bridge, not in sales growth.",
+            model_implication="Convert ERP bps to $m when bps and revenue are available.",
+            valuation_implication="Taxable operating drag reduces bridge-adjusted EBITDA/EPS.",
+            double_count_guardrail="Do not also include the same ERP drag in a separate manual EBITDA row.",
+            linked_sheet="Investment_Case; Scenario Driver Bridge; Quarter_Notes_UI",
+            linked_metric="ERP disruption (bps)",
+            amount="-100+",
+            unit="bps",
+            confidence="medium",
+            include_in_investment_case=True,
+        )
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-03-04",
+            source_type=source_type,
+            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            category="Earnings / margin",
+            theme="Marketing headwind",
+            what_happened="Marketing was identified as a margin headwind.",
+            management_framing="Marketing spend supports brand demand but weighs on margin.",
+            why_it_matters="It is an operating margin bridge item with clear bps treatment.",
+            model_implication="Convert marketing bps to $m using active revenue.",
+            valuation_implication="Taxable operating drag affects bridge-adjusted EBITDA/EPS.",
+            double_count_guardrail="Do not double-count marketing through both bps bridge and operating margin guide.",
+            linked_sheet="Investment_Case; Scenario Driver Bridge; Quarter_Notes_UI",
+            linked_metric="Marketing headwind (bps)",
+            amount=-50,
+            unit="bps",
+            confidence="high",
+            include_in_investment_case=True,
+        )
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="2025-Q4",
+            source_date="2026-03-04",
+            source_type="earnings release / capital allocation",
+            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            category="Capital allocation / buybacks",
+            theme="Buybacks and share count",
+            what_happened="2025 buybacks were about $450m and reduced diluted share count context.",
+            management_framing="Capital return remained active while net cash stayed strong.",
+            why_it_matters="Buybacks affect EPS through diluted shares, not EBITDA.",
+            model_implication="Active diluted shares drive Bridge EPS denominator.",
+            valuation_implication="Per-share valuation changes through share count and cash use.",
+            double_count_guardrail="Do not add a separate buyback EPS benefit if active shares already reflect buybacks.",
+            linked_sheet="Investment_Case; Scenario Driver Bridge; Valuation",
+            linked_metric="Buyback amount / Diluted shares",
+            amount=450.0,
+            unit="$m buybacks",
+            confidence="high",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+        )
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="2025-Q4",
+            source_date="2026-03-04",
+            source_type="earnings release / guidance profile",
+            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            category="Accounting / non-GAAP definitions",
+            theme="EPS basis",
+            what_happened="Adjusted EPS and GAAP EPS should be tracked with source-specific labels.",
+            management_framing="Management shows adjusted and GAAP basis separately where relevant.",
+            why_it_matters="Generic EPS labels can compare guidance and actuals on the wrong basis.",
+            model_implication="Use direct_eps only for explicit EPS-per-share impacts.",
+            valuation_implication="P/E read should use meaningful EPS basis and N/M when not meaningful.",
+            double_count_guardrail="Do not merge Adjusted EPS and GAAP EPS unless the source does.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Scenario_Bridge_Tax_Treatment",
+            linked_metric="Adjusted EPS / GAAP EPS basis",
+            unit="definition",
+            confidence="high",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+        )
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="Jan 2026 pre-release update",
+            source_date="2026-01-12",
+            source_type="pre-release update",
+            source_file="ANF/press_release/ANF_2026-01-12_press_release_business_update.pdf",
+            category="Guidance / promise",
+            theme="Pre-release update",
+            what_happened="January pre-release narrowed 2025 guidance before the final Q4 release.",
+            management_framing="Management updated the annual view before final results.",
+            why_it_matters="It is a separate event from the final Q4 actual.",
+            model_implication="Keep pre-release guide as an update event; final Q4 fills Actual for the same annual horizon.",
+            valuation_implication="Tightened guide improves tracking but should not replace final actuals.",
+            double_count_guardrail="Do not create separate final-actual rows when the Actual cell can be filled.",
+            linked_sheet="Promise_Progress_UI; Quarter_Notes_UI",
+            linked_metric="2025-Q4 pre-release update",
+            unit="event",
+            confidence="high",
+            include_in_promise_progress=True,
+        )
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-03-04",
+            source_type=source_type,
+            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            category="Segment / brand / geography",
+            theme="Brand and geography cuts",
+            what_happened="Brand rows and geography/store rows are separate cuts of company revenue.",
+            management_framing="Abercrombie/Hollister and Americas/EMEA/APAC describe different views.",
+            why_it_matters="Both cuts can inform the story, but they cannot be summed together.",
+            model_implication="Active basis controls whether Brand, Geography or None feeds the segment bridge.",
+            valuation_implication="Segment scenario impact is taxable operating uplift only for selected basis.",
+            double_count_guardrail="Never sum brand and geography rows together.",
+            linked_sheet="Investment_Case; Scenario_Driver_Assumptions; Quarter_Notes_UI",
+            linked_metric="Segment Scenario Inputs",
+            unit="basis guardrail",
+            confidence="high",
+            include_in_investment_case=True,
+        )
+
+    return records
+
+
+def _write_quarter_narrative_data_sheet(
+    wb: Workbook,
+    ticker: Any,
+    records: Optional[Sequence[QuarterNarrativeRecord]] = None,
+) -> None:
+    if "Quarter_Narrative_Data" in wb.sheetnames:
+        del wb["Quarter_Narrative_Data"]
+    ws = wb.create_sheet("Quarter_Narrative_Data")
+    records_list = list(records if records is not None else _quarter_narrative_records_for_ticker(ticker))
+    ws.append(QUARTER_NARRATIVE_DATA_HEADERS)
+    for record in records_list:
+        ws.append(_quarter_narrative_record_to_audit_row(record))
+
+    header_fill = PatternFill("solid", fgColor="5B9BD5")
+    header_font = Font(bold=True, color="FFFFFF")
+    body_fill = PatternFill("solid", fgColor="F7FBFF")
+    alt_fill = PatternFill("solid", fgColor="EDF4FB")
+    thin_border = Border(
+        left=Side(style="thin", color="D9E2F3"),
+        right=Side(style="thin", color="D9E2F3"),
+        top=Side(style="thin", color="D9E2F3"),
+        bottom=Side(style="thin", color="D9E2F3"),
+    )
+    for cell in ws[1]:
+        cell.fill = copy(header_fill)
+        cell.font = copy(header_font)
+        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        cell.border = copy(thin_border)
+    narrative_cols = {5, 6, 7, 8, 9, 10, 17}
+    for rr in range(2, int(ws.max_row or 1) + 1):
+        fill = alt_fill if rr % 2 == 0 else body_fill
+        for cc in range(1, len(QUARTER_NARRATIVE_DATA_HEADERS) + 1):
+            cell = ws.cell(row=rr, column=cc)
+            cell.fill = copy(fill)
+            cell.border = copy(thin_border)
+            cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=cc in narrative_cols)
+        ws.row_dimensions[rr].height = 42.0
+    widths = {
+        "A": 10,
+        "B": 12,
+        "C": 24,
+        "D": 26,
+        "E": 42,
+        "F": 34,
+        "G": 36,
+        "H": 38,
+        "I": 34,
+        "J": 38,
+        "K": 32,
+        "L": 28,
+        "M": 18,
+        "N": 16,
+        "O": 14,
+        "P": 26,
+        "Q": 42,
+        "R": 12,
+        "S": 12,
+    }
+    for col, width in widths.items():
+        ws.column_dimensions[col].width = width
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:S{max(int(ws.max_row or 1), 1)}"
+
+
+@dataclass(frozen=True)
 class _ScenarioDriverBridgeSpec:
     """Reusable Investment_Case scenario bridge row definition.
 
@@ -97434,6 +98070,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         _write_sector_investment_case_sheet(wb, ticker_txt, case_data)
         _write_sector_investment_case_data_sheet(wb, ticker_txt, case_data)
         return case_data
+
+    def _write_quarter_narrative_data_surface() -> None:
+        ticker_txt = str(ticker or "").strip().upper()
+        records = _quarter_narrative_records_for_ticker(ticker_txt)
+        ui_state["quarter_narrative_records"] = records
+        _write_quarter_narrative_data_sheet(wb, ticker_txt, records)
+
     enable_derivative_oci_bridge_sheet = bool(
         (is_gpre_profile or bool(getattr(company_profile, "enable_derivative_oci_bridge", False)))
         and not is_pbi_profile
@@ -97451,6 +98094,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         "Operating_Drivers",
         "Economics_Overlay",
         "Quarter_Notes_UI",
+        "Quarter_Narrative_Data",
         "Promise_Progress_UI",
         *derivative_sheet_order_slot,
         "Basis_Proxy_Sandbox",
@@ -97619,6 +98263,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             "_write_derivative_oci_bridge_sheet": _write_derivative_oci_bridge_sheet,
             "_write_investment_case_surfaces": _write_investment_case_surfaces,
             "_write_anf_investment_case_surfaces": _write_anf_investment_case_surfaces,
+            "_write_quarter_narrative_data_sheet": _write_quarter_narrative_data_surface,
             "_apply_shared_ui_conventions": lambda: _apply_shared_ui_conventions_to_workbook(wb, ticker),
             "_final_promise_progress_cleanup": lambda: _final_repair_promise_progress_ui(wb, ticker),
         },

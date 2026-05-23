@@ -154,6 +154,14 @@ def write_ui_sheets(ctx: WriterContext) -> List[Dict[str, Any]]:
         # Quarter notes are profiled separately because they are often the single
         # largest workbook hotspot and deserve their own timing bucket.
         ui_qa_rows.extend(ctx.callbacks.write_quarter_notes_ui_v2(quarters_shown=12 if ticker == "ANF" else 8))
+    narrative_writer = ctx.callbacks.extra_callbacks.get("_write_quarter_narrative_data_sheet")
+    if callable(narrative_writer):
+        with timed_writer_stage(
+            ctx.writer_timings,
+            "write_excel.ui.render.quarter_narrative_data",
+            enabled=bool(ctx.inputs.profile_timings),
+        ):
+            narrative_writer()
     with timed_writer_stage(
         ctx.writer_timings,
         "write_excel.ui.render.promise_tracker",
@@ -183,4 +191,12 @@ def write_ui_debug_sheets(ctx: WriterContext) -> List[Dict[str, Any]]:
         enabled=bool(ctx.inputs.profile_timings),
     ):
         ui_qa_rows.extend(ctx.callbacks.write_quarter_notes_ui_v2(quarters_shown=8))
+    narrative_writer = ctx.callbacks.extra_callbacks.get("_write_quarter_narrative_data_sheet")
+    if callable(narrative_writer):
+        with timed_writer_stage(
+            ctx.writer_timings,
+            "write_excel.ui.render.quarter_narrative_data",
+            enabled=bool(ctx.inputs.profile_timings),
+        ):
+            narrative_writer()
     return ui_qa_rows
