@@ -324,6 +324,48 @@ def _quarter_narrative_records_for_ticker(ticker: Any) -> List[QuarterNarrativeR
             include_in_promise_progress=True,
             include_in_investment_case=True,
         )
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-03-31",
+            source_type="Promise_Progress_UI / Investment_Case",
+            source_file="PBI workbook curated guidance profile",
+            category="Debt / liquidity / refinancing",
+            theme="Debt and refinancing execution",
+            what_happened="Debt, maturities and refinancing remain core diligence items for the turnaround.",
+            management_framing="The equity case needs durable cash generation to lower refinancing risk.",
+            why_it_matters="FCF credibility matters because balance-sheet risk can dominate the valuation.",
+            model_implication="Track debt paydown and interest/refi scenarios separately from operating savings.",
+            valuation_implication="Lower net debt and refinancing risk can improve equity value per share.",
+            double_count_guardrail="Do not treat debt paydown as EBITDA, and do not invent interest savings without a clean rate/effect.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Valuation; Debt_Profile",
+            linked_metric="Debt/refinancing execution",
+            unit="watch item",
+            confidence="medium",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+        )
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-03-31",
+            source_type="Promise_Progress_UI / Investment_Case",
+            source_file="PBI workbook curated guidance profile",
+            category="Segment / brand / geography",
+            theme="Presort and SendTech execution",
+            what_happened="Presort and SendTech trends remain the recurring earnings-quality proof points.",
+            management_framing="Segment stabilization is necessary for savings and FCF to be durable.",
+            why_it_matters="Cost actions are more valuable if the segment base is stabilizing.",
+            model_implication="Use Segment Scenario Inputs for revenue/margin sensitivity and keep manual stabilization as separate context.",
+            valuation_implication="Better segment proof supports a more durable EBIT/FCF multiple.",
+            double_count_guardrail="Do not double-enter the same Presort/SendTech uplift through both segment scenario rows and manual bridge rows.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Scenario_Driver_Assumptions",
+            linked_metric="Presort / SendTech segment scenario",
+            unit="watch item",
+            confidence="medium",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+        )
     elif ticker_txt == "GPRE":
         _rec(
             fiscal_period="2025-Q4",
@@ -477,8 +519,70 @@ def _quarter_narrative_records_for_ticker(ticker: Any) -> List[QuarterNarrativeR
             confidence="medium",
             include_in_investment_case=True,
         )
+        _rec(
+            fiscal_period="2026-Q1",
+            source_period="2026-Q1",
+            source_date="2026-03-31",
+            source_type="Operating_Drivers / Valuation",
+            source_file="GPRE workbook curated operating drivers",
+            category="FCF / cash flow",
+            theme="FCF and liquidity conversion",
+            what_happened="45Z, crush and policy upside still need to convert into cash through capex and working-capital cycles.",
+            management_framing="Commodity cycles require disciplined liquidity management.",
+            why_it_matters="The investment case improves only if policy/commodity earnings become usable cash flow.",
+            model_implication="Keep capex and FCF conversion as cash-flow drivers, not EBITDA add-backs.",
+            valuation_implication="Balance-sheet resilience depends on cash conversion, not just reported EBITDA.",
+            double_count_guardrail="Do not add capex/working-capital effects to EPS unless a clean earnings link exists.",
+            linked_sheet="Operating_Drivers; Investment_Case; Valuation",
+            linked_metric="Capex / FCF / liquidity",
+            unit="watch item",
+            confidence="medium",
+            include_in_investment_case=True,
+        )
     elif ticker_txt == "ANF":
         source_type = "earnings release / guidance profile"
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="2025-Q4",
+            source_date="2026-03-04",
+            source_type=source_type,
+            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            category="Guidance / promise",
+            theme="Sales growth and brand/geography reads",
+            what_happened="2025 net sales growth, Abercrombie/Hollister brand reads and Americas/EMEA/APAC geography reads remain central to the demand story.",
+            management_framing="Hollister momentum, Abercrombie stabilization and Americas/EMEA/APAC store reads frame the growth quality.",
+            why_it_matters="The revenue story is stronger when brand and geography cuts agree with total sales growth.",
+            model_implication="Use segment rows as separate brand or geography bases; do not sum both cuts.",
+            valuation_implication="Sustained sales growth supports the EPS/FCF multiple if margins hold.",
+            double_count_guardrail="Do not double-count brand and geography revenue assumptions.",
+            linked_sheet="Promise_Progress_UI; Operating_Drivers; Investment_Case; Scenario_Driver_Assumptions",
+            linked_metric="Sales growth / Segment Scenario Inputs",
+            unit="growth read",
+            confidence="high",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+        )
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="2025-Q4",
+            source_date="2026-03-04",
+            source_type=source_type,
+            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            category="Earnings / margin",
+            theme="Operating margin normalization",
+            what_happened="2025 operating margin was evaluated against annual guides while 2026 guide implies a lower margin baseline.",
+            management_framing="Management framed tariff, ERP, freight and marketing as important 2026 margin bridge components.",
+            why_it_matters="The debate is not just sales growth; margin normalization drives EPS sensitivity.",
+            model_implication="Use operating margin guide for baseline context and bps bridge rows for incremental effects.",
+            valuation_implication="Lower margin guide can pressure EPS/valuation unless offsets are proven.",
+            double_count_guardrail="Do not count the same margin pressure in both operating margin guidance and the bps margin bridge.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Scenario Driver Bridge",
+            linked_metric="Operating margin / Margin bridge vs baseline",
+            unit="margin read",
+            confidence="high",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
+        )
         _rec(
             fiscal_period="2026-Q1",
             source_period="2026-Q1",
@@ -626,6 +730,27 @@ def _quarter_narrative_records_for_ticker(ticker: Any) -> List[QuarterNarrativeR
             unit="event",
             confidence="high",
             include_in_promise_progress=True,
+        )
+        _rec(
+            fiscal_period="2025-Q4",
+            source_period="2025-Q4",
+            source_date="2026-03-04",
+            source_type=source_type,
+            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            category="FCF / cash flow",
+            theme="Capex discipline",
+            what_happened="Capex was tracked against annual guidance and remains a cash-flow driver.",
+            management_framing="Store activity and investment needs sit alongside buybacks and FCF.",
+            why_it_matters="Capex affects FCF and cash available for repurchases, but not EBITDA directly.",
+            model_implication="Treat capex as change vs baseline in FCF, not an EBITDA/EPS item.",
+            valuation_implication="FCF yield and buyback capacity depend on capex discipline.",
+            double_count_guardrail="Do not subtract total capex again if active FCF already embeds baseline capex.",
+            linked_sheet="Promise_Progress_UI; Investment_Case; Valuation",
+            linked_metric="Capex",
+            unit="$m capex",
+            confidence="high",
+            include_in_promise_progress=True,
+            include_in_investment_case=True,
         )
         _rec(
             fiscal_period="2026-Q1",
@@ -6160,6 +6285,9 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
                 template = header
             _copy_row_style(template, insert_at)
             target_row = insert_at
+        for merge_range in list(ws.merged_cells.ranges):
+            if merge_range.min_row == target_row and merge_range.max_row == target_row:
+                ws.unmerge_cells(str(merge_range))
         for cc, value in enumerate(values, start=1):
             ws.cell(target_row, cc).value = value
 
@@ -6490,6 +6618,21 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
                     "2025-Q1",
                     "2025-05-08",
                     "Original $50m target; about $5m remaining.",
+                ],
+            ),
+            (
+                "2025-Q3 revisions",
+                [
+                    "45Z monetization",
+                    "",
+                    "$15.0m-$25.0m",
+                    "Initial",
+                    "",
+                    "Open",
+                    "2025-Q4",
+                    "2025-Q3",
+                    "2025-09-30",
+                    "2025-Q4 45Z monetization expected at $15m-$25m.",
                 ],
             ),
         ]

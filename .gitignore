@@ -7,5 +7,7 @@ __pycache__/
 .ruff_cache/
 market_data/index/export_inputs/
 promise_progress_renders/
+validation_reports/
+render_checks/
 Thumbs.db
 Desktop.ini

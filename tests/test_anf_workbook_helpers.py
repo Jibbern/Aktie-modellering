@@ -212,9 +212,30 @@ def test_quarter_notes_narrative_renderer_layout_from_structured_records() -> No
 
 def test_quarter_notes_narrative_renderer_ticker_content_and_no_raw_noise() -> None:
     expected = {
-        "PBI": ["GEC loss removal", "Annual savings target", "Cash optimization", "FCF definition"],
-        "GPRE": ["45Z monetization", "45Z facility qualification progress", "Capex guidance", "Debt reduction"],
-        "ANF": ["Tariff headwind", "Freight tailwind", "ERP disruption", "Buybacks and share count"],
+        "PBI": [
+            "GEC loss removal",
+            "Annual savings target",
+            "Cash optimization",
+            "FCF definition",
+            "Debt and refinancing execution",
+            "Presort and SendTech execution",
+        ],
+        "GPRE": [
+            "45Z monetization",
+            "45Z facility qualification progress",
+            "Capex guidance",
+            "Debt reduction",
+            "FCF and liquidity conversion",
+        ],
+        "ANF": [
+            "Sales growth and brand/geography reads",
+            "Operating margin normalization",
+            "Tariff headwind",
+            "Freight tailwind",
+            "ERP disruption",
+            "Buybacks and share count",
+            "Capex discipline",
+        ],
     }
     for ticker, phrases in expected.items():
         wb = Workbook()
