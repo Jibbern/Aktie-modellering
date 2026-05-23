@@ -60939,6 +60939,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 print("[buyback_auth] no submissions cache file found", flush=True)
 
             def _buyback_auth_cache_path_local() -> Optional[Path]:
+                if cache_dir is not None:
+                    try:
+                        cache_base = Path(cache_dir).expanduser().resolve()
+                    except Exception:
+                        cache_base = Path(cache_dir)
+                    ticker_token = str(profile_ticker or ticker or "").strip().upper()
+                    try:
+                        cache_parts = {str(part).strip().upper() for part in cache_base.parts}
+                    except Exception:
+                        cache_parts = set()
+                    if ticker_token and ticker_token in cache_parts:
+                        return cache_base / "writer_cache" / "buyback_auth_remaining_cache.pkl"
                 for root_in in ticker_roots:
                     try:
                         root_path = Path(root_in)
@@ -60959,9 +60971,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 except Exception:
                     return (resolved, -1, -1)
 
+            def _buyback_auth_direct_doc_payload_local() -> List[Tuple[str, int, int]]:
+                doc_payload_direct: List[Tuple[str, int, int]] = []
+                for cr in cache_roots:
+                    if not cr.exists() or not cr.is_dir():
+                        continue
+                    for doc_path in sorted(cr.glob("doc_*")):
+                        sfx = str(doc_path.suffix or "").lower()
+                        if sfx not in {".htm", ".html", ".txt", ".xml"}:
+                            continue
+                        if not _path_belongs_to_ticker(doc_path, ticker, ticker_roots):
+                            continue
+                        doc_payload_direct.append(_buyback_auth_file_token(doc_path))
+                return list(sorted(set(doc_payload_direct)))
+
+            def _buyback_auth_direct_cache_key_local() -> Optional[Dict[str, Any]]:
+                doc_payload_direct = _buyback_auth_direct_doc_payload_local()
+                if not doc_payload_direct:
+                    return None
+                return {
+                    "version": "buyback_auth_remaining_cache_v1_direct_docs",
+                    "ticker": str(profile_ticker or ticker or "").upper(),
+                    "rows": tuple(),
+                    "docs": tuple(doc_payload_direct),
+                }
+
             def _buyback_auth_cache_key_local() -> Optional[Dict[str, Any]]:
                 if not recent_rows:
-                    return None
+                    return _buyback_auth_direct_cache_key_local()
                 row_payload: List[Tuple[str, str, str, str, str]] = []
                 doc_payload: List[Tuple[str, int, int]] = []
                 for row in recent_rows[:8]:
@@ -60989,7 +61026,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                             continue
                         doc_payload.append(_buyback_auth_file_token(doc_path))
                 if not row_payload:
-                    return None
+                    return _buyback_auth_direct_cache_key_local()
                 return {
                     "version": "buyback_auth_remaining_cache_v1",
                     "ticker": str(profile_ticker or ticker or "").upper(),
@@ -81928,11 +81965,44 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             document_cache=document_cache,
         )
 
+    def _ticker_specific_submission_path(path_in: Path) -> bool:
+        if not _path_belongs_to_ticker(path_in, ticker, ticker_roots):
+            return False
+        ticker_token = str(profile_ticker or ticker or "").strip().upper()
+        if not ticker_token:
+            return True
+        try:
+            path_parts = {str(part).strip().upper() for part in Path(path_in).resolve().parts}
+        except Exception:
+            path_parts = {str(part).strip().upper() for part in Path(path_in).parts}
+        has_ticker_specific_root = False
+        if cache_dir is not None:
+            try:
+                cache_parts = {str(part).strip().upper() for part in Path(cache_dir).expanduser().resolve().parts}
+            except Exception:
+                cache_parts = {str(part).strip().upper() for part in Path(cache_dir).parts}
+            if ticker_token in cache_parts:
+                has_ticker_specific_root = True
+        for root_in in ticker_roots:
+            try:
+                root_parts = {str(part).strip().upper() for part in Path(root_in).resolve().parts}
+            except Exception:
+                root_parts = {str(part).strip().upper() for part in Path(root_in).parts}
+            if ticker_token in root_parts:
+                has_ticker_specific_root = True
+                break
+        if ticker_token in path_parts:
+            return True
+        # If no ticker-specific root is known, preserve the legacy broad-root
+        # behavior; otherwise reject submissions from sibling ticker caches.
+        return not has_ticker_specific_root
+
     def _submission_cache_files(*, max_files: Optional[int] = None) -> List[Path]:
         return source_submission_cache_files(
             cache_roots=tuple(cache_roots),
             document_cache=document_cache,
             max_files=max_files,
+            path_filter=_ticker_specific_submission_path,
         )
 
     def _submission_recent_row_quarter(row: Dict[str, Any]) -> Optional[date]:
@@ -81950,6 +82020,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             document_cache=document_cache,
             raw_reader=_read_cached_doc_raw,
             max_files=max_files,
+            path_filter=_ticker_specific_submission_path,
         )
 
     def _resolve_cached_doc_path(

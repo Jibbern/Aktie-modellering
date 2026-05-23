@@ -182,6 +182,7 @@ def submission_cache_files(
     cache_roots: Tuple[Path, ...],
     document_cache: Any,
     max_files: Optional[int] = None,
+    path_filter: Optional[Callable[[Path], bool]] = None,
 ) -> List[Path]:
     cached = document_cache.submission_files
     if cached is None:
@@ -200,6 +201,8 @@ def submission_cache_files(
         document_cache.submission_files = files
         cached = files
     out = list(cached or [])
+    if path_filter is not None:
+        out = [p for p in out if path_filter(p)]
     if max_files is not None:
         out = out[: max(0, int(max_files))]
     return out
@@ -221,8 +224,10 @@ def submission_recent_rows(
     document_cache: Any,
     raw_reader: Callable[[Path], str],
     max_files: Optional[int] = None,
+    path_filter: Optional[Callable[[Path], bool]] = None,
 ) -> List[Dict[str, Any]]:
-    limit_key = "all" if max_files is None else str(int(max_files))
+    filter_key = "ticker" if path_filter is not None else "all_roots"
+    limit_key = f"{filter_key}:{'all' if max_files is None else str(int(max_files))}"
     cached = document_cache.submission_recent_rows_by_limit.get(limit_key)
     if cached is not None:
         return list(cached)
@@ -231,6 +236,7 @@ def submission_recent_rows(
         cache_roots=cache_roots,
         document_cache=document_cache,
         max_files=max_files,
+        path_filter=path_filter,
     ):
         path_key = path_cache_key(sub_path)
         per_file = document_cache.submission_recent_rows_by_file.get(path_key)
