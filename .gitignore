@@ -6,5 +6,6 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 market_data/index/export_inputs/
+promise_progress_renders/
 Thumbs.db
 Desktop.ini
