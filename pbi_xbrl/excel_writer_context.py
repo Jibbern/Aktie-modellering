@@ -715,6 +715,265 @@ def _write_quarter_narrative_data_sheet(
     ws.auto_filter.ref = f"A1:S{max(int(ws.max_row or 1), 1)}"
 
 
+def _quarter_narrative_period_sort_key(period: Any) -> Tuple[int, int]:
+    txt = str(period or "").strip()
+    match = re.fullmatch(r"(20\d{2})-Q([1-4])", txt, flags=re.I)
+    if match:
+        return (int(match.group(1)), int(match.group(2)))
+    year_match = re.search(r"(20\d{2})", txt)
+    return (int(year_match.group(1)) if year_match else 0, 0)
+
+
+def _quarter_narrative_source_label(record: QuarterNarrativeRecord) -> str:
+    parts = [record.confidence.title() if record.confidence else "", record.source_type, record.source_date]
+    return "; ".join(str(part).strip() for part in parts if str(part or "").strip())
+
+
+def _quarter_narrative_compact_sentence(text: Any, *, max_chars: int = 185) -> str:
+    txt = re.sub(r"\s+", " ", str(text or "").strip())
+    if len(txt) <= max_chars:
+        return txt
+    cut = txt[: max(1, int(max_chars) - 1)].rsplit(" ", 1)[0].rstrip(" ,;:")
+    return f"{cut}."
+
+
+def _quarter_narrative_row_height(*texts: Any, base: float = 34.0, max_height: float = 90.0) -> float:
+    longest = max((len(str(text or "")) for text in texts), default=0)
+    if longest <= 85:
+        return base
+    if longest <= 160:
+        return min(max_height, base + 14.0)
+    if longest <= 260:
+        return min(max_height, base + 28.0)
+    return max_height
+
+
+def _quarter_narrative_read_block(records: Sequence[QuarterNarrativeRecord]) -> List[Tuple[str, str]]:
+    themes = [str(r.theme or "").strip() for r in records if str(r.theme or "").strip()]
+    top_themes = ", ".join(themes[:3])
+    promise_records = [r for r in records if r.include_in_promise_progress or "guidance" in str(r.category or "").lower()]
+    margin_records = [r for r in records if "margin" in str(r.category or "").lower() or "margin" in str(r.theme or "").lower()]
+    policy_records = [r for r in records if "policy" in str(r.category or "").lower() or "45z" in str(r.theme or "").lower()]
+    first = records[0] if records else QuarterNarrativeRecord(ticker="", fiscal_period="")
+    changed = " ".join(_quarter_narrative_compact_sentence(r.what_happened, max_chars=95) for r in records[:2])
+    if promise_records:
+        watch = f"Watch source-backed progress against {', '.join(str(r.theme or r.linked_metric) for r in promise_records[:2])}."
+    elif policy_records:
+        watch = "Watch facility, policy and cash-conversion proof points."
+    elif margin_records:
+        watch = "Watch whether margin bridge items convert into operating income."
+    else:
+        watch = "Watch whether the quarter's drivers become repeatable and modelable."
+    caveat = next((str(r.double_count_guardrail or "").strip() for r in records if str(r.double_count_guardrail or "").strip()), "")
+    return [
+        ("Model read", _quarter_narrative_compact_sentence(f"{top_themes} drive the quarter read. {first.model_implication}", max_chars=260)),
+        ("What changed", _quarter_narrative_compact_sentence(changed, max_chars=260)),
+        ("Watch next", _quarter_narrative_compact_sentence(watch, max_chars=220)),
+        ("Key caveat", _quarter_narrative_compact_sentence(caveat or "Use source-backed metrics and avoid stacking overlapping drivers.", max_chars=240)),
+    ]
+
+
+def _write_quarter_notes_ui_narrative_sheet(
+    wb: Workbook,
+    ticker: Any,
+    records: Optional[Sequence[QuarterNarrativeRecord]] = None,
+    *,
+    quarters_shown: int = 12,
+) -> bool:
+    records_list = list(records if records is not None else _quarter_narrative_records_for_ticker(ticker))
+    records_list = [r for r in records_list if r.include_in_quarter_notes]
+    if not records_list:
+        return False
+    if "Quarter_Notes_UI" in wb.sheetnames:
+        del wb["Quarter_Notes_UI"]
+    ws = wb.create_sheet("Quarter_Notes_UI")
+
+    blue = PatternFill("solid", fgColor="5B9BD5")
+    sub_blue = PatternFill("solid", fgColor="DDEBF7")
+    header_fill = PatternFill("solid", fgColor="EAF3F8")
+    zebra_light = PatternFill("solid", fgColor="F7FBFF")
+    zebra_dark = PatternFill("solid", fgColor="EDF4FB")
+    white_font = Font(bold=True, color="FFFFFF")
+    sub_font = Font(bold=True, color="1F4E78")
+    body_font = Font(color="1F1F1F")
+    border = Border(
+        left=Side(style="thin", color="D9E2F3"),
+        right=Side(style="thin", color="D9E2F3"),
+        top=Side(style="thin", color="D9E2F3"),
+        bottom=Side(style="thin", color="D9E2F3"),
+    )
+    widths = {"A": 18, "B": 22, "C": 28, "D": 28, "E": 28, "F": 28, "G": 28, "H": 28, "I": 28, "J": 42}
+    for col, width in widths.items():
+        ws.column_dimensions[col].width = width
+
+    def _style_cells(row: int, fill: PatternFill, font: Optional[Font] = None, *, height: Optional[float] = None) -> None:
+        for cc in range(1, 11):
+            cell = ws.cell(row=row, column=cc)
+            cell.fill = copy(fill)
+            cell.border = copy(border)
+            cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+            if font is not None:
+                cell.font = copy(font)
+            elif cell.font is None:
+                cell.font = copy(body_font)
+        if height is not None:
+            ws.row_dimensions[row].height = height
+
+    def _merge_row(row: int, start_col: int, end_col: int) -> None:
+        if end_col > start_col:
+            ws.merge_cells(start_row=row, start_column=start_col, end_row=row, end_column=end_col)
+
+    def _section(row: int, title: str) -> int:
+        _style_cells(row, sub_blue, sub_font, height=22.0)
+        ws.cell(row=row, column=1, value=title)
+        _merge_row(row, 1, 10)
+        return row + 1
+
+    def _table_header(row: int, placements: Sequence[Tuple[Any, ...]]) -> int:
+        _style_cells(row, header_fill, Font(bold=True), height=24.0)
+        for placement in placements:
+            if len(placement) == 2:
+                col, label = placement
+                end_col = col
+            else:
+                col, end_col, label = placement[:3]
+            ws.cell(row=row, column=col, value=label)
+            _merge_row(row, int(col), int(end_col))
+        return row + 1
+
+    def _merge_and_write(row: int, start_col: int, end_col: int, value: Any) -> None:
+        ws.cell(row=row, column=start_col, value=value)
+        _merge_row(row, start_col, end_col)
+
+    def _write_read_block(row: int, quarter_records: Sequence[QuarterNarrativeRecord]) -> int:
+        row = _section(row, "Quarter read")
+        for idx, (field, text) in enumerate(_quarter_narrative_read_block(quarter_records)):
+            fill = zebra_light if idx % 2 == 0 else zebra_dark
+            _style_cells(row, fill, body_font, height=_quarter_narrative_row_height(field, text, base=30.0, max_height=72.0))
+            ws.cell(row=row, column=1, value=field).font = Font(bold=True, color="1F4E78")
+            ws.cell(row=row, column=2, value=text)
+            _merge_row(row, 2, 10)
+            row += 1
+        return row
+
+    def _write_key_developments(row: int, quarter_records: Sequence[QuarterNarrativeRecord]) -> int:
+        row = _section(row, "Key developments")
+        row = _table_header(
+            row,
+            [
+                (1, 2, "Theme"),
+                (3, 5, "What happened"),
+                (6, 7, "Why it matters"),
+                (8, 9, "Model / valuation implication"),
+                (10, "Source / confidence"),
+            ],
+        )
+        for idx, rec in enumerate(quarter_records[:6]):
+            fill = zebra_light if idx % 2 == 0 else zebra_dark
+            model_text = " ".join(
+                part for part in [rec.model_implication, rec.valuation_implication] if str(part or "").strip()
+            )
+            _style_cells(
+                row,
+                fill,
+                body_font,
+                height=_quarter_narrative_row_height(rec.what_happened, rec.why_it_matters, model_text),
+            )
+            _merge_and_write(row, 1, 2, rec.theme)
+            _merge_and_write(row, 3, 5, _quarter_narrative_compact_sentence(rec.what_happened, max_chars=230))
+            _merge_and_write(row, 6, 7, _quarter_narrative_compact_sentence(rec.why_it_matters, max_chars=170))
+            _merge_and_write(row, 8, 9, _quarter_narrative_compact_sentence(model_text, max_chars=210))
+            ws.cell(row=row, column=10, value=_quarter_narrative_source_label(rec))
+            row += 1
+        return row
+
+    def _write_promise_interpretation(row: int, quarter_records: Sequence[QuarterNarrativeRecord]) -> int:
+        promise_rows = [
+            r
+            for r in quarter_records
+            if r.include_in_promise_progress or "guidance" in str(r.category or "").lower() or "promise" in str(r.category or "").lower()
+        ]
+        if not promise_rows:
+            return row
+        row = _section(row, "Guidance / Promise interpretation")
+        row = _table_header(
+            row,
+            [
+                (1, 2, "Promise / guidance item"),
+                (3, 5, "Read"),
+                (6, 7, "Actual / progress interpretation"),
+                (8, 9, "Status / caveat"),
+                (10, "Source"),
+            ],
+        )
+        for idx, rec in enumerate(promise_rows[:5]):
+            fill = zebra_light if idx % 2 == 0 else zebra_dark
+            read = rec.management_framing or rec.why_it_matters
+            progress = rec.what_happened
+            caveat = rec.double_count_guardrail or rec.confidence
+            _style_cells(row, fill, body_font, height=_quarter_narrative_row_height(read, progress, caveat))
+            _merge_and_write(row, 1, 2, rec.linked_metric or rec.theme)
+            _merge_and_write(row, 3, 5, _quarter_narrative_compact_sentence(read, max_chars=210))
+            _merge_and_write(row, 6, 7, _quarter_narrative_compact_sentence(progress, max_chars=170))
+            _merge_and_write(row, 8, 9, _quarter_narrative_compact_sentence(caveat, max_chars=190))
+            ws.cell(row=row, column=10, value=_quarter_narrative_source_label(rec))
+            row += 1
+        return row
+
+    def _write_model_mapping(row: int, quarter_records: Sequence[QuarterNarrativeRecord]) -> int:
+        mapping_rows = [
+            r
+            for r in quarter_records
+            if r.include_in_investment_case or str(r.double_count_guardrail or "").strip() or str(r.linked_sheet or "").strip()
+        ]
+        if not mapping_rows:
+            return row
+        row = _section(row, "Model mapping / double-count guardrails")
+        row = _table_header(
+            row,
+            [
+                (1, 2, "Driver"),
+                (3, 5, "Model treatment"),
+                (6, 8, "Double-count guardrail"),
+                (9, 10, "Linked sheet / metric"),
+            ],
+        )
+        for idx, rec in enumerate(mapping_rows[:6]):
+            fill = zebra_light if idx % 2 == 0 else zebra_dark
+            linked = " | ".join(part for part in [rec.linked_sheet, rec.linked_metric] if str(part or "").strip())
+            _style_cells(row, fill, body_font, height=_quarter_narrative_row_height(rec.model_implication, rec.double_count_guardrail, linked))
+            _merge_and_write(row, 1, 2, rec.linked_metric or rec.theme)
+            _merge_and_write(row, 3, 5, _quarter_narrative_compact_sentence(rec.model_implication, max_chars=210))
+            _merge_and_write(row, 6, 8, _quarter_narrative_compact_sentence(rec.double_count_guardrail, max_chars=230))
+            _merge_and_write(row, 9, 10, _quarter_narrative_compact_sentence(linked, max_chars=150))
+            row += 1
+        return row
+
+    grouped: Dict[str, List[QuarterNarrativeRecord]] = {}
+    for rec in records_list:
+        grouped.setdefault(str(rec.fiscal_period or "").strip(), []).append(rec)
+    ordered_periods = sorted(grouped, key=_quarter_narrative_period_sort_key, reverse=True)[: max(1, int(quarters_shown or 12))]
+
+    row = 1
+    for block_idx, period in enumerate(ordered_periods):
+        if block_idx:
+            ws.row_dimensions[row].height = 8.0
+            row += 1
+        quarter_records = grouped[period]
+        _style_cells(row, blue, white_font, height=24.0)
+        ws.cell(row=row, column=1, value=f"{period} - Quarter Notes")
+        _merge_row(row, 1, 10)
+        row += 1
+        row = _write_read_block(row, quarter_records)
+        row = _write_key_developments(row, quarter_records)
+        row = _write_promise_interpretation(row, quarter_records)
+        row = _write_model_mapping(row, quarter_records)
+
+    ws.freeze_panes = "A2"
+    ws.sheet_view.showGridLines = False
+    return True
+
+
 @dataclass(frozen=True)
 class _ScenarioDriverBridgeSpec:
     """Reusable Investment_Case scenario bridge row definition.
@@ -7478,8 +7737,16 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
         elif ws.title == "Operating_Drivers":
             _clamp_rows(5, 19.5, 22.5)
         elif ws.title == "Quarter_Notes_UI":
-            _standardize_quarter_notes_ui_categories(ws, ticker_txt)
-            _clamp_rows(3, 19.5, 20.0)
+            first_cell = str(ws.cell(1, 1).value or "").strip()
+            second_cell = str(ws.cell(2, 1).value or "").strip()
+            if "Quarter Notes" in first_cell and second_cell == "Quarter read":
+                # Narrative Quarter_Notes_UI owns its row heights because body
+                # rows contain wrapped multi-column reads.  The legacy compact
+                # clamp is only safe for the old short-note layout.
+                pass
+            else:
+                _standardize_quarter_notes_ui_categories(ws, ticker_txt)
+                _clamp_rows(3, 19.5, 20.0)
         elif ws.title == "Promise_Progress_UI":
             _standardize_promise_status_cells()
             _apply_source_backed_promise_mapping_overrides(wb, ticker_txt)
@@ -98077,6 +98344,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         ui_state["quarter_narrative_records"] = records
         _write_quarter_narrative_data_sheet(wb, ticker_txt, records)
 
+    def _write_quarter_notes_narrative_ui_surface() -> None:
+        ticker_txt = str(ticker or "").strip().upper()
+        records = _quarter_narrative_records_for_ticker(ticker_txt)
+        if records:
+            ui_state["quarter_narrative_records"] = records
+            _write_quarter_notes_ui_narrative_sheet(wb, ticker_txt, records)
+
     enable_derivative_oci_bridge_sheet = bool(
         (is_gpre_profile or bool(getattr(company_profile, "enable_derivative_oci_bridge", False)))
         and not is_pbi_profile
@@ -98263,6 +98537,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             "_write_derivative_oci_bridge_sheet": _write_derivative_oci_bridge_sheet,
             "_write_investment_case_surfaces": _write_investment_case_surfaces,
             "_write_anf_investment_case_surfaces": _write_anf_investment_case_surfaces,
+            "_write_quarter_notes_narrative_ui_sheet": _write_quarter_notes_narrative_ui_surface,
             "_write_quarter_narrative_data_sheet": _write_quarter_narrative_data_surface,
             "_apply_shared_ui_conventions": lambda: _apply_shared_ui_conventions_to_workbook(wb, ticker),
             "_final_promise_progress_cleanup": lambda: _final_repair_promise_progress_ui(wb, ticker),

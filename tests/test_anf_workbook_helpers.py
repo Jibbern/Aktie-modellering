@@ -44,6 +44,7 @@ from pbi_xbrl.excel_writer_context import (
     _insert_management_credibility_scorecard,
     _net_debt_yoy_flag_label_and_status_for_position,
     _quarter_narrative_records_for_ticker,
+    _write_quarter_notes_ui_narrative_sheet,
     _write_quarter_narrative_data_sheet,
     _sector_build_investment_case_data,
     _shared_readable_source_type_label,
@@ -168,6 +169,86 @@ def test_quarter_narrative_records_link_to_model_surfaces() -> None:
     assert _has("GPRE", "Capex guidance", "Scenario Driver Bridge")
     assert _has("ANF", "Tariff headwind", "Scenario Driver Bridge")
     assert _has("ANF", "Brand and geography cuts", "Scenario_Driver_Assumptions")
+
+
+def test_quarter_notes_narrative_renderer_layout_from_structured_records() -> None:
+    wb = Workbook()
+    _write_quarter_notes_ui_narrative_sheet(wb, "ANF")
+
+    assert "Quarter_Notes_UI" in wb.sheetnames
+    ws = wb["Quarter_Notes_UI"]
+    merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+    assert "A1:J1" in merged_ranges
+    assert ws["A1"].value == "2026-Q1 - Quarter Notes"
+    assert ws["A1"].fill.fgColor.rgb in {"005B9BD5", "FF5B9BD5"}
+
+    values = [ws.cell(row=rr, column=cc).value for rr in range(1, ws.max_row + 1) for cc in range(1, 11)]
+    assert "Quarter read" in values
+    assert "Model read" in values
+    assert "What changed" in values
+    assert "Watch next" in values
+    assert "Key caveat" in values
+    assert "Key developments" in values
+    assert "Guidance / Promise interpretation" in values
+    assert "Model mapping / double-count guardrails" in values
+    key_header_row = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "Theme")
+    assert f"A{key_header_row}:B{key_header_row}" in merged_ranges
+    assert f"C{key_header_row}:E{key_header_row}" in merged_ranges
+    assert f"F{key_header_row}:G{key_header_row}" in merged_ranges
+    assert f"H{key_header_row}:I{key_header_row}" in merged_ranges
+
+    tariff_row = next(
+        rr
+        for rr in range(1, ws.max_row + 1)
+        if any(str(ws.cell(rr, cc).value or "") == "Tariff headwind" for cc in range(1, 11))
+    )
+    assert float(ws.row_dimensions[tariff_row].height or 0.0) >= 34.0
+    assert float(ws.row_dimensions[tariff_row].height or 0.0) <= 90.0
+    assert all(ws.cell(tariff_row, cc).fill.fgColor.type in {"rgb", "indexed"} for cc in range(1, 11))
+    assert all(ws.cell(tariff_row, cc).border.bottom.style == "thin" for cc in range(1, 11))
+    assert ws.column_dimensions["A"].width == pytest.approx(18.0)
+    assert ws.column_dimensions["J"].width == pytest.approx(42.0)
+
+
+def test_quarter_notes_narrative_renderer_ticker_content_and_no_raw_noise() -> None:
+    expected = {
+        "PBI": ["GEC loss removal", "Annual savings target", "Cash optimization", "FCF definition"],
+        "GPRE": ["45Z monetization", "45Z facility qualification progress", "Capex guidance", "Debt reduction"],
+        "ANF": ["Tariff headwind", "Freight tailwind", "ERP disruption", "Buybacks and share count"],
+    }
+    for ticker, phrases in expected.items():
+        wb = Workbook()
+        _write_quarter_notes_ui_narrative_sheet(wb, ticker)
+        ws = wb["Quarter_Notes_UI"]
+        text = " ".join(str(ws.cell(rr, cc).value or "") for rr in range(1, ws.max_row + 1) for cc in range(1, 11))
+        for phrase in phrases:
+            assert phrase in text
+        assert "[UPDATED]" not in text
+        assert "metadata:" not in text.lower()
+        assert ".htm" not in text.lower()
+        assert ".pdf" not in text.lower()
+        assert "No high-signal items" not in text
+
+
+def test_quarter_notes_narrative_renderer_sections_are_quarter_grouped_newest_first() -> None:
+    wb = Workbook()
+    _write_quarter_notes_ui_narrative_sheet(wb, "PBI")
+    ws = wb["Quarter_Notes_UI"]
+    quarter_headers = [
+        (rr, str(ws.cell(rr, 1).value or ""))
+        for rr in range(1, ws.max_row + 1)
+        if str(ws.cell(rr, 1).value or "").endswith(" - Quarter Notes")
+    ]
+    assert quarter_headers
+    assert [label for _, label in quarter_headers] == [
+        "2026-Q1 - Quarter Notes",
+        "2025-Q4 - Quarter Notes",
+        "2024-Q2 - Quarter Notes",
+    ]
+    assert max(float(ws.row_dimensions[rr].height or 0.0) for rr in range(1, ws.max_row + 1)) <= 90.0
+    for rr in range(1, ws.max_row + 1):
+        if any(ws.cell(rr, cc).value not in (None, "") for cc in range(1, 11)):
+            assert any(ws.cell(rr, cc).fill.fgColor.type in {"rgb", "indexed"} for cc in range(1, 11))
 
 
 def test_history_q_latest_full_year_uses_fiscal_quarters_for_retail_year_end() -> None:
