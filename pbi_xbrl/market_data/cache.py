@@ -14,8 +14,10 @@ from typing import Any, Dict, Iterable, List
 
 def resolve_market_cache_root(cache_dir: Path) -> Path:
     croot = Path(cache_dir).expanduser().resolve()
-    if croot.name.lower() == "market_data":
+    if croot.name.lower() in {"market_data", "market_cache"}:
         root = croot
+    elif croot.parent.name.lower() == "sec_cache" and (croot.parent.parent / "tickers").exists():
+        root = croot.parent.parent / "market_cache"
     elif croot.name.lower() == "sec_cache":
         root = croot / "market_data"
     else:

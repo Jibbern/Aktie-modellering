@@ -20,12 +20,14 @@ from openpyxl.cell.cell import Cell
 from openpyxl.utils import range_boundaries
 from openpyxl.worksheet.worksheet import Worksheet
 
+from .path_config import resolve_stock_model_paths
+
 
 RENDER_RANGES: Dict[str, str] = {
     "Valuation": "A1:AC90",
     "{ticker}_Investment_Case": "A1:J160",
-    "Promise_Progress_UI": "A1:J180",
-    "Quarter_Notes_UI": "A1:J220",
+    "Promise_Progress_UI": "A1:L180",
+    "Quarter_Notes_UI": "A1:L220",
     "Operating_Drivers": "A1:Q140",
     "Needs_Review": "A1:J80",
 }
@@ -234,7 +236,7 @@ def _validate_title_row(ws: Worksheet, report: OpenpyxlLayoutReport, sheet_name:
         _add(report, "error", sheet_name, "A1", "missing title row text")
     if not (fill in TITLE_FILLS or fill.endswith(("5B9BD5", "4472C4", "6FA8DC"))):
         _add(report, "error", sheet_name, "A1", "missing title/header styling")
-    if sheet_name in {"Promise_Progress_UI", "Quarter_Notes_UI"} and not _row_has_merge(ws, 1, 1, min(expected_width, 10)):
+    if sheet_name in {"Promise_Progress_UI", "Quarter_Notes_UI"} and not _row_has_merge(ws, 1, 1, expected_width):
         _add(report, "error", sheet_name, "A1", "top title row is not merged across expected UI width")
 
 
@@ -318,7 +320,7 @@ def validate_openpyxl_layout(workbook_path: Path | str, ticker: str) -> Openpyxl
                 continue
             ws = wb[sheet_name]
             report.checked_sheets += 1
-            expected_width = 10 if sheet_name != "Valuation" else 29
+            expected_width = 12 if sheet_name == "Quarter_Notes_UI" else (10 if sheet_name != "Valuation" else 29)
             if sheet_name != "Valuation":
                 _validate_title_row(ws, report, sheet_name, expected_width=expected_width)
             if sheet_name.endswith("_Investment_Case"):
@@ -333,7 +335,7 @@ def validate_openpyxl_layout(workbook_path: Path | str, ticker: str) -> Openpyxl
                     ws,
                     report,
                     sheet_name,
-                    width=10,
+                    width=expected_width,
                     max_height=95.0 if sheet_name == "Quarter_Notes_UI" else 120.0,
                     narrative=sheet_name == "Quarter_Notes_UI",
                 )
@@ -459,16 +461,41 @@ def _default_workbooks(workbook_dir: Path) -> Dict[str, Path]:
     return {ticker: workbook_dir / f"{ticker}_model.xlsx" for ticker in ("PBI", "GPRE", "ANF")}
 
 
+def resolve_workbook_dir(
+    *,
+    data_root: Path | str | None = None,
+    workbook_dir: Path | str | None = None,
+) -> Path:
+    if workbook_dir is not None and str(workbook_dir).strip():
+        return Path(workbook_dir).expanduser().resolve()
+    paths = resolve_stock_model_paths(Path(__file__).resolve().parents[2], data_root)
+    return paths.excel_output_dir
+
+
+def resolve_output_root(
+    *,
+    data_root: Path | str | None = None,
+    output_root: Path | str | None = None,
+) -> Path:
+    if output_root is not None and str(output_root).strip():
+        return Path(output_root).expanduser().resolve()
+    paths = resolve_stock_model_paths(Path(__file__).resolve().parents[2], data_root)
+    return paths.render_checks_dir
+
+
 def _main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Render workbook ranges and validate user-facing workbook styles.")
-    parser.add_argument("--workbook-dir", default=str(Path(__file__).resolve().parents[2] / "Excel stock models"))
-    parser.add_argument("--output-root", default=str(Path(__file__).resolve().parents[2] / "render_checks"))
+    parser.add_argument("--workbook-dir", default=None)
+    parser.add_argument("--output-root", default=None)
+    parser.add_argument("--data-root", default="", help="Portable StockModelData root.")
     parser.add_argument("--openpyxl-only", action="store_true", help="Skip Excel COM image rendering but run layout/style validation.")
     args = parser.parse_args(argv)
 
+    workbook_dir = resolve_workbook_dir(data_root=args.data_root, workbook_dir=args.workbook_dir)
+    output_root = resolve_output_root(data_root=args.data_root, output_root=args.output_root)
     report = run_render_validation(
-        _default_workbooks(Path(args.workbook_dir)),
-        output_root=Path(args.output_root),
+        _default_workbooks(workbook_dir),
+        output_root=output_root,
         enable_com=not args.openpyxl_only,
     )
     print("Ticker | Style | Render | Overall")

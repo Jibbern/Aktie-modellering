@@ -100,9 +100,9 @@ def _add_promise_progress(wb: Workbook, *, guidance_heavy: bool = False) -> None
     ws.append(["Revenue guidance", "$1.1bn-$1.2bn", "2026 year", "Open", "Initial 2026 annual guide."])
     ws.append([])
     ws.append(["2025-Q4 revisions"])
-    ws.append(["Metric", "Previous guide", "New/current guide", "Change type", "Actual", "Status", "Horizon", "Stated in", "Source date", "Source / note"])
-    ws.append(["Revenue guidance", "$1.0bn-$1.1bn", "$1.04bn actual", "Completed", "$1.04bn", "Hit", "2025 year", "2025-Q4", "2026-02-20", "Final annual result."])
-    ws.append(["Revenue guidance", "", "$1.1bn-$1.2bn", "Initial", "", "Open", "2026 year", "2025-Q4", "2026-02-20", "Future annual guide remains open."])
+    ws.append(["Metric", "Previous guide", "New/current guide", "Change type", "Actual", "Progress / run-rate", "Status", "Horizon", "Stated in", "Source date", "Source / note"])
+    ws.append(["Revenue guidance", "$1.0bn-$1.1bn", "$1.04bn actual", "Completed", "$1.04bn", "", "Hit", "2025 year", "2025-Q4", "2026-02-20", "Final annual result."])
+    ws.append(["Revenue guidance", "", "$1.1bn-$1.2bn", "Initial", "", "", "Open", "2026 year", "2025-Q4", "2026-02-20", "Future annual guide remains open."])
 
 
 def _save_fixture(tmp_path: Path, ticker: str, *, guidance: bool = False, segment: bool = False) -> Path:

@@ -74,7 +74,15 @@ def write_gpre_basis_proxy_sidecars(
         return
     if ticker_root is None:
         return
-    out_dir = ticker_root / "basis_proxy"
+    try:
+        resolved_root = Path(ticker_root).expanduser().resolve()
+    except Exception:
+        resolved_root = Path(ticker_root)
+    out_dir = (
+        resolved_root.parent.parent / "basis_proxy"
+        if resolved_root.parent.name.lower() == "tickers"
+        else resolved_root / "basis_proxy"
+    )
     try:
         out_dir.mkdir(parents=True, exist_ok=True)
         quarterly_df.to_csv(out_dir / "gpre_basis_proxy_quarterly.csv", index=False)

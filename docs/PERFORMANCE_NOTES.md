@@ -46,6 +46,8 @@ These are current observations from recent local runs and may vary by machine, c
   - `parsed/` preserves provider-specific extraction work.
   - `parsed/exports/` is the provider-agnostic export layer that workbook overlays actually consume.
   - Live USDA refresh first downloads into ticker-local USDA working folders, then syncs those files into raw cache.
+  - Raw-tree fingerprints and export cache keys let unchanged `--market-only` and incremental `--market-reparse` runs skip broad raw-cache scans and export rewrites.
+  - Use `--market-force-reparse` for a deliberate full reparse when parser behavior is suspect or a cache needs to be rebuilt from scratch.
 
 ## Current USDA Market-Data Note
 - The current USDA report pages for NWER and AMS 3617 are AJAX-driven.
@@ -193,6 +195,40 @@ The durable pieces from that pass were:
 Those event-window guards are now implemented through a named local helper in
 `excel_writer_context.py` so future ticker-specific rescue scans have one
 obvious pattern to copy.
+
+## Latest Market-Cache And Raw-Sheet Pass
+The current market-data path separates three operator intents:
+
+- `--refresh-market-data`
+  - performs live/latest source refresh and then reconciles parsed/export cache.
+- `--market-reparse --market-only`
+  - reconciles local raw/bootstrap inputs against parser fingerprints without network refresh.
+  - unchanged sources reuse parsed parquet and the existing ticker export.
+- `--market-force-reparse --market-only`
+  - bypasses the export fast path and forces all enabled sources to reparse.
+
+Recent local GPRE measurements after this pass:
+
+- `GPRE --market-only`
+  - before: about `90.8s`
+  - warm unchanged cache after: about `0.57s`
+- `GPRE --market-reparse --market-only`
+  - warm unchanged cache after: about `0.56s`
+- `write_excel.raw_data.economics_market_raw`
+  - before: about `55.8s`
+  - after: about `3.6s`
+- full warm `GPRE --only-write-excel --skip-macro-injection --no-history-export`
+  - before this pass: about `323.9s`
+  - after this pass: about `285.9s`
+
+The `economics_market_raw` improvement keeps the same audit data and columns but uses
+a lower-overhead write path for very large raw/provenance sheets. It avoids expensive
+per-cell borders and row-height estimation on tens of thousands of rows where the
+sheet's purpose is auditability rather than presentation.
+
+The fitted GPRE basis model remains cache-sensitive. Warm cache is normally sub-second
+for `gpre_basis_model_build`; a cold/mismatched cache can still take several minutes
+because the model is actually being rebuilt.
 
 ## What Not To “Optimize”
 - Do not bypass cache invalidation rules just to get faster runs.

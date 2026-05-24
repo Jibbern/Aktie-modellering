@@ -35,6 +35,13 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
   - derived pipeline/stage artifacts
   - market-data raw/index/parsed/export data
   - small debug/temp subtrees
+- A portable data layout is now supported:
+  - preferred local working root: `C:\Users\Jibbe\Aktier\StockModelData`
+  - layout: `StockModelData/sec_cache`, `StockModelData/tickers/PBI`, `StockModelData/tickers/GPRE`, `StockModelData/tickers/ANF`, `StockModelData/market_cache`, `StockModelData/outputs/Excel stock models`
+  - configure once with `stock_models.py data config set-root C:\Users\Jibbe\Aktier\StockModelData`, then normal rebuild commands no longer need `--data-root`
+  - priority is explicit `--data-root`, then `STOCK_MODEL_DATA_ROOT`, then repo config, then auto-detected `StockModelData`, then legacy paths
+  - do not run the live working `StockModelData` directly from OneDrive; use a OneDrive snapshot zip for portability
+  - use `--material-root <StockModelData>\tickers\<TICKER>` only when overriding one ticker material folder explicitly
 - For `GPRE`, live USDA refresh now writes ticker-local working copies into:
   - [`GPRE/USDA_bioenergy_reports`](/c:/Users/Jibbe/Aktier/GPRE/USDA_bioenergy_reports)
   - [`GPRE/USDA_weekly_data`](/c:/Users/Jibbe/Aktier/GPRE/USDA_weekly_data)
@@ -92,6 +99,22 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
   - `local_chicago_ethanol_futures` is now the canonical provider in the active GPRE workflow; refresh writes debug artifacts but thesis ethanol comes from the local CSV/manual snapshot files in `GPRE/Ethanol_futures`. The legacy `cme_ethanol_platts` id remains as a compatibility alias during the transition.
   - Live GPRE forward corn now prefers local Barchart CSVs in `GPRE/corn_futures` before NWER fallback; live forward gas is wired the same way for `GPRE/naturalGas_futures` when local files exist. Per-contract `*_price-history-*.csv` files are used for dated quarter-open and next-quarter futures baskets when available.
   - The 7/14-day carry-forward rule remains for GPRE cash/basis snapshots only. Quarter-open local futures use same-date, then nearest prior local price-history row within 7 calendar days; NWER fallback must still be on or before the same anchor date.
+- Reconcile market cache without network refresh:
+  - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE --market-reparse --market-only`
+  - `--market-reparse` is incremental: unchanged raw/source fingerprints reuse parsed frames and the ticker export.
+  - Use `--market-force-reparse` only when you intentionally want every enabled source reparsed and the export rebuilt even if fingerprints match.
+- Configure and run from the local portable data root:
+  - `.\.venv\Scripts\python.exe Code\stock_models.py data config show`
+  - `.\.venv\Scripts\python.exe Code\stock_models.py data config set-root C:\Users\Jibbe\Aktier\StockModelData`
+  - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker PBI`
+  - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE`
+  - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker ANF`
+  - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker ANF --print-paths`
+- Validate/snapshot/restore the portable root:
+  - `.\.venv\Scripts\python.exe Code\stock_models.py data validate-root`
+  - `.\.venv\Scripts\python.exe Code\stock_models.py data snapshot --out C:\Users\Jibbe\OneDrive\AktierBackup\StockModelData_snapshot.zip`
+  - `.\.venv\Scripts\python.exe Code\stock_models.py data restore --snapshot C:\Users\Jibbe\OneDrive\AktierBackup\StockModelData_snapshot.zip --data-root C:\Users\Jibbe\Aktier\StockModelData_restore_test`
+  - keep `OldDataArchive_*` for a while before considering permanent deletion
 - Backfill historical USDA gaps:
   - `.\.venv\Scripts\python.exe Code\usda_backfill.py --ticker GPRE --start 2026-01-23 --end 2026-03-31`
   - Use `--refresh-market-data` for the newest releases and `usda_backfill.py` for targeted historical windows.

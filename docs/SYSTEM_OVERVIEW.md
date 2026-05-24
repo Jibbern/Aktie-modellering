@@ -8,8 +8,15 @@
 ## Main Inputs
 - `sec_cache/<TICKER>/`
   - Canonical filing and narrative cache layout.
+- `sec_cache/market_data/`
+  - Shared market-data raw, parsed, export, and manifest layout used by GPRE economics and market-driver sheets.
 - `GPRE/USDA_weekly_data` and `GPRE/USDA_daily_data`
   - Ticker-local USDA working folders for NWER / AMS PDFs and optional curated bootstrap CSVs.
+- Optional portable data root
+  - Preferred local root is `StockModelData/`, containing `sec_cache`, `tickers/<TICKER>`, `market_cache`, `writer_cache`, `basis_proxy`, and workbook outputs.
+  - Path priority is explicit `--data-root`, `STOCK_MODEL_DATA_ROOT`, repo config, auto-detected local `StockModelData`, then legacy folders.
+  - `stock_models.py data config show/set-root/clear-root` manages the repo-local default.
+  - Live data roots inside OneDrive are refused unless explicitly allowed; OneDrive should carry snapshot zips rather than the working folder.
 - `History_Q`
   - Structured quarter history for deterministic metric rows.
 - Earnings releases / CEO letters / annual letters
@@ -49,6 +56,7 @@
 - `stock_models.py`
   - Operator-facing workflow switchboard.
   - Decides whether the run stops at ingest/refresh, market-data maintenance, or proceeds into workbook export.
+  - Resolves the effective data root and prints the root/source with `--print-paths`.
 - `pipeline_orchestration.py`
   - Main artifact assembler.
   - Produces the normalized intermediate bundle that downstream code should treat as the canonical pipeline output.
@@ -67,6 +75,8 @@
 
 ## Cache Policy
 - `doc_intel_bundle` and `company_overview` stage-cache keys now include explicit behavior versions plus code signatures.
+- `doc_intel_bundle` also tracks the local material directory signature so new transcripts, presentations, press releases, or CEO letters invalidate stale narrative outputs.
+- Market-data export cache keys track enabled sources, parser versions, raw/bootstrap fingerprints, and market-input fingerprints.
 - This is intended to keep code patches from being hidden behind stale stage cache.
 - `sec_cache` should be treated as a mixed runtime store, not a generic temp folder.
 - See [SEC_CACHE_REFERENCE.md](/c:/Users/Jibbe/Aktier/Code/docs/SEC_CACHE_REFERENCE.md) for keep/delete guidance by subtree.

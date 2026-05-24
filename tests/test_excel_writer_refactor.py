@@ -5563,13 +5563,15 @@ def test_pbi_promise_progress_uses_observed_actual_for_resolved_rows(
 
             target_row = None
             for rr in range(1, ws.max_row + 1):
-                if ws.cell(row=rr, column=1).value == "Revenue guidance":
+                if (
+                    ws.cell(row=rr, column=1).value == "Revenue guidance"
+                    and str(ws.cell(row=rr, column=7).value or "").strip() == "$460.0m"
+                ):
                     target_row = rr
                     break
             assert target_row is not None
-            assert ws.cell(row=target_row, column=4).value != "not yet measurable"
-            assert str(ws.cell(row=target_row, column=4).value or "").strip() == "$460.0m"
-            assert ws.cell(row=target_row, column=5).value == "Missed"
+            assert str(ws.cell(row=target_row, column=7).value or "").strip() == "$460.0m"
+            assert ws.cell(row=target_row, column=8).value == "Missed"
 
 
 def test_pbi_promise_progress_recovers_later_actual_for_older_fy2025_guidance(
@@ -5605,12 +5607,16 @@ def test_pbi_promise_progress_recovers_later_actual_for_older_fy2025_guidance(
 
             target_row = None
             for rr in range(1, ws.max_row + 1):
-                if ws.cell(row=rr, column=1).value == "Revenue guidance":
+                if (
+                    ws.cell(row=rr, column=1).value == "Revenue guidance"
+                    and str(ws.cell(row=rr, column=9).value or "").strip() == "2025-Q3"
+                ):
                     target_row = rr
                     break
             assert target_row is not None
-            assert ws.cell(row=target_row, column=4).value != "not yet measurable"
-            assert str(ws.cell(row=target_row, column=4).value or "").strip() == "$860.0m"
+            assert str(ws.cell(row=target_row, column=5).value or "").strip() == ""
+            assert str(ws.cell(row=target_row, column=6).value or "").strip().startswith("Q3:")
+            assert str(ws.cell(row=target_row, column=7).value or "").strip() in {"Open", "On track"}
 
 
 def test_pbi_promise_progress_drops_cost_savings_row_when_guidance_alignment_is_wrong(
@@ -5748,17 +5754,18 @@ def test_promise_progress_ui_surface_contract_on_temp_workbook(
             assert str(ws.cell(row=header_row + 2, column=1).value or "").strip() == "Metric"
             assert str(ws.cell(row=header_row + 2, column=2).value or "").strip() == "Previous guide"
             assert str(ws.cell(row=header_row + 2, column=3).value or "").strip() == "New/current guide"
-            assert str(ws.cell(row=header_row + 2, column=5).value or "").strip() == "Actual / latest actual"
-            assert str(ws.cell(row=header_row + 2, column=6).value or "").strip() == "Status"
-            assert abs(float(ws.column_dimensions["B"].width or 0.0) - 22.0) < 0.2
-            assert abs(float(ws.column_dimensions["C"].width or 0.0) - 24.0) < 0.2
+            assert str(ws.cell(row=header_row + 2, column=5).value or "").strip() == "Actual"
+            assert str(ws.cell(row=header_row + 2, column=6).value or "").strip() == "Progress / run-rate"
+            assert str(ws.cell(row=header_row + 2, column=7).value or "").strip() == "Status"
+            assert abs(float(ws.column_dimensions["B"].width or 0.0) - 28.0) < 0.2
+            assert abs(float(ws.column_dimensions["C"].width or 0.0) - 32.0) < 0.2
             completed_rows = [
                 rr
                 for rr in range(1, ws.max_row + 1)
-                if str(ws.cell(row=rr, column=6).value or "").strip() == "Completed"
+                if str(ws.cell(row=rr, column=7).value or "").strip() == "Completed"
             ]
             assert completed_rows
-            assert {str(ws.cell(row=rr, column=6).fill.fgColor.rgb or "") for rr in completed_rows} == {"00009E73"}
+            assert {str(ws.cell(row=rr, column=7).fill.fgColor.rgb or "") for rr in completed_rows} == {"00009E73"}
 
 
 def test_gpre_quarter_notes_ui_filters_dropped_and_fragment_junk_but_keeps_high_signal_notes(
@@ -14493,20 +14500,22 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert updated_fills.issubset({"00FFFFFF", "00F6F9FC", "00F7F9FC"})
             else:
                 timeline_rows = [
-                    tuple(str(wb["Promise_Progress_UI"].cell(row=rr, column=cc).value or "").strip() for cc in range(1, 11))
+                    tuple(str(wb["Promise_Progress_UI"].cell(row=rr, column=cc).value or "").strip() for cc in range(1, 12))
                     for rr in range(1, wb["Promise_Progress_UI"].max_row + 1)
                     if str(wb["Promise_Progress_UI"].cell(row=rr, column=1).value or "").strip()
                     and str(wb["Promise_Progress_UI"].cell(row=rr, column=1).value or "").strip() != "Metric"
                 ]
                 assert any(
-                    row[0] == "Interest expense outlook"
-                    and row[6] == "2026 year"
-                    and row[7] == "2025-Q4"
+                    row[0] == "2026 year 45Z EBITDA guidance"
+                    and row[5]
+                    and row[6] == "On track"
+                    and row[7] == "2026 year"
+                    and row[8] == "2026-Q1"
                     for row in timeline_rows
                 )
                 assert not any(
                     row[0] == "Cost savings target"
-                    and row[7] == "2025-Q1"
+                    and row[8] == "2025-Q1"
                     and re.search(r"\b2025-Q2\b|\bQ2\s+2025\b", " | ".join(row), flags=re.I)
                     for row in timeline_rows
                 )
@@ -14514,7 +14523,7 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 for row in timeline_rows:
                     if row[0].startswith(("Promise Progress", "Current guidance", "Open guidance", "Quarterly guidance", "20")):
                         continue
-                    key = (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7])
+                    key = (row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8])
                     duplicate_keys[key] = duplicate_keys.get(key, 0) + 1
                 assert {key: count for key, count in duplicate_keys.items() if count > 1} == {}
                 junk_metrics = {
@@ -14546,8 +14555,8 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                     for metric, _, _, _, _, _ in progress_rows
                 )
                 assert any(
-                    metric == "Interest expense outlook" and "$30m-$35m" in " | ".join((target, latest))
-                    for metric, target, latest, _, _, _ in progress_rows
+                    metric == "2026 year 45Z EBITDA guidance" and "$200m-$225m" in " | ".join((target, latest, result, rationale))
+                    for metric, target, latest, result, rationale, _ in progress_rows
                 )
                 assert any(
                     metric == "Debt reduction"
@@ -14870,27 +14879,64 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                                 str(wb["Promise_Progress_UI"].cell(row=rr, column=3).value or "").strip(),
                                 str(wb["Promise_Progress_UI"].cell(row=rr, column=5).value or "").strip(),
                                 str(wb["Promise_Progress_UI"].cell(row=rr, column=6).value or "").strip(),
+                                str(wb["Promise_Progress_UI"].cell(row=rr, column=7).value or "").strip(),
                             )
                         )
                 q3_by_metric = {row[0]: row for row in q3_rows}
-                assert {"2026 year 45Z EBITDA guidance", "Debt reduction", "45Z facility qualification"}.issubset(q3_by_metric)
+                assert {"Debt reduction", "45Z monetization"}.issubset(q3_by_metric)
+                assert "2026 year 45Z EBITDA guidance" not in q3_by_metric
+                assert "45Z facility qualification" not in q3_by_metric
                 assert q3_by_metric["Debt reduction"][1] == "$130.7m"
                 assert q3_by_metric["Debt reduction"][2] == "Debt repaid"
-                assert q3_by_metric["Debt reduction"][3] == "Completed"
-                assert q3_by_metric["45Z facility qualification"][2] == "Expected in 2026"
-                assert q3_by_metric["45Z facility qualification"][3] == "On track"
-                assert "Debt exchange" in quarter_note_metrics
-                assert "Interest expense outlook" in quarter_note_metrics
-                cost_note_row = next(
-                    rr for rr in range(1, wb["Quarter_Notes_UI"].max_row + 1)
-                    if "Cost reductions are on pace to exceed the $50.0m annualized savings target." in str(wb["Quarter_Notes_UI"].cell(row=rr, column=3).value or "")
+                assert q3_by_metric["Debt reduction"][3] == ""
+                assert q3_by_metric["Debt reduction"][4] == "Completed"
+                assert q3_by_metric["45Z monetization"][1] == "$15.0m-$25.0m"
+                assert q3_by_metric["45Z monetization"][2] == ""
+                assert q3_by_metric["45Z monetization"][3] == ""
+                assert q3_by_metric["45Z monetization"][4] == "Open"
+                q1_revision_row = _find_row_with_value(wb["Promise_Progress_UI"], "2026-Q1 revisions")
+                assert q1_revision_row is not None
+                q1_rows = []
+                for rr in range(q1_revision_row + 2, wb["Promise_Progress_UI"].max_row + 1):
+                    marker = str(wb["Promise_Progress_UI"].cell(row=rr, column=1).value or "").strip()
+                    if marker.endswith(" revisions"):
+                        break
+                    if marker and marker != "Metric":
+                        q1_rows.append(
+                            (
+                                marker,
+                                str(wb["Promise_Progress_UI"].cell(row=rr, column=2).value or "").strip(),
+                                str(wb["Promise_Progress_UI"].cell(row=rr, column=3).value or "").strip(),
+                                str(wb["Promise_Progress_UI"].cell(row=rr, column=5).value or "").strip(),
+                                str(wb["Promise_Progress_UI"].cell(row=rr, column=6).value or "").strip(),
+                                str(wb["Promise_Progress_UI"].cell(row=rr, column=7).value or "").strip(),
+                                str(wb["Promise_Progress_UI"].cell(row=rr, column=8).value or "").strip(),
+                                str(wb["Promise_Progress_UI"].cell(row=rr, column=9).value or "").strip(),
+                            )
+                        )
+                q1_by_metric = {row[0]: row for row in q1_rows}
+                assert q1_by_metric["2026 year 45Z EBITDA guidance"][1] == "$188m"
+                assert q1_by_metric["2026 year 45Z EBITDA guidance"][2] == "$200m-$225m"
+                assert q1_by_metric["2026 year 45Z EBITDA guidance"][3] == ""
+                assert q1_by_metric["2026 year 45Z EBITDA guidance"][4] == "AN operational"
+                assert q1_by_metric["2026 year 45Z EBITDA guidance"][5] == "On track"
+                assert q1_by_metric["45Z facility qualification"][3] == ""
+                assert q1_by_metric["45Z facility qualification"][4] == "3 of 8 operational"
+                assert q1_by_metric["45Z facility qualification"][5] == "On track"
+                assert q1_by_metric["45Z facility qualification"][6] == "2026-Q1"
+                assert q1_by_metric["45Z facility qualification"][7] == "2026-Q1"
+                quarter_notes_blob = "\n".join(
+                    " | ".join(
+                        str(wb["Quarter_Notes_UI"].cell(row=rr, column=cc).value or "").strip()
+                        for cc in range(1, min(wb["Quarter_Notes_UI"].max_column, 12) + 1)
+                    )
+                    for rr in range(1, min(wb["Quarter_Notes_UI"].max_row, 90) + 1)
                 )
-                carbon_note_row = next(
-                    rr for rr in range(1, wb["Quarter_Notes_UI"].max_row + 1)
-                    if str(wb["Quarter_Notes_UI"].cell(row=rr, column=4).value or "").strip() == "Carbon capture operational milestone"
-                )
-                assert str(wb["Quarter_Notes_UI"].cell(row=cost_note_row, column=4).value or "").strip() == "Cost savings target"
-                assert str(wb["Quarter_Notes_UI"].cell(row=carbon_note_row, column=4).value or "").strip() == "Carbon capture operational milestone"
+                assert "Debt reduction" in quarter_notes_blob
+                assert "45Z facility qualification progress" in quarter_notes_blob
+                assert "Advantage Nebraska" in quarter_notes_blob
+                assert "Use incremental uplift vs baseline" in quarter_notes_blob
+                assert "Do not treat debt repayment as operating EBITDA" in quarter_notes_blob
                 assert "least 45Z monetization / EBITDA" not in quarter_note_metrics
                 assert "year ended December Expense drivers" not in quarter_note_metrics
                 assert all("[REPEAT]" not in str(wb["Quarter_Notes_UI"].cell(row=rr, column=3).value or "") for rr in range(1, wb["Quarter_Notes_UI"].max_row + 1))
@@ -15237,7 +15283,7 @@ def test_current_delivered_workbooks_analysis_sheets_share_blue_theme() -> None:
                 status_col = headers.index("Status") + 1
                 neutral_cols = [
                     headers.index(label) + 1
-                    for label in ("Change type", "Actual / latest actual", "Actual")
+                    for label in ("Change type", "Actual", "Progress / run-rate")
                     if label in headers
                 ]
                 for rr in range(hdr_row + 1, min(ws_pp.max_row, hdr_row + 15) + 1):
@@ -18248,19 +18294,18 @@ def test_current_delivered_workbooks_preserve_pbi_adjusted_truth_and_polish_curr
 def test_current_delivered_workbooks_match_visible_promise_progress_ui_snapshots() -> None:
     expected_latest_blocks = {
         "PBI": [
-            ("Revenue guidance", "$1.8bn-$1.86bn", "not yet measurable", "Open"),
-            ("Adjusted EBIT guidance", "$425m-$465m", "not yet measurable", "Open"),
-            ("EPS guidance", "$1.50-$1.65", "not yet measurable", "Open"),
-            ("FCF target", "$345m-$380m", "not yet measurable", "Open"),
-            ("Cost savings target", "$180m-$200m", "$157m run-rate", "On track"),
-            ("Strategic milestone", "", "Phase 2 on track.", "On track"),
+            ("Revenue guidance", "$1.8bn-$1.86bn", "2026 year", "Open"),
+            ("Adjusted EBIT guidance", "$425m-$465m", "2026 year", "Open"),
+            ("Adjusted EPS guidance", "$1.50-$1.65", "2026 year", "Open"),
+            ("FCF target", "$345m-$380m", "2026 year", "Open"),
+            ("Cost savings target", "$180m-$200m", "Annualized program", "On track"),
+            ("Strategic milestone", "", "2026-Q2", "On track"),
         ],
         "GPRE": [
-            ("Capex guidance (2026 year)", "$15.0m-$25.0m", "not yet measurable", "Open"),
-            ("2026 year 45Z EBITDA guidance", "$200m-$225m", "$55.2m in Q1", "On track"),
-            ("45Z from remaining facilities", "~$60m expected in 2026", "not yet measurable", "On track"),
-            ("Advantage Nebraska EBITDA opportunity", "$140m-$165m in 2026", "AN operational", "On track"),
-            ("45Z facility qualification", "All 8 qualified in 2026", "All 8 qualified", "Completed"),
+            ("Capex guidance (2026 year)", "$15.0m-$25.0m", "2026 year", "Open"),
+            ("2026 year 45Z EBITDA guidance", "$200m-$225m", "2026 year", "On track"),
+            ("45Z from remaining facilities", "~$60m expected in 2026", "2026 year", "On track"),
+            ("Advantage Nebraska EBITDA opportunity", "$140m-$165m in 2026", "2026 year", "On track"),
         ],
     }
 
@@ -18269,20 +18314,20 @@ def test_current_delivered_workbooks_match_visible_promise_progress_ui_snapshots
         in_latest = False
         for rr in range(1, ws.max_row + 1):
             marker = str(ws.cell(rr, 1).value or "").strip()
-            if marker == "Current guidance progression":
+            if marker in {"2026 open guidance", "Open guidance"}:
                 in_latest = True
                 continue
-            if in_latest and marker == "Open guidance":
+            if in_latest and marker == "Quarterly guidance timeline / revision log":
                 break
             if not in_latest:
                 continue
             metric = str(ws.cell(rr, 1).value or "").strip()
             if not metric or metric == "Metric" or metric == "No high-signal items.":
                 continue
-            latest_guide = str(ws.cell(rr, 3).value or "").strip()
-            actual_or_latest = str(ws.cell(rr, 4).value or "").strip()
-            status = str(ws.cell(rr, 5).value or "").strip()
-            out.append((metric, latest_guide, actual_or_latest, status))
+            current_guide = str(ws.cell(rr, 2).value or "").strip()
+            horizon = str(ws.cell(rr, 3).value or "").strip()
+            status = str(ws.cell(rr, 4).value or "").strip()
+            out.append((metric, current_guide, horizon, status))
         return out
 
     for ticker, expected_rows in expected_latest_blocks.items():

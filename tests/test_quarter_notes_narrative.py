@@ -140,7 +140,7 @@ def _is_merged_across_a_j(ws: Worksheet, row: int) -> bool:
         merged.min_row == row
         and merged.max_row == row
         and merged.min_col == 1
-        and merged.max_col == 10
+        and merged.max_col >= 10
         for merged in ws.merged_cells.ranges
     )
 
@@ -166,7 +166,8 @@ def _key_development_rows(ws: Worksheet) -> List[Tuple[int, str, str, str]]:
             if not first or first in SECTION_TITLES or first.endswith(" - Quarter Notes"):
                 break
             if first not in TABLE_HEADER_LABELS:
-                rows.append((body, first, _text(ws.cell(body, 3).value), _text(ws.cell(body, 10).value)))
+                source = _text(ws.cell(body, 11).value) or _text(ws.cell(body, 10).value)
+                rows.append((body, first, _text(ws.cell(body, 3).value), source))
             body += 1
         rr = body
     return rows
@@ -191,7 +192,7 @@ def _model_mapping_rows(ws: Worksheet) -> List[Tuple[int, str, str, str, str]]:
                         first,
                         _text(ws.cell(body, 3).value),
                         _text(ws.cell(body, 6).value),
-                        _text(ws.cell(body, 9).value),
+                        _text(ws.cell(body, 10).value) or _text(ws.cell(body, 9).value),
                     )
                 )
             body += 1
@@ -218,7 +219,7 @@ def _promise_interpretation_rows(ws: Worksheet) -> List[Tuple[int, str, str, str
                         first,
                         _text(ws.cell(body, 3).value),
                         _text(ws.cell(body, 8).value),
-                        _text(ws.cell(body, 10).value),
+                        _text(ws.cell(body, 11).value) or _text(ws.cell(body, 10).value),
                     )
                 )
             body += 1
@@ -406,7 +407,7 @@ def test_quarter_notes_layout_is_readable_and_continuous_across_a_to_j() -> None
             for rr in range(1, int(ws.max_row or 0) + 1):
                 height = ws.row_dimensions[rr].height or 0
                 assert height <= 90, f"{ticker}: row {rr} height {height} is a readability blowup"
-                row_values = [_text(ws.cell(rr, cc).value) for cc in range(1, 11)]
+                row_values = [_text(ws.cell(rr, cc).value) for cc in range(1, 13)]
                 if not any(row_values):
                     continue
                 first = row_values[0]
@@ -415,11 +416,11 @@ def test_quarter_notes_layout_is_readable_and_continuous_across_a_to_j() -> None
                 if first in SECTION_TITLES or first in TABLE_HEADER_LABELS or first in {"Model read", "What changed", "Watch next", "Key caveat"}:
                     assert _effective_fill(ws, rr, 1) not in {"", "00000000"}, f"{ticker}: row {rr} missing section/body fill"
                 if first not in SECTION_TITLES and first not in TABLE_HEADER_LABELS:
-                    for cc in range(1, 11):
+                    for cc in range(1, 13):
                         assert _effective_fill(ws, rr, cc) not in {"", "00000000"}, f"{ticker}: row {rr} col {cc} has zebra fill gap"
                         assert any(_effective_border_styles(ws, rr, cc)), f"{ticker}: row {rr} col {cc} missing border"
                     if any(row_values[1:]):
-                        assert any(_effective_wrap(ws, rr, cc) for cc in range(2, 11)), f"{ticker}: row {rr} narrative cells are not wrapped"
+                        assert any(_effective_wrap(ws, rr, cc) for cc in range(2, 13)), f"{ticker}: row {rr} narrative cells are not wrapped"
 
             key_rows = _key_development_rows(ws)
             promise_rows = _promise_interpretation_rows(ws)

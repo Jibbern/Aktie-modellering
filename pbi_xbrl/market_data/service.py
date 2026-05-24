@@ -26,6 +26,7 @@ import pandas as pd
 from ..conference_metadata import parse_metadata_key_values, parse_metadata_number, source_material_role
 from ..company_profiles import get_company_profile
 from ..debt_parser import read_html_tables_any
+from ..path_config import data_root_from_sec_cache_path
 from .aggregations import aggregate_quarterly, parse_quarter_like, quarter_end_from_date
 from .cache import (
     batch_fingerprint,
@@ -672,6 +673,9 @@ def _ticker_root_from_cache_dir(cache_dir: Path, ticker: str) -> Path:
     ticker_u = str(ticker or "").strip().upper()
     croot = Path(cache_dir).expanduser().resolve()
     candidates: List[Path] = []
+    data_root = data_root_from_sec_cache_path(croot)
+    if data_root is not None and (data_root / "tickers").exists():
+        candidates.append(data_root / "tickers" / ticker_u)
     if len(croot.parents) >= 2:
         candidates.append(croot.parents[1] / ticker_u)
     if len(croot.parents) >= 1:
@@ -701,6 +705,9 @@ def _raw_tree_fingerprint_manifest_path(cache_root: Path) -> Path:
 
 
 def _raw_tree_fingerprint(cache_root: Path, source: str) -> str:
+    # This is deliberately metadata-based. The raw manifest stores the content-level
+    # checksums; the tree fingerprint only answers the faster question: "did the raw
+    # folder shape change enough that we must rescan/backfill from disk?"
     raw_root = cache_root / "raw" / str(source)
     if not raw_root.exists() or not raw_root.is_dir():
         return "none"
@@ -834,9 +841,10 @@ def market_input_fingerprint(
     profile: Any = None,
     *,
     include_sidecars: bool = True,
+    ticker_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
     ticker_u = str(ticker or "").strip().upper()
-    ticker_root = _ticker_root_from_cache_dir(Path(cache_dir), ticker_u)
+    ticker_root = Path(ticker_root).expanduser().resolve() if ticker_root is not None else _ticker_root_from_cache_dir(Path(cache_dir), ticker_u)
     enabled_sources = tuple(src for src in _enabled_sources_for_profile(profile) if src in PROVIDERS)
     tracked_files = _market_input_file_candidates(
         ticker_root,
@@ -1208,6 +1216,7 @@ def sync_market_cache(
     ticker: str,
     profile: Any = None,
     *,
+    ticker_root: Optional[Path] = None,
     sync_raw: bool = False,
     refresh: bool = False,
     reparse: bool = False,
@@ -1233,7 +1242,7 @@ def sync_market_cache(
         raise ValueError("ticker is required for market-data sync")
     cache_root = resolve_market_cache_root(Path(cache_dir))
     ensure_market_cache_dirs(cache_root)
-    ticker_root = _ticker_root_from_cache_dir(Path(cache_dir), ticker_u)
+    ticker_root = Path(ticker_root).expanduser().resolve() if ticker_root is not None else _ticker_root_from_cache_dir(Path(cache_dir), ticker_u)
     if ticker_u == "GPRE":
         _ensure_gpre_corn_bids_archive_migrated(ticker_root, as_of_date=date.today())
         if sync_raw or refresh:
@@ -1339,6 +1348,7 @@ def sync_market_cache(
         ticker_u,
         profile=profile,
         include_sidecars=False,
+        ticker_root=ticker_root,
     )
     export_cache_key = _market_export_cache_key(
         ticker=ticker_u,
@@ -7084,6 +7094,12 @@ _GPRE_CURRENT_QTD_SNAPSHOTS_CSV_FILENAME = "gpre_current_qtd_snapshots.csv"
 def _gpre_basis_proxy_dir(ticker_root: Optional[Path]) -> Optional[Path]:
     if not isinstance(ticker_root, Path):
         return None
+    try:
+        resolved = ticker_root.expanduser().resolve()
+    except Exception:
+        resolved = ticker_root
+    if resolved.parent.name.lower() == "tickers" and resolved.parent.parent:
+        return resolved.parent.parent / "basis_proxy"
     return ticker_root / "basis_proxy"
 
 
@@ -20490,6 +20506,7 @@ def load_market_export_rows(
     profile: Any = None,
     *,
     ensure_cache: bool = True,
+    ticker_root: Optional[Path] = None,
 ) -> List[Dict[str, Any]]:
     # Workbook callers ask for normalized export rows, not provider-specific raw or
     # parsed files. If the export is missing, we opportunistically rebuild it from
@@ -20501,9 +20518,9 @@ def load_market_export_rows(
     ensure_market_cache_dirs(cache_root)
     export_path = export_rows_path(cache_root, ticker_u)
     enabled_sources = tuple(src for src in _enabled_sources_for_profile(profile) if src in PROVIDERS)
-    ticker_root = _ticker_root_from_cache_dir(Path(cache_dir), ticker_u)
+    ticker_root = Path(ticker_root).expanduser().resolve() if ticker_root is not None else _ticker_root_from_cache_dir(Path(cache_dir), ticker_u)
     if not export_path.exists() and ensure_cache:
-        sync_market_cache(cache_dir, ticker_u, profile=profile, sync_raw=False, refresh=False, reparse=False)
+        sync_market_cache(cache_dir, ticker_u, profile=profile, ticker_root=ticker_root, sync_raw=False, refresh=False, reparse=False)
     if not export_path.exists():
         return []
     export_inputs_manifest = load_manifest(_market_export_inputs_manifest_path(cache_root, ticker_u))
@@ -20512,11 +20529,12 @@ def load_market_export_rows(
         ticker_u,
         profile=profile,
         include_sidecars=False,
+        ticker_root=ticker_root,
     )
     if ensure_cache and str(export_inputs_manifest.get("input_fingerprint") or "") != str(current_input_payload.get("fingerprint") or ""):
-        sync_market_cache(cache_dir, ticker_u, profile=profile, sync_raw=True, refresh=False, reparse=True)
+        sync_market_cache(cache_dir, ticker_u, profile=profile, ticker_root=ticker_root, sync_raw=True, refresh=False, reparse=True)
     df = _load_parquet(export_path)
     if ensure_cache and _export_needs_history_repair(df, ticker_root=ticker_root, enabled_sources=enabled_sources):
-        sync_market_cache(cache_dir, ticker_u, profile=profile, sync_raw=True, refresh=False, reparse=True)
+        sync_market_cache(cache_dir, ticker_u, profile=profile, ticker_root=ticker_root, sync_raw=True, refresh=False, reparse=True)
         df = _load_parquet(export_path)
     return _rows_from_export_df(df)

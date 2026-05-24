@@ -24,6 +24,71 @@
 5. Recreate the Python environment locally.
 6. Run a small sanity check before making changes.
 
+## Recommended Shared Data Layout
+For another computer, the most practical portable data root is:
+
+```text
+StockModelData/
+  sec_cache/
+  tickers/
+    PBI/
+    GPRE/
+    ANF/
+  market_cache/
+  writer_cache/
+  basis_proxy/
+  outputs/
+    Excel stock models/
+  render_checks/
+  validation_reports/
+  logs/
+```
+
+Keep that folder local on the machine that is building models. Do not run the live
+working `StockModelData` directly from OneDrive; OneDrive should carry a portable
+snapshot zip instead, for example:
+
+```text
+C:\Users\Jibbe\OneDrive\AktierBackup\StockModelData_snapshot.zip
+```
+
+Configure the local root once, then run from the code checkout without repeating
+`--data-root`:
+
+```powershell
+.\.venv\Scripts\python.exe Code\stock_models.py data config set-root C:\Users\Jibbe\Aktier\StockModelData
+.\.venv\Scripts\python.exe Code\stock_models.py data config show
+.\.venv\Scripts\python.exe Code\stock_models.py --ticker PBI
+.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE
+.\.venv\Scripts\python.exe Code\stock_models.py --ticker ANF
+```
+
+This keeps the code repository separate from large/cache-heavy runtime data. It also
+avoids relying on `C:\Users\Jibbe\Aktier` being the same absolute path on every machine.
+
+The data-root priority is:
+1. explicit `--data-root`
+2. `STOCK_MODEL_DATA_ROOT`
+3. `stock_model_config.json` / `.stock_model_config.json`
+4. auto-detected local `StockModelData`
+5. legacy folders
+
+Use `--material-root C:\Path\To\StockModelData\tickers\GPRE` only when the ticker material
+folder is not under the same root passed to `--data-root`.
+
+Useful portability commands:
+
+```powershell
+.\.venv\Scripts\python.exe Code\stock_models.py data validate-root
+.\.venv\Scripts\python.exe Code\stock_models.py data snapshot --out C:\Users\Jibbe\OneDrive\AktierBackup\StockModelData_snapshot.zip
+.\.venv\Scripts\python.exe Code\stock_models.py data restore --snapshot C:\Users\Jibbe\OneDrive\AktierBackup\StockModelData_snapshot.zip --data-root C:\Users\Jibbe\Aktier\StockModelData_restore_test
+.\.venv\Scripts\python.exe Code\stock_models.py data cleanup-old --dry-run
+.\.venv\Scripts\python.exe Code\stock_models.py data cleanup-old --archive
+```
+
+Keep `OldDataArchive_*` for a while after migration. Permanent deletion should be a
+separate, explicit decision after snapshot, restore-test, rebuilds, and validation pass.
+
 ## Python Environment
 - The repo root now includes [requirements.txt](/c:/Users/Jibbe/Aktier/Code/requirements.txt).
 - Current practical setup is:
@@ -48,6 +113,9 @@
   - `SUMMARY`
   - `Valuation`
 - If the Python environment is working, run a small targeted test set before new edits.
+- If using a shared data root, run a fast cache smoke test:
+  - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE --market-only --profile-timings`
+  - On an unchanged warm cache this should usually be sub-second to a few seconds, not a full market reparse.
 
 ## How To Resume Work With Codex
 - Start a fresh Codex thread on the new machine.

@@ -7,6 +7,23 @@
 - Document the runtime layout and clarify which workspace artifacts are source-like, rebuildable, or disposable.
 - Freeze the current runtime/correctness baseline before new feature work in [BASELINE_FREEZE_2026-03-20.md](/c:/Users/Jibbe/Aktier/Code/docs/BASELINE_FREEZE_2026-03-20.md).
 
+## Runtime Cache / Portable Layout Documentation Update (2026-05-24)
+- Documented the current market-cache behavior:
+  - `--market-reparse` is the normal local incremental reconciliation path.
+  - `--market-force-reparse` is the explicit full source reparse path.
+  - unchanged raw-tree and export fingerprints let GPRE market-only runs reuse existing parsed/export artifacts.
+- Documented the portable data layout:
+  - one shared data root can contain `sec_cache` plus `PBI`, `GPRE`, and `ANF` source-material folders.
+  - `--data-root` points the CLI at that shared root.
+  - `--material-root` is reserved for one-off ticker material folder overrides.
+- Documented the latest measured performance shape:
+  - warm unchanged GPRE `--market-only` around `0.57s` after the cache pass.
+  - warm unchanged GPRE `--market-reparse --market-only` around `0.56s`.
+  - `economics_market_raw` raw/audit sheet write reduced from about `55.8s` to about `3.6s`.
+- Added clarifying comments at the code boundaries where those rules are easiest to misread:
+  - `stock_models.py` path-layout handling
+  - `market_data/service.py` raw-tree fingerprint intent
+
 ## Architecture / Handoff Documentation Polish (2026-04-10)
 - Clarified the central runtime boundaries directly in code:
   - `stock_models.py`

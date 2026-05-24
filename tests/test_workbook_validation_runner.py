@@ -7,6 +7,8 @@ from openpyxl.workbook.defined_name import DefinedName
 
 from pbi_xbrl.workbook_validation_runner import (
     BAD_MARKER_TERMS,
+    ValidationConfig,
+    summary_rows,
     validate_workbook,
     validate_workbooks,
     write_validation_reports,
@@ -75,10 +77,15 @@ def test_validation_runner_passes_clean_workbook_and_writes_reports(tmp_path: Pa
     assert result.missing_required_sheets == []
     assert result.missing_named_ranges == []
     assert result.calc_settings_ok
+    assert result.elapsed_seconds >= 0.0
 
     report_paths = write_validation_reports([result], tmp_path / "validation")
     assert report_paths["json"].exists()
     assert report_paths["csv"].exists()
+    row = summary_rows([result])[0]
+    assert "Skipped large sheets" in row
+    assert "Sampled sheets" in row
+    assert "Elapsed seconds" in row
 
 
 def test_validation_runner_reports_cells_and_values_for_failures(tmp_path: Path) -> None:
@@ -130,6 +137,37 @@ def test_validation_runner_batches_all_tickers(tmp_path: Path) -> None:
 
     assert [result.ticker for result in results] == ["PBI", "GPRE", "ANF"]
     assert all(result.overall == "PASS" for result in results)
+
+
+def test_validation_runner_samples_large_raw_sheets(tmp_path: Path) -> None:
+    workbook_path = _make_clean_validation_workbook(tmp_path / "PBI_model.xlsx", "PBI")
+    wb = Workbook()
+    _add_required_sheets(wb, "PBI")
+    _add_required_named_ranges(wb)
+    wb.calculation.calcMode = "auto"
+    wb.calculation.fullCalcOnLoad = True
+    wb.calculation.forceFullCalc = True
+    wb["Needs_Review"].append(["priority", "issue"])
+    wb["Needs_Review"].append(["P2", "allowed non-P1 note"])
+    wb["QA_Log"].append(["check", "status"])
+    wb["QA_Log"].append(["visible status", "pass"])
+    raw = wb.create_sheet("economics_market_raw")
+    raw.append(["date", "series", "value"])
+    raw.append(["2025-01-01", "head", 1])
+    raw.append(["2025-01-02", "#REF! hidden inside large raw sample gap", 2])
+    raw.append(["2025-01-03", "tail", 3])
+    wb.save(workbook_path)
+
+    result = validate_workbook(
+        workbook_path,
+        "PBI",
+        config=ValidationConfig(huge_sheet_row_threshold=2, sample_head_rows=1, sample_tail_rows=1),
+    )
+
+    assert result.overall == "PASS"
+    assert result.formula_error_count == 0
+    assert "economics_market_raw" in result.skipped_large_sheets
+    assert "economics_market_raw" in result.sampled_sheets
 
 
 def test_bad_marker_terms_include_user_requested_regression_strings() -> None:

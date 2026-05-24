@@ -698,10 +698,11 @@ def _prune_saved_promise_progress_stub_rows(workbook_path: Path) -> None:
     ws = wb["Promise_Progress_UI"]
     active_header: Dict[str, int] = {}
     rows_to_delete: List[int] = []
+    visible_max_col = 12
 
     def _header_map(row_idx: int) -> Dict[str, int]:
         out: Dict[str, int] = {}
-        for cc in range(1, min(int(ws.max_column or 0), 10) + 1):
+        for cc in range(1, min(max(int(ws.max_column or 0), visible_max_col), visible_max_col) + 1):
             label = str(ws.cell(row_idx, cc).value or "").strip().lower()
             if label:
                 out[label] = cc
@@ -727,7 +728,7 @@ def _prune_saved_promise_progress_stub_rows(workbook_path: Path) -> None:
             continue
         if all(
             str(ws.cell(rr, cc).value or "").strip() == ""
-            for cc in range(1, min(int(ws.max_column or 0), 10) + 1)
+            for cc in range(1, min(max(int(ws.max_column or 0), visible_max_col), visible_max_col) + 1)
             if cc != metric_col
         ):
             rows_to_delete.append(rr)
@@ -751,7 +752,7 @@ def _prune_saved_promise_progress_stub_rows(workbook_path: Path) -> None:
             first_txt = str(ws.cell(rr, 1).value or "").strip()
             if not first_txt or first_txt.lower() in {"metric", "milestone", "category"}:
                 continue
-            if any(str(ws.cell(rr, cc).value or "").strip() for cc in range(2, min(int(ws.max_column or 0), 10) + 1)):
+            if any(str(ws.cell(rr, cc).value or "").strip() for cc in range(2, min(max(int(ws.max_column or 0), visible_max_col), visible_max_col) + 1)):
                 has_data = True
                 break
         if not has_data:
@@ -763,7 +764,7 @@ def _prune_saved_promise_progress_stub_rows(workbook_path: Path) -> None:
             row_idx = int(merge_range.min_row)
             if not any(
                 str(ws.cell(row_idx, cc).value or "").strip()
-                for cc in range(1, min(int(ws.max_column or 0), 10) + 1)
+                for cc in range(1, min(max(int(ws.max_column or 0), visible_max_col), visible_max_col) + 1)
             ):
                 ws.unmerge_cells(str(merge_range))
     _polish_promise_scorecard_layout(ws)

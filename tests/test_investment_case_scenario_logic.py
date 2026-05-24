@@ -175,6 +175,58 @@ def test_manual_inputs_have_yellow_overrides_manual_first_active_formulas_and_ta
             wb.close()
 
 
+def test_valuation_hidden_value_flags_remain_formula_linked_to_audit_sheet() -> None:
+    for ticker in TICKERS:
+        wb = _load_workbook(ticker)
+        try:
+            assert "Hidden_Value_Flags" in wb.sheetnames, f"{ticker}: missing Hidden_Value_Flags audit sheet"
+            ws = wb["Valuation"]
+            flags_header_row = _row_by_label(ws, "Hidden value flags")
+            helper_formula = _text(ws.cell(flags_header_row + 2, 35).value)
+            label_formula = _text(ws.cell(flags_header_row + 2, 1).value)
+            title_formula = _text(ws.cell(flags_header_row + 2, 2).value)
+            score_formula = _text(ws.cell(flags_header_row + 2, 6).value)
+            support_formula = _text(ws.cell(flags_header_row + 2, 8).value)
+            assert helper_formula.startswith("=IF(N('Hidden_Value_Flags'!$D$2)>=1"), f"{ticker}: hidden flag helper is not formula-linked"
+            assert label_formula.startswith("=IF($AI"), f"{ticker}: visible flag label should respect helper flag"
+            assert "INDEX('Hidden_Value_Flags'!$C:$C,$AI" in title_formula, f"{ticker}: flag summary should stay audit-linked"
+            assert "INDEX('Hidden_Value_Flags'!$D:$D,$AI" in score_formula, f"{ticker}: flag score should stay audit-linked"
+            assert "INDEX('Hidden_Value_Flags'!$K:$K,$AI" in support_formula, f"{ticker}: flag support should stay audit-linked"
+        finally:
+            wb.close()
+
+
+def test_anf_valuation_guidance_sidepanel_groups_horizons_and_splits_margin_bridge() -> None:
+    wb = _load_workbook("ANF", data_only=True)
+    try:
+        ws = wb["Valuation"]
+        header_row = None
+        for rr in range(1, 80):
+            if _text(ws.cell(rr, 15).value).startswith("Guidance (As of 2026-01-31)"):
+                header_row = rr
+                break
+        assert header_row is not None, "ANF Valuation: missing latest guidance sidepanel"
+        rows: List[Tuple[str, str, str]] = []
+        for rr in range(header_row + 2, 40):
+            metric = _text(ws.cell(rr, 15).value)
+            if not metric:
+                break
+            rows.append((metric, _text(ws.cell(rr, 18).value), _text(ws.cell(rr, 19).value)))
+        assert rows, "ANF Valuation: latest guidance sidepanel has no rows"
+        seen_q1 = False
+        for metric, applies_to, _ in rows:
+            if applies_to == "2026-Q1":
+                seen_q1 = True
+            if seen_q1:
+                assert applies_to != "2026 year", f"ANF Valuation: 2026-year row {metric!r} appears after Q1 rows"
+        metrics = {metric for metric, _, _ in rows}
+        assert "Tariff / margin bridge" not in metrics
+        for expected in {"Tariff headwind", "Marketing headwind", "Q1 tariff headwind", "Q1 freight tailwind", "Q1 ERP disruption"}:
+            assert expected in metrics, f"ANF Valuation: missing split margin bridge row {expected!r}"
+    finally:
+        wb.close()
+
+
 def test_gpre_bridge_driver_formulas_and_tax_treatments_are_incremental_and_type_safe() -> None:
     wb = _load_workbook("GPRE")
     try:

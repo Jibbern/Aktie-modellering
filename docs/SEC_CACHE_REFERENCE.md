@@ -36,6 +36,11 @@ For the exact NWER / AMS download and backfill flow, see
 - `pipeline_stage_cache`
 - Parsed market-data parquet outputs
 - Exported market-data parquet outputs
+- Market-data manifests under `sec_cache/market_data/index`
+  - `raw_manifest.json`
+  - `parsed_manifest.json`
+  - `raw_tree_fingerprints.json`
+  - `export_inputs/<TICKER>.json`
 
 These can usually be regenerated, but they still matter for runtime speed and reproducibility. Do not delete them casually during normal debugging.
 
@@ -49,6 +54,7 @@ These are disposable scratch/debug outputs and are reasonable cleanup targets.
 - Workbook logic reads directly from `sec_cache` for filings, SEC text, and derived evidence.
 - Market-data sync and export rely on `sec_cache/market_data`.
 - USDA ticker-local working folders feed into `sec_cache/market_data/raw`, so deleting raw cache without rebuilding can strand the workbook away from the current local USDA snapshot.
+- Market-data manifests are the fast path for unchanged `--market-only` and incremental `--market-reparse`; deleting them is safe only if you accept a slower reconciliation pass.
 - Some local material workflows intentionally store OCR/text derivations under ticker cache roots.
 - Cleanup that treats `sec_cache` as generic temp storage can silently remove data that the workbook still depends on.
 

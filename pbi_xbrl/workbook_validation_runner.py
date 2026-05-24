@@ -9,11 +9,14 @@ import argparse
 import csv
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from openpyxl import load_workbook
+
+from .path_config import resolve_stock_model_paths
 
 
 TICKERS: Sequence[str] = ("PBI", "GPRE", "ANF")
@@ -59,6 +62,39 @@ REQUIRED_SHARED_SHEETS: Sequence[str] = (
     "Scenario_Driver_Assumptions",
     "Quarter_Narrative_Data",
     "BS_Segments",
+)
+FULL_SCAN_SHEET_TEMPLATES: Sequence[str] = (
+    "SUMMARY",
+    "Valuation",
+    "{ticker}_Investment_Case",
+    "Promise_Progress_UI",
+    "Quarter_Notes_UI",
+    "Quarter_Narrative_Data",
+    "Operating_Drivers",
+    "Needs_Review",
+    "QA_Log",
+    "QA_Checks",
+    "Scenario_Bridge_Tax_Treatment",
+    "Scenario_Driver_Assumptions",
+    "BS_Segments",
+    "Guidance_Normalized",
+    "Slides_Guidance",
+)
+TARGETED_SCAN_SHEETS: Sequence[str] = (
+    "History_Q",
+    "DATA_Facts_Long",
+    "SEC_Audit_Log",
+    "Quarter_Notes",
+    "Quarter_Notes_Evidence",
+    "Promise_Progress",
+    "Promise_Evidence",
+    "OCR_Text_Log",
+    "Debt_Tranches_Q",
+)
+RAW_SHEET_NAME_HINTS: Sequence[str] = (
+    "raw",
+    "market",
+    "basis_proxy",
 )
 CROSS_COMPANY_PATTERNS: Mapping[str, Sequence[str]] = {
     "PBI": (
@@ -117,6 +153,39 @@ class ValidationIssue:
         }
 
 
+@dataclass(frozen=True)
+class ValidationConfig:
+    """Caps for expensive workbook readback scans.
+
+    User-facing and QA sheets are still fully scanned. Large raw/source sheets
+    are sampled so GPRE-style market exports do not dominate every validation
+    run.
+    """
+
+    max_full_scan_rows: int = 10_000
+    max_full_scan_cells: int = 250_000
+    huge_sheet_row_threshold: int = 20_000
+    sample_head_rows: int = 200
+    sample_tail_rows: int = 200
+
+
+@dataclass(frozen=True)
+class SheetScanPlan:
+    sheet_name: str
+    mode: str
+    max_row: int
+    max_column: int
+    reason: str = ""
+
+    @property
+    def sampled(self) -> bool:
+        return self.mode in {"sampled", "large_sampled"}
+
+    @property
+    def large(self) -> bool:
+        return self.mode == "large_sampled"
+
+
 @dataclass
 class WorkbookValidationResult:
     ticker: str
@@ -130,6 +199,10 @@ class WorkbookValidationResult:
     missing_required_sheets: List[str] = field(default_factory=list)
     missing_named_ranges: List[str] = field(default_factory=list)
     calc_settings_ok: bool = True
+    skipped_large_sheets: List[str] = field(default_factory=list)
+    sampled_sheets: List[str] = field(default_factory=list)
+    elapsed_seconds: float = 0.0
+    category_elapsed_seconds: Dict[str, float] = field(default_factory=dict)
     issues: List[ValidationIssue] = field(default_factory=list)
 
     @property
@@ -168,6 +241,10 @@ class WorkbookValidationResult:
             "missing_required_sheets": self.missing_required_sheets,
             "missing_named_ranges": self.missing_named_ranges,
             "calc_settings_ok": self.calc_settings_ok,
+            "skipped_large_sheets": self.skipped_large_sheets,
+            "sampled_sheets": self.sampled_sheets,
+            "elapsed_seconds": self.elapsed_seconds,
+            "category_elapsed_seconds": self.category_elapsed_seconds,
             "overall": self.overall,
             "issues": [issue.to_dict() for issue in self.issues],
         }
@@ -192,25 +269,126 @@ def _user_facing_sheets_for_ticker(ticker: str, sheetnames: Sequence[str]) -> Li
     return out
 
 
+def _resolve_sheet_templates(templates: Sequence[str], ticker: str, sheetnames: Sequence[str]) -> set[str]:
+    out: set[str] = set()
+    for template in templates:
+        sheet_name = template.format(ticker=ticker)
+        if sheet_name in sheetnames:
+            out.add(sheet_name)
+    return out
+
+
+def _is_raw_or_market_sheet(sheet_name: str) -> bool:
+    low = sheet_name.lower()
+    if low == "economics_market_raw":
+        return True
+    if "guidance_raw" in low:
+        return False
+    return any(hint in low for hint in RAW_SHEET_NAME_HINTS) and not low.endswith("_ui")
+
+
+def _sampled_row_numbers(max_row: int, *, head_rows: int, tail_rows: int) -> List[int]:
+    if max_row <= 0:
+        return []
+    head_end = min(max_row, max(0, head_rows))
+    tail_start = max(1, max_row - max(0, tail_rows) + 1)
+    rows = set(range(1, head_end + 1))
+    rows.update(range(tail_start, max_row + 1))
+    return sorted(rows)
+
+
+def _build_scan_plans(
+    wb: Any,
+    ticker: str,
+    result: WorkbookValidationResult,
+    config: ValidationConfig,
+) -> Dict[str, SheetScanPlan]:
+    full_scan_names = _resolve_sheet_templates(FULL_SCAN_SHEET_TEMPLATES, ticker, wb.sheetnames)
+    plans: Dict[str, SheetScanPlan] = {}
+    sampled: set[str] = set()
+    skipped_large: set[str] = set()
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        if ws.sheet_state != "visible":
+            continue
+        max_row = int(ws.max_row or 0)
+        max_column = int(ws.max_column or 0)
+        cell_count = max_row * max_column
+        if sheet_name in full_scan_names or sheet_name.startswith("QA"):
+            mode = "full"
+            reason = "tier1_full"
+        elif _is_raw_or_market_sheet(sheet_name) or max_row > config.huge_sheet_row_threshold:
+            mode = "large_sampled"
+            reason = "tier3_large_raw_or_market"
+            skipped_large.add(sheet_name)
+            sampled.add(sheet_name)
+        elif (
+            sheet_name in TARGETED_SCAN_SHEETS
+            or max_row > config.max_full_scan_rows
+            or cell_count > config.max_full_scan_cells
+        ):
+            mode = "sampled"
+            reason = "tier2_targeted"
+            sampled.add(sheet_name)
+        else:
+            mode = "full"
+            reason = "small_sheet_full"
+        plans[sheet_name] = SheetScanPlan(
+            sheet_name=sheet_name,
+            mode=mode,
+            max_row=max_row,
+            max_column=max_column,
+            reason=reason,
+        )
+    result.sampled_sheets = sorted(sampled)
+    result.skipped_large_sheets = sorted(skipped_large)
+    return plans
+
+
 def _append_issue(result: WorkbookValidationResult, issue: ValidationIssue) -> None:
     result.issues.append(issue)
 
 
-def _iter_visible_cells(wb: Any, sheet_names: Optional[Iterable[str]] = None) -> Iterable[Any]:
+def _iter_plan_cells(
+    wb: Any,
+    plans: Mapping[str, SheetScanPlan],
+    config: ValidationConfig,
+    sheet_names: Optional[Iterable[str]] = None,
+) -> Iterable[Any]:
     names = list(sheet_names) if sheet_names is not None else list(wb.sheetnames)
     for sheet_name in names:
-        if sheet_name not in wb.sheetnames:
+        plan = plans.get(sheet_name)
+        if plan is None or sheet_name not in wb.sheetnames:
             continue
         ws = wb[sheet_name]
         if ws.sheet_state != "visible":
             continue
-        for row in ws.iter_rows():
+        if plan.mode == "full":
+            row_numbers: Iterable[int] = range(1, plan.max_row + 1)
+        else:
+            row_numbers = _sampled_row_numbers(
+                plan.max_row,
+                head_rows=config.sample_head_rows,
+                tail_rows=config.sample_tail_rows,
+            )
+        for rr in row_numbers:
+            row = ws.iter_rows(
+                min_row=rr,
+                max_row=rr,
+                min_col=1,
+                max_col=max(1, plan.max_column),
+            )
             for cell in row:
-                yield cell
+                yield from cell
 
 
-def _scan_formula_errors(wb: Any, result: WorkbookValidationResult) -> None:
-    for cell in _iter_visible_cells(wb):
+def _scan_formula_errors(
+    wb: Any,
+    result: WorkbookValidationResult,
+    plans: Mapping[str, SheetScanPlan],
+    config: ValidationConfig,
+) -> None:
+    for cell in _iter_plan_cells(wb, plans, config):
         value = _cell_text(cell.value)
         if not value:
             continue
@@ -300,11 +478,17 @@ def _count_qa_blank_nan_status(wb: Any, result: WorkbookValidationResult) -> Non
                     )
 
 
-def _scan_cross_company_leakage(wb: Any, ticker: str, result: WorkbookValidationResult) -> None:
+def _scan_cross_company_leakage(
+    wb: Any,
+    ticker: str,
+    result: WorkbookValidationResult,
+    plans: Mapping[str, SheetScanPlan],
+    config: ValidationConfig,
+) -> None:
     patterns = [re.compile(pattern, flags=re.IGNORECASE) for pattern in CROSS_COMPANY_PATTERNS.get(ticker, ())]
     if not patterns:
         return
-    for cell in _iter_visible_cells(wb, _user_facing_sheets_for_ticker(ticker, wb.sheetnames)):
+    for cell in _iter_plan_cells(wb, plans, config, _user_facing_sheets_for_ticker(ticker, wb.sheetnames)):
         value = _cell_text(cell.value)
         if not value:
             continue
@@ -330,9 +514,15 @@ def _bad_marker_terms_for_ticker(ticker: str) -> List[str]:
     return terms
 
 
-def _scan_bad_markers(wb: Any, ticker: str, result: WorkbookValidationResult) -> None:
+def _scan_bad_markers(
+    wb: Any,
+    ticker: str,
+    result: WorkbookValidationResult,
+    plans: Mapping[str, SheetScanPlan],
+    config: ValidationConfig,
+) -> None:
     terms = _bad_marker_terms_for_ticker(ticker)
-    for cell in _iter_visible_cells(wb, _user_facing_sheets_for_ticker(ticker, wb.sheetnames)):
+    for cell in _iter_plan_cells(wb, plans, config, _user_facing_sheets_for_ticker(ticker, wb.sheetnames)):
         value = _cell_text(cell.value)
         if not value:
             continue
@@ -352,9 +542,15 @@ def _scan_bad_markers(wb: Any, ticker: str, result: WorkbookValidationResult) ->
                 )
 
 
-def _scan_quarter_labels(wb: Any, ticker: str, result: WorkbookValidationResult) -> None:
+def _scan_quarter_labels(
+    wb: Any,
+    ticker: str,
+    result: WorkbookValidationResult,
+    plans: Mapping[str, SheetScanPlan],
+    config: ValidationConfig,
+) -> None:
     patterns = [re.compile(pattern, flags=re.IGNORECASE) for pattern in BAD_QUARTER_LABEL_PATTERNS]
-    for cell in _iter_visible_cells(wb, _user_facing_sheets_for_ticker(ticker, wb.sheetnames)):
+    for cell in _iter_plan_cells(wb, plans, config, _user_facing_sheets_for_ticker(ticker, wb.sheetnames)):
         value = _cell_text(cell.value)
         if not value:
             continue
@@ -424,10 +620,21 @@ def _check_calc_settings(wb: Any, result: WorkbookValidationResult) -> None:
         )
 
 
-def validate_workbook(path: Path | str, ticker: str) -> WorkbookValidationResult:
+def _record_elapsed(result: WorkbookValidationResult, category: str, started: float) -> None:
+    result.category_elapsed_seconds[category] = time.perf_counter() - started
+
+
+def validate_workbook(
+    path: Path | str,
+    ticker: str,
+    *,
+    config: Optional[ValidationConfig] = None,
+) -> WorkbookValidationResult:
+    cfg = config or ValidationConfig()
     ticker_txt = str(ticker or "").strip().upper()
     workbook_path = Path(path)
     result = WorkbookValidationResult(ticker=ticker_txt, path=str(workbook_path))
+    workbook_started = time.perf_counter()
     if not workbook_path.exists():
         _append_issue(
             result,
@@ -438,33 +645,57 @@ def validate_workbook(path: Path | str, ticker: str) -> WorkbookValidationResult
             ),
         )
         result.missing_required_sheets = list(_required_sheets_for_ticker(ticker_txt))
+        result.elapsed_seconds = time.perf_counter() - workbook_started
         return result
 
     wb = load_workbook(workbook_path, data_only=False, read_only=False)
     try:
+        started = time.perf_counter()
+        plans = _build_scan_plans(wb, ticker_txt, result, cfg)
+        _record_elapsed(result, "scan_plan", started)
+
+        started = time.perf_counter()
         _check_required_sheets(wb, ticker_txt, result)
-        _scan_formula_errors(wb, result)
+        _record_elapsed(result, "required_sheets", started)
+
+        started = time.perf_counter()
+        _scan_formula_errors(wb, result, plans, cfg)
+        _record_elapsed(result, "formula_errors", started)
+
+        started = time.perf_counter()
         _count_needs_review_p1(wb, result)
         _count_qa_blank_nan_status(wb, result)
-        _scan_cross_company_leakage(wb, ticker_txt, result)
-        _scan_bad_markers(wb, ticker_txt, result)
-        _scan_quarter_labels(wb, ticker_txt, result)
+        _record_elapsed(result, "needs_review_qa", started)
+
+        started = time.perf_counter()
+        _scan_cross_company_leakage(wb, ticker_txt, result, plans, cfg)
+        _scan_bad_markers(wb, ticker_txt, result, plans, cfg)
+        _scan_quarter_labels(wb, ticker_txt, result, plans, cfg)
+        _record_elapsed(result, "user_facing_text", started)
+
+        started = time.perf_counter()
         _check_named_ranges(wb, result)
         _check_calc_settings(wb, result)
+        _record_elapsed(result, "workbook_metadata", started)
     finally:
         wb.close()
+        result.elapsed_seconds = time.perf_counter() - workbook_started
     return result
 
 
-def validate_workbooks(paths_by_ticker: Mapping[str, Path | str]) -> List[WorkbookValidationResult]:
+def validate_workbooks(
+    paths_by_ticker: Mapping[str, Path | str],
+    *,
+    config: Optional[ValidationConfig] = None,
+) -> List[WorkbookValidationResult]:
     results: List[WorkbookValidationResult] = []
     for ticker in TICKERS:
         if ticker in paths_by_ticker:
-            results.append(validate_workbook(paths_by_ticker[ticker], ticker))
+            results.append(validate_workbook(paths_by_ticker[ticker], ticker, config=config))
     for ticker, path in paths_by_ticker.items():
         ticker_txt = str(ticker).upper()
         if ticker_txt not in TICKERS:
-            results.append(validate_workbook(path, ticker_txt))
+            results.append(validate_workbook(path, ticker_txt, config=config))
     return results
 
 
@@ -482,6 +713,9 @@ def summary_rows(results: Sequence[WorkbookValidationResult]) -> List[Dict[str, 
                 "Required sheets": "pass" if result.required_sheets_ok else f"missing {len(result.missing_required_sheets)}",
                 "Named ranges": "pass" if result.named_ranges_ok else f"missing {len(result.missing_named_ranges)}",
                 "Calc flags": "pass" if result.calc_settings_ok else "fail",
+                "Skipped large sheets": len(result.skipped_large_sheets),
+                "Sampled sheets": len(result.sampled_sheets),
+                "Elapsed seconds": f"{result.elapsed_seconds:.2f}",
                 "Overall": result.overall,
             }
         )
@@ -500,6 +734,9 @@ def format_summary_table(results: Sequence[WorkbookValidationResult]) -> str:
         "Required sheets",
         "Named ranges",
         "Calc flags",
+        "Skipped large sheets",
+        "Sampled sheets",
+        "Elapsed seconds",
         "Overall",
     ]
     widths = {header: max(len(header), *(len(str(row[header])) for row in rows)) for header in headers}
@@ -536,27 +773,64 @@ def default_workbook_paths(workbook_dir: Path | str) -> Dict[str, Path]:
     return {ticker: root / f"{ticker}_model.xlsx" for ticker in TICKERS}
 
 
+def resolve_workbook_dir(
+    *,
+    data_root: Path | str | None = None,
+    workbook_dir: Path | str | None = None,
+) -> Path:
+    if workbook_dir is not None and str(workbook_dir).strip():
+        return Path(workbook_dir).expanduser().resolve()
+    paths = resolve_stock_model_paths(Path(__file__).resolve().parents[2], data_root)
+    return paths.excel_output_dir
+
+
+def resolve_output_dir(
+    *,
+    data_root: Path | str | None = None,
+    output_dir: Path | str | None = None,
+) -> Path:
+    if output_dir is not None and str(output_dir).strip():
+        return Path(output_dir).expanduser().resolve()
+    paths = resolve_stock_model_paths(Path(__file__).resolve().parents[2], data_root)
+    return paths.validation_reports_dir / "workbook_validation"
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Validate saved stock model workbooks.")
     parser.add_argument(
         "--workbook-dir",
-        default=str(Path.cwd().parent / "Excel stock models"),
+        default=None,
         help="Directory containing PBI_model.xlsx, GPRE_model.xlsx and ANF_model.xlsx.",
     )
     parser.add_argument(
         "--output-dir",
-        default=str(Path.cwd() / "validation_reports" / "workbook_validation"),
+        default=None,
         help="Directory where JSON/CSV validation reports are written.",
     )
+    parser.add_argument("--data-root", default="", help="Portable StockModelData root.")
     parser.add_argument("--tickers", nargs="*", default=list(TICKERS), help="Tickers to validate.")
+    parser.add_argument("--max-full-scan-rows", type=int, default=ValidationConfig.max_full_scan_rows)
+    parser.add_argument("--max-full-scan-cells", type=int, default=ValidationConfig.max_full_scan_cells)
+    parser.add_argument("--huge-sheet-row-threshold", type=int, default=ValidationConfig.huge_sheet_row_threshold)
+    parser.add_argument("--sample-head-rows", type=int, default=ValidationConfig.sample_head_rows)
+    parser.add_argument("--sample-tail-rows", type=int, default=ValidationConfig.sample_tail_rows)
     args = parser.parse_args(argv)
 
+    workbook_dir = resolve_workbook_dir(data_root=args.data_root, workbook_dir=args.workbook_dir)
+    output_dir = resolve_output_dir(data_root=args.data_root, output_dir=args.output_dir)
     paths = {
-        str(ticker).upper(): Path(args.workbook_dir) / f"{str(ticker).upper()}_model.xlsx"
+        str(ticker).upper(): workbook_dir / f"{str(ticker).upper()}_model.xlsx"
         for ticker in args.tickers
     }
-    results = validate_workbooks(paths)
-    report_paths = write_validation_reports(results, args.output_dir)
+    config = ValidationConfig(
+        max_full_scan_rows=args.max_full_scan_rows,
+        max_full_scan_cells=args.max_full_scan_cells,
+        huge_sheet_row_threshold=args.huge_sheet_row_threshold,
+        sample_head_rows=args.sample_head_rows,
+        sample_tail_rows=args.sample_tail_rows,
+    )
+    results = validate_workbooks(paths, config=config)
+    report_paths = write_validation_reports(results, output_dir)
     print(format_summary_table(results))
     print(f"\nJSON report: {report_paths['json']}")
     print(f"CSV report: {report_paths['csv']}")

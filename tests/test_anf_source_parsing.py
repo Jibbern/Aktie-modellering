@@ -65,6 +65,25 @@ def test_anf_statement_parser_captures_q4_shares_eps_and_ebitda() -> None:
     assert values["ebitda"] == pytest.approx(276_386_000.0)
 
 
+def test_anf_statement_parser_does_not_apply_money_millions_scale_to_share_counts() -> None:
+    lines = [
+        "Condensed Consolidated Statements of Operations",
+        "Thirteen Weeks Ended February 2, 2019",
+        "Net sales $ 1,155.602 100.0 %",
+        "Operating income 102.400 8.9 %",
+        "Net income attributable to A&F $ 96.900 8.4 %",
+        "Net income per share attributable to A&F",
+        "Diluted $ 1.42",
+        "Weighted-average shares outstanding:",
+        "Diluted 68,071",
+    ]
+
+    values = _parse_anf_statement_values_from_lines(lines, scale=1_000_000.0)
+
+    assert values["revenue"] == pytest.approx(1_155_602_000.0)
+    assert values["shares_diluted"] == pytest.approx(68_071_000.0)
+
+
 def test_anf_adjusted_parser_keeps_quarter_and_annual_metrics_separate() -> None:
     rows = _parse_anf_adjusted_metrics_from_lines(
         Q4_2025_LINES,

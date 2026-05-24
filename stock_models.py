@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -28,6 +29,7 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 from pbi_xbrl import __version__
 from pbi_xbrl.company_profiles import COMPANY_PROFILES, get_company_profile
 from pbi_xbrl.cache_layout import bootstrap_canonical_ticker_cache, canonical_ticker_cache_root
+from pbi_xbrl import data_portability
 from pbi_xbrl.excel_writer import (
     enrich_quarter_notes_audit_rows_with_readback,
     validate_saved_workbook_after_audit_write,
@@ -36,6 +38,7 @@ from pbi_xbrl.excel_writer import (
 )
 from pbi_xbrl.market_data import market_input_fingerprint, sync_market_cache
 from pbi_xbrl.metrics import get_income_statement_rules
+from pbi_xbrl.path_config import StockModelPathConfig, resolve_effective_data_root, resolve_stock_model_paths
 from pbi_xbrl.source_material_refresh import format_refresh_summary, refresh_source_materials
 from pbi_xbrl.excel_vba import MacroInjectionError, inject_valuation_macros
 from pbi_xbrl.pipeline import PipelineConfig, run_pipeline, write_excel
@@ -56,8 +59,8 @@ def _ticker_root(repo_root: Path, ticker: str | None) -> Path:
     return repo_root / t if t else repo_root
 
 
-def _excel_output_root(repo_root: Path) -> Path:
-    return repo_root / "Excel stock models"
+def _excel_output_root(repo_root: Path, paths: Optional[StockModelPathConfig] = None) -> Path:
+    return paths.excel_output_dir if paths is not None else repo_root / "Excel stock models"
 
 
 def _require_user_agent(user_agent: str) -> str:
@@ -69,15 +72,15 @@ def _require_user_agent(user_agent: str) -> str:
     return ua
 
 
-def _default_out_path(ticker: str | None) -> Path:
+def _default_out_path(ticker: str | None, paths: Optional[StockModelPathConfig] = None) -> Path:
     base_name = f"{ticker.upper()}_model.xlsm" if ticker else "SEC_data_model.xlsm"
     repo_root = _project_root()
     t = (ticker or "").upper()
 
     if t:
-        return (_excel_output_root(repo_root) / base_name).resolve()
+        return (_excel_output_root(repo_root, paths) / base_name).resolve()
 
-    return (_excel_output_root(repo_root) / base_name).resolve()
+    return (_excel_output_root(repo_root, paths) / base_name).resolve()
 
 
 def _normalize_out_path_xlsm(path_like: str | Path) -> Path:
@@ -87,9 +90,11 @@ def _normalize_out_path_xlsm(path_like: str | Path) -> Path:
     return p
 
 
-def _default_step_a_out_path(ticker: str | None) -> Path:
+def _default_step_a_out_path(ticker: str | None, paths: Optional[StockModelPathConfig] = None) -> Path:
     stem = f"{(ticker or 'SEC_data').upper()}_step_a"
     repo_root = _project_root()
+    if paths is not None:
+        return (paths.excel_output_dir / f"{stem}.xlsx").resolve()
     if ticker:
         return (_ticker_root(repo_root, ticker) / f"{stem}.xlsx").resolve()
     return (_excel_output_root(repo_root) / f"{stem}.xlsx").resolve()
@@ -187,10 +192,12 @@ def _code_signature(repo_root: Path) -> str:
     return _hash_file_stats(files, max_files=100)
 
 
-def _default_history_export_path(ticker: str | None, suffix: str) -> Path:
+def _default_history_export_path(ticker: str | None, suffix: str, paths: Optional[StockModelPathConfig] = None) -> Path:
     repo_root = _project_root()
     t = str(ticker or "").strip().upper()
     stem = f"{t}_model_History_Q" if t else f"SEC_data_model_History_Q"
+    if paths is not None and t:
+        return (paths.ticker_dir(t) / f"{stem}{suffix}").resolve()
     if t:
         return (_ticker_root(repo_root, t) / f"{stem}{suffix}").resolve()
     return (_excel_output_root(repo_root) / f"{stem}{suffix}").resolve()
@@ -198,6 +205,8 @@ def _default_history_export_path(ticker: str | None, suffix: str) -> Path:
 
 def _default_cache_dir_for_ticker(repo_root: Path, ticker: str, data_root: Optional[Path] = None) -> Path:
     ticker_u = str(ticker or "").strip().upper()
+    if data_root is not None:
+        return resolve_stock_model_paths(repo_root, data_root).ticker_sec_cache_dir(ticker_u).resolve()
     root = Path(data_root).expanduser().resolve() if data_root is not None else repo_root
     cache_dir = canonical_ticker_cache_root(root, ticker_u).resolve()
     migration = bootstrap_canonical_ticker_cache(root, ticker_u)
@@ -233,12 +242,21 @@ def _sec_cache_signature(cache_dir: Path) -> str:
 # This bundle cache is intentionally coarse. It stores the full pipeline output bundle
 # that is ready for workbook rendering, while finer-grained persistence happens in the
 # stage-cache layer inside `pipeline_orchestration.py`.
-def _pipeline_bundle_cache_key(args: argparse.Namespace, cfg: PipelineConfig, repo_root: Path) -> str:
+def _pipeline_bundle_cache_key(
+    args: argparse.Namespace,
+    cfg: PipelineConfig,
+    repo_root: Path,
+    paths: Optional[StockModelPathConfig] = None,
+) -> str:
+    ticker_u = str(args.ticker or "").strip().upper()
+    market_cache_dir = paths.market_cache_dir if paths is not None and paths.data_root is not None else cfg.cache_dir
+    market_ticker_root = paths.ticker_dir(ticker_u) if paths is not None and paths.data_root is not None and ticker_u else None
     market_fp = market_input_fingerprint(
-        cfg.cache_dir,
-        str(args.ticker or ""),
+        market_cache_dir,
+        ticker_u,
         profile=get_company_profile(str(args.ticker or "")),
         include_sidecars=True,
+        ticker_root=market_ticker_root,
     )
     return "|".join(
         [
@@ -329,6 +347,9 @@ def main() -> None:
     we only touch caches, only rebuild market exports, or run the full
     SEC -> pipeline artifacts -> workbook -> saved-workbook readback path.
     """
+    if len(sys.argv) > 1 and sys.argv[1] == "data":
+        raise SystemExit(data_portability.main(sys.argv[2:], repo_root=_project_root()))
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--ticker", default=None, help="Ticker (required unless --cik is provided)")
     ap.add_argument("--cik", default=None, help="CIK as int; overrides ticker lookup")
@@ -389,9 +410,19 @@ def main() -> None:
         help="Portable data root containing sec_cache plus ticker folders; useful for OneDrive/shared data layouts.",
     )
     ap.add_argument(
+        "--allow-onedrive-data-root",
+        action="store_true",
+        help="Allow the live data root to be inside OneDrive. Prefer local data root plus OneDrive snapshot.",
+    )
+    ap.add_argument(
+        "--print-paths",
+        action="store_true",
+        help="Print resolved source/cache/output paths and exit.",
+    )
+    ap.add_argument(
         "--material-root",
         default="",
-        help="Ticker-specific source-material folder override, e.g. .../StockModelData/GPRE.",
+        help="Ticker-specific source-material folder override, e.g. .../StockModelData/tickers/GPRE.",
     )
     ap.add_argument(
         "--market-sync",
@@ -532,8 +563,37 @@ def main() -> None:
 
     ua = _require_user_agent(args.user_agent)
     repo_root = _project_root()
-    data_root = Path(args.data_root).expanduser().resolve() if str(args.data_root or "").strip() else None
+    data_root_choice = resolve_effective_data_root(
+        repo_root,
+        cli_data_root=args.data_root,
+        allow_onedrive_data_root=bool(args.allow_onedrive_data_root),
+    )
+    if data_root_choice.errors:
+        raise SystemExit("ERROR: " + " | ".join(data_root_choice.errors))
+    for warning in data_root_choice.warnings:
+        print(f"[data_root] WARN: {warning}", file=sys.stderr, flush=True)
+    data_root = data_root_choice.data_root
+    paths = resolve_stock_model_paths(repo_root, data_root)
     explicit_material_root = Path(args.material_root).expanduser().resolve() if str(args.material_root or "").strip() else None
+
+    if args.print_paths:
+        ticker_for_paths = str(args.ticker or "").strip().upper()
+        payload = {
+            "data_root": "" if paths.data_root is None else str(paths.data_root),
+            "data_root_source": data_root_choice.source,
+            "sec_cache_dir": str(paths.sec_cache_dir),
+            "ticker_sec_cache_dir": str(paths.ticker_sec_cache_dir(ticker_for_paths)) if ticker_for_paths else "",
+            "ticker_dir": str(paths.ticker_dir(ticker_for_paths)) if ticker_for_paths else "",
+            "market_cache_dir": str(paths.market_cache_dir),
+            "writer_cache_dir": str(paths.writer_cache_dir),
+            "basis_proxy_dir": str(paths.basis_proxy_dir),
+            "excel_output_dir": str(paths.excel_output_dir),
+            "render_checks_dir": str(paths.render_checks_dir),
+            "validation_reports_dir": str(paths.validation_reports_dir),
+            "logs_dir": str(paths.logs_dir),
+        }
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return
 
     if args.refresh_source_materials:
         if args.cache_dir and not str(args.ticker or "").strip():
@@ -551,6 +611,7 @@ def main() -> None:
             user_agent=ua,
             max_filings=args.max_filings,
             cache_dir_override=Path(args.cache_dir).expanduser().resolve() if args.cache_dir and len(refresh_tickers) == 1 else None,
+            material_root_base=paths.data_root / "tickers" if paths.data_root is not None else None,
             dry_run=bool(args.dry_run),
         )
         for summary in summaries:
@@ -601,9 +662,10 @@ def main() -> None:
             )
             market_profile = get_company_profile(refresh_ticker)
             market_summary = sync_market_cache(
-                cache_dir=cache_dir,
+                cache_dir=paths.market_cache_dir if data_root is not None else cache_dir,
                 ticker=refresh_ticker,
                 profile=market_profile,
+                ticker_root=paths.ticker_dir(refresh_ticker) if data_root is not None else None,
                 sync_raw=True,
                 refresh=True,
                 reparse=False,
@@ -628,9 +690,14 @@ def main() -> None:
     else:
         cache_dir = _default_cache_dir_for_ticker(repo_root, tkr_u, data_root=data_root)
 
+    # `--data-root` is intentionally a path-layout switch, not a business-logic
+    # switch. It lets the same code checkout consume a portable data root containing
+    # `sec_cache/<TICKER>` plus `<TICKER>/` source-material folders.
     material_root = explicit_material_root
     if material_root is None and data_root is not None and str(args.ticker or "").strip():
-        material_root = data_root / str(args.ticker or "").strip().upper()
+        material_root = paths.ticker_dir(str(args.ticker or "").strip().upper())
+    if data_root is not None:
+        paths.ensure_runtime_dirs(str(args.ticker or "").strip().upper() or None)
 
     min_year = args.min_year
 
@@ -686,9 +753,10 @@ def main() -> None:
         market_timings: Dict[str, float] = {}
         with _timed("market_cache", enabled=cfg.profile_timings, store=market_timings):
             market_summary = sync_market_cache(
-                cache_dir=cfg.cache_dir,
+                cache_dir=paths.market_cache_dir if data_root is not None else cfg.cache_dir,
                 ticker=str(args.ticker or "").upper(),
                 profile=market_profile,
+                ticker_root=paths.ticker_dir(str(args.ticker or "").upper()) if data_root is not None else None,
                 sync_raw=bool(args.market_sync or args.market_refresh),
                 refresh=bool(args.market_refresh),
                 reparse=bool(args.market_reparse or args.market_force_reparse),
@@ -717,7 +785,7 @@ def main() -> None:
         forms_materialize_dir = (
             Path(args.financial_statement_dir).expanduser().resolve()
             if str(args.financial_statement_dir or "").strip()
-            else (_ticker_root(repo_root, args.ticker) / "financial_statement").resolve()
+            else ((paths.ticker_dir(args.ticker) if data_root is not None else _ticker_root(repo_root, args.ticker)) / "financial_statement").resolve()
         )
         ingest_cfg = IngestConfig(
             cache_dir=cfg.cache_dir,
@@ -763,7 +831,13 @@ def main() -> None:
 
     if args.step_a_only:
         forms = tuple(x.strip() for x in str(args.forms or "").split(",") if x.strip())
-        materialize_dir = Path(args.materialize_dir).expanduser().resolve() if str(args.materialize_dir or "").strip() else None
+        materialize_dir = (
+            Path(args.materialize_dir).expanduser().resolve()
+            if str(args.materialize_dir or "").strip()
+            else paths.ticker_dir(args.ticker)
+            if data_root is not None and str(args.ticker or "").strip()
+            else None
+        )
         ingest_cfg = IngestConfig(
             cache_dir=cfg.cache_dir,
             user_agent=ua,
@@ -840,9 +914,9 @@ def main() -> None:
                 facts_rows.append(df)
         facts_df = pd.concat(facts_rows, ignore_index=True) if facts_rows else pd.DataFrame()
 
-        default_step_a_out = _default_step_a_out_path(args.ticker)
+        default_step_a_out = _default_step_a_out_path(args.ticker, paths=paths if data_root is not None else None)
         out_path = default_step_a_out if not args.out else _normalize_out_path_xlsx(args.out)
-        if out_path == _default_out_path(args.ticker):
+        if out_path == _default_out_path(args.ticker, paths=paths if data_root is not None else None):
             out_path = default_step_a_out
         wb = Workbook()
         wb.remove(wb.active)
@@ -894,7 +968,7 @@ def main() -> None:
         return
 
     repo_root = Path(__file__).resolve().parents[1]
-    pipeline_cache_key = _pipeline_bundle_cache_key(args, cfg, repo_root)
+    pipeline_cache_key = _pipeline_bundle_cache_key(args, cfg, repo_root, paths=paths)
     pipeline_bundle = None
     timing_rows: Dict[str, float] = {}
     if args.only_write_excel:
@@ -964,7 +1038,7 @@ def main() -> None:
     ) = bundle_items[:35]
 
     partial_debug_scope = str(args.excel_debug_scope or "full").strip().lower() != "full"
-    out_path = _default_out_path(args.ticker) if not args.out else _normalize_out_path_xlsm(args.out)
+    out_path = _default_out_path(args.ticker, paths=paths if data_root is not None else None) if not args.out else _normalize_out_path_xlsm(args.out)
     if partial_debug_scope and not args.out:
         out_path = out_path.with_name(f"{out_path.stem}_{args.excel_debug_scope}_debug{out_path.suffix}")
     xlsx_tmp_path = out_path.with_name(f"{out_path.stem}_nomacro.xlsx")
@@ -1123,11 +1197,11 @@ def main() -> None:
     )
 
     if args.history_export:
-        csv_path = Path(args.history_csv).expanduser().resolve() if args.history_csv else _default_history_export_path(args.ticker, ".csv")
+        csv_path = Path(args.history_csv).expanduser().resolve() if args.history_csv else _default_history_export_path(args.ticker, ".csv", paths=paths if data_root is not None else None)
         with _timed("history_csv_export", enabled=cfg.profile_timings, store=timing_rows):
             hist.to_csv(csv_path, index=False)
         print(f"[OK] Wrote CSV: {csv_path}")
-        parquet_path = Path(args.history_parquet).expanduser().resolve() if args.history_parquet else _default_history_export_path(args.ticker, ".parquet")
+        parquet_path = Path(args.history_parquet).expanduser().resolve() if args.history_parquet else _default_history_export_path(args.ticker, ".parquet", paths=paths if data_root is not None else None)
         try:
             with _timed("history_parquet_export", enabled=cfg.profile_timings, store=timing_rows):
                 hist.to_parquet(parquet_path, index=False)

@@ -193,6 +193,7 @@ def refresh_source_materials(
     user_agent: str,
     max_filings: Optional[int] = None,
     cache_dir_override: Optional[Path] = None,
+    material_root_base: Optional[Path] = None,
     dry_run: bool = False,
 ) -> List[SourceMaterialRefreshSummary]:
     summaries: List[SourceMaterialRefreshSummary] = []
@@ -205,11 +206,17 @@ def refresh_source_materials(
             summaries.append(SourceMaterialRefreshSummary(ticker=ticker, skipped_reason=reason))
             continue
         cache_dir = single_override if single_override is not None else canonical_ticker_cache_root(repo_root, ticker).resolve()
+        material_root = (
+            Path(material_root_base).expanduser().resolve() / ticker
+            if material_root_base is not None
+            else None
+        )
         summary = _refresh_ticker_source_materials(
             repo_root=repo_root,
             ticker=ticker,
             profile=profile,
             cache_dir=cache_dir,
+            material_root=material_root,
             user_agent=user_agent,
             max_filings=max_filings,
             dry_run=dry_run,
@@ -244,10 +251,11 @@ def _refresh_ticker_source_materials(
     user_agent: str,
     max_filings: Optional[int],
     dry_run: bool,
+    material_root: Optional[Path] = None,
 ) -> SourceMaterialRefreshSummary:
     summary = SourceMaterialRefreshSummary(ticker=ticker)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    material_root = _ticker_material_root(repo_root, ticker)
+    material_root = Path(material_root).expanduser().resolve() if material_root is not None else _ticker_material_root(repo_root, ticker)
     material_root.mkdir(parents=True, exist_ok=True)
     manifest_path = cache_dir / MANIFEST_RELATIVE_PATH
     manifest = _load_manifest(manifest_path)
@@ -266,6 +274,7 @@ def _refresh_ticker_source_materials(
     local_scan = _normalize_and_collect_local_materials(
         repo_root=repo_root,
         ticker=ticker,
+        material_root=material_root,
         manifest=manifest,
         dry_run=dry_run,
         quarter_aliases=quarter_aliases,
@@ -357,6 +366,7 @@ def _refresh_ticker_source_materials(
             res = _materialize_candidate(
                 repo_root=repo_root,
                 ticker=ticker,
+                material_root=material_root,
                 manifest=manifest,
                 candidate=cand,
                 dry_run=dry_run,
@@ -393,6 +403,7 @@ def _refresh_ticker_source_materials(
         res = _materialize_candidate(
             repo_root=repo_root,
             ticker=ticker,
+            material_root=material_root,
             manifest=manifest,
             candidate=cand,
             dry_run=dry_run,
@@ -1192,8 +1203,9 @@ def _materialize_candidate(
     candidate: MaterialCandidate,
     dry_run: bool,
     download_session: Optional[requests.Session] = None,
+    material_root: Optional[Path] = None,
 ) -> MaterialEvent:
-    resolved_dir = _resolved_destination_dir(repo_root, ticker, candidate.canonical_family)
+    resolved_dir = _resolved_destination_dir(repo_root, ticker, candidate.canonical_family, material_root=material_root)
     quarter_iso = candidate.quarter.isoformat() if candidate.quarter else ""
     source_doc_title = candidate.source_doc_title or candidate.title or Path(str(candidate.source_url or "")).name or "source_material"
     ext = _candidate_extension(candidate)
@@ -1382,8 +1394,14 @@ def _ticker_material_root(repo_root: Path, ticker: str) -> Path:
     return repo_root / str(ticker or "").strip().upper()
 
 
-def _resolved_destination_dir(repo_root: Path, ticker: str, canonical_family: str) -> Path:
-    root = _ticker_material_root(repo_root, ticker)
+def _resolved_destination_dir(
+    repo_root: Path,
+    ticker: str,
+    canonical_family: str,
+    *,
+    material_root: Optional[Path] = None,
+) -> Path:
+    root = Path(material_root).expanduser().resolve() if material_root is not None else _ticker_material_root(repo_root, ticker)
     aliases = CANONICAL_FAMILY_ALIASES.get(canonical_family, (canonical_family,))
     for alias in aliases:
         cand = root / alias
@@ -1399,9 +1417,10 @@ def _normalize_and_collect_local_materials(
     manifest: Dict[str, Dict[str, Any]],
     dry_run: bool,
     quarter_aliases: Optional[Dict[date, date]] = None,
+    material_root: Optional[Path] = None,
 ) -> LocalMaterialScanResult:
     result = LocalMaterialScanResult()
-    material_root = _ticker_material_root(repo_root, ticker)
+    material_root = Path(material_root).expanduser().resolve() if material_root is not None else _ticker_material_root(repo_root, ticker)
     official_paths = _official_manifest_destination_paths(manifest)
     _normalize_local_family_dirs(
         material_root=material_root,

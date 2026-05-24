@@ -74,7 +74,7 @@ def _promise_revision_blocks(ws: Any) -> Dict[str, List[Tuple[int, Dict[str, Any
         header_row = rr + 1
         headers = {
             _cell_text(ws.cell(header_row, cc).value).lower(): cc
-            for cc in range(1, 11)
+            for cc in range(1, min(int(ws.max_column or 0), 13) + 1)
             if _cell_text(ws.cell(header_row, cc).value)
         }
         rows: List[Tuple[int, Dict[str, Any]]] = []
@@ -197,10 +197,12 @@ def test_promise_actual_header_is_exact_and_old_header_absent() -> None:
         wb = _load_model(ticker)
         try:
             ws = wb["Promise_Progress_UI"]
-            all_values = [_cell_text(cell.value) for row in ws.iter_rows(min_col=1, max_col=10) for cell in row]
+            all_values = [_cell_text(cell.value) for row in ws.iter_rows(min_col=1, max_col=13) for cell in row]
             assert "Actual / latest actual" not in all_values, ticker
+            assert "Final actual" not in all_values, ticker
+            assert "Actual reported" not in all_values, ticker
             timeline_headers = [
-                [_cell_text(ws.cell(rr, cc).value) for cc in range(1, 11)]
+                [_cell_text(ws.cell(rr, cc).value) for cc in range(1, 13)]
                 for rr in range(1, int(ws.max_row or 0) + 1)
                 if _cell_text(ws.cell(rr, 1).value) == "Metric"
                 and _cell_text(ws.cell(rr, 2).value) == "Previous guide"
@@ -208,8 +210,37 @@ def test_promise_actual_header_is_exact_and_old_header_absent() -> None:
             assert timeline_headers, f"{ticker} has no Promise revision timeline header"
             for header in timeline_headers:
                 assert header[4] == "Actual", f"{ticker} timeline header uses {header[4]!r}"
+                assert header[5] == "Progress / run-rate", f"{ticker} timeline header missing progress column: {header!r}"
+                assert header[6] == "Status", f"{ticker} status column shifted incorrectly: {header!r}"
         finally:
             wb.close()
+
+
+def test_promise_interim_progress_is_separate_from_exact_actual() -> None:
+    for ticker in TICKERS:
+        for block, row_idx, row in _all_promise_revision_rows(ticker):
+            metric = _cell_text(row.get("metric") or row.get("milestone"))
+            horizon = _cell_text(row.get("horizon"))
+            stated = _cell_text(row.get("stated in"))
+            actual = _cell_text(row.get("actual"))
+            progress = _cell_text(row.get("progress / run-rate"))
+            status = _cell_text(row.get("status")).lower()
+            if any(token in metric.lower() for token in ("cost savings", "facility qualification")):
+                assert not (
+                    actual and re.search(r"\brun[- ]rate\b|\bof\s+8\b|operational|qualified", actual, re.I)
+                ), f"{ticker} Promise_Progress_UI!A{row_idx} {metric}: progress-like value is in Actual"
+            if horizon.endswith("year") and re.fullmatch(r"20\d{2}-Q[1-3]", stated):
+                assert not actual, (
+                    f"{ticker} Promise_Progress_UI!A{row_idx} {metric}: interim annual row should use Progress / run-rate, "
+                    f"not Actual={actual!r}"
+                )
+                assert status not in {"completed", "hit", "missed", "beat"}, (
+                    f"{ticker} Promise_Progress_UI!A{row_idx} {metric}: interim annual progress marked final"
+                )
+                if progress:
+                    assert re.search(r"Q[1-3]:|YTD:|TTM:|Run[- ]rate:|progress|operational|qualified|\$", progress, re.I), (
+                        f"{ticker} Promise_Progress_UI!A{row_idx} {metric}: progress value lacks basis label: {progress!r}"
+                    )
 
 
 def test_promise_revision_rows_are_grouped_by_stated_in_event_and_not_actual_only() -> None:
@@ -229,6 +260,45 @@ def test_promise_revision_rows_are_grouped_by_stated_in_event_and_not_actual_onl
                 assert allowed_actual_only_notes.search(f"{metric} {change} {note}"), (
                     f"{ticker} Promise_Progress_UI!A{row_idx} {metric}: actual-only row without guide/target/milestone"
                 )
+
+
+def _metric_rank(metric: str) -> int:
+    low = metric.lower()
+    if any(tok in low for tok in ("revenue", "sales")):
+        return 10
+    if "operating margin" in low:
+        return 20
+    if "adjusted ebitda" in low or "adj ebitda" in low or re.search(r"\bebitda\b", low):
+        return 30
+    if "adjusted ebit" in low or "adj ebit" in low or re.search(r"\bebit\b", low):
+        return 40
+    if "eps" in low:
+        return 50
+    if "fcf" in low or "free cash" in low or "cash flow" in low:
+        return 60
+    if "capex" in low:
+        return 70
+    if any(tok in low for tok in ("buyback", "repurchase", "share count", "shares", "diluted shares")):
+        return 80
+    if any(tok in low for tok in ("cost savings", "restructuring", "cash optimization")):
+        return 90
+    if any(tok in low for tok in ("debt", "leverage", "liquidity")):
+        return 100
+    if any(tok in low for tok in ("45z", "policy", "facility", "segment", "tariff", "freight", "erp", "marketing")):
+        return 110
+    return 120
+
+
+def test_promise_revision_metrics_use_stable_order_inside_blocks() -> None:
+    for ticker in TICKERS:
+        wb = _load_model(ticker)
+        try:
+            blocks = _promise_revision_blocks(wb["Promise_Progress_UI"])
+            for block, rows in blocks.items():
+                ranks = [_metric_rank(_cell_text(row.get("metric") or row.get("milestone"))) for _, row in rows]
+                assert ranks == sorted(ranks), f"{ticker} {block}: metric order is unstable: {ranks}"
+        finally:
+            wb.close()
 
 
 def test_promise_annual_actuals_are_horizon_matched_not_final_backfills() -> None:
@@ -274,7 +344,8 @@ def test_gpre_45z_monetization_revision_chain_and_facility_progress() -> None:
         q1_2026 = [row for _, row in blocks.get("2026-Q1 revisions", []) if _cell_text(row.get("metric")) == "45Z facility qualification"]
         assert q1_2026, "GPRE 2026-Q1 should retain 45Z facility qualification progress row"
         facility = q1_2026[0]
-        assert "3 of 8" in _cell_text(facility.get("actual"))
+        assert not _cell_text(facility.get("actual"))
+        assert "3 of 8" in _cell_text(facility.get("progress / run-rate"))
         assert _cell_text(facility.get("status")) == "On track"
         assert _cell_text(facility.get("status")) != "Completed"
     finally:
@@ -291,12 +362,14 @@ def test_pbi_fcf_eps_and_cost_savings_semantics_are_source_specific() -> None:
         q2_2024_cost = [row for _, row in blocks.get("2024-Q2 revisions", []) if _cell_text(row.get("metric")) == "Cost savings target"]
         assert q2_2024_cost, "PBI 2024-Q2 should show the source-backed initial cost-savings target"
         assert _cell_text(q2_2024_cost[0].get("new/current guide")) == "$120m-$160m"
-        assert _cell_text(q2_2024_cost[0].get("actual")) == "$70m run-rate"
-        assert "$157m" not in _cell_text(q2_2024_cost[0].get("actual")), "PBI later run-rate was backfilled into 2024-Q2"
+        assert not _cell_text(q2_2024_cost[0].get("actual"))
+        assert "$70m" in _cell_text(q2_2024_cost[0].get("progress / run-rate"))
+        assert "$157m" not in _cell_text(q2_2024_cost[0].get("progress / run-rate")), "PBI later run-rate was backfilled into 2024-Q2"
 
         q1_2025_cost = [row for _, row in blocks.get("2025-Q1 revisions", []) if _cell_text(row.get("metric")) == "Cost savings target"]
         assert q1_2025_cost
-        assert _cell_text(q1_2025_cost[0].get("actual")) == "$157m run-rate"
+        assert not _cell_text(q1_2025_cost[0].get("actual"))
+        assert "$157m" in _cell_text(q1_2025_cost[0].get("progress / run-rate"))
 
         for block, row_idx, row in _all_promise_revision_rows("PBI"):
             metric = _cell_text(row.get("metric"))
@@ -315,7 +388,23 @@ def test_pbi_fcf_eps_and_cost_savings_semantics_are_source_specific() -> None:
         wb.close()
 
 
-def test_anf_pre_release_has_no_actual_and_final_q4_has_actuals_without_generic_eps_label() -> None:
+def test_pbi_2026_q1_revenue_guidance_update_is_source_backed_and_same_horizon() -> None:
+    wb = _load_model("PBI")
+    try:
+        blocks = _promise_revision_blocks(wb["Promise_Progress_UI"])
+        rows = [row for _, row in blocks.get("2026-Q1 revisions", []) if _cell_text(row.get("metric")) == "Revenue guidance"]
+        assert rows, "PBI 2026-Q1 should include the source-backed 2026-year Revenue guidance update"
+        row = rows[0]
+        assert _cell_text(row.get("horizon")) == "2026 year"
+        assert _cell_text(row.get("previous guide")) == "$1.76bn-$1.86bn"
+        assert _cell_text(row.get("new/current guide")) == "$1.8bn-$1.86bn"
+        assert _cell_text(row.get("change type")) in {"Updated", "Raised", "Narrowed"}
+        assert "2025 year" not in _cell_text(row.get("previous guide")).lower()
+    finally:
+        wb.close()
+
+
+def test_anf_pre_release_can_show_final_actual_for_same_horizon_with_timing_note() -> None:
     wb = _load_model("ANF")
     try:
         blocks = _promise_revision_blocks(wb["Promise_Progress_UI"])
@@ -323,8 +412,9 @@ def test_anf_pre_release_has_no_actual_and_final_q4_has_actuals_without_generic_
         final_rows = blocks.get("2025-Q4 revisions", [])
         assert pre_rows, "ANF pre-release block missing"
         assert final_rows, "ANF final 2025-Q4 block missing"
-        for row_idx, row in pre_rows:
-            assert not _cell_text(row.get("actual")), f"ANF Promise_Progress_UI!A{row_idx}: pre-release row should not have final Actual"
+        pre_by_metric = {_cell_text(row.get("metric")): row for _, row in pre_rows}
+        assert _cell_text(pre_by_metric["Net sales growth"].get("actual")) == "+6%"
+        assert "Year result shown for comparison" in _cell_text(pre_by_metric["Net sales growth"].get("source / note"))
         final_actual_metrics = {_cell_text(row.get("metric")): _cell_text(row.get("actual")) for _, row in final_rows}
         assert final_actual_metrics.get("Net sales growth") == "+6%"
         assert final_actual_metrics.get("Adjusted EPS") == "$9.86 adjusted"

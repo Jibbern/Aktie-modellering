@@ -29,8 +29,8 @@ def test_render_ranges_cover_required_workbook_surfaces() -> None:
     expected_ranges = {
         "Valuation": "A1:AC90",
         "{ticker}_Investment_Case": "A1:J160",
-        "Promise_Progress_UI": "A1:J180",
-        "Quarter_Notes_UI": "A1:J220",
+        "Promise_Progress_UI": "A1:L180",
+        "Quarter_Notes_UI": "A1:L220",
         "Operating_Drivers": "A1:Q140",
         "Needs_Review": "A1:J80",
     }

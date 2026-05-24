@@ -743,6 +743,26 @@ def _anf_line_amount_values(line_txt: str, *, scale: float) -> List[float]:
     return values
 
 
+def _normalize_anf_share_count_value(raw_value: Any) -> Optional[float]:
+    value = coerce_number(raw_value)
+    if value is None:
+        return None
+    try:
+        val = float(value)
+    except Exception:
+        return None
+    if not pd.notna(val) or val <= 0:
+        return None
+    # ANF statements may present dollars in millions while share-count rows are
+    # still shown as shares in thousands. Normalize the share row independently
+    # from the money scale to avoid 1000x inflated diluted-share counts.
+    if val < 1_000.0:
+        return val * 1_000_000.0
+    if val < 1_000_000.0:
+        return val * 1_000.0
+    return val
+
+
 def _anf_dedup_cells(values: List[Any]) -> str:
     out: List[str] = []
     for value in values:
@@ -887,9 +907,11 @@ def _parse_anf_statement_values_from_lines(lines: List[str], *, scale: float) ->
             eps_header_seen = False
             continue
         if shares_header_seen and re.match(r"^diluted\b", low):
-            nums_sh = _anf_line_amount_values(line, scale=scale)
+            nums_sh = _anf_line_amount_values(line, scale=1.0)
             if nums_sh:
-                out["shares_diluted"] = float(nums_sh[0])
+                shares_val = _normalize_anf_share_count_value(nums_sh[0])
+                if shares_val is not None:
+                    out["shares_diluted"] = float(shares_val)
             shares_header_seen = False
             continue
         nums = _anf_line_amount_values(line, scale=scale)
@@ -1022,7 +1044,10 @@ def _parse_anf_non_gaap_schedule_values(lines: List[str], *, duration_re: str, s
             if raw_nums:
                 out["adj_eps"] = float(raw_nums[-1])
         elif "diluted weighted-average shares outstanding" in low and nums:
-            out["shares_diluted"] = float(nums[0])
+            raw_nums = _anf_line_amount_values(line, scale=1.0)
+            shares_val = _normalize_anf_share_count_value(raw_nums[0] if raw_nums else nums[0])
+            if shares_val is not None:
+                out["shares_diluted"] = float(shares_val)
     return out
 
 

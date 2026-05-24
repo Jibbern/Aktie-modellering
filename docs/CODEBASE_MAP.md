@@ -17,6 +17,9 @@ This map explains which modules own each major stage of the runtime so the hando
   - Resolves canonical ticker cache roots and shared cache roots.
 - [`pbi_xbrl/pipeline_runtime.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/pipeline_runtime.py)
   - Stage-cache helpers, runtime signatures, and root resolution.
+- [`stock_models.py`](/c:/Users/Jibbe/Aktier/Code/stock_models.py)
+  - Owns operator-facing path flags such as `--data-root`, `--material-root`, `--cache-dir`, and output-path defaults.
+  - `--data-root` is the portable layout switch for shared data roots that contain both `sec_cache` and ticker material folders.
 
 ### 3. Pipeline assembly and derived dataframe creation
 - [`pbi_xbrl/pipeline_orchestration.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/pipeline_orchestration.py)
@@ -81,6 +84,8 @@ This map explains which modules own each major stage of the runtime so the hando
 - [`pbi_xbrl/market_data/service.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/market_data/service.py)
   - Syncs raw inputs, parsed parquet frames, manifests, and exported rows used by the workbook.
   - Also bridges ticker-local USDA working folders / bootstrap CSVs into the shared export layer.
+  - Owns incremental `--market-reparse` semantics via raw-tree fingerprints, parsed manifests, and ticker export cache keys.
+  - Keeps `--market-force-reparse` available as the explicit full rebuild path when an operator wants to bypass cache reuse.
   - For GPRE, it also owns the official-proxy snapshots, weekly history series, filing-backed plant-capacity timeline, and fitted-model preview bundle.
   - Heavy GPRE snapshot/history helpers now accept normalized market-row `DataFrame` inputs so the writer can reuse one prepared frame instead of rebuilding it repeatedly.
 - [`pbi_xbrl/market_data/providers/`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/market_data/providers)

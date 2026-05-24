@@ -45,6 +45,8 @@ Important:
 - the workbook does not read USDA PDFs directly
 - the workbook reads the provider-agnostic exported parquet rows
 - raw PDFs matter because they are the source input for reparsing and export rebuilds
+- `index/raw_tree_fingerprints.json` records cheap raw-folder fingerprints so unchanged local trees do not need broad disk backfill/orphan scans on every run
+- `index/export_inputs/<TICKER>.json` records the export cache key, input fingerprint, enabled sources, source parse versions, and export row count
 
 ## Normal Latest-Refresh Command
 Use:
@@ -59,6 +61,28 @@ This does all of the following:
 - syncs those local files into `sec_cache/market_data/raw`
 - reparses provider outputs when raw fingerprints changed
 - rebuilds the exported parquet rows the workbook consumes
+
+## Local Reparse And Cache Reuse
+Use this when new local files were added or you want to reconcile the market cache
+without live network refresh:
+
+```powershell
+.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE --market-reparse --market-only
+```
+
+Current behavior:
+- unchanged raw/bootstrap fingerprints reuse existing parsed source parquet
+- unchanged source states plus unchanged market-input fingerprint reuse the existing ticker export
+- changed local files cause the affected source to reparse and the ticker export to rebuild
+
+Use a forced rebuild only for diagnostics or deliberate cache repair:
+
+```powershell
+.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE --market-force-reparse --market-only
+```
+
+`--market-force-reparse` bypasses the export fast path. It should be slower by design
+and is not the normal path after adding a single new market/corn-basis file.
 
 ## What The Current Live USDA Site Looks Like
 The current USDA report pages do **not** reliably expose the freshest report files as plain static links in the landing page HTML.
@@ -249,6 +273,7 @@ Check:
 - that `sync_market_cache()` was run after local files were added
 - that `sec_cache/market_data/parsed/exports/GPRE.parquet` was rebuilt
 - that the provider parser produced rows for the new raw files
+- if the export reused cache unexpectedly, run once with `--market-force-reparse --market-only` and compare `parsed=` / `export_rows`
 
 ### If you need deeper history than latest refresh gives you
 Use the archive-month path conceptually:
@@ -309,8 +334,11 @@ Use it when:
 ### 3. Sync local USDA files into `sec_cache`
 If files were added manually or by a custom backfill script, run a cache sync/reparse path so the exported parquet sees them.
 
-Typical path:
-- `sync_market_cache(..., sync_raw=True, refresh=False, reparse=False)`
+Typical CLI path:
+
+```powershell
+.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE --market-reparse --market-only
+```
 
 The helper script above does this automatically unless `--skip-sync` is used.
 
