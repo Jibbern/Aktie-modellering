@@ -42,7 +42,7 @@ from .legacy_support import (
     compute_total_debt_instant,
 )
 from .metrics import GAAP_SPECS, MetricSpec
-from .non_gaap import build_non_gaap_tier3, infer_quarter_end_from_text, parse_adjusted_from_plain_text, strip_html
+from .non_gaap import build_non_gaap_tier3, infer_quarter_end_from_text, parse_adjusted_from_ex99, parse_adjusted_from_plain_text, strip_html
 from .period_resolver import _duration_days, _filter_unit, classify_duration, pick_best_instant, self_check_period_logic
 from .pdf_utils import silence_pdfminer_warnings
 from .sec_xbrl import SecClient, SecConfig, cik10_from_int, cik_from_ticker, companyfacts_to_df, parse_date
@@ -69,9 +69,9 @@ from .pipeline_types import PipelineArtifacts, PipelineConfig
 from .source_material_refresh import _looks_preliminary_results_guidance_update
 
 
-LOCAL_NON_GAAP_FALLBACK_VERSION = 30
+LOCAL_NON_GAAP_FALLBACK_VERSION = 32
 LOCAL_NON_GAAP_PDF_PAGE_CACHE_VERSION = 1
-DOC_INTEL_BEHAVIOR_VERSION = "v18_anf_source_notes"
+DOC_INTEL_BEHAVIOR_VERSION = "v19_anf_operating_loss_non_gaap"
 COMPANY_OVERVIEW_BEHAVIOR_VERSION = "v9_anf_summary_sanitize"
 
 
@@ -743,6 +743,34 @@ def _anf_line_amount_values(line_txt: str, *, scale: float) -> List[float]:
     return values
 
 
+def _anf_non_gaap_operating_row_values(line_txt: str, *, scale: float) -> List[float]:
+    """Parse ANF non-GAAP operating income/loss schedule rows.
+
+    ANF financial schedules can end with tiny adjusted operating losses such as
+    ``(21)`` ($0.021m). The generic amount parser intentionally drops small
+    parenthetical trailing values to avoid reading footnote markers, so use a
+    row-specific parser only after the row label has already been identified as
+    an operating income/loss reconciliation row.
+    """
+    clean = re.sub(r"\(?-?\d+(?:\.\d+)?\s*%\)?", "", str(line_txt or ""))
+    values: List[float] = []
+    for token in re.findall(r"\(?\s*\$?\s*-?\d[\d,]*(?:\.\d+)?\s*\)?", clean):
+        raw = token.strip()
+        normalized = raw.replace("$", "").replace(",", "").strip()
+        is_paren = normalized.startswith("(") and normalized.endswith(")")
+        normalized = normalized.strip("()").strip()
+        try:
+            val = float(normalized)
+        except Exception:
+            continue
+        if 1900 <= abs(val) <= 2100 and len(str(int(abs(val)))) == 4:
+            continue
+        if is_paren:
+            val = -abs(val)
+        values.append(val * scale)
+    return values
+
+
 def _normalize_anf_share_count_value(raw_value: Any) -> Optional[float]:
     value = coerce_number(raw_value)
     if value is None:
@@ -1031,8 +1059,10 @@ def _parse_anf_non_gaap_schedule_values(lines: List[str], *, duration_re: str, s
         ):
             break
         nums = _anf_line_amount_values(line, scale=scale)
-        if re.match(r"^operating income\b", low) and len(nums) >= 2:
-            out["adj_ebit"] = float(nums[-1])
+        if re.match(r"^operating (?:income|loss)\b", low):
+            op_nums = _anf_non_gaap_operating_row_values(line, scale=scale)
+            if len(op_nums) >= 2:
+                out["adj_ebit"] = float(op_nums[-1])
         elif "litigation settlement" in low and nums:
             out["litigation_settlement_adjustment"] = float(nums[0])
         elif "net income per diluted share attributable" in low:
@@ -3364,7 +3394,7 @@ def run_pipeline_impl(
     # is driven by recent submissions identity plus a compact signature of facts.
     gaap_history_key = "|".join(
         [
-            "v2",
+            "v4",
             f"sub={submissions_sig}",
             f"facts={df_all_sig}",
             f"max_q={config.max_quarters}",
@@ -3689,6 +3719,15 @@ def run_pipeline_impl(
                 years = []
             outs: List[dt.date] = []
             if years:
+                try:
+                    anchor_year = int(q_end.year)
+                    years = [
+                        int(y)
+                        for y in years
+                        if anchor_year - 3 <= int(y) <= anchor_year
+                    ]
+                except Exception:
+                    years = []
                 alias_month_day: Optional[Tuple[int, int]] = None
                 if q_end.month in (1, 2):
                     alias_month_day = (12, 31)
@@ -4532,8 +4571,18 @@ def run_pipeline_impl(
                             q_ts = pd.Timestamp(q_end_use)
                             if pages_per_q.get(q_ts, 0) >= 2:
                                 continue
-                            aebit, aebitda, aeps, adj, status, col_label = parse_adjusted_from_plain_text(txt, q_end_use, mode="relaxed")
-                            if status in ("ok_ocr", "ok_relaxed_ocr"):
+                            if p.suffix.lower() in {".htm", ".html"}:
+                                try:
+                                    aebit, aebitda, aeps, adj, status, col_label = parse_adjusted_from_ex99(
+                                        p.read_bytes(),
+                                        q_end_use,
+                                        mode="relaxed",
+                                    )
+                                except Exception:
+                                    aebit, aebitda, aeps, adj, status, col_label = parse_adjusted_from_plain_text(txt, q_end_use, mode="relaxed")
+                            else:
+                                aebit, aebitda, aeps, adj, status, col_label = parse_adjusted_from_plain_text(txt, q_end_use, mode="relaxed")
+                            if status in ("ok", "ok_relaxed", "ok_ocr", "ok_relaxed_ocr"):
                                 fcf_val = _parse_fcf_from_text(txt, q_end_use)
                                 rows_m_candidates.append({
                                     "quarter": q_end_use,
@@ -4549,7 +4598,7 @@ def run_pipeline_impl(
                                     "page": None,
                                     "confidence": "low",
                                     "col": col_label,
-                                    "source_snippet": "Adjusted EBITDA row",
+                                    "source_snippet": "Consolidated adjusted metrics table" if status in {"ok", "ok_relaxed"} else "Adjusted EBITDA row",
                                     "score": scores.get("non_gaap", 0),
                                 })
                                 rows_f.append({

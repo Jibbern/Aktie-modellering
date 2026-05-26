@@ -44,7 +44,22 @@ def write_hidden_value_flags_sheet(inputs: HiddenValueFlagsSheetInputs) -> None:
     ws = inputs.wb.create_sheet(inputs.sheet_name)
     df = inputs.flags_df
     if df is None or df.empty:
-        ws["A1"] = "No signals."
+        headers = list(df.columns) if isinstance(df, pd.DataFrame) and len(df.columns) else [
+            "rank",
+            "flag_code",
+            "title",
+            "score",
+            "severity",
+            "as_of_quarter",
+            "evidence_1",
+            "evidence_2",
+            "evidence_3",
+            "metrics_json",
+            "visible_support",
+            "triggered",
+        ]
+        ws.append(headers)
+        ws["A2"] = "No triggered hidden-value flags."
         return
 
     headers = list(df.columns)

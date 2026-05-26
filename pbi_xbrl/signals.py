@@ -20,6 +20,8 @@ FCF_STDEV_MAX = 0.04
 POS_FCF_RATIO_MIN = 0.75
 SHARES_YOY_MAX = -0.02
 FCFPS_YOY_MIN = 0.15
+GROWTH_FLAG_MIN_PRIOR_BASE_ABS = 10.0
+GROWTH_FLAG_MIN_PRIOR_BASE_REVENUE_RATIO = 0.002
 
 
 def _empty_flags_df() -> pd.DataFrame:
@@ -251,6 +253,32 @@ def _flag_bool_at(metrics: Dict[str, pd.Series], key: str, q: pd.Timestamp) -> b
     if v2.empty:
         return False
     return bool(int(v2.iloc[-1]))
+
+
+def _flag_a_growth_base_guard(m: Dict[str, pd.Series], q: pd.Timestamp) -> Tuple[bool, str, Dict[str, Any]]:
+    ly = q - pd.DateOffset(years=1)
+    ebit_prior = _num_at(m, "ebit_ttm", ly)
+    ebitda_prior = _num_at(m, "ebitda_ttm", ly)
+    revenue_prior = _num_at(m, "revenue_ttm", ly)
+    min_base = GROWTH_FLAG_MIN_PRIOR_BASE_ABS
+    if revenue_prior is not None and not pd.isna(revenue_prior) and abs(float(revenue_prior)) > 0:
+        min_base = max(min_base, abs(float(revenue_prior)) * GROWTH_FLAG_MIN_PRIOR_BASE_REVENUE_RATIO)
+
+    invalid: List[str] = []
+    for label, value in (("EBIT TTM", ebit_prior), ("EBITDA TTM", ebitda_prior)):
+        if value is None or pd.isna(value) or abs(float(value)) < min_base:
+            value_txt = "missing" if value is None or pd.isna(value) else f"{float(value):.1f}"
+            invalid.append(f"{label} prior base {value_txt} below materiality {min_base:.1f}")
+    details = {
+        "growth_base_min": min_base,
+        "ebit_prior_ttm": ebit_prior,
+        "ebitda_prior_ttm": ebitda_prior,
+        "revenue_prior_ttm": revenue_prior,
+        "growth_base_guardrail": "; ".join(invalid),
+    }
+    if invalid:
+        return False, "Suppressed growth flag: tiny/invalid prior-period base (" + "; ".join(invalid) + ")", details
+    return True, "", details
 
 
 def _latest_metric_quarter(metrics: Dict[str, pd.Series], keys: Sequence[str]) -> Optional[pd.Timestamp]:
@@ -719,6 +747,15 @@ def _compute_flag_independent(code: str, m: Dict[str, pd.Series], q: pd.Timestam
                 "ebitda_growth_yoy": ebitda_growth_yoy,
                 "shares_yoy": shares_yoy,
             }
+        base_ok, guard_msg, guard_details = _flag_a_growth_base_guard(m, q)
+        if not base_ok:
+            return False, None, {
+                "ebit_growth_yoy": ebit_growth_yoy,
+                "ebitda_growth_yoy": ebitda_growth_yoy,
+                "shares_yoy": shares_yoy,
+                "qa_message": guard_msg,
+                **guard_details,
+            }
         s_ebit = _clamp((ebit_growth_yoy - 0.25) / 0.50 + 0.30) * 40.0
         s_ebitda = _clamp((ebitda_growth_yoy - 0.20) / 0.40 + 0.30) * 40.0
         s_shares = _clamp((abs(shares_yoy) - 0.02) / 0.05 + 0.20) * 20.0
@@ -952,6 +989,12 @@ def _compute_flags_and_audit(
         if parse_error:
             qa_sev = "FAIL"
             qa_msg.append(f"FAIL: parse_error {parse_error}")
+        if code == "A":
+            base_ok, guard_msg, _ = _flag_a_growth_base_guard(metrics_main, q)
+            if not base_ok:
+                if qa_sev != "FAIL":
+                    qa_sev = "WARN"
+                qa_msg.append(guard_msg)
 
         audit_rows.append(
             {
@@ -1053,6 +1096,9 @@ def _flag_a(m: Dict[str, pd.Series]) -> Optional[_Flag]:
         return None
     trigger = (ebit_growth_yoy > 0.25) and (ebitda_growth_yoy > 0.20) and (shares_yoy <= -0.02)
     if not trigger:
+        return None
+    base_ok, _, _ = _flag_a_growth_base_guard(m, q)
+    if not base_ok:
         return None
     s_ebit = _clamp((ebit_growth_yoy - 0.25) / 0.50 + 0.30) * 40.0
     s_ebitda = _clamp((ebitda_growth_yoy - 0.20) / 0.40 + 0.30) * 40.0

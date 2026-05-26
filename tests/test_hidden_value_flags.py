@@ -280,6 +280,47 @@ def test_flag_a_uses_q_specific_fallback_marker() -> None:
     assert "(GAAP fallback)" in flag.evidence_2
 
 
+def test_flag_a_suppresses_growth_from_tiny_prior_base_with_audit_note() -> None:
+    hist = _make_hist()
+    hist_tiny = hist.copy()
+    hist_tiny[["ebit", "ebitda"]] = hist_tiny[["ebit", "ebitda"]].astype(float)
+    hist_tiny["shares_outstanding"] = [205, 204, 203, 202, 200, 198, 196, 194, 188, 184, 181, 178]
+    hist_tiny.loc[hist_tiny.index[4:8], "ebit"] = [0.20, 0.20, 0.20, 0.20]
+    hist_tiny.loc[hist_tiny.index[4:8], "ebitda"] = [0.30, 0.30, 0.30, 0.30]
+    hist_tiny.loc[hist_tiny.index[8:12], "ebit"] = [60.0, 65.0, 70.0, 75.0]
+    hist_tiny.loc[hist_tiny.index[8:12], "ebitda"] = [80.0, 86.0, 92.0, 98.0]
+
+    flags, audit, recompute = build_hidden_value_outputs(hist=hist_tiny)
+
+    assert "A" not in set(flags["flag_code"].astype(str))
+    audit_a = audit[audit["flag_id"].astype(str) == "A"].iloc[0]
+    assert bool(audit_a["pass_fail"]) is False
+    assert "tiny" in str(audit_a["qa_message"]).lower() or "base" in str(audit_a["qa_message"]).lower()
+    recompute_a = recompute[recompute["flag_id"].astype(str) == "A"].iloc[0]
+    assert bool(recompute_a["recompute_present"]) is False
+    assert bool(recompute_a["match"]) is True
+
+
+def test_flag_a_preserves_real_growth_when_prior_base_is_material() -> None:
+    q1 = pd.Timestamp("2024-12-31")
+    q2 = pd.Timestamp("2025-12-31")
+    metrics = {
+        "ebit_growth_yoy": pd.Series([0.30, 0.35], index=[q1, q2]),
+        "ebitda_growth_yoy": pd.Series([0.25, 0.30], index=[q1, q2]),
+        "shares_yoy": pd.Series([-0.03, -0.04], index=[q1, q2]),
+        "ebit_ttm": pd.Series([500.0, 700.0], index=[q1, q2]),
+        "ebitda_ttm": pd.Series([800.0, 1040.0], index=[q1, q2]),
+        "shares_out": pd.Series([190.0, 180.0], index=[q1, q2]),
+        "revenue_ttm": pd.Series([2500.0, 2800.0], index=[q1, q2]),
+        "adj_fallback": pd.Series([0.0, 0.0], index=[q1, q2]),
+    }
+
+    flag = _flag_a(metrics)
+
+    assert flag is not None
+    assert flag.score > 0
+
+
 def test_hidden_value_recompute_matches_between_pipeline_and_export() -> None:
     hist = _make_hist()
     base = build_signals_base(hist=hist)

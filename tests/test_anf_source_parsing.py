@@ -101,6 +101,31 @@ def test_anf_adjusted_parser_keeps_quarter_and_annual_metrics_separate() -> None
     assert "favorable settlement" in by_period["annual"]["source_snippet"].lower()
 
 
+def test_anf_adjusted_parser_keeps_small_operating_loss_from_being_treated_as_footnote() -> None:
+    lines = [
+        "Schedule of Non-GAAP Financial Measures",
+        "Thirteen Weeks Ended July 30, 2022",
+        "Adjusted",
+        "GAAP (1) Excluded items non-GAAP",
+        "Asset impairment(2) $ 2,170 $ 2,170 $ —",
+        "Operating loss (2,191) (2,170) (21)",
+        "Net income per diluted share attributable to A&F",
+        "Diluted $ (0.33) $ (0.03) $ (0.30)",
+    ]
+
+    rows = _parse_anf_adjusted_metrics_from_lines(
+        lines,
+        quarter_end=dt.date(2022, 7, 30),
+        scale=1000.0,
+        source_doc="ANF_Q2_2022_earnings_release.pdf",
+        source="earnings_release",
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["period_type"] == "quarter"
+    assert rows[0]["adj_ebit"] == pytest.approx(-21_000.0)
+
+
 def test_anf_guidance_parser_captures_q1_and_fy2026_outlook() -> None:
     lines = [
         "Fourth Quarter Fiscal 2025 Results",

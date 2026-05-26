@@ -31,6 +31,7 @@ from pbi_xbrl.company_profiles import COMPANY_PROFILES, get_company_profile
 from pbi_xbrl.cache_layout import bootstrap_canonical_ticker_cache, canonical_ticker_cache_root
 from pbi_xbrl import data_portability
 from pbi_xbrl.excel_writer import (
+    _prune_saved_promise_progress_stub_rows,
     enrich_quarter_notes_audit_rows_with_readback,
     validate_saved_workbook_after_audit_write,
     validate_saved_workbook_export,
@@ -1040,7 +1041,9 @@ def main() -> None:
     partial_debug_scope = str(args.excel_debug_scope or "full").strip().lower() != "full"
     out_path = _default_out_path(args.ticker, paths=paths if data_root is not None else None) if not args.out else _normalize_out_path_xlsm(args.out)
     if partial_debug_scope and not args.out:
-        out_path = out_path.with_name(f"{out_path.stem}_{args.excel_debug_scope}_debug{out_path.suffix}")
+        debug_dir = out_path.parent / "debug"
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        out_path = debug_dir / f"{out_path.stem}_{args.excel_debug_scope}_debug{out_path.suffix}"
     xlsx_tmp_path = out_path.with_name(f"{out_path.stem}_nomacro.xlsx")
     if partial_debug_scope:
         print(
@@ -1129,6 +1132,7 @@ def main() -> None:
                     worksheet_name="Valuation",
                     debug_log_path=cfg.cache_dir / "xlsm_injection_debug.log",
                 )
+                _prune_saved_promise_progress_stub_rows(out_path)
             final_out_path = out_path
         except Exception as e:
             final_out_path = out_path.with_suffix(".xlsx")

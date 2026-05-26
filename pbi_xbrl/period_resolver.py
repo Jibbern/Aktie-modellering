@@ -324,6 +324,58 @@ def derive_quarter_from_ytd(
             )
             q1_c = _candidates(q1_end, "3M") if q1_end else pd.DataFrame()
             pair = _pick_pair(y6_c, q1_c)
+            note = "derived Q2 = 6M YTD - Q1 3M"
+            if pair is None and not y6_c.empty:
+                # Comparative non-calendar facts can carry fy/fp values from
+                # the filing year rather than the source fiscal year. When the
+                # clean period invariant exists, prefer same-start duration
+                # facts for the same metric/tag/unit over a broad date window.
+                q1_all = facts[facts["start_d"].notna() & facts["end_d"].notna()].copy()
+                if not q1_all.empty:
+                    q1_all["dur"] = _duration_days(q1_all["end_d"], q1_all["start_d"])
+                    q1_all["dur_class"] = q1_all["dur"].apply(classify_duration)
+                    q1_all = q1_all[q1_all["dur_class"] == "3M"].copy()
+                    q1_all["form_rank"] = q1_all["form"].fillna("").apply(lambda x: _rank_form(x, prefer_forms))
+                    q1_all = q1_all.sort_values(["form_rank", "filed_d"], ascending=[True, False])
+                    same_start_pairs: List[Tuple[pd.Series, pd.Series, float]] = []
+                    for _, y6_row in y6_c.iterrows():
+                        y6_start = y6_row.get("start_d")
+                        y6_end = y6_row.get("end_d")
+                        if pd.isna(y6_start) or pd.isna(y6_end):
+                            continue
+                        cand_q1 = q1_all[
+                            (q1_all["start_d"] == y6_start)
+                            & (q1_all["end_d"] < y6_end)
+                            & (q1_all["tag"].astype(str) == str(y6_row.get("tag")))
+                            & (q1_all["unit"].astype(str) == str(y6_row.get("unit")))
+                        ].copy()
+                        if cand_q1.empty:
+                            continue
+                        cand_q1["_end_gap"] = (pd.to_datetime(y6_end) - pd.to_datetime(cand_q1["end_d"])).dt.days.abs()
+                        cand_q1 = cand_q1.sort_values(["_end_gap", "form_rank", "filed_d"], ascending=[True, True, False])
+                        for _, q1_row in cand_q1.iterrows():
+                            y6_filed = y6_row.get("filed_d")
+                            q1_filed = q1_row.get("filed_d")
+                            filed_gap = abs((y6_filed - q1_filed).days) if pd.notna(y6_filed) and pd.notna(q1_filed) else 9999
+                            if filed_gap > max_filed_gap_days:
+                                continue
+                            try:
+                                val = float(y6_row["val"]) - float(q1_row["val"])
+                            except Exception:
+                                continue
+                            if not allow_negative and val < 0:
+                                continue
+                            same_start_pairs.append((y6_row, q1_row, val))
+                            break
+                    if same_start_pairs:
+                        def _pair_score(item: Tuple[pd.Series, pd.Series, float]) -> Tuple[int, int]:
+                            y6_row, q1_row, _ = item
+                            gap = abs((y6_row.get("filed_d") - q1_row.get("filed_d")).days) if pd.notna(y6_row.get("filed_d")) and pd.notna(q1_row.get("filed_d")) else 9999
+                            rec = y6_row.get("filed_d")
+                            return (gap, -(rec.toordinal() if pd.notna(rec) else 0))
+
+                        pair = sorted(same_start_pairs, key=_pair_score)[0]
+                        note = "derived Q2 = 6M YTD - Q1 3M using same FY start"
             if pair is None:
                 return None
             y6, q1_3m, val = pair
@@ -338,7 +390,7 @@ def derive_quarter_from_ytd(
                 end=y6["end_d"],
                 unit=str(y6["unit"]),
                 duration_days=int((y6["end_d"] - y6["start_d"]).days),
-                note="derived Q2 = 6M YTD - Q1 3M",
+                note=note,
             )
         if quarter_index == 3:
             y9_c = _candidates(end, "9M")
@@ -351,6 +403,54 @@ def derive_quarter_from_ytd(
             )
             y6_c = _candidates(q2_end, "6M") if q2_end else pd.DataFrame()
             pair = _pick_pair(y9_c, y6_c)
+            note = "derived Q3 = 9M YTD - 6M YTD"
+            if pair is None and not y9_c.empty:
+                y6_all = facts[facts["start_d"].notna() & facts["end_d"].notna()].copy()
+                if not y6_all.empty:
+                    y6_all["dur"] = _duration_days(y6_all["end_d"], y6_all["start_d"])
+                    y6_all["dur_class"] = y6_all["dur"].apply(classify_duration)
+                    y6_all = y6_all[y6_all["dur_class"] == "6M"].copy()
+                    y6_all["form_rank"] = y6_all["form"].fillna("").apply(lambda x: _rank_form(x, prefer_forms))
+                    y6_all = y6_all.sort_values(["form_rank", "filed_d"], ascending=[True, False])
+                    same_start_pairs: List[Tuple[pd.Series, pd.Series, float]] = []
+                    for _, y9_row in y9_c.iterrows():
+                        y9_start = y9_row.get("start_d")
+                        y9_end = y9_row.get("end_d")
+                        if pd.isna(y9_start) or pd.isna(y9_end):
+                            continue
+                        cand_6m = y6_all[
+                            (y6_all["start_d"] == y9_start)
+                            & (y6_all["end_d"] < y9_end)
+                            & (y6_all["tag"].astype(str) == str(y9_row.get("tag")))
+                            & (y6_all["unit"].astype(str) == str(y9_row.get("unit")))
+                        ].copy()
+                        if cand_6m.empty:
+                            continue
+                        cand_6m["_end_gap"] = (pd.to_datetime(y9_end) - pd.to_datetime(cand_6m["end_d"])).dt.days.abs()
+                        cand_6m = cand_6m.sort_values(["_end_gap", "form_rank", "filed_d"], ascending=[True, True, False])
+                        for _, y6_row in cand_6m.iterrows():
+                            y9_filed = y9_row.get("filed_d")
+                            y6_filed = y6_row.get("filed_d")
+                            filed_gap = abs((y9_filed - y6_filed).days) if pd.notna(y9_filed) and pd.notna(y6_filed) else 9999
+                            if filed_gap > max_filed_gap_days:
+                                continue
+                            try:
+                                val = float(y9_row["val"]) - float(y6_row["val"])
+                            except Exception:
+                                continue
+                            if not allow_negative and val < 0:
+                                continue
+                            same_start_pairs.append((y9_row, y6_row, val))
+                            break
+                    if same_start_pairs:
+                        def _pair_score(item: Tuple[pd.Series, pd.Series, float]) -> Tuple[int, int]:
+                            y9_row, y6_row, _ = item
+                            gap = abs((y9_row.get("filed_d") - y6_row.get("filed_d")).days) if pd.notna(y9_row.get("filed_d")) and pd.notna(y6_row.get("filed_d")) else 9999
+                            rec = y9_row.get("filed_d")
+                            return (gap, -(rec.toordinal() if pd.notna(rec) else 0))
+
+                        pair = sorted(same_start_pairs, key=_pair_score)[0]
+                        note = "derived Q3 = 9M YTD - 6M YTD using same FY start"
             if pair is None:
                 return None
             y9, y6, val = pair
@@ -365,7 +465,7 @@ def derive_quarter_from_ytd(
                 end=y9["end_d"],
                 unit=str(y9["unit"]),
                 duration_days=int((y9["end_d"] - y9["start_d"]).days),
-                note="derived Q3 = 9M YTD - 6M YTD",
+                note=note,
             )
         if quarter_index == 4:
             fy_c = _candidates(end, "FY")
@@ -378,6 +478,68 @@ def derive_quarter_from_ytd(
             )
             y9_c = _candidates(q3_end, "9M") if q3_end else pd.DataFrame()
             pair = _pick_pair(fy_c, y9_c)
+            note = "derived Q4 = FY - 9M YTD"
+            if pair is not None:
+                fy_row, y9_row, _ = pair
+                if pd.notna(fy_row.get("start_d")) and pd.notna(y9_row.get("start_d")) and fy_row.get("start_d") != y9_row.get("start_d"):
+                    pair = None
+            if pair is None and not fy_c.empty:
+                # Non-calendar reporters and comparative 10-K rows can carry
+                # confusing fy/fy_calc values. For Q4, the clean invariant is
+                # the fiscal-year YTD period start: FY and 9M facts for the
+                # same metric/unit should share the same start date, while the
+                # 9M end is before the FY end. This avoids broad date windows
+                # and keeps fiscal calendars such as retail 4-5-4 schedules
+                # tied to exact source periods.
+                y9_all = facts[facts["start_d"].notna() & facts["end_d"].notna()].copy()
+                if not y9_all.empty:
+                    y9_all["dur"] = _duration_days(y9_all["end_d"], y9_all["start_d"])
+                    y9_all["dur_class"] = y9_all["dur"].apply(classify_duration)
+                    y9_all = y9_all[y9_all["dur_class"] == "9M"].copy()
+                    y9_all["form_rank"] = y9_all["form"].fillna("").apply(lambda x: _rank_form(x, prefer_forms))
+                    y9_all = y9_all.sort_values(["form_rank", "filed_d"], ascending=[True, False])
+                    same_start_pairs: List[Tuple[pd.Series, pd.Series, float]] = []
+                    for _, fy_row in fy_c.iterrows():
+                        fy_start = fy_row.get("start_d")
+                        fy_end = fy_row.get("end_d")
+                        if pd.isna(fy_start) or pd.isna(fy_end):
+                            continue
+                        cand_9m = y9_all[
+                            (y9_all["start_d"] == fy_start)
+                            & (y9_all["end_d"] < fy_end)
+                            & (y9_all["tag"].astype(str) == str(fy_row.get("tag")))
+                            & (y9_all["unit"].astype(str) == str(fy_row.get("unit")))
+                        ].copy()
+                        if cand_9m.empty:
+                            continue
+                        # Keep the closest 9M end to FY end for odd fiscal
+                        # calendars, then let _pick_pair choose the best
+                        # filing-vintage match.
+                        cand_9m["_end_gap"] = (pd.to_datetime(fy_end) - pd.to_datetime(cand_9m["end_d"])).dt.days.abs()
+                        cand_9m = cand_9m.sort_values(["_end_gap", "form_rank", "filed_d"], ascending=[True, True, False])
+                        for _, y9_row in cand_9m.iterrows():
+                            fy_filed = fy_row.get("filed_d")
+                            y9_filed = y9_row.get("filed_d")
+                            filed_gap = abs((fy_filed - y9_filed).days) if pd.notna(fy_filed) and pd.notna(y9_filed) else 9999
+                            if filed_gap > max_filed_gap_days:
+                                continue
+                            try:
+                                val = float(fy_row["val"]) - float(y9_row["val"])
+                            except Exception:
+                                continue
+                            if not allow_negative and val < 0:
+                                continue
+                            same_start_pairs.append((fy_row, y9_row, val))
+                            break
+                    if same_start_pairs:
+                        def _pair_score(item: Tuple[pd.Series, pd.Series, float]) -> Tuple[int, int]:
+                            fy_row, y9_row, _ = item
+                            gap = abs((fy_row.get("filed_d") - y9_row.get("filed_d")).days) if pd.notna(fy_row.get("filed_d")) and pd.notna(y9_row.get("filed_d")) else 9999
+                            rec = fy_row.get("filed_d")
+                            return (gap, -(rec.toordinal() if pd.notna(rec) else 0))
+
+                        pair = sorted(same_start_pairs, key=_pair_score)[0]
+                        note = "derived Q4 = FY - 9M YTD using same FY start"
             if pair is None:
                 return None
             fy, y9, val = pair
@@ -394,7 +556,7 @@ def derive_quarter_from_ytd(
                 end=q4_end_ts.date(),
                 unit=str(fy["unit"]),
                 duration_days=int((q4_end_ts.date() - q4_start_ts.date()).days),
-                note="derived Q4 = FY - 9M YTD",
+                note=note,
             )
         return None
 
@@ -596,12 +758,73 @@ def self_check_period_logic(
             ok = y9 is not None and y6 is not None
         elif qi == 4:
             fy = pick_best_duration(facts, end=end, target="FY", prefer_forms=spec.prefer_forms)
+            audit_accn = str(r.get("accn", "") or "").strip()
+            if audit_accn and "accn" in facts.columns:
+                fy_match = facts[
+                    (facts["end_d"] == end)
+                    & (facts["accn"].astype(str) == audit_accn)
+                ].copy()
+                if not fy_match.empty:
+                    fy_match = fy_match[
+                        fy_match.apply(
+                            lambda row: classify_duration(
+                                row.get("duration_days")
+                                if pd.notna(row.get("duration_days"))
+                                else (
+                                    (row.get("end_d") - row.get("start_d")).days
+                                    if pd.notna(row.get("start_d")) and pd.notna(row.get("end_d"))
+                                    else None
+                                )
+                            )
+                            == "FY",
+                            axis=1,
+                        )
+                    ]
+                    if not fy_match.empty:
+                        fy = fy_match.sort_values(["filed_d"], ascending=[False]).iloc[0]
             fy_v = _fy_val(fy, fy_end_mmdd=fy_end_mmdd) if fy is not None else None
             q3_end = fy_fp_to_end.get((fy_v, "Q3")) if fy_v is not None else None
             if q3_end is None:
                 fy_end = fy_fp_to_end.get((fy_v, "FY")) if fy_v is not None else end
                 q3_end = quarter_ends_for_fy(fy_end).get("Q3")
             y9 = pick_best_duration(facts, end=q3_end, target="9M", prefer_forms=spec.prefer_forms) if q3_end else None
+            if fy is not None and y9 is not None:
+                fy_start = fy.get("start_d")
+                y9_start = y9.get("start_d")
+                if pd.notna(fy_start) and pd.notna(y9_start) and fy_start != y9_start:
+                    y9 = None
+            if fy is not None and y9 is None and pd.notna(fy.get("start_d")):
+                fy_filed = fy.get("filed_d")
+                same_start = facts[
+                    (facts["start_d"] == fy.get("start_d"))
+                    & (facts["end_d"].notna())
+                    & (facts["end_d"] < end)
+                ].copy()
+                if not same_start.empty:
+                    same_start = same_start[
+                        same_start.apply(
+                            lambda row: classify_duration(
+                                row.get("duration_days")
+                                if pd.notna(row.get("duration_days"))
+                                else (
+                                    (row.get("end_d") - row.get("start_d")).days
+                                    if pd.notna(row.get("start_d")) and pd.notna(row.get("end_d"))
+                                    else None
+                                )
+                            )
+                            == "9M",
+                            axis=1,
+                        )
+                    ]
+                if not same_start.empty and "filed_d" in same_start.columns and pd.notna(fy_filed):
+                    fy_filed_ts = pd.to_datetime(fy_filed)
+                    same_start = same_start[
+                        same_start["filed_d"].isna()
+                        | ((pd.to_datetime(same_start["filed_d"]) - fy_filed_ts).dt.days.abs() <= max_filed_gap_days)
+                    ]
+                if not same_start.empty:
+                    same_start = same_start.sort_values(["end_d", "filed_d"], ascending=[False, False])
+                    y9 = same_start.iloc[0]
             ok = fy is not None and y9 is not None
         else:
             ok = True

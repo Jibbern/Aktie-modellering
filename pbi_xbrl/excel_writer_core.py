@@ -6,11 +6,12 @@ import re
 import time
 from bisect import bisect_right
 from contextlib import contextmanager
+from copy import copy
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 import pandas as pd
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
-from openpyxl.styles import Alignment, PatternFill
+from openpyxl.styles import Alignment, Border, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.workbook.defined_name import DefinedName
 
@@ -445,6 +446,28 @@ def ensure_valuation_inputs(ctx: WriterContext) -> None:
                     note = "revolver carry-forward"
                     return (rev_commit_q.get(last_q), None, None, None, note)
 
+                def _prior_sane_revolver_capacity(q: pd.Timestamp, minimum: Optional[float]) -> Optional[float]:
+                    """Return a prior commitment/facility that can support known availability."""
+
+                    if not rev_keys:
+                        return None
+                    min_val = float(minimum or 0.0)
+                    for prior_q in reversed(rev_keys):
+                        prior_ts = pd.Timestamp(prior_q)
+                        if prior_ts >= q:
+                            continue
+                        if (q - prior_ts).days > 1860:
+                            break
+                        candidates = [rev_commit_q.get(prior_ts), rev_facility_q.get(prior_ts)]
+                        for cand in candidates:
+                            try:
+                                cand_val = float(cand)
+                            except (TypeError, ValueError):
+                                continue
+                            if cand_val + 1_000_000.0 >= min_val:
+                                return cand_val
+                    return None
+
                 adj_ebitda_ttm_q = ctx.derived.valuation_adj_ebitda_ttm_q or {}
 
                 for idx in range(len(quarter_list)):
@@ -496,6 +519,34 @@ def ensure_valuation_inputs(ctx: WriterContext) -> None:
                     elif rev_avail is None and rev_commit is not None and rev_drawn is not None and rev_lc is None:
                         rev_avail = float(rev_commit) - float(rev_drawn)
                         rev_note = (rev_note + "; " if rev_note else "") + "lc_missing"
+                    if rev_avail is not None:
+                        try:
+                            avail_val = float(rev_avail)
+                        except (TypeError, ValueError):
+                            avail_val = float("nan")
+                        try:
+                            commit_val = float(rev_commit) if rev_commit is not None else float("nan")
+                        except (TypeError, ValueError):
+                            commit_val = float("nan")
+                        try:
+                            facility_val = float(rev_facility) if rev_facility is not None else float("nan")
+                        except (TypeError, ValueError):
+                            facility_val = float("nan")
+                        if pd.notna(avail_val) and (pd.isna(commit_val) or commit_val + 1_000_000.0 < avail_val):
+                            replacement = _prior_sane_revolver_capacity(q, avail_val)
+                            if replacement is not None:
+                                rev_commit = replacement
+                                commit_val = replacement
+                                rev_note = (rev_note + "; " if rev_note else "") + "revolver commitment repaired from prior period"
+                            else:
+                                drawn_val = float(rev_drawn or 0.0)
+                                lc_val = float(rev_lc or 0.0)
+                                rev_commit = avail_val + drawn_val + lc_val
+                                commit_val = float(rev_commit)
+                                rev_note = (rev_note + "; " if rev_note else "") + "revolver commitment derived from availability"
+                        if pd.notna(avail_val) and (pd.isna(facility_val) or facility_val + 1_000_000.0 < avail_val):
+                            rev_facility = float(rev_commit) if rev_commit is not None else avail_val
+                            rev_note = (rev_note + "; " if rev_note else "") + "revolver facility aligned to availability"
                     liquidity = None
                     liquidity_note = ""
                     if pd.notna(cash) and pd.notna(rev_avail):
@@ -742,7 +793,14 @@ def ensure_hidden_value_inputs(ctx: WriterContext) -> None:
             active_df = current_flags.copy() if isinstance(current_flags, pd.DataFrame) and not current_flags.empty else pd.DataFrame()
             audit_df = audit_flags.copy() if isinstance(audit_flags, pd.DataFrame) and not audit_flags.empty else pd.DataFrame()
             if audit_df.empty:
-                return active_df
+                if active_df.empty:
+                    return active_df
+                out = active_df.copy()
+                out["triggered"] = 1
+                if "visible_support" not in out.columns:
+                    metrics_series = out["metrics_json"] if "metrics_json" in out.columns else pd.Series([""] * len(out), index=out.index)
+                    out["visible_support"] = metrics_series.apply(_visible_support_from_metrics)
+                return out
             if "quarter" in audit_df.columns:
                 audit_df["quarter"] = pd.to_datetime(audit_df["quarter"], errors="coerce")
                 latest_q = audit_df["quarter"].dropna().max()
@@ -769,6 +827,9 @@ def ensure_hidden_value_inputs(ctx: WriterContext) -> None:
                 if not code:
                     continue
                 active = active_by_code.get(code, {})
+                raw_score = pd.to_numeric(active.get("score"), errors="coerce")
+                triggered = int(code in active_by_code and pd.notna(raw_score) and float(raw_score) >= 1.0)
+                score = int(round(float(raw_score))) if pd.notna(raw_score) and triggered else 0
                 title = str(
                     active.get("title")
                     or active.get("Title")
@@ -785,19 +846,24 @@ def ensure_hidden_value_inputs(ctx: WriterContext) -> None:
                         "rank": preferred_order.get(code, 90 + len(rows)),
                         "flag_code": code,
                         "title": title,
-                        "score": active.get("score", 0),
-                        "severity": active.get("severity") or "Info",
+                        "score": score,
+                        "severity": active.get("severity") if triggered else "Info",
                         "as_of_quarter": active.get("as_of_quarter") or quarter_txt,
                         "evidence_1": active.get("evidence_1") or "",
                         "evidence_2": active.get("evidence_2") or "",
                         "evidence_3": active.get("evidence_3") or "",
                         "metrics_json": active.get("metrics_json") or rec.get("inputs_json") or "",
                         "visible_support": _visible_support_from_metrics(active.get("metrics_json") or rec.get("inputs_json") or ""),
+                        "triggered": triggered,
                     }
                 )
             if not rows:
                 return active_df
-            ordered_df = pd.DataFrame(rows).sort_values(["rank", "flag_code"], ascending=[True, True], na_position="last").reset_index(drop=True)
+            ordered_df = pd.DataFrame(rows).sort_values(
+                ["triggered", "rank", "flag_code"],
+                ascending=[False, True, True],
+                na_position="last",
+            ).reset_index(drop=True)
             ordered_df["rank"] = range(1, len(ordered_df) + 1)
             return ordered_df
 
@@ -1749,6 +1815,7 @@ def finalize_workbook(ctx: WriterContext) -> None:
                 f_e2 = hdr_f.get("evidence_2")
                 f_e3 = hdr_f.get("evidence_3")
                 f_visible_support = hdr_f.get("visible_support")
+                f_triggered = hdr_f.get("triggered")
                 audit_row_by_flag = {}
                 if c_flag:
                     for rr in range(2, ws_hva.max_row + 1):
@@ -1768,7 +1835,8 @@ def finalize_workbook(ctx: WriterContext) -> None:
                         in_ref = f"'Hidden_Value_Audit'!${get_column_letter(c_inputs)}${ar}" if c_inputs else "\"\""
                         name_ref = f"'Hidden_Value_Audit'!${get_column_letter(c_name)}${ar}" if c_name else code_cell
                         thr_ref = f"'Hidden_Value_Audit'!${get_column_letter(c_thr)}${ar}" if c_thr else "\"\""
-                        ws_hvf.cell(row=rr, column=f_score).value = f"=IF({out_ref}=\"\",\"\",IF(N({out_ref})>=1,100,0))"
+                        if f_triggered and ws_hvf.cell(row=rr, column=f_triggered).value in (None, ""):
+                            ws_hvf.cell(row=rr, column=f_triggered).value = f"=IF({out_ref}=\"\",\"\",--(N({out_ref})>=1))"
                         e1_formula = f"=IF({code_cell}=\"\",\"\",{name_ref}&\" | Quarter: \"&TEXT({q_ref},\"yyyy-mm-dd\"))"
                         e2_formula = f"=IF({code_cell}=\"\",\"\",\"Threshold: \"&{thr_ref}&IF({msg_ref}<>\"\",\" | \"&{msg_ref},\"\"))"
                         e3_formula = f"=IF({code_cell}=\"\",\"\",\"Inputs: \"&{in_ref})"
@@ -1831,6 +1899,116 @@ def finalize_workbook(ctx: WriterContext) -> None:
                     for rr in range(2, ws_hvf.max_row + 1):
                         if str(ws_hvf.cell(row=rr, column=f_code).value or "").strip() != "":
                             ws_hvf.row_dimensions[rr].height = 32
+
+        if "Valuation" in wb.sheetnames and "Hidden_Value_Flags" in wb.sheetnames:
+            ws_val = wb["Valuation"]
+            ws_hvf = wb["Hidden_Value_Flags"]
+            hdr_f = {str(c.value): i for i, c in enumerate(ws_hvf[1], start=1) if c.value is not None}
+            f_triggered = hdr_f.get("triggered")
+            triggered_rows: List[int] = []
+            if f_triggered:
+                for rr in range(2, ws_hvf.max_row + 1):
+                    trig_val = ws_hvf.cell(row=rr, column=f_triggered).value
+                    if trig_val in (1, True) or str(trig_val).strip() == "1":
+                        triggered_rows.append(rr)
+            flags_header_row = None
+            for rr in range(1, min(ws_val.max_row, 180) + 1):
+                if str(ws_val.cell(row=rr, column=1).value or "").strip() == "Hidden value flags":
+                    flags_header_row = rr
+                    break
+            if flags_header_row:
+                label_col = 1
+                title_col, title_end_col = 2, 5
+                score_col = 6
+                severity_col = 7
+                support_col, support_end_col = 8, 13
+                helper_col = 35
+                helper_letter = get_column_letter(helper_col)
+                visible_count = max(1, min(5, len(triggered_rows)))
+                body_template_row = flags_header_row + 2
+                no_trigger_formula = 'COUNTIF(\'Hidden_Value_Flags\'!$L:$L,">=1")=0'
+
+                def _unmerge_row_slice(row_idx: int, col_start: int, col_end: int) -> None:
+                    for mrange in list(ws_val.merged_cells.ranges):
+                        if (
+                            mrange.min_row <= row_idx <= mrange.max_row
+                            and mrange.max_col >= col_start
+                            and mrange.min_col <= col_end
+                        ):
+                            try:
+                                ws_val.unmerge_cells(str(mrange))
+                            except Exception:
+                                pass
+
+                def _copy_style_from_template(row_idx: int) -> None:
+                    if row_idx == body_template_row:
+                        return
+                    for cc in range(label_col, support_end_col + 1):
+                        src = ws_val.cell(row=body_template_row, column=cc)
+                        dst = ws_val.cell(row=row_idx, column=cc)
+                        dst.font = copy(src.font)
+                        dst.fill = copy(src.fill)
+                        dst.border = copy(src.border)
+                        dst.alignment = copy(src.alignment)
+                        dst.number_format = src.number_format
+                    ws_val.row_dimensions[row_idx].height = ws_val.row_dimensions[body_template_row].height or 19.5
+
+                for idx in range(visible_count):
+                    out_row = flags_header_row + 2 + idx
+                    hidden_rr = 2 + idx
+                    _unmerge_row_slice(out_row, title_col, title_end_col)
+                    _unmerge_row_slice(out_row, support_col, support_end_col)
+                    try:
+                        ws_val.merge_cells(start_row=out_row, start_column=title_col, end_row=out_row, end_column=title_end_col)
+                        ws_val.merge_cells(start_row=out_row, start_column=support_col, end_row=out_row, end_column=support_end_col)
+                    except Exception:
+                        pass
+                    _copy_style_from_template(out_row)
+                    ws_val.cell(row=out_row, column=helper_col, value=f'=IF(N(\'Hidden_Value_Flags\'!$L${hidden_rr})>=1,{hidden_rr},"")')
+                    ws_val.cell(
+                        row=out_row,
+                        column=label_col,
+                        value=f'=IF({no_trigger_formula},"No triggered flags",IF(${helper_letter}{out_row}="","","Flag {idx + 1}"))',
+                    )
+                    ws_val.cell(
+                        row=out_row,
+                        column=title_col,
+                        value=(
+                            f'=IF({no_trigger_formula},'
+                            '"No scored hidden-value flags currently triggered",'
+                            f'IF(${helper_letter}{out_row}="","",INDEX(\'Hidden_Value_Flags\'!$C:$C,${helper_letter}{out_row})))'
+                        ),
+                    )
+                    score_cell = ws_val.cell(
+                        row=out_row,
+                        column=score_col,
+                        value=f'=IF({no_trigger_formula},"",IF(${helper_letter}{out_row}="","",INDEX(\'Hidden_Value_Flags\'!$D:$D,${helper_letter}{out_row})))',
+                    )
+                    score_cell.number_format = "0"
+                    score_cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=False)
+                    ws_val.cell(
+                        row=out_row,
+                        column=severity_col,
+                        value=f'=IF({no_trigger_formula},"Info",IF(${helper_letter}{out_row}="","",INDEX(\'Hidden_Value_Flags\'!$E:$E,${helper_letter}{out_row})))',
+                    )
+                    ws_val.cell(
+                        row=out_row,
+                        column=support_col,
+                        value=(
+                            f'=IF({no_trigger_formula},'
+                            '"Audit candidates remain in Hidden_Value_Flags / Hidden_Value_Audit.",'
+                            f'IF(${helper_letter}{out_row}="","",INDEX(\'Hidden_Value_Flags\'!$K:$K,${helper_letter}{out_row})))'
+                        ),
+                    )
+                for clear_row in range(flags_header_row + 2 + visible_count, flags_header_row + 7):
+                    _unmerge_row_slice(clear_row, label_col, support_end_col)
+                    for cc in range(label_col, support_end_col + 1):
+                        cell = ws_val.cell(row=clear_row, column=cc)
+                        cell.value = None
+                        cell.fill = PatternFill(fill_type=None)
+                        cell.border = Border()
+                        cell.alignment = Alignment()
+                    ws_val.cell(row=clear_row, column=helper_col, value=None)
 
         if "Valuation" in wb.sheetnames and "Hidden_Value_Audit" in wb.sheetnames and "Hidden_Value_Flags" in wb.sheetnames:
             ws_val = wb["Valuation"]
@@ -2015,7 +2193,7 @@ def finalize_workbook(ctx: WriterContext) -> None:
 
             def _pp_header_map(row_idx: int) -> Dict[str, int]:
                 out: Dict[str, int] = {}
-                for cc in range(1, min(int(ws_pp.max_column or 0), 10) + 1):
+                for cc in range(1, min(int(ws_pp.max_column or 0), 12) + 1):
                     label = str(ws_pp.cell(row_idx, cc).value or "").strip().lower()
                     if label:
                         out[label] = cc
@@ -2041,7 +2219,7 @@ def finalize_workbook(ctx: WriterContext) -> None:
                     continue
                 if all(
                     str(ws_pp.cell(rr, cc).value or "").strip() == ""
-                    for cc in range(1, min(int(ws_pp.max_column or 0), 10) + 1)
+                    for cc in range(1, min(int(ws_pp.max_column or 0), 12) + 1)
                     if cc != metric_col
                 ):
                     rows_to_delete.append(rr)
@@ -2052,7 +2230,7 @@ def finalize_workbook(ctx: WriterContext) -> None:
                     row_idx = int(merge_range.min_row)
                     if not any(
                         str(ws_pp.cell(row_idx, cc).value or "").strip()
-                        for cc in range(1, min(int(ws_pp.max_column or 0), 10) + 1)
+                        for cc in range(1, min(int(ws_pp.max_column or 0), 12) + 1)
                     ):
                         ws_pp.unmerge_cells(str(merge_range))
             shared_ui_polish = ctx.callbacks.extra_callbacks.get("_apply_shared_ui_conventions")

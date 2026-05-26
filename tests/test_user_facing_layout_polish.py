@@ -10,12 +10,20 @@ from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
 
-WORKBOOK_DIR = Path(os.environ.get("STOCK_MODEL_WORKBOOK_DIR", r"C:\Users\Jibbe\Aktier\Excel stock models"))
+WORKBOOK_DIR = Path(
+    os.environ.get(
+        "STOCK_MODEL_WORKBOOK_DIR",
+        r"C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models",
+    )
+)
 TICKERS = ("PBI", "GPRE", "ANF")
 
 
 def _load_workbook(ticker: str):
-    path = WORKBOOK_DIR / f"{ticker}_model.xlsx"
+    path = next(
+        (WORKBOOK_DIR / f"{ticker}_model{suffix}" for suffix in (".xlsm", ".xlsx") if (WORKBOOK_DIR / f"{ticker}_model{suffix}").exists()),
+        WORKBOOK_DIR / f"{ticker}_model.xlsx",
+    )
     if not path.exists():
         pytest.skip(f"{path} is not available for layout polish regression tests")
     return load_workbook(path, data_only=False, read_only=False)
@@ -180,10 +188,23 @@ def test_quarter_notes_layout_is_wide_readable_and_covers_recent_quarters() -> N
         missing_labels = set(_history_quarter_labels(wb, limit=8)) - _quarter_header_labels(ws)
         assert not missing_labels, f"{ticker}: Quarter_Notes_UI missing recent quarter blocks {sorted(missing_labels)}"
 
-        all_text = "\n".join(_row_text(ws, rr, max_col=max(12, int(ws.max_column or 0))) for rr in range(1, int(ws.max_row or 0) + 1))
-        assert "No source-backed narrative items generated for this quarter." in all_text, (
-            f"{ticker}: sparse quarters should show an explicit no-information row"
-        )
+        data_ws = wb["Quarter_Narrative_Data"]
+        data_headers = [_text(data_ws.cell(1, cc).value) for cc in range(1, int(data_ws.max_column or 0) + 1)]
+        quarter_col = data_headers.index("Quarter") + 1 if "Quarter" in data_headers else None
+        include_col = data_headers.index("Include in UI") + 1 if "Include in UI" in data_headers else None
+        ui_quarters = {
+            _text(data_ws.cell(rr, quarter_col).value)
+            for rr in range(2, int(data_ws.max_row or 0) + 1)
+            if quarter_col
+            and include_col
+            and _text(data_ws.cell(rr, include_col).value).lower() in {"yes", "true", "1"}
+        }
+        empty_recent_quarters = set(_history_quarter_labels(wb, limit=8)) - ui_quarters
+        all_text = "\n".join(_row_text(ws, rr, max_col=max(15, int(ws.max_column or 0))) for rr in range(1, int(ws.max_row or 0) + 1))
+        if empty_recent_quarters:
+            assert "No source-backed narrative items generated for this quarter." in all_text, (
+                f"{ticker}: sparse quarters should show an explicit no-information row"
+            )
 
 
 def test_quarter_narrative_data_is_ordered_with_audit_sheets() -> None:

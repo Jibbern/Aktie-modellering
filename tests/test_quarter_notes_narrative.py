@@ -11,7 +11,12 @@ from openpyxl.cell.cell import Cell
 from openpyxl.worksheet.worksheet import Worksheet
 
 
-WORKBOOK_DIR = Path(os.environ.get("STOCK_MODEL_WORKBOOK_DIR", r"C:\Users\Jibbe\Aktier\Excel stock models"))
+WORKBOOK_DIR = Path(
+    os.environ.get(
+        "STOCK_MODEL_WORKBOOK_DIR",
+        r"C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models",
+    )
+)
 TICKERS = ("PBI", "GPRE", "ANF")
 
 REQUIRED_NARRATIVE_HEADERS = [
@@ -65,7 +70,10 @@ TABLE_HEADER_LABELS = {
 
 
 def _load_workbook(ticker: str, *, data_only: bool = True):
-    path = WORKBOOK_DIR / f"{ticker}_model.xlsx"
+    path = next(
+        (WORKBOOK_DIR / f"{ticker}_model{suffix}" for suffix in (".xlsm", ".xlsx") if (WORKBOOK_DIR / f"{ticker}_model{suffix}").exists()),
+        WORKBOOK_DIR / f"{ticker}_model.xlsx",
+    )
     if not path.exists():
         pytest.skip(f"{path} is not available for quarter narrative regression tests")
     return load_workbook(path, data_only=data_only, read_only=False)
@@ -166,7 +174,10 @@ def _key_development_rows(ws: Worksheet) -> List[Tuple[int, str, str, str]]:
             if not first or first in SECTION_TITLES or first.endswith(" - Quarter Notes"):
                 break
             if first not in TABLE_HEADER_LABELS:
-                source = _text(ws.cell(body, 11).value) or _text(ws.cell(body, 10).value)
+                source = next(
+                    (_text(ws.cell(body, cc).value) for cc in range(13, min(15, int(ws.max_column or 0)) + 1) if _text(ws.cell(body, cc).value)),
+                    "",
+                ) or _text(ws.cell(body, 11).value) or _text(ws.cell(body, 10).value)
                 rows.append((body, first, _text(ws.cell(body, 3).value), source))
             body += 1
         rr = body
@@ -186,13 +197,17 @@ def _model_mapping_rows(ws: Worksheet) -> List[Tuple[int, str, str, str, str]]:
             if not first or first in SECTION_TITLES or first.endswith(" - Quarter Notes"):
                 break
             if first != "Driver":
+                linked = next(
+                    (_text(ws.cell(body, cc).value) for cc in range(13, min(15, int(ws.max_column or 0)) + 1) if _text(ws.cell(body, cc).value)),
+                    "",
+                ) or _text(ws.cell(body, 10).value) or _text(ws.cell(body, 9).value)
                 rows.append(
                     (
                         body,
                         first,
                         _text(ws.cell(body, 3).value),
-                        _text(ws.cell(body, 6).value),
-                        _text(ws.cell(body, 10).value) or _text(ws.cell(body, 9).value),
+                        _text(ws.cell(body, 7).value) or _text(ws.cell(body, 6).value),
+                        linked,
                     )
                 )
             body += 1
@@ -213,13 +228,17 @@ def _promise_interpretation_rows(ws: Worksheet) -> List[Tuple[int, str, str, str
             if not first or first in SECTION_TITLES or first.endswith(" - Quarter Notes"):
                 break
             if first != "Promise / guidance item":
+                source = next(
+                    (_text(ws.cell(body, cc).value) for cc in range(13, min(15, int(ws.max_column or 0)) + 1) if _text(ws.cell(body, cc).value)),
+                    "",
+                ) or _text(ws.cell(body, 11).value) or _text(ws.cell(body, 10).value)
                 rows.append(
                     (
                         body,
                         first,
                         _text(ws.cell(body, 3).value),
-                        _text(ws.cell(body, 8).value),
-                        _text(ws.cell(body, 11).value) or _text(ws.cell(body, 10).value),
+                        _text(ws.cell(body, 9).value) or _text(ws.cell(body, 8).value),
+                        source,
                     )
                 )
             body += 1
@@ -391,6 +410,30 @@ def test_quarter_notes_cover_ticker_specific_narratives_and_guardrails() -> None
                 assert {"Tariff headwind", "Freight tailwind", "ERP disruption", "Marketing headwind", "Brand and geography cuts"}.issubset(themes)
         finally:
             wb.close()
+
+
+def test_quarter_narrative_data_dedupes_sendtech_theme_within_quarter() -> None:
+    wb = _load_workbook("PBI")
+    try:
+        rows = _narrative_rows(wb["Quarter_Narrative_Data"])
+        counts: Dict[Tuple[str, str], int] = {}
+        examples: Dict[Tuple[str, str], List[int]] = {}
+        for rr, row in rows:
+            blob = " ".join(
+                _text(row.get(field))
+                for field in ("Theme", "What happened", "Linked metric", "Model implication")
+            ).lower()
+            if "sendtech" not in blob:
+                continue
+            quarter = _text(row.get("Quarter"))
+            theme_key = re.sub(r"\s+", " ", _text(row.get("Theme")).lower()).strip()
+            key = (quarter, theme_key)
+            counts[key] = counts.get(key, 0) + 1
+            examples.setdefault(key, []).append(rr)
+        duplicates = {key: rr_list for key, rr_list in examples.items() if counts.get(key, 0) > 1}
+        assert not duplicates, f"PBI Quarter_Narrative_Data duplicate SendTech themes within quarter: {duplicates}"
+    finally:
+        wb.close()
 
 
 def test_quarter_notes_layout_is_readable_and_continuous_across_a_to_j() -> None:

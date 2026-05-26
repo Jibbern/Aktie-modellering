@@ -768,9 +768,59 @@ def write_validation_reports(
     return {"json": json_path, "csv": csv_path}
 
 
+_WORKBOOK_EXTENSIONS = (".xlsx", ".xlsm")
+
+
+def _is_workbook_file_path(path: Path) -> bool:
+    return path.suffix.lower() in _WORKBOOK_EXTENSIONS
+
+
+def _preferred_workbook_path(root: Path, ticker: str) -> Path:
+    ticker_upper = str(ticker).upper()
+    candidates = [root / f"{ticker_upper}_model{suffix}" for suffix in _WORKBOOK_EXTENSIONS]
+    existing = [candidate for candidate in candidates if candidate.exists()]
+    if existing:
+        return max(existing, key=lambda candidate: candidate.stat().st_mtime)
+    return candidates[0]
+
+
+def _ticker_for_explicit_workbook(path: Path, tickers: Sequence[str]) -> str:
+    normalized_tickers = [str(ticker).upper() for ticker in tickers]
+    if len(normalized_tickers) == 1:
+        return normalized_tickers[0]
+    stem = path.stem.upper()
+    matches = [ticker for ticker in normalized_tickers if ticker in stem]
+    if len(matches) == 1:
+        return matches[0]
+    raise ValueError(
+        "Explicit workbook file validation requires one ticker or a filename containing "
+        f"exactly one ticker from {', '.join(normalized_tickers)}: {path}"
+    )
+
+
 def default_workbook_paths(workbook_dir: Path | str) -> Dict[str, Path]:
     root = Path(workbook_dir)
-    return {ticker: root / f"{ticker}_model.xlsx" for ticker in TICKERS}
+    return {ticker: _preferred_workbook_path(root, ticker) for ticker in TICKERS}
+
+
+def resolve_workbook_paths(
+    *,
+    data_root: Path | str | None = None,
+    workbook_dir: Path | str | None = None,
+    tickers: Sequence[str] = TICKERS,
+) -> Dict[str, Path]:
+    if workbook_dir is not None and str(workbook_dir).strip():
+        candidate = Path(workbook_dir).expanduser().resolve()
+        if _is_workbook_file_path(candidate):
+            ticker = _ticker_for_explicit_workbook(candidate, tickers)
+            return {ticker: candidate}
+        root = candidate
+    else:
+        root = resolve_workbook_dir(data_root=data_root, workbook_dir=None)
+    return {
+        str(ticker).upper(): _preferred_workbook_path(root, str(ticker).upper())
+        for ticker in tickers
+    }
 
 
 def resolve_workbook_dir(
@@ -800,7 +850,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--workbook-dir",
         default=None,
-        help="Directory containing PBI_model.xlsx, GPRE_model.xlsx and ANF_model.xlsx.",
+        help=(
+            "Directory containing model workbooks, or one explicit .xlsx/.xlsm workbook "
+            "path to validate exactly."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -816,12 +869,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--sample-tail-rows", type=int, default=ValidationConfig.sample_tail_rows)
     args = parser.parse_args(argv)
 
-    workbook_dir = resolve_workbook_dir(data_root=args.data_root, workbook_dir=args.workbook_dir)
     output_dir = resolve_output_dir(data_root=args.data_root, output_dir=args.output_dir)
-    paths = {
-        str(ticker).upper(): workbook_dir / f"{str(ticker).upper()}_model.xlsx"
-        for ticker in args.tickers
-    }
+    paths = resolve_workbook_paths(
+        data_root=args.data_root,
+        workbook_dir=args.workbook_dir,
+        tickers=args.tickers,
+    )
     config = ValidationConfig(
         max_full_scan_rows=args.max_full_scan_rows,
         max_full_scan_cells=args.max_full_scan_cells,

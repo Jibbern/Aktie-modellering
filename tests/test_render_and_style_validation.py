@@ -9,17 +9,26 @@ from openpyxl import Workbook, load_workbook
 from pbi_xbrl.render_validation_runner import (
     RENDER_RANGES,
     USER_FACING_STYLE_SHEETS,
+    _default_workbooks,
     run_render_validation,
     validate_openpyxl_layout,
 )
 
 
-WORKBOOK_DIR = Path(os.environ.get("STOCK_MODEL_WORKBOOK_DIR", r"C:\Users\Jibbe\Aktier\Excel stock models"))
+WORKBOOK_DIR = Path(
+    os.environ.get(
+        "STOCK_MODEL_WORKBOOK_DIR",
+        r"C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models",
+    )
+)
 TICKERS = ("PBI", "GPRE", "ANF")
 
 
 def _workbook_path(ticker: str) -> Path:
-    path = WORKBOOK_DIR / f"{ticker}_model.xlsx"
+    path = next(
+        (WORKBOOK_DIR / f"{ticker}_model{suffix}" for suffix in (".xlsm", ".xlsx") if (WORKBOOK_DIR / f"{ticker}_model{suffix}").exists()),
+        WORKBOOK_DIR / f"{ticker}_model.xlsx",
+    )
     if not path.exists():
         pytest.skip(f"{path} is not available for render/style validation tests")
     return path
@@ -30,7 +39,7 @@ def test_render_ranges_cover_required_workbook_surfaces() -> None:
         "Valuation": "A1:AC90",
         "{ticker}_Investment_Case": "A1:J160",
         "Promise_Progress_UI": "A1:L180",
-        "Quarter_Notes_UI": "A1:L220",
+        "Quarter_Notes_UI": "A1:O220",
         "Operating_Drivers": "A1:Q140",
         "Needs_Review": "A1:J80",
     }
@@ -39,6 +48,18 @@ def test_render_ranges_cover_required_workbook_surfaces() -> None:
     assert {"Valuation", "{ticker}_Investment_Case", "Promise_Progress_UI", "Quarter_Notes_UI"}.issubset(
         set(USER_FACING_STYLE_SHEETS)
     )
+
+
+def test_render_runner_prefers_generated_xlsm_workbooks(tmp_path: Path) -> None:
+    (tmp_path / "PBI_model.xlsm").write_bytes(b"placeholder")
+    (tmp_path / "PBI_model.xlsx").write_bytes(b"stale-placeholder")
+    (tmp_path / "GPRE_model.xlsm").write_bytes(b"placeholder")
+
+    workbooks = _default_workbooks(tmp_path)
+
+    assert workbooks["PBI"] == tmp_path / "PBI_model.xlsm"
+    assert workbooks["GPRE"] == tmp_path / "GPRE_model.xlsm"
+    assert workbooks["ANF"] == tmp_path / "ANF_model.xlsx"
 
 
 def test_openpyxl_style_validation_passes_current_workbooks() -> None:

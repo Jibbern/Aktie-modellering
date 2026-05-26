@@ -500,6 +500,148 @@ def parse_adjusted_from_ex99(
     if quarter_end is None:
         return None, None, {}, "no_quarter_end", None
 
+    def _parse_consolidated_colspan_table(
+        table: pd.DataFrame,
+    ) -> Optional[Tuple[Optional[float], Optional[float], Optional[float], Dict[str, float], str]]:
+        if table is None or table.empty:
+            return None
+        blob = " ".join(str(v or "") for v in table.astype(str).values.ravel()).lower()
+        if "adjusted ebit" not in blob or "adjusted ebitda" not in blob:
+            return None
+        is_consolidated_recon = (
+            "reported consolidated results" in blob
+            or (
+                "reported net" in blob
+                and "adjusted ebit" in blob
+                and "adjusted ebitda" in blob
+                and "segment adjusted" not in blob
+            )
+        )
+        if not is_consolidated_recon:
+            return None
+
+        target_year = str(int(pd.Timestamp(quarter_end).year))
+        header_rows = min(10, len(table))
+        ncols = int(table.shape[1])
+
+        def _txt(v: Any) -> str:
+            if v is None or (isinstance(v, float) and pd.isna(v)):
+                return ""
+            s = str(v)
+            if s.lower() == "nan":
+                return ""
+            return re.sub(r"\s+", " ", s).strip()
+
+        def _context_for_col(col_idx: int) -> str:
+            vals: List[str] = []
+            for r_idx in range(header_rows):
+                for c_idx in (col_idx - 1, col_idx, col_idx + 1):
+                    if c_idx < 0 or c_idx >= ncols:
+                        continue
+                    s = _txt(table.iat[r_idx, c_idx])
+                    if s:
+                        vals.append(s)
+            return " ".join(vals).lower()
+
+        candidates: List[Tuple[int, int]] = []
+        for c_idx in range(1, ncols):
+            ctx = _context_for_col(c_idx)
+            if target_year not in ctx:
+                continue
+            period_score = 0
+            if "three months" in ctx or "three month" in ctx or "3 months" in ctx:
+                period_score += 30
+            if "six months" in ctx or "nine months" in ctx or "year ended" in ctx or "twelve months" in ctx:
+                period_score -= 20
+            candidates.append((c_idx, period_score))
+        if not candidates:
+            for c_idx in range(1, ncols):
+                ctx = _context_for_col(c_idx)
+                if "three months" in ctx or "three month" in ctx or "3 months" in ctx:
+                    candidates.append((c_idx, 10))
+        if not candidates:
+            candidates = [(c_idx, 0) for c_idx in range(1, ncols)]
+        candidates = sorted(candidates, key=lambda item: item[1], reverse=True)
+
+        def _row_label(row: pd.Series) -> str:
+            labels: List[str] = []
+            for c_idx in range(min(2, ncols)):
+                s = _txt(row.iloc[c_idx] if c_idx < len(row) else "")
+                if s:
+                    labels.append(s)
+            return " ".join(labels).strip().lower()
+
+        def _value_from_row(row: pd.Series, eps: bool = False) -> Optional[float]:
+            seen_cols: set[int] = set()
+            for c_idx, _score in candidates:
+                for probe in (c_idx, c_idx + 1, c_idx - 1):
+                    if probe < 1 or probe >= ncols or probe in seen_cols:
+                        continue
+                    seen_cols.add(probe)
+                    raw = row.iloc[probe] if probe < len(row) else None
+                    val = to_num_eps(raw) if eps else to_num(raw)
+                    if val is not None:
+                        return val
+            return None
+
+        found_adj_ebit: Optional[float] = None
+        found_adj_ebitda: Optional[float] = None
+        found_adj_eps: Optional[float] = None
+        found_adjustments: Dict[str, float] = {}
+        has_recon_row = False
+
+        for _, row in table.iterrows():
+            label = _row_label(row)
+            if not label or label == "nan":
+                continue
+            if "reconciliation" in label and ("adjusted ebit" in label or "adjusted ebitda" in label):
+                has_recon_row = True
+                continue
+            if "adjusted segment" in label:
+                continue
+            if "adjusted ebitda" in label:
+                found_adj_ebitda = _value_from_row(row)
+                continue
+            if _label_matches(label, _ADJ_EBIT_SYNONYMS) and "ebitda" not in label:
+                found_adj_ebit = _value_from_row(row)
+                continue
+            if _is_adj_eps_label(label):
+                eps_val = _value_from_row(row, eps=True)
+                if eps_val is not None and abs(eps_val) <= 100:
+                    found_adj_eps = eps_val
+                continue
+            if _label_matches(label, _GAAP_EBIT_SYNONYMS):
+                has_recon_row = True
+            if _label_matches(label, adjustments_keywords):
+                if any(
+                    skip in label
+                    for skip in (
+                        "net (loss) income",
+                        "net income",
+                        "income before taxes",
+                        "earnings per share",
+                        "diluted (loss) earnings",
+                    )
+                ):
+                    has_recon_row = True
+                    continue
+                adj_val = _value_from_row(row)
+                if adj_val is not None and abs(float(adj_val)) >= 1_000_000.0:
+                    found_adjustments[label] = adj_val
+                    has_recon_row = True
+
+        if (found_adj_ebit is not None or found_adj_ebitda is not None or found_adj_eps is not None) and (
+            has_recon_row or found_adjustments
+        ):
+            return found_adj_ebit, found_adj_ebitda, found_adj_eps, found_adjustments, f"{target_year} 3M consolidated table"
+        return None
+
+    for t in tables:
+        parsed = _parse_consolidated_colspan_table(t)
+        if parsed is not None:
+            aebit, aebitda, aeps, adj, col_label = parsed
+            return aebit, aebitda, aeps, adj, ("ok" if mode == "strict" else "ok_relaxed"), col_label
+
     for t in tables:
         if t is None or t.empty:
             continue

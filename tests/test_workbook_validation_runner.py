@@ -8,6 +8,8 @@ from openpyxl.workbook.defined_name import DefinedName
 from pbi_xbrl.workbook_validation_runner import (
     BAD_MARKER_TERMS,
     ValidationConfig,
+    default_workbook_paths,
+    resolve_workbook_paths,
     summary_rows,
     validate_workbook,
     validate_workbooks,
@@ -137,6 +139,58 @@ def test_validation_runner_batches_all_tickers(tmp_path: Path) -> None:
 
     assert [result.ticker for result in results] == ["PBI", "GPRE", "ANF"]
     assert all(result.overall == "PASS" for result in results)
+
+
+def test_validation_runner_uses_explicit_xlsx_workbook_path(tmp_path: Path) -> None:
+    explicit_path = _make_clean_validation_workbook(tmp_path / "custom_pbi_snapshot.xlsx", "PBI")
+    stale_default = _make_clean_validation_workbook(tmp_path / "PBI_model.xlsx", "PBI")
+    wb = Workbook()
+    wb.active.title = "Valuation"
+    wb["Valuation"]["A1"] = "#REF!"
+    wb.save(stale_default)
+
+    paths = resolve_workbook_paths(workbook_dir=explicit_path, tickers=["PBI"])
+    assert paths == {"PBI": explicit_path.resolve()}
+
+    result = validate_workbooks(paths)[0]
+    assert result.path == str(explicit_path.resolve())
+    assert result.overall == "PASS"
+
+
+def test_validation_runner_uses_explicit_xlsm_workbook_path(tmp_path: Path) -> None:
+    explicit_path = _make_clean_validation_workbook(tmp_path / "GPRE_model.xlsm", "GPRE")
+    stale_xlsx = _make_clean_validation_workbook(tmp_path / "GPRE_model.xlsx", "GPRE")
+    wb = Workbook()
+    wb.active.title = "Valuation"
+    wb["Valuation"]["A1"] = "#VALUE!"
+    wb.save(stale_xlsx)
+
+    paths = resolve_workbook_paths(workbook_dir=explicit_path, tickers=["GPRE"])
+    assert paths == {"GPRE": explicit_path.resolve()}
+
+    result = validate_workbooks(paths)[0]
+    assert result.path == str(explicit_path.resolve())
+    assert result.overall == "PASS"
+
+
+def test_validation_runner_folder_mode_prefers_existing_xlsm_outputs(tmp_path: Path) -> None:
+    _make_clean_validation_workbook(tmp_path / "PBI_model.xlsm", "PBI")
+    paths = default_workbook_paths(tmp_path)
+
+    assert paths["PBI"].name == "PBI_model.xlsm"
+    assert paths["GPRE"].name == "GPRE_model.xlsx"
+
+
+def test_validation_runner_missing_explicit_workbook_path_reports_exact_path(tmp_path: Path) -> None:
+    missing_path = tmp_path / "ANF_custom_missing.xlsm"
+
+    paths = resolve_workbook_paths(workbook_dir=missing_path, tickers=["ANF"])
+    assert paths == {"ANF": missing_path.resolve()}
+
+    result = validate_workbooks(paths)[0]
+    assert result.overall == "FAIL"
+    assert result.issues[0].category == "workbook_missing"
+    assert str(missing_path.resolve()) in result.issues[0].detail
 
 
 def test_validation_runner_samples_large_raw_sheets(tmp_path: Path) -> None:

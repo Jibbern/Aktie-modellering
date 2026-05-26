@@ -154,6 +154,21 @@ def write_ui_sheets(ctx: WriterContext) -> List[Dict[str, Any]]:
         # Quarter notes are profiled separately because they are often the single
         # largest workbook hotspot and deserve their own timing bucket.
         ui_qa_rows.extend(ctx.callbacks.write_quarter_notes_ui_v2(quarters_shown=12 if ticker == "ANF" else 8))
+    with timed_writer_stage(
+        ctx.writer_timings,
+        "write_excel.ui.render.promise_tracker",
+        enabled=bool(ctx.inputs.profile_timings),
+    ):
+        ui_qa_rows.extend(ctx.callbacks.write_promise_tracker_ui_v2(render_visible=False))
+    with timed_writer_stage(
+        ctx.writer_timings,
+        "write_excel.ui.render.promise_progress",
+        enabled=bool(ctx.inputs.profile_timings),
+    ):
+        # Promise progress stays separate from promise tracker timing because row
+        # selection, lifecycle collapse, and follow-through resolution can be
+        # costly even when the raw tracker tab is small.
+        ui_qa_rows.extend(ctx.callbacks.write_promise_progress_ui_v2())
     narrative_ui_writer = ctx.callbacks.extra_callbacks.get("_write_quarter_notes_narrative_ui_sheet")
     if callable(narrative_ui_writer):
         with timed_writer_stage(
@@ -170,21 +185,6 @@ def write_ui_sheets(ctx: WriterContext) -> List[Dict[str, Any]]:
             enabled=bool(ctx.inputs.profile_timings),
         ):
             narrative_writer()
-    with timed_writer_stage(
-        ctx.writer_timings,
-        "write_excel.ui.render.promise_tracker",
-        enabled=bool(ctx.inputs.profile_timings),
-    ):
-        ui_qa_rows.extend(ctx.callbacks.write_promise_tracker_ui_v2(render_visible=False))
-    with timed_writer_stage(
-        ctx.writer_timings,
-        "write_excel.ui.render.promise_progress",
-        enabled=bool(ctx.inputs.profile_timings),
-    ):
-        # Promise progress stays separate from promise tracker timing because row
-        # selection, lifecycle collapse, and follow-through resolution can be
-        # costly even when the raw tracker tab is small.
-        ui_qa_rows.extend(ctx.callbacks.write_promise_progress_ui_v2())
     return ui_qa_rows
 
 

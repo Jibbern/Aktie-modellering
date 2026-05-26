@@ -44,6 +44,9 @@ from pbi_xbrl.excel_writer_context import (
     _insert_management_credibility_scorecard,
     _net_debt_yoy_flag_label_and_status_for_position,
     _quarter_narrative_records_for_ticker,
+    _quarter_narrative_records_for_context,
+    _quarter_narrative_records_from_workbook_surfaces,
+    _pbi_repair_total_reportable_segment_quarterly_totals_for_bs,
     _write_quarter_notes_ui_narrative_sheet,
     _write_quarter_narrative_data_sheet,
     _sector_build_investment_case_data,
@@ -165,6 +168,141 @@ def test_quarter_narrative_data_sheet_has_required_headers_and_clean_rows() -> N
     assert max(len(str(cell or "")) for row in body for cell in row) < 500
 
 
+def test_quarter_narrative_context_promotes_clean_quarter_notes_rows() -> None:
+    quarter_notes = pd.DataFrame(
+        [
+            {
+                "quarter": dt.date(2025, 12, 31),
+                "topic": "Debt",
+                "category": "Debt / refi / covenants",
+                "headline": "Revolver availability changed",
+                "body": "Revolver availability moved to $238.0m at 2025-12-31.",
+                "render_summary": "Revolver availability moved to $238.0m at 2025-12-31.",
+                "renderable_note": True,
+                "render_score": 45.0,
+                "confidence": "high",
+                "metric_ref": "revolver_availability",
+                "metric_value": 238_000_000.0,
+                "doc_type": "model_metric",
+            },
+            {
+                "quarter": dt.date(2025, 12, 31),
+                "topic": "Guidance",
+                "category": "Guidance / targets",
+                "headline": "Noisy raw row",
+                "body": "[UPDATED] metadata_candidate source_txt_file raw_json",
+                "render_summary": "[UPDATED] metadata_candidate source_txt_file raw_json",
+                "renderable_note": True,
+                "render_score": 99.0,
+                "confidence": "high",
+                "metric_ref": "bad",
+                "doc_type": "html",
+            },
+        ]
+    )
+
+    records = _quarter_narrative_records_for_context(
+        "PBI",
+        quarter_notes=quarter_notes,
+        history_periods=["2025-Q4"],
+        max_per_period=3,
+    )
+    generated = [r for r in records if r.fiscal_period == "2025-Q4" and r.theme == "Revolver availability changed"]
+    assert generated
+    rec = generated[0]
+    assert rec.category == "Debt / liquidity / refinancing"
+    assert "Revolver availability moved" in rec.what_happened
+    assert rec.linked_metric == "revolver_availability"
+    joined = " ".join(str(getattr(r, field)) for r in records for field in ("what_happened", "source_type", "source_note"))
+    assert "[UPDATED]" not in joined
+    assert "metadata_candidate" not in joined
+    assert "source_txt_file" not in joined
+
+
+def test_quarter_narrative_records_promote_existing_workbook_surfaces() -> None:
+    wb = Workbook()
+    hist = wb.active
+    hist.title = "History_Q"
+    hist.append(["fiscal_period", "revenue", "adj_ebitda", "fcf", "eps_diluted"])
+    hist.append(["2026-Q1", 477.4, 130.4, 28.3, 0.31])
+
+    drivers = wb.create_sheet("Operating_Drivers")
+    drivers.append(["Actuals - latest 12 quarters"])
+    drivers.append(["Quarter", "2026-Q1"])
+    drivers.append(["Revenue ($m)", 477.4])
+    drivers.append(["Adjusted EBITDA reported ($m)", 130.4])
+
+    promise = wb.create_sheet("Promise_Progress_UI")
+    promise.append(["2026-Q1 revisions"])
+    promise.append([
+        "Metric",
+        "Previous guide",
+        "New/current guide",
+        "Change type",
+        "Actual",
+        "Progress / run-rate",
+        "Status",
+        "Horizon",
+        "Stated in",
+        "Source date",
+        "Source / note",
+    ])
+    promise.append([
+        "Revenue guidance",
+        "$1.76bn-$1.86bn",
+        "$1.8bn-$1.86bn",
+        "Updated",
+        "$477.4m",
+        "YTD: $477.4m",
+        "On track",
+        "2026 year",
+        "2026-Q1",
+        "2026-03-31",
+        "Source-backed quarterly progress.",
+    ])
+
+    records = _quarter_narrative_records_from_workbook_surfaces(wb, "PBI", history_periods=["2026-Q1"])
+    joined = " | ".join(
+        f"{r.source_type} {r.theme} {r.what_happened} {r.linked_sheet} {r.linked_metric}" for r in records
+    )
+
+    assert any(r.fiscal_period == "2026-Q1" and r.source_type == "History_Q" for r in records)
+    assert "Operating_Drivers" in joined
+    assert "Promise_Progress_UI" in joined
+    assert "Revenue guidance" in joined
+    assert all(r.include_in_quarter_notes for r in records)
+    assert "[UPDATED]" not in joined
+
+
+def test_pbi_segment_total_reportable_rows_are_repaired_from_components() -> None:
+    q = pd.Timestamp(dt.date(2025, 6, 30))
+    repaired = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+        {
+            "Revenue": {
+                "SendTech Solutions": {q: 310.782},
+                "Presort Services": {q: 148.893},
+                "Total reportable segments": {q: 461.909},
+            },
+            "Adjusted EBIT": {
+                "SendTech Solutions": {q: 101.255},
+                "Presort Services": {q: 35.940},
+                # This is the bad parser failure mode: revenue-like total under EBIT.
+                "Total reportable segments": {q: 461.909},
+            },
+            "Adjusted EBITDA": {
+                "SendTech Solutions": {q: 112.986},
+                "Presort Services": {q: 45.079},
+                "Total reportable segments": {q: 955.329},
+            },
+        }
+    )
+
+    assert repaired["Revenue"]["Total reportable segments"][q] == pytest.approx(459.675)
+    assert repaired["Adjusted EBIT"]["Total reportable segments"][q] == pytest.approx(137.195)
+    assert repaired["Adjusted EBITDA"]["Total reportable segments"][q] == pytest.approx(158.065)
+    assert repaired["Segment operating margin %"]["Total reportable segments"][q] == pytest.approx(137.195 / 459.675)
+
+
 def test_quarter_narrative_records_link_to_model_surfaces() -> None:
     records = []
     for ticker in ("PBI", "GPRE", "ANF"):
@@ -193,11 +331,11 @@ def test_quarter_notes_narrative_renderer_layout_from_structured_records() -> No
     assert "Quarter_Notes_UI" in wb.sheetnames
     ws = wb["Quarter_Notes_UI"]
     merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
-    assert "A1:L1" in merged_ranges
+    assert "A1:O1" in merged_ranges
     assert ws["A1"].value == "2026-Q1 - Quarter Notes"
     assert ws["A1"].fill.fgColor.rgb in {"005B9BD5", "FF5B9BD5"}
 
-    values = [ws.cell(row=rr, column=cc).value for rr in range(1, ws.max_row + 1) for cc in range(1, 13)]
+    values = [ws.cell(row=rr, column=cc).value for rr in range(1, ws.max_row + 1) for cc in range(1, 16)]
     assert "Quarter read" in values
     assert "Model read" in values
     assert "What changed" in values
@@ -210,20 +348,28 @@ def test_quarter_notes_narrative_renderer_layout_from_structured_records() -> No
     assert f"A{key_header_row}:B{key_header_row}" in merged_ranges
     assert f"C{key_header_row}:E{key_header_row}" in merged_ranges
     assert f"F{key_header_row}:G{key_header_row}" in merged_ranges
-    assert f"H{key_header_row}:J{key_header_row}" in merged_ranges
-    assert f"K{key_header_row}:L{key_header_row}" in merged_ranges
+    assert f"H{key_header_row}:L{key_header_row}" in merged_ranges
+    assert f"M{key_header_row}:O{key_header_row}" in merged_ranges
 
     tariff_row = next(
         rr
         for rr in range(1, ws.max_row + 1)
-        if any(str(ws.cell(rr, cc).value or "") == "Tariff headwind" for cc in range(1, 13))
+        if any(str(ws.cell(rr, cc).value or "") == "Tariff headwind" for cc in range(1, 16))
     )
     assert float(ws.row_dimensions[tariff_row].height or 0.0) >= 34.0
     assert float(ws.row_dimensions[tariff_row].height or 0.0) <= 90.0
-    assert all(ws.cell(tariff_row, cc).fill.fgColor.type in {"rgb", "indexed"} for cc in range(1, 13))
-    assert all(ws.cell(tariff_row, cc).border.bottom.style == "thin" for cc in range(1, 13))
-    assert ws.column_dimensions["A"].width == pytest.approx(18.0)
-    assert ws.column_dimensions["L"].width == pytest.approx(42.0)
+    assert all(ws.cell(tariff_row, cc).fill.fgColor.type in {"rgb", "indexed"} for cc in range(1, 16))
+    assert all(ws.cell(tariff_row, cc).border.bottom.style == "thin" for cc in range(1, 16))
+    assert ws.column_dimensions["A"].width == pytest.approx(20.0)
+    assert ws.column_dimensions["O"].width == pytest.approx(46.0)
+    spacer_rows = [
+        rr
+        for rr in range(2, ws.max_row)
+        if not any(str(ws.cell(rr, cc).value or "").strip() for cc in range(1, 16))
+        and any(str(ws.cell(rr - 1, cc).value or "").strip() for cc in range(1, 16))
+        and any(str(ws.cell(rr + 1, cc).value or "").strip() for cc in range(1, 16))
+    ]
+    assert spacer_rows
 
 
 def test_quarter_notes_narrative_renderer_ticker_content_and_no_raw_noise() -> None:
@@ -765,8 +911,8 @@ def test_anf_promise_progress_sections_are_clean_and_open_for_2026() -> None:
     assert all("before 2025 actual report" in r["Source / note"] for r in jan_rows)
     assert any(r["Metric"] == "Net sales growth" and r["Previous guide"] == "+3-6%" and r["New/current guide"] == "+5-7%" for r in timeline)
     q2_margin = next(r for r in timeline if r["Stated in"] == "2025-Q2" and r["Metric"] == "Operating margin")
-    assert q2_margin["Actual"] == ""
-    assert q2_margin["Progress / run-rate"] == "Q2: 13.5%"
+    assert q2_margin["Actual"] == "13.5%"
+    assert q2_margin["Progress / run-rate"] == ""
     assert q2_margin["Status"] == "On track"
     assert q2_margin["Actual"] != "13.3% GAAP / 12.5% adjusted"
     assert all("FY" not in " ".join(str(v) for v in r.values()) for r in timeline)
@@ -1610,10 +1756,14 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
     assert timeline_header[0] == "Metric"
     first_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[9] == "2026-03-31")
     assert first_revenue[2] == "$1.8bn-$1.86bn"
-    assert first_revenue[6] == "Open"
+    assert first_revenue[4] == "$477.4m"
+    assert first_revenue[5] == "YTD: $477.4m"
+    assert first_revenue[6] == "On track"
     assert first_revenue[8] == "2026-Q1"
     q3_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[8] == "2025-Q3")
-    assert "$1.89bn" in str(q3_revenue[5] or "")
+    assert q3_revenue[4] in {"", None}
+    assert q3_revenue[5] in {"", None}
+    assert q3_revenue[6] == "On track"
     timeline_metric_rows = [
         row
         for row in values
@@ -1719,13 +1869,14 @@ def test_shared_promise_progress_uses_matching_quarter_actuals_for_interim_annua
 
     values = [[ws.cell(rr, cc).value for cc in range(1, 12)] for rr in range(1, ws.max_row + 1)]
     q3_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[8] == "2025-Q3")
-    assert q3_revenue[4] in {"", None}
-    assert q3_revenue[5] == "Q3: $460.0m"
+    assert q3_revenue[4] == "$460.0m"
+    assert q3_revenue[5] == "YTD: $1.41bn"
     assert q3_revenue[6] in {"On track", "Open"}
-    assert q3_revenue[5] != "$1.89bn"
+    assert q3_revenue[4] != "$1.89bn"
+    assert "TTM:" not in str(q3_revenue[5] or "")
     q3_ebit = next(row for row in values if row[0] == "Adjusted EBIT guidance" and row[8] == "2025-Q3")
-    assert q3_ebit[4] in {"", None}
-    assert q3_ebit[5] == "Q3: $107.3m"
+    assert q3_ebit[4] == "$107.3m"
+    assert q3_ebit[5] == "YTD: $329.3m"
     assert q3_ebit[6] in {"On track", "Open"}
     annual_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[4] == "$1.9bn-$1.95bn")
     assert annual_revenue[5] == "$1.9bn-$1.95bn"
@@ -1967,12 +2118,14 @@ def test_promise_revision_semantics_group_by_stated_event_and_fill_previous_guid
     q3_rows = [row for row in values if row[0] == "45Z monetization" and row[8] == "2025-Q3"]
     q4_rows = [row for row in values if row[0] == "45Z monetization" and row[8] == "2025-Q4"]
     assert len(q3_rows) == 1
-    assert q3_rows[0][2] == "$15.0m-$25.0m"
+    assert q3_rows[0][2] == "Q3 45Z value recorded"
+    assert q3_rows[0][4] == "$26.5m"
+    assert q3_rows[0][5] == "YTD: $26.5m"
+    assert q3_rows[0][7] == "2025-Q3"
     assert len(q4_rows) == 1
-    assert q4_rows[0][1] == "$15.0m-$25.0m"
     assert q4_rows[0][2] == "$15.0m-$25.0m"
     assert q4_rows[0][4] == "$23.4m"
-    assert q4_rows[0][3] == "Maintained"
+    assert q4_rows[0][3] == "Updated"
 
 
 def test_promise_cleanup_removes_actual_only_rows_and_styles_a_to_j() -> None:

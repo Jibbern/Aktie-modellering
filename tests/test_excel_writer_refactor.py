@@ -1368,10 +1368,15 @@ def test_write_excel_temp_workbook_preserves_hidden_value_formula_contract() -> 
             ws_flags = wb["Hidden_Value_Flags"]
             assert str(ws_flags.cell(row=1, column=3).value or "").strip() == "title"
             assert str(ws_flags.cell(row=1, column=11).value or "").strip() == "visible_support"
-            assert "Hidden_Value_Audit" in str(ws_flags.cell(row=2, column=4).value or "")
+            assert str(ws_flags.cell(row=1, column=12).value or "").strip() == "triggered"
+            assert isinstance(ws_flags.cell(row=2, column=4).value, (int, float))
             assert "Hidden_Value_Audit" in str(ws_flags.cell(row=2, column=7).value or "")
-            assert "FCF_Yield" in str(ws_flags.cell(row=3, column=11).value or "")
-            assert "Interest_Coverage" in str(ws_flags.cell(row=4, column=11).value or "")
+            visible_support_values = [
+                str(ws_flags.cell(row=rr, column=11).value or "")
+                for rr in range(2, ws_flags.max_row + 1)
+            ]
+            assert any("FCF_Yield" in value or "FCF yield" in value for value in visible_support_values)
+            assert any("Interest_Coverage" in value or "Interest cover" in value for value in visible_support_values)
             assert all(
                 "#NAME?" not in str(ws_flags.cell(row=rr, column=cc).value or "")
                 for rr in range(1, ws_flags.max_row + 1)
@@ -4802,6 +4807,8 @@ def test_pbi_bs_segments_uses_q1_2026_slides_segments_when_workbook_is_stale(
     with _case_dir() as case_dir:
         with _profile_override(monkeypatch, "PBI"):
             out_path = _make_model_out_path(case_dir, "pbi_bs_segments_slides_q1_2026.xlsx")
+            material_root = out_path.parent.parent
+            _write_pbi_segment_workbook(material_root / "segment_financials", include_quarters=True)
             hist = pd.concat(
                 [
                     _make_hist(),
@@ -4826,6 +4833,22 @@ def test_pbi_bs_segments_uses_q1_2026_slides_segments_when_workbook_is_stale(
             )
             slides_segments = pd.DataFrame(
                 [
+                    {
+                        "quarter": pd.Timestamp("2025-12-31"),
+                        "segment": "Sending Technology Solutions",
+                        "metric": "revenue",
+                        "value": 7.0,
+                        "doc": r"C:\PBI\earnings_transcripts\PBI_Q4_2025_transcript_METADATA_EN.txt",
+                        "source": "earnings_release",
+                    },
+                    {
+                        "quarter": pd.Timestamp("2025-12-31"),
+                        "segment": "Presort Services",
+                        "metric": "revenue",
+                        "value": 202.0,
+                        "doc": r"C:\PBI\earnings_transcripts\PBI_Q4_2025_transcript_METADATA_EN.txt",
+                        "source": "earnings_release",
+                    },
                     {
                         "quarter": pd.Timestamp("2026-03-31"),
                         "segment": "Sending Technology Solutions",
@@ -4887,6 +4910,7 @@ def test_pbi_bs_segments_uses_q1_2026_slides_segments_when_workbook_is_stale(
                         return cc
             raise AssertionError(f"Could not find quarter header {label!r}")
 
+        q4_col = _col_with_header("2025-Q4")
         q1_col = _col_with_header("2026-Q1")
         quarterly_row = _find_row_with_value(ws, "Quarterly segments")
         assert quarterly_row is not None
@@ -4894,18 +4918,30 @@ def test_pbi_bs_segments_uses_q1_2026_slides_segments_when_workbook_is_stale(
         revenue_section = _find_after(quarterly_row, "Revenue")
         revenue_sendtech = _find_after(revenue_section, "SendTech Solutions")
         revenue_presort = _find_after(revenue_sendtech, "Presort Services")
+        assert ws.cell(row=revenue_sendtech, column=q4_col).value == pytest.approx(510.0)
+        assert ws.cell(row=revenue_presort, column=q4_col).value == pytest.approx(315.0)
         assert ws.cell(row=revenue_sendtech, column=q1_col).value == pytest.approx(313.947)
         assert ws.cell(row=revenue_presort, column=q1_col).value == pytest.approx(163.466)
 
         ebit_section = _find_after(revenue_presort, "Adjusted EBIT")
         ebit_sendtech = _find_after(ebit_section, "SendTech Solutions")
         ebit_presort = _find_after(ebit_sendtech, "Presort Services")
+        assert ws.cell(row=ebit_sendtech, column=q4_col).value == pytest.approx(135.0)
         assert ws.cell(row=ebit_sendtech, column=q1_col).value == pytest.approx(113.530)
         assert ws.cell(row=ebit_presort, column=q1_col).value == pytest.approx(39.178)
 
-        da_section = _find_after(ebit_presort, "Depreciation & amortization")
+        margin_section = _find_after(ebit_presort, "EBIT margin %")
+        margin_sendtech = _find_after(margin_section, "SendTech Solutions")
+        margin_presort = _find_after(margin_sendtech, "Presort Services")
+        assert ws.cell(row=margin_sendtech, column=q4_col).value == pytest.approx(0.265)
+        assert ws.cell(row=margin_presort, column=q4_col).value == pytest.approx(0.165)
+        assert ws.cell(row=margin_sendtech, column=q1_col).value == pytest.approx(113.530 / 313.947)
+        assert ws.cell(row=margin_presort, column=q1_col).value == pytest.approx(39.178 / 163.466)
+
+        da_section = _find_after(margin_presort, "Depreciation & amortization")
         da_sendtech = _find_after(da_section, "SendTech Solutions")
         da_presort = _find_after(da_sendtech, "Presort Services")
+        assert ws.cell(row=da_sendtech, column=q4_col).value == pytest.approx(21.0)
         assert ws.cell(row=da_sendtech, column=q1_col).value == pytest.approx(9.875)
         assert ws.cell(row=da_presort, column=q1_col).value == pytest.approx(8.736)
 
@@ -5060,6 +5096,132 @@ def test_pbi_operating_drivers_blank_tiny_segment_revenue_margin_outliers(
         assert ws.cell(row=revenue_sendtech, column=q4_col).value is None
         assert ws.cell(row=revenue_presort, column=q1_col).value == pytest.approx(163.466)
         assert ws.cell(row=margin_sendtech, column=q4_col).value is None
+        assert ws.cell(row=margin_sendtech, column=q1_col).value == pytest.approx(113.530 / 313.947)
+
+
+def test_pbi_operating_drivers_merges_segment_workbook_with_newer_slide_quarter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_model_out_path(case_dir, "pbi_operating_drivers_segment_merge.xlsx")
+            material_root = out_path.parent.parent
+            _write_pbi_segment_workbook(material_root / "segment_financials", include_quarters=True)
+            hist = pd.concat(
+                [
+                    _make_hist(),
+                    pd.DataFrame(
+                        {
+                            "quarter": [pd.Timestamp("2026-03-31")],
+                            "revenue": [477_413_000.0],
+                            "cfo": [44_155_000.0],
+                            "capex": [15_846_000.0],
+                            "ebitda": [156_018_000.0],
+                            "ebit": [130_377_000.0],
+                            "cash": [130_000_000.0],
+                            "debt_core": [1_965_316_000.0],
+                            "shares_outstanding": [135_441_425.0],
+                            "shares_diluted": [147_742_000.0],
+                            "market_cap": [2_000_000_000.0],
+                            "interest_expense_net": [25_000_000.0],
+                        }
+                    ),
+                ],
+                ignore_index=True,
+            )
+            slides_segments = pd.DataFrame(
+                [
+                    {
+                        "quarter": pd.Timestamp("2025-12-31"),
+                        "segment": "Sending Technology Solutions",
+                        "metric": "revenue",
+                        "value": 7.0,
+                        "doc": r"C:\PBI\earnings_transcripts\PBI_Q4_2025_transcript_METADATA_EN.txt",
+                        "source": "earnings_release",
+                    },
+                    {
+                        "quarter": pd.Timestamp("2026-03-31"),
+                        "segment": "Sending Technology Solutions",
+                        "metric": "revenue",
+                        "value": 313_947_000.0,
+                        "doc": r"C:\PBI\earnings_release\PBI_Q1_2026_earnings_release.pdf",
+                        "page": 8,
+                        "source": "earnings_release",
+                    },
+                    {
+                        "quarter": pd.Timestamp("2026-03-31"),
+                        "segment": "Presort Services",
+                        "metric": "revenue",
+                        "value": 163_466_000.0,
+                        "doc": r"C:\PBI\earnings_release\PBI_Q1_2026_earnings_release.pdf",
+                        "page": 8,
+                        "source": "earnings_release",
+                    },
+                    {
+                        "quarter": pd.Timestamp("2026-03-31"),
+                        "segment": "Sending Technology Solutions",
+                        "metric": "adj_segment_ebit",
+                        "value": 113_530_000.0,
+                        "doc": r"C:\PBI\earnings_release\PBI_Q1_2026_earnings_release.pdf",
+                        "page": 9,
+                        "source": "earnings_release",
+                    },
+                    {
+                        "quarter": pd.Timestamp("2026-03-31"),
+                        "segment": "Presort Services",
+                        "metric": "adj_segment_ebit",
+                        "value": 39_178_000.0,
+                        "doc": r"C:\PBI\earnings_release\PBI_Q1_2026_earnings_release.pdf",
+                        "page": 9,
+                        "source": "earnings_release",
+                    },
+                ]
+            )
+            inputs = _make_inputs(out_path, ticker="TEST", hist=hist)
+            inputs = inputs.__class__(**{**vars(inputs), "slides_segments": slides_segments})
+            ctx = build_writer_context(inputs)
+            driver_rows = [
+                {
+                    "Quarter": pd.Timestamp(q).date(),
+                    "Driver group": "Revenue / volume",
+                    "Driver": "Revenue",
+                    "Unit": "$m",
+                    "Value": float(v) / 1_000_000.0,
+                    "_driver_key": "revenue",
+                }
+                for q, v in zip(hist["quarter"], hist["revenue"])
+            ]
+            ctx.callbacks.write_operating_drivers_sheet(driver_rows)
+            ws = ctx.wb["Operating_Drivers"]
+
+        def _find_after(start_row: int, label: str) -> int:
+            for rr in range(start_row + 1, ws.max_row + 1):
+                if ws.cell(row=rr, column=1).value == label:
+                    return rr
+            raise AssertionError(f"Could not find {label!r} after row {start_row}")
+
+        def _col_with_header(label: str) -> int:
+            for rr in range(1, ws.max_row + 1):
+                for cc in range(1, ws.max_column + 1):
+                    if str(ws.cell(row=rr, column=cc).value or "").strip() == label:
+                        return cc
+            raise AssertionError(f"Could not find quarter header {label!r}")
+
+        q4_col = _col_with_header("2025-Q4")
+        q1_col = _col_with_header("2026-Q1")
+        segment_row = _find_row_with_value(ws, "Segment support — latest 12 quarters")
+        assert segment_row is not None
+        revenue_section = _find_after(segment_row, "Revenue ($m)")
+        revenue_sendtech = _find_after(revenue_section, "SendTech Solutions")
+        revenue_presort = _find_after(revenue_sendtech, "Presort Services")
+        margin_section = _find_after(revenue_presort, "Margin")
+        margin_sendtech = _find_after(margin_section, "SendTech Solutions")
+
+        assert ws.cell(row=revenue_sendtech, column=q4_col).value == pytest.approx(510.0)
+        assert ws.cell(row=revenue_presort, column=q4_col).value == pytest.approx(315.0)
+        assert ws.cell(row=revenue_sendtech, column=q1_col).value == pytest.approx(313.947)
+        assert ws.cell(row=revenue_presort, column=q1_col).value == pytest.approx(163.466)
+        assert ws.cell(row=margin_sendtech, column=q4_col).value == pytest.approx(0.265)
         assert ws.cell(row=margin_sendtech, column=q1_col).value == pytest.approx(113.530 / 313.947)
 
 
@@ -14386,19 +14548,21 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert str(wb["Valuation"].cell(row=138, column=8).value or "").strip() == "Result / support"
                 flag_formula = str(wb["Valuation"].cell(row=flags_header_row + 2, column=1).value or "")
                 if flag_formula:
-                    assert flag_formula.startswith("=IF($AI139")
+                    assert "$AI139" in flag_formula and "COUNTIF" in flag_formula
                     assert "INDEX('Hidden_Value_Flags'!$C:$C,$AI139)" in str(wb["Valuation"].cell(row=flags_header_row + 2, column=2).value or "")
                     assert "INDEX('Hidden_Value_Flags'!$D:$D,$AI139)" in str(wb["Valuation"].cell(row=flags_header_row + 2, column=6).value or "")
                     assert "INDEX('Hidden_Value_Flags'!$E:$E,$AI139)" in str(wb["Valuation"].cell(row=flags_header_row + 2, column=7).value or "")
                     assert "INDEX('Hidden_Value_Flags'!$K:$K,$AI139)" in str(wb["Valuation"].cell(row=flags_header_row + 2, column=8).value or "")
-                    assert "IF(N('Hidden_Value_Flags'!$D$2)>=1,2,\"\")" in str(wb["Valuation"].cell(row=139, column=35).value or "")
-                    assert "IF(N('Hidden_Value_Flags'!$D$8)>=1,8,\"\")" in str(wb["Valuation"].cell(row=145, column=35).value or "")
+                    assert "IF(N('Hidden_Value_Flags'!$L$2)>=1,2,\"\")" in str(wb["Valuation"].cell(row=139, column=35).value or "")
+                    assert not str(wb["Valuation"].cell(row=145, column=35).value or "").strip()
                 required_names = {"FCF_Yield", "FCF_TTM_Pos_Years", "Pos_FCF_Ratio", "Interest_Coverage"}
                 assert required_names.issubset(set(wb.defined_names.keys()))
-                assert "(price-linked)" in str(wb["Hidden_Value_Flags"]["K3"].value or "")
-                assert "(price-linked)" in str(wb["Hidden_Value_Flags"]["K4"].value or "")
-                assert "Current:" not in str(wb["Hidden_Value_Flags"]["K3"].value or "")
-                assert "Current:" not in str(wb["Hidden_Value_Flags"]["K4"].value or "")
+                visible_support_values = [
+                    str(wb["Hidden_Value_Flags"].cell(row=rr, column=11).value or "")
+                    for rr in range(2, wb["Hidden_Value_Flags"].max_row + 1)
+                ]
+                assert any("(price-linked)" in value for value in visible_support_values)
+                assert all("Current:" not in value for value in visible_support_values)
                 assert not bool(wb["Valuation"].row_dimensions[245].hidden)
                 assert float(wb["Valuation"].row_dimensions[245].height or 0.0) == pytest.approx(19.5, abs=0.1)
                 assert (
@@ -14575,11 +14739,13 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert str(wb["Valuation"].cell(row=138, column=8).value or "").strip() == "Result / support"
                 flag_formula = str(wb["Valuation"].cell(row=flags_header_row + 2, column=1).value or "")
                 if flag_formula:
-                    assert flag_formula.startswith("=IF($AI139")
-                assert "(price-linked)" in str(wb["Hidden_Value_Flags"]["K3"].value or "")
-                assert "(price-linked)" in str(wb["Hidden_Value_Flags"]["K4"].value or "")
-                assert "Current:" not in str(wb["Hidden_Value_Flags"]["K3"].value or "")
-                assert "Current:" not in str(wb["Hidden_Value_Flags"]["K4"].value or "")
+                    assert "$AI139" in flag_formula and "COUNTIF" in flag_formula
+                visible_support_values = [
+                    str(wb["Hidden_Value_Flags"].cell(row=rr, column=11).value or "")
+                    for rr in range(2, wb["Hidden_Value_Flags"].max_row + 1)
+                ]
+                assert any("(price-linked)" in value for value in visible_support_values)
+                assert all("Current:" not in value for value in visible_support_values)
                 red_green_row = _find_row_with_value(wb["Valuation"], "Red/Green Flags", column=1)
                 assert red_green_row is not None
                 assert any(m.min_row == red_green_row and m.min_col == 1 and m.max_col == 9 for m in wb["Valuation"].merged_cells.ranges)
@@ -14890,10 +15056,10 @@ def test_current_delivered_workbooks_promise_progress_and_guidance_panel_are_cle
                 assert q3_by_metric["Debt reduction"][2] == "Debt repaid"
                 assert q3_by_metric["Debt reduction"][3] == ""
                 assert q3_by_metric["Debt reduction"][4] == "Completed"
-                assert q3_by_metric["45Z monetization"][1] == "$15.0m-$25.0m"
-                assert q3_by_metric["45Z monetization"][2] == ""
-                assert q3_by_metric["45Z monetization"][3] == ""
-                assert q3_by_metric["45Z monetization"][4] == "Open"
+                assert q3_by_metric["45Z monetization"][1] == "Q3 45Z value recorded"
+                assert q3_by_metric["45Z monetization"][2] == "$26.5m"
+                assert q3_by_metric["45Z monetization"][3] == "YTD: $26.5m"
+                assert q3_by_metric["45Z monetization"][4] == "On track"
                 q1_revision_row = _find_row_with_value(wb["Promise_Progress_UI"], "2026-Q1 revisions")
                 assert q1_revision_row is not None
                 q1_rows = []

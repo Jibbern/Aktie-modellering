@@ -27,7 +27,7 @@ RENDER_RANGES: Dict[str, str] = {
     "Valuation": "A1:AC90",
     "{ticker}_Investment_Case": "A1:J160",
     "Promise_Progress_UI": "A1:L180",
-    "Quarter_Notes_UI": "A1:L220",
+    "Quarter_Notes_UI": "A1:O220",
     "Operating_Drivers": "A1:Q140",
     "Needs_Review": "A1:J80",
 }
@@ -320,7 +320,7 @@ def validate_openpyxl_layout(workbook_path: Path | str, ticker: str) -> Openpyxl
                 continue
             ws = wb[sheet_name]
             report.checked_sheets += 1
-            expected_width = 12 if sheet_name == "Quarter_Notes_UI" else (10 if sheet_name != "Valuation" else 29)
+            expected_width = 15 if sheet_name == "Quarter_Notes_UI" else (10 if sheet_name != "Valuation" else 29)
             if sheet_name != "Valuation":
                 _validate_title_row(ws, report, sheet_name, expected_width=expected_width)
             if sheet_name.endswith("_Investment_Case"):
@@ -458,7 +458,17 @@ def _write_reports(report: RenderValidationReport) -> None:
 
 
 def _default_workbooks(workbook_dir: Path) -> Dict[str, Path]:
-    return {ticker: workbook_dir / f"{ticker}_model.xlsx" for ticker in ("PBI", "GPRE", "ANF")}
+    workbooks: Dict[str, Path] = {}
+    for ticker in ("PBI", "GPRE", "ANF"):
+        workbooks[ticker] = next(
+            (
+                workbook_dir / f"{ticker}_model{suffix}"
+                for suffix in (".xlsm", ".xlsx")
+                if (workbook_dir / f"{ticker}_model{suffix}").exists()
+            ),
+            workbook_dir / f"{ticker}_model.xlsx",
+        )
+    return workbooks
 
 
 def resolve_workbook_dir(

@@ -9,6 +9,7 @@ from pbi_xbrl.non_gaap import (
     find_ex99_docs,
     infer_quarter_end_from_text,
     normalize_number_spacing,
+    parse_adjusted_from_ex99,
     parse_adjusted_from_plain_text,
 )
 
@@ -145,6 +146,38 @@ def test_parse_adjusted_from_plain_text_skips_pbi_reconciliation_heading_before_
     assert adjustments == {}
     assert status == "ok_relaxed_ocr"
     assert source == "ocr"
+
+
+def test_parse_adjusted_from_ex99_reads_pbi_colspan_consolidated_adjusted_table() -> None:
+    html = """
+    <html><body>
+    <table>
+      <tr><td>Pitney Bowes Inc.</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Reconciliation of Reported Consolidated Results to Adjusted Results</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>(Unaudited; in thousands, except per share amounts)</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td></td><td></td><td>Three months ended June 30,</td><td>Three months ended June 30,</td><td></td><td></td><td>Three months ended June 30,</td><td></td><td>Six months ended June 30,</td><td>Six months ended June 30,</td><td></td><td></td><td>Six months ended June 30,</td></tr>
+      <tr><td></td><td></td><td></td><td>2023</td><td></td><td></td><td>2022</td><td></td><td></td><td>2023</td><td></td><td></td><td>2022</td></tr>
+      <tr><td>Net (loss) income</td><td></td><td>$</td><td>(141,535)</td><td></td><td>$</td><td>4,336</td><td></td><td>$</td><td>(149,272)</td><td></td><td>$</td><td>25,157</td></tr>
+      <tr><td>Restructuring charges</td><td></td><td></td><td>22,443</td><td></td><td></td><td>4,224</td><td></td><td></td><td>26,042</td><td></td><td></td><td>8,408</td></tr>
+      <tr><td>Adjusted EBIT</td><td></td><td></td><td>32,085</td><td></td><td></td><td>38,830</td><td></td><td></td><td>65,106</td><td></td><td></td><td>91,507</td></tr>
+      <tr><td>Depreciation and amortization</td><td></td><td></td><td>39,873</td><td></td><td></td><td>43,470</td><td></td><td></td><td>79,770</td><td></td><td></td><td>85,472</td></tr>
+      <tr><td>Adjusted EBITDA</td><td></td><td>$</td><td>71,958</td><td></td><td>$</td><td>82,300</td><td></td><td>$</td><td>144,876</td><td></td><td>$</td><td>176,979</td></tr>
+    </table>
+    </body></html>
+    """
+
+    adj_ebit, adj_ebitda, adj_eps, adjustments, status, source = parse_adjusted_from_ex99(
+        html.encode("utf-8"),
+        quarter_end=pd.Timestamp("2023-06-30"),
+        mode="relaxed",
+    )
+
+    assert adj_ebit == 32_085_000.0
+    assert adj_ebitda == 71_958_000.0
+    assert adj_eps is None
+    assert adjustments
+    assert status == "ok_relaxed"
+    assert "2023" in str(source)
 
 
 def test_find_ex99_docs_detects_earnings_release_and_ceo_letter_filenames_without_ex99_token() -> None:

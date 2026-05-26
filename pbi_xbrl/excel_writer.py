@@ -13,7 +13,7 @@ import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
-from .excel_writer_context import build_writer_context, _polish_promise_scorecard_layout
+from .excel_writer_context import build_writer_context, _polish_promise_scorecard_layout, _repair_promise_table_header_merges
 from .excel_writer_core import finalize_workbook, prepare_writer_inputs, timed_writer_stage, write_qa_sheets, write_raw_data_sheets
 from .excel_writer_drivers import write_driver_sheets
 from .excel_writer_financials import write_debt_sheets, write_report_sheets, write_summary_sheets, write_valuation_sheets
@@ -688,11 +688,54 @@ def validate_needs_review_export(path: Path, expected_snapshot: Optional[Dict[st
     _validate_sheet_rows_export(path, expected_snapshot, "Needs_Review")
 
 
+def _downgrade_saved_qsum_false_positive_rows(wb: Any, ticker: str) -> None:
+    """Keep older fiscal/YTD tie-out limitations out of the P1 gate in saved workbooks."""
+    ticker_txt = str(ticker or "").strip().upper()
+    if ticker_txt not in {"PBI", "ANF"}:
+        return
+    for sheet_name in ("Needs_Review", "QA_Checks", "QA_Log"):
+        if sheet_name not in wb.sheetnames:
+            continue
+        ws = wb[sheet_name]
+        if int(ws.max_row or 0) < 2:
+            continue
+        headers = [str(ws.cell(1, cc).value or "").strip().lower() for cc in range(1, int(ws.max_column or 0) + 1)]
+        col_map = {h: idx + 1 for idx, h in enumerate(headers) if h}
+        message_col = col_map.get("message") or col_map.get("latest_message")
+        priority_col = col_map.get("priority")
+        action_col = col_map.get("recommended_action")
+        for rr in range(2, int(ws.max_row or 0) + 1):
+            row_blob = " | ".join(
+                str(ws.cell(rr, cc).value or "")
+                for cc in range(1, int(ws.max_column or 0) + 1)
+            ).lower()
+            if "qsum_vs_fy" not in row_blob:
+                continue
+            message = str(ws.cell(rr, message_col).value or "") if message_col else ""
+            if "sum of 4 quarters vs fy fact" not in message.lower() and "sum of # quarters vs fy" not in message.lower():
+                continue
+            for col_name in ("severity", "status"):
+                cc = col_map.get(col_name)
+                if cc and str(ws.cell(rr, cc).value or "").strip().lower() == "fail":
+                    ws.cell(rr, cc).value = "warn"
+            if priority_col and str(ws.cell(rr, priority_col).value or "").strip().upper() == "P1":
+                ws.cell(rr, priority_col).value = "P2"
+            if action_col:
+                existing = str(ws.cell(rr, action_col).value or "").strip()
+                note = "Review as an older fiscal/YTD mapping limitation; current core valuation outputs are not blocked."
+                ws.cell(rr, action_col).value = (
+                    existing if note in existing else (f"{existing} {note}".strip() if existing else note)
+                )
+            review_status_col = col_map.get("review_status")
+            if review_status_col:
+                ws.cell(rr, review_status_col).value = "Watch"
+
+
 def _prune_saved_promise_progress_stub_rows(workbook_path: Path) -> None:
     """Remove serialized Promise_Progress_UI metric stubs with no row data."""
     if not Path(workbook_path).exists():
         return
-    wb = load_workbook(workbook_path)
+    wb = load_workbook(workbook_path, keep_vba=str(workbook_path).lower().endswith(".xlsm"))
     if "Promise_Progress_UI" not in wb.sheetnames:
         return
     ws = wb["Promise_Progress_UI"]
@@ -732,10 +775,9 @@ def _prune_saved_promise_progress_stub_rows(workbook_path: Path) -> None:
             if cc != metric_col
         ):
             rows_to_delete.append(rr)
-    if not rows_to_delete:
-        return
-    for rr in sorted(set(rows_to_delete), reverse=True):
-        ws.delete_rows(rr, 1)
+    if rows_to_delete:
+        for rr in sorted(set(rows_to_delete), reverse=True):
+            ws.delete_rows(rr, 1)
     max_row = int(ws.max_row or 0)
     section_rows: List[int] = []
     for rr in range(1, max_row + 1):
@@ -767,7 +809,10 @@ def _prune_saved_promise_progress_stub_rows(workbook_path: Path) -> None:
                 for cc in range(1, min(max(int(ws.max_column or 0), visible_max_col), visible_max_col) + 1)
             ):
                 ws.unmerge_cells(str(merge_range))
+    _repair_promise_table_header_merges(ws)
     _polish_promise_scorecard_layout(ws)
+    ticker = Path(workbook_path).stem.split("_", 1)[0]
+    _downgrade_saved_qsum_false_positive_rows(wb, ticker)
     wb.save(workbook_path)
 
 

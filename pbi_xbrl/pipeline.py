@@ -125,7 +125,7 @@ REVOLVER_TABLE_MAX_CANDIDATES = 15
 REVOLVER_DOC_MAX_PER_FILING = 8
 REVOLVER_CACHE_VERSION = 4
 # Bump whenever stage-level extraction logic changes so stale pickles don't mask fixes.
-PIPELINE_STAGE_CACHE_VERSION = 7
+PIPELINE_STAGE_CACHE_VERSION = 8
 
 
 def _resolve_path_safe(p: Path) -> Path:
@@ -8885,18 +8885,45 @@ def build_gaap_history(
         sub = df_all[df_all["end_d"] == end].copy()
         fps: List[str] = []
         if not sub.empty and "fp" in sub.columns:
+            duration_sub = sub[sub.get("start_d").notna()].copy() if "start_d" in sub.columns else pd.DataFrame()
+            duration_fps: List[str] = []
+            if not duration_sub.empty:
+                duration_sub["dur"] = (pd.to_datetime(duration_sub["end_d"], errors="coerce") - pd.to_datetime(duration_sub["start_d"], errors="coerce")).dt.days
+                duration_sub["dur_class"] = duration_sub["dur"].apply(classify_duration)
+                for _, row in duration_sub.iterrows():
+                    fp_val = str(row.get("fp") or "").upper().strip()
+                    dur_class = str(row.get("dur_class") or "").upper().strip()
+                    if not fp_val:
+                        continue
+                    if fp_val == "Q1" and dur_class in {"3M"}:
+                        duration_fps.append(fp_val)
+                    elif fp_val == "Q2" and dur_class in {"3M", "6M"}:
+                        duration_fps.append(fp_val)
+                    elif fp_val == "Q3" and dur_class in {"3M", "9M"}:
+                        duration_fps.append(fp_val)
+                    elif fp_val in {"Q4", "FY"} and dur_class in {"3M", "FY"}:
+                        duration_fps.append(fp_val)
+            # Non-calendar fiscal Q4 dates can also appear as instant comparative
+            # balance-sheet rows in later Q1/Q2/Q3 filings. Duration facts are the
+            # cleaner signal for fiscal-period identity, so an FY/Q4 duration fact
+            # must win before instant comparative quarter labels.
+            if "Q4" in duration_fps or "FY" in duration_fps:
+                return 4
+            if "Q1" in duration_fps:
+                return 1
+            if "Q2" in duration_fps:
+                return 2
+            if "Q3" in duration_fps:
+                return 3
             fps = [str(x).upper().strip() for x in sub["fp"].dropna().tolist() if str(x).strip()]
-        # Prefer explicit quarter tags over FY comparatives that can appear in later filings.
+        if "Q4" in fps or "FY" in fps:
+            return 4
         if "Q1" in fps:
             return 1
         if "Q2" in fps:
             return 2
         if "Q3" in fps:
             return 3
-        if "Q4" in fps:
-            return 4
-        if "FY" in fps:
-            return 4
         return None
 
     def _prep_facts(tags: List[str]) -> Tuple[Optional[str], pd.DataFrame]:

@@ -13,7 +13,11 @@ YELLOW_INPUT_FILL = "00FFF2CC"
 
 
 def _load_workbook(ticker: str, *, data_only: bool = False):
-    path = WORKBOOK_DIR / f"{ticker}_model.xlsx"
+    xlsx_path = WORKBOOK_DIR / f"{ticker}_model.xlsx"
+    xlsm_path = WORKBOOK_DIR / f"{ticker}_model.xlsm"
+    path = xlsx_path
+    if xlsm_path.exists() and (not xlsx_path.exists() or xlsm_path.stat().st_mtime >= xlsx_path.stat().st_mtime):
+        path = xlsm_path
     if not path.exists():
         pytest.skip(f"{path} is not available for Investment_Case scenario regression tests")
     return load_workbook(path, data_only=data_only, read_only=False)
@@ -187,11 +191,14 @@ def test_valuation_hidden_value_flags_remain_formula_linked_to_audit_sheet() -> 
             title_formula = _text(ws.cell(flags_header_row + 2, 2).value)
             score_formula = _text(ws.cell(flags_header_row + 2, 6).value)
             support_formula = _text(ws.cell(flags_header_row + 2, 8).value)
-            assert helper_formula.startswith("=IF(N('Hidden_Value_Flags'!$D$2)>=1"), f"{ticker}: hidden flag helper is not formula-linked"
-            assert label_formula.startswith("=IF($AI"), f"{ticker}: visible flag label should respect helper flag"
-            assert "INDEX('Hidden_Value_Flags'!$C:$C,$AI" in title_formula, f"{ticker}: flag summary should stay audit-linked"
-            assert "INDEX('Hidden_Value_Flags'!$D:$D,$AI" in score_formula, f"{ticker}: flag score should stay audit-linked"
-            assert "INDEX('Hidden_Value_Flags'!$K:$K,$AI" in support_formula, f"{ticker}: flag support should stay audit-linked"
+            assert helper_formula.replace("'", "").startswith("=IF(N(Hidden_Value_Flags!$L$2)>=1"), f"{ticker}: hidden flag helper is not formula-linked"
+            assert "$AI" in label_formula and "COUNTIF" in label_formula, f"{ticker}: visible flag label should respect helper flag"
+            title_formula_plain = title_formula.replace("'", "")
+            score_formula_plain = score_formula.replace("'", "")
+            support_formula_plain = support_formula.replace("'", "")
+            assert "INDEX(Hidden_Value_Flags!$C:$C,$AI" in title_formula_plain, f"{ticker}: flag summary should stay audit-linked"
+            assert "INDEX(Hidden_Value_Flags!$D:$D,$AI" in score_formula_plain, f"{ticker}: flag score should stay audit-linked"
+            assert "INDEX(Hidden_Value_Flags!$K:$K,$AI" in support_formula_plain, f"{ticker}: flag support should stay audit-linked"
         finally:
             wb.close()
 
