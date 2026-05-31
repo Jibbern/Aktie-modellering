@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import csv
+
 from pathlib import Path
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.workbook.defined_name import DefinedName
 
 from pbi_xbrl.workbook_validation_runner import (
@@ -61,6 +63,9 @@ def _make_clean_validation_workbook(path: Path, ticker: str = "PBI") -> Path:
     wb["QA_Log"].append(["visible status", "pass"])
     wb["Promise_Progress_UI"]["A1"] = "2025-Q4"
     wb["Quarter_Notes_UI"]["A1"] = "2025-Q4 - Quarter Notes"
+    if ticker == "GPRE":
+        wb["BS_Segments"].append(["Metric", "2026-Q1"])
+        wb["BS_Segments"].append(["Carbon equipment liabilities", 12.3])
     wb.save(path)
     return path
 
@@ -84,9 +89,13 @@ def test_validation_runner_passes_clean_workbook_and_writes_reports(tmp_path: Pa
     report_paths = write_validation_reports([result], tmp_path / "validation")
     assert report_paths["json"].exists()
     assert report_paths["csv"].exists()
+    assert report_paths["guardrails_json"].exists()
+    assert report_paths["guardrails_csv"].exists()
     row = summary_rows([result])[0]
     assert "Skipped large sheets" in row
     assert "Sampled sheets" in row
+    assert "Guardrail P0/P1" in row
+    assert "Guardrail P2" in row
     assert "Elapsed seconds" in row
 
 
@@ -228,3 +237,193 @@ def test_bad_marker_terms_include_user_requested_regression_strings() -> None:
     assert "Base active values" in BAD_MARKER_TERMS
     assert "Actual / latest actual" in BAD_MARKER_TERMS
     assert "Separate revenue cut; not summed" in BAD_MARKER_TERMS
+
+
+def test_validation_runner_fails_on_blocking_quality_guardrails(tmp_path: Path) -> None:
+    workbook_path = _make_clean_validation_workbook(tmp_path / "PBI_model.xlsx", "PBI")
+    wb = load_workbook(workbook_path)
+    ws = wb["Promise_Progress_UI"]
+    ws.append(["2025-Q4 revisions"])
+    ws.append(
+        [
+            "Metric",
+            "Previous guide",
+            "New/current guide",
+            "Change type",
+            "Actual",
+            "Progress / run-rate",
+            "Status",
+            "Horizon",
+            "Stated in",
+            "Source date",
+            "Source / note",
+            "",
+            "",
+            "",
+            "",
+        ]
+    )
+    ws.append(
+        [
+            "Revenue guidance",
+            "",
+            "$100m",
+            "Initial",
+            "$25m",
+            "",
+            "Completed",
+            "2026 year",
+            "2025-Q4",
+            "2026-02-01",
+            "2026 year guidance.",
+            "",
+            "",
+            "",
+            "guidance:revenue_guidance:2026_year",
+        ]
+    )
+    wb.save(workbook_path)
+
+    result = validate_workbook(workbook_path, "PBI")
+
+    assert result.overall == "FAIL"
+    assert result.quality_guardrail_p0_p1_count >= 1
+    assert any(
+        issue["rule_id"] == "promise_future_annual_in_prior_year_q4"
+        for issue in result.quality_guardrail_issues
+    )
+    guardrail_issue = next(
+        issue
+        for issue in result.quality_guardrail_issues
+        if issue["rule_id"] == "promise_future_annual_in_prior_year_q4"
+    )
+    assert guardrail_issue["guardrail_name"] == "promise_future_annual_in_prior_year_q4"
+    assert guardrail_issue["workbook_path"] == str(workbook_path)
+    assert guardrail_issue["failure_area"] == "model correctness"
+    assert guardrail_issue["owner"] == "Promise_Progress_UI horizon routing"
+    assert any(issue.category == "quality_guardrail_p1" for issue in result.issues)
+
+    report_paths = write_validation_reports([result], tmp_path / "validation")
+    with report_paths["guardrails_csv"].open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows
+    assert rows[0]["guardrail_name"] == "promise_future_annual_in_prior_year_q4"
+    assert rows[0]["workbook_path"] == str(workbook_path)
+    assert rows[0]["failure_area"] == "model correctness"
+
+
+def test_validation_runner_can_warn_only_on_blocking_quality_guardrails(tmp_path: Path) -> None:
+    workbook_path = _make_clean_validation_workbook(tmp_path / "PBI_model.xlsx", "PBI")
+    wb = load_workbook(workbook_path)
+    ws = wb["Promise_Progress_UI"]
+    ws.append(["2025-Q4 revisions"])
+    ws.append(
+        [
+            "Metric",
+            "Previous guide",
+            "New/current guide",
+            "Change type",
+            "Actual",
+            "Progress / run-rate",
+            "Status",
+            "Horizon",
+            "Stated in",
+            "Source date",
+            "Source / note",
+            "",
+            "",
+            "",
+            "",
+        ]
+    )
+    ws.append(
+        [
+            "Revenue guidance",
+            "",
+            "$100m",
+            "Initial",
+            "$25m",
+            "",
+            "Completed",
+            "2026 year",
+            "2025-Q4",
+            "2026-02-01",
+            "2026 year guidance.",
+            "",
+            "",
+            "",
+            "guidance:revenue_guidance:2026_year",
+        ]
+    )
+    wb.save(workbook_path)
+
+    result = validate_workbook(
+        workbook_path,
+        "PBI",
+        config=ValidationConfig(quality_guardrails_warn_only=True),
+    )
+
+    assert result.overall == "PASS"
+    assert result.quality_guardrail_p0_p1_count >= 1
+    assert result.quality_guardrails_warn_only is True
+
+
+def test_validation_runner_reports_p2_quality_guardrails_without_failing(tmp_path: Path) -> None:
+    workbook_path = _make_clean_validation_workbook(tmp_path / "PBI_model.xlsx", "PBI")
+    wb = load_workbook(workbook_path)
+    ws = wb["Quarter_Narrative_Data"]
+    headers = [
+        "Ticker",
+        "Quarter",
+        "Category",
+        "Theme",
+        "What happened",
+        "Management framing",
+        "Why it matters",
+        "Model implication",
+        "Valuation implication",
+        "Double-count guardrail",
+        "Linked sheet",
+        "Linked metric",
+        "Amount",
+        "Unit",
+        "Source date",
+        "Source type",
+        "Source / note",
+        "Confidence",
+        "Include in UI",
+    ]
+    for cc, header in enumerate(headers, start=1):
+        ws.cell(1, cc, header)
+    ws.append(
+        [
+            "PBI",
+            "2026-Q1",
+            "Context",
+            "Context row",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "This amount field contains long context words that should stay out of the value column",
+            "",
+            "",
+            "",
+            "",
+            "medium",
+            "Yes",
+        ]
+    )
+    wb.save(workbook_path)
+
+    result = validate_workbook(workbook_path, "PBI")
+
+    assert result.overall == "PASS"
+    assert result.quality_guardrail_p0_p1_count == 0
+    assert result.quality_guardrail_p2_count == 1
+    assert result.quality_guardrail_issues[0]["rule_id"] == "narrative_amount_long_prose"
+    assert result.quality_guardrail_issues[0]["failure_area"] == "intentional exception missing"

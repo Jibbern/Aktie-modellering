@@ -17,6 +17,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 from openpyxl import load_workbook
 
 from .path_config import resolve_stock_model_paths
+from .workbook_quality_guardrails import run_workbook_quality_guardrails
 
 
 TICKERS: Sequence[str] = ("PBI", "GPRE", "ANF")
@@ -167,6 +168,8 @@ class ValidationConfig:
     huge_sheet_row_threshold: int = 20_000
     sample_head_rows: int = 200
     sample_tail_rows: int = 200
+    enable_quality_guardrails: bool = True
+    quality_guardrails_warn_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -199,6 +202,10 @@ class WorkbookValidationResult:
     missing_required_sheets: List[str] = field(default_factory=list)
     missing_named_ranges: List[str] = field(default_factory=list)
     calc_settings_ok: bool = True
+    quality_guardrail_p0_p1_count: int = 0
+    quality_guardrail_p2_count: int = 0
+    quality_guardrails_warn_only: bool = False
+    quality_guardrail_issues: List[Dict[str, Any]] = field(default_factory=list)
     skipped_large_sheets: List[str] = field(default_factory=list)
     sampled_sheets: List[str] = field(default_factory=list)
     elapsed_seconds: float = 0.0
@@ -224,6 +231,7 @@ class WorkbookValidationResult:
                 self.cross_company_leakage_count,
                 self.bad_marker_count,
                 self.quarter_label_issue_count,
+                0 if self.quality_guardrails_warn_only else self.quality_guardrail_p0_p1_count,
             ]
         )
         return "PASS" if counters_ok and self.required_sheets_ok and self.named_ranges_ok and self.calc_settings_ok else "FAIL"
@@ -241,6 +249,10 @@ class WorkbookValidationResult:
             "missing_required_sheets": self.missing_required_sheets,
             "missing_named_ranges": self.missing_named_ranges,
             "calc_settings_ok": self.calc_settings_ok,
+            "quality_guardrail_p0_p1": self.quality_guardrail_p0_p1_count,
+            "quality_guardrail_p2": self.quality_guardrail_p2_count,
+            "quality_guardrails_warn_only": self.quality_guardrails_warn_only,
+            "quality_guardrail_issues": self.quality_guardrail_issues,
             "skipped_large_sheets": self.skipped_large_sheets,
             "sampled_sheets": self.sampled_sheets,
             "elapsed_seconds": self.elapsed_seconds,
@@ -620,6 +632,64 @@ def _check_calc_settings(wb: Any, result: WorkbookValidationResult) -> None:
         )
 
 
+def _guardrail_failure_area(rule_id: str, owner: str, reason: str) -> str:
+    blob = f"{rule_id} {owner} {reason}".lower()
+    if "comparison_coloring" in blob or "color" in blob or "valuation hidden-value display" in blob:
+        return "visual/style"
+    if "amount extraction" in blob or "manual" in blob or "exception" in blob or "no-source" in blob or "annual-only" in blob:
+        return "intentional exception missing"
+    if "source" in blob or "coverage" in blob or "hydrate" in blob or "amount extraction" in blob:
+        return "source coverage"
+    if any(token in blob for token in ("exception", "manual", "not_applicable", "source_missing", "definition_mismatch", "annual_only")):
+        return "intentional exception missing"
+    return "model correctness"
+
+
+def _quality_guardrail_payload(issue: Any, result: WorkbookValidationResult) -> Dict[str, Any]:
+    payload = issue.to_dict()
+    payload.update(
+        {
+            "guardrail_name": issue.rule_id,
+            "workbook_path": result.path,
+            "failure_area": _guardrail_failure_area(issue.rule_id, issue.owner, issue.reason),
+        }
+    )
+    return payload
+
+
+def _run_quality_guardrails(wb: Any, ticker: str, result: WorkbookValidationResult) -> None:
+    seen: set[Tuple[Any, ...]] = set()
+    for issue in run_workbook_quality_guardrails(wb, ticker):
+        dedupe_key = (
+            issue.severity,
+            issue.rule_id,
+            issue.ticker,
+            issue.sheet,
+            issue.row,
+            issue.metric_label,
+            issue.reason,
+        )
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        payload = _quality_guardrail_payload(issue, result)
+        result.quality_guardrail_issues.append(payload)
+        if issue.severity in {"P0", "P1"}:
+            result.quality_guardrail_p0_p1_count += 1
+        elif issue.severity == "P2":
+            result.quality_guardrail_p2_count += 1
+        _append_issue(
+            result,
+            ValidationIssue(
+                category=f"quality_guardrail_{issue.severity.lower()}",
+                sheet=issue.sheet,
+                cell=str(issue.row or ""),
+                value=issue.metric_label,
+                detail=f"{issue.rule_id}: {issue.reason} Owner/fix area: {issue.owner}",
+            ),
+        )
+
+
 def _record_elapsed(result: WorkbookValidationResult, category: str, started: float) -> None:
     result.category_elapsed_seconds[category] = time.perf_counter() - started
 
@@ -633,7 +703,11 @@ def validate_workbook(
     cfg = config or ValidationConfig()
     ticker_txt = str(ticker or "").strip().upper()
     workbook_path = Path(path)
-    result = WorkbookValidationResult(ticker=ticker_txt, path=str(workbook_path))
+    result = WorkbookValidationResult(
+        ticker=ticker_txt,
+        path=str(workbook_path),
+        quality_guardrails_warn_only=bool(cfg.quality_guardrails_warn_only),
+    )
     workbook_started = time.perf_counter()
     if not workbook_path.exists():
         _append_issue(
@@ -677,6 +751,11 @@ def validate_workbook(
         _check_named_ranges(wb, result)
         _check_calc_settings(wb, result)
         _record_elapsed(result, "workbook_metadata", started)
+
+        if cfg.enable_quality_guardrails:
+            started = time.perf_counter()
+            _run_quality_guardrails(wb, ticker_txt, result)
+            _record_elapsed(result, "quality_guardrails", started)
     finally:
         wb.close()
         result.elapsed_seconds = time.perf_counter() - workbook_started
@@ -713,6 +792,8 @@ def summary_rows(results: Sequence[WorkbookValidationResult]) -> List[Dict[str, 
                 "Required sheets": "pass" if result.required_sheets_ok else f"missing {len(result.missing_required_sheets)}",
                 "Named ranges": "pass" if result.named_ranges_ok else f"missing {len(result.missing_named_ranges)}",
                 "Calc flags": "pass" if result.calc_settings_ok else "fail",
+                "Guardrail P0/P1": result.quality_guardrail_p0_p1_count,
+                "Guardrail P2": result.quality_guardrail_p2_count,
                 "Skipped large sheets": len(result.skipped_large_sheets),
                 "Sampled sheets": len(result.sampled_sheets),
                 "Elapsed seconds": f"{result.elapsed_seconds:.2f}",
@@ -734,6 +815,8 @@ def format_summary_table(results: Sequence[WorkbookValidationResult]) -> str:
         "Required sheets",
         "Named ranges",
         "Calc flags",
+        "Guardrail P0/P1",
+        "Guardrail P2",
         "Skipped large sheets",
         "Sampled sheets",
         "Elapsed seconds",
@@ -755,6 +838,8 @@ def write_validation_reports(
     out_dir.mkdir(parents=True, exist_ok=True)
     json_path = out_dir / "workbook_validation_report.json"
     csv_path = out_dir / "workbook_validation_summary.csv"
+    guardrails_json_path = out_dir / "workbook_validation_guardrails.json"
+    guardrails_csv_path = out_dir / "workbook_validation_guardrails.csv"
     json_path.write_text(
         json.dumps([result.to_dict() for result in results], indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -765,7 +850,35 @@ def write_validation_reports(
         if rows:
             writer.writeheader()
             writer.writerows(rows)
-    return {"json": json_path, "csv": csv_path}
+    guardrail_rows = [
+        issue
+        for result in results
+        for issue in result.quality_guardrail_issues
+    ]
+    guardrails_json_path.write_text(json.dumps(guardrail_rows, indent=2, ensure_ascii=False), encoding="utf-8")
+    guardrail_fields = [
+        "guardrail_name",
+        "severity",
+        "ticker",
+        "workbook_path",
+        "sheet",
+        "row",
+        "metric_label",
+        "reason",
+        "owner",
+        "failure_area",
+        "rule_id",
+    ]
+    with guardrails_csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=guardrail_fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(guardrail_rows)
+    return {
+        "json": json_path,
+        "csv": csv_path,
+        "guardrails_json": guardrails_json_path,
+        "guardrails_csv": guardrails_csv_path,
+    }
 
 
 _WORKBOOK_EXTENSIONS = (".xlsx", ".xlsm")
@@ -867,6 +980,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--huge-sheet-row-threshold", type=int, default=ValidationConfig.huge_sheet_row_threshold)
     parser.add_argument("--sample-head-rows", type=int, default=ValidationConfig.sample_head_rows)
     parser.add_argument("--sample-tail-rows", type=int, default=ValidationConfig.sample_tail_rows)
+    parser.add_argument(
+        "--skip-guardrails",
+        action="store_true",
+        help="Disable workbook quality guardrails; intended only for debugging validator behavior.",
+    )
+    parser.add_argument(
+        "--no-quality-guardrails",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--guardrails-warn-only",
+        action="store_true",
+        help="Report workbook quality guardrails without letting P0/P1 issues fail validation.",
+    )
     args = parser.parse_args(argv)
 
     output_dir = resolve_output_dir(data_root=args.data_root, output_dir=args.output_dir)
@@ -881,12 +1009,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         huge_sheet_row_threshold=args.huge_sheet_row_threshold,
         sample_head_rows=args.sample_head_rows,
         sample_tail_rows=args.sample_tail_rows,
+        enable_quality_guardrails=not (args.no_quality_guardrails or args.skip_guardrails),
+        quality_guardrails_warn_only=bool(args.guardrails_warn_only),
     )
     results = validate_workbooks(paths, config=config)
     report_paths = write_validation_reports(results, output_dir)
     print(format_summary_table(results))
     print(f"\nJSON report: {report_paths['json']}")
     print(f"CSV report: {report_paths['csv']}")
+    print(f"Guardrail JSON report: {report_paths['guardrails_json']}")
+    print(f"Guardrail CSV report: {report_paths['guardrails_csv']}")
     return 0 if all(result.overall == "PASS" for result in results) else 1
 
 

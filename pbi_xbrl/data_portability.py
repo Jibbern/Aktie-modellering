@@ -482,6 +482,8 @@ def validate_data_root(
     data_root: Path | str,
     repo_root: Path | str | None = None,
     run_workbook_validation: bool = True,
+    enable_quality_guardrails: bool = True,
+    quality_guardrails_warn_only: bool = False,
 ) -> Dict[str, Any]:
     root = _safe_resolve(data_root)
     repo = _safe_resolve(repo_root) if repo_root is not None else Path(__file__).resolve().parents[2]
@@ -513,14 +515,28 @@ def validate_data_root(
     )
     validation_summary: Dict[str, Any] = {"run": False}
     if run_workbook_validation and not missing_workbooks:
-        from .workbook_validation_runner import validate_workbooks, write_validation_reports
+        from .workbook_validation_runner import ValidationConfig, validate_workbooks, write_validation_reports
 
-        results = validate_workbooks(workbook_paths)
-        write_validation_reports(results, paths.validation_reports_dir / "workbook_validation")
+        results = validate_workbooks(
+            workbook_paths,
+            config=ValidationConfig(
+                enable_quality_guardrails=bool(enable_quality_guardrails),
+                quality_guardrails_warn_only=bool(quality_guardrails_warn_only),
+            ),
+        )
+        report_paths = write_validation_reports(results, paths.validation_reports_dir / "workbook_validation")
         validation_summary = {
             "run": True,
             "overall_by_ticker": {result.ticker: result.overall for result in results},
             "passes": all(result.overall == "PASS" for result in results),
+            "quality_guardrail_p0_p1": sum(result.quality_guardrail_p0_p1_count for result in results),
+            "quality_guardrail_p2": sum(result.quality_guardrail_p2_count for result in results),
+            "quality_guardrails_warn_only": bool(quality_guardrails_warn_only),
+            "quality_guardrails_enabled": bool(enable_quality_guardrails),
+            "report_json": str(report_paths["json"]),
+            "report_csv": str(report_paths["csv"]),
+            "guardrails_json": str(report_paths["guardrails_json"]),
+            "guardrails_csv": str(report_paths["guardrails_csv"]),
         }
     elif not run_workbook_validation:
         validation_summary = {"run": False, "skipped_reason": "disabled by caller"}
@@ -822,6 +838,8 @@ def main(argv: Optional[Sequence[str]] = None, *, repo_root: Path | str | None =
     validate_p.add_argument("--data-root", default="")
     validate_p.add_argument("--allow-onedrive-data-root", action="store_true")
     validate_p.add_argument("--skip-workbook-validation", action="store_true")
+    validate_p.add_argument("--skip-guardrails", action="store_true")
+    validate_p.add_argument("--guardrails-warn-only", action="store_true")
 
     cleanup_p = sub.add_parser("cleanup-old", help="Safely archive or delete old legacy data folders.")
     cleanup_p.add_argument("--data-root", default="")
@@ -900,6 +918,8 @@ def main(argv: Optional[Sequence[str]] = None, *, repo_root: Path | str | None =
                 data_root=effective,
                 repo_root=repo,
                 run_workbook_validation=not bool(args.skip_workbook_validation),
+                enable_quality_guardrails=not bool(args.skip_guardrails),
+                quality_guardrails_warn_only=bool(args.guardrails_warn_only),
             )
         )
         return 0

@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import time
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 
 import pytest
 from openpyxl import Workbook
@@ -18,6 +18,45 @@ from pbi_xbrl.workbook_validation_runner import validate_workbook
 
 
 YELLOW_INPUT_FILL = "FFF2CC"
+PROMISE_REVISION_HEADER = [
+    "Metric",
+    "Previous guide",
+    "New/current guide",
+    "Change type",
+    "Actual",
+    "Progress / run-rate",
+    "Status",
+    "Horizon",
+    "Stated in",
+    "Source date",
+    "Source / note",
+    "",
+    "",
+    "",
+    "Hidden source key",
+]
+
+NARRATIVE_HEADERS = [
+    "Ticker",
+    "Quarter",
+    "Category",
+    "Theme",
+    "What happened",
+    "Management framing",
+    "Why it matters",
+    "Model implication",
+    "Valuation implication",
+    "Double-count guardrail",
+    "Linked sheet",
+    "Linked metric",
+    "Amount",
+    "Unit",
+    "Source date",
+    "Source type",
+    "Source / note",
+    "Confidence",
+    "Include in UI",
+]
 
 
 def _add_named_ranges(wb: Workbook) -> None:
@@ -53,6 +92,50 @@ def _required_sheets(wb: Workbook, ticker: str) -> None:
     wb["Needs_Review"].append(["INFO", "dry-run fixture"])
     wb["QA_Log"].append(["check", "status"])
     wb["QA_Log"].append(["dry-run", "pass"])
+
+
+def _replace_sheet_rows(wb: Workbook, sheet_name: str, rows: Sequence[Sequence[Any]]) -> None:
+    ws = wb[sheet_name]
+    if ws.max_row:
+        ws.delete_rows(1, ws.max_row)
+    for row in rows:
+        ws.append(list(row))
+
+
+def _minimal_dry_run_workbook(ticker: str) -> Workbook:
+    wb = Workbook()
+    _required_sheets(wb, ticker)
+    wb["Quarter_Notes_UI"]["A1"] = "No fake narrative"
+    wb["Operating_Drivers"]["A1"] = "Operating drivers"
+    wb["Scenario_Bridge_Tax_Treatment"].append(["Ticker", "Bridge item", "Driver type", "Tax treatment"])
+    wb["Scenario_Driver_Assumptions"].append(["Ticker", "Section", "Segment / category", "Feeds bridge?"])
+    return wb
+
+
+def _save_workbook(tmp_path: Path, ticker: str, wb: Workbook) -> Path:
+    path = tmp_path / f"{ticker}_model.xlsx"
+    wb.save(path)
+    return path
+
+
+def _validation_rule_ids(path: Path, ticker: str) -> set[str]:
+    result = validate_workbook(path, ticker)
+    return {
+        str(issue.get("rule_id") or issue.get("guardrail_name"))
+        for issue in result.quality_guardrail_issues
+    }
+
+
+def _append_promise_revision_row(wb: Workbook, row: Sequence[Any]) -> None:
+    ws = wb["Promise_Progress_UI"]
+    if ws.max_row == 1 and ws["A1"].value is None:
+        ws.delete_rows(1, 1)
+    if ws.max_row == 0 or ws["A1"].value is None:
+        ws.append(["Promise Progress"])
+    if not any(ws.cell(rr, 1).value == "2025-Q4 revisions" for rr in range(1, ws.max_row + 1)):
+        ws.append(["2025-Q4 revisions"])
+        ws.append(PROMISE_REVISION_HEADER)
+    ws.append(list(row))
 
 
 def _add_history_q(wb: Workbook, rows: Sequence[tuple[dt.date, float, float, float, float, float]]) -> None:
@@ -242,3 +325,229 @@ def test_guidance_heavy_reporter_keeps_future_annual_guidance_open(tmp_path: Pat
         assert all("Completed" not in row and "Hit" not in row and "Missed" not in row for row in future_rows)
     finally:
         wb.close()
+
+
+def test_new_quarter_future_annual_guidance_in_prior_q4_fails_guardrails(tmp_path: Path) -> None:
+    ticker = "NEWQ"
+    wb = _minimal_dry_run_workbook(ticker)
+    _append_promise_revision_row(
+        wb,
+        [
+            "Revenue guidance",
+            "",
+            "$1.1bn-$1.2bn",
+            "Initial",
+            "",
+            "",
+            "Open",
+            "2026 year",
+            "2025-Q4",
+            "2026-02-20",
+            "Earnings release source-backed guidance.",
+            "",
+            "",
+            "",
+            "guidance:revenue_guidance:2026_year:2026_02_20",
+        ],
+    )
+    path = _save_workbook(tmp_path, ticker, wb)
+
+    result = validate_workbook(path, ticker)
+
+    assert result.overall == "FAIL"
+    assert "promise_future_annual_in_prior_year_q4" in {
+        issue["rule_id"] for issue in result.quality_guardrail_issues
+    }
+
+
+def test_new_quarter_q4_annual_guidance_splits_actual_and_progress(tmp_path: Path) -> None:
+    ticker = "Q4GOOD"
+    wb = _minimal_dry_run_workbook(ticker)
+    _append_promise_revision_row(
+        wb,
+        [
+            "Adjusted EBITDA guidance",
+            "",
+            "$450m-$470m",
+            "Completed",
+            "$70m",
+            "FY: $461.3m",
+            "Hit",
+            "2025 year",
+            "2025-Q4",
+            "2026-02-20",
+            "Earnings release source-backed annual close.",
+            "",
+            "",
+            "",
+            "guidance:adjusted_ebitda_guidance:2025_year:2026_02_20",
+        ],
+    )
+    path = _save_workbook(tmp_path, ticker, wb)
+
+    result = validate_workbook(path, ticker)
+
+    assert result.overall == "PASS"
+    assert result.quality_guardrail_p0_p1_count == 0
+    assert "promise_q4_actual_progress_split" not in _validation_rule_ids(path, ticker)
+
+
+def test_new_ticker_source_backed_promise_missing_hidden_key_fails_guardrails(tmp_path: Path) -> None:
+    ticker = "SOURCECO"
+    wb = _minimal_dry_run_workbook(ticker)
+    _append_promise_revision_row(
+        wb,
+        [
+            "Revenue guidance",
+            "",
+            "$1.1bn-$1.2bn",
+            "Initial",
+            "",
+            "",
+            "Open",
+            "2025-Q4",
+            "2025-Q4",
+            "2026-02-20",
+            "Earnings release source-backed guidance.",
+            "",
+            "",
+            "",
+            "",
+        ],
+    )
+    path = _save_workbook(tmp_path, ticker, wb)
+
+    result = validate_workbook(path, ticker)
+
+    assert result.overall == "FAIL"
+    assert "promise_source_backed_missing_hidden_key" in {
+        issue["rule_id"] for issue in result.quality_guardrail_issues
+    }
+
+
+def test_new_ticker_narrative_amount_descriptor_prose_fails_guardrails(tmp_path: Path) -> None:
+    ticker = "NARRCO"
+    wb = _minimal_dry_run_workbook(ticker)
+    _replace_sheet_rows(
+        wb,
+        "Quarter_Narrative_Data",
+        [
+            NARRATIVE_HEADERS,
+            [
+                ticker,
+                "2026-Q1",
+                "",
+                "Brand mix",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "Americas are geographic segments, not value text.",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "Yes",
+            ],
+        ],
+    )
+    path = _save_workbook(tmp_path, ticker, wb)
+
+    result = validate_workbook(path, ticker)
+
+    assert result.overall == "FAIL"
+    assert "narrative_amount_descriptor_prose" in {
+        issue["rule_id"] for issue in result.quality_guardrail_issues
+    }
+
+
+def test_new_unknown_ticker_sector_specific_blank_row_warns_without_blocking(tmp_path: Path) -> None:
+    ticker = "FRESHCO"
+    wb = _minimal_dry_run_workbook(ticker)
+    _replace_sheet_rows(
+        wb,
+        "BS_Segments",
+        [
+            ["Metric", "2026-Q1"],
+            ["Carbon equipment liabilities", ""],
+        ],
+    )
+    path = _save_workbook(tmp_path, ticker, wb)
+
+    result = validate_workbook(path, ticker)
+
+    assert result.overall == "PASS"
+    assert result.quality_guardrail_p0_p1_count == 0
+    assert "sector_blank_carbon_row" in _validation_rule_ids(path, ticker)
+
+
+def test_new_ticker_price_linked_hidden_value_flag_without_price_fails_guardrails(tmp_path: Path) -> None:
+    ticker = "PRICECO"
+    wb = _minimal_dry_run_workbook(ticker)
+    flags = wb.create_sheet("Hidden_Value_Flags")
+    flags.append(
+        [
+            "rank",
+            "flag_code",
+            "title",
+            "score",
+            "severity",
+            "as_of_quarter",
+            "evidence_1",
+            "evidence_2",
+            "evidence_3",
+            "metrics_json",
+            "visible_support",
+            "triggered",
+        ]
+    )
+    flags.append([1, "C", "Cashflow quality", 55, "Med", "2026-03-31", "", "", "", '{"fcf_yield": null}', "(price-linked) unavailable", 1])
+    _replace_sheet_rows(
+        wb,
+        "Valuation",
+        [
+            ["Hidden value flags"],
+            ["Flag", "Summary", "", "", "", "Score", "Severity", "Result / support"],
+            ["Flag 1", "Cashflow quality", "", "", "", 55, "Med", "(price-linked) unavailable"],
+            ["Operating signals"],
+        ],
+    )
+    path = _save_workbook(tmp_path, ticker, wb)
+
+    result = validate_workbook(path, ticker)
+
+    assert result.overall == "FAIL"
+    assert "hidden_value_price_linked_trigger_without_inputs" in {
+        issue["rule_id"] for issue in result.quality_guardrail_issues
+    }
+
+
+def test_sparse_new_ticker_optional_bs_rows_do_not_create_blocking_guardrails(tmp_path: Path) -> None:
+    ticker = "OPTIONCO"
+    wb = _minimal_dry_run_workbook(ticker)
+    _replace_sheet_rows(
+        wb,
+        "BS_Segments",
+        [
+            ["Balance sheet & Segments"],
+            ["Quarter", "2026-Q1"],
+            ["R&D", ""],
+            ["Quick ratio", ""],
+            ["Marketable securities", ""],
+            ["Lease ROU assets", ""],
+            ["Dividends", ""],
+            ["Acquisitions", ""],
+            ["Current maturities of long-term debt", ""],
+        ],
+    )
+    path = _save_workbook(tmp_path, ticker, wb)
+
+    result = validate_workbook(path, ticker)
+
+    assert result.overall == "PASS"
+    assert result.quality_guardrail_p0_p1_count == 0
