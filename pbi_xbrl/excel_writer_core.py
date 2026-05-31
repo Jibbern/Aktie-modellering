@@ -1811,6 +1811,7 @@ def finalize_workbook(ctx: WriterContext) -> None:
                 c_f = hdr_a.get("fcf_yield")
                 f_code = hdr_f.get("flag_code") or hdr_f.get("Flag")
                 f_score = hdr_f.get("score")
+                f_severity = hdr_f.get("severity")
                 f_e1 = hdr_f.get("evidence_1")
                 f_e2 = hdr_f.get("evidence_2")
                 f_e3 = hdr_f.get("evidence_3")
@@ -1835,13 +1836,23 @@ def finalize_workbook(ctx: WriterContext) -> None:
                         in_ref = f"'Hidden_Value_Audit'!${get_column_letter(c_inputs)}${ar}" if c_inputs else "\"\""
                         name_ref = f"'Hidden_Value_Audit'!${get_column_letter(c_name)}${ar}" if c_name else code_cell
                         thr_ref = f"'Hidden_Value_Audit'!${get_column_letter(c_thr)}${ar}" if c_thr else "\"\""
-                        if f_triggered and ws_hvf.cell(row=rr, column=f_triggered).value in (None, ""):
+                        if fid in {"C", "E"} and f_triggered:
+                            ws_hvf.cell(row=rr, column=f_triggered).value = f"=IF({out_ref}=\"\",0,--(N({out_ref})>=1))"
+                        elif f_triggered and ws_hvf.cell(row=rr, column=f_triggered).value in (None, ""):
                             ws_hvf.cell(row=rr, column=f_triggered).value = f"=IF({out_ref}=\"\",\"\",--(N({out_ref})>=1))"
                         e1_formula = f"=IF({code_cell}=\"\",\"\",{name_ref}&\" | Quarter: \"&TEXT({q_ref},\"yyyy-mm-dd\"))"
                         e2_formula = f"=IF({code_cell}=\"\",\"\",\"Threshold: \"&{thr_ref}&IF({msg_ref}<>\"\",\" | \"&{msg_ref},\"\"))"
                         e3_formula = f"=IF({code_cell}=\"\",\"\",\"Inputs: \"&{in_ref})"
                         if fid == "C" and c_f:
                             fy_ref = f"'Hidden_Value_Audit'!${get_column_letter(c_f)}${ar}"
+                            if f_score:
+                                ws_hvf.cell(row=rr, column=f_score).value = (
+                                    f"=IF(OR(FCF_TTM_Pos_Years=\"\",Pos_FCF_Ratio=\"\",FCF_Yield=\"\"),0,"
+                                    f"IF(N({out_ref})>=1,ROUND("
+                                    "30*MIN(1,MAX(0,(N(FCF_TTM_Pos_Years)-1)/3+0.25))+"
+                                    "35*MIN(1,MAX(0,(N(Pos_FCF_Ratio)-0.75)/0.75+0.25))+"
+                                    "35*MIN(1,MAX(0,(N(FCF_Yield)-0.15)/0.25+0.25)),0),0))"
+                                )
                             e2_formula = (
                                 f"=IF({code_cell}=\"\",\"\",IF({fy_ref}=\"\",\"Price-linked via Valuation input | Status: WAIT\","
                                 f"IF(N({out_ref})>=1,\"Price-linked via Valuation input | Status: PASS\",\"Price-linked via Valuation input | Status: FAIL\")))"
@@ -1849,11 +1860,22 @@ def finalize_workbook(ctx: WriterContext) -> None:
                             e3_formula = f"=IF({code_cell}=\"\",\"\",\"Trigger active from Hidden_Value_Audit C\")"
                         elif fid == "E" and c_f:
                             fy_ref = f"'Hidden_Value_Audit'!${get_column_letter(c_f)}${ar}"
+                            if f_score:
+                                ws_hvf.cell(row=rr, column=f_score).value = (
+                                    f"=IF(OR(Interest_Coverage=\"\",FCF_Yield=\"\"),0,"
+                                    f"IF(N({out_ref})>=1,ROUND("
+                                    "50*MIN(1,MAX(0,(N(Interest_Coverage)-3)/3+0.25))+"
+                                    "50*MIN(1,MAX(0,(N(FCF_Yield)-0.20)/0.30+0.25)),0),0))"
+                                )
                             e2_formula = (
                                 f"=IF({code_cell}=\"\",\"\",IF({fy_ref}=\"\",\"Price-linked via Valuation input | Status: WAIT\","
                                 f"IF(N({out_ref})>=1,\"Price-linked via Valuation input | Status: PASS\",\"Price-linked via Valuation input | Status: FAIL\")))"
                             )
                             e3_formula = f"=IF({code_cell}=\"\",\"\",\"Trigger active from Hidden_Value_Audit E\")"
+                        if fid in {"C", "E"} and f_score and f_severity and f_triggered:
+                            score_ref = f"${get_column_letter(f_score)}{rr}"
+                            trig_ref = f"${get_column_letter(f_triggered)}{rr}"
+                            ws_hvf.cell(row=rr, column=f_severity).value = f'=IF(N({trig_ref})>=1,IF(N({score_ref})>=70,"High","Med"),"Info")'
                         ws_hvf.cell(row=rr, column=f_e1).value = e1_formula
                         ws_hvf.cell(row=rr, column=f_e2).value = e2_formula
                         ws_hvf.cell(row=rr, column=f_e3).value = e3_formula
@@ -1905,12 +1927,22 @@ def finalize_workbook(ctx: WriterContext) -> None:
             ws_hvf = wb["Hidden_Value_Flags"]
             hdr_f = {str(c.value): i for i, c in enumerate(ws_hvf[1], start=1) if c.value is not None}
             f_triggered = hdr_f.get("triggered")
+            f_code = hdr_f.get("flag_code")
+            f_title = hdr_f.get("title")
+            f_score = hdr_f.get("score")
+            f_severity = hdr_f.get("severity")
+            f_support = hdr_f.get("visible_support")
             triggered_rows: List[int] = []
             if f_triggered:
                 for rr in range(2, ws_hvf.max_row + 1):
                     trig_val = ws_hvf.cell(row=rr, column=f_triggered).value
                     if trig_val in (1, True) or str(trig_val).strip() == "1":
                         triggered_rows.append(rr)
+            price_linked_rows: List[int] = []
+            if f_code:
+                for rr in range(2, ws_hvf.max_row + 1):
+                    if str(ws_hvf.cell(row=rr, column=f_code).value or "").strip().upper() in {"C", "E"}:
+                        price_linked_rows.append(rr)
             flags_header_row = None
             for rr in range(1, min(ws_val.max_row, 180) + 1):
                 if str(ws_val.cell(row=rr, column=1).value or "").strip() == "Hidden value flags":
@@ -1924,7 +1956,8 @@ def finalize_workbook(ctx: WriterContext) -> None:
                 support_col, support_end_col = 8, 13
                 helper_col = 35
                 helper_letter = get_column_letter(helper_col)
-                visible_count = max(1, min(5, len(triggered_rows)))
+                visible_rows = triggered_rows[:5]
+                visible_count = max(1, min(5, len(visible_rows)))
                 body_template_row = flags_header_row + 2
                 no_trigger_formula = 'COUNTIF(\'Hidden_Value_Flags\'!$L:$L,">=1")=0'
 
@@ -1955,7 +1988,6 @@ def finalize_workbook(ctx: WriterContext) -> None:
 
                 for idx in range(visible_count):
                     out_row = flags_header_row + 2 + idx
-                    hidden_rr = 2 + idx
                     _unmerge_row_slice(out_row, title_col, title_end_col)
                     _unmerge_row_slice(out_row, support_col, support_end_col)
                     try:
@@ -1964,41 +1996,55 @@ def finalize_workbook(ctx: WriterContext) -> None:
                     except Exception:
                         pass
                     _copy_style_from_template(out_row)
-                    ws_val.cell(row=out_row, column=helper_col, value=f'=IF(N(\'Hidden_Value_Flags\'!$L${hidden_rr})>=1,{hidden_rr},"")')
+                    if idx == 0:
+                        helper_formula = '=IFERROR(MATCH(1,\'Hidden_Value_Flags\'!$L$2:$L$100,0)+1,"")'
+                    else:
+                        prev_helper = f"${helper_letter}{out_row - 1}"
+                        helper_formula = (
+                            f'=IF({prev_helper}="","",IFERROR('
+                            f"MATCH(1,INDEX('Hidden_Value_Flags'!$L:$L,{prev_helper}+1):'Hidden_Value_Flags'!$L$100,0)"
+                            f"+{prev_helper},\"\"))"
+                        )
+                    ws_val.cell(row=out_row, column=helper_col, value=helper_formula)
+                    source_row = visible_rows[idx] if idx < len(visible_rows) else None
+                    if source_row is not None:
+                        label_value = f"Flag {idx + 1}"
+                        title_value = ws_hvf.cell(row=source_row, column=f_title).value if f_title else ""
+                        score_value = ws_hvf.cell(row=source_row, column=f_score).value if f_score else None
+                        severity_value = ws_hvf.cell(row=source_row, column=f_severity).value if f_severity else ""
+                        support_value = ws_hvf.cell(row=source_row, column=f_support).value if f_support else ""
+                    else:
+                        label_value = "No triggered flags"
+                        title_value = "No scored hidden-value flags currently triggered"
+                        score_value = None
+                        severity_value = "Info"
+                        support_value = "Audit candidates remain in Hidden_Value_Flags / Hidden_Value_Audit."
                     ws_val.cell(
                         row=out_row,
                         column=label_col,
-                        value=f'=IF({no_trigger_formula},"No triggered flags",IF(${helper_letter}{out_row}="","","Flag {idx + 1}"))',
+                        value=label_value,
                     )
                     ws_val.cell(
                         row=out_row,
                         column=title_col,
-                        value=(
-                            f'=IF({no_trigger_formula},'
-                            '"No scored hidden-value flags currently triggered",'
-                            f'IF(${helper_letter}{out_row}="","",INDEX(\'Hidden_Value_Flags\'!$C:$C,${helper_letter}{out_row})))'
-                        ),
+                        value=title_value,
                     )
                     score_cell = ws_val.cell(
                         row=out_row,
                         column=score_col,
-                        value=f'=IF({no_trigger_formula},"",IF(${helper_letter}{out_row}="","",INDEX(\'Hidden_Value_Flags\'!$D:$D,${helper_letter}{out_row})))',
+                        value=score_value,
                     )
                     score_cell.number_format = "0"
                     score_cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=False)
                     ws_val.cell(
                         row=out_row,
                         column=severity_col,
-                        value=f'=IF({no_trigger_formula},"Info",IF(${helper_letter}{out_row}="","",INDEX(\'Hidden_Value_Flags\'!$E:$E,${helper_letter}{out_row})))',
+                        value=severity_value,
                     )
                     ws_val.cell(
                         row=out_row,
                         column=support_col,
-                        value=(
-                            f'=IF({no_trigger_formula},'
-                            '"Audit candidates remain in Hidden_Value_Flags / Hidden_Value_Audit.",'
-                            f'IF(${helper_letter}{out_row}="","",INDEX(\'Hidden_Value_Flags\'!$K:$K,${helper_letter}{out_row})))'
-                        ),
+                        value=support_value,
                     )
                 for clear_row in range(flags_header_row + 2 + visible_count, flags_header_row + 7):
                     _unmerge_row_slice(clear_row, label_col, support_end_col)

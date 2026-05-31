@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -80,8 +81,11 @@ def _find_segment_row_after_group(ws: Worksheet, group: str, segment: str, *, st
 def _promise_row(ws: Worksheet, section: str, metric: str) -> int:
     section_row = _find_row(ws, section)
     header_row = _find_row(ws, "Metric", start=section_row)
-    for rr in range(header_row + 1, min(header_row + 12, int(ws.max_row or 0)) + 1):
-        if _text(ws.cell(rr, 1).value) == metric:
+    for rr in range(header_row + 1, int(ws.max_row or 0) + 1):
+        first = _text(ws.cell(rr, 1).value)
+        if rr > header_row + 1 and first.endswith("revisions"):
+            break
+        if first == metric:
             return rr
     raise AssertionError(f"{ws.title}: metric {metric!r} missing under {section!r}")
 
@@ -111,6 +115,71 @@ def test_pbi_operating_drivers_includes_2026_q1_segment_support_from_release() -
     wb.close()
 
 
+def test_pbi_operating_drivers_reportable_segment_totals_stay_populated() -> None:
+    wb = _load_model("PBI")
+    ws = wb["Operating_Drivers"]
+    section = _find_row_contains(ws, "Segment support", start=1)
+    header = _find_row(ws, "Metric / segment", start=section)
+
+    expected_totals = {
+        "Revenue ($m)": {
+            "2024-Q2": 489.745,
+            "2024-Q4": 516.121,
+            "2025-Q4": 477.625,
+            "2026-Q1": 477.413,
+        },
+        "Adj EBIT / operating profit ($m)": {
+            "2024-Q2": 118.950,
+            "2024-Q4": 142.386,
+            "2025-Q4": 154.780,
+            "2026-Q1": 152.708,
+        },
+        "D&A ($m)": {
+            "2024-Q2": 20.524,
+            "2024-Q4": 20.534,
+            "2025-Q4": 20.303,
+            "2026-Q1": 18.611,
+        },
+        "Adj EBITDA ($m)": {
+            "2024-Q2": 139.474,
+            "2024-Q4": 162.920,
+            "2025-Q4": 175.083,
+            "2026-Q1": 171.319,
+        },
+    }
+    for group, quarter_values in expected_totals.items():
+        row = _find_segment_row_after_group(ws, group, "Total reportable segments", start=header)
+        for quarter, expected in quarter_values.items():
+            col = _quarter_col(ws, header, quarter)
+            assert _num(ws.cell(row, col).value) == pytest.approx(expected, abs=0.02), (
+                f"PBI Operating_Drivers {group}/Total reportable segments {quarter} should stay source-backed"
+            )
+    wb.close()
+
+
+def test_pbi_bs_segments_2026_q1_source_backed_residual_and_corporate_values() -> None:
+    wb = _load_model("PBI")
+    ws = wb["BS_Segments"]
+    header = _find_row(ws, "Quarter")
+    q1_2026 = _quarter_col(ws, header, "2026-Q1")
+
+    expected = {
+        ("Revenue", "Other operations"): 0.0,
+        ("Adjusted EBIT", "Other operations"): 0.0,
+        ("Adjusted EBIT", "Corporate expense"): -22.331,
+        ("Depreciation & amortization", "Other operations"): 0.0,
+        ("Depreciation & amortization", "Corporate expense"): 7.030,
+        ("Adjusted EBITDA", "Other operations"): 0.0,
+        ("Adjusted EBITDA", "Corporate expense"): -15.301,
+    }
+    for group, segment in expected:
+        row = _find_segment_row_after_group(ws, group, segment, start=header)
+        assert _num(ws.cell(row, q1_2026).value) == pytest.approx(expected[(group, segment)], abs=0.02), (
+            f"PBI BS_Segments {group}/{segment} 2026-Q1 should come from or reconcile to the Q1 release"
+        )
+    wb.close()
+
+
 def test_pbi_promise_adjusted_ebit_and_eps_progress_are_source_backed() -> None:
     wb = _load_model("PBI")
     ws = wb["Promise_Progress_UI"]
@@ -126,6 +195,33 @@ def test_pbi_promise_adjusted_ebit_and_eps_progress_are_source_backed() -> None:
         assert _text(ws.cell(row, 5).value) == actual
         assert _text(ws.cell(row, 6).value) == progress
         assert _text(ws.cell(row, 7).value) != "Completed"
+    wb.close()
+
+
+def test_pbi_promise_q4_rows_split_quarter_actual_from_fy_progress() -> None:
+    wb = _load_model("PBI")
+    ws = wb["Promise_Progress_UI"]
+
+    expected_final_2025 = {
+        "Revenue guidance": ("$478m", "FY: $1.89bn", "Missed"),
+        "Adjusted EBIT guidance": ("$132m", "FY: $461.3m", "Hit"),
+        "Adjusted EPS guidance": ("$0.45", "FY: $1.35", "Hit"),
+        "FCF target": ("$212m", "FY: $358.3m", "Hit"),
+    }
+    for metric, (actual, progress, status) in expected_final_2025.items():
+        row = _promise_row(ws, "2025-Q4 revisions", metric)
+        assert _text(ws.cell(row, 4).value) == "Completed"
+        assert _text(ws.cell(row, 5).value) == actual
+        assert _text(ws.cell(row, 6).value) == progress
+        assert _text(ws.cell(row, 7).value) == status
+        assert _text(ws.cell(row, 8).value) == "2025 year"
+        assert "Q4 actual shown in Actual" in _text(ws.cell(row, 11).value)
+
+    row = _promise_row(ws, "2024-Q4 revisions", "Adjusted EBIT guidance")
+    assert _text(ws.cell(row, 4).value) == "Completed"
+    assert _text(ws.cell(row, 5).value) == "$114m"
+    assert _text(ws.cell(row, 6).value) == "FY: $385.2m"
+    assert _text(ws.cell(row, 7).value) == "Beat"
     wb.close()
 
 
@@ -156,6 +252,117 @@ def test_anf_operating_drivers_keeps_brand_and_geography_q4_values() -> None:
         net_sales = _num(ws.cell(_find_row(ws, "Net sales", start=header), col).value)
         assert abercrombie is not None and hollister is not None and net_sales is not None
         assert abercrombie + hollister == pytest.approx(net_sales, abs=0.3)
+    wb.close()
+
+
+def test_anf_promise_q4_splits_quarter_actual_from_fy_progress() -> None:
+    wb = _load_model("ANF")
+    ws = wb["Promise_Progress_UI"]
+
+    expected_final = {
+        "Net sales growth": ("+5.4%", "FY: +6%", "Completed"),
+        "Operating margin": ("14.1%", "FY: 13.3% GAAP / 12.5% adjusted", "Mixed"),
+        "Adjusted EPS": ("$3.68 adjusted", "FY: $9.86 adjusted", "Missed"),
+        "Capex": ("$55.6m", "FY: $240.8m", "Hit"),
+        "Diluted shares": ("46.8m diluted", "Δ vs guide: -1.2m; Δ YTD: -5.6m", "Completed"),
+        "Share repurchases": ("$100.0m", "FY: $450m", "Completed"),
+    }
+    for metric, (actual, progress, status) in expected_final.items():
+        row = _promise_row(ws, "2025-Q4 revisions", metric)
+        assert _text(ws.cell(row, 5).value) == actual
+        assert _text(ws.cell(row, 6).value) == progress
+        assert _text(ws.cell(row, 7).value) == status
+        assert _text(ws.cell(row, 8).value) == "2025 year"
+        assert _text(ws.cell(row, 10).value) == "2026-03-04"
+        assert "Q4 actual shown in Actual" in _text(ws.cell(row, 11).value)
+
+    expected_pre_release = {
+        "Net sales growth": ("+5.4%", "FY: +6%"),
+        "Operating margin": ("14.1%", "FY: 13.3% GAAP / 12.5% adjusted"),
+        "Adjusted EPS": ("$3.68 adjusted", "FY: $9.86 adjusted"),
+        "Capex": ("$55.6m", "FY: $240.8m"),
+    }
+    for metric, (actual, progress) in expected_pre_release.items():
+        row = _promise_row(ws, "2025-Q4 pre-release update revisions", metric)
+        assert _text(ws.cell(row, 5).value) == actual
+        assert _text(ws.cell(row, 6).value) == progress
+        assert _text(ws.cell(row, 7).value) == "On track"
+        assert _text(ws.cell(row, 10).value) == "2026-01-12"
+        assert "pre-release was issued before final report" in _text(ws.cell(row, 11).value)
+
+    for section, metric, expected_actual, expected_progress in (
+        ("2025-Q1 revisions", "Adjusted EPS", "$1.59 adjusted", "YTD: $1.59 adjusted"),
+        ("2025-Q2 revisions", "Adjusted EPS", "$2.32 adjusted", "YTD: $3.91 adjusted"),
+        ("2025-Q3 revisions", "Adjusted EPS", "$2.36 adjusted", "YTD: $6.27 adjusted"),
+    ):
+        row = _promise_row(ws, section, metric)
+        assert _text(ws.cell(row, 5).value) == expected_actual
+        assert _text(ws.cell(row, 6).value) == expected_progress
+        assert _text(ws.cell(row, 7).value) == "On track"
+
+    for section, expected_actual, expected_progress in (
+        ("2025-Q1 revisions", "50.6m diluted", "Δ vs guide: +1.6m; Δ YTD: -1.8m"),
+        ("2025-Q2 revisions", "48.6m diluted", "Δ vs guide: -0.4m; Δ YTD: -3.9m"),
+        ("2025-Q3 revisions", "47.9m diluted", "Δ vs guide: -0.1m; Δ YTD: -4.6m"),
+    ):
+        row = _promise_row(ws, section, "Diluted shares")
+        assert _text(ws.cell(row, 5).value) == expected_actual
+        assert _text(ws.cell(row, 6).value) == expected_progress
+        assert _text(ws.cell(row, 7).value) == "On track"
+    wb.close()
+
+
+def test_anf_promise_timeline_rows_keep_hidden_source_keys_aligned() -> None:
+    wb = _load_model("ANF")
+    ws = wb["Promise_Progress_UI"]
+    rows = []
+    current_section = ""
+    for rr in range(1, int(ws.max_row or 0) + 1):
+        first = _text(ws.cell(rr, 1).value)
+        if first.endswith("revisions"):
+            current_section = first
+            continue
+        if not current_section or first in {"", "Metric"}:
+            continue
+        source_date = _text(ws.cell(rr, 10).value)
+        source_note = _text(ws.cell(rr, 11).value)
+        if not source_date and not source_note:
+            continue
+        rows.append((rr, current_section, first))
+
+    assert rows, "ANF Promise_Progress_UI should have source-backed timeline rows"
+    blank_keys = [f"{section}!A{rr} {metric}" for rr, section, metric in rows if not _text(ws.cell(rr, 15).value)]
+    assert not blank_keys, "ANF source-backed timeline rows should retain hidden source keys: " + ", ".join(blank_keys[:8])
+
+    bad_visible_key_values = {"on track", "completed", "hit", "missed", "mixed", "open", "2025 year"}
+    for rr, _section, _metric in rows:
+        hidden_key = _text(ws.cell(rr, 15).value)
+        assert hidden_key.startswith("guidance:"), f"ANF Promise_Progress_UI!O{rr} has misaligned hidden key {hidden_key!r}"
+        assert hidden_key.lower() not in bad_visible_key_values
+        assert not re.fullmatch(r"20\d{2}-\d{2}-\d{2}", hidden_key)
+        assert not hidden_key.startswith(("$", "+"))
+        metric_slug = re.sub(r"[^a-z0-9]+", "_", _metric.lower()).strip("_")
+        source_date_slug = re.sub(r"[^a-z0-9]+", "_", _text(ws.cell(rr, 10).value).lower()).strip("_")
+        assert f":{metric_slug}:" in hidden_key, (
+            f"ANF Promise_Progress_UI!O{rr} key {hidden_key!r} should align to visible metric {_metric!r}"
+        )
+        if source_date_slug:
+            assert hidden_key.endswith(source_date_slug), (
+                f"ANF Promise_Progress_UI!O{rr} key {hidden_key!r} should align to source date {source_date_slug!r}"
+            )
+
+    q4_expectations = {
+        ("2025-Q4 revisions", "Net sales growth"): ("+5.4%", "FY: +6%", "Completed"),
+        ("2025-Q4 revisions", "Capex"): ("$55.6m", "FY: $240.8m", "Hit"),
+        ("2025-Q4 revisions", "Share repurchases"): ("$100.0m", "FY: $450m", "Completed"),
+        ("2025-Q4 pre-release update revisions", "Adjusted EPS"): ("$3.68 adjusted", "FY: $9.86 adjusted", "On track"),
+    }
+    for (section, metric), (actual, progress, status) in q4_expectations.items():
+        row = _promise_row(ws, section, metric)
+        assert _text(ws.cell(row, 5).value) == actual
+        assert _text(ws.cell(row, 6).value) == progress
+        assert _text(ws.cell(row, 7).value) == status
+        assert _text(ws.cell(row, 15).value)
     wb.close()
 
 
@@ -240,6 +447,122 @@ def test_gpre_promise_facility_qualification_remains_progress_not_completion() -
     assert _text(ws.cell(row, 10).value) == "2026-03-31"
     assert "2049" not in " ".join(_text(ws.cell(row, cc).value) for cc in range(1, 12))
     wb.close()
+
+
+def test_gpre_promise_source_backed_45z_and_cost_savings_values() -> None:
+    wb = _load_model("GPRE")
+    ws = wb["Promise_Progress_UI"]
+
+    q4_45z = _promise_row(ws, "2025-Q4 revisions", "45Z monetization")
+    assert _text(ws.cell(q4_45z, 4).value) == "Updated"
+    assert _text(ws.cell(q4_45z, 5).value) == "$23.4m"
+    assert _text(ws.cell(q4_45z, 6).value) == "YTD: $49.9m"
+    assert _text(ws.cell(q4_45z, 7).value) == "Hit"
+    assert _text(ws.cell(q4_45z, 8).value) == "2025-Q4"
+    assert _text(ws.cell(q4_45z, 9).value) == "2025-Q4"
+    assert _text(ws.cell(q4_45z, 10).value) == "2025-12-31"
+    assert "YTD adds Q3 $26.5m and Q4 $23.4m" in _text(ws.cell(q4_45z, 11).value)
+
+    expected_cost_rows = {
+        "2024-Q4 revisions": ("$30m", "Executed: $30m"),
+        "2025-Q1 revisions": ("$45m", "Remaining: $5m"),
+        "2025-Q2 revisions": (">= $50m", "On pace to exceed $50m"),
+    }
+    for section, (actual, progress) in expected_cost_rows.items():
+        row = _promise_row(ws, section, "Cost savings target")
+        assert _text(ws.cell(row, 5).value) == actual
+        assert _text(ws.cell(row, 6).value) == progress
+        assert _text(ws.cell(row, 7).value) == "On track"
+        assert _text(ws.cell(row, 8).value) == "Annualized program"
+
+    wb.close()
+
+
+def test_gpre_bs_segments_quarterly_total_assets_has_q2_2024_source_value() -> None:
+    wb = _load_model("GPRE")
+    ws = wb["BS_Segments"]
+    header = _find_row(ws, "Quarter")
+    col = _quarter_col(ws, header, "2024-Q2")
+    row = _find_row(ws, "Total assets", start=header)
+    assert _num(ws.cell(row, col).value) == pytest.approx(1763.6, abs=0.01)
+    wb.close()
+
+
+def test_gpre_bs_segments_current_maturities_use_debt_current_source_values() -> None:
+    wb = _load_model("GPRE")
+    ws = wb["BS_Segments"]
+    header = _find_row(ws, "Quarter")
+    row = _find_row(ws, "Current maturities of long-term debt", start=header)
+    expected_values = {
+        "2024-Q2": 1.830,
+        "2024-Q3": 1.875,
+        "2024-Q4": 2.118,
+        "2025-Q1": 2.118,
+        "2025-Q2": 2.125,
+        "2025-Q3": 2.042,
+        "2025-Q4": 3.924,
+        "2026-Q1": 69.316,
+    }
+    for quarter, expected in expected_values.items():
+        col = _quarter_col(ws, header, quarter)
+        assert _num(ws.cell(row, col).value) == pytest.approx(expected, abs=0.001), (
+            f"GPRE BS_Segments current maturities {quarter} should use debt_current XBRL source values"
+        )
+    wb.close()
+
+
+def test_gpre_bs_segments_annual_total_assets_includes_2023_source_values() -> None:
+    wb = _load_model("GPRE")
+    ws = wb["BS_Segments"]
+    annual_header = _find_row(ws, "Annual segments")
+    year_row = _find_row(ws, "Year", start=annual_header)
+    year_cols = {
+        int(ws.cell(year_row, cc).value): cc
+        for cc in range(2, ws.max_column + 1)
+        if str(ws.cell(year_row, cc).value or "").isdigit()
+    }
+    assert {2023, 2024, 2025}.issubset(set(year_cols))
+
+    total_assets_header = _find_row(ws, "Total assets", start=year_row)
+    expected_2023 = {
+        "Ethanol production": 1275.562,
+        "Agribusiness and energy services": 413.937,
+        "Corporate assets": 254.300,
+        "Intersegment eliminations": -4.477,
+    }
+    component_sum = 0.0
+    for segment, expected_value in expected_2023.items():
+        row = _find_row(ws, segment, start=total_assets_header)
+        value = _num(ws.cell(row, year_cols[2023]).value)
+        assert value == pytest.approx(expected_value, abs=0.001), (
+            f"GPRE annual Total assets 2023 {segment} should come from FY2024 10-K comparatives"
+        )
+        component_sum += float(value)
+        assert _num(ws.cell(row, year_cols[2024]).value) is not None
+        assert _num(ws.cell(row, year_cols[2025]).value) is not None
+    assert component_sum == pytest.approx(1939.322, abs=0.001)
+    wb.close()
+
+
+def test_carbon_equipment_liabilities_render_rule_is_sector_or_value_specific() -> None:
+    from pbi_xbrl.excel_writer_context import _should_render_carbon_equipment_liabilities
+
+    assert _should_render_carbon_equipment_liabilities("GPRE", {}) is True
+    assert _should_render_carbon_equipment_liabilities("PBI", {}) is False
+    assert _should_render_carbon_equipment_liabilities("ANF", {}) is False
+    assert _should_render_carbon_equipment_liabilities("XYZ", {"2026-Q1": 12.3}) is True
+
+
+def test_carbon_equipment_liabilities_visible_only_when_relevant() -> None:
+    expected = {"PBI": False, "ANF": False, "GPRE": True}
+    for ticker, should_render in expected.items():
+        wb = _load_model(ticker)
+        ws = wb["BS_Segments"]
+        labels = {_text(ws.cell(rr, 1).value) for rr in range(1, int(ws.max_row or 0) + 1)}
+        assert ("Carbon equipment liabilities" in labels) is should_render, (
+            f"{ticker} should {'render' if should_render else 'suppress'} blank/irrelevant Carbon equipment liabilities"
+        )
+        wb.close()
 
 
 def test_gpre_investment_case_45z_baseline_uses_reported_baseline_not_unknown() -> None:

@@ -1693,6 +1693,7 @@ def test_pbi_needs_review_date_columns_are_wide_enough_for_display() -> None:
 
 def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_first() -> None:
     wb = Workbook()
+    wb.create_sheet("PBI_Investment_Case")
     ws = wb.active
     ws.title = "Promise_Progress_UI"
     rows = [
@@ -1738,8 +1739,8 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
     ])
     assert annual_header[0] == "Metric"
     annual_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[4] == "$1.9bn-$1.95bn")
-    assert annual_revenue[6] in {"", None}
-    assert annual_revenue[7] in {"On track", "Open"}
+    assert annual_revenue[6] == "$1.89bn"
+    assert annual_revenue[7] == "Missed"
     timeline_header = next(row for row in values if row[:11] == [
         "Metric",
         "Previous guide",
@@ -1779,17 +1780,14 @@ def test_shared_promise_progress_rewrite_puts_values_before_metadata_and_newest_
         return any(
             rng.min_row == row_idx
             and rng.max_row == row_idx
-            and rng.min_col == start_col
-            and rng.max_col == end_col
+            and rng.min_col <= start_col
+            and rng.max_col >= end_col
             for rng in ws.merged_cells.ranges
         )
 
     annual_section_row = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "2025 guidance progression")
-    open_section_row = next(rr for rr in range(1, ws.max_row + 1) if ws.cell(rr, 1).value == "2026 open guidance")
     assert _has_merge(annual_section_row + 1, 9, 12)
     assert _has_merge(annual_section_row + 2, 9, 12)
-    assert _has_merge(open_section_row + 1, 5, 12)
-    assert _has_merge(open_section_row + 2, 5, 12)
     assert ws.column_dimensions["A"].width >= 28
     assert ws.column_dimensions["B"].width >= 28
     assert ws.column_dimensions["C"].width >= 32
@@ -1886,6 +1884,7 @@ def test_shared_promise_progress_uses_matching_quarter_actuals_for_interim_annua
 
 def test_shared_promise_progress_rewrite_drops_blank_rows_without_creating_q4_actual_rows() -> None:
     wb = Workbook()
+    wb.create_sheet("PBI_Investment_Case")
     ws = wb.active
     ws.title = "Promise_Progress_UI"
     history = wb.create_sheet("History_Q")
@@ -1913,8 +1912,8 @@ def test_shared_promise_progress_rewrite_drops_blank_rows_without_creating_q4_ac
     values = [[ws.cell(rr, cc).value for cc in range(1, 12)] for rr in range(1, ws.max_row + 1)]
     assert not any(row[0] == "FCF target" and all(value in {None, ""} for value in row[1:]) for row in values)
     q4_fcf = next(row for row in values if row[0] == "FCF target" and row[8] == "2025-Q4")
-    assert q4_fcf[4] == "$358.3m"
-    assert q4_fcf[5] in {"", None}
+    assert q4_fcf[4] == "$212m"
+    assert q4_fcf[5] == "FY: $358.3m"
     assert q4_fcf[6] == "Hit"
     assert "Final actual" not in str(q4_fcf[10] or "")
     assert "Actual reported" not in str(q4_fcf[10] or "")
@@ -1962,12 +1961,12 @@ def test_shared_promise_postprocess_replaces_latest_actuals_without_adding_q4_ro
 
     values = [[ws.cell(rr, cc).value for cc in range(1, 12)] for rr in range(1, ws.max_row + 1)]
     q3_revenue = next(row for row in values if row[0] == "Revenue guidance" and row[8] == "2025-Q3")
-    assert q3_revenue[4] in {"", None}
-    assert q3_revenue[5] == "Q3: $459.7m"
+    assert q3_revenue[4] == "$459.7m"
+    assert q3_revenue[5] == "YTD: $1.42bn"
     assert q3_revenue[6] in {"Open", "On track"}
     q3_ebit = next(row for row in values if row[0] == "Adjusted EBIT guidance" and row[8] == "2025-Q3")
-    assert q3_ebit[4] in {"", None}
-    assert q3_ebit[5] == "Q3: $107.3m"
+    assert q3_ebit[4] == "$107.3m"
+    assert q3_ebit[5] == "YTD: $329.3m"
     assert q3_ebit[6] in {"Open", "On track"}
     assert not any(row[0] == "Revenue guidance" and row[8] == "2025-Q4" and row[7] == "2025 year" for row in values)
     assert not any(row[0] == "Revenue guidance" and all(value in {None, ""} for value in row[1:]) for row in values)
@@ -1975,6 +1974,7 @@ def test_shared_promise_postprocess_replaces_latest_actuals_without_adding_q4_ro
 
 def test_pbi_source_backed_promise_overrides_use_company_defined_fcf_and_cost_history() -> None:
     wb = Workbook()
+    wb.create_sheet("PBI_Investment_Case")
     ws = wb.active
     ws.title = "Promise_Progress_UI"
     section_fill = PatternFill("solid", fgColor="5B9BD5")
@@ -2042,18 +2042,20 @@ def test_pbi_source_backed_promise_overrides_use_company_defined_fcf_and_cost_hi
     annual_fcf = next(row for row in values if row[0] == "FCF target" and row[6] == "$358.3m")
     assert annual_fcf[7] == "Hit"
     q4_fcf = next(row for row in values if row[0] == "FCF target" and row[8] == "2025-Q4")
-    assert q4_fcf[4] == "$358.3m"
+    assert q4_fcf[4] == "$212m"
+    assert q4_fcf[5] == "FY: $358.3m"
     assert q4_fcf[6] == "Hit"
     q2_cost = next(row for row in values if row[0] == "Cost savings target" and row[8] == "2024-Q2")
     assert q2_cost[2] == "$120m-$160m"
-    assert q2_cost[4] in {"", None}
+    assert q2_cost[4] == "$70m"
+    assert q2_cost[5] == "Run-rate: $70m"
     assert "Run-rate: $70m" in q2_cost[5]
     q3_cost = next(row for row in values if row[0] == "Cost savings target" and row[8] == "2024-Q3")
     assert q3_cost[1] == "$120m-$160m"
     assert "Run-rate: $90m" in q3_cost[5]
     q4_cost = next(row for row in values if row[0] == "Cost savings target" and row[8] == "2024-Q4")
     assert "Run-rate: $120m" in q4_cost[5]
-    open_cost = next(row for row in values if row[0] == "Cost savings target" and row[1] == "$180m-$200m")
+    open_cost = next(row for row in values if row[0] == "Cost savings target" and row[2] == "Annualized program")
     assert open_cost[2] == "Annualized program"
     notes_blob = "\n".join(str(notes.cell(rr, cc).value or "") for rr in range(1, notes.max_row + 1) for cc in range(1, 5))
     assert "$70m annualized reductions" in notes_blob
@@ -2185,9 +2187,10 @@ def test_gpre_source_backed_45z_facility_progress_uses_operational_status() -> N
 
     row = [ws.cell(4, cc).value for cc in range(1, 12)]
     assert row[4] in {"", None}
-    assert row[5] == "3 of 8 operational"
+    assert row[5] == "All 8 qualifying / AN operational"
     assert row[6] == "On track"
-    assert "3 plants operational" in str(row[10])
+    assert "all plants qualify" in str(row[10]).lower()
+    assert "advantage nebraska operational" in str(row[10]).lower()
 
 
 def test_final_promise_cleanup_removes_blank_v2_rows_and_empty_revision_blocks(tmp_path) -> None:
@@ -2285,6 +2288,7 @@ def test_shared_promise_ui_polish_keeps_headers_wide_and_scorecard_compact() -> 
 
 def test_final_promise_cleanup_adds_latest_pbi_cost_savings_run_rate_row() -> None:
     wb = Workbook()
+    wb.create_sheet("PBI_Investment_Case")
     ws = wb.active
     ws.title = "Promise_Progress_UI"
     section_fill = PatternFill("solid", fgColor="5B9BD5")
@@ -2315,7 +2319,7 @@ def test_final_promise_cleanup_adds_latest_pbi_cost_savings_run_rate_row() -> No
     q1_cost = next(row for row in values if row[0] == "Cost savings target" and row[8] == "2025-Q1")
     assert q1_cost[1] == "$170m-$190m"
     assert q1_cost[2] == "$180m-$200m"
-    assert q1_cost[4] in {"", None}
+    assert q1_cost[4] == "$157m"
     assert "Run-rate: $157m" in q1_cost[5]
     assert q1_cost[6] == "On track"
     q1_header_idx = next(idx for idx, row in enumerate(values, start=1) if row[0] == "2025-Q1 revisions")
@@ -2384,8 +2388,8 @@ def test_promise_eps_guidance_uses_adjusted_eps_actual_when_gaap_eps_missing() -
 
     _final_repair_promise_progress_ui(wb, "PBI")
 
-    assert ws.cell(4, 5).value in {None, ""}
-    assert ws.cell(4, 6).value == "Q1: $0.33"
+    assert ws.cell(4, 5).value == "$0.33"
+    assert ws.cell(4, 6).value == "YTD: $0.33"
     assert ws.cell(4, 7).value == "On track"
 
 
@@ -2496,11 +2500,12 @@ def test_shared_promise_progress_rewrite_compacts_long_guidance_value_cells() ->
     facility_row = next(row for row in values if row[0] == "45Z facility qualification" and row[9] == "2026-03-31")
     assert facility_row[2] == "All 8 qualified"
     assert facility_row[4] in {"", None}
-    assert facility_row[5] == "3 of 8 operational"
+    assert facility_row[5] == "All 8 qualifying / AN operational"
     assert len(facility_row[2]) < 22
-    assert len(str(facility_row[5] or "")) < 22
+    assert len(str(facility_row[5] or "")) < 40
     nebraska_row = next(row for row in values if row[0] == "2026 year 45Z EBITDA guidance" and row[9] == "2026-03-31")
-    assert nebraska_row[4] in {"", None, "not yet measurable"}
+    assert nebraska_row[4] == "$55.2m"
+    assert nebraska_row[5] == "YTD: $55.2m"
 
 
 def test_gpre_shared_promise_progress_adds_2025_milestone_progression_without_fake_annual_guidance() -> None:

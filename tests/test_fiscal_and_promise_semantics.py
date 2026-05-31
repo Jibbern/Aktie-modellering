@@ -756,6 +756,7 @@ def test_gpre_45z_monetization_revision_chain_and_facility_progress() -> None:
         _, q4_row = q4_rows[0]
         assert _cell_text(q4_row.get("change type")) in {"Updated", "Maintained"}
         assert _cell_text(q4_row.get("actual")) == "$23.4m"
+        assert _cell_text(q4_row.get("progress / run-rate")) == "YTD: $49.9m"
         assert "$15.0m-$25.0m" in _cell_text(q4_row.get("previous guide"))
 
         annual_45z = [
@@ -1123,7 +1124,7 @@ def test_anf_bs_segments_fills_source_backed_or_derivable_brand_quarters() -> No
         wb.close()
 
 
-def test_anf_pre_release_can_show_final_actual_for_same_horizon_with_timing_note() -> None:
+def test_anf_pre_release_can_show_q4_actual_and_fy_progress_for_same_horizon() -> None:
     wb = _load_model("ANF")
     try:
         blocks = _promise_revision_blocks(wb["Promise_Progress_UI"])
@@ -1143,14 +1144,41 @@ def test_anf_pre_release_can_show_final_actual_for_same_horizon_with_timing_note
         assert pre_rows, "ANF pre-release block missing"
         assert final_rows, "ANF final 2025-Q4 block missing"
         pre_by_metric = {_cell_text(row.get("metric")): row for _, row in pre_rows}
-        assert _cell_text(pre_by_metric["Net sales growth"].get("actual")) == "+6%"
-        assert "Year result shown for comparison" in _cell_text(pre_by_metric["Net sales growth"].get("source / note"))
+        assert _cell_text(pre_by_metric["Net sales growth"].get("actual")) == "+5.4%"
+        assert _cell_text(pre_by_metric["Net sales growth"].get("progress / run-rate")) == "FY: +6%"
+        assert "pre-release was issued before final report" in _cell_text(pre_by_metric["Net sales growth"].get("source / note"))
         assert _cell_text(pre_by_metric["Net sales growth"].get("status")) == "On track"
-        final_actual_metrics = {_cell_text(row.get("metric")): _cell_text(row.get("actual")) for _, row in final_rows}
-        assert final_actual_metrics.get("Net sales growth") == "+6%"
-        assert final_actual_metrics.get("Adjusted EPS") == "$9.86 adjusted"
+        final_by_metric = {_cell_text(row.get("metric")): row for _, row in final_rows}
+        assert _cell_text(final_by_metric["Net sales growth"].get("actual")) == "+5.4%"
+        assert _cell_text(final_by_metric["Net sales growth"].get("progress / run-rate")) == "FY: +6%"
+        assert _cell_text(final_by_metric["Adjusted EPS"].get("actual")) == "$3.68 adjusted"
+        assert _cell_text(final_by_metric["Adjusted EPS"].get("progress / run-rate")) == "FY: $9.86 adjusted"
         assert "Adjusted EPS / EPS" not in "\n".join(
             _cell_text(cell.value) for row in wb["Promise_Progress_UI"].iter_rows(min_col=1, max_col=10) for cell in row
         )
+    finally:
+        wb.close()
+
+
+def test_gpre_future_year_guidance_uses_horizon_section_without_duplicate_capex_rows() -> None:
+    wb = _load_model("GPRE")
+    try:
+        blocks = _promise_revision_blocks(wb["Promise_Progress_UI"])
+        capex_by_block = {
+            block: [(idx, row) for idx, row in rows if _cell_text(row.get("metric")) == "Capex guidance (2025 year)"]
+            for block, rows in blocks.items()
+        }
+        assert not capex_by_block.get("2024-Q4 revisions"), (
+            "Future-year 2025 capex guidance should not render as an ordinary 2024-Q4 revision"
+        )
+        q1_capex = capex_by_block.get("2025-Q1 revisions", [])
+        assert len(q1_capex) == 1, "2025 capex guidance should be merged into a single 2025-Q1 timeline row"
+        _row_idx, row = q1_capex[0]
+        assert _cell_text(row.get("previous guide")) == "$20m-$35m"
+        assert _cell_text(row.get("new/current guide")) == "~$20m remaining"
+        assert _cell_text(row.get("horizon")) == "2025 year"
+        assert _cell_text(row.get("stated in")) == "2025-Q1"
+        note = _cell_text(row.get("source / note"))
+        assert "2024-Q4" in note and "$20m-$35m" in note
     finally:
         wb.close()

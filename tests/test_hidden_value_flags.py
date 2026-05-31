@@ -51,6 +51,17 @@ def _make_hist() -> pd.DataFrame:
     )
 
 
+def _make_price_linked_hist() -> pd.DataFrame:
+    hist = _make_hist().copy()
+    hist["cfo"] = 200.0
+    hist["capex"] = 50.0
+    hist["ebit"] = 180.0
+    hist["ebitda"] = 220.0
+    hist["interest_expense_net"] = 20.0
+    hist["shares_outstanding"] = 100.0
+    return hist.drop(columns=["market_cap"])
+
+
 def _ttm(series: pd.Series) -> pd.Series:
     return pd.to_numeric(series, errors="coerce").rolling(4, min_periods=4).sum()
 
@@ -260,6 +271,39 @@ def test_hidden_value_flags_edge_cases_disable_triggers() -> None:
     codes = set(flags["flag_code"].tolist())
     assert "C" not in codes
     assert "D" not in codes
+    assert "E" not in codes
+
+
+def test_price_linked_fcf_yield_flags_use_price_when_market_cap_missing() -> None:
+    hist = _make_price_linked_hist()
+
+    flags = build_hidden_value_flags(hist=hist, price=2.0)
+    codes = set(flags["flag_code"].astype(str))
+
+    assert "C" in codes
+    assert "E" in codes
+
+
+def test_price_linked_fcf_yield_flags_do_not_false_trigger_without_price() -> None:
+    hist = _make_price_linked_hist()
+
+    base = build_signals_base(hist=hist)
+    b = base.set_index(pd.to_datetime(base["quarter"])).sort_index()
+    assert pd.isna(b.loc[b.index.max(), "fcf_yield"])
+
+    flags = build_hidden_value_flags(hist=hist)
+    codes = set(flags["flag_code"].astype(str))
+    assert "C" not in codes
+    assert "E" not in codes
+
+
+def test_price_linked_fcf_yield_flags_respect_high_price_false_case() -> None:
+    hist = _make_price_linked_hist()
+
+    flags = build_hidden_value_flags(hist=hist, price=100.0)
+    codes = set(flags["flag_code"].astype(str))
+
+    assert "C" not in codes
     assert "E" not in codes
 
 

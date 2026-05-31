@@ -321,6 +321,48 @@ def test_quarter_narrative_and_ui_have_no_noisy_raw_text() -> None:
             wb.close()
 
 
+def test_quarter_narrative_amount_excludes_descriptor_prose() -> None:
+    descriptor_patterns = (
+        "are geographic segments",
+        "are brand",
+    )
+    for ticker in TICKERS:
+        wb = _load_workbook(ticker)
+        try:
+            data_ws = wb["Quarter_Narrative_Data"]
+            headers = _headers(data_ws)
+            amount_col = headers.index("Amount") + 1
+            rows = _narrative_rows(data_ws)
+            descriptor_hits: List[str] = []
+            prose_hits: List[str] = []
+            for rr, row in rows:
+                amount_txt = _text(data_ws.cell(rr, amount_col).value)
+                if not amount_txt:
+                    continue
+                amount_low = amount_txt.lower()
+                if any(pattern in amount_low for pattern in descriptor_patterns):
+                    descriptor_hits.append(f"{ticker} Quarter_Narrative_Data!M{rr}: {amount_txt}")
+                if len(amount_txt) > 55 and not re.search(r"[$%0-9]", amount_txt):
+                    prose_hits.append(f"{ticker} Quarter_Narrative_Data!M{rr}: {amount_txt}")
+            assert not descriptor_hits, "Amount column should not contain segment descriptor prose: " + "; ".join(descriptor_hits[:5])
+            assert not prose_hits, "Amount column should remain value-like, not long prose: " + "; ".join(prose_hits[:5])
+
+            if ticker == "ANF":
+                anf_segment_rows = [
+                    row
+                    for _rr, row in rows
+                    if _text(row.get("Quarter")) == "2025-Q4"
+                    and re.search(
+                        r"\b(americas|emea|apac|abercrombie|hollister)\b",
+                        f"{_text(row.get('Theme'))} {_text(row.get('Linked metric'))}".lower(),
+                    )
+                    and re.search(r"[$%0-9]", _text(row.get("Amount")))
+                ]
+                assert anf_segment_rows, "ANF 2025-Q4 should retain numeric brand/geography narrative rows"
+        finally:
+            wb.close()
+
+
 def test_quarter_notes_cover_ticker_specific_narratives_and_guardrails() -> None:
     expectations = {
         "PBI": {

@@ -79,6 +79,28 @@ SCENARIO_TAX_UNKNOWN_MANUAL_REQUIRED = "unknown_manual_required"
 SCENARIO_TAX_DIRECT_EPS = "direct_eps"
 
 
+def _series_has_nonblank_values(values: Mapping[Any, Any] | None) -> bool:
+    """Return True when a source/value map has at least one intentional value."""
+    for raw_val in dict(values or {}).values():
+        if raw_val is None:
+            continue
+        if isinstance(raw_val, str) and not raw_val.strip():
+            continue
+        try:
+            if pd.isna(raw_val):
+                continue
+        except (TypeError, ValueError):
+            pass
+        return True
+    return False
+
+
+def _should_render_carbon_equipment_liabilities(ticker: Any, values: Mapping[Any, Any] | None) -> bool:
+    """Carbon equipment liabilities are sector-specific unless source data exists."""
+    ticker_txt = str(ticker or "").strip().upper()
+    return ticker_txt == "GPRE" or _series_has_nonblank_values(values)
+
+
 @dataclass(frozen=True)
 class QuarterNarrativeRecord:
     ticker: str
@@ -1262,6 +1284,36 @@ def _quarter_narrative_format_surface_value(value: Any, *, label: Any = "", raw_
     return f"{num_f:,.1f}"
 
 
+def _quarter_narrative_amount_from_surface_value(value: Any) -> Any:
+    """Return a value-like Amount, never descriptor/classification prose."""
+    if value in (None, ""):
+        return ""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value
+    num = pd.to_numeric(value, errors="coerce")
+    if pd.notna(num):
+        return value
+    txt = _quarter_narrative_clean_text(value, max_chars=160)
+    if not txt:
+        return ""
+    low = txt.lower()
+    if any(
+        phrase in low
+        for phrase in (
+            "are geographic segments",
+            "are brand",
+            "brand families",
+            "not additive",
+        )
+    ):
+        return ""
+    if not re.search(r"[$%0-9]", txt):
+        return ""
+    if len(txt) > 60 and not re.search(r"\b(ytd|fy|q[1-4]|run[- ]rate|operational|qualified|of\s+\d+)\b", low):
+        return ""
+    return txt
+
+
 def _quarter_narrative_source_date_from_period(period: Any) -> str:
     match = re.fullmatch(r"(20\d{2})-Q([1-4])", str(period or "").strip(), flags=re.I)
     if not match:
@@ -1480,7 +1532,7 @@ def _quarter_narrative_records_from_operating_drivers(
                     double_count_guardrail=guardrail,
                     linked_sheet=linked_sheet,
                     linked_metric=linked_metric,
-                    amount=raw_value,
+                    amount=_quarter_narrative_amount_from_surface_value(raw_value),
                     unit="",
                     confidence="medium",
                     include_in_quarter_notes=True,
@@ -1717,6 +1769,8 @@ def _quarter_narrative_records_for_context(
         source_rank = {
             "manual": 5,
             "curated": 5,
+            "earnings release": 4,
+            "guidance profile": 4,
             "quarter_notes": 4,
             "promise": 3,
             "operating_drivers": 3,
@@ -5311,9 +5365,9 @@ def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -
     _remove_empty_promise_revision_blocks(ws)
     _polish_promise_scorecard_layout(ws)
     parent_wb = getattr(ws, "parent", None)
+    _finalize_promise_revision_semantics(ws)
     if parent_wb is not None:
         _apply_source_backed_promise_mapping_overrides(parent_wb, ticker)
-    _finalize_promise_revision_semantics(ws)
     _apply_promise_grid_style(ws)
     ws.freeze_panes = "A2"
     ws.sheet_view.zoomScale = 112
@@ -5490,6 +5544,7 @@ def _polish_promise_scorecard_layout(ws: Any) -> None:
         _finalize_promise_revision_semantics(ws)
         _repair_promise_table_header_merges(ws)
         _repair_pbi_open_guidance_values()
+        _repair_anf_promise_actual_progress_semantics(ws)
         _apply_promise_grid_style(ws)
         return
 
@@ -5535,6 +5590,7 @@ def _polish_promise_scorecard_layout(ws: Any) -> None:
     _repair_promise_table_header_merges(ws)
     _repair_pbi_open_guidance_values()
     _remove_pbi_duplicate_cost_savings_timeline_rows(ws)
+    _repair_anf_promise_actual_progress_semantics(ws)
     _apply_promise_grid_style(ws)
 
 
@@ -5543,6 +5599,36 @@ def _promise_header_name(value: Any) -> str:
     if txt in {"actual / latest actual", "actual / latest", "latest actual", "latest result"}:
         return "actual"
     return txt
+
+
+def _set_promise_row_semantics(
+    ws: Any,
+    row_idx: int,
+    cols: Mapping[str, int],
+    *,
+    change_type: Any = None,
+    actual: Any = None,
+    progress: Any = None,
+    status: Any = None,
+    note: Any = None,
+) -> None:
+    """Apply the shared visible Promise Actual/Progress convention to one row."""
+    updates = (
+        ("change type", change_type),
+        ("actual", actual),
+        ("progress / run-rate", progress),
+        ("status", status),
+    )
+    for header_key, value in updates:
+        if value is None:
+            continue
+        col_idx = cols.get(header_key)
+        if col_idx:
+            ws.cell(row_idx, col_idx).value = value
+    if note is not None:
+        note_col = cols.get("source / note") or cols.get("notes/source")
+        if note_col:
+            ws.cell(row_idx, note_col).value = note
 
 
 PROMISE_TIMELINE_HEADERS = [
@@ -5559,6 +5645,75 @@ PROMISE_TIMELINE_HEADERS = [
     "Source / note",
 ]
 PROMISE_VISIBLE_MAX_COL = 12
+
+
+def _promise_hidden_key_slug(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
+
+
+def _ensure_anf_promise_hidden_source_keys(ws: Any) -> None:
+    """Keep ANF timeline trace keys aligned after last-mile visible repairs.
+
+    ANF source-backed rows are curated in several post-processing passes so that
+    Q4 Actual and FY/YTD Progress remain visibly correct. Some of those passes
+    write cells directly instead of going through the generic upsert helper that
+    normally fills hidden source keys. This pass only fills column O with a
+    stable derived guidance key for source-backed ANF timeline rows.
+    """
+    if ws is None or str(getattr(ws, "title", "")) != "Promise_Progress_UI":
+        return
+    wb_obj = getattr(ws, "parent", None)
+    if wb_obj is None or not any(str(name).startswith("ANF_") for name in getattr(wb_obj, "sheetnames", [])):
+        return
+
+    max_row = int(ws.max_row or 0)
+    max_col = min(max(int(ws.max_column or 0), PROMISE_VISIBLE_MAX_COL), PROMISE_VISIBLE_MAX_COL)
+    current_section = ""
+    active_cols: Dict[str, int] = {}
+    for rr in range(1, max_row + 1):
+        first_txt = str(ws.cell(rr, 1).value or "").strip()
+        if _is_promise_section_row(ws, rr):
+            current_section = first_txt
+            active_cols = {}
+            continue
+        row_map = {
+            _promise_header_name(ws.cell(rr, cc).value): cc
+            for cc in range(1, max_col + 1)
+            if str(ws.cell(rr, cc).value or "").strip()
+        }
+        if "metric" in row_map and ("source date" in row_map or "source / note" in row_map):
+            active_cols = row_map
+            continue
+        if not active_cols or not current_section.endswith("revisions"):
+            continue
+        metric_col = active_cols.get("metric") or active_cols.get("milestone")
+        if not metric_col:
+            continue
+        metric_txt = str(ws.cell(rr, metric_col).value or "").strip()
+        if not metric_txt or metric_txt.lower() in {"metric", "milestone"}:
+            continue
+        source_date_col = active_cols.get("source date")
+        note_col = active_cols.get("source / note") or active_cols.get("notes/source")
+        source_date_txt = str(ws.cell(rr, source_date_col).value or "").strip() if source_date_col else ""
+        note_txt = str(ws.cell(rr, note_col).value or "").strip() if note_col else ""
+        if not source_date_txt and not note_txt:
+            continue
+        horizon_col = active_cols.get("horizon")
+        stated_col = active_cols.get("stated in")
+        key_parts = [
+            "guidance",
+            "anf",
+            _promise_hidden_key_slug(metric_txt),
+            _promise_hidden_key_slug(ws.cell(rr, horizon_col).value if horizon_col else ""),
+            _promise_hidden_key_slug(ws.cell(rr, stated_col).value if stated_col else ""),
+            _promise_hidden_key_slug(source_date_txt),
+        ]
+        hidden_key = ":".join(part for part in key_parts if part)
+        if hidden_key and hidden_key != "guidance:anf":
+            existing_key = str(ws.cell(rr, 15).value or "").strip()
+            if existing_key != hidden_key:
+                ws.cell(rr, 15).value = hidden_key
+    ws.column_dimensions["O"].hidden = True
 
 
 def _promise_stated_quarter_parts(label: Any) -> Tuple[Optional[int], Optional[int]]:
@@ -5857,7 +6012,12 @@ def _finalize_promise_revision_semantics(ws: Any) -> None:
             if change_txt in {"", "initial"}:
                 ws.cell(rr, change_col).value = "Maintained" if prev_txt == new_txt else "Updated"
             elif change_txt == "updated" and prev_txt == new_txt:
-                ws.cell(rr, change_col).value = "Maintained"
+                actual_txt = str(ws.cell(rr, cols.get("actual", 0)).value or "").strip() if cols.get("actual") else ""
+                progress_txt = str(ws.cell(rr, cols.get("progress / run-rate", 0)).value or "").strip() if cols.get("progress / run-rate") else ""
+                if "45z monetization" in metric_txt.lower() and (actual_txt or progress_txt):
+                    ws.cell(rr, change_col).value = "Updated"
+                else:
+                    ws.cell(rr, change_col).value = "Maintained"
         elif new_txt and not prev_txt and not str(ws.cell(rr, change_col).value or "").strip():
             ws.cell(rr, change_col).value = "Initial"
         if new_txt and not re.search(r"\bactual reported|final actual\b", new_txt, flags=re.I):
@@ -6086,6 +6246,7 @@ def _apply_promise_grid_style(ws: Any) -> None:
     """Make Promise_Progress_UI visually continuous across visible columns after all edits."""
     if ws is None or str(getattr(ws, "title", "")) != "Promise_Progress_UI":
         return
+    _repair_anf_promise_actual_progress_semantics(ws)
     max_col = PROMISE_VISIBLE_MAX_COL
     section_fill = PatternFill("solid", fgColor="5B9BD5")
     header_fill = PatternFill("solid", fgColor="EAF3FB")
@@ -6273,6 +6434,220 @@ def _cleanup_anf_promise_after_repair(ws: Any) -> None:
             rows_to_delete.append(rr)
     for rr in sorted(set(rows_to_delete), reverse=True):
         ws.delete_rows(rr, 1)
+
+
+def _repair_anf_promise_actual_progress_semantics(ws: Any) -> None:
+    """Apply ANF-only source-backed Actual vs Progress semantics.
+
+    ANF Q4 releases report both quarter results and full-year/YTD results. The
+    revision log should keep those bases separate: quarter values in Actual and
+    full-year/YTD values in Progress / run-rate.
+    """
+    if ws is None or str(getattr(ws, "title", "")) != "Promise_Progress_UI":
+        return
+    max_col = min(max(int(ws.max_column or 0), PROMISE_VISIBLE_MAX_COL), PROMISE_VISIBLE_MAX_COL)
+    header_blob = " ".join(
+        str(ws.cell(rr, cc).value or "")
+        for rr in range(1, min(int(ws.max_row or 0), 8) + 1)
+        for cc in range(1, max_col + 1)
+    )
+    first_col_values = {
+        str(ws.cell(rr, 1).value or "").strip()
+        for rr in range(1, min(int(ws.max_row or 0), 140) + 1)
+    }
+    if "ANF guidance tracker" not in header_blob and not ({"Tariff impact", "Real estate activity"} & first_col_values):
+        return
+
+    q4_semantics = {
+        "Net sales growth": ("+5.4%", "FY: +6%"),
+        "Operating margin": ("14.1%", "FY: 13.3% GAAP / 12.5% adjusted"),
+        "Adjusted EPS": ("$3.68 adjusted", "FY: $9.86 adjusted"),
+        "Capex": ("$55.6m", "FY: $240.8m"),
+        "Diluted shares": ("46.8m diluted", "Δ vs guide: -1.2m; Δ YTD: -5.6m"),
+        "Share repurchases": ("$100.0m", "FY: $450m"),
+    }
+    interim_adjusted_eps = {
+        "2025-Q1": ("$1.59 adjusted", "YTD: $1.59 adjusted", "Quarter/YTD adjusted EPS; annual guide still open."),
+        "2025-Q2": ("$2.32 adjusted", "YTD: $3.91 adjusted", "Quarter/YTD adjusted EPS; annual guide still open."),
+        "2025-Q3": ("$2.36 adjusted", "YTD: $6.27 adjusted", "Quarter/YTD adjusted EPS; annual guide still open."),
+    }
+    interim_diluted_shares = {
+        "2025-Q1": ("50.6m diluted", "Δ vs guide: +1.6m; Δ YTD: -1.8m", "Q1 diluted shares; Progress shows share-count delta versus guide and fiscal-year start."),
+        "2025-Q2": ("48.6m diluted", "Δ vs guide: -0.4m; Δ YTD: -3.9m", "Q2 diluted shares; Progress shows share-count delta versus guide and fiscal-year start."),
+        "2025-Q3": ("47.9m diluted", "Δ vs guide: -0.1m; Δ YTD: -4.6m", "Q3 diluted shares; Progress shows share-count delta versus guide and fiscal-year start."),
+    }
+    q4_note = "Q4 actual shown in Actual; FY/YTD result shown in Progress / run-rate."
+    q4_adjusted_eps_note = "Q4 actual shown in Actual (adjusted EPS); official FY adjusted EPS shown in Progress / run-rate. FY can differ from summed rounded quarters."
+    q4_share_note = "Q4 actual shown in Actual (diluted shares); Progress shows share-count reduction versus guide and YTD."
+    pre_release_note = "Final Q4/FY results shown for comparison; pre-release was issued before final report."
+    final_q4_rows = {
+        "Net sales growth": ("at least +6%", "at least +6%", "Completed"),
+        "Operating margin": ("around 13%", "around 13%", "Mixed"),
+        "Adjusted EPS": ("$10.30-$10.40", "$10.30-$10.40", "Missed"),
+        "Capex": ("~$245m", "~$245m", "Hit"),
+        "Diluted shares": ("~48m", "~48m", "Completed"),
+        "Share repurchases": ("~$450m", "~$450m", "Completed"),
+    }
+
+    def _ensure_final_q4_revision_block() -> None:
+        def _write_final_rows(row_idx: int, missing_metrics: Iterable[str]) -> None:
+            for metric_txt in missing_metrics:
+                for merged in list(ws.merged_cells.ranges):
+                    if (
+                        int(getattr(merged, "min_row", 0)) == row_idx
+                        and int(getattr(merged, "max_row", 0)) == row_idx
+                        and int(getattr(merged, "min_col", 0)) <= max_col
+                    ):
+                        try:
+                            ws.unmerge_cells(str(merged))
+                        except KeyError:
+                            try:
+                                ws.merged_cells.ranges.remove(merged)
+                            except (KeyError, ValueError):
+                                pass
+                            for cc in range(int(merged.min_col) + 1, int(merged.max_col) + 1):
+                                cell_key = (row_idx, cc)
+                                if ws._cells.get(cell_key).__class__.__name__ == "MergedCell":
+                                    del ws._cells[cell_key]
+                prev_txt, new_txt, status_txt = final_q4_rows[metric_txt]
+                actual_txt, progress_txt = q4_semantics[metric_txt]
+                row_values = [
+                    metric_txt,
+                    prev_txt,
+                    new_txt,
+                    "Completed",
+                    actual_txt,
+                    progress_txt,
+                    status_txt,
+                    "2025 year",
+                    "2025-Q4",
+                    "2026-03-04",
+                    q4_note,
+                ]
+                for cc, value in enumerate(row_values, start=1):
+                    ws.cell(row_idx, cc).value = value
+                row_idx += 1
+
+        for row_idx in range(1, int(ws.max_row or 0) + 1):
+            if str(ws.cell(row_idx, 1).value or "").strip() == "2025-Q4 revisions":
+                header_row = row_idx + 1
+                existing_metrics: set[str] = set()
+                block_end = int(ws.max_row or 0) + 1
+                for scan_row in range(header_row + 1, int(ws.max_row or 0) + 1):
+                    first_txt = str(ws.cell(scan_row, 1).value or "").strip()
+                    if first_txt.endswith("revisions"):
+                        block_end = scan_row
+                        break
+                    if first_txt:
+                        existing_metrics.add(first_txt)
+                missing_metrics = [metric for metric in final_q4_rows if metric not in existing_metrics]
+                if missing_metrics:
+                    ws.insert_rows(block_end, len(missing_metrics))
+                    _write_final_rows(block_end, missing_metrics)
+                return
+        insert_at = int(ws.max_row or 0) + 1
+        pre_release_row = 0
+        for row_idx in range(1, int(ws.max_row or 0) + 1):
+            if str(ws.cell(row_idx, 1).value or "").strip() == "2025-Q4 pre-release update revisions":
+                pre_release_row = row_idx
+                continue
+            if pre_release_row and row_idx > pre_release_row and str(ws.cell(row_idx, 1).value or "").strip().endswith("revisions"):
+                insert_at = row_idx
+                break
+        blue = PatternFill("solid", fgColor="5B9BD5")
+        header_fill = PatternFill("solid", fgColor="EAF3FB")
+        ws.insert_rows(insert_at, 2 + len(final_q4_rows))
+        ws.cell(insert_at, 1).value = "2025-Q4 revisions"
+        for cc in range(1, max_col + 1):
+            ws.cell(insert_at, cc).fill = blue
+        for cc, header in enumerate(PROMISE_TIMELINE_HEADERS, start=1):
+            ws.cell(insert_at + 1, cc).value = header
+            ws.cell(insert_at + 1, cc).fill = header_fill
+        _write_final_rows(insert_at + 2, final_q4_rows.keys())
+
+    _ensure_final_q4_revision_block()
+
+    current_section = ""
+    active_cols: Dict[str, int] = {}
+    for rr in range(1, int(ws.max_row or 0) + 1):
+        first_txt = str(ws.cell(rr, 1).value or "").strip()
+        if _is_promise_section_row(ws, rr):
+            current_section = first_txt
+            active_cols = {}
+            continue
+        row_map = {
+            _promise_header_name(ws.cell(rr, cc).value): cc
+            for cc in range(1, max_col + 1)
+            if str(ws.cell(rr, cc).value or "").strip()
+        }
+        if "metric" in row_map and "actual" in row_map:
+            active_cols = row_map
+            continue
+        if not active_cols or not current_section.endswith("revisions"):
+            continue
+
+        metric_col = active_cols.get("metric")
+        actual_col = active_cols.get("actual")
+        progress_col = active_cols.get("progress / run-rate")
+        status_col = active_cols.get("status")
+        horizon_col = active_cols.get("horizon")
+        stated_col = active_cols.get("stated in")
+        note_col = active_cols.get("source / note") or active_cols.get("notes/source")
+        if not (metric_col and actual_col and horizon_col):
+            continue
+        metric_txt = str(ws.cell(rr, metric_col).value or "").strip()
+        if not metric_txt:
+            continue
+        horizon_txt = str(ws.cell(rr, horizon_col).value or "").strip()
+        stated_txt = str(ws.cell(rr, stated_col).value or "").strip() if stated_col else ""
+
+        if metric_txt == "Adjusted EPS" and horizon_txt == "2025 year" and stated_txt in interim_adjusted_eps:
+            actual_txt, progress_txt, note_txt = interim_adjusted_eps[stated_txt]
+            _set_promise_row_semantics(
+                ws,
+                rr,
+                active_cols,
+                actual=actual_txt,
+                progress=progress_txt,
+                status="On track",
+                note=note_txt,
+            )
+            continue
+
+        if metric_txt == "Diluted shares" and horizon_txt == "2025 year" and stated_txt in interim_diluted_shares:
+            actual_txt, progress_txt, note_txt = interim_diluted_shares[stated_txt]
+            _set_promise_row_semantics(
+                ws,
+                rr,
+                active_cols,
+                actual=actual_txt,
+                progress=progress_txt,
+                status="On track",
+                note=note_txt,
+            )
+            continue
+
+        if current_section not in {"2025-Q4 revisions", "2025-Q4 pre-release update revisions"}:
+            continue
+        if horizon_txt != "2025 year" or metric_txt not in q4_semantics:
+            continue
+        actual_txt, progress_txt = q4_semantics[metric_txt]
+        row_note = pre_release_note if "pre-release" in current_section.lower() else q4_note
+        if metric_txt == "Adjusted EPS":
+            row_note = pre_release_note if "pre-release" in current_section.lower() else q4_adjusted_eps_note
+        elif metric_txt == "Diluted shares":
+            row_note = q4_share_note
+        _set_promise_row_semantics(
+            ws,
+            rr,
+            active_cols,
+            change_type="Completed" if current_section == "2025-Q4 revisions" else None,
+            actual=actual_txt,
+            progress=progress_txt,
+            status="On track" if "pre-release" in current_section.lower() else None,
+            note=row_note,
+        )
+    _ensure_anf_promise_hidden_source_keys(ws)
 
 
 def _clear_pre_release_promise_actuals(ws: Any) -> None:
@@ -8010,6 +8385,60 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
         m = re.search(r"\b(20\d{2})-Q([1-4])\b", str(section_name or ""), flags=re.I)
         return int(m.group(1)) * 10 + int(m.group(2)) if m else 0
 
+    def _promise_display_section_from_horizon(stated_in: Any, horizon: Any, fallback_section: str) -> str:
+        stated_txt = str(stated_in or "").strip()
+        horizon_txt = str(horizon or "").strip()
+        fallback_txt = str(fallback_section or "").strip()
+        annual_match = re.fullmatch(r"(20\d{2})\s+year", horizon_txt, flags=re.I)
+        stated_match = re.search(r"\b(20\d{2})-Q([1-4])\b", stated_txt, flags=re.I)
+        horizon_q_match = re.search(r"\b(20\d{2})-Q([1-4])\b", horizon_txt, flags=re.I)
+        if annual_match:
+            annual_year = int(annual_match.group(1))
+            if stated_match:
+                stated_year = int(stated_match.group(1))
+                stated_q = int(stated_match.group(2))
+                if stated_year < annual_year:
+                    return f"{annual_year}-Q1 revisions"
+                if stated_year == annual_year:
+                    return f"{annual_year}-Q{stated_q} revisions"
+                return f"{annual_year}-Q4 revisions"
+            return f"{annual_year}-Q1 revisions"
+        if horizon_q_match:
+            horizon_year = int(horizon_q_match.group(1))
+            horizon_q = int(horizon_q_match.group(2))
+            if stated_match:
+                stated_year = int(stated_match.group(1))
+                stated_q = int(stated_match.group(2))
+                if stated_year == horizon_year and stated_q > horizon_q:
+                    return fallback_txt or f"{stated_year}-Q{stated_q} revisions"
+            return f"{horizon_year}-Q{horizon_q} revisions"
+        return fallback_txt
+
+    def _source_date_ordinal(value: Any) -> int:
+        try:
+            return pd.Timestamp(str(value or "")).date().toordinal()
+        except Exception:
+            return 0
+
+    def _append_prior_source_note(values: List[Any], existing: Mapping[str, Any]) -> None:
+        if len(values) < 11:
+            return
+        prior_guide = str(existing.get("new/current guide") or "").strip()
+        prior_stated = str(existing.get("stated in") or "").strip()
+        prior_date = str(existing.get("source date") or "").strip()
+        if not prior_guide and not prior_stated and not prior_date:
+            return
+        pieces = []
+        if prior_guide:
+            pieces.append(f"Initial guide {prior_guide}")
+        if prior_stated:
+            pieces.append(f"stated in {prior_stated}")
+        if prior_date:
+            pieces.append(f"source date {prior_date}")
+        prior_note = " ".join(pieces).strip()
+        if prior_note and prior_note.lower() not in str(values[10] or "").lower():
+            values[10] = f"{prior_note}. {str(values[10] or '').strip()}".strip()
+
     def _ensure_timeline_block(section_name: str) -> None:
         start, header, _ = _block_bounds(section_name)
         if start and header:
@@ -8033,6 +8462,8 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
         values = list(values)
         if len(values) == 10:
             values = values[:5] + [""] + values[5:]
+        if len(values) >= 9:
+            section_name = _promise_display_section_from_horizon(values[8], values[7] if len(values) > 7 else "", section_name)
         if len(values) >= 11 and _promise_value_looks_like_progress(values[4], metric=values[0]):
             values[5] = values[5] or _promise_progress_label(values[4], metric=values[0], stated=values[8] if len(values) > 8 else "")
             if str(values[0] or "").strip() != "Cost savings target":
@@ -8044,13 +8475,54 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
         if not start or not header:
             return
         target_row = 0
+        merge_existing: Dict[str, Any] = {}
+        existing_note_to_preserve = ""
+        incoming_metric = str(values[0] if len(values) > 0 else "").strip()
+        incoming_horizon = str(values[7] if len(values) > 7 else "").strip()
+        incoming_stated = str(values[8] if len(values) > 8 else "").strip()
+        incoming_source_ord = _source_date_ordinal(values[9] if len(values) > 9 else "")
         for rr, section, cols in _promise_rows():
             if section != section_name:
                 continue
             metric_txt = str(ws.cell(rr, cols.get("metric", 1)).value or "").strip()
             stated_txt = str(ws.cell(rr, cols.get("stated in", 0)).value or "").strip() if cols.get("stated in") else ""
-            if metric_txt == values[0] and stated_txt == values[8]:
+            if metric_txt == incoming_metric and stated_txt == incoming_stated:
                 target_row = rr
+                note_col = cols.get("source / note") or cols.get("notes/source")
+                if note_col:
+                    existing_note_to_preserve = str(ws.cell(rr, note_col).value or "").strip()
+                break
+        if not target_row:
+            for rr, section, cols in _promise_rows():
+                if section != section_name:
+                    continue
+                metric_txt = str(ws.cell(rr, cols.get("metric", 1)).value or "").strip()
+                horizon_txt = str(ws.cell(rr, cols.get("horizon", 0)).value or "").strip() if cols.get("horizon") else ""
+                if metric_txt != incoming_metric or horizon_txt != incoming_horizon:
+                    continue
+                target_row = rr
+                merge_existing = {
+                    name: ws.cell(rr, col).value
+                    for name, col in cols.items()
+                    if name in {"previous guide", "new/current guide", "stated in", "source date", "source / note"}
+                }
+                existing_source_ord = _source_date_ordinal(merge_existing.get("source date"))
+                if existing_source_ord >= incoming_source_ord and incoming_source_ord:
+                    prev_col = cols.get("previous guide")
+                    if prev_col and not str(ws.cell(rr, prev_col).value or "").strip() and len(values) > 2:
+                        ws.cell(rr, prev_col).value = values[2]
+                    note_col = cols.get("source / note") or cols.get("notes/source")
+                    if note_col:
+                        existing_note = str(ws.cell(rr, note_col).value or "").strip()
+                        tmp_values = [""] * 11
+                        tmp_values[10] = existing_note
+                        _append_prior_source_note(tmp_values, {
+                            "new/current guide": values[2] if len(values) > 2 else "",
+                            "stated in": incoming_stated,
+                            "source date": values[9] if len(values) > 9 else "",
+                        })
+                        ws.cell(rr, note_col).value = tmp_values[10]
+                    return
                 break
         if not target_row:
             insert_at = end + 1
@@ -8065,6 +8537,16 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
                 ws.unmerge_cells(str(merge_range))
         for cc, value in enumerate(values, start=1):
             ws.cell(target_row, cc).value = value
+        if merge_existing:
+            _append_prior_source_note(values, merge_existing)
+            if len(values) >= 11:
+                ws.cell(target_row, 11).value = values[10]
+        elif existing_note_to_preserve and "initial guide" in existing_note_to_preserve.lower() and len(values) >= 11:
+            current_note = str(values[10] or "").strip()
+            preserved_match = re.search(r"\bInitial guide\b[^.]*\.", existing_note_to_preserve, flags=re.I)
+            preserved_note = preserved_match.group(0).strip() if preserved_match else existing_note_to_preserve
+            if preserved_note and preserved_note.lower() not in current_note.lower():
+                ws.cell(target_row, 11).value = f"{preserved_note} {current_note}".strip()
         hidden_id = _promise_override_lifecycle_id(values[0] if len(values) > 0 else "", values[7] if len(values) > 7 else "")
         ws.cell(target_row, 15).value = hidden_id
         ws.column_dimensions["O"].hidden = True
@@ -8241,6 +8723,10 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
                     cell.value = txt
 
     if ticker_txt == "PBI":
+        is_real_pbi_workbook = "PBI_Investment_Case" in getattr(wb, "sheetnames", [])
+        if not is_real_pbi_workbook:
+            _rename_metric("EPS guidance", "Adjusted EPS guidance")
+            return
         pbi_section_labels = {
             str(ws.cell(rr, 1).value or "").strip().lower()
             for rr in range(1, int(ws.max_row or 0) + 1)
@@ -8365,27 +8851,70 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
                     ws.cell(rr, note_col).value = "Latest run-rate $157m; target $180m-$200m."
 
         if has_pbi_curated_layout:
+            pbi_source_revenue = {
+                "2025-Q4": (
+                    "$478m",
+                    "FY: $1.89bn",
+                    "Missed",
+                    "Q4 actual shown in Actual; FY result shown in Progress / run-rate.",
+                    "Completed",
+                ),
+            }
             pbi_source_fcf = {
                 "2025-Q1": ("$-20.5m", "YTD: $-20.5m", "On track", "Quarter/YTD source-defined Free Cash Flow; annual guide still open."),
                 "2025-Q2": ("$106.5m", "YTD: $86.0m", "On track", "Quarter/YTD source-defined Free Cash Flow; annual guide still open."),
                 "2025-Q3": ("$60.4m", "YTD: $146.4m", "On track", "Quarter/YTD source-defined Free Cash Flow; annual guide still open."),
-                "2025-Q4": ("$358.3m", "", "Hit", "Reported source-defined Free Cash Flow for matching annual horizon."),
+                "2025-Q4": (
+                    "$212m",
+                    "FY: $358.3m",
+                    "Hit",
+                    "Q4 actual shown in Actual; FY source-defined Free Cash Flow shown in Progress / run-rate.",
+                    "Completed",
+                ),
             }
             pbi_source_adjusted_ebit = {
                 "2024-Q3": ("$102.8m", "YTD: $270.8m", "On track", "Quarter/YTD Adjusted EBIT; annual guide still open."),
+                "2024-Q4": (
+                    "$114m",
+                    "FY: $385.2m",
+                    "Beat",
+                    "Q4 actual shown in Actual; FY Adjusted EBIT shown in Progress / run-rate.",
+                    "Completed",
+                ),
                 "2025-Q1": ("$119.7m", "YTD: $119.7m", "On track", "Quarter/YTD Adjusted EBIT; annual guide still open."),
                 "2025-Q2": ("$102.3m", "YTD: $222.0m", "On track", "Quarter/YTD Adjusted EBIT; annual guide still open."),
                 "2025-Q3": ("$107.3m", "YTD: $329.3m", "On track", "Quarter/YTD Adjusted EBIT; annual guide still open."),
-                "2025-Q4": ("$461.3m", "", "Hit", "Reported result for matching annual horizon."),
+                "2025-Q4": (
+                    "$132m",
+                    "FY: $461.3m",
+                    "Hit",
+                    "Q4 actual shown in Actual; FY Adjusted EBIT shown in Progress / run-rate.",
+                    "Completed",
+                ),
                 "2026-Q1": ("$130.4m", "YTD: $130.4m", "On track", "Quarter/YTD Adjusted EBIT; annual guide still open."),
             }
             pbi_source_adjusted_eps = {
+                "2025-Q4": (
+                    "$0.45",
+                    "FY: $1.35",
+                    "Hit",
+                    "Q4 actual shown in Actual; FY adjusted diluted EPS shown in Progress / run-rate.",
+                    "Completed",
+                ),
                 "2026-Q1": ("$0.47", "YTD: $0.47", "On track", "Quarter/YTD adjusted diluted EPS; annual guide still open."),
             }
+
+            def _pbi_source_record_values(record: Any) -> Tuple[str, str, str, str, str]:
+                values = list(record or [])
+                while len(values) < 5:
+                    values.append("")
+                return str(values[0]), str(values[1]), str(values[2]), str(values[3]), str(values[4])
+
             for rr, section, cols in _promise_rows():
                 if not section.endswith("revisions"):
                     continue
                 metric_col = cols.get("metric")
+                change_col = cols.get("change type")
                 stated_col = cols.get("stated in")
                 horizon_col = cols.get("horizon")
                 actual_col = cols.get("actual")
@@ -8397,8 +8926,20 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
                 metric_txt = str(ws.cell(rr, metric_col).value or "").strip()
                 stated_txt = str(ws.cell(rr, stated_col).value or "").strip()
                 horizon_txt = str(ws.cell(rr, horizon_col).value or "").strip() if horizon_col else ""
-                if metric_txt == "FCF target" and stated_txt in pbi_source_fcf:
-                    actual, progress, status, note = pbi_source_fcf[stated_txt]
+                if metric_txt == "Revenue guidance" and stated_txt in pbi_source_revenue:
+                    actual, progress, status, note, change_type = _pbi_source_record_values(pbi_source_revenue[stated_txt])
+                    _set_promise_row_semantics(
+                        ws,
+                        rr,
+                        cols,
+                        change_type=change_type or None,
+                        actual=actual,
+                        progress=progress,
+                        status=status,
+                        note=note,
+                    )
+                elif metric_txt == "FCF target" and stated_txt in pbi_source_fcf:
+                    actual, progress, status, note, change_type = _pbi_source_record_values(pbi_source_fcf[stated_txt])
                     annual_year = _promise_annual_year(horizon_txt)
                     stated_year, stated_q = _promise_stated_quarter_parts(stated_txt)
                     if progress_col and annual_year is not None and stated_year == annual_year and stated_q in {1, 2, 3}:
@@ -8408,34 +8949,38 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
                         ws.cell(rr, actual_col).value = actual
                         if progress_col:
                             ws.cell(rr, progress_col).value = progress
-                    if status_col:
-                        ws.cell(rr, status_col).value = status
-                    if note_col:
-                        ws.cell(rr, note_col).value = note
+                    _set_promise_row_semantics(
+                        ws,
+                        rr,
+                        cols,
+                        change_type=change_type or None,
+                        status=status,
+                        note=note,
+                    )
                 elif metric_txt == "Adjusted EBIT guidance" and stated_txt in pbi_source_adjusted_ebit:
-                    actual, progress, status, note = pbi_source_adjusted_ebit[stated_txt]
-                    ws.cell(rr, actual_col).value = actual
-                    if progress_col:
-                        ws.cell(rr, progress_col).value = progress
-                    if status_col:
-                        ws.cell(rr, status_col).value = status
-                    if note_col:
-                        ws.cell(rr, note_col).value = note
+                    actual, progress, status, note, change_type = _pbi_source_record_values(pbi_source_adjusted_ebit[stated_txt])
+                    _set_promise_row_semantics(
+                        ws,
+                        rr,
+                        cols,
+                        change_type=change_type or None,
+                        actual=actual,
+                        progress=progress,
+                        status=status,
+                        note=note,
+                    )
                 elif metric_txt == "Adjusted EPS guidance" and stated_txt in pbi_source_adjusted_eps:
-                    actual, progress, status, note = pbi_source_adjusted_eps[stated_txt]
-                    ws.cell(rr, actual_col).value = actual
-                    if progress_col:
-                        ws.cell(rr, progress_col).value = progress
-                    if status_col:
-                        ws.cell(rr, status_col).value = status
-                    if note_col:
-                        ws.cell(rr, note_col).value = note
-                elif metric_txt == "Adjusted EPS guidance" and stated_txt == "2025-Q4" and horizon_txt == "2025 year":
-                    ws.cell(rr, actual_col).value = "$1.35"
-                    if status_col:
-                        ws.cell(rr, status_col).value = "Hit"
-                    if note_col:
-                        ws.cell(rr, note_col).value = "Reported adjusted diluted EPS for matching annual horizon."
+                    actual, progress, status, note, change_type = _pbi_source_record_values(pbi_source_adjusted_eps[stated_txt])
+                    _set_promise_row_semantics(
+                        ws,
+                        rr,
+                        cols,
+                        change_type=change_type or None,
+                        actual=actual,
+                        progress=progress,
+                        status=status,
+                        note=note,
+                    )
 
             for pbi_2026_q1_row in (
                 [
@@ -8631,6 +9176,61 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
             for rr in sorted(set(pbi_rows_to_delete), reverse=True):
                 ws.delete_rows(rr, 1)
 
+            pbi_q4_promise_semantics = {
+                ("2025-Q4 revisions", "Revenue guidance"): (
+                    "Completed",
+                    "$478m",
+                    "FY: $1.89bn",
+                    "Missed",
+                    "Q4 actual shown in Actual; FY result shown in Progress / run-rate.",
+                ),
+                ("2025-Q4 revisions", "Adjusted EBIT guidance"): (
+                    "Completed",
+                    "$132m",
+                    "FY: $461.3m",
+                    "Hit",
+                    "Q4 actual shown in Actual; FY Adjusted EBIT shown in Progress / run-rate.",
+                ),
+                ("2025-Q4 revisions", "Adjusted EPS guidance"): (
+                    "Completed",
+                    "$0.45",
+                    "FY: $1.35",
+                    "Hit",
+                    "Q4 actual shown in Actual; FY adjusted diluted EPS shown in Progress / run-rate.",
+                ),
+                ("2025-Q4 revisions", "FCF target"): (
+                    "Completed",
+                    "$212m",
+                    "FY: $358.3m",
+                    "Hit",
+                    "Q4 actual shown in Actual; FY source-defined Free Cash Flow shown in Progress / run-rate.",
+                ),
+                ("2024-Q4 revisions", "Adjusted EBIT guidance"): (
+                    "Completed",
+                    "$114m",
+                    "FY: $385.2m",
+                    "Beat",
+                    "Q4 actual shown in Actual; FY Adjusted EBIT shown in Progress / run-rate.",
+                ),
+            }
+            for rr, section, cols in _promise_rows():
+                metric_col = cols.get("metric") or cols.get("milestone")
+                metric_txt = str(ws.cell(rr, metric_col).value or "").strip() if metric_col else ""
+                row_semantics = pbi_q4_promise_semantics.get((section, metric_txt))
+                if not row_semantics:
+                    continue
+                change_txt, actual_txt, progress_txt, status_txt, note_txt = row_semantics
+                _set_promise_row_semantics(
+                    ws,
+                    rr,
+                    cols,
+                    change_type=change_txt,
+                    actual=actual_txt,
+                    progress=progress_txt,
+                    status=status_txt,
+                    note=note_txt,
+                )
+
             for q, category, note, metric in (
                 ("2024-06-30", "Cost rationalization", "$70m annualized reductions initiated; target $120m-$160m.", "Cost savings / rationalization"),
                 ("2024-06-30", "Cash optimization", "Go-forward cash needs reduced to $240m, up from $200m target.", "Cash optimization"),
@@ -8645,6 +9245,48 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
 
     elif ticker_txt == "ANF":
         _rename_metric("Adjusted EPS / EPS", "Adjusted EPS")
+        if "ANF_Investment_Case" not in getattr(wb, "sheetnames", []):
+            return
+
+        def _anf_actuals_by_year_from_workbook() -> Dict[int, Dict[str, float]]:
+            out: Dict[int, Dict[str, float]] = {}
+            if "History_Q" not in getattr(wb, "sheetnames", []):
+                return out
+            hist_ws = wb["History_Q"]
+            headers = {
+                re.sub(r"[^a-z0-9]+", "_", str(hist_ws.cell(1, cc).value or "").strip().lower()).strip("_"): cc
+                for cc in range(1, int(hist_ws.max_column or 0) + 1)
+            }
+            q_col = headers.get("quarter")
+            if not q_col:
+                return out
+
+            def _hist_num(value: Any) -> Optional[float]:
+                num = pd.to_numeric(value, errors="coerce")
+                if pd.isna(num):
+                    return None
+                val = float(num)
+                return val if math.isfinite(val) else None
+
+            for rr in range(2, int(hist_ws.max_row or 0) + 1):
+                qd = _date_or_none(hist_ws.cell(rr, q_col).value)
+                fiscal_year = _hist_num(hist_ws.cell(rr, headers.get("fiscal_year", 0)).value) if headers.get("fiscal_year") else None
+                year = int(fiscal_year) if fiscal_year is not None else (qd.year if qd is not None else None)
+                if year is None:
+                    continue
+                for key, source_col in (
+                    ("revenue", headers.get("revenue")),
+                    ("capex", headers.get("capex")),
+                ):
+                    if not source_col:
+                        continue
+                    val = _hist_num(hist_ws.cell(rr, source_col).value)
+                    if val is None:
+                        continue
+                    out.setdefault(int(year), {})[key] = out.setdefault(int(year), {}).get(key, 0.0) + val
+            return out
+
+        actuals_by_year = _anf_actuals_by_year_from_workbook()
 
         def _anf_annual_value(year: int, key: str) -> Optional[float]:
             val = actuals_by_year.get(int(year), {}).get(key)
@@ -8744,10 +9386,59 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
             ],
         )
         anf_quarter_eps_actuals = {
-            "2025-Q1": ("$1.59 EPS", "On track", "Q1 EPS result; annual adjusted guide still open."),
-            "2025-Q2": ("$2.32 adjusted", "On track", "Q2 adjusted EPS result; annual guide still open."),
-            "2025-Q3": ("$2.36 EPS", "On track", "Q3 EPS result; annual adjusted guide still open."),
+            "2025-Q1": ("$1.59 adjusted", "YTD: $1.59 adjusted", "On track", "Quarter/YTD adjusted EPS; annual guide still open."),
+            "2025-Q2": ("$2.32 adjusted", "YTD: $3.91 adjusted", "On track", "Quarter/YTD adjusted EPS; annual guide still open."),
+            "2025-Q3": ("$2.36 adjusted", "YTD: $6.27 adjusted", "On track", "Quarter/YTD adjusted EPS; annual guide still open."),
         }
+        anf_diluted_share_progress = {
+            "2025-Q1": ("50.6m diluted", "Δ vs guide: +1.6m; Δ YTD: -1.8m", "On track", "Q1 diluted shares; Progress shows share-count delta versus guide and fiscal-year start."),
+            "2025-Q2": ("48.6m diluted", "Δ vs guide: -0.4m; Δ YTD: -3.9m", "On track", "Q2 diluted shares; Progress shows share-count delta versus guide and fiscal-year start."),
+            "2025-Q3": ("47.9m diluted", "Δ vs guide: -0.1m; Δ YTD: -4.6m", "On track", "Q3 diluted shares; Progress shows share-count delta versus guide and fiscal-year start."),
+        }
+        anf_final_q4_rows = {
+            "Net sales growth": ("at least +6%", "at least +6%", "+5.4%", "FY: +6%", "Completed"),
+            "Operating margin": ("around 13%", "around 13%", "14.1%", "FY: 13.3% GAAP / 12.5% adjusted", "Mixed"),
+            "Adjusted EPS": ("$10.30-$10.40", "$10.30-$10.40", "$3.68 adjusted", "FY: $9.86 adjusted", "Missed"),
+            "Capex": ("~$245m", "~$245m", "$55.6m", "FY: $240.8m", "Hit"),
+            "Diluted shares": ("~48m", "~48m", "46.8m diluted", "Δ vs guide: -1.2m; Δ YTD: -5.6m", "Completed"),
+            "Share repurchases": ("~$450m", "~$450m", "$100.0m", "FY: $450m", "Completed"),
+        }
+        q4_note = "Q4 actual shown in Actual; FY/YTD result shown in Progress / run-rate."
+        q4_adjusted_eps_note = "Q4 actual shown in Actual (adjusted EPS); official FY adjusted EPS shown in Progress / run-rate. FY can differ from summed rounded quarters."
+        q4_share_note = "Q4 actual shown in Actual (diluted shares); Progress shows share-count reduction versus guide and YTD."
+        for metric_txt, (prev_txt, new_txt, _actual_txt, _progress_txt, status_txt) in anf_final_q4_rows.items():
+            _upsert_timeline_row(
+                "2025-Q4 revisions",
+                [
+                    metric_txt,
+                    prev_txt,
+                    new_txt,
+                    "Completed",
+                    "",
+                    "",
+                    status_txt,
+                    "2025 year",
+                    "2025-Q4",
+                    "2026-03-04",
+                    q4_note,
+                ],
+            )
+        _upsert_timeline_row(
+            "2025-Q2 revisions",
+            [
+                "Diluted shares",
+                "~49m",
+                "~49m",
+                "Maintained",
+                "48.6m diluted",
+                "Δ vs guide: -0.4m; Δ YTD: -3.9m",
+                "On track",
+                "2025 year",
+                "2025-Q2",
+                "2025-08-28",
+                "Q2 diluted shares; Progress shows share-count delta versus guide and fiscal-year start.",
+            ],
+        )
         for rr, section, cols in _promise_rows():
             metric_col = cols.get("metric")
             actual_col = cols.get("actual")
@@ -8760,14 +9451,44 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
             metric_txt = str(ws.cell(rr, metric_col).value or "").strip() if metric_col else ""
             horizon_txt = str(ws.cell(rr, horizon_col).value or "").strip() if horizon_col else ""
             stated_txt = str(ws.cell(rr, stated_col).value or "").strip() if stated_col else ""
+            if section == "2025-Q4 revisions" and horizon_txt == "2025 year" and metric_txt in anf_final_q4_rows:
+                _prev_txt, _new_txt, actual_txt, progress_txt, status_txt = anf_final_q4_rows[metric_txt]
+                note_txt = q4_note
+                if metric_txt == "Adjusted EPS":
+                    note_txt = q4_adjusted_eps_note
+                elif metric_txt == "Diluted shares":
+                    note_txt = q4_share_note
+                _set_promise_row_semantics(
+                    ws,
+                    rr,
+                    cols,
+                    change_type="Completed",
+                    actual=actual_txt,
+                    progress=progress_txt,
+                    status=status_txt,
+                    note=note_txt,
+                )
+                if source_date_col:
+                    ws.cell(rr, source_date_col).value = "2026-03-04"
+                continue
             if metric_txt != "Adjusted EPS":
+                if metric_txt == "Diluted shares" and stated_txt in anf_diluted_share_progress and horizon_txt == "2025 year":
+                    actual_txt, progress_txt, status_txt, note_txt = anf_diluted_share_progress[stated_txt]
+                    if actual_col:
+                        ws.cell(rr, actual_col).value = actual_txt
+                    if progress_col:
+                        ws.cell(rr, progress_col).value = progress_txt
+                    if status_col:
+                        ws.cell(rr, status_col).value = status_txt
+                    if note_col:
+                        ws.cell(rr, note_col).value = note_txt
                 continue
             if stated_txt in anf_quarter_eps_actuals and horizon_txt == "2025 year":
-                actual_txt, status_txt, note_txt = anf_quarter_eps_actuals[stated_txt]
+                actual_txt, progress_txt, status_txt, note_txt = anf_quarter_eps_actuals[stated_txt]
                 if actual_col:
                     ws.cell(rr, actual_col).value = actual_txt
                 if progress_col:
-                    ws.cell(rr, progress_col).value = ""
+                    ws.cell(rr, progress_col).value = progress_txt
                 if status_col:
                     ws.cell(rr, status_col).value = status_txt
                 if note_col:
@@ -8780,6 +9501,7 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
                     ws.cell(rr, status_col).value = "Missed"
                 if note_col:
                     ws.cell(rr, note_col).value = "GAAP EPS $10.46 also reported."
+        _ensure_anf_promise_hidden_source_keys(ws)
 
     elif ticker_txt == "GPRE":
         gpre_source_rows = [
@@ -8790,7 +9512,7 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
                     "",
                     "$50m annualized savings",
                     "Initial",
-                    "",
+                    "$30m",
                     "Executed: $30m",
                     "On track",
                     "Annualized program",
@@ -8854,13 +9576,13 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
                     "$50m annualized savings",
                     "$50m annualized savings",
                     "Maintained",
-                    "",
+                    "$45m",
                     "Remaining: $5m",
                     "On track",
                     "Annualized program",
                     "2025-Q1",
                     "2025-05-08",
-                    "Original $50m target; about $5m remaining.",
+                    "Approximately $45m annualized savings accomplished; about $5m remaining.",
                 ],
             ),
             (
@@ -8895,14 +9617,51 @@ def _apply_source_backed_promise_mapping_overrides(wb: Workbook, ticker: Any = "
             horizon_txt = str(ws.cell(rr, horizon_col).value or "").strip() if horizon_col else ""
             stated_txt = str(ws.cell(rr, stated_col).value or "").strip() if stated_col else ""
             if metric_txt == "2026 year 45Z EBITDA guidance" and stated_txt == "2026-Q1" and horizon_txt == "2026 year":
-                if actual_col:
-                    ws.cell(rr, actual_col).value = "$55.2m"
-                if progress_col:
-                    ws.cell(rr, progress_col).value = "YTD: $55.2m"
-                if status_col:
-                    ws.cell(rr, status_col).value = "On track"
-                if note_col:
-                    ws.cell(rr, note_col).value = "2026-Q1 45Z contribution tracks annual guide; full-year horizon remains open."
+                _set_promise_row_semantics(
+                    ws,
+                    rr,
+                    cols,
+                    actual="$55.2m",
+                    progress="YTD: $55.2m",
+                    status="On track",
+                    note="2026-Q1 45Z contribution tracks annual guide; full-year horizon remains open.",
+                )
+            if metric_txt == "45Z monetization" and stated_txt == "2025-Q4" and horizon_txt == "2025-Q4":
+                _set_promise_row_semantics(
+                    ws,
+                    rr,
+                    cols,
+                    actual="$23.4m",
+                    progress="YTD: $49.9m",
+                    status="Hit",
+                    note="Q4 adjusted-EBITDA 45Z value was $23.4m; YTD adds Q3 $26.5m and Q4 $23.4m on the same value basis.",
+                )
+            if metric_txt == "Cost savings target" and horizon_txt == "Annualized program":
+                if stated_txt == "2024-Q4":
+                    if actual_col:
+                        ws.cell(rr, actual_col).value = "$30m"
+                    if progress_col:
+                        ws.cell(rr, progress_col).value = "Executed: $30m"
+                    if note_col:
+                        ws.cell(rr, note_col).value = "Up to $50m identified; first $30m executed."
+                elif stated_txt == "2025-Q1":
+                    if actual_col:
+                        ws.cell(rr, actual_col).value = "$45m"
+                    if progress_col:
+                        ws.cell(rr, progress_col).value = "Remaining: $5m"
+                    if note_col:
+                        ws.cell(rr, note_col).value = "Approximately $45m annualized savings accomplished; about $5m remaining."
+                elif stated_txt == "2025-Q2":
+                    if actual_col:
+                        ws.cell(rr, actual_col).value = ">= $50m"
+                    if progress_col:
+                        ws.cell(rr, progress_col).value = "On pace to exceed $50m"
+                    if status_col:
+                        ws.cell(rr, status_col).value = "On track"
+                    if note_col:
+                        ws.cell(rr, note_col).value = (
+                            "Cost reductions implemented in the first half; on pace to exceed the $50m annualized savings target."
+                        )
             if metric_txt == "45Z facility qualification":
                 if actual_col:
                     ws.cell(rr, actual_col).value = ""
@@ -9800,7 +10559,9 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                     if progress_col:
                         ws.cell(rr, progress_col).value = _promise_progress_label(run_rate_txt, metric=metric_txt, stated=stated_txt)
                     continue
-                ws.cell(rr, actual_col).value = "not yet measurable"
+                ws.cell(rr, actual_col).value = ""
+                if progress_col and not str(ws.cell(rr, progress_col).value or "").strip():
+                    ws.cell(rr, progress_col).value = "not yet measurable"
                 change_low = change_txt.lower()
                 if change_low == "initial" or not prev_txt:
                     clean_note = f"Initial {stated_txt} cost savings target."
@@ -9864,7 +10625,11 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                 metric_low = str(metric or "").lower()
                 actual_txt = str(actual or "")
                 note_txt = str(note or "")
-                if re.search(r"\b(basis differs|basis-dependent|gaap\s*/|adjusted\s*/|gaap.*adjusted|adjusted.*gaap)\b", f"{actual_txt} {note_txt}", flags=re.I):
+                basis_blob = f"{actual_txt} {note_txt}"
+                basis_ambiguous = bool(
+                    re.search(r"\b(basis differs|basis-dependent|gaap\s*/|adjusted\s*/|gaap.*adjusted|adjusted.*gaap)\b", basis_blob, flags=re.I)
+                )
+                if basis_ambiguous and not ("adjusted eps" in metric_low and re.search(r"\badjusted\b", actual_txt, flags=re.I)):
                     return "Basis-dependent"
                 guide_nums = _numbers(guide)
                 actual_nums = _numbers(actual_txt)
@@ -10173,6 +10938,41 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                     if canonical and canonical != raw:
                         cell.value = canonical
 
+            active_cols: Dict[str, int] = {}
+            status_like_progress = {
+                "open",
+                "on track",
+                "completed",
+                "complete",
+                "hit",
+                "beat",
+                "missed",
+                "miss",
+                "mixed",
+                "basis-dependent",
+                "basis dependent",
+                "not assessed",
+            }
+            for rr in range(1, max_row + 1):
+                row_map = {
+                    str(ws.cell(rr, cc).value or "").strip().lower(): cc
+                    for cc in range(1, max_col + 1)
+                    if str(ws.cell(rr, cc).value or "").strip()
+                }
+                if {"metric", "progress / run-rate", "status"}.issubset(set(row_map)):
+                    active_cols = row_map
+                    continue
+                if _is_section_or_header_row(rr):
+                    active_cols = {}
+                    continue
+                progress_col = active_cols.get("progress / run-rate") if active_cols else None
+                status_col = active_cols.get("status") if active_cols else None
+                if not (progress_col and status_col):
+                    continue
+                progress_txt = str(ws.cell(rr, progress_col).value or "").strip()
+                if progress_txt.lower() in status_like_progress:
+                    ws.cell(rr, progress_col).value = ""
+
         if ws.title == "Valuation":
             side_start, side_end = 15, min(max_col, 29)
             side_header_tokens = {
@@ -10245,12 +11045,12 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
                 _clamp_rows(3, 19.5, 20.0)
         elif ws.title == "Promise_Progress_UI":
             _standardize_promise_status_cells()
-            _apply_source_backed_promise_mapping_overrides(wb, ticker_txt)
             _remove_empty_promise_revision_blocks(ws)
             max_row = int(ws.max_row or 0)
             max_col = int(ws.max_column or 0)
             _clamp_rows(3, 22.0, 26.0)
             _polish_promise_scorecard_layout(ws)
+            _apply_source_backed_promise_mapping_overrides(wb, ticker_txt)
         elif ws.title == "Economics_Overlay" or ws.title.endswith("_Economics_Overlay"):
             for rr in range(1, max_row + 1):
                 dim = ws.row_dimensions[rr]
@@ -16272,6 +17072,38 @@ def _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(quarterly_metri
         seg_map = out.get(metric_name)
         if not seg_map:
             continue
+        total_bucket = dict(seg_map.get("Total reportable segments") or {})
+        if not total_bucket:
+            continue
+        send_bucket = dict(seg_map.get("SendTech Solutions") or {})
+        presort_bucket = dict(seg_map.get("Presort Services") or {})
+        other_bucket = dict(seg_map.get("Other operations") or {})
+        changed_other = False
+        for q_key, total_in in total_bucket.items():
+            q_ts = pd.Timestamp(q_key)
+            if pd.notna(pd.to_numeric(other_bucket.get(q_ts), errors="coerce")):
+                continue
+            total_num = pd.to_numeric(total_in, errors="coerce")
+            send_num = pd.to_numeric(send_bucket.get(q_ts), errors="coerce")
+            presort_num = pd.to_numeric(presort_bucket.get(q_ts), errors="coerce")
+            if pd.isna(total_num) or pd.isna(send_num) or pd.isna(presort_num):
+                continue
+            residual = float(total_num) - float(send_num) - float(presort_num)
+            tolerance = max(abs(float(total_num)) * 0.002, 1_000.0)
+            if abs(residual) <= tolerance:
+                other_bucket[q_ts] = 0.0
+                changed_other = True
+            elif residual > 0 and residual <= max(abs(float(total_num)) * 0.05, 5_000_000.0):
+                other_bucket[q_ts] = float(residual)
+                changed_other = True
+        if changed_other:
+            seg_map["Other operations"] = other_bucket
+            out[metric_name] = seg_map
+
+    for metric_name in repair_metrics:
+        seg_map = out.get(metric_name)
+        if not seg_map:
+            continue
         by_quarter: Dict[pd.Timestamp, List[float]] = {}
         for seg_name, q_map in dict(seg_map).items():
             if not _is_component_segment(seg_name):
@@ -16322,6 +17154,70 @@ def _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(quarterly_metri
             if changed:
                 out[margin_metric] = margin_map
     return out
+
+
+def _pbi_add_corporate_reconciliation_from_release_text(
+    store: Dict[str, Dict[str, Dict[pd.Timestamp, float]]],
+    txt: str,
+    q_ts: pd.Timestamp,
+    parse_money_thousands: Callable[[Any], Optional[float]],
+) -> None:
+    """Add PBI corporate expense rows when the release exposes the reconciliation."""
+    if not store or not txt:
+        return
+
+    def _get(metric_name: str, segment_name: str) -> Optional[float]:
+        value = pd.to_numeric(
+            dict(dict(store.get(metric_name) or {}).get(segment_name) or {}).get(pd.Timestamp(q_ts)),
+            errors="coerce",
+        )
+        if pd.isna(value):
+            return None
+        return float(value)
+
+    def _put(metric_name: str, segment_name: str, value: Optional[float]) -> None:
+        value_num = pd.to_numeric(value, errors="coerce")
+        if pd.isna(value_num):
+            return
+        store.setdefault(metric_name, {}).setdefault(segment_name, {})[pd.Timestamp(q_ts)] = float(value_num)
+
+    seg_ebit = _get("Adjusted EBIT", "Total reportable segments")
+    seg_da = _get("Depreciation & amortization", "Total reportable segments")
+    seg_ebitda = _get("Adjusted EBITDA", "Total reportable segments")
+    if seg_ebit is None or seg_da is None or seg_ebitda is None:
+        return
+
+    recon_match = re.search(
+        r"Reconciliation\s+of\s+Reported\s+Consolidated\s+Results\s+to\s+Adjusted\s+Results.*?"
+        r"(?:Reconciliation\s+of\s+diluted\s+earnings\s+per\s+share|Reconciliation\s+of\s+net\s+cash|$)",
+        txt,
+        flags=re.I | re.S,
+    )
+    recon_txt = recon_match.group(0) if recon_match else ""
+    company_match = re.search(
+        r"\bAdjusted\s+EBIT\s+\$?\s*([\(\)0-9,.\-]+).*?"
+        r"\bDepreciation\s+and\s+amortization\s+\$?\s*([\(\)0-9,.\-]+).*?"
+        r"\bAdjusted\s+EBITDA\s+\$?\s*([\(\)0-9,.\-]+)",
+        recon_txt,
+        flags=re.I | re.S,
+    )
+    if not company_match:
+        return
+    company_ebit = parse_money_thousands(company_match.group(1))
+    company_da = parse_money_thousands(company_match.group(2))
+    company_ebitda = parse_money_thousands(company_match.group(3))
+    if company_ebit is None or company_da is None or company_ebitda is None:
+        return
+
+    corp_ebit = company_ebit - seg_ebit
+    corp_line = re.search(r"\bCorporate\s+expenses\s+\$?\s*([\(\)0-9,.\-]+)", txt, flags=re.I)
+    corp_line_val = parse_money_thousands(corp_line.group(1)) if corp_line else None
+    if corp_line_val is not None and abs(corp_line_val - corp_ebit) <= max(1_000_000.0, abs(corp_ebit) * 0.1):
+        corp_ebit = corp_line_val
+
+    _put("Adjusted EBIT", "Corporate expense", corp_ebit)
+    _put("Depreciation & amortization", "Corporate expense", company_da - seg_da)
+    _put("Adjusted EBITDA", "Corporate expense", company_ebitda - seg_ebitda)
 
 
 def _anf_guidance_visible_period_label(period_label: Any, source_quarter: Any = None) -> str:
@@ -16616,6 +17512,7 @@ def _anf_build_guidance_timeline_rows(guidance_df: Optional[pd.DataFrame] = None
         ("Q2 2025", "2025-08-28 / Q2 2025", "2025 year", "Net sales growth", "+3-6%", "+5-7%", "raised", "+6%", "met", "Q2 update."),
         ("Q2 2025", "2025-08-28 / Q2 2025", "2025 year", "Operating margin", "12.5-13.5%", "13.0-13.5%", "raised lower end", "13.3% GAAP / 12.5% adjusted", "mixed", "Q2 margin update."),
         ("Q2 2025", "2025-08-28 / Q2 2025", "2025 year", "Adjusted EPS", "$9.50-$10.50", "$10.00-$10.50", "raised lower end", "$9.86 adjusted", "missed", "Q2 adjusted EPS update."),
+        ("Q2 2025", "2025-08-28 / Q2 2025", "2025 year", "Diluted shares", "~49m", "~49m", "maintained share count", "48.5m diluted", "met", "Q2 share-count update."),
         ("Q2 2025", "2025-08-28 / Q2 2025", "2025 year", "Capex", "~$200m", "~$225m", "raised", "$240.8m", "Hit", "Q2 capex update."),
         ("Q3 2025", "2025-11-26 / Q3 2025", "2025 year", "Net sales growth", "+5-7%", "+6-7%", "raised lower end", "+6%", "met", "Q3 update."),
         ("Q3 2025", "2025-11-26 / Q3 2025", "2025 year", "Adjusted EPS", "$10.00-$10.50", "$10.20-$10.50", "raised lower end", "$9.86 adjusted", "missed", "Q3 adjusted EPS update."),
@@ -69999,8 +70896,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             dict(x)
             for x in hidden_flag_rows_all
             if _hidden_flag_score_local(_hidden_flag_field_local(x, "triggered", "Triggered")) >= 1.0
-            or _hidden_flag_score_local(_hidden_flag_field_local(x, "score", "Score")) >= 1.0
         ]
+        hidden_flag_triggered_keys = {
+            str(_hidden_flag_field_local(x, "flag_code", "flag_id", "Flag", "flag") or "").strip().upper()
+            or str(_hidden_flag_field_local(x, "title", "Title") or "").strip().lower()
+            for x in hidden_flag_rows_triggered
+        }
+        hidden_flag_price_linked_keys = {
+            str(_hidden_flag_field_local(x, "flag_code", "flag_id", "Flag", "flag") or "").strip().upper()
+            for x in hidden_flag_rows_all
+            if str(_hidden_flag_field_local(x, "flag_code", "flag_id", "Flag", "flag") or "").strip().upper() in {"C", "E"}
+        }
         visible_hv_flags_hdr_row = 137
         visible_hv_flags_columns_row = visible_hv_flags_hdr_row + 1
         visible_hv_flags_start_row = visible_hv_flags_columns_row + 1
@@ -70012,7 +70918,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         visible_hv_flags_support_col = 8  # H
         visible_hv_flags_support_end_col = 13  # M
         visible_hv_flags_panel_end_col = visible_hv_flags_support_end_col
-        visible_hv_flag_count = max(1, min(5, len(hidden_flag_rows_triggered)))
+        visible_hv_display_rows = hidden_flag_rows_triggered[:5]
+        visible_hv_flag_count = max(1, min(5, len(visible_hv_display_rows)))
         visible_hv_flags_end_row = visible_hv_flags_start_row + max(0, visible_hv_flag_count - 1)
         row_hv_obs_hdr_dyn = max(visible_hv_flags_end_row, row_hv_narr_dyn) + 2
         row_hv_obs_start_dyn = row_hv_obs_hdr_dyn + 1
@@ -70140,14 +71047,42 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         ws.column_dimensions[helper_letter].hidden = True
         for i in range(1, visible_hv_flag_count + 1):
             rr = visible_hv_flags_start_row + (i - 1)
-            hidden_rr = 2 + (i - 1)
             no_trigger_formula = 'COUNTIF(\'Hidden_Value_Flags\'!$L:$L,">=1")=0'
-            helper_formula = f'=IF(N(\'Hidden_Value_Flags\'!$L${hidden_rr})>=1,{hidden_rr},"")'
+            if i == 1:
+                helper_formula = '=IFERROR(MATCH(1,\'Hidden_Value_Flags\'!$L$2:$L$100,0)+1,"")'
+            else:
+                prev_helper = f"${helper_letter}{rr - 1}"
+                helper_formula = (
+                    f'=IF({prev_helper}="","",IFERROR('
+                    f"MATCH(1,INDEX('Hidden_Value_Flags'!$L:$L,{prev_helper}+1):'Hidden_Value_Flags'!$L$100,0)"
+                    f"+{prev_helper},\"\"))"
+                )
             ws.cell(row=rr, column=helper_col, value=helper_formula)
+            display_flag = visible_hv_display_rows[i - 1] if i <= len(visible_hv_display_rows) else None
+            if display_flag is not None:
+                display_label = f"Flag {i}"
+                display_title = _hidden_flag_field_local(display_flag, "title", "Title", "flag_name", "Flag name") or ""
+                display_score = _hidden_flag_score_local(_hidden_flag_field_local(display_flag, "score", "Score"))
+                display_severity = _hidden_flag_field_local(display_flag, "severity", "Severity") or ""
+                display_support = _hidden_flag_field_local(
+                    display_flag,
+                    "visible_support",
+                    "Visible support",
+                    "support",
+                    "Support",
+                    "evidence_1",
+                    "Evidence 1",
+                ) or ""
+            else:
+                display_label = "No triggered flags"
+                display_title = "No scored hidden-value flags currently triggered"
+                display_score = None
+                display_severity = "Info"
+                display_support = "Audit candidates remain in Hidden_Value_Flags / Hidden_Value_Audit."
             label_cell = ws.cell(
                 row=rr,
                 column=visible_hv_flags_label_col,
-                value=f'=IF({no_trigger_formula},"No triggered flags",IF(${helper_letter}{rr}="","","Flag {i}"))',
+                value=display_label,
             )
             label_cell.font = bold
             try:
@@ -70168,34 +71103,26 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             title_cell = ws.cell(
                 row=rr,
                 column=visible_hv_flags_title_col,
-                value=(
-                    f'=IF({no_trigger_formula},'
-                    '"No scored hidden-value flags currently triggered",'
-                    f'IF(${helper_letter}{rr}="","",INDEX(\'Hidden_Value_Flags\'!$C:$C,${helper_letter}{rr})))'
-                ),
+                value=display_title,
             )
             title_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
             score_cell = ws.cell(
                 row=rr,
                 column=visible_hv_flags_score_col,
-                value=f'=IF({no_trigger_formula},"",IF(${helper_letter}{rr}="","",INDEX(\'Hidden_Value_Flags\'!$D:$D,${helper_letter}{rr})))',
+                value=display_score,
             )
             score_cell.alignment = Alignment(horizontal="right", vertical="center", wrap_text=False)
             score_cell.number_format = "0"
             severity_cell = ws.cell(
                 row=rr,
                 column=visible_hv_flags_severity_col,
-                value=f'=IF({no_trigger_formula},"Info",IF(${helper_letter}{rr}="","",INDEX(\'Hidden_Value_Flags\'!$E:$E,${helper_letter}{rr})))',
+                value=display_severity,
             )
             severity_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
             support_cell = ws.cell(
                 row=rr,
                 column=visible_hv_flags_support_col,
-                value=(
-                    f'=IF({no_trigger_formula},'
-                    '"Audit candidates remain in Hidden_Value_Flags / Hidden_Value_Audit.",'
-                    f'IF(${helper_letter}{rr}="","",INDEX(\'Hidden_Value_Flags\'!$K:$K,${helper_letter}{rr})))'
-                ),
+                value=display_support,
             )
             support_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
             for cc in range(visible_hv_flags_label_col, visible_hv_flags_panel_end_col + 1):
@@ -83847,6 +84774,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             best_path: Optional[Path] = None
             best_qd: Optional[date] = None
             best_parsed: Optional[Dict[str, Any]] = None
+            parsed_sources: List[Tuple[date, Path, Dict[str, Any]]] = []
             for path_in in _annual_segment_text_source_files():
                 raw_txt = _read_operating_driver_text(path_in)
                 if not raw_txt:
@@ -83867,6 +84795,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         qd = date(max(preview_years), 12, 31)
                 if not isinstance(qd, date) or qd.month != 12:
                     continue
+                parsed_sources.append((qd, path_in, dict(parsed_preview)))
                 if best_qd is None or qd > best_qd:
                     best_qd = qd
                     best_path = path_in
@@ -83876,8 +84805,46 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     return _anf_annual_segment_data_from_slides_segments(slides_segments)
                 return {}
             parsed = dict(best_parsed)
+            if is_gpre_profile:
+                backfill_source_docs: List[str] = []
+                parsed_assets: Dict[str, Dict[int, float]] = {
+                    str(seg): dict(year_vals or {})
+                    for seg, year_vals in dict(parsed.get("assets") or {}).items()
+                    if str(seg or "").strip()
+                }
+                parsed_years = {int(y) for y in parsed.get("years") or [] if str(y).isdigit()}
+                for _qd_src, path_src, parsed_src in sorted(parsed_sources, key=lambda item: item[0], reverse=True):
+                    for seg, year_vals in dict(parsed_src.get("assets") or {}).items():
+                        seg_key = str(seg or "").strip()
+                        if not seg_key:
+                            continue
+                        target_vals = parsed_assets.setdefault(seg_key, {})
+                        for yy, vv in dict(year_vals or {}).items():
+                            try:
+                                yy_int = int(yy)
+                            except Exception:
+                                continue
+                            if yy_int in target_vals:
+                                continue
+                            vv_num = pd.to_numeric(vv, errors="coerce")
+                            if pd.isna(vv_num):
+                                continue
+                            target_vals[yy_int] = float(vv_num)
+                            parsed_years.add(yy_int)
+                            src_doc = str(path_src)
+                            if src_doc and src_doc not in backfill_source_docs and path_src != best_path:
+                                backfill_source_docs.append(src_doc)
+                if parsed_assets:
+                    parsed["assets"] = parsed_assets
+                if parsed_years:
+                    parsed["years"] = sorted(parsed_years)
             if parsed:
                 parsed["source_doc"] = str(best_path)
+                if is_gpre_profile and backfill_source_docs:
+                    parsed["source_doc"] = (
+                        f"{parsed['source_doc']}; annual Total assets backfilled from "
+                        + "; ".join(backfill_source_docs)
+                    )
                 parsed["source_qd"] = best_qd
             return parsed
 
@@ -84156,6 +85123,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                                 _add_metric(store, "Adjusted EBIT", seg_name, q_ts, groups[offset])
                                 _add_metric(store, "Depreciation & amortization", seg_name, q_ts, groups[offset + 1])
                                 _add_metric(store, "Adjusted EBITDA", seg_name, q_ts, groups[offset + 2])
+                            _pbi_add_corporate_reconciliation_from_release_text(
+                                store,
+                                txt,
+                                q_ts,
+                                _parse_money_thousands,
+                            )
                         if rev_match or ebit_match:
                             source_docs.append(str(path_in))
 
@@ -84384,7 +85357,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         )
         maps["current_maturities_ltd"] = _payload_map(
             ["current_maturities_of_long_term_debt"],
-            ["current_maturities_of_long_term_debt", "long_term_debt_current"],
+            ["current_maturities_of_long_term_debt", "long_term_debt_current", "debt_current"],
         )
         maps["derivative_liability"] = _payload_map(["derivative_liabilities"], ["derivative_liabilities"])
         maps["lease_current"] = _payload_map(["operating_lease_current_liabilities"], ["operating_lease_current_liabilities"])
@@ -84836,7 +85809,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         _write_metric("Quick ratio", quick_ratio_map, value_scale=1.0, number_format="0.00x", bucket_mode="none")
         _write_metric("Long-term debt", debt_lt_map)
         _write_metric("Δ Total debt QoQ ($m)", delta_total_debt_qoq_map, bucket_mode="none")
-        _write_metric("Carbon equipment liabilities", maps["carbon_equipment_liabilities"])
+        if _should_render_carbon_equipment_liabilities(ticker, maps["carbon_equipment_liabilities"]):
+            _write_metric("Carbon equipment liabilities", maps["carbon_equipment_liabilities"])
         _write_metric(
             "Operating lease long-term liabilities",
             {q: (maps["lease_long_term"].get(q) if maps["lease_long_term"].get(q) is not None else maps["lease_lt"].get(q)) for q in [pd.Timestamp(x) for x in qs]},
@@ -91219,6 +92193,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                                 _add_metric(store, "Adjusted EBIT", seg_name, q_ts, groups[offset])
                                 _add_metric(store, "Depreciation & amortization", seg_name, q_ts, groups[offset + 1])
                                 _add_metric(store, "Adjusted EBITDA", seg_name, q_ts, groups[offset + 2])
+                            _pbi_add_corporate_reconciliation_from_release_text(
+                                store,
+                                txt,
+                                q_ts,
+                                _parse_money_thousands,
+                            )
                         if rev_match or ebit_match:
                             source_docs.append(str(path_in))
 
@@ -91291,6 +92271,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
 
                 _copy_metrics(base_metrics, replace_existing=True)
                 _copy_metrics(overlay_metrics, replace_existing=False)
+                if is_pbi_profile:
+                    merged_metrics = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(merged_metrics)
                 if is_anf_profile:
                     merged_metrics = _anf_add_total_company_quarter_revenue_from_history(
                         merged_metrics,
