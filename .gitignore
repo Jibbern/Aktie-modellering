@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 .mypy_cache/
 .ruff_cache/
+.worktrees/
 market_data/index/export_inputs/
 promise_progress_renders/
 validation_reports/
