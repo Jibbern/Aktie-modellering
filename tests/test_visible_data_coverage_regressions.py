@@ -9,6 +9,8 @@ import pytest
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
+from pbi_xbrl.excel_writer_context import _hidden_source_comparison_metric
+
 
 WORKBOOK_DIR = Path(
     os.environ.get(
@@ -28,6 +30,10 @@ def _model_path(ticker: str) -> Path:
 
 def _load_model(ticker: str):
     return load_workbook(_model_path(ticker), data_only=True, read_only=True, keep_vba=True)
+
+
+def _load_model_with_styles(ticker: str):
+    return load_workbook(_model_path(ticker), data_only=True, read_only=False, keep_vba=True)
 
 
 def _text(value: Any) -> str:
@@ -78,6 +84,22 @@ def _find_segment_row_after_group(ws: Worksheet, group: str, segment: str, *, st
     raise AssertionError(f"{ws.title}: segment {segment!r} missing under {group!r}")
 
 
+def _fill_rgb(cell: Any) -> str:
+    try:
+        return str(cell.fill.fgColor.rgb or "").upper()
+    except Exception:
+        return ""
+
+
+def _has_bucket_fill(cell: Any) -> bool:
+    return str(getattr(cell.fill, "fill_type", "") or "").lower() == "solid" and _fill_rgb(cell) not in {
+        "",
+        "00000000",
+        "00FFFFFF",
+        "FFFFFFFF",
+    }
+
+
 def _promise_row(ws: Worksheet, section: str, metric: str) -> int:
     section_row = _find_row(ws, section)
     header_row = _find_row(ws, "Metric", start=section_row)
@@ -88,6 +110,55 @@ def _promise_row(ws: Worksheet, section: str, metric: str) -> int:
         if first == metric:
             return rr
     raise AssertionError(f"{ws.title}: metric {metric!r} missing under {section!r}")
+
+
+def test_hidden_source_comparison_uses_ordered_fiscal_history_but_not_sparse_wrong_quarters() -> None:
+    fiscal_source = {
+        "2022-04-30": 100.0,
+        "2022-07-30": 100.0,
+        "2022-10-29": 100.0,
+        "2023-01-28": 100.0,
+        "2023-04-29": 115.0,
+    }
+    assert _hidden_source_comparison_metric(
+        current_key="2023-04-29",
+        current_value=115.0,
+        visible_idx=0,
+        comparison_basis="yoy",
+        directionality="higher_better",
+        source_values=fiscal_source,
+    ) == pytest.approx(0.15)
+    calendar_keyed_source = {
+        "2022-03-31": 100.0,
+        "2022-06-30": 100.0,
+        "2022-09-30": 100.0,
+        "2022-12-31": 100.0,
+        "2023-03-31": 115.0,
+    }
+    assert _hidden_source_comparison_metric(
+        current_key="2023-04-29",
+        current_value=115.0,
+        visible_idx=0,
+        comparison_basis="yoy",
+        directionality="higher_better",
+        source_values=calendar_keyed_source,
+    ) == pytest.approx(0.15)
+
+    sparse_source = {
+        "2021-12-31": 90.0,
+        "2022-03-31": 95.0,
+        "2022-06-30": 100.0,
+        "2023-03-31": 110.0,
+        "2023-09-30": 120.0,
+    }
+    assert _hidden_source_comparison_metric(
+        current_key="2023-09-30",
+        current_value=120.0,
+        visible_idx=1,
+        comparison_basis="yoy",
+        directionality="higher_better",
+        source_values=sparse_source,
+    ) is None
 
 
 def test_pbi_operating_drivers_includes_2026_q1_segment_support_from_release() -> None:
@@ -155,6 +226,197 @@ def test_pbi_operating_drivers_reportable_segment_totals_stay_populated() -> Non
                 f"PBI Operating_Drivers {group}/Total reportable segments {quarter} should stay source-backed"
             )
     wb.close()
+
+
+def test_anf_valuation_first_visible_2023_quarters_use_hidden_prior_year_bucket_fills() -> None:
+    wb = _load_model_with_styles("ANF")
+    try:
+        ws = wb["Valuation"]
+        header = _find_row(ws, "Quarter")
+        quarter_cols = {q: _quarter_col(ws, header, q) for q in ("2023-Q1", "2023-Q2", "2023-Q3", "2023-Q4")}
+        checks = {
+            "Revenue": {"2023-Q1": 835.994, "2023-Q4": 1452.907},
+            "Gross margin %": {"2023-Q1": 0.6098058120, "2023-Q4": 0.6287869767},
+            "Operating margin %": {"2023-Q1": 0.0406797178, "2023-Q4": 0.1533484249},
+            "Operating margin (TTM)": {"2023-Q1": 0.0366521427, "2023-Q4": 0.1132229785},
+            "EBITDA margin %": {"2023-Q1": 0.0837757209, "2023-Q4": 0.1778214297},
+            "Adj EBITDA margin %": {"2023-Q1": 0.0837757209, "2023-Q4": 0.1778214297},
+            "EBIT margin %": {"2023-Q1": 0.0406797178, "2023-Q4": 0.1533484249},
+            "Net income attrib. to A&F margin %": {"2023-Q1": 0.0198219126, "2023-Q4": 0.1090551563},
+            "Capex % of revenue": {"2023-Q1": 0.0554920251, "2023-Q4": 0.0200948856},
+            "FCF (CFO-Capex)": {"2023-Q1": 254.294, "2023-Q4": 323.541},
+            "Owner earnings (proxy)": {"2023-Q1": 268.2113, "2023-Q4": 332.2998},
+            "FCF margin %": {"2023-Q1": 0.3041816090, "2023-Q4": 0.2226852785},
+            "Current ratio": {"2023-Q1": 1.4407370874, "2023-Q4": 1.5900219276},
+            "EPS (GAAP)": {"2023-Q1": 0.3219733033, "2023-Q4": 2.97},
+            "Adj EPS": {"2023-Q1": 0.39, "2023-Q4": 2.97},
+            "BV/share": {"2023-Q1": 13.6370295529, "2023-Q4": 19.3853817487},
+            "FCF/share (TTM)": {"2023-Q1": 6.4403209824, "2023-Q4": 9.2815408528},
+            "Net leverage": {"2023-Q1": -0.5531734161, "2023-Q4": -1.0846789980},
+            "Net leverage (Adj)": {"2023-Q1": -0.5531734161, "2023-Q4": -1.0846789980},
+        }
+        for metric, expected_values in checks.items():
+            row = _find_row(ws, metric)
+            for quarter in quarter_cols:
+                cell = ws.cell(row, quarter_cols[quarter])
+                assert _has_bucket_fill(cell), (
+                    f"ANF Valuation {metric} {quarter} should use hidden 2022 source history for comparison fill"
+                )
+            for quarter, expected in expected_values.items():
+                assert _num(ws.cell(row, quarter_cols[quarter]).value) == pytest.approx(expected, abs=0.0005), (
+                    f"ANF Valuation {metric} {quarter} value changed while fixing style"
+                )
+    finally:
+        wb.close()
+
+
+def test_anf_operating_drivers_first_visible_2023_brand_geography_rows_are_colored_from_source_comps() -> None:
+    wb = _load_model_with_styles("ANF")
+    try:
+        ws = wb["Operating_Drivers"]
+        section = _find_row_contains(ws, "Actuals", start=1)
+        header = _find_row(ws, "Quarter", start=section)
+        quarter_cols = {q: _quarter_col(ws, header, q) for q in ("2023-Q1", "2023-Q2", "2023-Q3", "2023-Q4")}
+        checks = {
+            "Americas sales": {"2023-Q1": 663.4, "2023-Q4": 1193.3},
+            "EMEA sales": {"2023-Q1": 139.3, "2023-Q4": 217.9},
+            "APAC sales": {"2023-Q1": 33.3, "2023-Q4": 41.7},
+            "Abercrombie sales": {"2023-Q1": 436.0, "2023-Q4": 755.2},
+            "Hollister sales": {"2023-Q1": 399.9, "2023-Q4": 697.7},
+            "APAC sales YoY": {"2023-Q1": 11.0, "2023-Q4": 21.0},
+            "Americas sales YoY": {"2023-Q2": 19.0, "2023-Q4": 23.0},
+            "EMEA sales YoY": {"2023-Q1": -15.0, "2023-Q4": 13.0},
+            "Abercrombie sales YoY": {"2023-Q1": 14.0, "2023-Q4": 35.0},
+            "Hollister sales YoY": {"2023-Q1": -7.0, "2023-Q4": 9.0},
+            "Total comp": {"2023-Q1": 3.0, "2023-Q4": 21.0},
+            "Abercrombie comp": {"2023-Q1": 14.0, "2023-Q4": 28.0},
+            "Hollister comp": {"2023-Q1": -6.0, "2023-Q4": 6.0},
+        }
+        expected_neutral_without_clean_comparator = {("Americas sales", "2023-Q1")}
+        for metric, expected_values in checks.items():
+            row = _find_row(ws, metric, start=header)
+            for quarter, col in quarter_cols.items():
+                cell = ws.cell(row, col)
+                if cell.value in (None, ""):
+                    continue
+                if (metric, quarter) in expected_neutral_without_clean_comparator:
+                    assert not _has_bucket_fill(cell), (
+                        f"ANF Operating_Drivers {metric} {quarter} should stay neutral without a clean source-backed YoY comparator"
+                    )
+                    continue
+                assert _has_bucket_fill(cell), (
+                    f"ANF Operating_Drivers {metric} {quarter} should use source-backed YoY/comp evidence for comparison fill"
+                )
+            for quarter, expected in expected_values.items():
+                assert _num(ws.cell(row, quarter_cols[quarter]).value) == pytest.approx(expected, abs=0.1), (
+                    f"ANF Operating_Drivers {metric} {quarter} value changed while fixing style"
+                )
+    finally:
+        wb.close()
+
+
+def test_pbi_operating_drivers_first_visible_segment_quarters_color_only_with_hidden_prior_year_source() -> None:
+    wb = _load_model_with_styles("PBI")
+    try:
+        ws = wb["Operating_Drivers"]
+        section = _find_row_contains(ws, "Segment support", start=1)
+        header = _find_row(ws, "Metric / segment", start=section)
+        quarter_cols = {q: _quarter_col(ws, header, q) for q in ("2023-Q2", "2023-Q3", "2023-Q4")}
+        expected_values = {
+            "SendTech Solutions": {"2023-Q2": 348.284, "2023-Q3": 345.147, "2023-Q4": 357.386},
+            "Presort Services": {"2023-Q2": 143.107, "2023-Q3": 152.451, "2023-Q4": 163.139},
+            "Total reportable segments": {"2023-Q2": 500.831, "2023-Q3": 503.033, "2023-Q4": 526.416},
+        }
+        for segment, expected_by_quarter in expected_values.items():
+            row = _find_segment_row_after_group(ws, "Revenue ($m)", segment, start=header)
+            for quarter, expected in expected_by_quarter.items():
+                cell = ws.cell(row, quarter_cols[quarter])
+                if quarter == "2023-Q2":
+                    assert _has_bucket_fill(cell), (
+                        f"PBI Operating_Drivers Revenue/{segment} {quarter} should use hidden 2022-Q2 source history for comparison fill"
+                    )
+                else:
+                    assert not _has_bucket_fill(cell), (
+                        f"PBI Operating_Drivers Revenue/{segment} {quarter} should stay neutral without a clean hidden prior-year source"
+                    )
+                assert _num(cell.value) == pytest.approx(expected, abs=0.002), (
+                    f"PBI Operating_Drivers Revenue/{segment} {quarter} value changed while fixing style"
+                )
+    finally:
+        wb.close()
+
+
+def test_valuation_debt_rows_use_known_lower_better_comparison_fills() -> None:
+    for ticker, start_quarter in (("ANF", "2023-Q1"), ("PBI", "2023-Q2"), ("GPRE", "2023-Q2")):
+        wb = _load_model_with_styles(ticker)
+        try:
+            ws = wb["Valuation"]
+            header = _find_row(ws, "Quarter")
+            quarter_cols = {
+                q: _quarter_col(ws, header, q)
+                for q in ("2024-Q1", "2024-Q2", "2025-Q1", "2025-Q2")
+                if q in [ws.cell(header, c).value for c in range(1, ws.max_column + 1)]
+            }
+            assert quarter_cols, f"{ticker} should expose comparable debt quarters"
+            for metric in ("Debt (core borrowings)", "Net debt (core borrowings)"):
+                row = _find_row(ws, metric)
+                for quarter, col in quarter_cols.items():
+                    cell = ws.cell(row, col)
+                    if cell.value in (None, ""):
+                        continue
+                    prior_quarter = quarter.replace(quarter[:4], str(int(quarter[:4]) - 1), 1)
+                    prior_col = _quarter_col(ws, header, prior_quarter) if any(
+                        ws.cell(header, c).value == prior_quarter for c in range(1, ws.max_column + 1)
+                    ) else None
+                    if prior_col is not None:
+                        prior_value = _num(ws.cell(row, prior_col).value)
+                        if prior_value is not None and abs(prior_value) <= 1e-12:
+                            assert not _has_bucket_fill(cell), (
+                                f"{ticker} Valuation {metric} {quarter} should stay neutral when prior-year debt base is zero"
+                            )
+                            continue
+                    assert _has_bucket_fill(cell), (
+                        f"{ticker} Valuation {metric} {quarter} should be colored as lower-better when comparator exists"
+                    )
+            # First visible quarter should also be colored when hidden source history exists.
+            first_col = _quarter_col(ws, header, start_quarter)
+            for metric in ("Debt (core borrowings)", "Net debt (core borrowings)"):
+                cell = ws.cell(_find_row(ws, metric), first_col)
+                if cell.value not in (None, ""):
+                    assert _has_bucket_fill(cell), (
+                        f"{ticker} Valuation {metric} {start_quarter} should use hidden prior-year source when available"
+                    )
+        finally:
+            wb.close()
+
+
+def test_gpre_operating_driver_volume_rows_color_only_with_source_backed_yoy() -> None:
+    wb = _load_model_with_styles("GPRE")
+    try:
+        ws = wb["Operating_Drivers"]
+        section = _find_row_contains(ws, "Actuals", start=1)
+        header = _find_row(ws, "Quarter", start=section)
+        quarter_cols = {
+            q: _quarter_col(ws, header, q)
+            for q in ("2023-Q2", "2023-Q3", "2023-Q4", "2024-Q1", "2024-Q2")
+        }
+        ethanol_row = _find_row(ws, "Ethanol gallons sold (million gallons)", start=header)
+        for quarter in ("2023-Q2", "2023-Q3", "2023-Q4", "2024-Q1"):
+            cell = ws.cell(ethanol_row, quarter_cols[quarter])
+            assert cell.value in (None, ""), "Ethanol gallons sold should stay blank before exact source values begin"
+            assert not _has_bucket_fill(cell), "Blank ethanol gallons sold cells should remain neutral"
+
+        for metric in ("Ultra-high protein (k tons)", "Renewable corn oil (million lbs)"):
+            row = _find_row(ws, metric, start=header)
+            for quarter in ("2023-Q2", "2023-Q3", "2023-Q4", "2024-Q1", "2024-Q2"):
+                cell = ws.cell(row, quarter_cols[quarter])
+                if cell.value in (None, ""):
+                    continue
+                assert _has_bucket_fill(cell), (
+                    f"GPRE Operating_Drivers {metric} {quarter} should use source-disclosed YoY comparison when available"
+                )
+    finally:
+        wb.close()
 
 
 def test_pbi_bs_segments_2026_q1_source_backed_residual_and_corporate_values() -> None:
@@ -524,6 +786,8 @@ def test_gpre_bs_segments_annual_total_assets_includes_2023_source_values() -> N
     assert {2023, 2024, 2025}.issubset(set(year_cols))
 
     total_assets_header = _find_row(ws, "Total assets", start=year_row)
+    d_and_a_header = _find_row(ws, "Depreciation & amortization", start=year_row)
+    operating_income_header = _find_row(ws, "Operating income (loss)", start=year_row)
     expected_2023 = {
         "Ethanol production": 1275.562,
         "Agribusiness and energy services": 413.937,
@@ -541,6 +805,26 @@ def test_gpre_bs_segments_annual_total_assets_includes_2023_source_values() -> N
         assert _num(ws.cell(row, year_cols[2024]).value) is not None
         assert _num(ws.cell(row, year_cols[2025]).value) is not None
     assert component_sum == pytest.approx(1939.322, abs=0.001)
+
+    d_and_a_labels = {
+        _text(ws.cell(rr, 1).value)
+        for rr in range(d_and_a_header + 1, operating_income_header)
+        if _text(ws.cell(rr, 1).value)
+    }
+    operating_income_labels = {
+        _text(ws.cell(rr, 1).value)
+        for rr in range(operating_income_header + 1, total_assets_header)
+        if _text(ws.cell(rr, 1).value)
+    }
+    total_asset_labels = {
+        _text(ws.cell(rr, 1).value)
+        for rr in range(total_assets_header + 1, min(total_assets_header + 12, int(ws.max_row or 0)) + 1)
+        if _text(ws.cell(rr, 1).value)
+    }
+    assert "Corporate activities" in d_and_a_labels
+    assert "Corporate activities" in operating_income_labels
+    assert "Corporate activities" not in total_asset_labels
+    assert "Corporate assets" in total_asset_labels
     wb.close()
 
 

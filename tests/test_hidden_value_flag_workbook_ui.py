@@ -215,7 +215,8 @@ def test_valuation_hidden_value_panel_uses_compact_styled_rows() -> None:
                 assert not _text(ws.cell(first_unused_flag_row, 1).value), (
                     f"{ticker}: hidden flag UI should not leave blank bordered flag rows"
                 )
-                assert ws.cell(first_unused_flag_row, 1).border.left.style is None, (
+                left_border = ws.cell(first_unused_flag_row, 1).border.left
+                assert left_border is None or left_border.style is None, (
                     f"{ticker}: first unused hidden flag row should be visually blank"
                 )
 

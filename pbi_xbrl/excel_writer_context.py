@@ -18582,6 +18582,19 @@ def _quarterly_color_basis_for_label(label: Any) -> str:
     key = _quarterly_color_label_key(label)
     if not raw or not key:
         return "yoy"
+    if re.search(r"\b(comp|comps|comparable sales)\b", key):
+        return "direct_pct_points"
+    if "yoy" in key and any(
+        token in key
+        for token in (
+            "sales yoy",
+            "net sales yoy",
+            "revenue yoy",
+            "margin yoy",
+            "growth yoy",
+        )
+    ):
+        return "direct_pct_points"
     if _QUARTERLY_COLOR_COMPARISON_RE.search(key) and ("delta" in key or "%" in raw):
         return "direct_delta"
     # Capital-return execution rows are quarter-native flows. QoQ is the
@@ -18660,6 +18673,8 @@ def _quarterly_color_directionality_for_label(
         "cfo",
         "fcf cfo capex",
         "fcf yoy delta m",
+        "fcf ttm yoy delta m",
+        "fcf ttm yoy m",
         "fcf ttm",
         "adj fcf ttm",
         "adj fcf fcf",
@@ -18695,6 +18710,21 @@ def _quarterly_color_directionality_for_label(
     }:
         return "higher_better"
 
+    if "sales yoy" in key or key.endswith(" yoy") and any(tok in key for tok in ("sales", "margin", "growth")):
+        return "higher_better"
+
+    if any(
+        token in key
+        for token in (
+            "ethanol gallons sold",
+            "ethanol gallons produced",
+            "ultra high protein",
+            "renewable corn oil",
+            "distillers grains",
+        )
+    ):
+        return "higher_better"
+
     if key in {
         "capex",
         "capex % of revenue",
@@ -18717,8 +18747,10 @@ def _quarterly_color_directionality_for_label(
         "total liabilities",
         "bank net funding",
         "debt core",
+        "debt core borrowings",
         "net pension opeb",
         "net debt core",
+        "net debt core borrowings",
         "net debt qoq delta m",
         "net debt yoy delta m",
         "net leverage",
@@ -18807,8 +18839,10 @@ def _quarterly_color_metric_from_series(
     current = pd.to_numeric(row_values[idx], errors="coerce")
     if pd.isna(current):
         return None
-    if comparison_basis == "direct_delta":
+    if comparison_basis in {"direct_delta", "direct_pct_points"}:
         metric = float(current)
+        if comparison_basis == "direct_pct_points" and abs(metric) > 1.0:
+            metric /= 100.0
     else:
         step = 1 if comparison_basis == "qoq" else 4
         prev_idx = idx - step
@@ -18867,7 +18901,7 @@ def _hidden_source_comparison_metric(
         raw_ts = pd.to_datetime(raw_key, errors="coerce")
         if pd.isna(raw_ts):
             continue
-        source_quarter_map[pd.Timestamp(raw_ts).to_period("Q").end_time.normalize()] = float(raw_num)
+        source_quarter_map[pd.Timestamp(raw_ts).normalize()] = float(raw_num)
 
     current_key_txt = str(current_key).strip()
     if re.fullmatch(r"\d{4}", current_key_txt):
@@ -18892,7 +18926,42 @@ def _hidden_source_comparison_metric(
         prev_q = prev_period.end_time.normalize()
     except Exception:
         return None
+    def _ordered_previous_value() -> Optional[float]:
+        current_norm = pd.Timestamp(current_ts).normalize()
+        source_keys = sorted(source_quarter_map)
+        try:
+            current_pos = source_keys.index(current_norm)
+            matched_current = current_norm
+        except ValueError:
+            nearest = sorted(
+                (
+                    (abs((current_norm - source_key).days), idx_key, source_key)
+                    for idx_key, source_key in enumerate(source_keys)
+                    if abs((current_norm - source_key).days) <= 45
+                ),
+                key=lambda item: item[0],
+            )
+            if not nearest:
+                return None
+            _, current_pos, matched_current = nearest[0]
+        if current_pos < step:
+            return None
+        candidate_key = source_keys[current_pos - step]
+        days_delta = abs((matched_current - candidate_key).days)
+        if step == 1:
+            if not 45 <= days_delta <= 125:
+                return None
+        else:
+            if not 330 <= days_delta <= 400:
+                return None
+        candidate = pd.to_numeric(source_quarter_map.get(candidate_key), errors="coerce")
+        if pd.isna(candidate):
+            return None
+        return float(candidate)
+
     previous = pd.to_numeric(source_quarter_map.get(prev_q), errors="coerce")
+    if pd.isna(previous):
+        previous = pd.to_numeric(_ordered_previous_value(), errors="coerce")
     if pd.isna(previous) or abs(float(previous)) <= 1e-12:
         return None
     metric = (float(current_num) - float(previous)) / abs(float(previous))
@@ -65801,6 +65870,95 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     out[pd.Timestamp(q)] = float(sum(vals))
             return out
 
+        def _history_numeric_source_map_local(col: str) -> Dict[pd.Timestamp, Any]:
+            if hist is None or hist.empty or "quarter" not in hist.columns or col not in hist.columns:
+                return {}
+            out: Dict[pd.Timestamp, Any] = {}
+            for _, src_row in hist.iterrows():
+                q_raw = pd.to_datetime(src_row.get("quarter"), errors="coerce")
+                if pd.isna(q_raw):
+                    continue
+                val = _safe_float_or_none_local(src_row.get(col))
+                if val is None:
+                    continue
+                out[pd.Timestamp(q_raw).normalize()] = float(val)
+            return out
+
+        def _history_margin_source_map_local(num_col: str, denom_col: str = "revenue") -> Dict[pd.Timestamp, Any]:
+            num_map = _history_numeric_source_map_local(num_col)
+            denom_map = _history_numeric_source_map_local(denom_col)
+            return _margin(num_map, denom_map) if num_map and denom_map else {}
+
+        history_revenue_source_map = _history_numeric_source_map_local("revenue")
+        history_gross_margin_source_map = _history_margin_source_map_local("gross_profit")
+        history_ebitda_margin_source_map = _history_margin_source_map_local("ebitda")
+        history_ebit_margin_source_map = _history_margin_source_map_local("op_income")
+        history_net_income_margin_source_map = _history_margin_source_map_local("net_income")
+        history_capex_pct_source_map = _history_margin_source_map_local("capex")
+        history_fcf_source_map: Dict[pd.Timestamp, Any] = {}
+        history_cfo_source_map = _history_numeric_source_map_local("cfo")
+        history_capex_source_map = _history_numeric_source_map_local("capex")
+        for q_key in _quarter_key_union_local(history_cfo_source_map, history_capex_source_map):
+            cfo_val = _safe_float_or_none_local(history_cfo_source_map.get(q_key))
+            capex_val = _safe_float_or_none_local(history_capex_source_map.get(q_key))
+            if cfo_val is None or capex_val is None:
+                continue
+            history_fcf_source_map[pd.Timestamp(q_key).normalize()] = float(cfo_val) - float(capex_val)
+        history_fcf_margin_source_map = _margin(history_fcf_source_map, history_revenue_source_map) if history_fcf_source_map else {}
+        history_owner_earnings_source_map: Dict[pd.Timestamp, Any] = {}
+        for q_key in _quarter_key_union_local(history_cfo_source_map, history_capex_source_map):
+            cfo_val = _safe_float_or_none_local(history_cfo_source_map.get(q_key))
+            capex_val = _safe_float_or_none_local(history_capex_source_map.get(q_key))
+            if cfo_val is None or capex_val is None:
+                continue
+            history_owner_earnings_source_map[pd.Timestamp(q_key).normalize()] = float(cfo_val) - float(capex_val) * 0.70
+        history_assets_current_source_map = _history_numeric_source_map_local("assets_current")
+        history_liabilities_current_source_map = _history_numeric_source_map_local("liabilities_current")
+        history_current_ratio_source_map = (
+            _margin(history_assets_current_source_map, history_liabilities_current_source_map)
+            if history_assets_current_source_map and history_liabilities_current_source_map
+            else {}
+        )
+        history_eps_gaap_source_map = _history_numeric_source_map_local("eps_diluted")
+        history_net_income_source_map = _history_numeric_source_map_local("net_income")
+        history_share_denom_source_map = _history_numeric_source_map_local("shares_diluted")
+        if not history_share_denom_source_map:
+            history_share_denom_source_map = _history_numeric_source_map_local("shares_outstanding")
+        for q_key in _quarter_key_union_local(history_net_income_source_map, history_share_denom_source_map):
+            q_norm = pd.Timestamp(q_key).normalize()
+            if history_eps_gaap_source_map.get(q_norm) is not None:
+                continue
+            ni_val = _safe_float_or_none_local(history_net_income_source_map.get(q_key))
+            shares_val = _safe_float_or_none_local(history_share_denom_source_map.get(q_key))
+            if ni_val is None or shares_val in (None, 0):
+                continue
+            history_eps_gaap_source_map[q_norm] = float(ni_val) / float(shares_val)
+        history_equity_source_map = _history_numeric_source_map_local("total_equity")
+        history_shares_source_map = _history_numeric_source_map_local("shares_diluted")
+        history_bv_share_source_map = (
+            _margin(history_equity_source_map, history_shares_source_map)
+            if history_equity_source_map and history_shares_source_map
+            else {}
+        )
+        history_debt_core_source_map = _history_numeric_source_map_local("debt_core")
+        history_cash_source_map = _history_numeric_source_map_local("cash")
+        history_net_debt_source_map: Dict[pd.Timestamp, Any] = {}
+        for q_key in _quarter_key_union_local(history_debt_core_source_map, history_cash_source_map):
+            debt_val = _safe_float_or_none_local(history_debt_core_source_map.get(q_key))
+            cash_val = _safe_float_or_none_local(history_cash_source_map.get(q_key))
+            if debt_val is None or cash_val is None:
+                continue
+            history_net_debt_source_map[pd.Timestamp(q_key).normalize()] = float(debt_val) - float(cash_val)
+
+        def _display_m_source_map_local(src: Dict[pd.Timestamp, Any]) -> Dict[pd.Timestamp, Any]:
+            out: Dict[pd.Timestamp, Any] = {}
+            for raw_q, raw_v in dict(src or {}).items():
+                num = _safe_float_or_none_local(raw_v)
+                if num is None:
+                    continue
+                out[pd.Timestamp(raw_q).normalize()] = float(num) / 1e6
+            return out
+
         def _ttm_sparse_cashflow_map_local(src: Dict[pd.Timestamp, Any]) -> Dict[pd.Timestamp, Any]:
             out: Dict[pd.Timestamp, Any] = {}
             for q in _quarter_key_union_local(last4_quarters_map, src):
@@ -66056,6 +66214,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         net_income_ttm_map = _ttm_map(net_income_map) if net_income_map else {}
         ebit_ttm_map = _ttm_map(ebit_map) if ebit_map else {}
         capex_ttm_map = _ttm_map(capex_map)
+        history_fcf_ttm_source_map = _ttm_map(history_fcf_source_map)
+        history_fcf_per_share_ttm_source_map = (
+            _margin(history_fcf_ttm_source_map, history_shares_source_map)
+            if history_fcf_ttm_source_map and history_shares_source_map
+            else {}
+        )
         if is_anf_profile and not any(_safe_float_or_none_local(v) is not None for v in adj_fcf_map.values()):
             adj_fcf_ttm_map = dict(fcf_ttm_map)
             adj_fcf_diff_map = {
@@ -66161,11 +66325,31 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
 
         _set_subheader_row(r, "Margins")
         r += 1
-        _set_row(r, "Gross margin %", _margin(gross_profit_map, rev_map), "0.0%")
+        gross_margin_pct_map = _margin(gross_profit_map, rev_map)
+        _set_row(r, "Gross margin %", gross_margin_pct_map, "0.0%")
+        if history_gross_margin_source_map:
+            valuation_row_source_values["Gross margin %"].update(history_gross_margin_source_map)
         r += 1
         row_operating_margin_pct = r
         company_operating_margin_map = _margin(ebit_map, rev_map)
+        company_operating_margin_source_map = dict(company_operating_margin_map)
+        if isinstance(hist, pd.DataFrame) and {"quarter", "revenue"}.issubset(set(hist.columns)):
+            op_col = "op_income" if "op_income" in hist.columns else "operating_income" if "operating_income" in hist.columns else None
+            for _idx_hist, hist_row in hist.iterrows():
+                q_raw = pd.to_datetime(hist_row.get("quarter"), errors="coerce")
+                if pd.isna(q_raw):
+                    continue
+                q_key = pd.Timestamp(q_raw).normalize()
+                margin_val = pd.to_numeric(hist_row.get("operating_margin"), errors="coerce")
+                if pd.isna(margin_val) and op_col:
+                    op_val = pd.to_numeric(hist_row.get(op_col), errors="coerce")
+                    rev_val = pd.to_numeric(hist_row.get("revenue"), errors="coerce")
+                    if pd.notna(op_val) and pd.notna(rev_val) and abs(float(rev_val)) > 1e-12:
+                        margin_val = float(op_val) / float(rev_val)
+                if pd.notna(margin_val):
+                    company_operating_margin_source_map.setdefault(q_key, float(margin_val))
         _set_row(r, "Operating margin %", company_operating_margin_map, "0.0%")
+        valuation_row_source_values["Operating margin %"].update(company_operating_margin_source_map)
         r += 1
         row_operating_margin_ttm_pct = r
         _set_row(r, "Operating margin (TTM)", _margin(ebit_ttm_map, rev_ttm_map), "0.0%")
@@ -66177,14 +66361,21 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         r += 1
         _set_row(r, "EBITDA", {k: (v / 1e6) if v is not None else None for k, v in ebitda_map.items()}, "#,##0.000")
         r += 1
-        _set_row(r, "EBITDA margin %", _margin(ebitda_map, rev_map), "0.0%")
+        ebitda_margin_pct_map = _margin(ebitda_map, rev_map)
+        _set_row(r, "EBITDA margin %", ebitda_margin_pct_map, "0.0%")
+        if history_ebitda_margin_source_map:
+            valuation_row_source_values["EBITDA margin %"].update(history_ebitda_margin_source_map)
         r += 1
         ebitda_yoy_row = r
         _set_row(r, "EBITDA YoY %", _yoy(ebitda_map), "0.0%")
         r += 1
         _set_row(r, "EBITDA (TTM)", {k: (v / 1e6) if v is not None else None for k, v in ebitda_ttm_map.items()}, "#,##0.000")
         r += 1
-        _set_row(r, "EBITDA margin (TTM)", _margin(ebitda_ttm_map, rev_ttm_map), "0.0%")
+        ebitda_margin_ttm_map = _margin(ebitda_ttm_map, rev_ttm_map)
+        _set_row(r, "EBITDA margin (TTM)", ebitda_margin_ttm_map, "0.0%")
+        ebitda_margin_ttm_source_map = _margin(_ttm_map(_history_numeric_source_map_local("ebitda")), _ttm_map(history_revenue_source_map))
+        if ebitda_margin_ttm_source_map:
+            valuation_row_source_values["EBITDA margin (TTM)"].update(ebitda_margin_ttm_source_map)
         r += 1
 
         _set_subheader_row(r, "Adjusted operating")
@@ -66193,14 +66384,20 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         r += 1
         _set_row(r, "Adj EBITDA - EBITDA", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_diff_map.items()}, "#,##0.000")
         r += 1
-        _set_row(r, "Adj EBITDA margin %", _margin(adj_ebitda_map, rev_map), "0.0%")
+        adj_ebitda_margin_pct_map = _margin(adj_ebitda_map, rev_map)
+        _set_row(r, "Adj EBITDA margin %", adj_ebitda_margin_pct_map, "0.0%")
+        if history_ebitda_margin_source_map:
+            valuation_row_source_values["Adj EBITDA margin %"].update(history_ebitda_margin_source_map)
         r += 1
         adj_ebitda_yoy_row = r
         _set_row(r, "Adj EBITDA YoY %", _yoy(adj_ebitda_map), "0.0%")
         r += 1
         _set_row(r, "Adj EBITDA (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_ttm_map.items()}, "#,##0.000")
         r += 1
-        _set_row(r, "Adj EBITDA margin (TTM)", _margin(adj_ebitda_ttm_map, rev_ttm_map), "0.0%")
+        adj_ebitda_margin_ttm_map = _margin(adj_ebitda_ttm_map, rev_ttm_map)
+        _set_row(r, "Adj EBITDA margin (TTM)", adj_ebitda_margin_ttm_map, "0.0%")
+        if ebitda_margin_ttm_source_map:
+            valuation_row_source_values["Adj EBITDA margin (TTM)"].update(ebitda_margin_ttm_source_map)
         r += 1
         if adj_ebit_ttm_map or is_gpre_profile:
             _set_row(r, "Adj EBIT (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_ebit_ttm_map.items()}, "#,##0.000")
@@ -66210,23 +66407,37 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         r += 1
         _set_row(r, "EBIT", {k: (v / 1e6) if v is not None else None for k, v in ebit_map.items()}, "#,##0.000")
         r += 1
-        _set_row(r, "EBIT margin %", _margin(ebit_map, rev_map), "0.0%")
+        ebit_margin_pct_map = _margin(ebit_map, rev_map)
+        _set_row(r, "EBIT margin %", ebit_margin_pct_map, "0.0%")
+        if history_ebit_margin_source_map:
+            valuation_row_source_values["EBIT margin %"].update(history_ebit_margin_source_map)
         r += 1
         _set_row(r, "EBIT (TTM)", {k: (v / 1e6) if v is not None else None for k, v in ebit_ttm_map.items()}, "#,##0.000")
         r += 1
         row_ebit_margin_ttm_pct = r
-        _set_row(r, "EBIT margin (TTM)", _margin(ebit_ttm_map, rev_ttm_map), "0.0%")
+        ebit_margin_ttm_map = _margin(ebit_ttm_map, rev_ttm_map)
+        _set_row(r, "EBIT margin (TTM)", ebit_margin_ttm_map, "0.0%")
+        ebit_margin_ttm_source_map = _margin(_ttm_map(_history_numeric_source_map_local("op_income")), _ttm_map(history_revenue_source_map))
+        if ebit_margin_ttm_source_map:
+            valuation_row_source_values["EBIT margin (TTM)"].update(ebit_margin_ttm_source_map)
         r += 1
         net_income_label = "Net income attrib. to A&F" if is_anf_profile else "Net income"
         _set_row(r, net_income_label, {k: (v / 1e6) if v is not None else None for k, v in net_income_map.items()}, "#,##0.000")
         r += 1
-        _set_row(r, f"{net_income_label} margin %", _margin(net_income_map, rev_map), "0.0%")
+        net_income_margin_pct_map = _margin(net_income_map, rev_map)
+        _set_row(r, f"{net_income_label} margin %", net_income_margin_pct_map, "0.0%")
+        if history_net_income_margin_source_map:
+            valuation_row_source_values[f"{net_income_label} margin %"].update(history_net_income_margin_source_map)
         r += 1
         _set_row(r, f"{net_income_label} YoY %", _yoy(net_income_map), "0.0%")
         r += 1
         _set_row(r, f"{net_income_label} (TTM)", {k: (v / 1e6) if v is not None else None for k, v in net_income_ttm_map.items()}, "#,##0.000")
         r += 1
-        _set_row(r, f"{net_income_label} margin (TTM)", _margin(net_income_ttm_map, rev_ttm_map), "0.0%")
+        net_income_margin_ttm_map = _margin(net_income_ttm_map, rev_ttm_map)
+        _set_row(r, f"{net_income_label} margin (TTM)", net_income_margin_ttm_map, "0.0%")
+        net_income_margin_ttm_source_map = _margin(_ttm_map(_history_numeric_source_map_local("net_income")), _ttm_map(history_revenue_source_map))
+        if net_income_margin_ttm_source_map:
+            valuation_row_source_values[f"{net_income_label} margin (TTM)"].update(net_income_margin_ttm_source_map)
         r += 1
 
         ws[f"A{r}"] = "Cash Flow"
@@ -66243,8 +66454,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         _set_row(r, "Capex", {k: (v / 1e6) if v is not None else None for k, v in capex_map.items()}, "#,##0.000")
         r += 1
         _set_row(r, "Capex % of revenue", capex_pct_map, "0.0%")
+        if history_capex_pct_source_map:
+            valuation_row_source_values["Capex % of revenue"].update(history_capex_pct_source_map)
         r += 1
         _set_row(r, "Capex % of revenue (TTM)", capex_ttm_pct, "0.0%")
+        capex_ttm_pct_source_map = _margin(_ttm_map(history_capex_source_map), _ttm_map(history_revenue_source_map))
+        if capex_ttm_pct_source_map:
+            valuation_row_source_values["Capex % of revenue (TTM)"].update(capex_ttm_pct_source_map)
         r += 1
         _set_row(r, "FCF (CFO-Capex)", {k: (v / 1e6) if v is not None else None for k, v in fcf_map.items()}, "#,##0.000")
         r += 1
@@ -66296,8 +66512,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         _set_subheader_row(r, "Cash-flow quality")
         r += 1
         _set_row(r, "FCF margin %", _margin(fcf_map, rev_map), "0.0%")
+        if history_fcf_margin_source_map:
+            valuation_row_source_values["FCF margin %"].update(history_fcf_margin_source_map)
         r += 1
         _set_row(r, "FCF margin (TTM)", _margin(fcf_ttm_map, rev_ttm_map), "0.0%")
+        fcf_margin_ttm_source_map = _margin(_ttm_map(history_fcf_source_map), _ttm_map(history_revenue_source_map))
+        if fcf_margin_ttm_source_map:
+            valuation_row_source_values["FCF margin (TTM)"].update(fcf_margin_ttm_source_map)
         r += 1
         _set_row(r, "Interest paid", {k: (v / 1e6) if v is not None else None for k, v in int_paid_map.items()}, "#,##0.000")
         r += 1
@@ -78224,7 +78445,42 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 previous_q = prev_period.end_time.normalize()
             except Exception:
                 return None
+            def _ordered_previous_value_local() -> Optional[float]:
+                current_norm = pd.Timestamp(current_q).normalize()
+                source_keys = sorted(source_map)
+                try:
+                    current_pos = source_keys.index(current_norm)
+                    matched_current = current_norm
+                except ValueError:
+                    nearest = sorted(
+                        (
+                            (abs((current_norm - source_key).days), idx_key, source_key)
+                            for idx_key, source_key in enumerate(source_keys)
+                            if abs((current_norm - source_key).days) <= 45
+                        ),
+                        key=lambda item: item[0],
+                    )
+                    if not nearest:
+                        return None
+                    _, current_pos, matched_current = nearest[0]
+                if current_pos < step:
+                    return None
+                candidate_key = source_keys[current_pos - step]
+                days_delta = abs((matched_current - candidate_key).days)
+                if step == 1:
+                    if not 45 <= days_delta <= 125:
+                        return None
+                else:
+                    if not 330 <= days_delta <= 400:
+                        return None
+                candidate = pd.to_numeric(source_map.get(candidate_key), errors="coerce")
+                if pd.isna(candidate):
+                    return None
+                return float(candidate)
+
             previous = pd.to_numeric(source_map.get(previous_q), errors="coerce")
+            if pd.isna(previous):
+                previous = pd.to_numeric(_ordered_previous_value_local(), errors="coerce")
             if pd.isna(previous) or abs(float(previous)) <= 1e-12:
                 return None
             metric = (float(current_num) - float(previous)) / abs(float(previous))
@@ -78313,6 +78569,80 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         bf = _bucket_fill(metric)
                         if bf is not None:
                             c.fill = bf
+
+        # Operating margin is a derived row, and the first visible fiscal-year
+        # quarters sometimes need prior-year history that lives outside the
+        # visible revenue/EBIT maps. Apply the same hidden-source comparison
+        # directly from History_Q as a narrow fallback; values stay unchanged.
+        if row_operating_margin_pct and company_operating_margin_source_map:
+            for idx_cc, cc in enumerate(range(start_col, last_col + 1)):
+                c = ws.cell(row=row_operating_margin_pct, column=cc)
+                metric = _hidden_source_comparison_metric(
+                    current_key=pd.Timestamp(qs_ts[idx_cc]).normalize(),
+                    current_value=c.value,
+                    visible_idx=idx_cc,
+                    comparison_basis="yoy",
+                    directionality="higher_better",
+                    source_values=company_operating_margin_source_map,
+                )
+                if metric is None:
+                    continue
+                bf = _bucket_fill(metric)
+                if bf is not None:
+                    c.fill = bf
+
+        valuation_hidden_source_fill_overrides: Dict[str, Tuple[Dict[pd.Timestamp, Any], str]] = {
+            "Gross margin %": (history_gross_margin_source_map, "higher_better"),
+            "Operating margin (TTM)": (ebit_margin_ttm_source_map, "higher_better"),
+            "EBITDA margin %": (history_ebitda_margin_source_map, "higher_better"),
+            "EBITDA margin (TTM)": (ebitda_margin_ttm_source_map, "higher_better"),
+            "Adj EBITDA margin %": (history_ebitda_margin_source_map, "higher_better"),
+            "Adj EBITDA margin (TTM)": (ebitda_margin_ttm_source_map, "higher_better"),
+            "EBIT margin %": (history_ebit_margin_source_map, "higher_better"),
+            "EBIT margin (TTM)": (ebit_margin_ttm_source_map, "higher_better"),
+            f"{net_income_label} margin %": (history_net_income_margin_source_map, "higher_better"),
+            f"{net_income_label} margin (TTM)": (net_income_margin_ttm_source_map, "higher_better"),
+            "Capex % of revenue": (history_capex_pct_source_map, "lower_better"),
+            "Capex % of revenue (TTM)": (capex_ttm_pct_source_map, "lower_better"),
+            "FCF (CFO-Capex)": (_display_m_source_map_local(history_fcf_source_map), "higher_better"),
+            "FCF (TTM)": (_display_m_source_map_local(history_fcf_ttm_source_map), "higher_better"),
+            "Owner earnings (proxy)": (_display_m_source_map_local(history_owner_earnings_source_map), "higher_better"),
+            "FCF margin %": (history_fcf_margin_source_map, "higher_better"),
+            "FCF margin (TTM)": (fcf_margin_ttm_source_map, "higher_better"),
+            "Debt (core borrowings)": (_display_m_source_map_local(history_debt_core_source_map), "lower_better"),
+            "Net debt (core borrowings)": (_display_m_source_map_local(history_net_debt_source_map), "lower_better"),
+            "Net leverage": (net_lev_map, "lower_better"),
+            "Net leverage (Adj)": (net_lev_adj_map, "lower_better"),
+            "Interest coverage (P&L TTM)": (cov_pnl_display_map, "higher_better"),
+            "Cash interest coverage (TTM)": (cov_cash_display_map, "higher_better"),
+            "FCF conversion (TTM)": (fcf_conv_map, "higher_better"),
+            "Current ratio": (history_current_ratio_source_map, "higher_better"),
+            "EPS (GAAP)": (history_eps_gaap_source_map, "higher_better"),
+            "BV/share": (history_bv_share_source_map, "higher_better"),
+            "FCF/share (TTM)": (history_fcf_per_share_ttm_source_map, "higher_better"),
+        }
+        for row_label, (source_map, direction) in valuation_hidden_source_fill_overrides.items():
+            if not source_map:
+                continue
+            rr = _find_row_idx_by_label(row_label)
+            if rr is None:
+                continue
+            basis = _quarterly_color_basis_for_label(row_label)
+            for idx_cc, cc in enumerate(range(start_col, last_col + 1)):
+                c = ws.cell(row=rr, column=cc)
+                metric = _hidden_source_comparison_metric(
+                    current_key=pd.Timestamp(qs_ts[idx_cc]).normalize(),
+                    current_value=c.value,
+                    visible_idx=idx_cc,
+                    comparison_basis=basis,
+                    directionality=direction,
+                    source_values=source_map,
+                )
+                if metric is None:
+                    continue
+                bf = _bucket_fill(metric)
+                if bf is not None:
+                    c.fill = bf
 
         def _apply_valuation_layout(ws_local: Any) -> None:
             # Keep the quarter table D:M untouched; B:C are explicit across tickers.
@@ -86091,8 +86421,20 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 _write_section(metric_label)
                 segment_order = next((order for met, order in annual_metric_order if met == metric_label), list(seg_values.keys()))
                 seen_segments: List[str] = []
+
+                def _has_visible_annual_segment_value(segment_label: str) -> bool:
+                    segment_values = dict(seg_values.get(segment_label, {}) or {})
+                    for yy in year_cols:
+                        raw_val = segment_values.get(int(yy))
+                        raw_num = pd.to_numeric(raw_val, errors="coerce")
+                        if pd.notna(raw_num):
+                            return True
+                    return False
+
                 for seg in segment_order + [s for s in seg_values.keys() if s not in segment_order]:
                     if seg in seen_segments or seg not in seg_values:
+                        continue
+                    if not _has_visible_annual_segment_value(seg):
                         continue
                     seen_segments.append(seg)
                     ws[f"A{row_idx}"] = seg
@@ -92408,6 +92750,42 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                     return abs(raw_float) >= 10.0
                 return True
 
+            hidden_segment_source_metrics: Dict[str, Dict[str, Dict[pd.Timestamp, float]]] = {}
+            if is_pbi_profile:
+                # PBI's displayed segment values can come from the recast segment
+                # workbook while older comparison quarters live only in the source
+                # slide/filing table. Keep those rows as hidden color comparators
+                # without changing the visible segment support window or values.
+                hidden_segment_source_metrics = dict((_parsed_quarterly_segments_from_slides() or {}).get("metrics") or {})
+
+            def _pbi_hidden_total_source_series(metric_label_in: str) -> Dict[pd.Timestamp, float]:
+                if not is_pbi_profile:
+                    return {}
+                metric_bucket = dict(hidden_segment_source_metrics.get(str(metric_label_in or "")) or {})
+                total_series = dict(metric_bucket.get("Total reportable segments") or {})
+                if total_series:
+                    return total_series
+                component_names = ("SendTech Solutions", "Presort Services", "Other operations")
+                out: Dict[pd.Timestamp, float] = {}
+                all_keys = {
+                    pd.Timestamp(q_key)
+                    for segment_name in component_names
+                    for q_key in dict(metric_bucket.get(segment_name) or {}).keys()
+                }
+                for q_key in sorted(all_keys):
+                    total = 0.0
+                    found_any = False
+                    for segment_name in component_names:
+                        seg_series = dict(metric_bucket.get(segment_name) or {})
+                        raw_num = pd.to_numeric(seg_series.get(q_key), errors="coerce")
+                        if pd.isna(raw_num):
+                            continue
+                        total += float(raw_num)
+                        found_any = True
+                    if found_any:
+                        out[q_key] = float(total)
+                return out
+
             if op_map and da_map:
                 derived_adj_ebitda_map = dict(adj_ebitda_map or {})
                 for seg_name, op_series_in in dict(op_map or {}).items():
@@ -92580,6 +92958,30 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         if display_val is None:
                             continue
                         source_map[pd.Timestamp(raw_ts).to_period("Q").end_time.date()] = display_val
+                    source_metric_label = {
+                        "Revenue ($m)": "Revenue",
+                        "Adj EBIT / operating profit ($m)": "Adjusted EBIT",
+                        "D&A ($m)": "Depreciation & amortization",
+                        "Adj EBITDA ($m)": "Adjusted EBITDA",
+                        "Margin": "EBIT margin %",
+                    }.get(str(field_label or ""))
+                    hidden_series = dict(
+                        (hidden_segment_source_metrics.get(str(source_metric_label or "")) or {}).get(seg_txt) or {}
+                    )
+                    if "total reportable" in seg_txt.lower() and not hidden_series and source_metric_label:
+                        hidden_series = _pbi_hidden_total_source_series(str(source_metric_label))
+                    for raw_q, raw_val in hidden_series.items():
+                        raw_num = pd.to_numeric(raw_val, errors="coerce")
+                        raw_ts = pd.to_datetime(raw_q, errors="coerce")
+                        if pd.isna(raw_num) or pd.isna(raw_ts):
+                            continue
+                        q_key = pd.Timestamp(raw_ts).to_period("Q").end_time.date()
+                        if q_key in source_map:
+                            continue
+                        display_val = float(raw_num) if margin_mode else _segment_value_to_display_m_local(raw_num, hidden_series)
+                        if display_val is None:
+                            continue
+                        source_map[q_key] = display_val
                     segment_rows.append(
                         {
                             "segment": seg_txt,
@@ -92722,6 +93124,158 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 meta["group"] = compact_group
                 meta["label"] = _anf_compact_driver_label(meta.get("label"), meta.get("unit"))
             group_order = [grp for grp in anf_group_order if any(str(m.get("group") or "") == grp for m in driver_meta.values())]
+
+        driver_source_values_by_label: Dict[str, Dict[date, float]] = {}
+        for (raw_key, raw_qd), raw_row in rows_by_key_quarter.items():
+            if not isinstance(raw_qd, date):
+                continue
+            meta = driver_meta.get(raw_key, {})
+            label_key = glx_normalize_text(_driver_row_label(meta.get("label"), meta.get("unit"))).lower()
+            if not label_key:
+                continue
+            raw_num = pd.to_numeric(raw_row.get("Value"), errors="coerce")
+            if pd.isna(raw_num):
+                continue
+            driver_source_values_by_label.setdefault(label_key, {})[raw_qd] = float(raw_num)
+        all_driver_source_quarters_ts = sorted(
+            {pd.Timestamp(qd) for _label_map in driver_source_values_by_label.values() for qd in _label_map}
+        )
+
+        def _augment_anf_sales_comparison_source_map(
+            source_map: Dict[date, float],
+            *,
+            row_label: str,
+            visible_quarters: List[date],
+            visible_values: List[Any],
+        ) -> None:
+            if not is_anf_profile:
+                return
+            label_key = glx_normalize_text(str(row_label or "")).lower()
+            if not label_key.endswith(" sales") or " yoy" in label_key:
+                return
+            growth_map = driver_source_values_by_label.get(f"{label_key} yoy") or {}
+            if not growth_map:
+                return
+            for qd, current_raw in zip(visible_quarters, visible_values):
+                current_num = pd.to_numeric(current_raw, errors="coerce")
+                growth_num = pd.to_numeric(growth_map.get(qd), errors="coerce")
+                if pd.isna(current_num) or pd.isna(growth_num):
+                    continue
+                growth = float(growth_num)
+                growth_frac = growth / 100.0 if abs(growth) > 1.0 else growth
+                if growth_frac <= -0.99:
+                    continue
+                try:
+                    prev_q = (pd.Timestamp(qd).to_period("Q") - 4).end_time.normalize()
+                except Exception:
+                    continue
+                source_map[qd] = float(current_num)
+                source_map[prev_q.date()] = float(current_num) / (1.0 + growth_frac)
+
+        def _driver_change_pct_to_fraction(raw_change: Any) -> Optional[float]:
+            if raw_change is None:
+                return None
+            if isinstance(raw_change, (int, float)) and pd.notna(raw_change):
+                value = float(raw_change)
+                return value / 100.0 if abs(value) > 1.0 else value
+            txt = glx_normalize_text(str(raw_change or ""))
+            if not txt or txt.lower() in {"nan", "none", "n/a", "na"}:
+                return None
+            match = re.search(r"([+-]?\d+(?:\.\d+)?)\s*%", txt)
+            if not match:
+                return None
+            try:
+                return float(match.group(1)) / 100.0
+            except Exception:
+                return None
+
+        def _driver_prior_value_from_commentary(
+            *,
+            driver_key: str,
+            commentary: Any,
+            current_value: float,
+        ) -> Optional[float]:
+            text = str(commentary or "")
+            if not text.strip():
+                return None
+            key = glx_normalize_text(str(driver_key or "")).lower()
+            patterns: List[str] = []
+            if "ultra_high_protein" in key or "ultra high protein" in key:
+                patterns = [r"Ultra[-\s]High Protein(?:\s+sold)?\s*\(tons\)\s*([0-9,]+(?:\.\d+)?)\s+([0-9,]+(?:\.\d+)?)"]
+            elif "renewable_corn_oil" in key or "renewable corn oil" in key:
+                patterns = [r"Renewable corn oil(?:\s+sold)?\s*\(pounds\)\s*([0-9,]+(?:\.\d+)?)\s+([0-9,]+(?:\.\d+)?)"]
+            elif "distillers_grains" in key or "distillers grains" in key:
+                patterns = [r"Distillers grains(?:\s+sold)?\s*\([^)]*\)\s*([0-9,]+(?:\.\d+)?)\s+([0-9,]+(?:\.\d+)?)"]
+            if not patterns:
+                return None
+            for pattern in patterns:
+                match = re.search(pattern, text, flags=re.I)
+                if not match:
+                    continue
+                try:
+                    current_src = float(str(match.group(1)).replace(",", ""))
+                    prior_src = float(str(match.group(2)).replace(",", ""))
+                except Exception:
+                    continue
+                if abs(current_src) <= 1e-12:
+                    continue
+                scale = float(current_value) / current_src
+                scaled_current = current_src * scale
+                if abs(scaled_current - float(current_value)) > max(1.0, abs(float(current_value)) * 0.05):
+                    continue
+                return prior_src * scale
+            return None
+
+        def _augment_driver_source_map_from_yoy_change(
+            source_map: Dict[date, float],
+            *,
+            driver_key: str,
+            visible_quarters: List[date],
+            visible_values: List[Any],
+        ) -> None:
+            for qd, current_raw in zip(visible_quarters, visible_values):
+                rec = rows_by_key_quarter.get((driver_key, qd))
+                if rec is None:
+                    continue
+                current_num = pd.to_numeric(current_raw, errors="coerce")
+                if pd.isna(current_num):
+                    continue
+                yoy_frac = _driver_change_pct_to_fraction(
+                    rec.get("YoY change")
+                    or rec.get("YoY %")
+                    or rec.get("yoy_change")
+                    or rec.get("yoy")
+                )
+                try:
+                    prev_q = (pd.Timestamp(qd).to_period("Q") - 4).end_time.normalize()
+                except Exception:
+                    continue
+                if yoy_frac is None:
+                    prior_value = _driver_prior_value_from_commentary(
+                        driver_key=driver_key,
+                        commentary=rec.get("Commentary"),
+                        current_value=float(current_num),
+                    )
+                    if prior_value is None:
+                        for (other_key, other_qd), other_rec in rows_by_key_quarter.items():
+                            if other_qd != qd or other_key == driver_key:
+                                continue
+                            prior_value = _driver_prior_value_from_commentary(
+                                driver_key=driver_key,
+                                commentary=other_rec.get("Commentary"),
+                                current_value=float(current_num),
+                            )
+                            if prior_value is not None:
+                                break
+                    if prior_value is None or abs(prior_value) <= 1e-12:
+                        continue
+                    source_map[qd] = float(current_num)
+                    source_map[prev_q.date()] = float(prior_value)
+                    continue
+                if yoy_frac <= -0.99:
+                    continue
+                source_map[qd] = float(current_num)
+                source_map[prev_q.date()] = float(current_num) / (1.0 + float(yoy_frac))
 
         display_driver_keys = []
         hidden_visible_driver_keys = {"45z_adjusted_ebitda_component"} if is_gpre_profile else set()
@@ -93638,6 +94192,18 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
                         row_values.append(cell.value)
                         row_cells.append(cell)
+                    _augment_anf_sales_comparison_source_map(
+                        source_map,
+                        row_label=label,
+                        visible_quarters=qs,
+                        visible_values=row_values,
+                    )
+                    _augment_driver_source_map_from_yoy_change(
+                        source_map,
+                        driver_key=dkey,
+                        visible_quarters=qs,
+                        visible_values=row_values,
+                    )
                     _apply_quarterly_comparison_fills(
                         row_cells,
                         row_values,
