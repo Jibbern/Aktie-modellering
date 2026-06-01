@@ -237,6 +237,34 @@ def test_economics_market_raw_writer_module_exposes_expected_contract() -> None:
     assert hasattr(module, "EconomicsMarketRawWriterDeps")
 
 
+def test_valuation_source_map_helper_module_exposes_expected_contract() -> None:
+    module = importlib.import_module("pbi_xbrl.excel_writer_valuation")
+
+    required_helpers = [
+        "normalize_capex_for_valuation",
+        "quarter_key_union",
+        "ttm_map",
+        "ttm_sparse_cashflow_map",
+        "display_m_source_map",
+        "history_numeric_source_map",
+        "history_margin_source_map",
+        "build_valuation_history_source_maps",
+        "valuation_hidden_comparison_metric",
+    ]
+    for helper_name in required_helpers:
+        assert callable(getattr(module, helper_name))
+
+    q1 = pd.Timestamp("2025-03-31")
+    q2 = pd.Timestamp("2025-06-30")
+    q3 = pd.Timestamp("2025-09-30")
+    q4 = pd.Timestamp("2025-12-31")
+    assert module.normalize_capex_for_valuation({q1: -10.0, q2: 12.0}) == {q1: 10.0, q2: 12.0}
+    assert module.quarter_key_union([q1], {pd.Timestamp("2025-05-15"): 1.0}) == [q1, q2]
+    assert module.ttm_map({q4: (q1, q2, q3, q4)}, {q1: 1.0, q2: 2.0, q3: 3.0, q4: 4.0})[q4] == 10.0
+    assert module.ttm_sparse_cashflow_map({q4: (q1, q2, q3, q4)}, {q2: 2.0, q4: 4.0})[q4] == 6.0
+    assert module.display_m_source_map({q1: 2_000_000.0}) == {q1: 2.0}
+
+
 def _current_delivered_model_path(ticker: str) -> Path:
     return Path(__file__).resolve().parents[2] / "Excel stock models" / f"{ticker}_model.xlsx"
 
