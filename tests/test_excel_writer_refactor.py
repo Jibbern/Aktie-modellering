@@ -265,6 +265,71 @@ def test_valuation_source_map_helper_module_exposes_expected_contract() -> None:
     assert module.display_m_source_map({q1: 2_000_000.0}) == {q1: 2.0}
 
 
+def test_hidden_value_surface_model_module_exposes_expected_contract() -> None:
+    module = importlib.import_module("pbi_xbrl.excel_writer_hidden_value_surface")
+
+    required_helpers = [
+        "hidden_flag_field",
+        "hidden_flag_score",
+        "hidden_flag_metric_piece",
+        "hidden_flag_metrics_summary",
+        "hidden_flag_visible_support",
+        "visible_hidden_flag_rows",
+        "select_hidden_value_display_rows",
+        "hidden_value_ai_helper_formula",
+        "build_hidden_value_surface_model",
+    ]
+    for helper_name in required_helpers:
+        assert callable(getattr(module, helper_name))
+    for type_name in ["HiddenValueSurfaceModelInputs", "HiddenValueDisplayRow", "HiddenValueSurfaceModel"]:
+        assert hasattr(module, type_name)
+
+    flags_df = pd.DataFrame(
+        [
+            {
+                "rank": 1,
+                "flag_code": "F",
+                "title": "Share count reduction",
+                "score": 100,
+                "severity": "High",
+                "metrics_json": '{"shares_yoy": -0.12, "fcf_yield": 0.18}',
+                "visible_support": "Shares down",
+                "triggered": 1,
+            },
+            {
+                "rank": 2,
+                "flag_code": "A",
+                "title": "Non-triggered EBIT row",
+                "score": 20,
+                "severity": "Info",
+                "metrics_json": "{}",
+                "visible_support": "Not active",
+                "triggered": 0,
+            },
+        ]
+    )
+    inputs = module.HiddenValueSurfaceModelInputs(
+        flags_df=flags_df,
+        flags_audit_df=pd.DataFrame(),
+        money_formatter=lambda value: f"${float(value) / 1_000_000.0:.1f}m",
+    )
+    model = module.build_hidden_value_surface_model(inputs)
+    assert [row["title"] for row in model.rows_all] == ["Share count reduction", "Non-triggered EBIT row"]
+    assert [row["title"] for row in model.rows_triggered] == ["Share count reduction"]
+    assert model.triggered_keys == {"F"}
+    assert model.price_linked_keys == set()
+    assert model.visible_count == 1
+    assert model.display_rows[0].title == "Share count reduction"
+    assert model.display_rows[0].support == "Shares down"
+    assert module.hidden_value_ai_helper_formula(1, 139) == '=IFERROR(MATCH(1,\'Hidden_Value_Flags\'!$L$2:$L$100,0)+1,"")'
+    assert module.hidden_value_ai_helper_formula(2, 140) == (
+        '=IF($AI139="","",IFERROR('
+        "MATCH(1,INDEX('Hidden_Value_Flags'!$L:$L,$AI139+1):'Hidden_Value_Flags'!$L$100,0)"
+        '+$AI139,""))'
+    )
+    assert module.NO_TRIGGER_DISPLAY_TITLE == "No scored hidden-value flags currently triggered"
+
+
 def _current_delivered_model_path(ticker: str) -> Path:
     return Path(__file__).resolve().parents[2] / "Excel stock models" / f"{ticker}_model.xlsx"
 
