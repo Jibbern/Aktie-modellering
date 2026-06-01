@@ -2666,11 +2666,22 @@ def test_load_market_export_rows_repairs_thin_historical_export_from_local_usda_
         )
         thin_df.to_parquet(export_path, index=False)
 
-        calls: list[tuple[bool, bool, bool]] = []
+        calls: list[tuple[bool, bool, bool, Path | None]] = []
 
-        def _fake_sync(cache_dir_in: Path, ticker_in: str, profile: object = None, *, sync_raw: bool = False, refresh: bool = False, reparse: bool = False):
+        def _fake_sync(
+            cache_dir_in: Path,
+            ticker_in: str,
+            profile: object = None,
+            *,
+            ticker_root: Path | None = None,
+            sync_raw: bool = False,
+            refresh: bool = False,
+            reparse: bool = False,
+        ):
             del cache_dir_in, ticker_in, profile
-            calls.append((sync_raw, refresh, reparse))
+            calls.append(
+                (sync_raw, refresh, reparse, None if ticker_root is None else Path(ticker_root).resolve())
+            )
             repaired_df = pd.DataFrame(
                 [
                     {**thin_df.iloc[0].to_dict(), "observation_date": pd.Timestamp("2024-01-12"), "quarter": pd.Timestamp("2024-03-31"), "source_file": "nwer_2024-01-12.pdf", "price_value": 1.55},
@@ -2695,7 +2706,7 @@ def test_load_market_export_rows_repairs_thin_historical_export_from_local_usda_
 
         rows = load_market_export_rows(cache_dir, "GPRE", profile=_Profile(), ensure_cache=True)
 
-        assert calls == [(True, False, True)]
+        assert calls == [(True, False, True, ticker_root.resolve())]
         quarters = sorted({row["quarter"] for row in rows if isinstance(row.get("quarter"), date)})
         assert quarters == [date(2024, 3, 31), date(2026, 3, 31)]
     finally:
@@ -2735,11 +2746,22 @@ def test_load_market_export_rows_repairs_export_when_basis_series_are_missing(mo
         )
         thin_df.to_parquet(export_path, index=False)
 
-        calls: list[tuple[bool, bool, bool]] = []
+        calls: list[tuple[bool, bool, bool, Path | None]] = []
 
-        def _fake_sync(cache_dir_in: Path, ticker_in: str, profile: object = None, *, sync_raw: bool = False, refresh: bool = False, reparse: bool = False):
+        def _fake_sync(
+            cache_dir_in: Path,
+            ticker_in: str,
+            profile: object = None,
+            *,
+            ticker_root: Path | None = None,
+            sync_raw: bool = False,
+            refresh: bool = False,
+            reparse: bool = False,
+        ):
             del cache_dir_in, ticker_in, profile
-            calls.append((sync_raw, refresh, reparse))
+            calls.append(
+                (sync_raw, refresh, reparse, None if ticker_root is None else Path(ticker_root).resolve())
+            )
             repaired_df = pd.DataFrame(
                 [
                     thin_df.iloc[0].to_dict(),
@@ -2770,7 +2792,7 @@ def test_load_market_export_rows_repairs_export_when_basis_series_are_missing(mo
 
         rows = load_market_export_rows(cache_dir, "GPRE", profile=_Profile(), ensure_cache=True)
 
-        assert calls == [(True, False, True)]
+        assert calls == [(True, False, True, ticker_root.resolve())]
         series_keys = {str(row.get("series_key") or "") for row in rows}
         assert "corn_basis_nebraska" in series_keys
     finally:
