@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import importlib
 import re
 import shutil
 import zipfile
@@ -209,6 +210,31 @@ def _make_ticker_model_out_path(case_dir: Path, ticker: str, filename: str = "mo
     model_dir = case_dir / ticker / f"{ticker} model excel"
     model_dir.mkdir(parents=True, exist_ok=True)
     return model_dir / filename
+
+
+def test_economics_market_raw_writer_module_exposes_expected_contract() -> None:
+    module = importlib.import_module("pbi_xbrl.excel_writer_economics_raw")
+
+    assert module.ECONOMICS_MARKET_RAW_HEADERS == [
+        "observation_date",
+        "quarter",
+        "aggregation_level",
+        "source_file",
+        "source_type",
+        "market_family",
+        "series_key",
+        "instrument",
+        "region",
+        "contract_tenor",
+        "price_value",
+        "unit",
+        "parsed_text",
+        "quality",
+    ]
+    assert module.ECONOMICS_MARKET_RAW_COLUMN_WIDTHS["M"] == 44
+    assert module.ECONOMICS_MARKET_RAW_LARGE_FAST_PATH_THRESHOLD == 20000
+    assert callable(module.write_economics_market_raw_sheet)
+    assert hasattr(module, "EconomicsMarketRawWriterDeps")
 
 
 def _current_delivered_model_path(ticker: str) -> Path:
