@@ -12799,6 +12799,10 @@ def test_gpre_live_economics_overlay_stage5_proxy_story_chart_and_sheet_order() 
         assert ctx.desired_sheet_order.index("Basis_Proxy_Sandbox") + 1 == ctx.desired_sheet_order.index("Derivative_Crush_Tests")
         assert ctx.desired_sheet_order.index("Derivative_Crush_Tests") + 1 == ctx.desired_sheet_order.index("Hidden_Value_Flags")
 
+        derivative_oci_bridge_df = ctx.state.get("derivative_oci_bridge_df")
+        if not isinstance(derivative_oci_bridge_df, pd.DataFrame) or derivative_oci_bridge_df.empty:
+            pytest.skip("Live GPRE pipeline bundle lacks derivative OCI rows required for Derivative_Crush_Tests.")
+
         ensure_driver_inputs(ctx)
         write_driver_sheets(ctx)
 
