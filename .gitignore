@@ -7,6 +7,7 @@ __pycache__/
 .ruff_cache/
 .worktrees/
 market_data/index/export_inputs/
+market_data/index/raw_tree_fingerprints.json
 promise_progress_renders/
 validation_reports/
 render_checks/
