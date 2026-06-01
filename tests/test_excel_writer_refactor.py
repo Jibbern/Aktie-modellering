@@ -1395,7 +1395,17 @@ def test_write_excel_temp_workbook_preserves_hidden_value_formula_contract() -> 
             assert str(ws_flags.cell(row=1, column=3).value or "").strip() == "title"
             assert str(ws_flags.cell(row=1, column=11).value or "").strip() == "visible_support"
             assert str(ws_flags.cell(row=1, column=12).value or "").strip() == "triggered"
-            assert isinstance(ws_flags.cell(row=2, column=4).value, (int, float))
+            assert str(ws_flags.cell(row=2, column=2).value or "").strip() == "C"
+            d2_score_formula = str(ws_flags.cell(row=2, column=4).value or "")
+            l2_trigger_formula = str(ws_flags.cell(row=2, column=12).value or "")
+            assert d2_score_formula.startswith("=")
+            assert "Hidden_Value_Audit" in d2_score_formula
+            assert "FCF_TTM_Pos_Years" in d2_score_formula
+            assert "Pos_FCF_Ratio" in d2_score_formula
+            assert "FCF_Yield" in d2_score_formula
+            assert l2_trigger_formula.startswith("=")
+            assert "Hidden_Value_Audit" in l2_trigger_formula
+            assert isinstance(ws_flags.cell(row=3, column=4).value, (int, float))
             assert "Hidden_Value_Audit" in str(ws_flags.cell(row=2, column=7).value or "")
             visible_support_values = [
                 str(ws_flags.cell(row=rr, column=11).value or "")
