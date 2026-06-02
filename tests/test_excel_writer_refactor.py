@@ -241,6 +241,43 @@ def test_economics_market_raw_writer_module_exposes_expected_contract() -> None:
     assert hasattr(module, "EconomicsMarketRawWriterDeps")
 
 
+def test_source_material_dir_helper_preserves_context_lookup_order(tmp_path: Path) -> None:
+    module = importlib.import_module("pbi_xbrl.excel_writer_sources")
+    helper = getattr(module, "first_existing_material_dir")
+
+    root_one = tmp_path / "root_one"
+    root_two = tmp_path / "root_two"
+    (root_one / "beta").mkdir(parents=True)
+    (root_two / "alpha").mkdir(parents=True)
+
+    seen: list[tuple[Path, str, tuple[Path, ...]]] = []
+
+    def belongs_to_ticker(path_in: Path, ticker: str, ticker_roots: tuple[Path, ...]) -> bool:
+        seen.append((path_in, ticker, ticker_roots))
+        return path_in != root_one / "beta"
+
+    result = helper(
+        [root_one, root_two],
+        ["alpha", "beta"],
+        ticker="TEST",
+        ticker_roots=(root_one, root_two),
+        path_belongs_to_ticker=belongs_to_ticker,
+    )
+
+    assert result == root_two / "alpha"
+    assert seen == [
+        (root_one / "beta", "TEST", (root_one, root_two)),
+        (root_two / "alpha", "TEST", (root_one, root_two)),
+    ]
+    assert helper(
+        [root_one],
+        ["missing"],
+        ticker="TEST",
+        ticker_roots=(root_one,),
+        path_belongs_to_ticker=belongs_to_ticker,
+    ) is None
+
+
 def test_valuation_source_map_helper_module_exposes_expected_contract() -> None:
     module = importlib.import_module("pbi_xbrl.excel_writer_valuation")
 

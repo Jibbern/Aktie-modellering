@@ -15960,6 +15960,7 @@ from .excel_writer_sources import (
     build_valuation_filing_docs_by_quarter as source_build_valuation_filing_docs_by_quarter,
     docs_for_valuation_accn as source_docs_for_valuation_accn,
     extract_adj_net_leverage_text_map as source_extract_adj_net_leverage_text_map,
+    first_existing_material_dir as source_first_existing_material_dir,
     hist_quarter_whitelist as source_hist_quarter_whitelist,
     infer_cached_doc_quarter as source_infer_cached_doc_quarter,
     infer_q_from_name as source_infer_q_from_name,
@@ -17113,12 +17114,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             ticker_roots = [repo_root / tkr.upper(), repo_root / tkr, repo_root / tkr.lower()]
 
     def _first_existing_material_dir(*names: str) -> Optional[Path]:
-        for root in material_roots:
-            for name in names:
-                cand = root / name
-                if cand.exists() and cand.is_dir() and _path_belongs_to_ticker(cand, ticker, ticker_roots):
-                    return cand
-        return None
+        return source_first_existing_material_dir(
+            material_roots,
+            names,
+            ticker=ticker,
+            ticker_roots=ticker_roots,
+            path_belongs_to_ticker=_path_belongs_to_ticker,
+        )
 
     def _parse_quarter_from_filename(name: str) -> Optional[date]:
         nm = str(name or "")

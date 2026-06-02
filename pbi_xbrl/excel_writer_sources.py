@@ -6,7 +6,7 @@ import re
 from contextlib import nullcontext
 from datetime import date
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
@@ -22,6 +22,23 @@ def path_cache_key(path_in: Path) -> str:
         return str(path_in.resolve())
     except Exception:
         return str(path_in)
+
+
+def first_existing_material_dir(
+    material_roots: Iterable[Path],
+    names: Iterable[str],
+    *,
+    ticker: Any,
+    ticker_roots: Iterable[Path],
+    path_belongs_to_ticker: Callable[[Path, Any, Iterable[Path]], bool],
+) -> Optional[Path]:
+    name_list = tuple(names)
+    for root in material_roots:
+        for name in name_list:
+            cand = root / name
+            if cand.exists() and cand.is_dir() and path_belongs_to_ticker(cand, ticker, ticker_roots):
+                return cand
+    return None
 
 
 def read_cached_doc_raw(
