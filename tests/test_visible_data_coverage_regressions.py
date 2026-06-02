@@ -9,7 +9,8 @@ import pytest
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
-from pbi_xbrl.excel_writer_context import _hidden_source_comparison_metric
+from pbi_xbrl.excel_writer_bs_segments import _should_render_carbon_equipment_liabilities
+from pbi_xbrl.excel_writer_coloring import _hidden_source_comparison_metric
 
 
 WORKBOOK_DIR = Path(
@@ -829,8 +830,6 @@ def test_gpre_bs_segments_annual_total_assets_includes_2023_source_values() -> N
 
 
 def test_carbon_equipment_liabilities_render_rule_is_sector_or_value_specific() -> None:
-    from pbi_xbrl.excel_writer_context import _should_render_carbon_equipment_liabilities
-
     assert _should_render_carbon_equipment_liabilities("GPRE", {}) is True
     assert _should_render_carbon_equipment_liabilities("PBI", {}) is False
     assert _should_render_carbon_equipment_liabilities("ANF", {}) is False

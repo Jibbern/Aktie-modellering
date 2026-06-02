@@ -8,9 +8,6 @@ from openpyxl.styles import PatternFill
 
 from pbi_xbrl.excel_writer_context import (
     ANF_SEGMENT_BRAND_EXPLANATION,
-    QUARTER_NARRATIVE_DATA_HEADERS,
-    _anf_add_total_company_quarter_revenue_from_history,
-    _anf_annual_segment_data_from_slides_segments,
     _anf_build_guidance_timeline_rows,
     _anf_buyback_execution_is_year_or_ttm,
     _anf_build_promise_progress_sections,
@@ -43,12 +40,6 @@ from pbi_xbrl.excel_writer_context import (
     _history_q_year_default_formulas,
     _insert_management_credibility_scorecard,
     _net_debt_yoy_flag_label_and_status_for_position,
-    _quarter_narrative_records_for_ticker,
-    _quarter_narrative_records_for_context,
-    _quarter_narrative_records_from_workbook_surfaces,
-    _pbi_repair_total_reportable_segment_quarterly_totals_for_bs,
-    _write_quarter_notes_ui_narrative_sheet,
-    _write_quarter_narrative_data_sheet,
     _sector_build_investment_case_data,
     _shared_readable_source_type_label,
     _sector_operating_driver_intro_tables,
@@ -61,10 +52,23 @@ from pbi_xbrl.excel_writer_context import (
     _write_anf_investment_case_data_sheet,
     _write_sector_investment_case_sheet,
     _write_sector_investment_case_data_sheet,
-    _annual_segment_latest_year_for_qa,
     _apply_shared_ui_conventions_to_workbook,
-    _filter_anf_quarterly_segment_actual_rows,
     _slides_guidance_has_explicit_metric,
+)
+from pbi_xbrl.excel_writer_quarter_narrative import (
+    QUARTER_NARRATIVE_DATA_HEADERS,
+    _quarter_narrative_records_for_context,
+    _quarter_narrative_records_for_ticker,
+    _quarter_narrative_records_from_workbook_surfaces,
+    _write_quarter_narrative_data_sheet,
+    _write_quarter_notes_ui_narrative_sheet,
+)
+from pbi_xbrl.excel_writer_segment_sources import (
+    _annual_segment_latest_year_for_qa,
+    _anf_add_total_company_quarter_revenue_from_history,
+    _anf_annual_segment_data_from_slides_segments,
+    _filter_anf_quarterly_segment_actual_rows,
+    _pbi_repair_total_reportable_segment_quarterly_totals_for_bs,
 )
 from pbi_xbrl.quarter_notes import validate_quarter_notes
 

@@ -34,6 +34,10 @@ from pbi_xbrl.excel_writer import (
 )
 from pbi_xbrl.excel_writer_drivers import load_operating_driver_template_index, write_driver_sheets
 from pbi_xbrl.excel_writer_context import build_writer_context
+from pbi_xbrl.excel_writer_coloring import (
+    _quarterly_color_metric_from_series,
+    _quarterly_row_color_policy,
+)
 from pbi_xbrl.excel_writer_core import (
     ensure_driver_inputs,
     ensure_hidden_value_inputs,
@@ -2459,47 +2463,47 @@ def test_build_writer_context_exposes_explicit_state_contract() -> None:
 
 
 def test_quarterly_row_color_policy_helper_is_metric_aware() -> None:
-    policy_revenue = writer_context_module._quarterly_row_color_policy("Revenue", section_label="Operating")
+    policy_revenue = _quarterly_row_color_policy("Revenue", section_label="Operating")
     assert policy_revenue.comparison_basis == "yoy"
     assert policy_revenue.directionality == "higher_better"
 
-    policy_capex = writer_context_module._quarterly_row_color_policy("Capex", section_label="Cash Flow")
+    policy_capex = _quarterly_row_color_policy("Capex", section_label="Cash Flow")
     assert policy_capex.comparison_basis == "yoy"
     assert policy_capex.directionality == "lower_better"
 
-    policy_net_debt_qoq = writer_context_module._quarterly_row_color_policy(
+    policy_net_debt_qoq = _quarterly_row_color_policy(
         "Net debt QoQ Î” ($m)",
         section_label="Leverage & Liquidity",
     )
     assert policy_net_debt_qoq.comparison_basis == "direct_delta"
     assert policy_net_debt_qoq.directionality == "lower_better"
 
-    policy_fcf_ttm = writer_context_module._quarterly_row_color_policy("FCF (TTM)", section_label="Cash Flow")
+    policy_fcf_ttm = _quarterly_row_color_policy("FCF (TTM)", section_label="Cash Flow")
     assert policy_fcf_ttm.comparison_basis == "ttm_vs_prior_ttm"
     assert policy_fcf_ttm.directionality == "higher_better"
 
-    policy_current_ratio = writer_context_module._quarterly_row_color_policy(
+    policy_current_ratio = _quarterly_row_color_policy(
         "Current ratio",
         section_label="Leverage & Liquidity",
     )
     assert policy_current_ratio.comparison_basis == "yoy"
     assert policy_current_ratio.directionality == "higher_better"
 
-    policy_interest_cov = writer_context_module._quarterly_row_color_policy(
+    policy_interest_cov = _quarterly_row_color_policy(
         "Interest coverage (P&L TTM)",
         section_label="Leverage & Liquidity",
     )
     assert policy_interest_cov.comparison_basis == "ttm_vs_prior_ttm"
     assert policy_interest_cov.directionality == "higher_better"
 
-    policy_cash_interest_cov = writer_context_module._quarterly_row_color_policy(
+    policy_cash_interest_cov = _quarterly_row_color_policy(
         "Cash interest coverage (TTM)",
         section_label="Leverage & Liquidity",
     )
     assert policy_cash_interest_cov.comparison_basis == "ttm_vs_prior_ttm"
     assert policy_cash_interest_cov.directionality == "higher_better"
 
-    policy_bv_share = writer_context_module._quarterly_row_color_policy(
+    policy_bv_share = _quarterly_row_color_policy(
         "BV/share",
         section_label="Equity / Per-share",
     )
@@ -2562,62 +2566,62 @@ def test_valuation_net_debt_flag_does_not_call_positive_delta_decreasing() -> No
         assert str(ws.cell(row=increasing_row, column=2).value or "") == "FAIL"
         assert "Net debt YoY" in str(ws.cell(row=increasing_row, column=3).value or "")
 
-    policy_tbv_share = writer_context_module._quarterly_row_color_policy(
+    policy_tbv_share = _quarterly_row_color_policy(
         "TBV/share",
         section_label="Equity / Per-share",
     )
     assert policy_tbv_share.comparison_basis == "yoy"
     assert policy_tbv_share.directionality == "higher_better"
 
-    policy_fcf_share_ttm = writer_context_module._quarterly_row_color_policy(
+    policy_fcf_share_ttm = _quarterly_row_color_policy(
         "FCF/share (TTM)",
         section_label="Equity / Per-share",
     )
     assert policy_fcf_share_ttm.comparison_basis == "ttm_vs_prior_ttm"
     assert policy_fcf_share_ttm.directionality == "higher_better"
 
-    policy_ev_ebitda_ttm = writer_context_module._quarterly_row_color_policy(
+    policy_ev_ebitda_ttm = _quarterly_row_color_policy(
         "EV/EBITDA (TTM)",
         section_label="Equity / Per-share",
     )
     assert policy_ev_ebitda_ttm.comparison_basis == "ttm_vs_prior_ttm"
     assert policy_ev_ebitda_ttm.directionality == "neutral"
 
-    policy_ev_adj_ebitda_ttm = writer_context_module._quarterly_row_color_policy(
+    policy_ev_adj_ebitda_ttm = _quarterly_row_color_policy(
         "EV/Adj EBITDA (TTM)",
         section_label="Equity / Per-share",
     )
     assert policy_ev_adj_ebitda_ttm.comparison_basis == "ttm_vs_prior_ttm"
     assert policy_ev_adj_ebitda_ttm.directionality == "neutral"
 
-    policy_acquisitions = writer_context_module._quarterly_row_color_policy(
+    policy_acquisitions = _quarterly_row_color_policy(
         "Acquisitions (TTM, cash)",
         section_label="Cash Flow",
     )
     assert policy_acquisitions.directionality == "neutral"
 
-    policy_buybacks_cash = writer_context_module._quarterly_row_color_policy(
+    policy_buybacks_cash = _quarterly_row_color_policy(
         "Buybacks (cash)",
         section_label="Cash Flow",
     )
     assert policy_buybacks_cash.comparison_basis == "qoq"
     assert policy_buybacks_cash.directionality == "higher_better"
 
-    policy_revolver_drawn = writer_context_module._quarterly_row_color_policy(
+    policy_revolver_drawn = _quarterly_row_color_policy(
         "Revolver drawn",
         section_label="Leverage & Liquidity",
     )
     assert policy_revolver_drawn.comparison_basis == "yoy"
     assert policy_revolver_drawn.directionality == "lower_better"
 
-    policy_revolver_availability = writer_context_module._quarterly_row_color_policy(
+    policy_revolver_availability = _quarterly_row_color_policy(
         "Revolver availability",
         section_label="Leverage & Liquidity",
     )
     assert policy_revolver_availability.comparison_basis == "yoy"
     assert policy_revolver_availability.directionality == "higher_better"
 
-    policy_liquidity = writer_context_module._quarterly_row_color_policy(
+    policy_liquidity = _quarterly_row_color_policy(
         "Liquidity (cash+availability)",
         section_label="Leverage & Liquidity",
     )
@@ -2626,35 +2630,35 @@ def test_valuation_net_debt_flag_does_not_call_positive_delta_decreasing() -> No
 
 
 def test_quarterly_color_metric_helper_uses_basis_and_directionality() -> None:
-    assert writer_context_module._quarterly_color_metric_from_series(
+    assert _quarterly_color_metric_from_series(
         [100.0, 130.0, 120.0, 90.0, 110.0],
         4,
         comparison_basis="yoy",
         directionality="higher_better",
     ) > 0
 
-    assert writer_context_module._quarterly_color_metric_from_series(
+    assert _quarterly_color_metric_from_series(
         [50.0, 40.0, 60.0, 55.0, 45.0],
         4,
         comparison_basis="yoy",
         directionality="lower_better",
     ) > 0
 
-    assert writer_context_module._quarterly_color_metric_from_series(
+    assert _quarterly_color_metric_from_series(
         [None, 74.055, -28.609],
         1,
         comparison_basis="direct_delta",
         directionality="higher_better",
     ) > 0
 
-    assert writer_context_module._quarterly_color_metric_from_series(
+    assert _quarterly_color_metric_from_series(
         [None, -11.841, 57.502],
         1,
         comparison_basis="direct_delta",
         directionality="lower_better",
     ) > 0
 
-    assert writer_context_module._quarterly_color_metric_from_series(
+    assert _quarterly_color_metric_from_series(
         [100.0, 105.0, 110.0, 115.0, 140.0],
         4,
         comparison_basis="ttm_vs_prior_ttm",
