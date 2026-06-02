@@ -84,8 +84,19 @@ PARSED_SCHEMA_COLUMNS = [
 
 _GPRE_CORN_BIDS_ENTRY_URL = "https://gpreinc.com/corn-bids/"
 _GPRE_CORN_BIDS_DIRECT_URLS: Tuple[str, ...] = (
+    "http://grain.gpreinc.com",
     "https://grain.gpreinc.com/index.cfm",
     "https://grain.gpreinc.com/index.cfm?show=0&mid=1",
+)
+_GPRE_CORN_BIDS_LOCATION_IDS: Tuple[Tuple[str, str], ...] = (
+    ("Central City", "3"),
+    ("Madison", "17"),
+    ("Mount Vernon", "18"),
+    ("Otter Tail", "8"),
+    ("Shenandoah", "9"),
+    ("Superior", "11"),
+    ("Wood River", "21"),
+    ("York", "16"),
 )
 _GPRE_CORN_BIDS_DIRNAME = "corn_bids"
 _GPRE_CORN_BIDS_HTML_FILENAME = "grain_gpre_home.html"
@@ -3631,6 +3642,15 @@ def _gpre_corn_bids_candidate_urls(entry_html: str) -> List[str]:
     return urls
 
 
+def _gpre_corn_bids_location_url(location_id: str) -> str:
+    loc = str(location_id or "").strip()
+    return f"https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation={loc}&layout=19"
+
+
+def _gpre_corn_bids_known_location_urls() -> List[str]:
+    return [_gpre_corn_bids_location_url(location_id) for _location, location_id in _GPRE_CORN_BIDS_LOCATION_IDS]
+
+
 def _gpre_corn_bids_entry_script_urls(entry_html: str) -> List[str]:
     urls: List[str] = []
     for match in re.finditer(r'<script[^>]+src=["\'](?P<src>[^"\']+)["\']', str(entry_html or ""), re.I):
@@ -3651,14 +3671,42 @@ def _gpre_corn_bids_entry_script_urls(entry_html: str) -> List[str]:
 
 def _gpre_corn_bids_location_specific_urls_from_text(source_text: str) -> List[str]:
     urls: List[str] = []
+    known_ids = {location: location_id for location, location_id in _GPRE_CORN_BIDS_LOCATION_IDS}
+    known_id_values = set(known_ids.values())
+
+    def _add_location_id(location_id: Any) -> None:
+        loc = str(location_id or "").strip()
+        if not loc:
+            return
+        url = _gpre_corn_bids_location_url(loc)
+        if url not in urls:
+            urls.append(url)
+
+    unescaped = html.unescape(str(source_text or ""))
     for match in re.finditer(
-        r"https?://grain\.gpreinc\.com/index\.cfm\?show=11&mid=3&theLocation=\d+&layout=19",
-        str(source_text or ""),
+        r"(?:https?://grain\.gpreinc\.com)?/index\.cfm\?[^\"'<>\s]+",
+        unescaped,
         re.I,
     ):
-        url = str(match.group(0) or "").strip()
-        if url and url not in urls:
-            urls.append(url)
+        raw_url = str(match.group(0) or "").strip()
+        if raw_url.startswith("/"):
+            raw_url = urllib.parse.urljoin("https://grain.gpreinc.com", raw_url)
+        parsed = urllib.parse.urlparse(raw_url)
+        query = {str(key).lower(): values for key, values in urllib.parse.parse_qs(parsed.query).items()}
+        location_values = query.get("thelocation") or []
+        if query.get("show", [""])[0] == "11" and query.get("mid", [""])[0] == "3" and query.get("layout", [""])[0] == "19":
+            if location_values:
+                _add_location_id(location_values[0])
+    for match in re.finditer(r"<option\b(?P<attrs>[^>]*)>(?P<label>.*?)</option>", unescaped, re.I | re.S):
+        attrs = str(match.group("attrs") or "")
+        label = _gpre_normalize_bid_location_label(match.group("label"))
+        if not label:
+            continue
+        value_match = re.search(r"\bvalue\s*=\s*[\"']?(?P<value>\d+)", attrs, re.I)
+        value = str(value_match.group("value") or "").strip() if value_match else ""
+        location_id = value if value in known_id_values else known_ids.get(label, "")
+        if label in known_ids and location_id:
+            _add_location_id(location_id)
     return urls
 
 
@@ -3669,6 +3717,35 @@ def _gpre_corn_bids_candidate_score(candidate: Dict[str, Any]) -> Tuple[int, int
     updated_dt = _gpre_parse_snapshot_date_like(candidate.get("page_last_updated_text"))
     updated_ord = updated_dt.toordinal() if isinstance(updated_dt, date) else 0
     return (location_count, row_count, updated_ord)
+
+
+def _gpre_corn_bids_raw_source_rank(value: Any) -> int:
+    txt = str(value or "").strip()
+    if not txt:
+        return 0
+    parsed = urllib.parse.urlparse(txt)
+    host = parsed.netloc.lower()
+    path = parsed.path.lower().rstrip("/")
+    if host == "grain.gpreinc.com":
+        query = {str(key).lower(): values for key, values in urllib.parse.parse_qs(parsed.query).items()}
+        if not path or path == "":
+            return 50 if parsed.scheme.lower() == "http" else 45
+        if path == "/index.cfm":
+            if "thelocation" in query:
+                return 5
+            if not parsed.query:
+                return 40
+            if query.get("show", [""])[0] == "0" and query.get("mid", [""])[0] == "1":
+                return 35
+            return 25
+    if "gpreinc.com" in host and "/corn-bids" in path:
+        return 10
+    return 0
+
+
+def _gpre_corn_bids_raw_candidate_score(candidate: Dict[str, Any]) -> Tuple[int, int, int, int]:
+    location_count, row_count, updated_ord = _gpre_corn_bids_candidate_score(candidate)
+    return (_gpre_corn_bids_raw_source_rank(candidate.get("source_url")), location_count, row_count, updated_ord)
 
 
 def _fetch_gpre_corn_bids_html_payload(
@@ -3713,6 +3790,12 @@ def _fetch_gpre_corn_bids_html_payload(
                     candidate_urls.append(candidate_url)
         except Exception:
             continue
+    for candidate_url in _gpre_corn_bids_location_specific_urls_from_text(entry_html):
+        if candidate_url not in candidate_urls:
+            candidate_urls.append(candidate_url)
+    for candidate_url in _gpre_corn_bids_known_location_urls():
+        if candidate_url not in candidate_urls:
+            candidate_urls.append(candidate_url)
     if not candidate_urls:
         candidate_urls = list(_GPRE_CORN_BIDS_DIRECT_URLS)
     last_error = entry_error
@@ -3781,8 +3864,9 @@ def _fetch_gpre_corn_bids_html_payload(
         }
         use_union = _gpre_corn_bids_candidate_score(union_candidate) > _gpre_corn_bids_candidate_score(best_candidate)
         chosen_rows = union_rows if use_union else list(best_candidate.get("rows") or [])
-        chosen_source_url = str(best_candidate.get("source_url") or _GPRE_CORN_BIDS_ENTRY_URL)
-        chosen_html = str(best_candidate.get("html_text") or "")
+        raw_candidate = dict(max(ranked_candidates, key=_gpre_corn_bids_raw_candidate_score))
+        chosen_source_url = str(raw_candidate.get("source_url") or best_candidate.get("source_url") or _GPRE_CORN_BIDS_ENTRY_URL)
+        chosen_html = str(raw_candidate.get("html_text") or best_candidate.get("html_text") or "")
         candidate_source_urls = sorted(
             {
                 str(candidate.get("source_url") or "").strip()

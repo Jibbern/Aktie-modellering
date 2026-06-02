@@ -3146,6 +3146,107 @@ def test_fetch_gpre_corn_bids_html_payload_extracts_location_specific_urls_from_
     }
 
 
+def test_gpre_corn_bids_discovery_extracts_known_locations_from_grain_dropdown() -> None:
+    html_text = """
+    <select name="Location">
+      <option value="3">Central City</option>
+      <option value="17">Madison</option>
+      <option value="18">Mount Vernon</option>
+      <option value="8">Otter Tail</option>
+      <option value="9">Shenandoah</option>
+      <option value="11">Superior</option>
+      <option value="21">Wood River</option>
+      <option value="16">York</option>
+    </select>
+    """.strip()
+
+    urls = market_service._gpre_corn_bids_location_specific_urls_from_text(html_text)
+
+    assert urls == [
+        "https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation=3&layout=19",
+        "https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation=17&layout=19",
+        "https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation=18&layout=19",
+        "https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation=8&layout=19",
+        "https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation=9&layout=19",
+        "https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation=11&layout=19",
+        "https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation=21&layout=19",
+        "https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation=16&layout=19",
+    ]
+
+
+def test_fetch_gpre_corn_bids_html_payload_keeps_grain_home_as_raw_when_union_adds_locations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry_url = "https://gpreinc.com/corn-bids/"
+    grain_home_url = "http://grain.gpreinc.com"
+    central_city_url = "https://grain.gpreinc.com/index.cfm?show=11&mid=3&theLocation=3&layout=19"
+    entry_html = f"""
+    <html><body>
+      <a href="{central_city_url}">Central City</a>
+    </body></html>
+    """.strip()
+    grain_home_html = """
+    <html><body>
+      <div>Last Updated 6/2/26</div>
+      <table>
+        <tr><td><b>Wood River</b></td></tr>
+        <tr><td>Corn</td><td>Jun 2026</td><td>4.02</td><td>@C6N</td><td title="Basis Month: @C6N">-0.19</td></tr>
+        <tr><td><b>York</b></td></tr>
+        <tr><td>Corn</td><td>Jun 2026</td><td>4.01</td><td>@C6N</td><td title="Basis Month: @C6N">-0.21</td></tr>
+      </table>
+    </body></html>
+    """.strip()
+    central_city_html = """
+    <html><body>
+      <div>Last Updated 6/2/26</div>
+      <table>
+        <tr><td>Central City, Nebraska</td></tr>
+        <tr><td>Corn</td><td>Jun 2026</td><td>4.00</td><td>@C6N</td><td title="Basis Month: @C6N">-0.20</td></tr>
+      </table>
+    </body></html>
+    """.strip()
+
+    class _FakeResponse:
+        def __init__(self, payload: str) -> None:
+            self._payload = payload
+
+        def read(self) -> bytes:
+            return self._payload.encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> bool:
+            return False
+
+    class _FakeOpener:
+        def open(self, req, timeout=None):
+            del timeout
+            url = str(getattr(req, "full_url", req))
+            payloads = {
+                entry_url: entry_html,
+                grain_home_url: grain_home_html,
+                central_city_url: central_city_html,
+            }
+            if url not in payloads:
+                raise RuntimeError(f"unexpected url {url}")
+            return _FakeResponse(payloads[url])
+
+    monkeypatch.setattr(market_service.urllib.request, "build_opener", lambda *args, **kwargs: _FakeOpener())
+
+    payload = market_service._fetch_gpre_corn_bids_html_payload(timeout_seconds=0.01)
+
+    assert payload["status"] == "ok"
+    assert payload["source_url"] == grain_home_url
+    assert payload["html_text"] == grain_home_html
+    assert bool(payload.get("selected_from_union"))
+    assert {str(rec.get("location") or "").strip() for rec in list(payload.get("rows") or [])} == {
+        "Central City",
+        "Wood River",
+        "York",
+    }
+
+
 def test_fetch_gpre_corn_bids_snapshot_preserves_union_rows_from_low_level_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         market_service,

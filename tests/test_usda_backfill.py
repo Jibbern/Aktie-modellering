@@ -434,6 +434,51 @@ def test_run_usda_archive_backfill_can_skip_market_sync(monkeypatch) -> None:
         shutil.rmtree(tmp_repo, ignore_errors=True)
 
 
+def test_run_usda_archive_backfill_uses_configured_stock_model_data_root(monkeypatch) -> None:
+    tmp_repo = Path(__file__).resolve().parents[1] / "tests" / "_tmp_usda_backfill_data_root"
+    shutil.rmtree(tmp_repo, ignore_errors=True)
+    data_root = tmp_repo / "StockModelData"
+    (data_root / "sec_cache").mkdir(parents=True, exist_ok=True)
+    (data_root / "tickers").mkdir(parents=True, exist_ok=True)
+    (tmp_repo / "stock_model_config.json").write_text(
+        json.dumps({"data_root": str(data_root), "allow_onedrive_data_root": False}),
+        encoding="utf-8",
+    )
+    providers = {"nwer": NWERProvider()}
+    calls: list[tuple[Path, Path | None]] = []
+
+    def _fake_download(provider, ticker_root, start_date, end_date, cache_root=None):
+        calls.append((Path(ticker_root), Path(cache_root) if cache_root is not None else None))
+        return type("Summary", (), {
+            "source": provider.source,
+            "local_dir": Path(ticker_root) / str(getattr(provider, "local_dir_name", f"{provider.source}_pdfs")),
+            "start_date": start_date,
+            "end_date": end_date,
+            "discovered_assets": 1,
+            "downloaded_files": 1,
+            "skipped_existing": 0,
+            "error_text": "",
+        })()
+
+    monkeypatch.setattr("pbi_xbrl.market_data.usda_backfill.download_archive_assets", _fake_download)
+    monkeypatch.setattr("pbi_xbrl.market_data.usda_backfill.PROVIDERS", providers)
+
+    try:
+        summary = run_usda_archive_backfill(
+            repo_root=tmp_repo,
+            ticker="GPRE",
+            start_date=date(2026, 6, 1),
+            end_date=date(2026, 6, 1),
+            sources=("nwer",),
+            sync_cache=False,
+        )
+        assert summary.provider_summaries[0].local_dir == data_root.resolve() / "tickers" / "GPRE" / "USDA_weekly_data"
+        assert calls == [(data_root.resolve() / "tickers" / "GPRE", data_root.resolve() / "market_cache")]
+        assert not (tmp_repo / "GPRE").exists()
+    finally:
+        shutil.rmtree(tmp_repo, ignore_errors=True)
+
+
 def test_resolve_usda_sources_rejects_invalid_only_selection() -> None:
     try:
         resolve_usda_sources(("unknown_source",))

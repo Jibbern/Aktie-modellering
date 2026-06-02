@@ -18,6 +18,7 @@ import pandas as pd
 
 from ..cache_layout import bootstrap_canonical_ticker_cache, canonical_ticker_cache_root
 from ..company_profiles import get_company_profile
+from ..path_config import data_root_from_sec_cache_path, resolve_effective_data_root, resolve_stock_model_paths
 from .providers import PROVIDERS
 from .service import sync_market_cache
 
@@ -355,10 +356,18 @@ def run_usda_archive_backfill(
         raise ValueError("end_date must be on or after start_date")
 
     repo_root = Path(repo_root).expanduser().resolve()
-    ticker_root = repo_root / ticker_u
+    inferred_data_root = data_root_from_sec_cache_path(cache_dir) if cache_dir is not None else None
+    effective_data_root = resolve_effective_data_root(repo_root, cli_data_root=inferred_data_root)
+    paths = resolve_stock_model_paths(repo_root, effective_data_root.data_root)
+    ticker_root = paths.ticker_dir(ticker_u)
     if not ticker_root.exists():
         ticker_root.mkdir(parents=True, exist_ok=True)
-    resolved_cache_dir = Path(cache_dir).expanduser().resolve() if cache_dir is not None else canonical_ticker_cache_root(repo_root, ticker_u).resolve()
+    if cache_dir is not None:
+        resolved_cache_dir = Path(cache_dir).expanduser().resolve()
+    elif paths.portable:
+        resolved_cache_dir = paths.market_cache_dir.resolve()
+    else:
+        resolved_cache_dir = canonical_ticker_cache_root(repo_root, ticker_u).resolve()
 
     selected_sources = resolve_usda_sources(sources)
     provider_summaries: List[USDAProviderBackfillSummary] = []
@@ -393,7 +402,8 @@ def run_usda_archive_backfill(
 
     market_sync_summary = None
     if sync_cache:
-        bootstrap_canonical_ticker_cache(repo_root, ticker_u)
+        if not paths.portable:
+            bootstrap_canonical_ticker_cache(repo_root, ticker_u)
         market_sync_summary = sync_market_cache(
             cache_dir=resolved_cache_dir,
             ticker=ticker_u,
