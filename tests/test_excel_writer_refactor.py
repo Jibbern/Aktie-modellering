@@ -15302,6 +15302,32 @@ def test_workbook_acceptance_docs_define_analysis_sheet_style_system() -> None:
         assert required in text
 
 
+def test_excel_writer_styles_module_exposes_analysis_style_bundles() -> None:
+    from pbi_xbrl.excel_writer_styles import (
+        get_analysis_sheet_style_bundle,
+        valuation_side_panel_style_bundle,
+    )
+
+    analysis = get_analysis_sheet_style_bundle(header_size=11, font_size=10)
+    assert analysis["title_fill"].fgColor.rgb == "006FA8DC"
+    assert analysis["section_fill"].fgColor.rgb == "00EDF4FA"
+    assert analysis["header_fill"].fgColor.rgb == "00EAF3FB"
+    assert analysis["neutral_fill"].fgColor.rgb == "00F7F9FC"
+    assert analysis["neutral_fill_alt"].fgColor.rgb == "00FFFFFF"
+    assert analysis["input_fill"].fgColor.rgb == "00FFF2CC"
+    assert analysis["border_color"] == "AAB7C4"
+    assert analysis["bold_font"].sz == 11
+    assert analysis["norm_font"].sz == 10
+
+    side_panel = valuation_side_panel_style_bundle()
+    assert side_panel["section_fill"].fgColor.rgb == "006FA8DC"
+    assert side_panel["header_fill"].fgColor.rgb == "00EAF3FB"
+    assert side_panel["neutral_fill"].fgColor.rgb == "00FFFFFF"
+    assert side_panel["neutral_alt_fill"].fgColor.rgb == "00F7FAFC"
+    assert side_panel["input_fill"].fgColor.rgb == "00FFF2CC"
+    assert side_panel["title_font"].sz == 12
+
+
 def test_current_delivered_workbooks_valuation_row_order_and_semantic_fixes() -> None:
     def _assert_increasing(ws, labels: list[str]) -> None:
         rows = []
