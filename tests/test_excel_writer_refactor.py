@@ -15328,6 +15328,19 @@ def test_excel_writer_styles_module_exposes_analysis_style_bundles() -> None:
     assert side_panel["title_font"].sz == 12
 
 
+def test_excel_writer_layout_module_exposes_wrapped_text_estimators() -> None:
+    from pbi_xbrl.excel_writer_layout import (
+        estimate_wrapped_line_count,
+        estimate_wrapped_row_height,
+    )
+
+    assert estimate_wrapped_line_count("", 0, min_lines=2, max_lines=6) == 2.0
+    assert estimate_wrapped_line_count("hello", 44, min_lines=1, max_lines=6) == 1.0
+    assert estimate_wrapped_line_count("alpha\nbeta", 44, min_lines=1, max_lines=6) == 2.35
+    assert estimate_wrapped_row_height("hello", 44, 18, 12, min_lines=1, max_lines=6) == 18.0
+    assert estimate_wrapped_row_height("alpha\nbeta", 44, 18, 12, min_lines=1, max_lines=6) == 42.0
+
+
 def test_current_delivered_workbooks_valuation_row_order_and_semantic_fixes() -> None:
     def _assert_increasing(ws, labels: list[str]) -> None:
         rows = []
