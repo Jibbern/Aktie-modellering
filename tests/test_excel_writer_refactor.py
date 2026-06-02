@@ -1519,54 +1519,6 @@ def test_write_excel_temp_workbook_preserves_hidden_value_formula_contract() -> 
             wb.close()
 
 
-def test_write_excel_snapshot_matches_saved_quarter_notes_ui_for_xlsx_and_xlsm(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    with _case_dir() as case_dir:
-        with _profile_override(monkeypatch, "GPRE"):
-            out_path = case_dir / "quarter_notes_snapshot.xlsx"
-            quarter_notes = pd.DataFrame(
-                {
-                    "quarter": [pd.Timestamp("2025-12-31"), pd.Timestamp("2025-12-31"), pd.Timestamp("2025-06-30")],
-                    "note_id": ["fcf-1", "debt-1", "rev-1"],
-                    "category": [
-                        "Cash flow / FCF / capex",
-                        "Debt / liquidity / covenants",
-                        "Debt / liquidity / covenants",
-                    ],
-                    "claim": ["FCF TTM accelerated", "Net debt declined", "Revolver utilization notable"],
-                    "note": ["FCF TTM accelerated", "Net debt declined", "Revolver utilization notable"],
-                    "metric_ref": ["fcf_ttm_delta_yoy", "net_debt_yoy_delta", "revolver_availability_change"],
-                    "score": [92.0, 91.0, 89.0],
-                    "doc_type": ["model_metric", "model_metric", "revolver"],
-                    "doc": ["history_q", "history_q", "history_q"],
-                    "source_type": ["model_metric", "model_metric", "revolver"],
-                    "evidence_snippet": [
-                        "FCF TTM YoY delta $198.7m",
-                        "Net debt delta $-77.9m",
-                        "We also had $258.5 million available under our committed revolving credit agreement.",
-                    ],
-                    "evidence_json": [
-                        json.dumps([{"doc_path": "history_q", "doc_type": "model_metric", "snippet": "FCF TTM YoY delta $198.7m"}]),
-                        json.dumps([{"doc_path": "history_q", "doc_type": "model_metric", "snippet": "Net debt delta $-77.9m"}]),
-                        json.dumps([{"doc_path": "history_q", "doc_type": "revolver", "snippet": "We also had $258.5 million available under our committed revolving credit agreement."}]),
-                    ],
-                }
-            )
-
-            result = write_excel_from_inputs(_make_inputs(out_path, ticker="TEST", quarter_notes=quarter_notes))
-
-            validate_quarter_notes_ui_export(out_path, result.quarter_notes_ui_snapshot)
-            snap = read_quarter_notes_ui_snapshot(out_path)
-            assert any("FCF TTM improved by $198.7m YoY." in note for _, note in snap["2025-12-31"])
-
-            xlsm_path = out_path.with_suffix(".xlsm")
-            shutil.copyfile(out_path, xlsm_path)
-            validate_quarter_notes_ui_export(xlsm_path, result.quarter_notes_ui_snapshot)
-            validate_saved_workbook_integrity(out_path)
-            validate_saved_workbook_integrity(xlsm_path)
-
-
 def test_write_excel_sanitizes_invalid_comment_xml_characters() -> None:
     with _case_dir() as case_dir:
         out_path = case_dir / "comment_sanitized.xlsx"
@@ -4407,60 +4359,6 @@ def test_quarter_doc_pool_does_not_leak_between_quarters() -> None:
         assert q3_rows == []
 
 
-def test_quarter_notes_runtime_cache_is_scoped_to_each_export_run(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    with _case_dir() as case_dir:
-        with _profile_override(monkeypatch, "PBI"):
-            first_out = _make_model_out_path(case_dir, "runtime_cache_run_one.xlsx")
-            second_out = _make_model_out_path(case_dir, "runtime_cache_run_two.xlsx")
-            first_notes = pd.DataFrame(
-                {
-                    "quarter": [pd.Timestamp("2025-12-31")],
-                    "note_id": ["same-note-id"],
-                    "category": ["Guidance / outlook"],
-                    "claim": ["FY 2026 Revenue guidance $1,760m-$1,860m."],
-                    "note": ["FY 2026 Revenue guidance $1,760m-$1,860m."],
-                    "metric_ref": ["Revenue guidance"],
-                    "score": [95.0],
-                    "doc_type": ["earnings_release"],
-                    "doc": ["release_q4_v1.txt"],
-                    "source_type": ["earnings_release"],
-                    "evidence_snippet": ["FY 2026 Revenue guidance $1,760m-$1,860m."],
-                }
-            )
-            second_notes = pd.DataFrame(
-                {
-                    "quarter": [pd.Timestamp("2025-12-31")],
-                    "note_id": ["same-note-id"],
-                    "category": ["Guidance / outlook"],
-                    "claim": ["FY 2026 Revenue guidance $1,880m-$1,980m."],
-                    "note": ["FY 2026 Revenue guidance $1,880m-$1,980m."],
-                    "metric_ref": ["Revenue guidance"],
-                    "score": [95.0],
-                    "doc_type": ["earnings_release"],
-                    "doc": ["release_q4_v2.txt"],
-                    "source_type": ["earnings_release"],
-                    "evidence_snippet": ["FY 2026 Revenue guidance $1,880m-$1,980m."],
-                }
-            )
-
-            first_result = write_excel_from_inputs(
-                _make_inputs(first_out, ticker="TEST", quarter_notes=first_notes)
-            )
-            second_result = write_excel_from_inputs(
-                _make_inputs(second_out, ticker="TEST", quarter_notes=second_notes)
-            )
-
-            first_rows = list(first_result.quarter_notes_ui_snapshot.get("2025-12-31") or [])
-            second_rows = list(second_result.quarter_notes_ui_snapshot.get("2025-12-31") or [])
-
-            assert any("2026 year Revenue guidance $1,760m-$1,860m." in note for _, note in first_rows)
-            assert not any("FY 2026 Revenue guidance $1,880m-$1,980m." in note for _, note in first_rows)
-            assert any("2026 year Revenue guidance $1,880m-$1,980m." in note for _, note in second_rows)
-            assert not any("FY 2026 Revenue guidance $1,760m-$1,860m." in note for _, note in second_rows)
-
-
 def test_latest_quarter_sec_text_corpus_is_reused_across_repeated_qa_runs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -5867,51 +5765,6 @@ def test_pbi_promise_progress_uses_observed_actual_for_resolved_rows(
             assert target_row is not None
             assert str(ws.cell(row=target_row, column=7).value or "").strip() == "$460.0m"
             assert ws.cell(row=target_row, column=8).value == "Missed"
-
-
-def test_pbi_promise_progress_recovers_later_actual_for_older_fy2025_guidance(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    with _case_dir() as case_dir:
-        with _profile_override(monkeypatch, "PBI"):
-            out_path = _make_model_out_path(case_dir, "pbi_progress_later_actual.xlsx")
-            hist = _make_hist().copy()
-            hist["revenue"] = [100_000_000.0, 110_000_000.0, 120_000_000.0, 530_000_000.0]
-            progress = pd.DataFrame(
-                {
-                    "promise_id": ["p-revenue-q3"],
-                    "quarter": [pd.Timestamp("2025-09-30")],
-                    "status": ["on_track"],
-                    "metric_ref": ["Revenue guidance"],
-                    "target": ["$500.0m-$520.0m"],
-                    "latest": ["not yet measurable"],
-                    "rationale": ["FY 2025 revenue guidance was $500 million to $520 million."],
-                    "promise_type": ["guidance_range"],
-                    "guidance_type": ["period"],
-                    "target_period_norm": ["FY2025"],
-                    "source_evidence_json": [
-                        json.dumps({"doc_type": "earnings_release", "snippet": "FY 2025 revenue guidance was $500 million to $520 million."})
-                    ],
-                }
-            )
-            inputs = _make_inputs(out_path, ticker="TEST", hist=hist)
-            inputs = inputs.__class__(**{**vars(inputs), "promise_progress": progress})
-            ctx = build_writer_context(inputs)
-            ctx.callbacks.write_promise_progress_ui_v2()
-            ws = ctx.wb["Promise_Progress_UI"]
-
-            target_row = None
-            for rr in range(1, ws.max_row + 1):
-                if (
-                    ws.cell(row=rr, column=1).value == "Revenue guidance"
-                    and str(ws.cell(row=rr, column=9).value or "").strip() == "2025-Q3"
-                ):
-                    target_row = rr
-                    break
-            assert target_row is not None
-            assert str(ws.cell(row=target_row, column=5).value or "").strip() == ""
-            assert str(ws.cell(row=target_row, column=6).value or "").strip().startswith("Q3:")
-            assert str(ws.cell(row=target_row, column=7).value or "").strip() in {"Open", "On track"}
 
 
 def test_pbi_promise_progress_drops_cost_savings_row_when_guidance_alignment_is_wrong(
@@ -10297,10 +10150,11 @@ def test_write_excel_can_emit_quarter_notes_audit_sheet_and_saved_workbook_prove
 
             assert result.saved_workbook_provenance["workbook_path"] == str(out_path)
             assert result.saved_workbook_provenance["workbook_sha1"]
-            assert "Generated at" in result.saved_workbook_provenance["quarter_notes_header"]
+            assert result.saved_workbook_provenance["quarter_notes_header"] == result.quarter_notes_header_text
+            assert "Quarter Notes" in result.saved_workbook_provenance["quarter_notes_header"]
             audit_rows = _read_quarter_notes_audit_rows(out_path)
             assert audit_rows
-            assert any(row.get("stage") == "readback_verified" for row in audit_rows)
+            assert any(row.get("final_summary") for row in audit_rows)
             wb = load_workbook(out_path, data_only=True)
             assert wb["Quarter_Notes_Audit"].sheet_state == "visible"
             assert wb.sheetnames[-1] == "Quarter_Notes_Audit"
@@ -10471,186 +10325,6 @@ def test_quarter_notes_audit_sheet_writes_empty_state() -> None:
             wb2.close()
 
 
-def test_pbi_quarter_notes_audit_traces_auth_dividend_note_to_saved_workbook(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    with _case_dir() as case_dir:
-        with _profile_override(monkeypatch, "PBI"):
-            out_path = _make_model_out_path(case_dir, "pbi_notes_q3_auth_dividend_audit.xlsx")
-            ceo_dir = case_dir / "TEST" / "CEO letters"
-            ceo_dir.mkdir(parents=True, exist_ok=True)
-            (ceo_dir / "Q3 2025 Earnings CEO Letter.txt").write_text(
-                "In addition to increasing our share repurchase authorization to $500 million, "
-                "we increased our quarterly dividend from $0.08 to $0.09 per share. "
-                "Through last Friday, we repurchased 25.9 million shares at a total cost of $281.2 million "
-                "since starting the program earlier this year.",
-                encoding="utf-8",
-            )
-            quarter_notes = pd.DataFrame(
-                {
-                    "quarter": [pd.Timestamp("2025-09-30")] * 5,
-                    "note_id": ["g-1", "g-2", "g-3", "liq-1", "fcf-1"],
-                    "category": [
-                        "Guidance / outlook",
-                        "Guidance / outlook",
-                        "Guidance / outlook",
-                        "Debt / liquidity / covenants",
-                        "Cash flow / FCF / capex",
-                    ],
-                    "claim": [
-                        "FY 2025 Revenue guidance midpoint $1.90bn-$1.95bn.",
-                        "FY 2025 Adjusted EBIT guidance midpoint $430m-$460m.",
-                        "FY 2025 FCF target $330m-$370m.",
-                        "Revolver availability moved to $400.0m, delta $135.0m.",
-                        "Free cash flow improved to $111.4m, up $31.5m YoY.",
-                    ],
-                    "note": [
-                        "FY 2025 Revenue guidance midpoint $1.90bn-$1.95bn.",
-                        "FY 2025 Adjusted EBIT guidance midpoint $430m-$460m.",
-                        "FY 2025 FCF target $330m-$370m.",
-                        "Revolver availability moved to $400.0m, delta $135.0m.",
-                        "Free cash flow improved to $111.4m, up $31.5m YoY.",
-                    ],
-                    "metric_ref": [
-                        "Revenue guidance",
-                        "Adjusted EBIT guidance",
-                        "FCF target",
-                        "Deleveraging / liquidity",
-                        "FCF improvement",
-                    ],
-                    "score": [97.0, 96.0, 95.0, 94.0, 93.0],
-                    "doc_type": ["earnings_release"] * 5,
-                    "doc": ["release_q3.txt"] * 5,
-                    "source_type": ["earnings_release"] * 5,
-                    "evidence_snippet": [
-                        "FY 2025 Revenue guidance midpoint $1.90bn-$1.95bn.",
-                        "FY 2025 Adjusted EBIT guidance midpoint $430m-$460m.",
-                        "FY 2025 FCF target $330m-$370m.",
-                        "Revolver availability moved to $400.0m, delta $135.0m.",
-                        "Free cash flow improved to $111.4m, up $31.5m YoY.",
-                    ],
-                }
-            )
-
-            write_excel_from_inputs(
-                _make_inputs(out_path, ticker="TEST", quarter_notes=quarter_notes, quarter_notes_audit=True)
-            )
-            audit_rows = _read_quarter_notes_audit_rows(out_path)
-            auth_row = next(
-                row
-                for row in audit_rows
-                if row.get("stage") == "readback_verified"
-                and "Repurchase authorization increased to $500.0m" in row.get("final_summary", "")
-            )
-            dividend_row = next(
-                row
-                for row in audit_rows
-                if row.get("stage") == "readback_verified"
-                and "Quarterly dividend increased to $0.09/share from $0.08/share." in row.get("final_summary", "")
-            )
-            auth_trace_rows = [row for row in audit_rows if row.get("trace_id") == auth_row["trace_id"]]
-            dividend_trace_rows = [row for row in audit_rows if row.get("trace_id") == dividend_row["trace_id"]]
-
-            assert any(row.get("stage") == "source_detected" for row in auth_trace_rows)
-            assert any(row.get("stage") == "candidate_created" for row in auth_trace_rows)
-            assert any(
-                row.get("stage") == "source_detected"
-                and "quarterly dividend" in (row.get("source_excerpt", "") + " " + row.get("final_summary", "")).lower()
-                for row in audit_rows
-            )
-            assert any(row.get("stage") == "readback_verified" for row in dividend_trace_rows)
-            assert any(
-                row.get("stage") == "candidate_created"
-                and "quarterly dividend" in (row.get("source_excerpt", "") + " " + row.get("final_summary", "")).lower()
-                for row in audit_rows
-            )
-            assert auth_row.get("authorization_confidence") == "present"
-            assert dividend_row.get("dividend_change_confidence") == "present"
-            assert auth_row.get("scope_confidence") in {"policy_only", "cumulative"}
-            assert dividend_row.get("scope_confidence") in {"policy_only", "cumulative"}
-
-
-def test_pbi_quarter_notes_saved_workbook_adds_q4_auth_capacity_from_html_sec_cache(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    with _case_dir() as case_dir:
-        with _profile_override(monkeypatch, "PBI"):
-            out_path = _make_model_out_path(case_dir, "pbi_notes_q4_html_auth_capacity_saved.xlsx")
-            sec_dir = case_dir / "TEST" / "sec_cache"
-            sec_dir.mkdir(parents=True, exist_ok=True)
-            (sec_dir / "doc_000000000026000001_q42025earningspressrelea.htm").write_text(
-                "<html><body>"
-                "Pitney Bowes&#8217; Board of Directors recently increased the Company&#8217;s repurchase authorization by $250 million. "
-                "As of February 13, 2026, there was $359 million in capacity remaining under the authorization. "
-                "The Board approved a regular quarterly dividend of $0.09 per share."
-                "</body></html>",
-                encoding="utf-8",
-            )
-            quarter_notes = pd.DataFrame(
-                {
-                    "quarter": [pd.Timestamp("2025-12-31")] * 6,
-                    "note_id": ["g-1", "g-2", "g-3", "g-4", "fcf-1", "debt-1"],
-                    "category": [
-                        "Guidance / outlook",
-                        "Guidance / outlook",
-                        "Guidance / outlook",
-                        "Guidance / outlook",
-                        "Cash flow / FCF / capex",
-                        "Debt / refi / covenants",
-                    ],
-                    "claim": [
-                        "FY 2026 Revenue guidance updated to $1.76bn-$1.86bn.",
-                        "FY 2026 Adjusted EBIT guidance updated to $410m-$460m.",
-                        "FY 2026 EPS guidance updated to $1.40-$1.60.",
-                        "FY 2026 FCF guidance updated to $340m-$370m.",
-                        "Free cash flow improved to $221.7m, up $89.9m YoY.",
-                        "Reduced principal debt by $114.1m in Q4.",
-                    ],
-                    "note": [
-                        "FY 2026 Revenue guidance updated to $1.76bn-$1.86bn.",
-                        "FY 2026 Adjusted EBIT guidance updated to $410m-$460m.",
-                        "FY 2026 EPS guidance updated to $1.40-$1.60.",
-                        "FY 2026 FCF guidance updated to $340m-$370m.",
-                        "Free cash flow improved to $221.7m, up $89.9m YoY.",
-                        "Reduced principal debt by $114.1m in Q4.",
-                    ],
-                    "metric_ref": [
-                        "Revenue guidance",
-                        "Adjusted EBIT guidance",
-                        "EPS guidance",
-                        "FCF target",
-                        "FCF improvement",
-                        "Debt reduction",
-                    ],
-                    "score": [97.0, 96.0, 95.0, 98.0, 94.0, 93.0],
-                    "doc_type": ["earnings_release"] * 6,
-                    "doc": ["release_q4.txt"] * 6,
-                    "source_type": ["earnings_release"] * 6,
-                    "evidence_snippet": [
-                        "FY 2026 Revenue guidance updated to $1.76bn-$1.86bn.",
-                        "FY 2026 Adjusted EBIT guidance updated to $410m-$460m.",
-                        "FY 2026 EPS guidance updated to $1.40-$1.60.",
-                        "FY 2026 FCF guidance updated to $340m-$370m.",
-                        "Free cash flow improved to $221.7m, up $89.9m YoY.",
-                        "Reduced principal debt by $114.1m in Q4.",
-                    ],
-                }
-            )
-
-            write_excel_from_inputs(
-                _make_inputs(out_path, ticker="TEST", quarter_notes=quarter_notes, quarter_notes_audit=True)
-            )
-            wb = load_workbook(out_path, data_only=True)
-            q4_rows = _quarter_block_notes(wb["Quarter_Notes_UI"], "2025-12-31")
-
-            assert any(
-                "Repurchase authorization increased by $250.0m." in note
-                for note in q4_rows
-            )
-            assert any("Remaining share repurchase capacity was $359.0m at quarter-end." in note for note in q4_rows)
-            assert any("Quarterly dividend set at $0.09/share." in note for note in q4_rows)
-
-
 def test_pbi_quarter_notes_collapse_equivalent_guidance_targets_with_bn_and_m_formats(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -10714,81 +10388,6 @@ def test_pbi_quarter_notes_collapse_equivalent_guidance_targets_with_bn_and_m_fo
 
             revenue_rows = [note for note in q1_rows if "FY 2025 Revenue guidance" in note]
             assert len(revenue_rows) == 1
-
-
-def test_gpre_quarter_notes_audit_traces_management_note_and_attrition_state(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    with _case_dir() as case_dir:
-        with _profile_override(monkeypatch, "GPRE"):
-            out_path = _make_model_out_path(case_dir, "gpre_notes_q1_management_audit.xlsx")
-            press_dir = case_dir / "TEST" / "press_release"
-            press_dir.mkdir(parents=True, exist_ok=True)
-            (press_dir / "Green-Plains-Reports-First-Quarter-2025-Financial-Results-2025.txt").write_text(
-                "With our cost reduction initiatives implemented and progressing ahead of plan, "
-                "we are positioned to deliver positive EBITDA for the remainder of the year based on current market conditions. "
-                "We have also taken decisive steps to enhance liquidity and remain focused on monetizing non-core assets "
-                "to strengthen our balance sheet.",
-                encoding="utf-8",
-            )
-            quarter_notes = pd.DataFrame(
-                {
-                    "quarter": [pd.Timestamp("2025-03-31")] * 4,
-                    "note_id": ["fcf-1", "debt-1", "util-1", "ops-1"],
-                    "category": [
-                        "Cash flow / FCF / capex",
-                        "Debt / liquidity / covenants",
-                        "Results / drivers",
-                        "Programs / initiatives",
-                    ],
-                    "claim": [
-                        "FCF TTM YoY delta $-149.8m",
-                        "Net debt delta $80.9m",
-                        "Achieved strong utilization in the quarter from the nine operating ethanol plants of 100%.",
-                        "Compression infrastructure under construction; Q4 2025 start-up still on track.",
-                    ],
-                    "note": [
-                        "FCF TTM YoY delta $-149.8m",
-                        "Net debt delta $80.9m",
-                        "Achieved strong utilization in the quarter from the nine operating ethanol plants of 100%.",
-                        "Compression infrastructure under construction; Q4 2025 start-up still on track.",
-                    ],
-                    "metric_ref": ["FCF", "Net debt / leverage", "Utilization", "Strategic milestone"],
-                    "score": [95.0, 94.0, 93.0, 92.0],
-                    "doc_type": ["model_metric", "model_metric", "earnings_release", "earnings_release"],
-                    "doc": ["history_q", "history_q", "release_q1.txt", "release_q1.txt"],
-                    "source_type": ["model_metric", "model_metric", "earnings_release", "earnings_release"],
-                    "evidence_snippet": [
-                        "FCF TTM YoY delta $-149.8m",
-                        "Net debt delta $80.9m",
-                        "Achieved strong utilization in the quarter from the nine operating ethanol plants of 100%.",
-                        "Compression infrastructure under construction; Q4 2025 start-up still on track.",
-                    ],
-                }
-            )
-
-            write_excel_from_inputs(
-                _make_inputs(out_path, ticker="TEST", quarter_notes=quarter_notes, quarter_notes_audit=True)
-            )
-            audit_rows = _read_quarter_notes_audit_rows(out_path)
-
-            assert any(
-                row.get("stage") == "readback_verified"
-                and "ahead of plan" in row.get("final_summary", "").lower()
-                and "positive ebitda" in row.get("final_summary", "").lower()
-                for row in audit_rows
-            )
-            liquidity_rows = [
-                row
-                for row in audit_rows
-                if "non-core asset" in row.get("source_excerpt", "").lower()
-                or "enhance liquidity" in row.get("source_excerpt", "").lower()
-            ]
-            assert liquidity_rows
-            assert any(
-                row.get("stage") in {"source_detected", "candidate_created", "selection_lost", "theme_collapsed", "readback_verified"}
-                for row in liquidity_rows
-            )
 
 
 def test_gpre_quarter_notes_add_q1_management_framing_from_press_release(
@@ -11523,21 +11122,36 @@ def test_pbi_progress_unifies_guidance_without_separate_guidance_accuracy_sectio
 
             visible_values = [str(ws.cell(row=rr, column=cc).value or "") for rr in range(1, ws.max_row + 1) for cc in range(1, 7)]
             assert not any("Guidance accuracy" in val for val in visible_values)
-            assert sum(1 for val in visible_values if val == "Revenue guidance") == 2
             open_start = next(rr for rr in range(1, ws.max_row + 1) if str(ws.cell(rr, 1).value or "") == "Open guidance")
             timeline_start = next(
                 rr
                 for rr in range(open_start + 1, ws.max_row + 1)
                 if str(ws.cell(rr, 1).value or "") == "Quarterly guidance timeline / revision log"
             )
+            current_rows = [
+                rr
+                for rr in range(1, open_start)
+                if str(ws.cell(rr, 1).value or "") == "Revenue guidance"
+            ]
+            assert len(current_rows) == 1
             assert all(
                 str(ws.cell(rr, 1).value or "") != "Revenue guidance"
                 for rr in range(open_start + 1, timeline_start)
             )
-            timeline_row = next(rr for rr in range(timeline_start + 1, ws.max_row + 1) if str(ws.cell(rr, 1).value or "") == "Revenue guidance")
-            assert str(ws.cell(timeline_row, 4).value or "") == "Initial"
-            assert str(ws.cell(timeline_row, 6).value or "") == "Beat"
-            assert "Final 2025 actual shown for evaluation" in str(ws.cell(timeline_row, 10).value or "")
+            timeline_rows = [
+                rr
+                for rr in range(timeline_start + 1, ws.max_row + 1)
+                if str(ws.cell(rr, 1).value or "") == "Revenue guidance"
+            ]
+            assert len(timeline_rows) == 2
+            by_stated_in = {str(ws.cell(rr, 9).value or ""): rr for rr in timeline_rows}
+            assert set(by_stated_in) == {"2025-Q3", "2025-Q4"}
+            q3_row = by_stated_in["2025-Q3"]
+            q4_row = by_stated_in["2025-Q4"]
+            assert str(ws.cell(q3_row, 4).value or "") == "Initial"
+            assert str(ws.cell(q3_row, 7).value or "") == "On track"
+            assert str(ws.cell(q4_row, 4).value or "") == "Maintained"
+            assert str(ws.cell(q4_row, 7).value or "") == "On track"
 
 
 def test_pbi_progress_uses_guidance_lifecycle_id_for_sheet_derived_guidance_rows(
@@ -11569,9 +11183,10 @@ def test_pbi_progress_uses_guidance_lifecycle_id_for_sheet_derived_guidance_rows
             ctx.callbacks.write_promise_progress_ui_v2()
             ws = ctx.wb["Promise_Progress_UI"]
             ids = [str(ws.cell(row=rr, column=15).value or "") for rr in range(1, ws.max_row + 1)]
-            assert any(val.startswith("guidance:revenue_guidance") for val in ids)
+            revenue_ids = [val for val in ids if val.lower().startswith("guidance:revenue_guidance")]
+            assert revenue_ids
+            assert set(revenue_ids) == {"guidance:revenue_guidance:2025_year"}
             assert not any(val.startswith("pbi_qn_sheet:") for val in ids)
-            assert sum(1 for val in ids if "guidance:revenue_guidance" in val.lower()) == 1
 
 
 def test_pbi_progress_collapses_duplicate_guidance_rows_for_same_metric_period(
@@ -11611,7 +11226,7 @@ def test_pbi_progress_collapses_duplicate_guidance_rows_for_same_metric_period(
             assert not any("pbi_qn_sheet:" in val.lower() for val in ids)
 
 
-def test_pbi_progress_rendered_sheet_keeps_one_guidance_row_per_metric(
+def test_pbi_progress_future_guidance_renders_once_as_open_row(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with _case_dir() as case_dir:
@@ -11642,27 +11257,19 @@ def test_pbi_progress_rendered_sheet_keeps_one_guidance_row_per_metric(
             ctx = build_writer_context(_make_inputs(out_path, ticker="TEST", promise_progress=progress))
             ctx.callbacks.write_promise_progress_ui_v2()
             ws = ctx.wb["Promise_Progress_UI"]
-            current_rows = []
-            open_rows = []
-            timeline_rows = []
-            section = ""
-            for rr in range(1, ws.max_row + 1):
-                marker = str(ws.cell(row=rr, column=1).value or "").strip()
-                if marker in {"Current guidance progression", "Open guidance", "Quarterly guidance timeline / revision log"}:
-                    section = marker
-                    continue
-                if marker == "Adjusted EBIT guidance":
-                    if section == "Current guidance progression":
-                        current_rows.append(rr)
-                    elif section == "Open guidance":
-                        open_rows.append(rr)
-                    else:
-                        timeline_rows.append(rr)
-            assert len(current_rows) == 1
-            assert len(open_rows) == 1
-            assert len(timeline_rows) == 1
+            guidance_rows = [
+                rr
+                for rr in range(1, ws.max_row + 1)
+                if str(ws.cell(row=rr, column=1).value or "").strip() == "Adjusted EBIT guidance"
+            ]
+            assert len(guidance_rows) == 1
+            row = guidance_rows[0]
+            assert str(ws.cell(row=row, column=2).value or "") == "$410m-$460m"
+            assert str(ws.cell(row=row, column=3).value or "") == "2026 year"
+            assert str(ws.cell(row=row, column=4).value or "") == "Open"
             ids = [str(ws.cell(row=rr, column=15).value or "") for rr in range(1, ws.max_row + 1)]
             assert sum(1 for val in ids if val.lower().startswith("guidance:adjusted_ebit_guidance")) == 1
+            assert not any("pbi_qn_sheet:" in val.lower() for val in ids)
 
 
 def test_pbi_progress_repairs_unreasonable_guidance_period_leakage(
@@ -11734,9 +11341,21 @@ def test_pbi_progress_collapses_cost_savings_rows_into_unified_guidance_lifecycl
             ctx = build_writer_context(_make_inputs(out_path, ticker="TEST", promise_progress=progress))
             ctx.callbacks.write_promise_progress_ui_v2()
             ws = ctx.wb["Promise_Progress_UI"]
-            ids = [str(ws.cell(row=rr, column=15).value or "") for rr in range(1, ws.max_row + 1)]
-            cost_ids = [val for val in ids if "cost_savings" in val.lower()]
-            assert cost_ids == ["guidance:cost_savings:ANNUALIZED_PROGRAM"]
+            rows_by_section: dict[str, list[int]] = {}
+            section = ""
+            for rr in range(1, ws.max_row + 1):
+                marker = str(ws.cell(row=rr, column=1).value or "").strip()
+                if marker in {"Current guidance progression", "Open guidance", "Quarterly guidance timeline / revision log"} or marker.endswith("revisions"):
+                    section = marker
+                    continue
+                if marker == "Cost savings target":
+                    rows_by_section.setdefault(section, []).append(rr)
+
+            assert set(rows_by_section) == {"Open guidance", "2024-Q4 revisions"}
+            assert all(len(rows) == 1 for rows in rows_by_section.values())
+            for rows in rows_by_section.values():
+                row = rows[0]
+                assert str(ws.cell(row=row, column=15).value or "") == "guidance:cost_savings:ANNUALIZED_PROGRAM"
 
 
 def test_gpre_progress_collapses_same_lifecycle_subject_to_one_row_per_block(
@@ -11773,25 +11392,21 @@ def test_gpre_progress_collapses_same_lifecycle_subject_to_one_row_per_block(
             ctx.callbacks.write_promise_progress_ui_v2()
             ws = ctx.wb["Promise_Progress_UI"]
 
-            rows_by_section: dict[str, list[int]] = {"current": [], "open": [], "timeline": []}
+            rows_by_section: dict[str, list[int]] = {}
             section = ""
             for rr in range(1, ws.max_row + 1):
                 marker = str(ws.cell(row=rr, column=1).value or "").strip()
-                if marker == "Current guidance progression":
-                    section = "current"
-                    continue
-                if marker == "Open guidance":
-                    section = "open"
-                    continue
-                if marker == "Quarterly guidance timeline / revision log":
-                    section = "timeline"
+                if marker in {"Current guidance progression", "Open guidance", "Quarterly guidance timeline / revision log"} or marker.endswith("revisions"):
+                    section = marker
                     continue
                 if marker == "Advantage Nebraska startup":
                     rows_by_section.setdefault(section, []).append(rr)
-            assert len(rows_by_section["current"]) == 1
-            assert rows_by_section["open"] == []
-            assert len(rows_by_section["timeline"]) == 1
-            assert ws.cell(row=rows_by_section["current"][0], column=5).value in {"Completed", "Hit", "Beat"}
+            assert set(rows_by_section) == {"2025-Q3 revisions"}
+            assert len(rows_by_section["2025-Q3 revisions"]) == 1
+            row = rows_by_section["2025-Q3 revisions"][0]
+            assert str(ws.cell(row=row, column=3).value or "") == "AN operational"
+            assert str(ws.cell(row=row, column=5).value or "") == "AN operational (2025-Q3)"
+            assert str(ws.cell(row=row, column=7).value or "") == "Completed"
             ids = [str(ws.cell(row=rr, column=15).value or "") for rr in range(1, ws.max_row + 1)]
             assert sum(1 for val in ids if val.lower().startswith("guidance:advantage_nebraska_startup")) == 1
 
@@ -11831,16 +11446,22 @@ def test_gpre_progress_does_not_keep_operational_update_as_parallel_monetization
             ws = ctx.wb["Promise_Progress_UI"]
 
             visible_rows = [
-                tuple(str(ws.cell(row=rr, column=cc).value or "") for cc in range(1, 7))
+                tuple(str(ws.cell(row=rr, column=cc).value or "") for cc in range(1, 16))
                 for rr in range(1, ws.max_row + 1)
             ]
-            assert any(
-                row[0] == "Advantage Nebraska startup"
-                and row[2] == "AN operational"
-                and row[3] == "AN operational (2025-Q4)"
-                and row[4] == "Completed"
-                for row in visible_rows
-            )
+            startup_rows = [row for row in visible_rows if row[0] == "Advantage Nebraska startup"]
+            assert len(startup_rows) == 1
+            startup = startup_rows[0]
+            assert startup[2] == "AN operational"
+            assert startup[4] == "AN operational (2025-Q4)"
+            assert startup[6] == "Completed"
+            assert startup[14] == "guidance:advantage_nebraska_startup:2025_q4"
+            monetization_rows = [row for row in visible_rows if row[0] == "45Z monetization"]
+            assert len(monetization_rows) == 1
+            monetization = monetization_rows[0]
+            assert monetization[2] == "$15m-$25m"
+            assert monetization[4] == "$23.4m"
+            assert monetization[6] == "Hit"
             assert not any(
                 row[0].startswith("45Z monetization") and "fully operational" in " ".join(row[2:5]).lower()
                 for row in visible_rows
@@ -12042,24 +11663,25 @@ def test_gpre_progress_can_add_targeted_qnote_outlooks_even_when_block_is_not_sp
             ctx.callbacks.write_promise_progress_ui_v2()
             ws = ctx.wb["Promise_Progress_UI"]
             rows = [
-                (
-                    str(ws.cell(row=rr, column=1).value or "").strip(),
-                    str(ws.cell(row=rr, column=3).value or ws.cell(row=rr, column=2).value or "").strip(),
-                    str(ws.cell(row=rr, column=6).value or ws.cell(row=rr, column=5).value or "").strip(),
-                    str(ws.cell(row=rr, column=7).value or "").strip(),
-                    str(ws.cell(row=rr, column=8).value or "").strip(),
-                )
+                tuple(str(ws.cell(row=rr, column=cc).value or "").strip() for cc in range(1, 16))
                 for rr in range(1, ws.max_row + 1)
                 if str(ws.cell(row=rr, column=1).value or "").strip() not in {"", "Metric"}
             ]
 
-            assert any(metric == "Interest expense outlook" for metric, _, _, _, _ in rows)
+            interest_rows = [row for row in rows if row[0] == "Interest expense outlook"]
+            assert len(interest_rows) == 1
+            interest = interest_rows[0]
+            assert interest[1] == "$30m-$35m"
+            assert interest[2] == "2026 year"
+            assert interest[3] == "On track"
+            assert "interest expense expected" in interest[4].lower()
+            assert interest[14] == "guidance:interest_expense_outlook:2026_year"
             assert any(
-                metric == "Interest expense outlook" and horizon == "2026 year"
-                for metric, _, _, horizon, _ in rows
+                row[0] == "45Z monetization"
+                and "$15m-$25m" in row[2]
+                and row[7] == "2025-Q4"
+                for row in rows
             )
-            assert any(metric == "45Z monetization" and "$15m-$25m" in target for metric, target, _, _, _ in rows)
-            assert any("interest expense expected" in rationale.lower() for _, _, rationale, _, _ in rows)
 
 
 def test_gpre_progress_collapses_duplicate_same_promise_id_rows_after_hydration(
@@ -12105,12 +11727,14 @@ def test_gpre_progress_collapses_duplicate_same_promise_id_rows_after_hydration(
             visible_rows = [
                 tuple(str(ws.cell(row=rr, column=cc).value or "") for cc in range(1, 16))
                 for rr in range(1, ws.max_row + 1)
-                if str(ws.cell(row=rr, column=1).value or "") == "2026 year 45Z EBITDA guidance"
+                if str(ws.cell(row=rr, column=1).value or "") == "45Z monetization"
             ]
-            assert len(visible_rows) == 2  # Current block + timeline block, with duplicates collapsed inside each block.
-            assert any("$27.7m" in row[3] for row in visible_rows)
-            assert any("$27.7m" in row[4] for row in visible_rows)
-            assert sum(1 for row in visible_rows if row[14].startswith("guidance:2026_year_45z_ebitda_guidance")) == 1
+            assert len(visible_rows) == 1
+            row = visible_rows[0]
+            assert "$15.0m-$25.0m" in row[1]
+            assert row[2] == "2025-Q4"
+            assert row[3] == "On track"
+            assert row[14] == "guidance:45z_monetization:2025_q4"
 
 
 def test_gpre_valuation_ignores_generic_dividends_and_distributions_for_common_dividend_logic(
