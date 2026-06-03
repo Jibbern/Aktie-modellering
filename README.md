@@ -99,6 +99,9 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
   - `local_chicago_ethanol_futures` is now the canonical provider in the active GPRE workflow; refresh writes debug artifacts but thesis ethanol comes from the local CSV/manual snapshot files in `GPRE/Ethanol_futures`. The legacy `cme_ethanol_platts` id remains as a compatibility alias during the transition.
   - Live GPRE forward corn now prefers local Barchart CSVs in `GPRE/corn_futures` before NWER fallback; live forward gas is wired the same way for `GPRE/naturalGas_futures` when local files exist. Per-contract `*_price-history-*.csv` files are used for dated quarter-open and next-quarter futures baskets when available.
   - The 7/14-day carry-forward rule remains for GPRE cash/basis snapshots only. Quarter-open local futures use same-date, then nearest prior local price-history row within 7 calendar days; NWER fallback must still be on or before the same anchor date.
+- Fast daily GPRE source refresh:
+  - `.\.venv\Scripts\python.exe Code\gpre_daily_sources.py`
+  - Use this for the common "download today's GPRE corn-bids and USDA files" task. It avoids the full market-cache parse/export rebuild that can run long in interactive sessions, and uses hard per-USDA-source timeouts by default.
 - Reconcile market cache without network refresh:
   - `.\.venv\Scripts\python.exe Code\stock_models.py --ticker GPRE --market-reparse --market-only`
   - `--market-reparse` is incremental: unchanged raw/source fingerprints reuse parsed frames and the ticker export.
