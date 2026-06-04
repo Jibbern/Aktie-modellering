@@ -87,6 +87,10 @@ from .excel_writer_economics_overlay_commercial import (
     GpreEconomicsOverlayCommercialDeps,
     write_gpre_economics_overlay_commercial_sections,
 )
+from .excel_writer_economics_overlay_current_qtd import (
+    GpreEconomicsOverlayCurrentQtdDeps,
+    write_gpre_economics_overlay_current_qtd_section,
+)
 from .excel_writer_economics_raw import (
     ECONOMICS_MARKET_RAW_COLUMN_WIDTHS,
     ECONOMICS_MARKET_RAW_HEADERS,
@@ -74112,278 +74116,29 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         )
         row_idx = chart_result.row_idx
 
-        gpre_overlay_coproduct_start_row = 176
-        overlay_qtd_tracking_started = time.perf_counter()
-        if is_gpre_profile and gpre_commercial_setup_rows and isinstance(gpre_current_qtd_trend_tracking, dict) and gpre_current_qtd_trend_tracking:
-            current_qtd_tracking = dict(gpre_current_qtd_trend_tracking.get("current_snapshot") or {})
-            reference_comparisons = {
-                str(key): dict(value or {})
-                for key, value in dict(gpre_current_qtd_trend_tracking.get("reference_comparisons") or {}).items()
-            }
-            driver_rows = [
-                dict(rec or {})
-                for rec in list(gpre_current_qtd_trend_tracking.get("driver_attribution_rows") or [])
-                if isinstance(rec, dict)
-            ]
-            qtd_tracking_start_row = max(int(row_idx) + 1, 176)
-            qtd_tracking_title_row = qtd_tracking_start_row
-            qtd_tracking_today_row = qtd_tracking_title_row + 1
-            qtd_tracking_quarter_open_row = qtd_tracking_today_row + 1
-            qtd_tracking_compare_header_row = qtd_tracking_quarter_open_row + 1
-            qtd_tracking_compare_subheader_row = qtd_tracking_compare_header_row + 1
-            qtd_tracking_compare_body_row = qtd_tracking_compare_subheader_row + 1
-            qtd_tracking_spacer_row = qtd_tracking_compare_body_row + 1
-            qtd_tracking_driver_title_row = qtd_tracking_spacer_row + 1
-            qtd_tracking_driver_header_row = qtd_tracking_driver_title_row + 1
-            qtd_tracking_driver_first_row = qtd_tracking_driver_header_row + 1
-            qtd_tracking_driver_last_row = qtd_tracking_driver_first_row + max(len(driver_rows), 1) - 1
-            qtd_tracking_note_row = qtd_tracking_driver_last_row + 1
-
-            ws.merge_cells(
-                start_row=qtd_tracking_title_row,
-                start_column=1,
-                end_row=qtd_tracking_title_row,
-                end_column=21,
+        current_qtd_result = write_gpre_economics_overlay_current_qtd_section(
+            GpreEconomicsOverlayCurrentQtdDeps(
+                ws=ws,
+                row_idx=row_idx,
+                is_gpre_profile=is_gpre_profile,
+                has_gpre_commercial_setup=bool(gpre_commercial_setup_rows),
+                gpre_current_qtd_trend_tracking=gpre_current_qtd_trend_tracking,
+                title_fill=title_fill,
+                title_font=title_font,
+                header_fill=header_fill,
+                body_font=body_font,
+                bold_font=bold_font,
+                thin_border=thin_border,
+                zebra_fill_light=zebra_fill_light,
+                zebra_fill_dark=zebra_fill_dark,
+                intro_fill=intro_fill,
+                align_center=align_center,
+                parse_snapshot_date_like=_gpre_parse_snapshot_date_like,
+                record_writer_substage=_record_writer_substage,
             )
-            qtd_tracking_title_cell = ws.cell(
-                row=qtd_tracking_title_row,
-                column=1,
-                value="Current QTD trend tracking ($/gal, crush margin lens)",
-            )
-            qtd_tracking_title_cell.fill = title_fill
-            qtd_tracking_title_cell.font = title_font
-            qtd_tracking_title_cell.alignment = align_center
-            qtd_tracking_title_cell.border = thin_border
-            for cc in range(1, 22):
-                ws.cell(row=qtd_tracking_title_row, column=cc).fill = title_fill
-                ws.cell(row=qtd_tracking_title_row, column=cc).font = title_font
-                ws.cell(row=qtd_tracking_title_row, column=cc).alignment = align_center
-                ws.cell(row=qtd_tracking_title_row, column=cc).border = thin_border
-            ws.row_dimensions[qtd_tracking_title_row].height = 18.0
-
-            def _qtd_as_of_text(raw_date: Any) -> str:
-                parsed = _gpre_parse_snapshot_date_like(raw_date)
-                return f"As of {parsed.isoformat()}" if isinstance(parsed, date) else "—"
-
-            def _write_merged_numeric_or_dash(target_row: int, start_col: int, end_col: int, raw_value: Any) -> None:
-                ws.merge_cells(
-                    start_row=target_row,
-                    start_column=start_col,
-                    end_row=target_row,
-                    end_column=end_col,
-                )
-                value_num = pd.to_numeric(raw_value, errors="coerce")
-                if pd.notna(value_num):
-                    ws.cell(row=target_row, column=start_col, value=float(value_num)).number_format = "#,##0.000"
-                else:
-                    ws.cell(row=target_row, column=start_col, value="—")
-
-            def _write_merged_text(target_row: int, start_col: int, end_col: int, text_value: str) -> None:
-                ws.merge_cells(
-                    start_row=target_row,
-                    start_column=start_col,
-                    end_row=target_row,
-                    end_column=end_col,
-                )
-                ws.cell(row=target_row, column=start_col, value=text_value)
-
-            status_rows = [
-                (
-                    qtd_tracking_today_row,
-                    "Today",
-                    pd.to_numeric(current_qtd_tracking.get("current_qtd_official_simple_usd_per_gal"), errors="coerce"),
-                    _qtd_as_of_text(current_qtd_tracking.get("as_of_date")),
-                    copy(zebra_fill_light),
-                ),
-                (
-                    qtd_tracking_quarter_open_row,
-                    "Quarter-open",
-                    pd.to_numeric((reference_comparisons.get("quarter_open") or {}).get("reference_value_usd_per_gal"), errors="coerce"),
-                    _qtd_as_of_text((reference_comparisons.get("quarter_open") or {}).get("reference_date")),
-                    copy(zebra_fill_dark),
-                ),
-            ]
-            for target_row, label_txt, level_val, as_of_txt, row_fill in status_rows:
-                _write_merged_numeric_or_dash(target_row, 2, 3, level_val)
-                _write_merged_text(target_row, 4, 21, as_of_txt)
-                for cc in range(1, 22):
-                    ws.cell(row=target_row, column=cc).fill = copy(row_fill)
-                    ws.cell(row=target_row, column=cc).font = copy(body_font)
-                    ws.cell(row=target_row, column=cc).border = copy(thin_border)
-                    ws.cell(row=target_row, column=cc).alignment = (
-                        Alignment(horizontal="left", vertical="center", wrap_text=True)
-                        if cc in {1, 4}
-                        else Alignment(horizontal="center", vertical="center")
-                    )
-                ws.cell(row=target_row, column=1, value=label_txt)
-                ws.cell(row=target_row, column=1).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                ws.row_dimensions[target_row].height = max(float(ws.row_dimensions[target_row].height or 0.0), 20.0)
-
-            ws.row_dimensions[qtd_tracking_spacer_row].height = 8.0
-            ws.cell(row=qtd_tracking_spacer_row, column=1).alignment = Alignment(horizontal="center", vertical="center")
-
-            comparison_spans = [
-                (2, 3, "QTD vs quarter-open"),
-                (4, 5, "QTD vs 1 week ago"),
-                (6, 7, "QTD vs 4 weeks ago"),
-                (8, 9, "QTD vs 8 weeks ago"),
-            ]
-            comparison_keys = {
-                2: "quarter_open",
-                4: "1w",
-                6: "4w",
-                8: "8w",
-            }
-            for start_col, end_col, header_txt in comparison_spans:
-                ws.merge_cells(
-                    start_row=qtd_tracking_compare_header_row,
-                    start_column=start_col,
-                    end_row=qtd_tracking_compare_header_row,
-                    end_column=end_col,
-                )
-                ws.merge_cells(
-                    start_row=qtd_tracking_compare_subheader_row,
-                    start_column=start_col,
-                    end_row=qtd_tracking_compare_subheader_row,
-                    end_column=end_col,
-                )
-                ws.merge_cells(
-                    start_row=qtd_tracking_compare_body_row,
-                    start_column=start_col,
-                    end_row=qtd_tracking_compare_body_row,
-                    end_column=end_col,
-                )
-                ws.cell(row=qtd_tracking_compare_header_row, column=start_col, value=header_txt)
-                ref_date_txt = _qtd_as_of_text((reference_comparisons.get(comparison_keys[start_col]) or {}).get("reference_date"))
-                ws.cell(row=qtd_tracking_compare_subheader_row, column=start_col, value=ref_date_txt)
-                delta_num = pd.to_numeric((reference_comparisons.get(comparison_keys[start_col]) or {}).get("delta_usd_per_gal"), errors="coerce")
-                if pd.notna(delta_num):
-                    ws.cell(row=qtd_tracking_compare_body_row, column=start_col, value=float(delta_num)).number_format = "#,##0.000"
-                else:
-                    ws.cell(row=qtd_tracking_compare_body_row, column=start_col, value="—")
-
-            for cc in range(1, 22):
-                ws.cell(row=qtd_tracking_compare_header_row, column=cc).fill = copy(header_fill)
-                ws.cell(row=qtd_tracking_compare_header_row, column=cc).font = copy(bold_font)
-                ws.cell(row=qtd_tracking_compare_header_row, column=cc).border = copy(thin_border)
-                ws.cell(row=qtd_tracking_compare_header_row, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-                ws.cell(row=qtd_tracking_compare_subheader_row, column=cc).fill = copy(intro_fill)
-                ws.cell(row=qtd_tracking_compare_subheader_row, column=cc).font = copy(body_font)
-                ws.cell(row=qtd_tracking_compare_subheader_row, column=cc).border = copy(thin_border)
-                ws.cell(row=qtd_tracking_compare_subheader_row, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-                ws.cell(row=qtd_tracking_compare_body_row, column=cc).fill = copy(zebra_fill_light)
-                ws.cell(row=qtd_tracking_compare_body_row, column=cc).font = copy(body_font)
-                ws.cell(row=qtd_tracking_compare_body_row, column=cc).border = copy(thin_border)
-                ws.cell(row=qtd_tracking_compare_body_row, column=cc).alignment = (
-                    Alignment(horizontal="left", vertical="center", wrap_text=True)
-                    if cc == 1
-                    else Alignment(horizontal="center", vertical="center")
-                )
-            ws.cell(row=qtd_tracking_compare_body_row, column=1, value="Approximate market crush")
-            ws.row_dimensions[qtd_tracking_compare_header_row].height = 24.0
-            ws.row_dimensions[qtd_tracking_compare_subheader_row].height = 20.0
-            ws.row_dimensions[qtd_tracking_compare_body_row].height = 20.0
-
-            for quiet_row in range(qtd_tracking_compare_body_row + 1, qtd_tracking_driver_title_row):
-                ws.row_dimensions[quiet_row].height = 0.0
-                ws.row_dimensions[quiet_row].hidden = True
-
-            ws.merge_cells(
-                start_row=qtd_tracking_driver_title_row,
-                start_column=1,
-                end_row=qtd_tracking_driver_title_row,
-                end_column=21,
-            )
-            driver_title_cell = ws.cell(
-                row=qtd_tracking_driver_title_row,
-                column=1,
-                value="Driver attribution of Current QTD move ($/gal)",
-            )
-            driver_title_cell.fill = copy(header_fill)
-            driver_title_cell.font = copy(bold_font)
-            driver_title_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-            driver_title_cell.border = copy(thin_border)
-            for cc in range(1, 22):
-                ws.cell(row=qtd_tracking_driver_title_row, column=cc).fill = copy(header_fill)
-                ws.cell(row=qtd_tracking_driver_title_row, column=cc).font = copy(bold_font)
-                ws.cell(row=qtd_tracking_driver_title_row, column=cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-                ws.cell(row=qtd_tracking_driver_title_row, column=cc).border = copy(thin_border)
-            ws.row_dimensions[qtd_tracking_driver_title_row].height = 20.0
-
-            driver_header_spans = [
-                (1, 1, "Driver"),
-                (2, 3, "QTD vs quarter-open"),
-                (4, 5, "QTD vs 1 week ago"),
-                (6, 7, "QTD vs 4 weeks ago"),
-                (8, 9, "QTD vs 8 weeks ago"),
-            ]
-            for start_col, end_col, header_txt in driver_header_spans:
-                if end_col > start_col:
-                    ws.merge_cells(
-                        start_row=qtd_tracking_driver_header_row,
-                        start_column=start_col,
-                        end_row=qtd_tracking_driver_header_row,
-                        end_column=end_col,
-                    )
-                for cc in range(start_col, end_col + 1):
-                    ws.cell(row=qtd_tracking_driver_header_row, column=cc).fill = copy(header_fill)
-                    ws.cell(row=qtd_tracking_driver_header_row, column=cc).font = copy(bold_font)
-                    ws.cell(row=qtd_tracking_driver_header_row, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                    ws.cell(row=qtd_tracking_driver_header_row, column=cc).border = copy(thin_border)
-                ws.cell(row=qtd_tracking_driver_header_row, column=start_col, value=header_txt)
-            for cc in range(10, 22):
-                ws.cell(row=qtd_tracking_driver_header_row, column=cc).fill = copy(header_fill)
-                ws.cell(row=qtd_tracking_driver_header_row, column=cc).border = copy(thin_border)
-            ws.row_dimensions[qtd_tracking_driver_header_row].height = 24.0
-
-            driver_key_by_col = {
-                2: "quarter_open",
-                4: "1w",
-                6: "4w",
-                8: "8w",
-            }
-            for row_offset, rec in enumerate(driver_rows or [{"driver": "Gas"}]):
-                target_row = qtd_tracking_driver_first_row + row_offset
-                row_fill = copy(zebra_fill_light if (row_offset % 2 == 0) else zebra_fill_dark)
-                ws.merge_cells(start_row=target_row, start_column=2, end_row=target_row, end_column=3)
-                ws.merge_cells(start_row=target_row, start_column=4, end_row=target_row, end_column=5)
-                ws.merge_cells(start_row=target_row, start_column=6, end_row=target_row, end_column=7)
-                ws.merge_cells(start_row=target_row, start_column=8, end_row=target_row, end_column=9)
-                for cc in range(1, 22):
-                    ws.cell(row=target_row, column=cc).fill = copy(row_fill)
-                    ws.cell(row=target_row, column=cc).font = copy(body_font)
-                    ws.cell(row=target_row, column=cc).border = copy(thin_border)
-                    ws.cell(row=target_row, column=cc).alignment = (
-                        Alignment(horizontal="left", vertical="center", wrap_text=True)
-                        if cc == 1
-                        else Alignment(horizontal="center", vertical="center")
-                    )
-                ws.cell(row=target_row, column=1, value=str(rec.get("driver") or ""))
-                for col_num, ref_key in driver_key_by_col.items():
-                    delta_num = pd.to_numeric(rec.get(ref_key), errors="coerce")
-                    if pd.notna(delta_num):
-                        ws.cell(row=target_row, column=col_num, value=float(delta_num)).number_format = "#,##0.000"
-                if str(rec.get("driver") or "").strip().lower() == "corn basis":
-                    ws.merge_cells(start_row=target_row, start_column=10, end_row=target_row, end_column=21)
-                    basis_note_cell = ws.cell(
-                        row=target_row,
-                        column=10,
-                        value="Lower (more negative) corn basis lowers delivered corn cost and supports crush margins.",
-                    )
-                    basis_note_cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-                    basis_note_cell.font = copy(body_font)
-                    ws.row_dimensions[target_row].height = max(float(ws.row_dimensions[target_row].height or 20.0), 24.0)
-                ws.row_dimensions[target_row].height = 20.0
-
-            for cc in range(1, 22):
-                ws.cell(row=qtd_tracking_note_row, column=cc).fill = PatternFill(fill_type=None)
-                ws.cell(row=qtd_tracking_note_row, column=cc).border = Border()
-            ws.row_dimensions[qtd_tracking_note_row].height = 15.0
-            row_idx = max(row_idx, qtd_tracking_note_row + 1)
-            gpre_overlay_coproduct_start_row = qtd_tracking_note_row + 2
-        _record_writer_substage("write_excel.drivers.render.economics_overlay.current_qtd_tracking", overlay_qtd_tracking_started)
+        )
+        row_idx = current_qtd_result.row_idx
+        gpre_overlay_coproduct_start_row = current_qtd_result.coproduct_start_row
 
         overlay_coproduct_block_started = time.perf_counter()
         if is_gpre_profile and gpre_commercial_setup_rows and bool(gpre_basis_sandbox_layout.get("coproduct_visible_block_allowed")):
