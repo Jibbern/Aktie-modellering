@@ -83,6 +83,10 @@ from .excel_writer_economics_overlay_charts import (
     _quarter_bounds_from_end_date,
     write_economics_overlay_charts,
 )
+from .excel_writer_economics_overlay_commercial import (
+    GpreEconomicsOverlayCommercialDeps,
+    write_gpre_economics_overlay_commercial_sections,
+)
 from .excel_writer_economics_raw import (
     ECONOMICS_MARKET_RAW_COLUMN_WIDTHS,
     ECONOMICS_MARKET_RAW_HEADERS,
@@ -70755,33 +70759,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             ws.row_dimensions[row_num].height = float(row_height if row_height is not None else 20)
             return row_num + 1
 
-        def _with_top_separator(border_in: Optional[Border]) -> Border:
-            border_obj = border_in if isinstance(border_in, Border) else Border()
-            return Border(
-                left=copy(border_obj.left),
-                right=copy(border_obj.right),
-                top=copy(quarter_separator_side),
-                bottom=copy(border_obj.bottom),
-                diagonal=copy(border_obj.diagonal),
-                diagonalUp=bool(border_obj.diagonalUp),
-                diagonalDown=bool(border_obj.diagonalDown),
-                outline=bool(border_obj.outline),
-                vertical=copy(border_obj.vertical),
-                horizontal=copy(border_obj.horizontal),
-            )
-
-        def _commentary_quarter_separator_needed(
-            previous_quarter_label: str,
-            previous_year_band: str,
-            current_quarter_label: str,
-            current_year_band: str,
-        ) -> bool:
-            prev_q = str(previous_quarter_label or "").strip()
-            curr_q = str(current_quarter_label or "").strip()
-            prev_y = str(previous_year_band or "").strip()
-            curr_y = str(current_year_band or "").strip()
-            return bool(prev_q and curr_q and prev_y and curr_y and prev_y == curr_y and prev_q != curr_q)
-
         def _line_has_alias(line_low: str, aliases: Tuple[str, ...]) -> bool:
             for alias in tuple(aliases or ()):
                 alias_txt = str(alias or "").strip().lower()
@@ -70810,12 +70787,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 return None
             return float(val) / 1_000_000.0
 
-        def _format_derivative_usd_short(usd_value: Any) -> str:
-            val = pd.to_numeric(usd_value, errors="coerce")
-            if pd.isna(val):
-                return ""
-            sign = "-" if float(val) < 0 else ""
-            return f"{sign}${abs(float(val)) / 1_000_000.0:,.1f}m"
 
         def _best_line(
             aliases: Tuple[str, ...],
@@ -72525,29 +72496,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             for cc in range(start_col, end_col + 1):
                 ws.cell(row=row_num, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-        def _year_band_label(rec: Dict[str, Any]) -> str:
-            horizon_norm = str(rec.get("horizon_period_norm") or "").strip()
-            m_horizon = re.match(r"Q(20\d{2})Q([1-4])$", horizon_norm)
-            if m_horizon:
-                return "2026 / current" if int(m_horizon.group(1)) >= 2026 else str(int(m_horizon.group(1)))
-            horizon_lbl = str(rec.get("horizon_quarter") or "").strip()
-            if re.search(r"\b2026\b", horizon_lbl):
-                return "2026 / current"
-            src_q = rec.get("source_quarter")
-            if isinstance(src_q, date):
-                return "2026 / current" if int(src_q.year) >= 2026 else str(int(src_q.year))
-            return "Other"
-
-        def _year_band_sort_rank(label_in: Any) -> int:
-            label_txt = str(label_in or "").strip()
-            return (
-                0 if label_txt == "2026 / current"
-                else 1 if label_txt == "2025"
-                else 2 if label_txt == "2024"
-                else 3 if label_txt == "2023"
-                else 99
-            )
-
         def _write_year_band(row_num: int, label: str, *, end_col: int = 8, row_height: Optional[float] = None) -> int:
             ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=end_col)
             cell = ws.cell(row=row_num, column=1, value=label)
@@ -72559,306 +72507,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 ws.cell(row=row_num, column=cc).border = row_border
             ws.row_dimensions[row_num].height = float(row_height if row_height is not None else 18)
             return row_num + 1
-
-        def _gpre_management_commentary_rows_local() -> List[Dict[str, Any]]:
-            if not (is_gpre_profile and gpre_commercial_setup_rows):
-                return []
-            out_rows: List[Dict[str, Any]] = []
-            seen_keys: set[Tuple[str, str]] = set()
-            commentary_source_rows = sorted(
-                [
-                    rec for rec in gpre_commercial_setup_rows
-                    if bool(rec.get("show_in_management_commentary", True))
-                    and str(rec.get("commentary_home") or "overlay_management") == "overlay_management"
-                ],
-                key=lambda rec: (
-                    -int(pd.to_datetime(rec.get("source_quarter"), errors="coerce").strftime("%Y%m%d"))
-                    if not pd.isna(pd.to_datetime(rec.get("source_quarter"), errors="coerce"))
-                    else 0,
-                    int(rec.get("commentary_priority") or 50),
-                    _overlay_driver_source_priority(rec.get("source_type")),
-                    str(rec.get("setup_display") or ""),
-                ),
-            )
-            for rec in commentary_source_rows:
-                commentary_txt = _ensure_terminal_period(glx_normalize_text(str(rec.get("commentary_text") or "")))
-                if not commentary_txt:
-                    continue
-                key = (
-                    str(rec.get("source_quarter_label") or ""),
-                    commentary_txt.lower(),
-                )
-                if key in seen_keys:
-                    continue
-                seen_keys.add(key)
-                out_rows.append(
-                    {
-                        "horizon_quarter": str(rec.get("horizon_quarter") or ""),
-                        "source_quarter_label": str(rec.get("source_quarter_label") or ""),
-                        "source_quarter": rec.get("source_quarter"),
-                        "commentary_text": commentary_txt,
-                        "_display_order": len(out_rows),
-                        "comment_text": "\n".join(
-                            [
-                                part
-                                for part in (
-                                    f"Source: {str(rec.get('source_type') or '').strip().title()} | Confidence: {str(rec.get('confidence') or '').strip().title()}",
-                                    f"Location: {str(rec.get('source_location') or '').strip()}",
-                                    f"Excerpt: {str(rec.get('source_excerpt') or '').strip()}",
-                                )
-                                if part and not part.endswith(': ')
-                            ]
-                        ),
-                        }
-                    )
-            if derivative_bridge_by_quarter:
-                latest_der_q = max(derivative_bridge_by_quarter)
-                latest_der = derivative_bridge_by_quarter.get(latest_der_q) or {}
-                der_source = str(latest_der.get("derivative_source_document") or "").strip()
-                der_note = str(latest_der.get("derivative_notes") or "").strip()
-                q_label = f"{latest_der_q.year}-Q{((latest_der_q.month - 1) // 3) + 1}"
-                pnl_val = pd.to_numeric(latest_der.get("derivative_gain_loss_pnl_total_usd"), errors="coerce")
-                rev_val = pd.to_numeric(latest_der.get("derivative_gain_loss_revenue_usd"), errors="coerce")
-                cogs_val = pd.to_numeric(latest_der.get("derivative_gain_loss_cogs_usd"), errors="coerce")
-                if pd.notna(pnl_val):
-                    text = (
-                        f"Derivative P&L impact is already embedded in reported revenue/COGS "
-                        f"({_format_derivative_usd_short(pnl_val)} total; revenue {_format_derivative_usd_short(rev_val)}, "
-                        f"COGS {_format_derivative_usd_short(cogs_val)})."
-                    )
-                    if ("Derivative / OCI", text.lower()) not in seen_keys:
-                        seen_keys.add(("Derivative / OCI", text.lower()))
-                        out_rows.append(
-                            {
-                                "horizon_quarter": "Actual",
-                                "source_quarter_label": q_label,
-                                "source_quarter": latest_der_q,
-                                "commentary_text": text,
-                                "_display_order": len(out_rows),
-                                "comment_text": "\n".join(part for part in (f"Source: 10-Q/10-K derivative footnote", f"Document: {der_source}", der_note) if part),
-                            }
-                        )
-                oci_val = pd.to_numeric(latest_der.get("derivative_oci_current_period_usd"), errors="coerce")
-                if pd.notna(oci_val):
-                    text = f"Derivative OCI movement was {_format_derivative_usd_short(oci_val)}; (unrealized hedge cash-flow)."
-                    if ("Derivative / OCI", text.lower()) not in seen_keys:
-                        seen_keys.add(("Derivative / OCI", text.lower()))
-                        out_rows.append(
-                            {
-                                "horizon_quarter": "Actual",
-                                "source_quarter_label": q_label,
-                                "source_quarter": latest_der_q,
-                                "commentary_text": text,
-                                "_display_order": len(out_rows),
-                                "comment_text": "\n".join(part for part in (f"Source: 10-Q/10-K comprehensive income footnote", f"Document: {der_source}", der_note) if part),
-                            }
-                        )
-            out_rows.sort(
-                key=lambda rec: (
-                    _year_band_sort_rank(_year_band_label(rec)),
-                    -int(pd.to_datetime(rec.get("source_quarter"), errors="coerce").strftime("%Y%m%d"))
-                    if not pd.isna(pd.to_datetime(rec.get("source_quarter"), errors="coerce"))
-                    else 0,
-                    int(rec.get("_display_order") or 0),
-                )
-            )
-            for rec in out_rows:
-                rec.pop("_display_order", None)
-            return out_rows
-
-        gpre_management_commentary_rows = _gpre_management_commentary_rows_local()
-
-        def _write_gpre_management_commentary_section(row_num: int) -> int:
-            if not (is_gpre_profile and gpre_management_commentary_rows):
-                return row_num
-            row_num = _write_section_bar(
-                row_num,
-                "Management commentary",
-                end_col=overlay_gpre_end_col,
-                primary=True,
-                row_height=overlay_commentary_section_row_height,
-            )
-            row_num = _write_header_row(
-                row_num,
-                ["Horizon", "Stated in", "Commentary"],
-                spans=[
-                    (1, 1, "Horizon"),
-                    (2, 2, "Stated in"),
-                    (3, 17, "Commentary"),
-                ],
-                row_height=overlay_commentary_header_row_height,
-            )
-            last_year_band = ""
-            last_stated_in = ""
-            data_fill = copy(analysis_theme["neutral_fill_alt"])
-            for rec in gpre_management_commentary_rows:
-                year_band = _year_band_label(rec)
-                if year_band != last_year_band:
-                    row_num = _write_year_band(row_num, year_band, end_col=overlay_gpre_end_col, row_height=overlay_commentary_year_band_row_height)
-                    last_year_band = year_band
-                    last_stated_in = ""
-                stated_in_txt = str(rec.get("source_quarter_label") or "")
-                add_quarter_separator = _commentary_quarter_separator_needed(
-                    last_stated_in,
-                    last_year_band,
-                    stated_in_txt,
-                    year_band,
-                )
-                ws.merge_cells(start_row=row_num, start_column=3, end_row=row_num, end_column=overlay_gpre_end_col)
-                ws.cell(row=row_num, column=1, value=str(rec.get("horizon_quarter") or ""))
-                ws.cell(row=row_num, column=2, value=stated_in_txt)
-                ws.cell(row=row_num, column=3, value=str(rec.get("commentary_text") or ""))
-                for cc in range(1, overlay_gpre_end_col + 1):
-                    wrap_cols = {1, 2, 3}
-                    ws.cell(row=row_num, column=cc).fill = copy(data_fill)
-                    ws.cell(row=row_num, column=cc).border = Border()
-                    ws.cell(row=row_num, column=cc).alignment = Alignment(horizontal="left", vertical="top", wrap_text=cc in wrap_cols)
-                    ws.cell(row=row_num, column=cc).font = body_font
-                ws.cell(row=row_num, column=1).font = horizon_font
-                ws.cell(row=row_num, column=2).font = horizon_font
-                if add_quarter_separator:
-                    for cc in range(1, overlay_gpre_end_col + 1):
-                        ws.cell(row=row_num, column=cc).border = _with_top_separator(ws.cell(row=row_num, column=cc).border)
-                if str(rec.get("comment_text") or "").strip():
-                    _add_comment(f"C{row_num}", str(rec.get("comment_text") or "").strip())
-                ws.row_dimensions[row_num].height = 19.5
-                last_stated_in = stated_in_txt or last_stated_in
-                row_num += 1
-            return row_num
-
-        def _write_gpre_commercial_setup_section(row_num: int) -> int:
-            if not (is_gpre_profile and gpre_commercial_setup_rows):
-                return row_num
-            visible_setup_rows = [it for it in reversed(gpre_commercial_setup_rows) if bool(it.get("show_in_setup", True))]
-
-            def _commercial_row_height(rec_in: Dict[str, Any]) -> float:
-                coverage_txt_local = str(rec_in.get("coverage_text") or "").strip()
-                locked_bits_local = [
-                    str(rec_in.get("locked_margin_text") or "").strip(),
-                    str(rec_in.get("legs_involved") or "").strip(),
-                ]
-                locked_txt_local = " | ".join([x for x in locked_bits_local if x])
-                coverage_width = sum(float(ws.column_dimensions[col].width or 15.0) for col in ("E", "F", "G"))
-                locked_width = sum(float(ws.column_dimensions[col].width or 15.0) for col in ("H", "I", "J", "K"))
-                effect_width = sum(float(ws.column_dimensions[col].width or 15.0) for col in ("L", "M", "N"))
-                takeaway_width = sum(float(ws.column_dimensions[col].width or 15.0) for col in ("O", "P", "Q"))
-                narrative_texts_local = [
-                    coverage_txt_local,
-                    locked_txt_local,
-                    str(rec_in.get("result_effect") or "").strip(),
-                    str(rec_in.get("management_takeaway") or "").strip(),
-                ]
-                long_field_count_local = sum(1 for txt in narrative_texts_local if len(str(txt or "")) >= 70)
-                max_text_len_local = max((len(str(txt or "")) for txt in narrative_texts_local), default=0)
-                dense_row_floor_local = 51.0 if max_text_len_local >= 90 or long_field_count_local >= 2 else overlay_support_row_height
-                estimated_height = max(
-                    _estimate_wrapped_row_height(coverage_txt_local, coverage_width, 19, 11, min_lines=1, max_lines=5),
-                    _estimate_wrapped_row_height(locked_txt_local, locked_width, 19, 11, min_lines=1, max_lines=5),
-                    _estimate_wrapped_row_height(str(rec_in.get("result_effect") or "").strip(), effect_width, 19, 11, min_lines=1, max_lines=4),
-                    _estimate_wrapped_row_height(str(rec_in.get("management_takeaway") or "").strip(), takeaway_width, 19, 11, min_lines=1, max_lines=5),
-                )
-                if estimated_height >= 29.0:
-                    estimated_height += 2.0
-                if estimated_height >= 45.0:
-                    estimated_height += 2.5
-                return max(
-                    dense_row_floor_local,
-                    min(
-                        overlay_commercial_row_max_height,
-                        estimated_height,
-                    ),
-                )
-
-            row_num = _write_section_bar(row_num, "Commercial / hedge setup", end_col=overlay_gpre_end_col, primary=True, row_height=overlay_commercial_section_row_height)
-            row_num = _write_header_row(
-                row_num,
-                [
-                    "Horizon",
-                    "Stated in",
-                    "Setup",
-                    "Coverage / openness",
-                    "Locked margin / legs",
-                    "Effect on results",
-                    "Takeaway",
-                ],
-                spans=[
-                    (1, 1, "Horizon"),
-                    (2, 2, "Stated in"),
-                    (3, 4, "Setup"),
-                    (5, 7, "Coverage / openness"),
-                    (8, 11, "Locked margin / legs"),
-                    (12, 14, "Effect on results"),
-                    (15, 17, "Takeaway"),
-                ],
-                row_height=overlay_commercial_header_row_height,
-            )
-            last_year_band = ""
-            last_stated_in = ""
-            data_fill = copy(analysis_theme["neutral_fill_alt"])
-            for rec_idx, rec in enumerate(visible_setup_rows):
-                year_band = _year_band_label(rec)
-                if year_band != last_year_band:
-                    row_num = _write_year_band(row_num, year_band, end_col=overlay_gpre_end_col, row_height=overlay_commercial_year_band_row_height)
-                    last_year_band = year_band
-                    last_stated_in = ""
-                stated_in_txt = str(rec.get("source_quarter_label") or "")
-                add_quarter_separator = bool(last_stated_in and stated_in_txt and stated_in_txt != last_stated_in)
-                coverage_txt = str(rec.get("coverage_text") or "").strip()
-                locked_bits = [
-                    str(rec.get("locked_margin_text") or "").strip(),
-                    str(rec.get("legs_involved") or "").strip(),
-                ]
-                locked_txt = " | ".join([x for x in locked_bits if x])
-                ws.merge_cells(start_row=row_num, start_column=3, end_row=row_num, end_column=4)
-                ws.merge_cells(start_row=row_num, start_column=5, end_row=row_num, end_column=7)
-                ws.merge_cells(start_row=row_num, start_column=8, end_row=row_num, end_column=11)
-                ws.merge_cells(start_row=row_num, start_column=12, end_row=row_num, end_column=14)
-                ws.merge_cells(start_row=row_num, start_column=15, end_row=row_num, end_column=17)
-                ws.cell(row=row_num, column=1, value=str(rec.get("horizon_quarter") or ""))
-                ws.cell(row=row_num, column=2, value=stated_in_txt)
-                ws.cell(row=row_num, column=3, value=str(rec.get("setup_display") or ""))
-                ws.cell(row=row_num, column=5, value=coverage_txt)
-                ws.cell(row=row_num, column=8, value=locked_txt)
-                ws.cell(row=row_num, column=12, value=str(rec.get("result_effect") or ""))
-                ws.cell(row=row_num, column=15, value=str(rec.get("management_takeaway") or ""))
-                for cc in range(1, overlay_gpre_end_col + 1):
-                    wrap_cols = {1, 2, 3, 5, 8, 12, 15}
-                    ws.cell(row=row_num, column=cc).fill = copy(data_fill)
-                    ws.cell(row=row_num, column=cc).border = row_border
-                    ws.cell(row=row_num, column=cc).alignment = Alignment(horizontal="left", vertical="top", wrap_text=cc in wrap_cols)
-                    ws.cell(row=row_num, column=cc).font = body_font
-                ws.cell(row=row_num, column=1).font = horizon_font
-                ws.cell(row=row_num, column=2).font = horizon_font
-                ws.cell(row=row_num, column=3).font = setup_font
-                if add_quarter_separator:
-                    for cc in range(1, overlay_gpre_end_col + 1):
-                        ws.cell(row=row_num, column=cc).border = _with_top_separator(ws.cell(row=row_num, column=cc).border)
-                comment_text = "\n".join(
-                    [
-                        part
-                        for part in (
-                            f"Source: {str(rec.get('source_type') or '').strip().title()} | Confidence: {str(rec.get('confidence') or '').strip().title()}",
-                            f"Location: {str(rec.get('source_location') or '').strip()}",
-                            f"Excerpt: {str(rec.get('source_excerpt') or '').strip()}",
-                        )
-                        if part and not part.endswith(": ")
-                    ]
-                )
-                if comment_text:
-                    _add_comment(f"C{row_num}", comment_text)
-                current_row_height = _commercial_row_height(rec)
-                ws.row_dimensions[row_num].height = current_row_height
-                last_stated_in = stated_in_txt or last_stated_in
-                row_num += 1
-                next_rec = visible_setup_rows[rec_idx + 1] if rec_idx + 1 < len(visible_setup_rows) else None
-                if next_rec is not None:
-                    next_year_band = _year_band_label(next_rec)
-                    if year_band == next_year_band:
-                        for cc in range(1, overlay_gpre_end_col + 1):
-                            ws.cell(row=row_num, column=cc).fill = copy(data_fill)
-                        ws.row_dimensions[row_num].height = 6.0
-                        row_num += 1
-            return row_num
 
         bridge_separator_rows: List[int] = []
         market_section_bar_row: Optional[int] = None
@@ -73387,15 +73035,43 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         market_rows: Dict[str, int] = {}
         row_idx = 3
         if is_gpre_profile and gpre_commercial_setup_rows:
-            overlay_management_started = time.perf_counter()
             row_idx = 4
-            row_idx = _write_gpre_management_commentary_section(row_idx)
-            _record_writer_substage("write_excel.drivers.render.economics_overlay.management_commentary", overlay_management_started)
-            row_idx = max(row_idx + 1, 37)
-            overlay_commercial_started = time.perf_counter()
-            row_idx = _write_gpre_commercial_setup_section(row_idx)
-            _record_writer_substage("write_excel.drivers.render.economics_overlay.commercial_setup", overlay_commercial_started)
-            row_idx = max(row_idx + 1, 68)
+            commercial_result = write_gpre_economics_overlay_commercial_sections(
+                GpreEconomicsOverlayCommercialDeps(
+                    ws=ws,
+                    is_gpre_profile=is_gpre_profile,
+                    row_idx=row_idx,
+                    gpre_commercial_setup_rows=gpre_commercial_setup_rows,
+                    derivative_bridge_by_quarter=derivative_bridge_by_quarter,
+                    overlay_gpre_end_col=overlay_gpre_end_col,
+                    analysis_theme=analysis_theme,
+                    body_font=body_font,
+                    bold_font=bold_font,
+                    horizon_font=horizon_font,
+                    setup_font=setup_font,
+                    row_border=row_border,
+                    thin_border=thin_border,
+                    quarter_separator_side=quarter_separator_side,
+                    overlay_commentary_section_row_height=overlay_commentary_section_row_height,
+                    overlay_commentary_header_row_height=overlay_commentary_header_row_height,
+                    overlay_commentary_year_band_row_height=overlay_commentary_year_band_row_height,
+                    overlay_commercial_section_row_height=overlay_commercial_section_row_height,
+                    overlay_commercial_header_row_height=overlay_commercial_header_row_height,
+                    overlay_commercial_year_band_row_height=overlay_commercial_year_band_row_height,
+                    overlay_commercial_row_max_height=overlay_commercial_row_max_height,
+                    overlay_support_row_height=overlay_support_row_height,
+                    add_comment=_add_comment,
+                    ensure_terminal_period=_ensure_terminal_period,
+                    estimate_wrapped_row_height=_estimate_wrapped_row_height,
+                    normalize_text=glx_normalize_text,
+                    overlay_driver_source_priority=_overlay_driver_source_priority,
+                    record_writer_substage=_record_writer_substage,
+                    write_header_row=_write_header_row,
+                    write_section_bar=_write_section_bar,
+                    write_year_band=_write_year_band,
+                )
+            )
+            row_idx = commercial_result.row_idx
             overlay_bridge_started = time.perf_counter()
             row_idx = _write_bridge_to_reported_section(row_idx)
             ws.row_dimensions[82].height = 24.0
