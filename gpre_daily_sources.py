@@ -124,7 +124,7 @@ def refresh_gpre_daily_sources(
     corn_timeout_seconds: float = 20.0,
     usda_timeout_seconds: float = 12.0,
     usda_retry_attempts: int = 1,
-    usda_source_timeout_seconds: float = 45.0,
+    usda_source_timeout_seconds: float = 90.0,
 ) -> Dict[str, Any]:
     """Download GPRE corn-bids and latest USDA source files without export rebuilds."""
 
@@ -175,7 +175,7 @@ def main() -> None:
     ap.add_argument("--corn-timeout", type=float, default=20.0, help="Seconds for the GPRE corn-bids web fetch. Default: 20.")
     ap.add_argument("--usda-timeout", type=float, default=12.0, help="Seconds per USDA remote request. Default: 12.")
     ap.add_argument("--usda-retries", type=int, default=1, help="USDA remote attempts per request. Default: 1.")
-    ap.add_argument("--usda-source-timeout", type=float, default=45.0, help="Hard seconds per USDA source process. Default: 45.")
+    ap.add_argument("--usda-source-timeout", type=float, default=90.0, help="Hard seconds per USDA source process. Default: 90.")
     args = ap.parse_args()
 
     summary = refresh_gpre_daily_sources(
