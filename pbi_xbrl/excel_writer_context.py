@@ -15902,6 +15902,10 @@ from .excel_writer_economics_overlay import (
     write_gpre_overlay_quarter_comparisons,
     write_gpre_basis_proxy_overlay_support,
 )
+from .excel_writer_economics_overlay_derivatives import (
+    GpreEconomicsOverlayDerivativeSideEffectDeps,
+    write_gpre_derivative_crush_tests_side_effect,
+)
 from .excel_writer_hidden_value_flags import (
     HiddenValueFlagsSheetInputs,
     write_hidden_value_flags_sheet,
@@ -72833,36 +72837,19 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         fitted_proxy_comp_row = int(overlay_support_result.fitted_proxy_comp_row or 0)
         best_forward_proxy_comp_row = int(overlay_support_result.best_forward_proxy_comp_row or 0)
 
-        if (
-            is_gpre_profile
-            and not is_pbi_profile
-            and isinstance(derivative_oci_bridge_df, pd.DataFrame)
-            and not derivative_oci_bridge_df.empty
-            and isinstance(gpre_basis_model_result, dict)
-        ):
-            quarterly_basis_df = gpre_basis_model_result.get("quarterly_df")
-            if isinstance(quarterly_basis_df, pd.DataFrame) and not quarterly_basis_df.empty:
-                try:
-                    # This sheet needs the basis model's quarterly frame, so it
-                    # is written after write_gpre_basis_proxy_overlay_support()
-                    # has prepared the market/proxy data for the current export.
-                    derivative_crush_result = build_derivative_crush_tests(
-                        derivative_oci_bridge_df,
-                        derivative_oci_exposure_df if isinstance(derivative_oci_exposure_df, pd.DataFrame) else pd.DataFrame(),
-                        operating_driver_history_rows,
-                        quarterly_basis_df,
-                    )
-                    _write_derivative_crush_tests_sheet(derivative_crush_result.as_dict())
-                except Exception as exc:
-                    info_log.append(
-                        {
-                            "quarter": None,
-                            "metric": "Derivative_Crush_Tests",
-                            "severity": "warn",
-                            "message": f"Skipped Derivative_Crush_Tests sheet: {exc}",
-                            "source": "excel_writer_context",
-                        }
-                    )
+        write_gpre_derivative_crush_tests_side_effect(
+            GpreEconomicsOverlayDerivativeSideEffectDeps(
+                is_gpre_profile=is_gpre_profile,
+                is_pbi_profile=is_pbi_profile,
+                derivative_oci_bridge_df=derivative_oci_bridge_df,
+                derivative_oci_exposure_df=derivative_oci_exposure_df,
+                operating_driver_history_rows=operating_driver_history_rows,
+                gpre_basis_model_result=gpre_basis_model_result,
+                info_log=info_log,
+                build_derivative_crush_tests=build_derivative_crush_tests,
+                write_derivative_crush_tests_sheet=_write_derivative_crush_tests_sheet,
+            )
+        )
 
         quarter_compare_result = write_gpre_overlay_quarter_comparisons(
             GpreOverlayQuarterComparisonDeps(
