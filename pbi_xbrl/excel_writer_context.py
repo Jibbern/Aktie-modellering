@@ -15896,8 +15896,10 @@ from .excel_writer_basis_proxy_sandbox import (
     write_basis_proxy_sandbox_sheet,
 )
 from .excel_writer_economics_overlay import (
+    GpreOverlayQuarterComparisonDeps,
     GpreOverlaySupportInputs,
     _overlay_model_label,
+    write_gpre_overlay_quarter_comparisons,
     write_gpre_basis_proxy_overlay_support,
 )
 from .excel_writer_hidden_value_flags import (
@@ -72862,109 +72864,39 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                         }
                     )
 
-        if is_gpre_profile and gpre_commercial_setup_rows:
-            overlay_quarter_compare_started = time.perf_counter()
-            quarter_compare_title_row = proxy_comp_title_row
-            quarter_compare_header_row = proxy_comp_header_row
-            quarter_compare_rows = [
-                (
-                    official_proxy_comp_row,
-                    "Approximate market crush",
-                    _gpre_preview_frame_value("official_frames", "prior_quarter"),
-                    _historical_proxy_value(_same_quarter_last_year(prior_market_display_quarter), fitted=False),
-                    _gpre_preview_frame_value("official_frames", "quarter_open"),
-                    _historical_proxy_value(_same_quarter_last_year(quarter_open_display_quarter), fitted=False),
-                    _gpre_preview_frame_value("official_frames", "current_qtd"),
-                    _historical_proxy_value(_same_quarter_last_year(current_market_display_quarter), fitted=False),
-                    _gpre_preview_frame_value("official_frames", "next_quarter_thesis"),
-                    _historical_proxy_value(_same_quarter_last_year(next_thesis_quarter_end), fitted=False),
-                ),
-                (
-                    fitted_proxy_comp_row,
-                    "GPRE crush proxy",
-                    _gpre_preview_frame_value("gpre_proxy_frames", "prior_quarter"),
-                    _historical_proxy_value(_same_quarter_last_year(prior_market_display_quarter), fitted=True),
-                    _gpre_preview_frame_value("gpre_proxy_frames", "quarter_open"),
-                    _historical_proxy_value(_same_quarter_last_year(quarter_open_display_quarter), fitted=True),
-                    _gpre_preview_frame_value("gpre_proxy_frames", "current_qtd"),
-                    _historical_proxy_value(_same_quarter_last_year(current_market_display_quarter), fitted=True),
-                    _gpre_preview_frame_value("gpre_proxy_frames", "next_quarter_thesis"),
-                    _historical_proxy_value(_same_quarter_last_year(next_thesis_quarter_end), fitted=True),
-                ),
-                (
-                    best_forward_proxy_comp_row,
-                    "Best forward lens",
-                    _gpre_model_preview_frame_value(best_forward_overlay_model_key or current_overlay_model_key, "prior_quarter"),
-                    _historical_proxy_value(
-                        _same_quarter_last_year(prior_market_display_quarter),
-                        fitted=True,
-                        model_key=best_forward_overlay_model_key or current_overlay_model_key,
-                    ),
-                    _gpre_model_preview_frame_value(best_forward_overlay_model_key or current_overlay_model_key, "quarter_open"),
-                    _historical_proxy_value(
-                        _same_quarter_last_year(quarter_open_display_quarter),
-                        fitted=True,
-                        model_key=best_forward_overlay_model_key or current_overlay_model_key,
-                    ),
-                    _gpre_model_preview_frame_value(best_forward_overlay_model_key or current_overlay_model_key, "current_qtd"),
-                    _historical_proxy_value(
-                        _same_quarter_last_year(current_market_display_quarter),
-                        fitted=True,
-                        model_key=best_forward_overlay_model_key or current_overlay_model_key,
-                    ),
-                    _gpre_model_preview_frame_value(best_forward_overlay_model_key or current_overlay_model_key, "next_quarter_thesis"),
-                    _historical_proxy_value(
-                        _same_quarter_last_year(next_thesis_quarter_end),
-                        fitted=True,
-                        model_key=best_forward_overlay_model_key or current_overlay_model_key,
-                    ),
-                ),
-            ]
-            ws.merge_cells(start_row=quarter_compare_title_row, start_column=10, end_row=quarter_compare_title_row, end_column=21)
-            quarter_compare_title_cell = ws.cell(row=quarter_compare_title_row, column=10, value="Quarter comparisons ($/gal)")
-            quarter_compare_title_cell.fill = copy(analysis_theme["title_fill"])
-            quarter_compare_title_cell.font = copy(analysis_theme["title_font"])
-            quarter_compare_title_cell.alignment = Alignment(horizontal="center", vertical="center")
-            for cc in range(10, 22):
-                ws.cell(row=quarter_compare_title_row, column=cc).fill = copy(analysis_theme["title_fill"])
-                ws.cell(row=quarter_compare_title_row, column=cc).font = copy(analysis_theme["title_font"])
-                ws.cell(row=quarter_compare_title_row, column=cc).border = copy(analysis_theme["thin_border"])
-                ws.cell(row=quarter_compare_title_row, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-            quarter_compare_header_spans = [
-                (10, 11, "Proxy row"),
-                (12, 14, "Prior quarter vs LY"),
-                (15, 17, "Quarter-open vs LY"),
-                (18, 19, "Current QTD vs LY"),
-                (20, 21, "Next quarter vs LY"),
-            ]
-            for start_col, end_col, hdr in quarter_compare_header_spans:
-                if end_col > start_col:
-                    ws.merge_cells(start_row=quarter_compare_header_row, start_column=start_col, end_row=quarter_compare_header_row, end_column=end_col)
-                for cc in range(start_col, end_col + 1):
-                    ws.cell(row=quarter_compare_header_row, column=cc).fill = header_fill
-                    ws.cell(row=quarter_compare_header_row, column=cc).font = bold_font
-                    ws.cell(row=quarter_compare_header_row, column=cc).border = thin_border
-                    ws.cell(row=quarter_compare_header_row, column=cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                ws.cell(row=quarter_compare_header_row, column=start_col, value=hdr)
-            ws.row_dimensions[quarter_compare_header_row].height = 21.0
-            for row_num, label_txt, prior_val, prior_ly, quarter_open_val, quarter_open_ly, current_val, current_ly, next_val, next_ly in quarter_compare_rows:
-                ws.merge_cells(start_row=row_num, start_column=10, end_row=row_num, end_column=11)
-                ws.merge_cells(start_row=row_num, start_column=12, end_row=row_num, end_column=14)
-                ws.merge_cells(start_row=row_num, start_column=15, end_row=row_num, end_column=17)
-                ws.merge_cells(start_row=row_num, start_column=18, end_row=row_num, end_column=19)
-                ws.merge_cells(start_row=row_num, start_column=20, end_row=row_num, end_column=21)
-                for cc in range(10, 22):
-                    ws.cell(row=row_num, column=cc).fill = copy(zebra_fill_light)
-                    ws.cell(row=row_num, column=cc).font = copy(body_font)
-                    ws.cell(row=row_num, column=cc).border = thin_border
-                    ws.cell(row=row_num, column=cc).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-                ws.cell(row=row_num, column=10, value=label_txt)
-                ws.cell(row=row_num, column=12, value=_format_yoy_comp_text(prior_val, prior_ly))
-                ws.cell(row=row_num, column=15, value=_format_yoy_comp_text(quarter_open_val, quarter_open_ly))
-                ws.cell(row=row_num, column=18, value=_format_yoy_comp_text(current_val, current_ly))
-                ws.cell(row=row_num, column=20, value=_format_yoy_comp_text(next_val, next_ly))
-            _record_writer_substage("write_excel.drivers.render.economics_overlay.quarter_comparisons", overlay_quarter_compare_started)
-            row_idx = proxy_comp_end_row + 2
+        quarter_compare_result = write_gpre_overlay_quarter_comparisons(
+            GpreOverlayQuarterComparisonDeps(
+                ws=ws,
+                is_gpre_profile=is_gpre_profile,
+                has_gpre_commercial_setup=bool(gpre_commercial_setup_rows),
+                proxy_comp_end_row=proxy_comp_end_row,
+                proxy_comp_title_row=proxy_comp_title_row,
+                proxy_comp_header_row=proxy_comp_header_row,
+                official_proxy_comp_row=official_proxy_comp_row,
+                fitted_proxy_comp_row=fitted_proxy_comp_row,
+                best_forward_proxy_comp_row=best_forward_proxy_comp_row,
+                prior_market_display_quarter=prior_market_display_quarter,
+                quarter_open_display_quarter=quarter_open_display_quarter,
+                current_market_display_quarter=current_market_display_quarter,
+                next_thesis_quarter_end=next_thesis_quarter_end,
+                current_overlay_model_key=current_overlay_model_key,
+                best_forward_overlay_model_key=best_forward_overlay_model_key,
+                title_fill=analysis_theme["title_fill"],
+                title_font=analysis_theme["title_font"],
+                header_fill=header_fill,
+                body_font=body_font,
+                bold_font=bold_font,
+                thin_border=thin_border,
+                zebra_fill_light=zebra_fill_light,
+                same_quarter_last_year=_same_quarter_last_year,
+                historical_proxy_value=_historical_proxy_value,
+                gpre_preview_frame_value=_gpre_preview_frame_value,
+                gpre_model_preview_frame_value=_gpre_model_preview_frame_value,
+                format_yoy_comp_text=_format_yoy_comp_text,
+                record_writer_substage=_record_writer_substage,
+            )
+        )
+        row_idx = quarter_compare_result.row_idx
 
         # Keep overlay charts on one visual grid and cap quarterly/coprod windows so
         # new quarters roll in without turning the delivered workbook into a horizontal dump.

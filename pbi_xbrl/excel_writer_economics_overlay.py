@@ -8,7 +8,7 @@ import re
 from typing import Any, Callable, Dict, Optional
 
 import pandas as pd
-from openpyxl.styles import PatternFill
+from openpyxl.styles import Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 
 
@@ -61,6 +61,44 @@ class GpreOverlaySupportResult:
     official_proxy_comp_row: int = 0
     fitted_proxy_comp_row: int = 0
     best_forward_proxy_comp_row: int = 0
+
+
+@dataclass(frozen=True)
+class GpreOverlayQuarterComparisonDeps:
+    ws: Any
+    is_gpre_profile: bool
+    has_gpre_commercial_setup: bool
+    proxy_comp_end_row: int
+    proxy_comp_title_row: int
+    proxy_comp_header_row: int
+    official_proxy_comp_row: int
+    fitted_proxy_comp_row: int
+    best_forward_proxy_comp_row: int
+    prior_market_display_quarter: Any
+    quarter_open_display_quarter: Any
+    current_market_display_quarter: Any
+    next_thesis_quarter_end: Any
+    current_overlay_model_key: str
+    best_forward_overlay_model_key: str
+    title_fill: Any
+    title_font: Any
+    header_fill: Any
+    body_font: Any
+    bold_font: Any
+    thin_border: Any
+    zebra_fill_light: Any
+    same_quarter_last_year: Callable[[Any], Any]
+    historical_proxy_value: Callable[..., Optional[float]]
+    gpre_preview_frame_value: Callable[[str, str], Optional[float]]
+    gpre_model_preview_frame_value: Callable[[str, str], Optional[float]]
+    format_yoy_comp_text: Callable[..., str]
+    record_writer_substage: Callable[[str, float], None]
+
+
+@dataclass(frozen=True)
+class GpreOverlayQuarterComparisonResult:
+    row_idx: int
+    row_count: int = 0
 
 
 def write_gpre_basis_proxy_sidecars(
@@ -598,4 +636,160 @@ def write_gpre_basis_proxy_overlay_support(
         official_proxy_comp_row=official_proxy_comp_row,
         fitted_proxy_comp_row=fitted_proxy_comp_row,
         best_forward_proxy_comp_row=best_forward_proxy_comp_row,
+    )
+
+
+def write_gpre_overlay_quarter_comparisons(
+    deps: GpreOverlayQuarterComparisonDeps,
+) -> GpreOverlayQuarterComparisonResult:
+    row_idx = int(deps.proxy_comp_end_row or 0) + 1
+    if not (deps.is_gpre_profile and deps.has_gpre_commercial_setup):
+        return GpreOverlayQuarterComparisonResult(row_idx=row_idx, row_count=0)
+
+    overlay_quarter_compare_started = time.perf_counter()
+    ws = deps.ws
+    quarter_compare_title_row = int(deps.proxy_comp_title_row or 0)
+    quarter_compare_header_row = int(deps.proxy_comp_header_row or 0)
+    best_forward_model_key = deps.best_forward_overlay_model_key or deps.current_overlay_model_key
+    quarter_compare_rows = [
+        (
+            int(deps.official_proxy_comp_row or 0),
+            "Approximate market crush",
+            deps.gpre_preview_frame_value("official_frames", "prior_quarter"),
+            deps.historical_proxy_value(deps.same_quarter_last_year(deps.prior_market_display_quarter), fitted=False),
+            deps.gpre_preview_frame_value("official_frames", "quarter_open"),
+            deps.historical_proxy_value(deps.same_quarter_last_year(deps.quarter_open_display_quarter), fitted=False),
+            deps.gpre_preview_frame_value("official_frames", "current_qtd"),
+            deps.historical_proxy_value(deps.same_quarter_last_year(deps.current_market_display_quarter), fitted=False),
+            deps.gpre_preview_frame_value("official_frames", "next_quarter_thesis"),
+            deps.historical_proxy_value(deps.same_quarter_last_year(deps.next_thesis_quarter_end), fitted=False),
+        ),
+        (
+            int(deps.fitted_proxy_comp_row or 0),
+            "GPRE crush proxy",
+            deps.gpre_preview_frame_value("gpre_proxy_frames", "prior_quarter"),
+            deps.historical_proxy_value(deps.same_quarter_last_year(deps.prior_market_display_quarter), fitted=True),
+            deps.gpre_preview_frame_value("gpre_proxy_frames", "quarter_open"),
+            deps.historical_proxy_value(deps.same_quarter_last_year(deps.quarter_open_display_quarter), fitted=True),
+            deps.gpre_preview_frame_value("gpre_proxy_frames", "current_qtd"),
+            deps.historical_proxy_value(deps.same_quarter_last_year(deps.current_market_display_quarter), fitted=True),
+            deps.gpre_preview_frame_value("gpre_proxy_frames", "next_quarter_thesis"),
+            deps.historical_proxy_value(deps.same_quarter_last_year(deps.next_thesis_quarter_end), fitted=True),
+        ),
+        (
+            int(deps.best_forward_proxy_comp_row or 0),
+            "Best forward lens",
+            deps.gpre_model_preview_frame_value(best_forward_model_key, "prior_quarter"),
+            deps.historical_proxy_value(
+                deps.same_quarter_last_year(deps.prior_market_display_quarter),
+                fitted=True,
+                model_key=best_forward_model_key,
+            ),
+            deps.gpre_model_preview_frame_value(best_forward_model_key, "quarter_open"),
+            deps.historical_proxy_value(
+                deps.same_quarter_last_year(deps.quarter_open_display_quarter),
+                fitted=True,
+                model_key=best_forward_model_key,
+            ),
+            deps.gpre_model_preview_frame_value(best_forward_model_key, "current_qtd"),
+            deps.historical_proxy_value(
+                deps.same_quarter_last_year(deps.current_market_display_quarter),
+                fitted=True,
+                model_key=best_forward_model_key,
+            ),
+            deps.gpre_model_preview_frame_value(best_forward_model_key, "next_quarter_thesis"),
+            deps.historical_proxy_value(
+                deps.same_quarter_last_year(deps.next_thesis_quarter_end),
+                fitted=True,
+                model_key=best_forward_model_key,
+            ),
+        ),
+    ]
+    ws.merge_cells(
+        start_row=quarter_compare_title_row,
+        start_column=10,
+        end_row=quarter_compare_title_row,
+        end_column=21,
+    )
+    quarter_compare_title_cell = ws.cell(
+        row=quarter_compare_title_row,
+        column=10,
+        value="Quarter comparisons ($/gal)",
+    )
+    quarter_compare_title_cell.fill = copy(deps.title_fill)
+    quarter_compare_title_cell.font = copy(deps.title_font)
+    quarter_compare_title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    for cc in range(10, 22):
+        ws.cell(row=quarter_compare_title_row, column=cc).fill = copy(deps.title_fill)
+        ws.cell(row=quarter_compare_title_row, column=cc).font = copy(deps.title_font)
+        ws.cell(row=quarter_compare_title_row, column=cc).border = copy(deps.thin_border)
+        ws.cell(row=quarter_compare_title_row, column=cc).alignment = Alignment(
+            horizontal="center",
+            vertical="center",
+            wrap_text=True,
+        )
+    quarter_compare_header_spans = [
+        (10, 11, "Proxy row"),
+        (12, 14, "Prior quarter vs LY"),
+        (15, 17, "Quarter-open vs LY"),
+        (18, 19, "Current QTD vs LY"),
+        (20, 21, "Next quarter vs LY"),
+    ]
+    for start_col, end_col, hdr in quarter_compare_header_spans:
+        if end_col > start_col:
+            ws.merge_cells(
+                start_row=quarter_compare_header_row,
+                start_column=start_col,
+                end_row=quarter_compare_header_row,
+                end_column=end_col,
+            )
+        for cc in range(start_col, end_col + 1):
+            ws.cell(row=quarter_compare_header_row, column=cc).fill = deps.header_fill
+            ws.cell(row=quarter_compare_header_row, column=cc).font = deps.bold_font
+            ws.cell(row=quarter_compare_header_row, column=cc).border = deps.thin_border
+            ws.cell(row=quarter_compare_header_row, column=cc).alignment = Alignment(
+                horizontal="center",
+                vertical="center",
+                wrap_text=True,
+            )
+        ws.cell(row=quarter_compare_header_row, column=start_col, value=hdr)
+    ws.row_dimensions[quarter_compare_header_row].height = 21.0
+    for (
+        row_num,
+        label_txt,
+        prior_val,
+        prior_ly,
+        quarter_open_val,
+        quarter_open_ly,
+        current_val,
+        current_ly,
+        next_val,
+        next_ly,
+    ) in quarter_compare_rows:
+        ws.merge_cells(start_row=row_num, start_column=10, end_row=row_num, end_column=11)
+        ws.merge_cells(start_row=row_num, start_column=12, end_row=row_num, end_column=14)
+        ws.merge_cells(start_row=row_num, start_column=15, end_row=row_num, end_column=17)
+        ws.merge_cells(start_row=row_num, start_column=18, end_row=row_num, end_column=19)
+        ws.merge_cells(start_row=row_num, start_column=20, end_row=row_num, end_column=21)
+        for cc in range(10, 22):
+            ws.cell(row=row_num, column=cc).fill = copy(deps.zebra_fill_light)
+            ws.cell(row=row_num, column=cc).font = copy(deps.body_font)
+            ws.cell(row=row_num, column=cc).border = deps.thin_border
+            ws.cell(row=row_num, column=cc).alignment = Alignment(
+                horizontal="left",
+                vertical="center",
+                wrap_text=True,
+            )
+        ws.cell(row=row_num, column=10, value=label_txt)
+        ws.cell(row=row_num, column=12, value=deps.format_yoy_comp_text(prior_val, prior_ly))
+        ws.cell(row=row_num, column=15, value=deps.format_yoy_comp_text(quarter_open_val, quarter_open_ly))
+        ws.cell(row=row_num, column=18, value=deps.format_yoy_comp_text(current_val, current_ly))
+        ws.cell(row=row_num, column=20, value=deps.format_yoy_comp_text(next_val, next_ly))
+    deps.record_writer_substage(
+        "write_excel.drivers.render.economics_overlay.quarter_comparisons",
+        overlay_quarter_compare_started,
+    )
+    return GpreOverlayQuarterComparisonResult(
+        row_idx=int(deps.proxy_comp_end_row or 0) + 2,
+        row_count=2 + len(quarter_compare_rows),
     )
