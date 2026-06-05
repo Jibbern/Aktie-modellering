@@ -103,6 +103,10 @@ from .excel_writer_economics_overlay_coproduct import (
     GpreEconomicsOverlayCoproductDeps,
     write_gpre_economics_overlay_coproduct_section,
 )
+from .excel_writer_economics_overlay_sources import (
+    EconomicsOverlaySourceSupport,
+    EconomicsOverlaySourceSupportDeps,
+)
 from .excel_writer_economics_raw import (
     ECONOMICS_MARKET_RAW_COLUMN_WIDTHS,
     ECONOMICS_MARKET_RAW_HEADERS,
@@ -70714,14 +70718,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             )
             return quarter_pool[-12:] if len(quarter_pool) > 12 else quarter_pool
 
-        def _source_short(rec: Optional[Dict[str, Any]]) -> str:
-            if not rec:
-                return ""
-            qtxt = ""
-            if isinstance(rec.get("quarter"), date):
-                qtxt = f" ({rec['quarter'].isoformat()})"
-            return f"{_driver_source_display(rec.get('source_type'), rec.get('source_doc'))}{qtxt}".strip()
-
         def _overlay_driver_source_priority(source_type_in: Any) -> int:
             source_type_txt = str(source_type_in or "").strip().lower()
             return (
@@ -70781,13 +70777,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             ws.row_dimensions[row_num].height = float(row_height if row_height is not None else 20)
             return row_num + 1
 
-        def _line_has_alias(line_low: str, aliases: Tuple[str, ...]) -> bool:
-            for alias in tuple(aliases or ()):
-                alias_txt = str(alias or "").strip().lower()
-                if alias_txt and re.search(rf"\b{re.escape(alias_txt)}\b", line_low):
-                    return True
-            return False
-
         source_lines = _load_operating_driver_flat_line_index()
 
         derivative_bridge_by_quarter: Dict[date, Dict[str, Any]] = {}
@@ -70799,213 +70788,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 derivative_bridge_by_quarter[der_q.date()] = dict(der_row)
 
 
-        def _best_line(
-            aliases: Tuple[str, ...],
-            *,
-            extra_terms: Tuple[str, ...] = tuple(),
-            exclude_terms: Tuple[str, ...] = tuple(),
-            preferred_sources: Tuple[str, ...] = tuple(),
-        ) -> Optional[Dict[str, Any]]:
-            best = None
-            best_score = -10000.0
-            extra_low = tuple(str(x or "").strip().lower() for x in extra_terms if str(x or "").strip())
-            exclude_low = tuple(str(x or "").strip().lower() for x in exclude_terms if str(x or "").strip())
-            preferred_low = {str(x or "").strip().lower() for x in preferred_sources if str(x or "").strip()}
-            for line_entry in source_lines:
-                line_txt = str(line_entry.get("line_txt") or "")
-                line_low = str(line_entry.get("line_low") or "")
-                if not _line_has_alias(line_low, aliases):
-                    continue
-                if exclude_low and any(tok in line_low for tok in exclude_low):
-                    continue
-                if extra_low and not any(tok in line_low for tok in extra_low):
-                    continue
-                source_rank = int(line_entry.get("source_rank") or 99)
-                source_type = str(line_entry.get("source_type") or "").strip().lower()
-                score = 90.0 - float(source_rank) * 6.0 - float(line_entry.get("fragment_penalty") or 0.0) * 3.0
-                if bool(line_entry.get("is_complete_signal")):
-                    score += 4.0
-                if preferred_low and source_type in preferred_low:
-                    score += 8.0
-                qd = line_entry.get("quarter")
-                if isinstance(qd, date):
-                    score += float(qd.strftime("%Y%m%d")) / 100000000.0
-                if len(line_txt) <= 180:
-                    score += 2.0
-                if bool(line_entry.get("has_sentence_end")):
-                    score += 1.0
-                if score > best_score:
-                    best_score = score
-                    best = {"record": line_entry.get("record"), "line": line_txt, "quarter": qd}
-            return best
-
-        def _parse_overlay_coefficient_value(line_txt: Any, coeff_key: str) -> Optional[float]:
-            txt = glx_normalize_text(line_txt)
-            low = txt.lower()
-
-            def _pick(patterns: Tuple[str, ...]) -> Optional[float]:
-                for pat in patterns:
-                    m = re.search(pat, txt, re.I)
-                    if not m:
-                        continue
-                    val = _parse_driver_number(m.group(1))
-                    if val is not None:
-                        return float(val)
-                return None
-
-            if coeff_key == "ethanol_yield":
-                return _pick((
-                    r"([0-9]+(?:\.\d+)?)\s*(?:gallons?|gal)\s*(?:of ethanol)?\s*(?:per|/)\s*(?:bushel|bu)\b",
-                    r"ethanol yield(?:\s+of)?\s*([0-9]+(?:\.\d+)?)\s*(?:gallons?|gal)\s*(?:per|/)\s*(?:bushel|bu)\b",
-                ))
-            if coeff_key == "renewable_corn_oil_yield":
-                if any(tok in low for tok in ("incremental", "msc", "technology delivers", "premium to")):
-                    return None
-                return _pick((
-                    r"([0-9]+(?:\.\d+)?)\s*(?:lbs?|pounds?)\s*(?:of renewable corn oil)?\s*(?:per|/)\s*(?:bushel|bu)\b",
-                    r"renewable corn oil yield(?:\s+of)?\s*([0-9]+(?:\.\d+)?)\s*(?:lbs?|pounds?)\s*(?:per|/)\s*(?:bushel|bu)\b",
-                ))
-            if coeff_key == "distillers_yield":
-                return _pick((
-                    r"([0-9]+(?:\.\d+)?)\s*(?:lbs?|pounds?)\s*(?:of distillers grains)?\s*(?:per|/)\s*(?:bushel|bu)\b",
-                    r"distillers(?: grains)? yield(?:\s+of)?\s*([0-9]+(?:\.\d+)?)\s*(?:lbs?|pounds?)\s*(?:per|/)\s*(?:bushel|bu)\b",
-                ))
-            if coeff_key == "uhp_yield":
-                return _pick((
-                    r"([0-9]+(?:\.\d+)?)\s*(?:lbs?|pounds?)\s*(?:of )?(?:uhp|ultra-high protein)\s*(?:per|/)\s*(?:bushel|bu)\b",
-                    r"(?:uhp|ultra-high protein) yield(?:\s+of)?\s*([0-9]+(?:\.\d+)?)\s*(?:lbs?|pounds?)\s*(?:per|/)\s*(?:bushel|bu)\b",
-                ))
-            if coeff_key == "natural_gas_usage":
-                btu_val = _pick((r"([0-9]{1,3}(?:,\d{3})*(?:\.\d+)?)\s*(?:btu|btus)\s*(?:per|/)\s*(?:gal|gallon)\b",))
-                if btu_val is not None:
-                    return btu_val
-                mmbtu_val = _pick((r"([0-9]+(?:\.\d+)?)\s*(?:mmbtu)\s*(?:per|/)\s*(?:gal|gallon)\b",))
-                if mmbtu_val is not None:
-                    return float(mmbtu_val) * 1_000_000.0
-                return None
-            if coeff_key == "electricity_usage":
-                return _pick((r"([0-9]+(?:\.\d+)?)\s*(?:kwh|kilowatt-hours?)\s*(?:per|/)\s*(?:gal|gallon)\b",))
-            return None
-
-        def _market_unit_pattern(input_key: str) -> str:
-            return {
-                "corn_price": r"(?:bushel|bu)",
-                "ethanol_price": r"(?:gal|gallon)",
-                "distillers_grains_price": r"(?:lb|lbs|pound|pounds)",
-                "uhp_price": r"(?:lb|lbs|pound|pounds)",
-                "renewable_corn_oil_price": r"(?:lb|lbs|pound|pounds)",
-                "natural_gas_price": r"(?:mmbtu)",
-            }.get(input_key, r"(?:lb|lbs|pound|pounds|gal|gallon|bushel|bu|mmbtu)")
-
-        def _parse_market_input_value(line_txt: Any, input_key: str) -> Optional[float]:
-            txt = glx_normalize_text(line_txt)
-            unit_pat = _market_unit_pattern(input_key)
-            for pat in (
-                rf"price of\s+\$?\s*([0-9]+(?:\.\d+)?)\s*(?:/|per)\s*{unit_pat}",
-                rf"\$?\s*([0-9]+(?:\.\d+)?)\s*(?:/|per)\s*{unit_pat}",
-            ):
-                m = re.search(pat, txt, re.I)
-                if not m:
-                    continue
-                val = _parse_driver_number(m.group(1))
-                if val is not None:
-                    return float(val)
-            return None
-
-        def _driver_source_comment(rec: Optional[Dict[str, Any]]) -> str:
-            if not rec:
-                return ""
-            return _driver_source_note(rec.get("source_doc"), rec.get("Commentary"), rec.get("_source_note"))
-
         quarter_set = _driver_display_quarters()
         as_of_market_quarter = max(quarter_set) if quarter_set else None
         overlay_market_as_of = date.today()
-
-        def _market_quality_rank(txt: Any) -> int:
-            low = str(txt or "").strip().lower()
-            return 3 if low == "high" else 2 if low == "medium" else 1 if low == "low" else 0
-
-        def _pick_market_reference(
-            tpl: Any,
-            target_quarter: Optional[date] = None,
-            *,
-            exact_quarter: bool = False,
-        ) -> Optional[Dict[str, Any]]:
-            if not economics_market_rows:
-                return None
-            series_keys = tuple(str(x or "").strip() for x in (getattr(tpl, "source_series_keys", ()) or ()) if str(x or "").strip())
-            preferred_regions = tuple(str(x or "").strip().lower() for x in (getattr(tpl, "preferred_regions", ()) or ()) if str(x or "").strip())
-            agg_pref = str(getattr(tpl, "aggregation_preference", "") or "quarter_avg").strip().lower()
-            target_unit = str(getattr(tpl, "unit", "") or "").strip()
-            quarter_cutoff = target_quarter if isinstance(target_quarter, date) else as_of_market_quarter
-            if not series_keys or not isinstance(quarter_cutoff, date):
-                return None
-            candidates: List[Tuple[Tuple[Any, ...], Dict[str, Any]]] = []
-            for rec in economics_market_rows:
-                rec_q = rec.get("quarter")
-                if not isinstance(rec_q, date):
-                    continue
-                if exact_quarter:
-                    if rec_q != quarter_cutoff:
-                        continue
-                elif rec_q > quarter_cutoff:
-                    continue
-                if str(rec.get("series_key") or "") not in series_keys:
-                    continue
-                converted_val, converted = _convert_market_price_value(rec.get("price_value"), str(rec.get("unit") or ""), target_unit)
-                if converted_val is None:
-                    continue
-                agg_level = str(rec.get("aggregation_level") or "").strip().lower()
-                region_tags = _economics_market_region_tags(rec.get("region"))
-                region_rank = 99
-                for idx, pref in enumerate(preferred_regions):
-                    if pref in region_tags:
-                        region_rank = idx
-                        break
-                try:
-                    series_rank = series_keys.index(str(rec.get("series_key") or ""))
-                except ValueError:
-                    series_rank = 99
-                agg_rank = 0 if agg_level == agg_pref else 1 if agg_level == "quarter_end" else 2
-                score = (
-                    0 if exact_quarter else -int(rec_q.strftime("%Y%m%d")),
-                    agg_rank,
-                    region_rank,
-                    series_rank,
-                    -_market_quality_rank(rec.get("quality")),
-                    -int(rec.get("_obs_count") or 0),
-                )
-                picked = dict(rec)
-                picked["_converted_value"] = float(converted_val)
-                picked["_converted"] = bool(converted)
-                candidates.append((score, picked))
-            if not candidates:
-                return None
-            return sorted(candidates, key=lambda item: item[0])[0][1]
-
-        def _gpre_proxy_implied_frame_record(frame_key: str) -> Dict[str, Any]:
-            if not (is_gpre_profile and gpre_commercial_setup_rows):
-                return {}
-            frame_map = (gpre_proxy_implied_results_bundle or {}).get("frames") or {}
-            frame = frame_map.get(str(frame_key or "")) if isinstance(frame_map, dict) else {}
-            return dict(frame) if isinstance(frame, dict) else {}
-
-        def _parse_quarter_label_text(value_in: Any) -> Optional[date]:
-            if isinstance(value_in, date):
-                return value_in
-            txt = str(value_in or "").strip()
-            match = re.fullmatch(r"(\d{4})-Q([1-4])", txt)
-            if not match:
-                return None
-            year_num = int(match.group(1))
-            quarter_num = int(match.group(2))
-            quarter_end_map = {
-                1: date(year_num, 3, 31),
-                2: date(year_num, 6, 30),
-                3: date(year_num, 9, 30),
-                4: date(year_num, 12, 31),
-            }
-            return quarter_end_map.get(quarter_num)
 
         market_input_templates = list(getattr(company_profile, "economics_overlay_market_inputs", ()) or [])
         market_input_templates_by_key = {
@@ -71014,85 +70799,43 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             if str(getattr(tpl, "key", "") or "").strip()
         }
         coefficient_templates = list(getattr(company_profile, "economics_overlay_coefficients", ()) or [])
-        coefficient_templates_by_key = {
-            str(getattr(tpl, "key", "") or "").strip(): tpl
-            for tpl in coefficient_templates
-            if str(getattr(tpl, "key", "") or "").strip()
-        }
         hidden_overlay_coefficient_keys = {
             "renewable_corn_oil_yield",
             "distillers_yield",
             "uhp_yield",
             "electricity_usage",
         }
-        coefficient_detail_cache: Dict[str, Dict[str, Any]] = {}
+        economics_overlay_source_support = EconomicsOverlaySourceSupport(
+            EconomicsOverlaySourceSupportDeps(
+                source_lines=source_lines,
+                economics_market_rows=economics_market_rows,
+                coefficient_templates=coefficient_templates,
+                as_of_market_quarter=as_of_market_quarter,
+                driver_source_display=_driver_source_display,
+                driver_source_note=_driver_source_note,
+                parse_driver_number=_parse_driver_number,
+                convert_market_price_value=_convert_market_price_value,
+                economics_market_region_tags=_economics_market_region_tags,
+                quarter_label_short=_quarter_label_short,
+            )
+        )
+        _best_line = economics_overlay_source_support.best_line
+        _parse_market_input_value = economics_overlay_source_support.parse_market_input_value
+        _driver_source_comment = economics_overlay_source_support.driver_source_comment
+        _market_quality_rank = economics_overlay_source_support.market_quality_rank
+        _pick_market_reference = economics_overlay_source_support.pick_market_reference
+        _parse_quarter_label_text = economics_overlay_source_support.parse_quarter_label_text
+        _overlay_coefficient_detail = economics_overlay_source_support.overlay_coefficient_detail
+        _overlay_coefficient_basis_display = economics_overlay_source_support.overlay_coefficient_basis_display
+        _overlay_coefficient_source_display = economics_overlay_source_support.overlay_coefficient_source_display
+        _market_source_note = economics_overlay_source_support.market_source_note
 
-        def _overlay_coefficient_detail(key_in: str) -> Dict[str, Any]:
-            cache_key = str(key_in or "").strip()
-            if cache_key in coefficient_detail_cache:
-                return dict(coefficient_detail_cache[cache_key])
-            tpl = coefficient_templates_by_key.get(cache_key)
-            if tpl is None:
-                coefficient_detail_cache[cache_key] = {}
+        def _gpre_proxy_implied_frame_record(frame_key: str) -> Dict[str, Any]:
+            if not (is_gpre_profile and gpre_commercial_setup_rows):
                 return {}
-            aliases = tuple(getattr(tpl, "aliases", ()) or (str(getattr(tpl, "label", "") or ""),))
-            best = _best_line(aliases, preferred_sources=("10-K", "presentation", "earnings_release"))
-            value = None
-            basis = str(getattr(tpl, "default_basis", "") or "")
-            source_txt = str(getattr(tpl, "default_source", "") or "")
-            source_comment = ""
-            if best is not None:
-                parsed = _parse_overlay_coefficient_value(best.get("line"), cache_key)
-                if parsed is not None:
-                    value = float(parsed)
-                    basis = "reported"
-                    source_txt = _source_short(best.get("record"))
-                    source_comment = _driver_source_note(best.get("record", {}).get("source_doc"), best.get("line"))
-            if value is None and getattr(tpl, "default_value", None) is not None:
-                value = float(getattr(tpl, "default_value"))
-            if not source_txt and basis.strip().lower() == "user assumption":
-                source_txt = "User assumption"
-            detail = {
-                "value": value,
-                "basis": basis,
-                "source_txt": source_txt,
-                "source_comment": source_comment,
-                "template": tpl,
-            }
-            coefficient_detail_cache[cache_key] = dict(detail)
-            return detail
-
-        def _overlay_coefficient_basis_display(basis_in: Any) -> str:
-            basis_txt = str(basis_in or "").strip()
-            low = basis_txt.lower()
-            return (
-                "Reported" if low == "reported"
-                else "Inferred" if low == "inferred"
-                else "Report-aligned" if low == "report aligned"
-                else "User-entered assumption" if low == "user assumption"
-                else basis_txt
-            )
-
-        def _overlay_coefficient_source_display(source_in: Any) -> str:
-            source_txt = str(source_in or "").strip()
-            low = source_txt.lower()
-            return (
-                "Platform baseline assumption" if low == "platform baseline coefficient"
-                else "User-entered process assumption" if low == "process assumption"
-                else "User-entered assumption" if low == "user assumption"
-                else source_txt
-            )
-
-        def _market_source_note(rec: Optional[Dict[str, Any]]) -> str:
-            if not rec:
-                return ""
-            qtxt = _quarter_label_short(rec.get("quarter"))
-            agg_level = str(rec.get("aggregation_level") or "").strip().lower()
-            agg_lbl = "avg" if agg_level == "quarter_avg" else "end" if agg_level == "quarter_end" else "obs"
-            obs_count = int(rec.get("_obs_count") or 0)
-            count_txt = f" | {obs_count} obs" if obs_count > 0 and agg_level != "observation" else ""
-            converted_txt = " | proxied unit conversion" if bool(rec.get("_converted")) else ""
-            return f"{qtxt} {agg_lbl} | {rec.get('source_type') or ''}{count_txt}{converted_txt}".strip(" |")
+            frame_map = (gpre_proxy_implied_results_bundle or {}).get("frames") or {}
+            frame = frame_map.get(str(frame_key or "")) if isinstance(frame_map, dict) else {}
+            return dict(frame) if isinstance(frame, dict) else {}
 
         row_map: Dict[Tuple[str, date], Dict[str, Any]] = {}
         _record_writer_substage("write_excel.drivers.render.economics_overlay.setup", overlay_setup_started)
