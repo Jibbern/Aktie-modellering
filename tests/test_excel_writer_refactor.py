@@ -10197,6 +10197,60 @@ def test_write_excel_can_emit_quarter_notes_audit_sheet_and_saved_workbook_prove
             assert wb.sheetnames[-1] == "Quarter_Notes_Audit"
 
 
+def test_quarter_notes_ui_audit_trace_preserves_registration_order_and_dedupe() -> None:
+    from pbi_xbrl.excel_writer_quarter_notes_ui_audit import (
+        QuarterNotesUiAuditDeps,
+        QuarterNotesUiAuditTrace,
+    )
+
+    def _normalize(value: object) -> str:
+        return re.sub(r"\s+", " ", str(value or "")).strip()
+
+    def _collapse_repeated_leading_ngram(value: object) -> str:
+        return _normalize(value)
+
+    def _dedupe_canonical_text_parts(parts: list[str]) -> list[str]:
+        return list(dict.fromkeys(_normalize(part) for part in parts if _normalize(part)))
+
+    audit = QuarterNotesUiAuditTrace(
+        QuarterNotesUiAuditDeps(
+            enabled=True,
+            compact_mode=False,
+            normalize_text=_normalize,
+            collapse_repeated_leading_ngram=_collapse_repeated_leading_ngram,
+            dedupe_canonical_text_parts=_dedupe_canonical_text_parts,
+        )
+    )
+    candidate = {
+        "quarter": date(2025, 12, 31),
+        "bucket": "Capital allocation",
+        "metric_canon": "Buyback",
+        "candidate_type": "source_note",
+        "source": {"source_type": "earnings_release", "doc": "release_q4.txt"},
+        "text_full": "Repurchased $10 million of shares in Q4.",
+        "_render_summary": "Repurchased $10 million of shares in Q4.",
+        "_event_score": 95.0,
+    }
+
+    trace_id = audit.ensure_trace_id(candidate)
+    audit.register_existing(candidate)
+    audit.register_existing(candidate)
+    snapshot = audit.snapshot()
+
+    assert candidate["trace_id"] == trace_id
+    assert candidate["_audit_candidate_registered"] is True
+    assert [row["stage"] for row in snapshot.raw_rows] == [
+        "candidate_created",
+        "source_detected",
+        "routed_to_bucket",
+        "render_summary_generated",
+        "score_assigned",
+    ]
+    assert all(row["trace_id"] == trace_id for row in snapshot.raw_rows)
+    assert len(snapshot.canonical_rows) == 1
+    assert snapshot.canonical_rows[0]["stage"] == "routed_to_bucket"
+
+
 def test_enrich_quarter_notes_audit_rows_promotes_terminal_stage_and_drops_redundant_missing_rows() -> None:
     audit_rows = [
         {
