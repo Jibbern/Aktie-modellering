@@ -10288,6 +10288,47 @@ def test_quarter_notes_ui_candidate_pipeline_exposes_transaction_contract() -> N
     assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
 
 
+def test_quarter_notes_ui_source_harvester_exposes_lazy_factory_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_quarter_notes_ui_source_harvest import (
+        QuarterNotesUiSourceHarvestDeps,
+        QuarterNotesUiSourceHarvester,
+    )
+
+    assert [field.name for field in fields(QuarterNotesUiSourceHarvestDeps)] == [
+        "runtime",
+        "quarters",
+        "quarter_notes_df",
+        "ui_info_rows",
+        "quarter_notes_runtime",
+        "candidate_support",
+        "submission_recent_rows",
+        "submission_recent_row_quarter",
+        "resolve_cached_doc_path",
+        "sec_docs_for_accession",
+        "path_cache_key",
+        "read_cached_doc_text",
+        "parse_date",
+    ]
+    for method_name in [
+        "is_fy_block",
+        "fy_block_for_year",
+        "harvest_fy_expense_driver_rows",
+        "harvest_interim_expense_driver_rows",
+        "harvest_mdna_cashflow_driver_rows",
+        "harvest_debt_pension_action_rows",
+    ]:
+        assert callable(getattr(QuarterNotesUiSourceHarvester, method_name, None))
+
+    module_path = Path(
+        importlib.import_module(
+            "pbi_xbrl.excel_writer_quarter_notes_ui_source_harvest"
+        ).__file__
+    )
+    assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
+
+
 def test_enrich_quarter_notes_audit_rows_promotes_terminal_stage_and_drops_redundant_missing_rows() -> None:
     audit_rows = [
         {
