@@ -10251,6 +10251,43 @@ def test_quarter_notes_ui_audit_trace_preserves_registration_order_and_dedupe() 
     assert snapshot.canonical_rows[0]["stage"] == "routed_to_bucket"
 
 
+def test_quarter_notes_ui_candidate_pipeline_exposes_transaction_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_quarter_notes_ui_candidate_pipeline import (
+        QuarterNotesUiCandidatePipeline,
+        QuarterNotesUiCandidatePipelineDeps,
+        QuarterNotesUiCandidatePipelineResult,
+    )
+
+    assert [field.name for field in fields(QuarterNotesUiCandidatePipelineDeps)] == [
+        "runtime",
+        "audit_trace",
+        "candidate_support",
+        "candidate_support_state",
+        "ui_info_rows",
+        "harvest_fy_expense_driver_rows",
+        "harvest_interim_expense_driver_rows",
+        "harvest_mdna_cashflow_driver_rows",
+        "harvest_debt_pension_action_rows",
+    ]
+    assert [field.name for field in fields(QuarterNotesUiCandidatePipelineResult)] == [
+        "records",
+        "best_by_key",
+        "q_stats",
+        "ui_info_rows",
+        "candidate_support",
+    ]
+    assert callable(getattr(QuarterNotesUiCandidatePipeline, "build", None))
+
+    module_path = Path(
+        importlib.import_module(
+            "pbi_xbrl.excel_writer_quarter_notes_ui_candidate_pipeline"
+        ).__file__
+    )
+    assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
+
+
 def test_enrich_quarter_notes_audit_rows_promotes_terminal_stage_and_drops_redundant_missing_rows() -> None:
     audit_rows = [
         {
