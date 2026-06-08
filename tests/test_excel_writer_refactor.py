@@ -10369,6 +10369,85 @@ def test_quarter_notes_ui_capital_allocation_exposes_state_builder_contract() ->
     assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
 
 
+def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_quarter_notes_ui_orchestrator import (
+        QuarterNotesUiOrchestratorDeps,
+        write_quarter_notes_ui_sheet,
+    )
+
+    assert [field.name for field in fields(QuarterNotesUiOrchestratorDeps)] == [
+        "wb",
+        "ticker",
+        "company_profile",
+        "is_pbi_profile",
+        "is_gpre_profile",
+        "is_anf_profile",
+        "quarter_notes",
+        "hist",
+        "promises",
+        "cache_root",
+        "inputs",
+        "ui_state",
+        "ui_info_rows",
+        "ctx_ref",
+        "quarter_notes_runtime",
+        "context_globals",
+        "quarter_notes_ui_selection_outer_scope",
+        "write_analysis_sheet_title_and_metadata",
+        "get_analysis_sheet_style_bundle",
+        "quarter_notes_view",
+        "resolve_col",
+        "normalize_text",
+        "split_sentences",
+        "dedup_text_key",
+        "extract_numeric_patterns",
+        "normalize_period",
+        "compact_snippet",
+        "quarter_label_short",
+        "ensure_terminal_period",
+        "collapse_repeated_leading_ngram",
+        "dedupe_canonical_text_parts",
+        "quarter_note_runtime_qd_token",
+        "quarter_note_runtime_signature",
+        "quarter_note_runtime_cache_key",
+        "shared_build_evidence_event",
+        "audit_view",
+        "submission_recent_rows",
+        "submission_recent_row_quarter",
+        "sec_docs_for_accession",
+        "resolve_cached_doc_path",
+        "path_cache_key",
+        "read_cached_doc_text",
+        "parse_date",
+        "anf_visible_quarter_note_summaries",
+        "anf_clean_visible_ui_text",
+        "anf_polish_quarter_note_visible_fields",
+        "record_writer_substage",
+        "timed_writer_substage",
+        "record_writer_elapsed",
+    ]
+    assert callable(write_quarter_notes_ui_sheet)
+
+    module_path = Path(
+        importlib.import_module(
+            "pbi_xbrl.excel_writer_quarter_notes_ui_orchestrator"
+        ).__file__
+    )
+    assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    wrapper_start = context_source.index("    def _write_quarter_notes_ui_v2(")
+    wrapper_end = context_source.index("    def _write_promise_tracker_ui_v2", wrapper_start)
+    wrapper_source = context_source[wrapper_start:wrapper_end]
+    assert "write_quarter_notes_ui_sheet(" in wrapper_source
+    assert "QuarterNotesUiOrchestratorDeps(" in wrapper_source
+    assert "QuarterNotesUiCandidatePipeline(" not in wrapper_source
+
+
 def test_enrich_quarter_notes_audit_rows_promotes_terminal_stage_and_drops_redundant_missing_rows() -> None:
     audit_rows = [
         {
