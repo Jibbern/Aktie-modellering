@@ -10369,6 +10369,31 @@ def test_quarter_notes_ui_capital_allocation_exposes_state_builder_contract() ->
     assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
 
 
+def test_valuation_precompute_module_exposes_support_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_precompute import (
+        ValuationPrecomputeDeps,
+        ValuationPrecomputeSupport,
+    )
+
+    assert [field.name for field in fields(ValuationPrecomputeDeps)] == ["runtime"]
+    assert callable(ValuationPrecomputeSupport)
+    assert callable(ValuationPrecomputeSupport.ensure_precompute_bundle)
+    assert callable(ValuationPrecomputeSupport.extract_latest_buyback_remaining_from_sec)
+    assert callable(ValuationPrecomputeSupport.load_filing_docs_by_quarter)
+    assert callable(ValuationPrecomputeSupport.analyze_cap_alloc_doc)
+    assert callable(ValuationPrecomputeSupport.extract_buyback_dividend_from_doc_index)
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_valuation_precompute").__file__)
+    assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "ValuationPrecomputeSupport(" in context_source
+    assert '"_ensure_valuation_precompute_bundle": _ensure_valuation_precompute_bundle' in context_source
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
