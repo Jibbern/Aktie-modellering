@@ -10421,9 +10421,58 @@ def test_valuation_guidance_support_module_exposes_support_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "ValuationGuidanceSupport(" in context_source
-    assert "for q_ref in qh_refs:" in context_source
-    assert "ws.merge_cells(start_row=row_ptr" in context_source
+    render_source = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_guidance_render").__file__
+    ).read_text(encoding="utf-8")
+    assert "render_valuation_guidance_panel(" in context_source
+    assert "ValuationGuidanceSupport(" in render_source
+    assert "for q_ref in qh_refs:" in render_source
+    assert "ws.merge_cells(start_row=row_ptr" in render_source
+
+
+def test_valuation_guidance_render_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_guidance_render import (
+        ValuationGuidanceRenderDeps,
+        ValuationGuidanceRenderResult,
+        render_valuation_guidance_panel,
+    )
+
+    assert [field.name for field in fields(ValuationGuidanceRenderDeps)] == ["runtime"]
+    assert [field.name for field in fields(ValuationGuidanceRenderResult)] == [
+        "panel_col_start",
+        "panel_col_end",
+        "additive_panel_end",
+        "panel_row_start",
+        "col_metric_start",
+        "col_stated_start",
+        "col_horizon_start",
+        "col_guidance_start",
+        "col_exact_start",
+        "side_panel_style",
+        "guidance_snapshot_header_rows",
+        "overlaps",
+        "row_ptr",
+    ]
+    assert callable(render_valuation_guidance_panel)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_guidance_render").__file__
+    )
+    assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "render_valuation_guidance_panel(" in context_source
+    assert "def _write_valuation_sheet()" in context_source
+    assert "def _set_named_range(" in context_source
+    assert "Hidden Value Panel values are computed here and rendered later" in context_source
+    assert "# Operating Drivers + Thesis Bridge (right-side additive blocks)." in context_source
+    assert "def _apply_valuation_layout(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _build_summary()" in context_source
 
 
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
