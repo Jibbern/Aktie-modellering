@@ -160,6 +160,10 @@ from .excel_writer_quarter_notes_ui_candidate_pipeline import (
     QuarterNotesUiCandidatePipeline,
     QuarterNotesUiCandidatePipelineDeps,
 )
+from .excel_writer_quarter_notes_ui_capital_allocation import (
+    QuarterNotesUiCapitalAllocationDeps,
+    build_quarter_notes_ui_capital_allocation_state,
+)
 from .excel_writer_quarter_notes_ui_source_harvest import (
     QuarterNotesUiSourceHarvestDeps,
     QuarterNotesUiSourceHarvester,
@@ -25104,9 +25108,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         df["_category"] = df[cat_col].astype(str).str.strip().replace("", "Uncategorized")
         recent_ui_quarters = set(quarters[:2])
         _quarter_notes_candidate_support_state: Dict[str, Any] = {}
-
-        # Internal cashflow-based capital allocation execution highlights (no external parsing).
-        cap_alloc_exec_by_q: Dict[date, Dict[str, Any]] = {}
         _quarter_notes_candidate_support = QuarterNotesUiCandidateSupport(
             QuarterNotesUiCandidateSupportDeps(
                 runtime={
@@ -25180,316 +25181,27 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         _extract_post_quarter_buyback_commentary_local = _quarter_notes_candidate_support._extract_post_quarter_buyback_commentary_local
         _classify_distribution_signal = _quarter_notes_candidate_support._classify_distribution_signal
 
-        if isinstance(hist, pd.DataFrame) and not hist.empty and "quarter" in hist.columns:
-            h_ca = hist.copy()
-            h_ca["quarter"] = pd.to_datetime(h_ca["quarter"], errors="coerce")
-            h_ca = h_ca[h_ca["quarter"].notna()].copy()
-            buy_col = _resolve_col(h_ca, ["buybacks_cash"])
-            div_col = _resolve_col(h_ca, ["dividends_cash"])
-            sh_col = _resolve_col(h_ca, ["shares_outstanding", "shares_out", "common_shares_outstanding"])
-            if buy_col or div_col or sh_col:
-                h_ca = h_ca.sort_values("quarter")
-                prev_shares_val: Optional[float] = None
-                for _, rr in h_ca.iterrows():
-                    qd_h = pd.Timestamp(rr["quarter"]).to_period("Q").end_time.date()
-                    buy_v = pd.to_numeric(rr.get(buy_col), errors="coerce") if buy_col else pd.NA
-                    div_v = pd.to_numeric(rr.get(div_col), errors="coerce") if div_col else pd.NA
-                    sh_v = pd.to_numeric(rr.get(sh_col), errors="coerce") if sh_col else pd.NA
-                    buy_f = float(buy_v) if pd.notna(buy_v) else None
-                    div_f = float(div_v) if pd.notna(div_v) else None
-                    shares_reduced = None
-                    if pd.notna(sh_v):
-                        sh_now = float(sh_v)
-                        if prev_shares_val is not None:
-                            delta_sh = float(prev_shares_val) - sh_now
-                            if delta_sh > 0:
-                                shares_reduced = delta_sh
-                        prev_shares_val = sh_now
-                    has_material_cash = (
-                        (buy_f is not None and abs(float(buy_f)) >= 5_000_000.0)
-                        or (div_f is not None and abs(float(div_f)) >= 5_000_000.0)
-                    )
-                    if has_material_cash:
-                        cap_alloc_exec_by_q[qd_h] = {
-                            "buybacks": buy_f,
-                            "dividends": div_f,
-                            "shares_reduced": shares_reduced,
-                            "buybacks_source": "history_q_cashflow" if buy_f is not None else "",
-                            "dividends_source": "history_q_cashflow" if div_f is not None else "",
-                        }
-        # Fill buyback cash from textual evidence when cashflow tag is missing in History_Q.
-        if isinstance(promises, pd.DataFrame) and not promises.empty:
-            try:
-                p_ca = promises.copy()
-                qcol_ca = _resolve_col(
-                    p_ca,
-                    [
-                        "last_seen_evidence_quarter",
-                        "first_seen_evidence_quarter",
-                        "last_seen_quarter",
-                        "created_quarter",
-                        "quarter",
-                    ],
-                )
-                txt_cols_ca = [
-                    c
-                    for c in [
-                        _resolve_col(p_ca, ["promise_text"]),
-                        _resolve_col(p_ca, ["statement"]),
-                        _resolve_col(p_ca, ["evidence_snippet"]),
-                    ]
-                    if c is not None
-                ]
-                evj_col_ca = _resolve_col(p_ca, ["source_evidence_json", "evidence_history_json", "evidence_json"])
-                if qcol_ca is not None and txt_cols_ca:
-                    for _, rr in p_ca.iterrows():
-                        qd_ca = pd.to_datetime(rr.get(qcol_ca), errors="coerce")
-                        if pd.isna(qd_ca):
-                            continue
-                        qd_end = pd.Timestamp(qd_ca).to_period("Q").end_time.date()
-                        texts: List[str] = []
-                        for tc in txt_cols_ca:
-                            tt = glx_normalize_text(rr.get(tc))
-                            if tt:
-                                texts.append(tt)
-                        evj = _parse_json(rr.get(evj_col_ca) if evj_col_ca else None)
-                        if isinstance(evj, dict):
-                            ev_tt = glx_normalize_text(evj.get("snippet"))
-                            if ev_tt:
-                                texts.append(ev_tt)
-                        buy_amt: Optional[float] = None
-                        for tt in texts:
-                            amt = _extract_buyback_cash_from_text(tt)
-                            if amt is None:
-                                continue
-                            if buy_amt is None or abs(float(amt)) > abs(float(buy_amt)):
-                                buy_amt = float(amt)
-                        if buy_amt is None:
-                            continue
-                        cur = dict(cap_alloc_exec_by_q.get(qd_end) or {})
-                        cur_buy = cur.get("buybacks")
-                        if cur_buy is None or abs(float(cur_buy)) < 1_000_000.0:
-                            cur["buybacks"] = float(buy_amt)
-                            cur["buybacks_source"] = "doc_exec_text"
-                        cur.setdefault("dividends", None)
-                        cur.setdefault("shares_reduced", None)
-                        cap_alloc_exec_by_q[qd_end] = cur
-            except Exception:
-                pass
-        # Backfill buyback execution from SEC docs (10-Q/10-K/8-K EX-99) when History_Q cash tag is sparse.
-        try:
-            q_allowed = {qd for qd in df["_quarter"].tolist() if isinstance(qd, date)}
-            sec_cache_dir = cache_root
-            audit_df = _audit_view()
-            if q_allowed and not audit_df.empty and sec_cache_dir.exists():
-                accn_col_a = _resolve_col(audit_df, ["accn"])
-                filed_col_a = _resolve_col(audit_df, ["filed"])
-                if accn_col_a is not None:
-                    aa = audit_df[["_quarter", accn_col_a] + ([filed_col_a] if filed_col_a else [])].copy()
-                    if filed_col_a:
-                        aa[filed_col_a] = pd.to_datetime(aa[filed_col_a], errors="coerce")
-                    aa = aa[aa["_quarter"].notna()].copy()
-                    q_to_accn: Dict[date, List[str]] = {}
-                    for _, rr in aa.iterrows():
-                        qd_a = pd.Timestamp(rr["_quarter"]).to_period("Q").end_time.date()
-                        if q_allowed and qd_a not in q_allowed:
-                            continue
-                        accn = str(rr.get(accn_col_a) or "").strip()
-                        if not accn:
-                            continue
-                        q_to_accn.setdefault(qd_a, [])
-                        if accn not in q_to_accn[qd_a]:
-                            q_to_accn[qd_a].append(accn)
-
-                    # Add recent 8-K / 10-Q / 10-K filings from submissions cache so EX-99 press releases
-                    # (often carrying quarterly buyback cash) are visible even when audit is sparse.
-                    for fr in _submission_recent_rows(max_files=8):
-                        form = str(fr.get("form") or "").upper().strip()
-                        if not (form.startswith("8-K") or form.startswith("10-Q") or form.startswith("10-K")):
-                            continue
-                        accn = str(fr.get("accn") or "").strip()
-                        if not accn:
-                            continue
-                        qd_a = _submission_recent_row_quarter(fr)
-                        if qd_a is None or (q_allowed and qd_a not in q_allowed):
-                            continue
-                        q_to_accn.setdefault(qd_a, [])
-                        if accn not in q_to_accn[qd_a]:
-                            q_to_accn[qd_a].append(accn)
-
-                    rep_kw = re.compile(
-                        r"\b(common\s+stock\s+repurchase(?:s)?|repurchase\s+of\s+common\s+stock|repurchas\w*|buyback|bought\s+back)\b",
-                        re.I,
-                    )
-                    rep_exec = re.compile(r"\b(repurchased|bought\s+back|spent|deployed|purchased|executed|retired)\b", re.I)
-                    quarter_marker = re.compile(r"\b(q[1-4]|quarter|three\s+months\s+ended)\b", re.I)
-                    deny_auth = re.compile(r"\b(authoriz|remaining|capacity|available)\b", re.I)
-                    deny_ytd = re.compile(r"\b(full[\s-]?year|year\s+ended|first\s+nine\s+months|since\s+starting|since\s+the\s+program)\b", re.I)
-
-                    for qd_a, accns in q_to_accn.items():
-                        best: Optional[Tuple[float, float, str]] = None
-                        qn_a = ((int(qd_a.month) - 1) // 3) + 1
-                        for accn in accns:
-                            for docp in _sec_docs_for_accession(accn)[:10]:
-                                txt = _read_cached_doc_text(docp)
-                                if not txt:
-                                    continue
-                                nm = docp.name.lower()
-                                for sent in glx_split_sentences(txt) or [txt]:
-                                    ss = glx_normalize_text(sent)
-                                    if not ss:
-                                        continue
-                                    sl = ss.lower()
-                                    if not rep_kw.search(sl):
-                                        continue
-                                    if deny_auth.search(sl) and not rep_exec.search(sl):
-                                        continue
-                                    if deny_ytd.search(sl) and not quarter_marker.search(sl):
-                                        continue
-                                    if not quarter_marker.search(sl):
-                                        continue
-                                    ytd_split_parts = _extract_ytd_quarter_buyback_components_early_local(ss, qd_a)
-                                    amt = _extract_executed_buyback_amount(ss)
-                                    if amt is None:
-                                        continue
-                                    summary_ss = ss
-                                    if ytd_split_parts.get("quarter_amount") is not None:
-                                        summary_ss = _format_early_buyback_execution_summary_local(ytd_split_parts) or ss
-                                    if re.search(r"\bfrom\s+january\s+1[, ]+\d{4}\s+through\b", sl, re.I):
-                                        continue
-                                    sc = 0.0
-                                    if re.search(fr"\bin\s+q{qn_a}\b", sl, re.I):
-                                        sc += 9.0
-                                    if re.search(r"\b(in|during)\s+the\s+(first|second|third|fourth)\s+quarter\b", sl, re.I):
-                                        sc += 7.0
-                                    if "press" in nm or "earnings" in nm or "ex99" in nm:
-                                        sc += 6.0
-                                    if "10q" in nm or "10k" in nm or "_pbi-" in nm:
-                                        sc += 5.0
-                                    if rep_exec.search(sl):
-                                        sc += 4.0
-                                    if best is None or sc > best[0] or (sc == best[0] and abs(amt) > abs(best[1])):
-                                        best = (sc, float(amt), summary_ss)
-                        if best is not None:
-                            cur = dict(cap_alloc_exec_by_q.get(qd_a) or {})
-                            cur_buy = pd.to_numeric(cur.get("buybacks"), errors="coerce")
-                            if pd.isna(cur_buy) or abs(float(cur_buy)) < 1_000_000.0:
-                                cur["buybacks"] = float(best[1])
-                                cur["buybacks_source"] = "doc_exec_text"
-                            cur["buybacks_note"] = str(best[2])
-                            cur.setdefault("dividends", None)
-                            cur.setdefault("shares_reduced", None)
-                            cap_alloc_exec_by_q[qd_a] = cur
-        except Exception:
-            pass
-        cap_alloc_tone_by_q: Dict[date, Dict[str, Any]] = {}
-        if isinstance(promises, pd.DataFrame) and not promises.empty:
-            try:
-                p_ca = promises.copy()
-                qcol_ca = _resolve_col(
-                    p_ca,
-                    [
-                        "last_seen_evidence_quarter",
-                        "first_seen_evidence_quarter",
-                        "last_seen_quarter",
-                        "created_quarter",
-                        "quarter",
-                    ],
-                )
-                if qcol_ca is not None:
-                    txt_cols_ca = [
-                        c
-                        for c in [
-                            _resolve_col(p_ca, ["promise_text"]),
-                            _resolve_col(p_ca, ["statement"]),
-                            _resolve_col(p_ca, ["evidence_snippet"]),
-                        ]
-                        if c is not None
-                    ]
-                    evj_col_ca = _resolve_col(p_ca, ["source_evidence_json", "evidence_history_json", "evidence_json"])
-                    for _, rr in p_ca.iterrows():
-                        qd_ca = pd.to_datetime(rr.get(qcol_ca), errors="coerce")
-                        if pd.isna(qd_ca):
-                            continue
-                        qd_end = pd.Timestamp(qd_ca).to_period("Q").end_time.date()
-                        txt_parts: List[str] = []
-                        for tc in txt_cols_ca:
-                            tt = glx_normalize_text(rr.get(tc))
-                            if tt:
-                                txt_parts.append(tt)
-                        txt = " ".join(txt_parts).strip()
-                        if not txt:
-                            continue
-                        sent_u: List[str] = []
-                        seen_sent: set = set()
-                        for ss in glx_split_sentences(txt) or [txt]:
-                            kss = glx_dedup_text_key(ss)
-                            if not kss or kss in seen_sent:
-                                continue
-                            seen_sent.add(kss)
-                            sent_u.append(ss.strip())
-                        if sent_u:
-                            txt = " ".join(sent_u[:3]).strip()
-                        low_txt = txt.lower()
-                        if not capital_alloc_include_re.search(low_txt):
-                            continue
-                        if capital_alloc_exclude_re.search(low_txt):
-                            continue
-                        if re.search(r"\b(will be paid on|stockholders of record)\b", low_txt, re.I):
-                            continue
-                        if not (
-                            capital_alloc_context_re.search(low_txt)
-                            or forward_intent_re.search(low_txt)
-                            or future_soft_re.search(low_txt)
-                        ):
-                            continue
-                        score_ca = 52.0
-                        score_ca += 8.0 if capital_alloc_context_re.search(low_txt) else 0.0
-                        score_ca += 6.0 if forward_intent_re.search(low_txt) else 0.0
-                        score_ca += 4.0 if re.search(r"\b(dividend|buyback|repurchase|authorization|deleverag)\b", low_txt, re.I) else 0.0
-                        src_meta_ca = {"source_type": "promise_text", "doc": "", "form": "", "accn": "", "section": ""}
-                        evj = _parse_json(rr.get(evj_col_ca) if evj_col_ca else None)
-                        if isinstance(evj, dict) and evj:
-                            src_meta_ca = {
-                                "source_type": str(evj.get("doc_type") or evj.get("source_type") or "promise_text"),
-                                "doc": str(evj.get("doc_path") or evj.get("doc_name") or evj.get("doc") or ""),
-                                "form": str(evj.get("form") or ""),
-                                "accn": str(evj.get("accn") or ""),
-                                "section": str(evj.get("section_or_page") or evj.get("section") or ""),
-                            }
-                        prev_pick = cap_alloc_tone_by_q.get(qd_end)
-                        if prev_pick is None or float(score_ca) > float(prev_pick.get("score") or 0.0):
-                            cap_alloc_tone_by_q[qd_end] = {
-                                "text": qn_compact_snippet(txt, 320),
-                                "text_full": txt,
-                                "score": float(score_ca),
-                                "source": src_meta_ca,
-                            }
-            except Exception:
-                pass
-        # Fallback tone from extracted execution notes when promise text is unavailable.
-        try:
-            for qd_k, vv in list(cap_alloc_exec_by_q.items()):
-                if not isinstance(qd_k, date):
-                    continue
-                cur = cap_alloc_tone_by_q.get(qd_k)
-                if cur is not None and float(cur.get("score") or 0.0) >= 58.0:
-                    continue
-                txt_note = glx_normalize_text((vv or {}).get("buybacks_note") or (vv or {}).get("dividends_note"))
-                if not txt_note:
-                    continue
-                if re.search(r"\brepurchase of common stock disclosed\b", txt_note, re.I):
-                    continue
-                if not capital_alloc_include_re.search(txt_note.lower()):
-                    continue
-                cap_alloc_tone_by_q[qd_k] = {
-                    "text": qn_compact_snippet(txt_note, 320),
-                    "text_full": txt_note,
-                    "score": 58.0,
-                    "source": {"source_type": "sec_doc_note", "doc": "", "form": "", "accn": "", "section": ""},
-                }
-        except Exception:
-            pass
+        _quarter_notes_capital_allocation_result = build_quarter_notes_ui_capital_allocation_state(
+            QuarterNotesUiCapitalAllocationDeps(
+                hist=hist,
+                promises=promises,
+                quarter_notes_df=df,
+                cache_root=cache_root,
+                candidate_support=_quarter_notes_candidate_support,
+                audit_view=_audit_view,
+                resolve_col=_resolve_col,
+                submission_recent_rows=_submission_recent_rows,
+                submission_recent_row_quarter=_submission_recent_row_quarter,
+                sec_docs_for_accession=_sec_docs_for_accession,
+                read_cached_doc_text=_read_cached_doc_text,
+                normalize_text=glx_normalize_text,
+                split_sentences=glx_split_sentences,
+                dedup_text_key=glx_dedup_text_key,
+                compact_snippet=qn_compact_snippet,
+            )
+        )
+        cap_alloc_exec_by_q = _quarter_notes_capital_allocation_result.cap_alloc_exec_by_q
+        cap_alloc_tone_by_q = _quarter_notes_capital_allocation_result.cap_alloc_tone_by_q
 
         _quarter_notes_source_harvester = QuarterNotesUiSourceHarvester(
             QuarterNotesUiSourceHarvestDeps(

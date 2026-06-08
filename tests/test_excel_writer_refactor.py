@@ -10329,6 +10329,46 @@ def test_quarter_notes_ui_source_harvester_exposes_lazy_factory_contract() -> No
     assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
 
 
+def test_quarter_notes_ui_capital_allocation_exposes_state_builder_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_quarter_notes_ui_capital_allocation import (
+        QuarterNotesUiCapitalAllocationDeps,
+        QuarterNotesUiCapitalAllocationResult,
+        build_quarter_notes_ui_capital_allocation_state,
+    )
+
+    assert [field.name for field in fields(QuarterNotesUiCapitalAllocationDeps)] == [
+        "hist",
+        "promises",
+        "quarter_notes_df",
+        "cache_root",
+        "candidate_support",
+        "audit_view",
+        "resolve_col",
+        "submission_recent_rows",
+        "submission_recent_row_quarter",
+        "sec_docs_for_accession",
+        "read_cached_doc_text",
+        "normalize_text",
+        "split_sentences",
+        "dedup_text_key",
+        "compact_snippet",
+    ]
+    assert [field.name for field in fields(QuarterNotesUiCapitalAllocationResult)] == [
+        "cap_alloc_exec_by_q",
+        "cap_alloc_tone_by_q",
+    ]
+    assert callable(build_quarter_notes_ui_capital_allocation_state)
+
+    module_path = Path(
+        importlib.import_module(
+            "pbi_xbrl.excel_writer_quarter_notes_ui_capital_allocation"
+        ).__file__
+    )
+    assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
+
+
 def test_enrich_quarter_notes_audit_rows_promotes_terminal_stage_and_drops_redundant_missing_rows() -> None:
     audit_rows = [
         {
