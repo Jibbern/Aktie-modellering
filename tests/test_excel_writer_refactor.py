@@ -10394,6 +10394,38 @@ def test_valuation_precompute_module_exposes_support_contract() -> None:
     assert "ValuationPrecomputeSupport(" in context_source
     assert '"_ensure_valuation_precompute_bundle": _ensure_valuation_precompute_bundle' in context_source
 
+
+def test_valuation_guidance_support_module_exposes_support_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_guidance_support import (
+        ValuationGuidanceSupport,
+        ValuationGuidanceSupportDeps,
+    )
+
+    assert [field.name for field in fields(ValuationGuidanceSupportDeps)] == ["runtime"]
+    assert callable(ValuationGuidanceSupport)
+    assert callable(ValuationGuidanceSupport.build_guidance_snapshot)
+    assert callable(ValuationGuidanceSupport.collect_guidance)
+    assert callable(ValuationGuidanceSupport.extract_guidance_items)
+    assert callable(ValuationGuidanceSupport.sec_outlook_backfill)
+    assert callable(ValuationGuidanceSupport.guidance_value_text)
+    assert callable(ValuationGuidanceSupport.visible_items_for_block)
+    assert callable(ValuationGuidanceSupport.item_comment)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_guidance_support").__file__
+    )
+    assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "ValuationGuidanceSupport(" in context_source
+    assert "for q_ref in qh_refs:" in context_source
+    assert "ws.merge_cells(start_row=row_ptr" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
