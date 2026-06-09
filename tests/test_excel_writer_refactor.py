@@ -10512,6 +10512,44 @@ def test_valuation_operating_thesis_render_module_exposes_render_contract() -> N
     assert "def _build_summary()" in context_source
 
 
+def test_valuation_hidden_value_state_module_exposes_state_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_hidden_value_state import (
+        ValuationHiddenValueStateDeps,
+        ValuationHiddenValueStateResult,
+        build_valuation_hidden_value_state,
+    )
+
+    assert [field.name for field in fields(ValuationHiddenValueStateDeps)] == ["runtime"]
+    assert [field.name for field in fields(ValuationHiddenValueStateResult)] == [
+        "hv_scores",
+        "hv_obs",
+        "hv_buybacks",
+        "hv_buybacks_note",
+        "hv_dividends",
+        "hv_dividends_note",
+    ]
+    assert callable(build_valuation_hidden_value_state)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_hidden_value_state").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "build_valuation_hidden_value_state(" in context_source
+    assert "def _write_valuation_sheet()" in context_source
+    assert "# Left-side visible flags / operating signals / capital return in columns A:K." in context_source
+    assert "def _yoy_pct(" in context_source
+    assert "def _apply_valuation_layout(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _build_summary()" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
