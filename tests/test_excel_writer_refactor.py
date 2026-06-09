@@ -10469,7 +10469,44 @@ def test_valuation_guidance_render_module_exposes_render_contract() -> None:
     assert "def _write_valuation_sheet()" in context_source
     assert "def _set_named_range(" in context_source
     assert "Hidden Value Panel values are computed here and rendered later" in context_source
-    assert "# Operating Drivers + Thesis Bridge (right-side additive blocks)." in context_source
+    assert "render_valuation_operating_thesis_panels(" in context_source
+    assert "def _apply_valuation_layout(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _build_summary()" in context_source
+
+
+def test_valuation_operating_thesis_render_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_operating_thesis_render import (
+        ValuationOperatingThesisRenderDeps,
+        ValuationOperatingThesisRenderResult,
+        render_valuation_operating_thesis_panels,
+    )
+
+    assert [field.name for field in fields(ValuationOperatingThesisRenderDeps)] == ["runtime"]
+    assert [field.name for field in fields(ValuationOperatingThesisRenderResult)] == [
+        "row_operating_hdr",
+        "row_operating_end",
+        "row_thesis_hdr",
+        "row_thesis_end",
+    ]
+    assert callable(render_valuation_operating_thesis_panels)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_operating_thesis_render").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "# Operating Drivers + Thesis Bridge (right-side additive blocks)." in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "render_valuation_operating_thesis_panels(" in context_source
+    assert "def _write_valuation_sheet()" in context_source
+    assert "def _set_named_range(" in context_source
+    assert "Hidden Value Panel values are computed here and rendered later" in context_source
     assert "def _apply_valuation_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
