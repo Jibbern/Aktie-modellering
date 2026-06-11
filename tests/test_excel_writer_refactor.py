@@ -10541,10 +10541,64 @@ def test_valuation_hidden_value_state_module_exposes_state_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
+    render_source = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_hidden_value_render").__file__
+    ).read_text(encoding="utf-8")
     assert "build_valuation_hidden_value_state(" in context_source
+    assert "render_valuation_hidden_value_panel(" in context_source
     assert "def _write_valuation_sheet()" in context_source
-    assert "# Left-side visible flags / operating signals / capital return in columns A:K." in context_source
+    assert "# Left-side visible flags / operating signals / capital return in columns A:K." in render_source
     assert "def _yoy_pct(" in context_source
+    assert "def _apply_valuation_layout(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _build_summary()" in context_source
+
+
+def test_valuation_hidden_value_render_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_hidden_value_render import (
+        ValuationHiddenValueRenderDeps,
+        ValuationHiddenValueRenderResult,
+        render_valuation_hidden_value_panel,
+    )
+
+    assert [field.name for field in fields(ValuationHiddenValueRenderDeps)] == ["runtime"]
+    assert [field.name for field in fields(ValuationHiddenValueRenderResult)] == [
+        "row_hidden_value_start",
+        "row_hidden_value_end",
+        "row_flags_header",
+        "row_flags_columns",
+        "row_flags_start",
+        "row_flags_end",
+        "row_operating_signals_header",
+        "row_capital_return_header",
+        "row_buybacks",
+        "row_buybacks_note",
+        "row_dividends",
+        "row_dividends_note",
+        "row_score_panel_header",
+        "next_panel_row",
+        "helper_column",
+        "visible_flag_count",
+        "valuation_export_expectation",
+    ]
+    assert callable(render_valuation_hidden_value_panel)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_hidden_value_render").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "# Left-side visible flags / operating signals / capital return in columns A:K." in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "render_valuation_hidden_value_panel(" in context_source
+    assert "def _write_valuation_sheet()" in context_source
+    assert "def _yoy_pct(" in context_source
+    assert "def _set_named_range(" in context_source
     assert "def _apply_valuation_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
