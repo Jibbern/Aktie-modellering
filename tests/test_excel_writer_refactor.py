@@ -10548,7 +10548,7 @@ def test_valuation_hidden_value_state_module_exposes_state_contract() -> None:
     assert "render_valuation_hidden_value_panel(" in context_source
     assert "def _write_valuation_sheet()" in context_source
     assert "# Left-side visible flags / operating signals / capital return in columns A:K." in render_source
-    assert "def _yoy_pct(" in context_source
+    assert "render_valuation_trend_flags_panel(" in context_source
     assert "def _apply_valuation_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
@@ -10597,7 +10597,49 @@ def test_valuation_hidden_value_render_module_exposes_render_contract() -> None:
     )
     assert "render_valuation_hidden_value_panel(" in context_source
     assert "def _write_valuation_sheet()" in context_source
-    assert "def _yoy_pct(" in context_source
+    assert "render_valuation_trend_flags_panel(" in context_source
+    assert "def _set_named_range(" in context_source
+    assert "def _apply_valuation_layout(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _build_summary()" in context_source
+
+
+def test_valuation_trend_flags_render_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_trend_flags_render import (
+        ValuationTrendFlagsRenderDeps,
+        ValuationTrendFlagsRenderResult,
+        render_valuation_trend_flags_panel,
+    )
+
+    assert [field.name for field in fields(ValuationTrendFlagsRenderDeps)] == ["runtime"]
+    assert [field.name for field in fields(ValuationTrendFlagsRenderResult)] == [
+        "row_trend_hdr",
+        "row_trend_end",
+        "row_flags_hdr",
+        "row_flags_end",
+        "panel_col",
+        "panel_row_start",
+        "next_panel_row",
+    ]
+    assert callable(render_valuation_trend_flags_panel)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_trend_flags_render").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "# Trend/Delta panel." in module_source
+    assert "# Red/Green flags panel." in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "render_valuation_trend_flags_panel(" in context_source
+    assert "def _write_valuation_sheet()" in context_source
+    assert "render_valuation_guidance_panel(" in context_source
+    assert "render_valuation_operating_thesis_panels(" in context_source
     assert "def _set_named_range(" in context_source
     assert "def _apply_valuation_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
