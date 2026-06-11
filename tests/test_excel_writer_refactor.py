@@ -10646,6 +10646,46 @@ def test_valuation_trend_flags_render_module_exposes_render_contract() -> None:
     assert "def _build_summary()" in context_source
 
 
+def test_valuation_sensitivity_heatmap_render_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_sensitivity_heatmap_render import (
+        ValuationSensitivityHeatmapRenderDeps,
+        ValuationSensitivityHeatmapRenderResult,
+        render_valuation_sensitivity_heatmaps,
+    )
+
+    assert [field.name for field in fields(ValuationSensitivityHeatmapRenderDeps)] == ["runtime"]
+    assert [field.name for field in fields(ValuationSensitivityHeatmapRenderResult)] == [
+        "grid_start",
+        "grid_col_start",
+        "grid_layout_width",
+        "grid_last_row",
+        "grid_last_col",
+        "heatmap_rows_touched",
+        "source_override_rows_touched",
+    ]
+    assert callable(render_valuation_sensitivity_heatmaps)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_sensitivity_heatmap_render").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "# Section-wide heatmap coloring uses a shared metric-aware policy." in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "render_valuation_sensitivity_heatmaps(" in context_source
+    assert "def _write_valuation_sheet()" in context_source
+    assert "def _set_named_range(" in context_source
+    assert "Debt Detail (latest)" in context_source
+    assert "def _apply_valuation_layout(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _build_summary()" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
