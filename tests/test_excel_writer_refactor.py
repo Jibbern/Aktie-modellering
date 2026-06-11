@@ -10680,7 +10680,51 @@ def test_valuation_sensitivity_heatmap_render_module_exposes_render_contract() -
     assert "render_valuation_sensitivity_heatmaps(" in context_source
     assert "def _write_valuation_sheet()" in context_source
     assert "def _set_named_range(" in context_source
-    assert "Debt Detail (latest)" in context_source
+    assert "render_valuation_debt_detail(" in context_source
+    assert "def _apply_valuation_layout(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _build_summary()" in context_source
+
+
+def test_valuation_debt_detail_render_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_debt_detail_render import (
+        ValuationDebtDetailRenderDeps,
+        ValuationDebtDetailRenderResult,
+        render_valuation_debt_detail,
+    )
+
+    assert [field.name for field in fields(ValuationDebtDetailRenderDeps)] == ["runtime"]
+    assert [field.name for field in fields(ValuationDebtDetailRenderResult)] == [
+        "next_row",
+        "row_debt_detail_hdr",
+        "tieout_diff_m",
+        "debt_tieout_guardrail_triggered",
+        "latest_debt_review",
+        "principal_total_m",
+        "carrying_total_m",
+        "debt_current_latest_m",
+        "debt_long_term_latest_m",
+        "carrying_minus_principal_m",
+        "near_term_m",
+    ]
+    assert callable(render_valuation_debt_detail)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_debt_detail_render").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "Debt Detail (latest)" in module_source
+    assert "tranche tie-out guardrail fired" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "render_valuation_debt_detail(" in context_source
+    assert "def _write_valuation_sheet()" in context_source
+    assert "def _set_named_range(" in context_source
     assert "def _apply_valuation_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
