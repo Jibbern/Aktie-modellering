@@ -10467,7 +10467,7 @@ def test_valuation_guidance_render_module_exposes_render_contract() -> None:
     )
     assert "render_valuation_guidance_panel(" in context_source
     assert "def _write_valuation_sheet()" in context_source
-    assert "def _set_named_range(" in context_source
+    assert "render_valuation_formula_core(" in context_source
     assert "Hidden Value Panel values are computed here and rendered later" in context_source
     assert "render_valuation_operating_thesis_panels(" in context_source
     assert "def _apply_valuation_layout(" in context_source
@@ -10505,7 +10505,7 @@ def test_valuation_operating_thesis_render_module_exposes_render_contract() -> N
     )
     assert "render_valuation_operating_thesis_panels(" in context_source
     assert "def _write_valuation_sheet()" in context_source
-    assert "def _set_named_range(" in context_source
+    assert "render_valuation_formula_core(" in context_source
     assert "Hidden Value Panel values are computed here and rendered later" in context_source
     assert "def _apply_valuation_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
@@ -10598,7 +10598,7 @@ def test_valuation_hidden_value_render_module_exposes_render_contract() -> None:
     assert "render_valuation_hidden_value_panel(" in context_source
     assert "def _write_valuation_sheet()" in context_source
     assert "render_valuation_trend_flags_panel(" in context_source
-    assert "def _set_named_range(" in context_source
+    assert "render_valuation_formula_core(" in context_source
     assert "def _apply_valuation_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
@@ -10640,7 +10640,7 @@ def test_valuation_trend_flags_render_module_exposes_render_contract() -> None:
     assert "def _write_valuation_sheet()" in context_source
     assert "render_valuation_guidance_panel(" in context_source
     assert "render_valuation_operating_thesis_panels(" in context_source
-    assert "def _set_named_range(" in context_source
+    assert "render_valuation_formula_core(" in context_source
     assert "def _apply_valuation_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
@@ -10679,7 +10679,7 @@ def test_valuation_sensitivity_heatmap_render_module_exposes_render_contract() -
     )
     assert "render_valuation_sensitivity_heatmaps(" in context_source
     assert "def _write_valuation_sheet()" in context_source
-    assert "def _set_named_range(" in context_source
+    assert "render_valuation_formula_core(" in context_source
     assert "render_valuation_debt_detail(" in context_source
     assert "def _apply_valuation_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
@@ -10724,7 +10724,66 @@ def test_valuation_debt_detail_render_module_exposes_render_contract() -> None:
     )
     assert "render_valuation_debt_detail(" in context_source
     assert "def _write_valuation_sheet()" in context_source
-    assert "def _set_named_range(" in context_source
+    assert "render_valuation_formula_core(" in context_source
+    assert "def _apply_valuation_layout(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _build_summary()" in context_source
+
+
+def test_valuation_formula_core_render_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_formula_core_render import (
+        ValuationFormulaCoreRenderDeps,
+        ValuationFormulaCoreRenderResult,
+        render_valuation_formula_core,
+    )
+
+    assert [field.name for field in fields(ValuationFormulaCoreRenderDeps)] == ["runtime"]
+    result_fields = [field.name for field in fields(ValuationFormulaCoreRenderResult)]
+    for expected in [
+        "valuation_header_row",
+        "valuation_inputs_row",
+        "row_market_hdr",
+        "row_scn_hdr",
+        "row_drv_hdr",
+        "row_toggle_hdr",
+        "row_qadj_hdr",
+        "row_convert_hdr",
+        "convert_header_end_col",
+        "row_dcf_hdr",
+        "row_dcf_sens_hdr",
+        "row_dcf_sens_last_row",
+        "row_dcf_eq",
+        "row_dcf_end",
+        "row_mi_hdr",
+        "row_mi_tbl_hdr",
+        "row_qadj_yield",
+        "qa_msgs",
+        "tieout_diff_m",
+        "fair_denom",
+        "normalize_thesis_bridge_basis",
+        "set_formula_name",
+        "set_cell_comment",
+    ]:
+        assert expected in result_fields
+    assert callable(render_valuation_formula_core)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_formula_core_render").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "# Valuation boxes" in module_source
+    assert "Convertible notes" in module_source
+    assert "DCF (optional module)" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "render_valuation_formula_core(" in context_source
+    assert "def _write_valuation_sheet()" in context_source
+    assert "render_valuation_debt_detail(" in context_source
     assert "def _apply_valuation_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
