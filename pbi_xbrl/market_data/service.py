@@ -2985,6 +2985,11 @@ def _write_gpre_corn_bids_manifest(storage_root: Path, entries: Iterable[Dict[st
         if not isinstance(snap_dt, date):
             continue
         entry["snapshot_date"] = snap_dt.isoformat()
+        download_dt = _gpre_parse_snapshot_date_like(entry.get("download_date"))
+        if isinstance(download_dt, date):
+            entry["download_date"] = download_dt.isoformat()
+        elif entry.get("download_date") is None:
+            entry.pop("download_date", None)
         serializable_entries.append(entry)
     manifest_payload = {
         "snapshots": sorted(serializable_entries, key=lambda rec: str(rec.get("snapshot_date") or "")),
@@ -3234,6 +3239,7 @@ def _archive_gpre_corn_bids_snapshot(
     storage_root: Path,
     *,
     snapshot_date: date,
+    download_date: Optional[date] = None,
     html_text: str,
     parsed_rows: Iterable[Dict[str, Any]],
     source_url: str,
@@ -3255,6 +3261,7 @@ def _archive_gpre_corn_bids_snapshot(
     manifest_entries = _gpre_corn_bids_manifest_entries(storage_root)
     entry = {
         "snapshot_date": snapshot_date,
+        "download_date": download_date,
         "raw_relpath": (raw_path.relative_to(storage_root).as_posix() if raw_path.exists() else ""),
         "parsed_relpath": parsed_path.relative_to(storage_root).as_posix(),
         "source_url": str(source_url or ""),
@@ -3943,16 +3950,22 @@ def download_gpre_corn_bids_snapshot(
     storage_root.mkdir(parents=True, exist_ok=True)
     html_path = storage_root / _GPRE_CORN_BIDS_HTML_FILENAME
     csv_path = storage_root / _GPRE_CORN_BIDS_CSV_FILENAME
-    snapshot_date = as_of_date or date.today()
-    payload = _fetch_gpre_corn_bids_html_payload(as_of_date=snapshot_date, timeout_seconds=timeout_seconds)
+    download_date = as_of_date or date.today()
+    payload = _fetch_gpre_corn_bids_html_payload(as_of_date=download_date, timeout_seconds=timeout_seconds)
     html_text = str(payload.get("html_text") or "")
     source_url = str(payload.get("source_url") or "")
+    snapshot_date = (
+        _gpre_parse_snapshot_date_like(payload.get("page_last_updated_text"))
+        or _gpre_parse_snapshot_date_like(_gpre_corn_bids_page_last_updated_text(html_text))
+        or download_date
+    )
     if str(payload.get("status") or "") != "ok" or not html_text.strip():
         return {
             "status": "unavailable",
             "html_path": html_path,
             "csv_path": csv_path,
             "snapshot_date": snapshot_date,
+            "download_date": download_date,
             "source_url": source_url or _GPRE_CORN_BIDS_DIRECT_URLS[0],
             "entry_url": str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
             "error": str(payload.get("error") or ""),
@@ -3977,6 +3990,7 @@ def download_gpre_corn_bids_snapshot(
             "html_path": html_path,
             "csv_path": csv_path,
             "snapshot_date": snapshot_date,
+            "download_date": download_date,
             "source_url": source_url or _GPRE_CORN_BIDS_DIRECT_URLS[0],
             "entry_url": str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
             "error": "ValueError: no validated GPRE corn bid rows parsed from HTML payload",
@@ -3990,6 +4004,7 @@ def download_gpre_corn_bids_snapshot(
     archive_entry = _archive_gpre_corn_bids_snapshot(
         storage_root,
         snapshot_date=snapshot_date,
+        download_date=download_date,
         html_text=html_text,
         parsed_rows=parsed_rows,
         source_url=source_url,
@@ -4002,6 +4017,7 @@ def download_gpre_corn_bids_snapshot(
             "html_path": html_path,
             "csv_path": csv_path,
             "snapshot_date": snapshot_date,
+            "download_date": download_date,
             "entry_url": str(payload.get("entry_url") or _GPRE_CORN_BIDS_ENTRY_URL),
             "html_length": len(html_text),
             "source_kind": "downloaded_html",

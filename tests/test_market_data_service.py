@@ -3450,6 +3450,47 @@ def test_download_gpre_corn_bids_snapshot_writes_html_csv_and_archive_manifest(m
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_download_gpre_corn_bids_snapshot_archives_by_page_updated_date(monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path = _local_test_dir("gpre_corn_bids_source_date")
+    html_blob = """
+    <html><body>
+    <div>Last Updated 6/9/26</div>
+    <table>
+      <tr><td><b>Wood River</b></td></tr>
+      <tr><td>Corn</td><td>Jun 2026</td><td>4.02</td><td>@C6N</td><td title="Basis Month: @C6N">-0.19</td></tr>
+    </table>
+    </body></html>
+    """.strip()
+    monkeypatch.setattr(
+        market_service,
+        "_fetch_gpre_corn_bids_html_payload",
+        lambda **kwargs: {
+            "status": "ok",
+            "source_url": "http://grain.gpreinc.com",
+            "entry_url": "https://gpreinc.com/corn-bids/",
+            "html_text": html_blob,
+            "rows": [],
+            "page_last_updated_text": "2026-06-09",
+        },
+    )
+
+    try:
+        summary = download_gpre_corn_bids_snapshot(
+            tmp_path,
+            as_of_date=date(2026, 6, 10),
+            timeout_seconds=0.01,
+        )
+
+        assert summary["snapshot_date"] == date(2026, 6, 9)
+        assert summary["download_date"] == date(2026, 6, 10)
+        assert Path(summary["archive_raw_path"]).parent.name == "2026-06-09"
+        manifest_payload = json.loads(Path(summary["manifest_path"]).read_text(encoding="utf-8"))
+        assert manifest_payload["snapshots"][0]["snapshot_date"] == "2026-06-09"
+        assert manifest_payload["snapshots"][0]["download_date"] == "2026-06-10"
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_gpre_corn_bids_manifest_entries_normalize_windows_relpaths() -> None:
     tmp_path = _local_test_dir("gpre_corn_bids_manifest_normalize")
     try:
