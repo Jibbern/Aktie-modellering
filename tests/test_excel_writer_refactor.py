@@ -10470,7 +10470,7 @@ def test_valuation_guidance_render_module_exposes_render_contract() -> None:
     assert "render_valuation_formula_core(" in context_source
     assert "Hidden Value Panel values are computed here and rendered later" in context_source
     assert "render_valuation_operating_thesis_panels(" in context_source
-    assert "def _apply_valuation_layout(" in context_source
+    assert "apply_valuation_final_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10507,7 +10507,7 @@ def test_valuation_operating_thesis_render_module_exposes_render_contract() -> N
     assert "def _write_valuation_sheet()" in context_source
     assert "render_valuation_formula_core(" in context_source
     assert "Hidden Value Panel values are computed here and rendered later" in context_source
-    assert "def _apply_valuation_layout(" in context_source
+    assert "apply_valuation_final_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10549,7 +10549,7 @@ def test_valuation_hidden_value_state_module_exposes_state_contract() -> None:
     assert "def _write_valuation_sheet()" in context_source
     assert "# Left-side visible flags / operating signals / capital return in columns A:K." in render_source
     assert "render_valuation_trend_flags_panel(" in context_source
-    assert "def _apply_valuation_layout(" in context_source
+    assert "apply_valuation_final_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10599,7 +10599,7 @@ def test_valuation_hidden_value_render_module_exposes_render_contract() -> None:
     assert "def _write_valuation_sheet()" in context_source
     assert "render_valuation_trend_flags_panel(" in context_source
     assert "render_valuation_formula_core(" in context_source
-    assert "def _apply_valuation_layout(" in context_source
+    assert "apply_valuation_final_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10641,7 +10641,7 @@ def test_valuation_trend_flags_render_module_exposes_render_contract() -> None:
     assert "render_valuation_guidance_panel(" in context_source
     assert "render_valuation_operating_thesis_panels(" in context_source
     assert "render_valuation_formula_core(" in context_source
-    assert "def _apply_valuation_layout(" in context_source
+    assert "apply_valuation_final_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10681,7 +10681,7 @@ def test_valuation_sensitivity_heatmap_render_module_exposes_render_contract() -
     assert "def _write_valuation_sheet()" in context_source
     assert "render_valuation_formula_core(" in context_source
     assert "render_valuation_debt_detail(" in context_source
-    assert "def _apply_valuation_layout(" in context_source
+    assert "apply_valuation_final_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10725,7 +10725,7 @@ def test_valuation_debt_detail_render_module_exposes_render_contract() -> None:
     assert "render_valuation_debt_detail(" in context_source
     assert "def _write_valuation_sheet()" in context_source
     assert "render_valuation_formula_core(" in context_source
-    assert "def _apply_valuation_layout(" in context_source
+    assert "apply_valuation_final_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10784,7 +10784,7 @@ def test_valuation_formula_core_render_module_exposes_render_contract() -> None:
     assert "render_valuation_formula_core(" in context_source
     assert "def _write_valuation_sheet()" in context_source
     assert "render_valuation_debt_detail(" in context_source
-    assert "def _apply_valuation_layout(" in context_source
+    assert "apply_valuation_final_layout(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10835,7 +10835,45 @@ def test_valuation_history_grid_render_module_exposes_render_contract() -> None:
     assert "def _write_valuation_sheet()" in context_source
     assert "render_valuation_formula_core(" in context_source
     assert "render_valuation_debt_detail(" in context_source
-    assert "def _apply_valuation_layout(" in context_source
+    assert "apply_valuation_final_layout(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _build_summary()" in context_source
+
+
+def test_valuation_final_layout_module_exposes_layout_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_final_layout import (
+        ValuationFinalLayoutDeps,
+        ValuationFinalLayoutResult,
+        apply_valuation_final_layout,
+    )
+
+    assert [field.name for field in fields(ValuationFinalLayoutDeps)] == ["runtime"]
+    assert [field.name for field in fields(ValuationFinalLayoutResult)] == [
+        "freeze_panes",
+        "valuation_start_row",
+        "max_row",
+        "max_column",
+    ]
+    assert callable(apply_valuation_final_layout)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_final_layout").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "protected_cols = {get_column_letter(c) for c in range(4, 14)}" in module_source
+    assert "Run valuation layout adjustments last" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "apply_valuation_final_layout(" in context_source
+    assert "ValuationFinalLayoutDeps(" in context_source
+    assert "def _apply_valuation_layout(" not in context_source
+    assert "render_valuation_history_grid(" in context_source
+    assert "render_valuation_formula_core(" in context_source
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
