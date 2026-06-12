@@ -10369,6 +10369,14 @@ def test_quarter_notes_ui_capital_allocation_exposes_state_builder_contract() ->
     assert "excel_writer_context" not in module_path.read_text(encoding="utf-8")
 
 
+
+
+def _valuation_orchestrator_source() -> str:
+    return Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_orchestrator").__file__
+    ).read_text(encoding="utf-8")
+
+
 def test_valuation_precompute_module_exposes_support_contract() -> None:
     from dataclasses import fields
 
@@ -10424,7 +10432,7 @@ def test_valuation_guidance_support_module_exposes_support_contract() -> None:
     render_source = Path(
         importlib.import_module("pbi_xbrl.excel_writer_valuation_guidance_render").__file__
     ).read_text(encoding="utf-8")
-    assert "render_valuation_guidance_panel(" in context_source
+    assert "render_valuation_guidance_panel(" in _valuation_orchestrator_source()
     assert "ValuationGuidanceSupport(" in render_source
     assert "for q_ref in qh_refs:" in render_source
     assert "ws.merge_cells(start_row=row_ptr" in render_source
@@ -10465,12 +10473,12 @@ def test_valuation_guidance_render_module_exposes_render_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "render_valuation_guidance_panel(" in context_source
+    assert "render_valuation_guidance_panel(" in _valuation_orchestrator_source()
     assert "def _write_valuation_sheet()" in context_source
-    assert "render_valuation_formula_core(" in context_source
-    assert "Hidden Value Panel values are computed here and rendered later" in context_source
-    assert "render_valuation_operating_thesis_panels(" in context_source
-    assert "apply_valuation_final_layout(" in context_source
+    assert "render_valuation_formula_core(" in _valuation_orchestrator_source()
+    assert "Hidden Value Panel values are computed here and rendered later" in _valuation_orchestrator_source()
+    assert "render_valuation_operating_thesis_panels(" in _valuation_orchestrator_source()
+    assert "apply_valuation_final_layout(" in _valuation_orchestrator_source()
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10503,11 +10511,11 @@ def test_valuation_operating_thesis_render_module_exposes_render_contract() -> N
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "render_valuation_operating_thesis_panels(" in context_source
+    assert "render_valuation_operating_thesis_panels(" in _valuation_orchestrator_source()
     assert "def _write_valuation_sheet()" in context_source
-    assert "render_valuation_formula_core(" in context_source
-    assert "Hidden Value Panel values are computed here and rendered later" in context_source
-    assert "apply_valuation_final_layout(" in context_source
+    assert "render_valuation_formula_core(" in _valuation_orchestrator_source()
+    assert "Hidden Value Panel values are computed here and rendered later" in _valuation_orchestrator_source()
+    assert "apply_valuation_final_layout(" in _valuation_orchestrator_source()
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10544,12 +10552,12 @@ def test_valuation_hidden_value_state_module_exposes_state_contract() -> None:
     render_source = Path(
         importlib.import_module("pbi_xbrl.excel_writer_valuation_hidden_value_render").__file__
     ).read_text(encoding="utf-8")
-    assert "build_valuation_hidden_value_state(" in context_source
-    assert "render_valuation_hidden_value_panel(" in context_source
+    assert "build_valuation_hidden_value_state(" in _valuation_orchestrator_source()
+    assert "render_valuation_hidden_value_panel(" in _valuation_orchestrator_source()
     assert "def _write_valuation_sheet()" in context_source
     assert "# Left-side visible flags / operating signals / capital return in columns A:K." in render_source
-    assert "render_valuation_trend_flags_panel(" in context_source
-    assert "apply_valuation_final_layout(" in context_source
+    assert "render_valuation_trend_flags_panel(" in _valuation_orchestrator_source()
+    assert "apply_valuation_final_layout(" in _valuation_orchestrator_source()
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10595,11 +10603,11 @@ def test_valuation_hidden_value_render_module_exposes_render_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "render_valuation_hidden_value_panel(" in context_source
+    assert "render_valuation_hidden_value_panel(" in _valuation_orchestrator_source()
     assert "def _write_valuation_sheet()" in context_source
-    assert "render_valuation_trend_flags_panel(" in context_source
-    assert "render_valuation_formula_core(" in context_source
-    assert "apply_valuation_final_layout(" in context_source
+    assert "render_valuation_trend_flags_panel(" in _valuation_orchestrator_source()
+    assert "render_valuation_formula_core(" in _valuation_orchestrator_source()
+    assert "apply_valuation_final_layout(" in _valuation_orchestrator_source()
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10636,12 +10644,12 @@ def test_valuation_trend_flags_render_module_exposes_render_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "render_valuation_trend_flags_panel(" in context_source
+    assert "render_valuation_trend_flags_panel(" in _valuation_orchestrator_source()
     assert "def _write_valuation_sheet()" in context_source
-    assert "render_valuation_guidance_panel(" in context_source
-    assert "render_valuation_operating_thesis_panels(" in context_source
-    assert "render_valuation_formula_core(" in context_source
-    assert "apply_valuation_final_layout(" in context_source
+    assert "render_valuation_guidance_panel(" in _valuation_orchestrator_source()
+    assert "render_valuation_operating_thesis_panels(" in _valuation_orchestrator_source()
+    assert "render_valuation_formula_core(" in _valuation_orchestrator_source()
+    assert "apply_valuation_final_layout(" in _valuation_orchestrator_source()
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10677,11 +10685,11 @@ def test_valuation_sensitivity_heatmap_render_module_exposes_render_contract() -
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "render_valuation_sensitivity_heatmaps(" in context_source
+    assert "render_valuation_sensitivity_heatmaps(" in _valuation_orchestrator_source()
     assert "def _write_valuation_sheet()" in context_source
-    assert "render_valuation_formula_core(" in context_source
-    assert "render_valuation_debt_detail(" in context_source
-    assert "apply_valuation_final_layout(" in context_source
+    assert "render_valuation_formula_core(" in _valuation_orchestrator_source()
+    assert "render_valuation_debt_detail(" in _valuation_orchestrator_source()
+    assert "apply_valuation_final_layout(" in _valuation_orchestrator_source()
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10722,10 +10730,10 @@ def test_valuation_debt_detail_render_module_exposes_render_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "render_valuation_debt_detail(" in context_source
+    assert "render_valuation_debt_detail(" in _valuation_orchestrator_source()
     assert "def _write_valuation_sheet()" in context_source
-    assert "render_valuation_formula_core(" in context_source
-    assert "apply_valuation_final_layout(" in context_source
+    assert "render_valuation_formula_core(" in _valuation_orchestrator_source()
+    assert "apply_valuation_final_layout(" in _valuation_orchestrator_source()
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10781,10 +10789,10 @@ def test_valuation_formula_core_render_module_exposes_render_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "render_valuation_formula_core(" in context_source
+    assert "render_valuation_formula_core(" in _valuation_orchestrator_source()
     assert "def _write_valuation_sheet()" in context_source
-    assert "render_valuation_debt_detail(" in context_source
-    assert "apply_valuation_final_layout(" in context_source
+    assert "render_valuation_debt_detail(" in _valuation_orchestrator_source()
+    assert "apply_valuation_final_layout(" in _valuation_orchestrator_source()
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10831,11 +10839,11 @@ def test_valuation_history_grid_render_module_exposes_render_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "render_valuation_history_grid(" in context_source
+    assert "render_valuation_history_grid(" in _valuation_orchestrator_source()
     assert "def _write_valuation_sheet()" in context_source
-    assert "render_valuation_formula_core(" in context_source
-    assert "render_valuation_debt_detail(" in context_source
-    assert "apply_valuation_final_layout(" in context_source
+    assert "render_valuation_formula_core(" in _valuation_orchestrator_source()
+    assert "render_valuation_debt_detail(" in _valuation_orchestrator_source()
+    assert "apply_valuation_final_layout(" in _valuation_orchestrator_source()
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
 
@@ -10869,13 +10877,86 @@ def test_valuation_final_layout_module_exposes_layout_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "apply_valuation_final_layout(" in context_source
-    assert "ValuationFinalLayoutDeps(" in context_source
+    assert "apply_valuation_final_layout(" in _valuation_orchestrator_source()
+    assert "ValuationFinalLayoutDeps(" in _valuation_orchestrator_source()
     assert "def _apply_valuation_layout(" not in context_source
-    assert "render_valuation_history_grid(" in context_source
-    assert "render_valuation_formula_core(" in context_source
+    assert "render_valuation_history_grid(" in _valuation_orchestrator_source()
+    assert "render_valuation_formula_core(" in _valuation_orchestrator_source()
     assert "def _run_latest_quarter_qa()" in context_source
     assert "def _build_summary()" in context_source
+
+
+def test_valuation_orchestrator_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_orchestrator import (
+        ValuationOrchestratorDeps,
+        write_valuation_sheet,
+    )
+
+    assert [field.name for field in fields(ValuationOrchestratorDeps)] == [
+        "wb",
+        "ticker",
+        "company_profile",
+        "is_pbi_profile",
+        "is_gpre_profile",
+        "is_anf_profile",
+        "price",
+        "excel_mode",
+        "hist",
+        "quarter_notes",
+        "promises",
+        "audit",
+        "promise_progress",
+        "slides_guidance",
+        "slides_debt",
+        "valuation_grid_df",
+        "adj_metrics",
+        "adj_metrics_relaxed",
+        "leverage_df",
+        "manifest_df",
+        "flags_df",
+        "flags_audit_df",
+        "signals_base_df",
+        "debt_tranches",
+        "debt_tranches_latest",
+        "debt_credit_notes",
+        "company_overview",
+        "cache_root",
+        "cache_dir",
+        "material_roots",
+        "ctx_ref",
+        "ui_state",
+        "context_globals",
+        "get_valuation_style_bundle",
+        "set_cell_comment",
+        "timed_writer_substage",
+        "record_writer_substage",
+        "record_writer_elapsed",
+        "context_helpers",
+    ]
+    assert callable(write_valuation_sheet)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_orchestrator").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "render_valuation_history_grid(" in module_source
+    assert "render_valuation_formula_core(" in module_source
+    assert "apply_valuation_final_layout(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "def _write_valuation_sheet() -> None:" in context_source
+    assert "write_valuation_sheet(" in context_source
+    assert "ValuationOrchestratorDeps(" in context_source
+    assert "render_valuation_history_grid(" not in context_source
+    assert "render_valuation_formula_core(" not in context_source
+    assert "apply_valuation_final_layout(" not in context_source
+    assert "def _build_summary()" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
 
 
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
