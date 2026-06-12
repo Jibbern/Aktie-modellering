@@ -687,6 +687,8 @@ def _ticker_root_from_cache_dir(cache_dir: Path, ticker: str) -> Path:
     data_root = data_root_from_sec_cache_path(croot)
     if data_root is not None and (data_root / "tickers").exists():
         candidates.append(data_root / "tickers" / ticker_u)
+    if croot.name.lower() == "market_cache" and (croot.parent / "tickers").exists():
+        candidates.append(croot.parent / "tickers" / ticker_u)
     if len(croot.parents) >= 2:
         candidates.append(croot.parents[1] / ticker_u)
     if len(croot.parents) >= 1:
@@ -2842,6 +2844,8 @@ def _gpre_legacy_corn_bids_storage_root(ticker_root: Optional[Path]) -> Optional
     if not isinstance(ticker_root, Path):
         return None
     try:
+        if ticker_root.parent.name.lower() == "tickers":
+            return None
         legacy_root = ticker_root.parent / _GPRE_CORN_BIDS_DIRNAME
         canonical_root = ticker_root / _GPRE_CORN_BIDS_DIRNAME
         if legacy_root.resolve() == canonical_root.resolve():

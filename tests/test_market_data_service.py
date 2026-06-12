@@ -3715,6 +3715,23 @@ def test_sync_market_cache_refresh_triggers_gpre_corn_bids_download(monkeypatch:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
 
+def test_ticker_root_from_portable_market_cache_uses_stock_model_data_ticker_dir() -> None:
+    tmp_path = _local_test_dir("gpre_portable_market_cache_ticker_root")
+    try:
+        data_root = tmp_path / "StockModelData"
+        ticker_root = data_root / "tickers" / "GPRE"
+        market_cache = data_root / "market_cache"
+        ticker_root.mkdir(parents=True, exist_ok=True)
+        market_cache.mkdir(parents=True, exist_ok=True)
+
+        resolved = market_service._ticker_root_from_cache_dir(market_cache, "GPRE")
+
+        assert resolved == ticker_root.resolve()
+        assert resolved != (tmp_path / "GPRE").resolve()
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 def test_market_input_fingerprint_changes_when_legacy_corn_bids_or_local_usda_files_change() -> None:
     tmp_path = _local_test_dir("gpre_market_input_fingerprint")
     try:
@@ -7609,6 +7626,17 @@ def test_load_local_gpre_corn_bids_snapshot_uses_canonical_archive_after_legacy_
         assert str(snap.get("status") or "") == "ok"
         assert snap.get("snapshot_date") == date(2026, 4, 16)
         assert Path(snap["manifest_path"]).parent == (gpre_root / "corn_bids")
+    finally:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
+def test_portable_gpre_corn_bids_root_does_not_resolve_legacy_sibling() -> None:
+    tmp_path = _local_test_dir("gpre_corn_bids_portable_no_legacy_sibling")
+    try:
+        ticker_root = tmp_path / "StockModelData" / "tickers" / "GPRE"
+        ticker_root.mkdir(parents=True, exist_ok=True)
+
+        assert market_service._gpre_legacy_corn_bids_storage_root(ticker_root) is None
     finally:
         shutil.rmtree(tmp_path, ignore_errors=True)
 
