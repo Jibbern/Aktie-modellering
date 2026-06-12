@@ -10789,6 +10789,57 @@ def test_valuation_formula_core_render_module_exposes_render_contract() -> None:
     assert "def _build_summary()" in context_source
 
 
+def test_valuation_history_grid_render_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_history_grid_render import (
+        ValuationHistoryGridRenderDeps,
+        ValuationHistoryGridRenderResult,
+        render_valuation_history_grid,
+    )
+
+    assert [field.name for field in fields(ValuationHistoryGridRenderDeps)] == ["runtime"]
+    result_fields = [field.name for field in fields(ValuationHistoryGridRenderResult)]
+    for expected in [
+        "next_row",
+        "valuation_row_source_values",
+        "row_write_elapsed",
+        "row_fill_elapsed",
+        "rev_map",
+        "rev_ttm_map",
+        "ebitda_ttm_map",
+        "adj_ebitda_ttm_map",
+        "fcf_ttm_map",
+        "shares_for_value_map",
+        "net_debt_map",
+        "liquidity_map",
+        "row_operating_margin_pct",
+        "row_operating_margin_ttm_pct",
+    ]:
+        assert expected in result_fields
+    assert callable(render_valuation_history_grid)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_valuation_history_grid_render").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "build_valuation_history_source_maps" in module_source
+    assert "valuation_row_source_values" in module_source
+    assert "FCF yield (TTM, EV)" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "render_valuation_history_grid(" in context_source
+    assert "def _write_valuation_sheet()" in context_source
+    assert "render_valuation_formula_core(" in context_source
+    assert "render_valuation_debt_detail(" in context_source
+    assert "def _apply_valuation_layout(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _build_summary()" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
