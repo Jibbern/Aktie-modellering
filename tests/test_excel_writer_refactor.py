@@ -11115,6 +11115,52 @@ def test_gpre_commercial_setup_module_exposes_support_contract() -> None:
     assert "GpreCommercialSetupDeps(" in context_source
 
 
+def test_operating_drivers_support_module_exposes_support_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_operating_drivers_support import (
+        OperatingDriversSupport,
+        OperatingDriversSupportDeps,
+    )
+
+    assert [field.name for field in fields(OperatingDriversSupportDeps)] == ["runtime"]
+    for method_name in [
+        "build_operating_driver_rows",
+        "operating_driver_quarters",
+        "read_operating_driver_text",
+        "load_source_records",
+        "load_source_records_by_quarter",
+        "load_line_index_by_quarter",
+        "load_flat_line_index",
+        "load_template_index",
+        "extract_rows_for_template",
+        "build_anf_operating_driver_rows",
+        "build_operating_drivers_history_rows",
+    ]:
+        assert hasattr(OperatingDriversSupport, method_name)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_operating_drivers_support").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "def build_operating_drivers_history_rows(" in module_source
+    assert "def extract_rows_for_template(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "def _write_operating_drivers_sheet(" in context_source
+    assert "def _write_economics_overlay_sheet(" in context_source
+    assert "def _write_operating_drivers_raw_sheet(" in context_source
+    assert "def _write_economics_market_raw_sheet(" in context_source
+    assert "def _build_operating_driver_rows()" in context_source
+    assert "def _build_operating_drivers_history_rows()" in context_source
+    assert "def _extract_operating_driver_rows_for_template(" in context_source
+    assert "OperatingDriversSupport(" in context_source
+    assert "OperatingDriversSupportDeps(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
