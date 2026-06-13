@@ -10959,6 +10959,45 @@ def test_valuation_orchestrator_module_exposes_thin_wrapper_contract() -> None:
     assert "def _run_latest_quarter_qa()" in context_source
 
 
+def test_summary_builder_module_exposes_summary_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_summary_builder import (
+        SummaryBuilderDeps,
+        build_summary_dataframe,
+    )
+
+    assert [field.name for field in fields(SummaryBuilderDeps)] == [
+        "hist",
+        "leverage_df",
+        "needs_review",
+        "company_overview",
+        "price",
+        "ctx_ref",
+        "hist_view",
+        "audit_view",
+    ]
+    assert callable(build_summary_dataframe)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_summary_builder").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "summary_export_expectation" in module_source
+    assert "def build_summary_dataframe(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "def _write_summary_sheet(" in context_source
+    assert "def _build_summary()" in context_source
+    assert "build_summary_dataframe(" in context_source
+    assert "SummaryBuilderDeps(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _latest_quarter_qa_source_bundle(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
