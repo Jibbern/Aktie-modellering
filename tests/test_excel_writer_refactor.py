@@ -10998,6 +10998,68 @@ def test_summary_builder_module_exposes_summary_contract() -> None:
     assert "def _latest_quarter_qa_source_bundle(" in context_source
 
 
+def test_latest_quarter_qa_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_latest_quarter_qa import (
+        LatestQuarterQADeps,
+        LatestQuarterQASupport,
+        run_latest_quarter_qa,
+    )
+
+    assert [field.name for field in fields(LatestQuarterQADeps)] == [
+        "ticker",
+        "company_profile",
+        "is_pbi_profile",
+        "is_gpre_profile",
+        "is_anf_profile",
+        "hist",
+        "leverage_df",
+        "adj_metrics",
+        "audit",
+        "slides_guidance",
+        "slides_segments",
+        "debt_tranches_latest",
+        "debt_buckets",
+        "debt_profile",
+        "debt_recon",
+        "revolver_history",
+        "non_gaap_files",
+        "cache_root",
+        "material_roots",
+        "ticker_roots",
+        "document_cache",
+        "ui_state",
+        "ctx_ref",
+        "context_helpers",
+    ]
+    assert hasattr(LatestQuarterQASupport, "source_bundle")
+    assert hasattr(LatestQuarterQASupport, "sec_text_corpus")
+    assert hasattr(LatestQuarterQASupport, "run")
+    assert callable(run_latest_quarter_qa)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_latest_quarter_qa").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "def run_latest_quarter_qa(" in module_source
+    assert "latest_quarter_qa_bundle_by_quarter" in module_source
+    assert "latest_quarter_sec_text_by_quarter" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "def _latest_quarter_qa_source_bundle(" in context_source
+    assert "def _latest_quarter_sec_text_corpus(" in context_source
+    assert "def _run_latest_quarter_qa()" in context_source
+    assert "def _write_summary_sheet(" in context_source
+    assert "def _build_summary()" in context_source
+    assert "def _write_valuation_sheet()" in context_source
+    assert "LatestQuarterQASupport(" in context_source
+    assert "LatestQuarterQADeps(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
