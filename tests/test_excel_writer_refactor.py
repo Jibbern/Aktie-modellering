@@ -11060,6 +11060,61 @@ def test_latest_quarter_qa_module_exposes_thin_wrapper_contract() -> None:
     assert "LatestQuarterQADeps(" in context_source
 
 
+def test_gpre_commercial_setup_module_exposes_support_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_gpre_commercial_setup import (
+        GpreCommercialSetupDeps,
+        GpreCommercialSetupSupport,
+    )
+
+    assert [field.name for field in fields(GpreCommercialSetupDeps)] == [
+        "is_gpre_profile",
+        "ctx_ref",
+        "cache_dir",
+        "load_operating_driver_source_records_by_quarter",
+        "normalize_text",
+        "split_sentences",
+        "compact_snippet",
+        "ensure_terminal_period",
+        "data_root_from_sec_cache_path",
+    ]
+    assert hasattr(GpreCommercialSetupSupport, "records")
+    assert hasattr(GpreCommercialSetupSupport, "read_local_doc_text")
+    assert hasattr(GpreCommercialSetupSupport, "local_bofa_conference_path")
+    assert hasattr(GpreCommercialSetupSupport, "local_bofa_conference_text")
+    assert hasattr(GpreCommercialSetupSupport, "local_stephens_conference_path")
+    assert hasattr(GpreCommercialSetupSupport, "local_stephens_conference_raw_path")
+    assert hasattr(GpreCommercialSetupSupport, "local_stephens_conference_text")
+    assert hasattr(GpreCommercialSetupSupport, "local_stephens_conference_raw_text")
+    assert hasattr(GpreCommercialSetupSupport, "local_bmo_conference_path")
+    assert hasattr(GpreCommercialSetupSupport, "local_bmo_conference_text")
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_gpre_commercial_setup").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "def records(" in module_source
+    assert "def local_bofa_conference_text(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "def _gpre_commercial_setup_records_shared()" in context_source
+    assert "def _read_local_doc_text_shared(" in context_source
+    assert "def _gpre_local_bofa_conference_path_shared()" in context_source
+    assert "def _gpre_local_bofa_conference_text_shared()" in context_source
+    assert "def _gpre_local_stephens_conference_path_shared()" in context_source
+    assert "def _gpre_local_stephens_conference_raw_path_shared()" in context_source
+    assert "def _gpre_local_stephens_conference_text_shared()" in context_source
+    assert "def _gpre_local_stephens_conference_raw_text_shared()" in context_source
+    assert "def _gpre_local_bmo_conference_path_shared()" in context_source
+    assert "def _gpre_local_bmo_conference_text_shared()" in context_source
+    assert "GpreCommercialSetupSupport(" in context_source
+    assert "GpreCommercialSetupDeps(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
