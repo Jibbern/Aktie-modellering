@@ -10998,6 +10998,45 @@ def test_summary_builder_module_exposes_summary_contract() -> None:
     assert "def _latest_quarter_qa_source_bundle(" in context_source
 
 
+def test_summary_sheet_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_summary_sheet import (
+        SummarySheetRenderDeps,
+        write_summary_sheet,
+    )
+
+    assert [field.name for field in fields(SummarySheetRenderDeps)] == [
+        "wb",
+        "font_size",
+        "header_size",
+        "set_cell_comment",
+        "normalize_text",
+        "estimate_wrapped_line_count",
+        "estimate_wrapped_row_height",
+    ]
+    assert callable(write_summary_sheet)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_summary_sheet").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "summary_export_expectation" not in module_source
+    assert "def write_summary_sheet(" in module_source
+    assert "wb.create_sheet(title=\"SUMMARY\")" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "def _write_summary_sheet(" in context_source
+    assert "write_summary_sheet(" in context_source
+    assert "SummarySheetRenderDeps(" in context_source
+    assert "def _build_summary()" in context_source
+    assert "build_summary_dataframe(" in context_source
+    assert "summary_export_expectation" not in context_source
+
+
 def test_latest_quarter_qa_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
