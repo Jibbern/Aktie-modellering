@@ -11037,6 +11037,49 @@ def test_summary_sheet_module_exposes_render_contract() -> None:
     assert "summary_export_expectation" not in context_source
 
 
+def test_debt_convertible_enrichment_module_exposes_support_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_debt_convertible_enrichment import (
+        DebtConvertibleEnrichmentDeps,
+        DebtConvertibleEnrichmentSupport,
+    )
+
+    assert [field.name for field in fields(DebtConvertibleEnrichmentDeps)] == [
+        "ticker",
+        "cache_dir",
+        "ticker_roots",
+        "document_cache",
+        "context_helpers",
+    ]
+    assert hasattr(DebtConvertibleEnrichmentSupport, "enrich_latest_debt_convertibles")
+    assert hasattr(DebtConvertibleEnrichmentSupport, "find_latest_xbrl_docs")
+    assert hasattr(DebtConvertibleEnrichmentSupport, "latest_sec_text_docs_for_convertibles")
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_debt_convertible_enrichment").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class DebtConvertibleEnrichmentDeps" in module_source
+    assert "class DebtConvertibleEnrichmentSupport" in module_source
+    assert "def enrich_latest_debt_convertibles(" in module_source
+    assert "def _extract_convertible_terms_from_xbrl(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "def _enrich_latest_debt_convertibles(" in context_source
+    assert "DebtConvertibleEnrichmentSupport(" in context_source
+    assert "DebtConvertibleEnrichmentDeps(" in context_source
+    assert "def _sec_cache_roots_local(" in context_source
+    assert "def _sec_cache_doc_paths_local(" in context_source
+    assert "def _infer_doc_quarter_local(" in context_source
+    assert "def _find_latest_xbrl_docs(" not in context_source
+    assert "excel_writer_valuation_orchestrator" in context_source
+    assert "excel_writer_valuation_debt_detail_render" in _valuation_orchestrator_source()
+
+
 def test_latest_quarter_qa_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
