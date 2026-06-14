@@ -11161,6 +11161,41 @@ def test_operating_drivers_support_module_exposes_support_contract() -> None:
     assert "OperatingDriversSupportDeps(" in context_source
 
 
+def test_derivative_oci_bridge_writer_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_derivative_oci_bridge import (
+        DerivativeOciBridgeRenderDeps,
+        write_derivative_crush_tests_sheet,
+        write_derivative_oci_bridge_sheet,
+    )
+
+    assert [field.name for field in fields(DerivativeOciBridgeRenderDeps)] == ["runtime"]
+    assert callable(write_derivative_oci_bridge_sheet)
+    assert callable(write_derivative_crush_tests_sheet)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_derivative_oci_bridge").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "def write_derivative_oci_bridge_sheet(" in module_source
+    assert "def write_derivative_crush_tests_sheet(" in module_source
+    assert "DerivativePositionExposure" in module_source
+    assert "DerivativeCrushKeyTakeaways" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "def _write_derivative_oci_bridge_sheet(" in context_source
+    assert "def _write_derivative_crush_tests_sheet(" in context_source
+    assert "write_derivative_oci_bridge_sheet(" in context_source
+    assert "write_derivative_crush_tests_sheet(" in context_source
+    assert "DerivativeOciBridgeRenderDeps(" in context_source
+    assert "from .derivative_oci_bridge import" in context_source
+    assert "from .derivative_crush_tests import build_derivative_crush_tests" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
