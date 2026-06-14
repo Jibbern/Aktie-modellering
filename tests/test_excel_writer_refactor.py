@@ -11400,6 +11400,62 @@ def test_anf_investment_case_module_exposes_render_contract() -> None:
     assert "_rewrite_shared_promise_progress_ui_from_blocks" in context_source
 
 
+def test_investment_case_scenarios_module_exposes_render_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_investment_case_scenarios import (
+        InvestmentCaseScenarioRenderDeps,
+        _ScenarioDriverBridgeSpec,
+        _SegmentScenarioInputSpec,
+        _excel_manual_percent_active_formula,
+        _excel_percent_value_expr,
+        _excel_visible_value_range_formula,
+        _scenario_bridge_eps_value_formula,
+        _scenario_bridge_row_values,
+        _segment_scenario_specs_from_records,
+        write_scenario_bridge_tax_treatment_sheet,
+        write_scenario_driver_assumptions_sheet,
+    )
+
+    assert [field.name for field in fields(InvestmentCaseScenarioRenderDeps)] == ["runtime"]
+    assert callable(_ScenarioDriverBridgeSpec)
+    assert callable(_SegmentScenarioInputSpec)
+    assert callable(_segment_scenario_specs_from_records)
+    assert callable(_excel_percent_value_expr)
+    assert callable(_excel_manual_percent_active_formula)
+    assert callable(_excel_visible_value_range_formula)
+    assert callable(_scenario_bridge_row_values)
+    assert callable(_scenario_bridge_eps_value_formula)
+    assert callable(write_scenario_driver_assumptions_sheet)
+    assert callable(write_scenario_bridge_tax_treatment_sheet)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_investment_case_scenarios").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class InvestmentCaseScenarioRenderDeps" in module_source
+    assert "class _ScenarioDriverBridgeSpec" in module_source
+    assert "class _SegmentScenarioInputSpec" in module_source
+    assert "def write_scenario_driver_assumptions_sheet(" in module_source
+    assert "def write_scenario_bridge_tax_treatment_sheet(" in module_source
+    assert "def _scenario_bridge_row_values(" in module_source
+    assert "def _scenario_bridge_eps_value_formula(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_investment_case_scenarios import (" in context_source
+    assert "def _write_scenario_driver_assumptions_sheet(" in context_source
+    assert "def _write_scenario_bridge_tax_treatment_sheet(" in context_source
+    assert "InvestmentCaseScenarioRenderDeps(" in context_source
+    assert "def _write_sector_investment_case_sheet(" in context_source
+    assert "def _write_anf_investment_case_sheet(" in context_source
+    assert "def _write_investment_case_surfaces(" in context_source
+    assert "def _write_anf_investment_case_surfaces(" in context_source
+    assert "_rewrite_shared_promise_progress_ui_from_blocks" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
