@@ -11278,6 +11278,50 @@ def test_derivative_oci_bridge_writer_module_exposes_render_contract() -> None:
     assert "from .derivative_crush_tests import build_derivative_crush_tests" in context_source
 
 
+def test_investment_case_support_module_exposes_support_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_investment_case_support import (
+        InvestmentCaseSupport,
+        InvestmentCaseSupportDeps,
+    )
+
+    assert [field.name for field in fields(InvestmentCaseSupportDeps)] == ["runtime"]
+    for method_name in [
+        "investment_case_sheet_order",
+        "anf_investment_case_sheet_order",
+        "build_anf_investment_case_data",
+        "build_sector_investment_case_data",
+    ]:
+        assert hasattr(InvestmentCaseSupport, method_name)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_investment_case_support").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class InvestmentCaseSupportDeps" in module_source
+    assert "class InvestmentCaseSupport" in module_source
+    assert "def build_anf_investment_case_data(" in module_source
+    assert "def build_sector_investment_case_data(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "def _anf_investment_case_sheet_order(" in context_source
+    assert "def _investment_case_sheet_order(" in context_source
+    assert "def _anf_build_investment_case_data(" in context_source
+    assert "def _sector_build_investment_case_data(" in context_source
+    assert "InvestmentCaseSupport(" in context_source
+    assert "InvestmentCaseSupportDeps(" in context_source
+    assert "def _write_sector_investment_case_data_sheet(" in context_source
+    assert "def _write_sector_investment_case_sheet(" in context_source
+    assert "def _write_anf_investment_case_data_sheet(" in context_source
+    assert "def _write_anf_investment_case_sheet(" in context_source
+    assert "def _write_scenario_driver_assumptions_sheet(" in context_source
+    assert "def _write_scenario_bridge_tax_treatment_sheet(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
