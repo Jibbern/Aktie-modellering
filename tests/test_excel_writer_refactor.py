@@ -11498,6 +11498,46 @@ def test_profile_signal_support_module_exposes_support_contract() -> None:
     assert "_apply_shared_ui_conventions_to_workbook" in context_source
 
 
+def test_promise_source_override_support_module_exposes_support_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_promise_source_overrides import (
+        PromiseSourceOverrideSupport,
+        PromiseSourceOverrideSupportDeps,
+    )
+
+    assert [field.name for field in fields(PromiseSourceOverrideSupportDeps)] == ["runtime"]
+    assert hasattr(PromiseSourceOverrideSupport, "build_specs")
+    assert hasattr(PromiseSourceOverrideSupport, "lifecycle_id")
+    assert hasattr(PromiseSourceOverrideSupport, "display_section_from_horizon")
+    assert hasattr(PromiseSourceOverrideSupport, "source_date_ordinal")
+    assert hasattr(PromiseSourceOverrideSupport, "pbi_guidance_progression_rows")
+    assert hasattr(PromiseSourceOverrideSupport, "anf_guidance_progression_rows")
+    assert hasattr(PromiseSourceOverrideSupport, "gpre_source_rows")
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_promise_source_overrides").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class PromiseSourceOverrideSupportDeps" in module_source
+    assert "class PromiseSourceOverrideSupport" in module_source
+    assert "def build_specs(" in module_source
+    assert "def lifecycle_id(" in module_source
+    assert "def display_section_from_horizon(" in module_source
+    assert "def source_date_ordinal(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_promise_source_overrides import (" in context_source
+    assert "PromiseSourceOverrideSupportDeps(" in context_source
+    assert "def _apply_source_backed_promise_mapping_overrides(" in context_source
+    assert "def _rewrite_shared_promise_progress_ui_from_blocks(" in context_source
+    assert "def _final_repair_promise_progress_ui(" in context_source
+    assert "def _apply_shared_ui_conventions_to_workbook(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
