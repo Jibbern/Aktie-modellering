@@ -11456,6 +11456,48 @@ def test_investment_case_scenarios_module_exposes_render_contract() -> None:
     assert "_rewrite_shared_promise_progress_ui_from_blocks" in context_source
 
 
+def test_profile_signal_support_module_exposes_support_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_profile_signal_support import (
+        ProfileSignalSupport,
+        ProfileSignalSupportDeps,
+    )
+
+    assert [field.name for field in fields(ProfileSignalSupportDeps)] == ["runtime"]
+    assert hasattr(ProfileSignalSupport, "load_profile_slide_signals")
+    assert hasattr(ProfileSignalSupport, "load_profile_slide_signals_by_quarter")
+    assert hasattr(ProfileSignalSupport, "profile_slide_signals_for_quarter")
+    assert hasattr(ProfileSignalSupport, "local_slide_driver_fallback")
+    assert hasattr(ProfileSignalSupport, "pbi_slide_pages_for_qd")
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_profile_signal_support").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class ProfileSignalSupportDeps" in module_source
+    assert "class ProfileSignalSupport" in module_source
+    assert "def load_profile_slide_signals(" in module_source
+    assert "def load_profile_slide_signals_by_quarter(" in module_source
+    assert "def profile_slide_signals_for_quarter(" in module_source
+    assert "def local_slide_driver_fallback(" in module_source
+    assert "def pbi_slide_pages_for_qd(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_profile_signal_support import (" in context_source
+    assert "def _load_profile_slide_signals(" in context_source
+    assert "def _load_profile_slide_signals_by_quarter(" in context_source
+    assert "def _profile_slide_signals_for_quarter(" in context_source
+    assert "def _local_slide_driver_fallback(" in context_source
+    assert "def _pbi_slide_pages_for_qd(" in context_source
+    assert "_rewrite_shared_promise_progress_ui_from_blocks" in context_source
+    assert "_apply_source_backed_promise_mapping_overrides" in context_source
+    assert "_apply_shared_ui_conventions_to_workbook" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
