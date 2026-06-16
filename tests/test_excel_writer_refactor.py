@@ -11578,6 +11578,49 @@ def test_promise_source_override_mutator_module_exposes_thin_wrapper_contract() 
     assert "def _write_promise_progress_ui_v2(" in context_source
 
 
+def test_promise_progress_rewrite_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_promise_progress_rewrite import (
+        PromiseProgressRewriteDeps,
+        rewrite_shared_promise_progress_ui_from_blocks,
+    )
+
+    assert [field.name for field in fields(PromiseProgressRewriteDeps)] == ["runtime"]
+    assert callable(rewrite_shared_promise_progress_ui_from_blocks)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_promise_progress_rewrite").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class PromiseProgressRewriteDeps" in module_source
+    assert "def rewrite_shared_promise_progress_ui_from_blocks(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_promise_progress_rewrite import (" in context_source
+    assert "PromiseProgressRewriteDeps(" in context_source
+    assert "def _rewrite_shared_promise_progress_ui_from_blocks(" in context_source
+    assert "rewrite_shared_promise_progress_ui_from_blocks(" in context_source
+    assert "def _polish_promise_scorecard_layout(" in context_source
+    assert "def _final_repair_promise_progress_ui(" in context_source
+    assert "def _apply_source_backed_promise_mapping_overrides(" in context_source
+    assert "def _apply_shared_ui_conventions_to_workbook(" in context_source
+    assert "def _write_quarter_notes_ui_v2(" in context_source
+    assert "def _write_promise_progress_ui_v2(" in context_source
+
+    source_override_support = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_promise_source_overrides").__file__
+    ).read_text(encoding="utf-8")
+    source_override_mutator = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_promise_source_override_mutator").__file__
+    ).read_text(encoding="utf-8")
+    assert "class PromiseSourceOverrideSupport" in source_override_support
+    assert "class PromiseSourceOverrideMutatorDeps" in source_override_mutator
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
