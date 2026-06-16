@@ -11673,6 +11673,38 @@ def test_promise_progress_worksheet_repairs_module_exposes_compatibility_contrac
     assert "_repair_promise_table_header_merges" in excel_writer_source
 
 
+def test_shared_ui_conventions_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_shared_ui_conventions import (
+        SharedUiConventionsDeps,
+        apply_shared_ui_conventions_to_workbook,
+    )
+
+    assert [field.name for field in fields(SharedUiConventionsDeps)] == ["runtime"]
+    assert callable(apply_shared_ui_conventions_to_workbook)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_shared_ui_conventions").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class SharedUiConventionsDeps" in module_source
+    assert "def apply_shared_ui_conventions_to_workbook(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_shared_ui_conventions import (" in context_source
+    assert "SharedUiConventionsDeps(" in context_source
+    assert "def _apply_shared_ui_conventions_to_workbook(" in context_source
+    assert "apply_shared_ui_conventions_to_workbook(" in context_source
+    assert "def _polish_investment_case_readability(" in context_source
+    assert "def _write_quarter_notes_ui_v2(" in context_source
+    assert "def _write_promise_progress_ui_v2(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
