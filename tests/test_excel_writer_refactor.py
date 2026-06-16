@@ -11621,6 +11621,58 @@ def test_promise_progress_rewrite_module_exposes_thin_wrapper_contract() -> None
     assert "class PromiseSourceOverrideMutatorDeps" in source_override_mutator
 
 
+def test_promise_progress_worksheet_repairs_module_exposes_compatibility_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_promise_progress_worksheet_repairs import (
+        PROMISE_TIMELINE_HEADERS,
+        PROMISE_VISIBLE_MAX_COL,
+        PromiseProgressWorksheetRepairDeps,
+        final_repair_promise_progress_ui,
+        insert_management_credibility_scorecard,
+        polish_promise_scorecard_layout,
+        repair_promise_table_header_merges,
+    )
+
+    assert [field.name for field in fields(PromiseProgressWorksheetRepairDeps)] == ["runtime"]
+    assert isinstance(PROMISE_TIMELINE_HEADERS, list)
+    assert PROMISE_VISIBLE_MAX_COL == 12
+    assert callable(polish_promise_scorecard_layout)
+    assert callable(repair_promise_table_header_merges)
+    assert callable(final_repair_promise_progress_ui)
+    assert callable(insert_management_credibility_scorecard)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_promise_progress_worksheet_repairs").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class PromiseProgressWorksheetRepairDeps" in module_source
+    assert "def polish_promise_scorecard_layout(" in module_source
+    assert "def repair_promise_table_header_merges(" in module_source
+    assert "def final_repair_promise_progress_ui(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_promise_progress_worksheet_repairs import (" in context_source
+    assert "PromiseProgressWorksheetRepairDeps(" in context_source
+    assert "def _polish_promise_scorecard_layout(" in context_source
+    assert "def _repair_promise_table_header_merges(" in context_source
+    assert "def _final_repair_promise_progress_ui(" in context_source
+    assert "def _insert_management_credibility_scorecard(" in context_source
+    assert "def _apply_shared_ui_conventions_to_workbook(" in context_source
+    assert "def _write_quarter_notes_ui_v2(" in context_source
+    assert "def _write_promise_progress_ui_v2(" in context_source
+
+    excel_writer_source = Path(importlib.import_module("pbi_xbrl.excel_writer").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_context import build_writer_context" in excel_writer_source
+    assert "_polish_promise_scorecard_layout" in excel_writer_source
+    assert "_repair_promise_table_header_merges" in excel_writer_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
