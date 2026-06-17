@@ -252,6 +252,13 @@ from .excel_writer_quarter_notes_ui_orchestrator import (
     QuarterNotesUiOrchestratorDeps,
     write_quarter_notes_ui_sheet,
 )
+from .excel_writer_quarter_notes_context_adapter import (
+    QuarterNotesContextAdapterDeps,
+    standardize_quarter_notes_ui_categories as _standardize_quarter_notes_ui_categories_impl,
+    write_quarter_narrative_data_surface as _write_quarter_narrative_data_surface_impl,
+    write_quarter_notes_narrative_ui_surface as _write_quarter_notes_narrative_ui_surface_impl,
+    write_quarter_notes_ui_v2 as _write_quarter_notes_ui_v2_impl,
+)
 from .excel_writer_quarter_narrative import (
     QuarterNarrativeRecord,
     QUARTER_NARRATIVE_DATA_HEADERS,
@@ -1523,118 +1530,16 @@ def _sector_operating_driver_intro_tables(ticker: Any) -> List[Dict[str, Any]]:
 
 
 def _standardize_quarter_notes_ui_categories(ws: Any, ticker: Any) -> None:
-    """Polish visible Quarter_Notes_UI categories and debug text by ticker."""
-    ticker_txt = str(ticker or "").strip().upper()
-    if ws is None or str(getattr(ws, "title", "")) != "Quarter_Notes_UI":
-        return
-
-    def _clean_note_text(text_in: Any) -> str:
-        txt = str(text_in or "")
-        if not txt:
-            return ""
-        txt = re.sub(r"\[(?:NEW|UPDATED|CONTINUED|REAFFIRMED|DROPPED)\]", "", txt, flags=re.I)
-        txt = re.sub(r"\bDropped theme:\s*", "", txt, flags=re.I)
-        txt = txt.replace("…", "").replace("...", "")
-        txt = _shared_visible_period_text(txt)
-        txt = re.sub(r"\s+", " ", txt).strip()
-        txt = re.sub(
-            r",\s*with record second quarter operating\.?$",
-            ", with record second-quarter operating-margin expansion.",
-            txt,
-            flags=re.I,
-        )
-        txt = re.sub(r"\s+while keeping the\.?$", ".", txt, flags=re.I)
-        return txt
-
-    def _is_visible_fragment_text(text_in: Any) -> bool:
-        txt = glx_normalize_text(str(text_in or "")).strip()
-        if not txt:
-            return False
-        return bool(
-            re.search(r"\bwe will leverage the strong foundation we have built\b", txt, re.I)
-            or re.search(r"\bspecifically:\s*two healthy\b", txt, re.I)
-            or re.search(r"\bgood morning and thank you\b", txt, re.I)
-            or re.search(r"\binterim period results are not necessarily indicative\b", txt, re.I)
-            or re.search(r"\bASC\s*(?:Topic\s*)?(?:606|842)\b", txt, re.I)
-        )
-
-    def _cat(category_in: Any, note_in: Any, metric_in: Any) -> str:
-        raw = " ".join(str(x or "") for x in (category_in, note_in, metric_in)).lower()
-        if ticker_txt == "PBI":
-            if re.search(r"\bcost savings|run-rate savings|productivity|savings target\b", raw):
-                return "Cost savings"
-            if re.search(r"\bdebt|refi|refinanc|leverage|liquidity|revolver|maturit|covenant\b", raw):
-                return "Balance sheet / liquidity"
-            if re.search(r"\bbuyback|dividend|capital allocation|share repurchase\b", raw):
-                return "Capital allocation"
-            if re.search(r"\bguidance|outlook|target|expects|forecast\b", raw):
-                return "Guidance / outlook"
-            if re.search(r"\bpresort|sendtech|segment|turnaround\b", raw):
-                return "Segment / turnaround"
-            if re.search(r"\brevenue|ebit|ebitda|eps|fcf|free cash|income|margin\b", raw):
-                return "Results / financials"
-        elif ticker_txt == "GPRE":
-            if re.search(r"\brestructuring costs?|cost reduction initiative\b", raw):
-                return "Results / financials"
-            if re.search(r"\b45z|45q|carbon|ccs|tax credit\b", raw):
-                return "45Z / carbon"
-            if re.search(r"\bpolicy|rvo|sre|rin|e15|export|regulation|epa\b", raw):
-                return "Policy / regulation"
-            if re.search(r"\bcrush|margin per gallon|ethanol margin|corn spread\b", raw):
-                return "Crush margin"
-            if re.search(r"\bproduction|produced gallons|sold gallons|utilization|downtime|plant\b", raw):
-                return "Production / gallons"
-            if re.search(r"\bdebt|cash|liquidity|balance sheet|capex\b", raw):
-                return "Balance sheet / liquidity"
-            if re.search(r"\bguidance|outlook|target|expects|forecast\b", raw):
-                return "Guidance / outlook"
-            if re.search(r"\brevenue|ebit|ebitda|eps|fcf|income\b", raw):
-                return "Results / financials"
-        elif ticker_txt == "ANF":
-            if re.search(r"\bbuyback|repurchase|net cash|authorization\b", raw):
-                return "Capital allocation"
-            if re.search(r"\binventory|working capital|markdown\b", raw):
-                return "Inventory / working capital"
-            if re.search(r"\bdigital|omnichannel|visits\b", raw):
-                return "Digital / omnichannel"
-            if re.search(r"\bstores?|openings?|closures?|remodel\b", raw):
-                return "Stores / real estate"
-            if re.search(r"\bcomp|comparable sales\b", raw):
-                return "Comps"
-            if re.search(r"\babercrombie|hollister|brand\b", raw):
-                return "Brand / demand"
-            if re.search(r"\btariff|freight|aur|gross margin|margin bridge\b", raw):
-                return "Margin bridge"
-            if re.search(r"\bguidance|outlook|guide\b", raw):
-                return "Guidance / outlook"
-            if re.search(r"\bsales|revenue|eps|income|actuals\b", raw):
-                return "Results / financials"
-        existing = str(category_in or "").strip()
-        if existing:
-            existing = _shared_visible_period_text(existing)
-            existing = re.sub(r"\s*/\s*shareholder returns\b", "", existing, flags=re.I)
-            return existing
-        return "Results / financials"
-
-    rows_to_delete: List[int] = []
-    for rr in range(1, int(ws.max_row or 0) + 1):
-        first = str(ws.cell(rr, 1).value or "").strip().lower()
-        if first in {"quarter", "category"} or str(ws.cell(rr, 2).value or "").strip().lower() == "category":
-            continue
-        note_val = ws.cell(rr, 3).value
-        metric_val = ws.cell(rr, 4).value
-        if _is_visible_fragment_text(note_val) or _is_visible_fragment_text(metric_val):
-            rows_to_delete.append(rr)
-            continue
-        if isinstance(note_val, str):
-            ws.cell(rr, 3).value = _clean_note_text(note_val)
-        if isinstance(metric_val, str):
-            ws.cell(rr, 4).value = _clean_note_text(metric_val)
-        cat_val = ws.cell(rr, 2).value
-        if cat_val or note_val or metric_val:
-            ws.cell(rr, 2).value = _cat(cat_val, ws.cell(rr, 3).value, metric_val)
-    for rr in sorted(set(rows_to_delete), reverse=True):
-        ws.delete_rows(rr, 1)
+    return _standardize_quarter_notes_ui_categories_impl(
+        QuarterNotesContextAdapterDeps(
+            runtime={
+                "_shared_visible_period_text": _shared_visible_period_text,
+                "glx_normalize_text": glx_normalize_text,
+            }
+        ),
+        ws,
+        ticker=ticker,
+    )
 
 
 def _rewrite_shared_promise_progress_ui_from_blocks(ws: Any, ticker: Any = "") -> None:
@@ -7571,62 +7476,72 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
 
     _quarter_notes_ui_selection_outer_scope = dict(locals())
 
+    def _quarter_notes_context_adapter_deps() -> QuarterNotesContextAdapterDeps:
+        return QuarterNotesContextAdapterDeps(
+            runtime={
+                "QuarterNotesUiOrchestratorDeps": QuarterNotesUiOrchestratorDeps,
+                "write_quarter_notes_ui_sheet": write_quarter_notes_ui_sheet,
+                "wb": wb,
+                "ticker": ticker,
+                "company_profile": company_profile,
+                "is_pbi_profile": is_pbi_profile,
+                "is_gpre_profile": is_gpre_profile,
+                "is_anf_profile": is_anf_profile,
+                "quarter_notes": quarter_notes,
+                "hist": hist,
+                "promises": promises,
+                "cache_root": cache_root,
+                "inputs": inputs,
+                "ui_state": ui_state,
+                "ui_info_rows": ui_info_rows,
+                "ctx_ref": ctx_ref,
+                "quarter_notes_runtime": quarter_notes_runtime,
+                "context_globals": globals(),
+                "quarter_notes_ui_selection_outer_scope": _quarter_notes_ui_selection_outer_scope,
+                "write_analysis_sheet_title_and_metadata": _write_analysis_sheet_title_and_metadata,
+                "get_analysis_sheet_style_bundle": _get_analysis_sheet_style_bundle,
+                "quarter_notes_view": _quarter_notes_view,
+                "resolve_col": _resolve_col,
+                "normalize_text": glx_normalize_text,
+                "split_sentences": glx_split_sentences,
+                "dedup_text_key": glx_dedup_text_key,
+                "extract_numeric_patterns": glx_extract_numeric_patterns,
+                "normalize_period": glx_normalize_period,
+                "compact_snippet": qn_compact_snippet,
+                "quarter_label_short": _quarter_label_short,
+                "ensure_terminal_period": _ensure_terminal_period,
+                "collapse_repeated_leading_ngram": _collapse_repeated_leading_ngram_local,
+                "dedupe_canonical_text_parts": _dedupe_canonical_text_parts_local,
+                "quarter_note_runtime_qd_token": _quarter_note_runtime_qd_token,
+                "quarter_note_runtime_signature": _quarter_note_runtime_signature,
+                "quarter_note_runtime_cache_key": _quarter_note_runtime_cache_key,
+                "shared_build_evidence_event": shared_build_evidence_event,
+                "audit_view": _audit_view,
+                "submission_recent_rows": _submission_recent_rows,
+                "submission_recent_row_quarter": _submission_recent_row_quarter,
+                "sec_docs_for_accession": _sec_docs_for_accession,
+                "resolve_cached_doc_path": _resolve_cached_doc_path,
+                "path_cache_key": _path_cache_key,
+                "read_cached_doc_text": _read_cached_doc_text,
+                "parse_date": parse_date,
+                "anf_visible_quarter_note_summaries": _anf_visible_quarter_note_summaries,
+                "anf_clean_visible_ui_text": _anf_clean_visible_ui_text,
+                "anf_polish_quarter_note_visible_fields": _anf_polish_quarter_note_visible_fields,
+                "record_writer_substage": _record_writer_substage,
+                "timed_writer_substage": _timed_writer_substage,
+                "record_writer_elapsed": _record_writer_elapsed,
+                "quarter_narrative_recent_periods_from_frame": _quarter_narrative_recent_periods_from_frame,
+                "quarter_narrative_records_for_context": _quarter_narrative_records_for_context,
+                "write_quarter_narrative_data_sheet": _write_quarter_narrative_data_sheet,
+                "write_quarter_notes_ui_narrative_sheet": _write_quarter_notes_ui_narrative_sheet,
+            }
+        )
+
     def _write_quarter_notes_ui_v2(
         rank_cutoff: int = 8, severity_cutoff: float = 50.0, max_rows_per_category: int = 10, quarters_shown: int = 12
     ) -> List[Dict[str, Any]]:
-        return write_quarter_notes_ui_sheet(
-            QuarterNotesUiOrchestratorDeps(
-                wb=wb,
-                ticker=ticker,
-                company_profile=company_profile,
-                is_pbi_profile=is_pbi_profile,
-                is_gpre_profile=is_gpre_profile,
-                is_anf_profile=is_anf_profile,
-                quarter_notes=quarter_notes,
-                hist=hist,
-                promises=promises,
-                cache_root=cache_root,
-                inputs=inputs,
-                ui_state=ui_state,
-                ui_info_rows=ui_info_rows,
-                ctx_ref=ctx_ref,
-                quarter_notes_runtime=quarter_notes_runtime,
-                context_globals=globals(),
-                quarter_notes_ui_selection_outer_scope=_quarter_notes_ui_selection_outer_scope,
-                write_analysis_sheet_title_and_metadata=_write_analysis_sheet_title_and_metadata,
-                get_analysis_sheet_style_bundle=_get_analysis_sheet_style_bundle,
-                quarter_notes_view=_quarter_notes_view,
-                resolve_col=_resolve_col,
-                normalize_text=glx_normalize_text,
-                split_sentences=glx_split_sentences,
-                dedup_text_key=glx_dedup_text_key,
-                extract_numeric_patterns=glx_extract_numeric_patterns,
-                normalize_period=glx_normalize_period,
-                compact_snippet=qn_compact_snippet,
-                quarter_label_short=_quarter_label_short,
-                ensure_terminal_period=_ensure_terminal_period,
-                collapse_repeated_leading_ngram=_collapse_repeated_leading_ngram_local,
-                dedupe_canonical_text_parts=_dedupe_canonical_text_parts_local,
-                quarter_note_runtime_qd_token=_quarter_note_runtime_qd_token,
-                quarter_note_runtime_signature=_quarter_note_runtime_signature,
-                quarter_note_runtime_cache_key=_quarter_note_runtime_cache_key,
-                shared_build_evidence_event=shared_build_evidence_event,
-                audit_view=_audit_view,
-                submission_recent_rows=_submission_recent_rows,
-                submission_recent_row_quarter=_submission_recent_row_quarter,
-                sec_docs_for_accession=_sec_docs_for_accession,
-                resolve_cached_doc_path=_resolve_cached_doc_path,
-                path_cache_key=_path_cache_key,
-                read_cached_doc_text=_read_cached_doc_text,
-                parse_date=parse_date,
-                anf_visible_quarter_note_summaries=_anf_visible_quarter_note_summaries,
-                anf_clean_visible_ui_text=_anf_clean_visible_ui_text,
-                anf_polish_quarter_note_visible_fields=_anf_polish_quarter_note_visible_fields,
-                record_writer_substage=_record_writer_substage,
-                timed_writer_substage=_timed_writer_substage,
-                record_writer_elapsed=_record_writer_elapsed,
-            ),
-            (),
+        return _write_quarter_notes_ui_v2_impl(
+            _quarter_notes_context_adapter_deps(),
             rank_cutoff=rank_cutoff,
             severity_cutoff=severity_cutoff,
             max_rows_per_category=max_rows_per_category,
@@ -9670,31 +9585,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         return case_data
 
     def _write_quarter_narrative_data_surface() -> None:
-        ticker_txt = str(ticker or "").strip().upper()
-        history_periods = _quarter_narrative_recent_periods_from_frame(hist, ticker=ticker_txt, limit=12)
-        records = _quarter_narrative_records_for_context(
-            ticker_txt,
-            workbook=wb,
-            quarter_notes=quarter_notes,
-            history_periods=history_periods,
-            max_per_period=5,
-        )
-        ui_state["quarter_narrative_records"] = records
-        _write_quarter_narrative_data_sheet(wb, ticker_txt, records)
+        return _write_quarter_narrative_data_surface_impl(_quarter_notes_context_adapter_deps())
 
     def _write_quarter_notes_narrative_ui_surface() -> None:
-        ticker_txt = str(ticker or "").strip().upper()
-        history_periods = _quarter_narrative_recent_periods_from_frame(hist, ticker=ticker_txt, limit=12)
-        records = _quarter_narrative_records_for_context(
-            ticker_txt,
-            workbook=wb,
-            quarter_notes=quarter_notes,
-            history_periods=history_periods,
-            max_per_period=5,
-        )
-        if records or history_periods:
-            ui_state["quarter_narrative_records"] = records
-            _write_quarter_notes_ui_narrative_sheet(wb, ticker_txt, records, history_periods=history_periods)
+        return _write_quarter_notes_narrative_ui_surface_impl(_quarter_notes_context_adapter_deps())
 
     enable_derivative_oci_bridge_sheet = bool(
         (is_gpre_profile or bool(getattr(company_profile, "enable_derivative_oci_bridge", False)))

@@ -11705,6 +11705,54 @@ def test_shared_ui_conventions_module_exposes_thin_wrapper_contract() -> None:
     assert "def build_writer_context(" in context_source
 
 
+def test_quarter_notes_context_adapter_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_quarter_notes_context_adapter import (
+        QuarterNotesContextAdapterDeps,
+        standardize_quarter_notes_ui_categories,
+        write_quarter_narrative_data_surface,
+        write_quarter_notes_narrative_ui_surface,
+        write_quarter_notes_ui_v2,
+    )
+
+    assert [field.name for field in fields(QuarterNotesContextAdapterDeps)] == ["runtime"]
+    assert callable(standardize_quarter_notes_ui_categories)
+    assert callable(write_quarter_notes_ui_v2)
+    assert callable(write_quarter_narrative_data_surface)
+    assert callable(write_quarter_notes_narrative_ui_surface)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_quarter_notes_context_adapter").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class QuarterNotesContextAdapterDeps" in module_source
+    assert "def standardize_quarter_notes_ui_categories(" in module_source
+    assert "def write_quarter_notes_ui_v2(" in module_source
+    assert "def write_quarter_narrative_data_surface(" in module_source
+    assert "def write_quarter_notes_narrative_ui_surface(" in module_source
+    assert "write_quarter_notes_ui_sheet" in module_source
+    assert "QuarterNotesUiOrchestratorDeps" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_quarter_notes_context_adapter import (" in context_source
+    assert "def _standardize_quarter_notes_ui_categories(" in context_source
+    assert "standardize_quarter_notes_ui_categories(" in context_source
+    assert "def _write_quarter_notes_ui(" in context_source
+    assert "def _write_analysis_sheet_title_and_metadata(" in context_source
+    assert "def _render_stacked_quarter_blocks(" in context_source
+    assert "def _write_quarter_notes_ui_v2(" in context_source
+    assert "write_quarter_notes_ui_v2(" in context_source
+    assert "def _write_quarter_narrative_data_surface(" in context_source
+    assert "write_quarter_narrative_data_surface(" in context_source
+    assert "def _write_quarter_notes_narrative_ui_surface(" in context_source
+    assert "write_quarter_notes_narrative_ui_surface(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
@@ -11779,8 +11827,12 @@ def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     wrapper_start = context_source.index("    def _write_quarter_notes_ui_v2(")
     wrapper_end = context_source.index("    def _write_promise_tracker_ui_v2", wrapper_start)
     wrapper_source = context_source[wrapper_start:wrapper_end]
-    assert "write_quarter_notes_ui_sheet(" in wrapper_source
-    assert "QuarterNotesUiOrchestratorDeps(" in wrapper_source
+    adapter_source = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_quarter_notes_context_adapter").__file__
+    ).read_text(encoding="utf-8")
+    assert "write_quarter_notes_ui_v2(" in wrapper_source
+    assert "write_quarter_notes_ui_sheet" in adapter_source
+    assert "QuarterNotesUiOrchestratorDeps" in adapter_source
     assert "QuarterNotesUiCandidatePipeline(" not in wrapper_source
 
 
