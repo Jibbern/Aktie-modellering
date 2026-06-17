@@ -20024,3 +20024,59 @@ def test_anf_valuation_side_panel_module_exposes_thin_wrapper_contract() -> None
     assert "def _anf_visible_guidance_normalized_frame(" in context_source
     assert "def _ensure_valuation_render_bundle(" in context_source
     assert "def build_writer_context(" in context_source
+
+
+def test_anf_visible_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_anf_visible_support import (
+        AnfVisibleSupport,
+        AnfVisibleSupportDeps,
+    )
+
+    expected_methods = [
+        "clean_visible_ui_text",
+        "visible_quarter_label",
+        "visible_quarter_note_summaries",
+        "polish_quarter_note_visible_fields",
+        "clean_visible_operating_driver_records",
+        "visible_guidance_normalized_frame",
+        "build_guidance_timeline_rows",
+        "build_promise_progress_sections",
+        "recent_operating_commentary_rows",
+        "slides_guidance_has_explicit_metric",
+        "financial_schedule_support_doc_for_quarter",
+    ]
+
+    assert [field.name for field in fields(AnfVisibleSupportDeps)] == ["runtime"]
+    for method_name in expected_methods:
+        assert callable(getattr(AnfVisibleSupport, method_name))
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_anf_visible_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class AnfVisibleSupportDeps" in module_source
+    assert "class AnfVisibleSupport" in module_source
+    for method_name in expected_methods:
+        assert f"def {method_name}(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_anf_visible_support import (" in context_source
+    assert "def _anf_clean_visible_ui_text(" in context_source
+    assert "clean_visible_ui_text(" in context_source
+    assert "def _anf_visible_guidance_normalized_frame(" in context_source
+    assert "visible_guidance_normalized_frame(" in context_source
+    assert "def _anf_clean_visible_operating_driver_records(" in context_source
+    assert "clean_visible_operating_driver_records(" in context_source
+    assert "def _anf_build_guidance_timeline_rows(" in context_source
+    assert "build_guidance_timeline_rows(" in context_source
+    assert "def _anf_build_promise_progress_sections(" in context_source
+    assert "build_promise_progress_sections(" in context_source
+    assert "def _slides_guidance_has_explicit_metric(" in context_source
+    assert "slides_guidance_has_explicit_metric(" in context_source
+    assert "def _anf_financial_schedule_support_doc_for_quarter(" in context_source
+    assert "financial_schedule_support_doc_for_quarter(" in context_source
+    assert "def _ensure_valuation_render_bundle(" in context_source
+    assert "def build_writer_context(" in context_source
