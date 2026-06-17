@@ -20080,3 +20080,54 @@ def test_anf_visible_support_module_exposes_thin_wrapper_contract() -> None:
     assert "financial_schedule_support_doc_for_quarter(" in context_source
     assert "def _ensure_valuation_render_bundle(" in context_source
     assert "def build_writer_context(" in context_source
+
+
+def test_financial_report_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_financial_report_support import (
+        FinancialReportSupport,
+        FinancialReportSupportDeps,
+    )
+
+    expected_methods = [
+        "period_type",
+        "build_facts_long",
+        "build_lineitem_map",
+        "build_period_index",
+        "build_report",
+        "write_report_sheet",
+    ]
+
+    assert [field.name for field in fields(FinancialReportSupportDeps)] == ["runtime"]
+    for method_name in expected_methods:
+        assert callable(getattr(FinancialReportSupport, method_name))
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_financial_report_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class FinancialReportSupportDeps" in module_source
+    assert "class FinancialReportSupport" in module_source
+    for method_name in expected_methods:
+        assert f"def {method_name}(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_financial_report_support import (" in context_source
+    assert "def _period_type(" in context_source
+    assert "period_type(" in context_source
+    assert "def _build_facts_long(" in context_source
+    assert "build_facts_long(" in context_source
+    assert "def _build_lineitem_map(" in context_source
+    assert "build_lineitem_map(" in context_source
+    assert "def _build_period_index(" in context_source
+    assert "build_period_index(" in context_source
+    assert "def _build_report(" in context_source
+    assert "build_report(" in context_source
+    assert "def _write_report_sheet(" in context_source
+    assert "write_report_sheet(" in context_source
+    assert "def _ensure_valuation_render_bundle(" in context_source
+    assert "def _write_valuation_sheet(" in context_source
+    assert "def _sec_cache_roots_local(" in context_source
+    assert "def build_writer_context(" in context_source
