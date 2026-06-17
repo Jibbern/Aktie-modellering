@@ -201,6 +201,10 @@ from .excel_writer_anf_valuation_side_panel import (
     valuation_side_panel_style_bundle,
     write_anf_valuation_side_panel,
 )
+from .excel_writer_anf_valuation_support import (
+    AnfValuationSupport,
+    AnfValuationSupportDeps,
+)
 from .excel_writer_anf_visible_support import (
     AnfVisibleSupport,
     AnfVisibleSupportDeps,
@@ -1962,6 +1966,21 @@ def _apply_shared_ui_conventions_to_workbook(wb: Workbook, ticker: Any = "") -> 
     )
 
 
+def _anf_valuation_support_runtime() -> Dict[str, Any]:
+    return {
+        "pd": pd,
+        "np": np,
+        "dt": dt,
+        "_anf_fiscal_year_from_quarter_end": _anf_fiscal_year_from_quarter_end,
+        "_anf_fiscal_quarter_from_quarter_end": _anf_fiscal_quarter_from_quarter_end,
+        "_anf_visible_quarter_label": _anf_visible_quarter_label,
+    }
+
+
+def _anf_valuation_support() -> AnfValuationSupport:
+    return AnfValuationSupport(AnfValuationSupportDeps(runtime=_anf_valuation_support_runtime()))
+
+
 def _anf_buyback_execution_is_year_or_ttm(
     qd: Any,
     note_text: Any = "",
@@ -1969,45 +1988,11 @@ def _anf_buyback_execution_is_year_or_ttm(
     cash_amount: Optional[float] = None,
     shares_amount: Optional[float] = None,
 ) -> bool:
-    """Return True when an ANF buyback disclosure is annual/TTM, not quarter-only."""
-    q_ts = pd.to_datetime(qd, errors="coerce")
-    note = str(note_text or "")
-    note_low = note.lower()
-    if any(
-        token in note_low
-        for token in (
-            "fiscal year",
-            "year ended",
-            "for the year",
-            "full year",
-            "year-to-date",
-            "year to date",
-            " ytd",
-            "during fiscal",
-        )
-    ):
-        return True
-    try:
-        q_month = int(pd.Timestamp(q_ts).month) if not pd.isna(q_ts) else 0
-    except Exception:
-        q_month = 0
-    try:
-        cash_f = float(cash_amount) if cash_amount is not None and pd.notna(cash_amount) else None
-    except Exception:
-        cash_f = None
-    try:
-        shares_f = float(shares_amount) if shares_amount is not None and pd.notna(shares_amount) else None
-    except Exception:
-        shares_f = None
-    # ANF's latest 10-K disclosure is annual repurchases. If the parser sees a
-    # January/February Q4 period with a very large cash/share amount, treating it
-    # as a quarter-only buyback overstates the precision of the workbook.
-    return bool(
-        q_month in (1, 2)
-        and cash_f is not None
-        and shares_f is not None
-        and cash_f >= 300_000_000.0
-        and shares_f >= 3_000_000.0
+    return _anf_valuation_support().buyback_execution_is_year_or_ttm(
+        qd,
+        note_text,
+        cash_amount=cash_amount,
+        shares_amount=shares_amount,
     )
 
 
@@ -2018,110 +2003,36 @@ def _anf_format_year_ttm_buyback_summary(
     cash_amount: Optional[float] = None,
     avg_price: Optional[float] = None,
 ) -> str:
-    fy = _anf_fiscal_year_from_quarter_end(qd)
-    try:
-        q_year = int(pd.Timestamp(pd.to_datetime(qd, errors="coerce")).year)
-    except Exception:
-        q_year = dt.date.today().year
-    year_txt = str(fy or q_year)
-    parts: List[str] = [f"{year_txt} year / TTM buybacks:"]
-    try:
-        if shares_amount is not None and pd.notna(shares_amount):
-            parts.append(f"{float(shares_amount) / 1_000_000.0:,.1f}m shares")
-    except Exception:
-        pass
-    try:
-        if cash_amount is not None and pd.notna(cash_amount):
-            if len(parts) > 1:
-                parts.append("for")
-            parts.append(f"~${float(cash_amount) / 1_000_000.0:,.0f}m")
-    except Exception:
-        pass
-    try:
-        if avg_price is not None and pd.notna(avg_price):
-            parts.append(f"at ~${float(avg_price):.2f}/share")
-    except Exception:
-        pass
-    return " ".join(parts).strip()
+    return _anf_valuation_support().format_year_ttm_buyback_summary(
+        qd,
+        shares_amount=shares_amount,
+        cash_amount=cash_amount,
+        avg_price=avg_price,
+    )
 
 
 def _anf_normalized_quarter_ts(qd: Any) -> Optional[pd.Timestamp]:
-    q_ts = pd.to_datetime(qd, errors="coerce")
-    if pd.isna(q_ts):
-        return None
-    return pd.Timestamp(q_ts).normalize()
+    return _anf_valuation_support().normalized_quarter_ts(qd)
 
 
 def _anf_quarter_sequence(quarters: Iterable[Any]) -> List[pd.Timestamp]:
-    seen: Set[pd.Timestamp] = set()
-    out: List[pd.Timestamp] = []
-    if quarters is None:
-        quarter_iter: Iterable[Any] = ()
-    else:
-        quarter_iter = list(quarters)
-    for q in quarter_iter:
-        q_ts = _anf_normalized_quarter_ts(q)
-        if q_ts is None or q_ts in seen:
-            continue
-        seen.add(q_ts)
-        out.append(q_ts)
-    return sorted(out)
+    return _anf_valuation_support().quarter_sequence(quarters)
 
 
 def _anf_prior_year_quarter(qd: Any, quarters: Iterable[Any]) -> Optional[pd.Timestamp]:
-    q_ts = _anf_normalized_quarter_ts(qd)
-    if q_ts is None:
-        return None
-    fiscal_year = _anf_fiscal_year_from_quarter_end(q_ts)
-    fiscal_quarter = _anf_fiscal_quarter_from_quarter_end(q_ts)
-    if fiscal_year is None or fiscal_quarter is None:
-        return None
-    for cand in _anf_quarter_sequence(quarters):
-        if cand == q_ts:
-            continue
-        if (
-            _anf_fiscal_year_from_quarter_end(cand) == fiscal_year - 1
-            and _anf_fiscal_quarter_from_quarter_end(cand) == fiscal_quarter
-        ):
-            return cand
-    return None
+    return _anf_valuation_support().prior_year_quarter(qd, quarters)
 
 
 def _anf_previous_quarter(qd: Any, quarters: Iterable[Any]) -> Optional[pd.Timestamp]:
-    q_ts = _anf_normalized_quarter_ts(qd)
-    if q_ts is None:
-        return None
-    seq = _anf_quarter_sequence(quarters)
-    try:
-        idx = seq.index(q_ts)
-    except ValueError:
-        seq = sorted(set(seq + [q_ts]))
-        idx = seq.index(q_ts)
-    if idx <= 0:
-        return None
-    return seq[idx - 1]
+    return _anf_valuation_support().previous_quarter(qd, quarters)
 
 
 def _anf_normalize_value_map(src: Dict[Any, Any]) -> Dict[pd.Timestamp, Any]:
-    out: Dict[pd.Timestamp, Any] = {}
-    for raw_q, raw_v in dict(src or {}).items():
-        q_ts = _anf_normalized_quarter_ts(raw_q)
-        if q_ts is None:
-            continue
-        out[q_ts] = raw_v
-    return out
+    return _anf_valuation_support().normalize_value_map(src)
 
 
 def _anf_is_missing_value(v: Any) -> bool:
-    if v is None:
-        return True
-    try:
-        missing = pd.isna(v)
-        if isinstance(missing, (bool, np.bool_)):
-            return bool(missing)
-    except Exception:
-        pass
-    return False
+    return _anf_valuation_support().is_missing_value(v)
 
 
 def _anf_yoy_map_for_fiscal_periods(
@@ -2131,43 +2042,12 @@ def _anf_yoy_map_for_fiscal_periods(
     positive_prev_only: bool = False,
     positive_cur_only: bool = False,
 ) -> Dict[pd.Timestamp, Any]:
-    values = _anf_normalize_value_map(src)
-    quarter_items = [] if quarters is None else list(quarters)
-    seq = _anf_quarter_sequence(quarter_items + list(values.keys()))
-    value_by_label = {
-        _anf_visible_quarter_label(q): v
-        for q, v in values.items()
-        if _anf_visible_quarter_label(q) and not _anf_is_missing_value(v)
-    }
-    out: Dict[pd.Timestamp, Any] = {}
-    for q in seq:
-        prev = _anf_prior_year_quarter(q, seq)
-        v = values.get(q)
-        p = values.get(prev) if prev is not None else None
-        if _anf_is_missing_value(p):
-            fy = _anf_fiscal_year_from_quarter_end(q)
-            fq = _anf_fiscal_quarter_from_quarter_end(q)
-            if fy is not None and fq is not None:
-                p = value_by_label.get(f"{fy - 1}-Q{fq}")
-        if _anf_is_missing_value(v) or _anf_is_missing_value(p):
-            out[q] = None
-            continue
-        try:
-            fv = float(v)
-            fp = float(p)
-        except Exception:
-            out[q] = None
-            continue
-        if fp == 0:
-            out[q] = None
-            continue
-        if positive_prev_only and fp <= 0:
-            out[q] = None
-        elif positive_cur_only and fv <= 0:
-            out[q] = None
-        else:
-            out[q] = (fv - fp) / abs(fp)
-    return out
+    return _anf_valuation_support().yoy_map_for_fiscal_periods(
+        src,
+        quarters,
+        positive_prev_only=positive_prev_only,
+        positive_cur_only=positive_cur_only,
+    )
 
 
 def _anf_value_delta_map_for_fiscal_periods(
@@ -2176,86 +2056,18 @@ def _anf_value_delta_map_for_fiscal_periods(
     *,
     comparison: str = "yoy",
 ) -> Dict[pd.Timestamp, Any]:
-    values = _anf_normalize_value_map(src)
-    quarter_items = [] if quarters is None else list(quarters)
-    seq = _anf_quarter_sequence(quarter_items + list(values.keys()))
-    value_by_label = {
-        _anf_visible_quarter_label(q): v
-        for q, v in values.items()
-        if _anf_visible_quarter_label(q) and not _anf_is_missing_value(v)
-    }
-    out: Dict[pd.Timestamp, Any] = {}
-    cmp_key = str(comparison or "yoy").strip().lower()
-    for q in seq:
-        prev = _anf_previous_quarter(q, seq) if cmp_key == "qoq" else _anf_prior_year_quarter(q, seq)
-        v = values.get(q)
-        p = values.get(prev) if prev is not None else None
-        if _anf_is_missing_value(p):
-            fy = _anf_fiscal_year_from_quarter_end(q)
-            fq = _anf_fiscal_quarter_from_quarter_end(q)
-            if fy is not None and fq is not None:
-                if cmp_key == "qoq":
-                    prev_fy = fy if fq > 1 else fy - 1
-                    prev_fq = fq - 1 if fq > 1 else 4
-                    p = value_by_label.get(f"{prev_fy}-Q{prev_fq}")
-                else:
-                    p = value_by_label.get(f"{fy - 1}-Q{fq}")
-        if _anf_is_missing_value(v) or _anf_is_missing_value(p):
-            out[q] = None
-            continue
-        try:
-            out[q] = float(v) - float(p)
-        except Exception:
-            out[q] = None
-    return out
+    return _anf_valuation_support().value_delta_map_for_fiscal_periods(
+        src,
+        quarters,
+        comparison=comparison,
+    )
 
 
 def _anf_normalize_ytd_buyback_cash_map_for_valuation(
     src: Dict[Any, Any],
     quarters: Iterable[Any],
 ) -> Dict[pd.Timestamp, Any]:
-    """Convert ANF cumulative YTD repurchase cash disclosures into quarter deltas.
-
-    ANF earnings schedules often restate year-to-date repurchases in each quarterly
-    update. Valuation TTM rows need period cash flows, otherwise a 200/250/350/450
-    YTD series turns into a bogus 1,250 TTM.
-    """
-    values = _anf_normalize_value_map(src)
-    if not values:
-        return values
-    quarter_items = [] if quarters is None else list(quarters)
-    seq = _anf_quarter_sequence(quarter_items + list(values.keys()))
-    by_fy: Dict[int, List[pd.Timestamp]] = {}
-    for q in seq:
-        if q not in values:
-            continue
-        fy = _anf_fiscal_year_from_quarter_end(q)
-        if fy is None:
-            continue
-        by_fy.setdefault(int(fy), []).append(q)
-    out = dict(values)
-    for _, fy_quarters in by_fy.items():
-        numeric: List[Tuple[pd.Timestamp, float]] = []
-        for q in sorted(fy_quarters):
-            v = values.get(q)
-            try:
-                if v is None or pd.isna(v):
-                    continue
-                numeric.append((q, float(v)))
-            except Exception:
-                continue
-        if len(numeric) < 2:
-            continue
-        is_monotonic = all(numeric[idx][1] >= numeric[idx - 1][1] - 1e-6 for idx in range(1, len(numeric)))
-        has_material_rollup = numeric[-1][1] > max(numeric[0][1], 1.0) and numeric[-1][1] >= sum(v for _, v in numeric[:-1]) * 0.45
-        if not (is_monotonic and has_material_rollup):
-            continue
-        prior_cum = 0.0
-        for q, cumulative_v in numeric:
-            delta_v = cumulative_v - prior_cum
-            out[q] = max(delta_v, 0.0) if delta_v >= -1e-6 else cumulative_v
-            prior_cum = cumulative_v
-    return out
+    return _anf_valuation_support().normalize_ytd_buyback_cash_map_for_valuation(src, quarters)
 
 
 def _anf_format_guidance_display_value(metric: Any, low: Any, high: Any, value: Any, unit: Any, line: Any = "") -> str:

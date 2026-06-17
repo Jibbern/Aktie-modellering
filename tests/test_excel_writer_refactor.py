@@ -20026,6 +20026,74 @@ def test_anf_valuation_side_panel_module_exposes_thin_wrapper_contract() -> None
     assert "def build_writer_context(" in context_source
 
 
+def test_anf_valuation_support_module_exposes_support_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_anf_valuation_support import (
+        AnfValuationSupport,
+        AnfValuationSupportDeps,
+    )
+
+    expected_methods = [
+        "buyback_execution_is_year_or_ttm",
+        "format_year_ttm_buyback_summary",
+        "normalized_quarter_ts",
+        "quarter_sequence",
+        "prior_year_quarter",
+        "previous_quarter",
+        "normalize_value_map",
+        "is_missing_value",
+        "yoy_map_for_fiscal_periods",
+        "value_delta_map_for_fiscal_periods",
+        "normalize_ytd_buyback_cash_map_for_valuation",
+    ]
+
+    assert [field.name for field in fields(AnfValuationSupportDeps)] == ["runtime"]
+    for method_name in expected_methods:
+        assert callable(getattr(AnfValuationSupport, method_name))
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_anf_valuation_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class AnfValuationSupportDeps" in module_source
+    assert "class AnfValuationSupport" in module_source
+    for method_name in expected_methods:
+        assert f"def {method_name}(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_anf_valuation_support import (" in context_source
+    assert "def _anf_buyback_execution_is_year_or_ttm(" in context_source
+    assert "buyback_execution_is_year_or_ttm(" in context_source
+    assert "def _anf_format_year_ttm_buyback_summary(" in context_source
+    assert "format_year_ttm_buyback_summary(" in context_source
+    assert "def _anf_normalized_quarter_ts(" in context_source
+    assert "normalized_quarter_ts(" in context_source
+    assert "def _anf_quarter_sequence(" in context_source
+    assert "quarter_sequence(" in context_source
+    assert "def _anf_prior_year_quarter(" in context_source
+    assert "prior_year_quarter(" in context_source
+    assert "def _anf_previous_quarter(" in context_source
+    assert "previous_quarter(" in context_source
+    assert "def _anf_normalize_value_map(" in context_source
+    assert "normalize_value_map(" in context_source
+    assert "def _anf_is_missing_value(" in context_source
+    assert "is_missing_value(" in context_source
+    assert "def _anf_yoy_map_for_fiscal_periods(" in context_source
+    assert "yoy_map_for_fiscal_periods(" in context_source
+    assert "def _anf_value_delta_map_for_fiscal_periods(" in context_source
+    assert "value_delta_map_for_fiscal_periods(" in context_source
+    assert "def _anf_normalize_ytd_buyback_cash_map_for_valuation(" in context_source
+    assert "normalize_ytd_buyback_cash_map_for_valuation(" in context_source
+    assert "def _write_valuation_sheet(" in context_source
+    assert "def _ensure_valuation_render_bundle(" in context_source
+    assert "def _get_valuation_style_bundle(" in context_source
+    assert "def _source_backed_debt_tranches_from_slides(" in context_source
+    assert "def _sec_cache_roots_local(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_anf_visible_support_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
