@@ -19982,3 +19982,45 @@ def test_current_delivered_workbooks_match_visible_promise_progress_ui_snapshots
             assert _latest_block_rows(ws) == expected_rows
         finally:
             wb.close()
+
+
+def test_anf_valuation_side_panel_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_anf_valuation_side_panel import (
+        AnfValuationSidePanelDeps,
+        clear_anf_valuation_side_panels,
+        valuation_side_panel_style_bundle,
+        write_anf_valuation_side_panel,
+    )
+
+    assert [field.name for field in fields(AnfValuationSidePanelDeps)] == ["runtime"]
+    assert callable(clear_anf_valuation_side_panels)
+    assert callable(valuation_side_panel_style_bundle)
+    assert callable(write_anf_valuation_side_panel)
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_anf_valuation_side_panel").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class AnfValuationSidePanelDeps" in module_source
+    assert "def clear_anf_valuation_side_panels(" in module_source
+    assert "def valuation_side_panel_style_bundle(" in module_source
+    assert "def write_anf_valuation_side_panel(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_anf_valuation_side_panel import (" in context_source
+    assert "def _anf_clear_valuation_side_panels(" in context_source
+    assert "clear_anf_valuation_side_panels(" in context_source
+    assert "def _valuation_side_panel_style_bundle(" in context_source
+    assert "valuation_side_panel_style_bundle(" in context_source
+    assert "def _write_anf_valuation_side_panel(" in context_source
+    assert "write_anf_valuation_side_panel(" in context_source
+    assert "def _anf_build_guidance_timeline_rows(" in context_source
+    assert "def _anf_build_promise_progress_sections(" in context_source
+    assert "def _anf_visible_guidance_normalized_frame(" in context_source
+    assert "def _ensure_valuation_render_bundle(" in context_source
+    assert "def build_writer_context(" in context_source
