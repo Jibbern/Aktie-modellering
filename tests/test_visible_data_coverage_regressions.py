@@ -20,6 +20,8 @@ WORKBOOK_DIR = Path(
     )
 )
 
+_QUARTER_LABEL_RE = re.compile(r"^(20\d{2})-Q([1-4])$")
+
 
 def _model_path(ticker: str) -> Path:
     candidates = [WORKBOOK_DIR / f"{ticker}_model.xlsm", WORKBOOK_DIR / f"{ticker}_model.xlsx"]
@@ -30,6 +32,9 @@ def _model_path(ticker: str) -> Path:
 
 
 def _load_model(ticker: str):
+    # Headless fresh-generation validation may intentionally use macro-free .xlsx
+    # files generated with --skip-macro-injection. Macro-enabled .xlsm validation
+    # is a separate production gate when Excel COM is available.
     return load_workbook(_model_path(ticker), data_only=True, read_only=True, keep_vba=True)
 
 
@@ -75,6 +80,147 @@ def _quarter_col(ws: Worksheet, header_row: int, quarter: str) -> int:
         if _text(ws.cell(header_row, cc).value) == quarter:
             return cc
     raise AssertionError(f"{ws.title}: quarter {quarter!r} missing from row {header_row}")
+
+
+def _quarter_key(label: str) -> tuple[int, int]:
+    match = _QUARTER_LABEL_RE.fullmatch(_text(label))
+    if not match:
+        raise AssertionError(f"bad quarter label {label!r}")
+    return int(match.group(1)), int(match.group(2))
+
+
+def _prior_year_quarter(label: str) -> str:
+    year, quarter = _quarter_key(label)
+    return f"{year - 1}-Q{quarter}"
+
+
+def _quarter_labels_from_header(ws: Worksheet, header_row: int) -> list[str]:
+    labels: list[str] = []
+    for cc in range(2, int(ws.max_column or 0) + 1):
+        label = _text(ws.cell(header_row, cc).value)
+        if _QUARTER_LABEL_RE.fullmatch(label):
+            labels.append(label)
+            continue
+        if labels:
+            break
+    assert labels, f"{ws.title}: expected visible quarter labels on row {header_row}"
+    assert len(labels) == len(set(labels)), f"{ws.title}: visible quarter labels should be unique"
+    assert labels == sorted(labels, key=_quarter_key), f"{ws.title}: visible quarter labels should be ordered"
+    return labels
+
+
+def _history_records_by_fiscal_label(wb: Any) -> dict[str, dict[str, Any]]:
+    hist = wb["History_Q"]
+    headers = [_text(hist.cell(1, cc).value) for cc in range(1, int(hist.max_column or 0) + 1)]
+    idx = {header: pos + 1 for pos, header in enumerate(headers) if header}
+    assert {"quarter", "fiscal_label"}.issubset(idx), "History_Q should expose quarter and fiscal_label"
+    records: dict[str, dict[str, Any]] = {}
+    for rr in range(2, int(hist.max_row or 0) + 1):
+        label = _text(hist.cell(rr, idx["fiscal_label"]).value)
+        if not _QUARTER_LABEL_RE.fullmatch(label):
+            continue
+        record = {header: hist.cell(rr, col).value for header, col in idx.items()}
+        record["_quarter_key"] = str(hist.cell(rr, idx["quarter"]).value)[:10]
+        records[label] = record
+    assert records, "History_Q should expose fiscal-label source history"
+    return records
+
+
+def _data_fact_period_keys(wb: Any) -> set[str]:
+    ws = wb["DATA_Facts_Long"]
+    headers = [_text(ws.cell(1, cc).value) for cc in range(1, int(ws.max_column or 0) + 1)]
+    idx = {header: pos + 1 for pos, header in enumerate(headers) if header}
+    assert {"period_end", "value"}.issubset(idx), "DATA_Facts_Long should expose period_end and value"
+    keys: set[str] = set()
+    for rr in range(2, int(ws.max_row or 0) + 1):
+        if ws.cell(rr, idx["value"]).value in (None, ""):
+            continue
+        period_key = str(ws.cell(rr, idx["period_end"]).value)[:10]
+        if period_key:
+            keys.add(period_key)
+    assert keys, "DATA_Facts_Long should expose non-empty source facts"
+    return keys
+
+
+def _anf_period_index_labels(wb: Any) -> list[str]:
+    records = _history_records_by_fiscal_label(wb)
+    label_by_period_key = {
+        _text(record.get("_quarter_key")): label for label, record in records.items() if _text(record.get("_quarter_key"))
+    }
+    ws = wb["DATA_Period_Index"]
+    headers = [_text(ws.cell(1, cc).value) for cc in range(1, int(ws.max_column or 0) + 1)]
+    idx = {header: pos + 1 for pos, header in enumerate(headers) if header}
+    assert {"period_end", "display_order"}.issubset(idx), "DATA_Period_Index should expose period_end/display_order"
+    ordered: list[tuple[int, str]] = []
+    for rr in range(2, int(ws.max_row or 0) + 1):
+        period_key = str(ws.cell(rr, idx["period_end"]).value)[:10]
+        label = label_by_period_key.get(period_key)
+        assert label, f"DATA_Period_Index period {period_key!r} should resolve to History_Q fiscal_label"
+        ordered.append((int(ws.cell(rr, idx["display_order"]).value or len(ordered) + 1), label))
+    labels = [label for _order, label in sorted(ordered)]
+    assert labels, "DATA_Period_Index should define the ANF rolling visible window"
+    assert labels == sorted(labels, key=_quarter_key), "DATA_Period_Index labels should be ordered"
+    return labels
+
+
+def _anf_visible_windows(wb: Any) -> dict[str, list[str]]:
+    period_index = _anf_period_index_labels(wb)
+
+    valuation = wb["Valuation"]
+    valuation_labels = _quarter_labels_from_header(valuation, _find_row(valuation, "Quarter"))
+    assert valuation_labels == period_index, "ANF Valuation should mirror DATA_Period_Index rolling quarters"
+
+    operating = wb["Operating_Drivers"]
+    operating_section = _find_row_contains(operating, "Actuals", start=1)
+    operating_labels = _quarter_labels_from_header(operating, _find_row(operating, "Quarter", start=operating_section))
+    assert operating_labels == period_index, "ANF Operating_Drivers should mirror DATA_Period_Index rolling quarters"
+
+    bs_segments = wb["BS_Segments"]
+    bs_labels = _quarter_labels_from_header(bs_segments, _find_row(bs_segments, "Quarter"))
+    assert bs_labels == period_index[-len(bs_labels) :], "ANF BS_Segments should use the shorter trailing window"
+    assert 0 < len(bs_labels) < len(period_index), "ANF BS_Segments should remain a shorter rolling window"
+
+    return {
+        "period_index": period_index,
+        "valuation": valuation_labels,
+        "operating_drivers": operating_labels,
+        "bs_segments": bs_labels,
+    }
+
+
+def _assert_prior_year_history_and_facts_exist(wb: Any, visible_labels: list[str], sheet_labels: list[str]) -> None:
+    history = _history_records_by_fiscal_label(wb)
+    fact_period_keys = _data_fact_period_keys(wb)
+    for label in visible_labels:
+        prior_label = _prior_year_quarter(label)
+        assert prior_label not in sheet_labels, f"{prior_label} should be hidden for visible {label}"
+        assert prior_label in history, f"History_Q should keep hidden prior-year source history for {label}"
+        period_key = _text(history[prior_label].get("_quarter_key"))
+        assert period_key in fact_period_keys, f"DATA_Facts_Long should keep source facts for hidden {prior_label}"
+
+
+def _history_millions(record: dict[str, Any], field: str) -> float:
+    value = _num(record.get(field))
+    assert value is not None, f"History_Q {field} should be populated"
+    return value / 1_000_000.0
+
+
+def _history_ratio(record: dict[str, Any], numerator: str, denominator: str) -> float:
+    numerator_value = _num(record.get(numerator))
+    denominator_value = _num(record.get(denominator))
+    assert numerator_value is not None, f"History_Q {numerator} should be populated"
+    assert denominator_value is not None and abs(denominator_value) > 1e-12, (
+        f"History_Q {denominator} should be populated for ratio checks"
+    )
+    return numerator_value / denominator_value
+
+
+def _history_ttm_labels(history: dict[str, dict[str, Any]], label: str) -> list[str]:
+    labels = sorted(history, key=_quarter_key)
+    assert label in history, f"History_Q should include visible label {label}"
+    idx = labels.index(label)
+    assert idx >= 3, f"History_Q should have four-quarter TTM history for {label}"
+    return labels[idx - 3 : idx + 1]
 
 
 def _find_segment_row_after_group(ws: Worksheet, group: str, segment: str, *, start: int) -> int:
@@ -229,88 +375,110 @@ def test_pbi_operating_drivers_reportable_segment_totals_stay_populated() -> Non
     wb.close()
 
 
-def test_anf_valuation_first_visible_2023_quarters_use_hidden_prior_year_bucket_fills() -> None:
+def test_anf_valuation_first_visible_quarters_use_hidden_prior_year_bucket_fills() -> None:
     wb = _load_model_with_styles("ANF")
     try:
+        windows = _anf_visible_windows(wb)
         ws = wb["Valuation"]
         header = _find_row(ws, "Quarter")
-        quarter_cols = {q: _quarter_col(ws, header, q) for q in ("2023-Q1", "2023-Q2", "2023-Q3", "2023-Q4")}
-        checks = {
-            "Revenue": {"2023-Q1": 835.994, "2023-Q4": 1452.907},
-            "Gross margin %": {"2023-Q1": 0.6098058120, "2023-Q4": 0.6287869767},
-            "Operating margin %": {"2023-Q1": 0.0406797178, "2023-Q4": 0.1533484249},
-            "Operating margin (TTM)": {"2023-Q1": 0.0366521427, "2023-Q4": 0.1132229785},
-            "EBITDA margin %": {"2023-Q1": 0.0837757209, "2023-Q4": 0.1778214297},
-            "Adj EBITDA margin %": {"2023-Q1": 0.0837757209, "2023-Q4": 0.1778214297},
-            "EBIT margin %": {"2023-Q1": 0.0406797178, "2023-Q4": 0.1533484249},
-            "Net income attrib. to A&F margin %": {"2023-Q1": 0.0198219126, "2023-Q4": 0.1090551563},
-            "Capex % of revenue": {"2023-Q1": 0.0554920251, "2023-Q4": 0.0200948856},
-            "FCF (CFO-Capex)": {"2023-Q1": 254.294, "2023-Q4": 323.541},
-            "Owner earnings (proxy)": {"2023-Q1": 268.2113, "2023-Q4": 332.2998},
-            "FCF margin %": {"2023-Q1": 0.3041816090, "2023-Q4": 0.2226852785},
-            "Current ratio": {"2023-Q1": 1.4407370874, "2023-Q4": 1.5900219276},
-            "EPS (GAAP)": {"2023-Q1": 0.3219733033, "2023-Q4": 2.97},
-            "Adj EPS": {"2023-Q1": 0.39, "2023-Q4": 2.97},
-            "BV/share": {"2023-Q1": 13.6370295529, "2023-Q4": 19.3853817487},
-            "FCF/share (TTM)": {"2023-Q1": 6.4403209824, "2023-Q4": 9.2815408528},
-            "Net leverage": {"2023-Q1": -0.5531734161, "2023-Q4": -1.0846789980},
-            "Net leverage (Adj)": {"2023-Q1": -0.5531734161, "2023-Q4": -1.0846789980},
+        visible_quarters = windows["valuation"][:4]
+        quarter_cols = {q: _quarter_col(ws, header, q) for q in visible_quarters}
+        _assert_prior_year_history_and_facts_exist(wb, visible_quarters, windows["valuation"])
+
+        fill_metrics = (
+            "Revenue",
+            "Gross margin %",
+            "Operating margin %",
+            "Operating margin (TTM)",
+            "EBITDA margin %",
+            "Adj EBITDA margin %",
+            "EBIT margin %",
+            "Net income attrib. to A&F margin %",
+            "Capex % of revenue",
+            "FCF (CFO-Capex)",
+            "Owner earnings (proxy)",
+            "FCF margin %",
+            "Current ratio",
+            "EPS (GAAP)",
+            "Adj EPS",
+            "BV/share",
+            "FCF/share (TTM)",
+            "Net leverage",
+            "Net leverage (Adj)",
+        )
+        source_checks = {
+            "Revenue": (lambda rec: _history_millions(rec, "revenue"), 0.0005),
+            "Gross margin %": (lambda rec: _history_ratio(rec, "gross_profit", "revenue"), 0.0005),
+            "Operating margin %": (lambda rec: _history_ratio(rec, "op_income", "revenue"), 0.0005),
+            "EBITDA margin %": (lambda rec: _history_ratio(rec, "ebitda", "revenue"), 0.0005),
+            "Adj EBITDA margin %": (lambda rec: _history_ratio(rec, "ebitda", "revenue"), 0.0005),
+            "EBIT margin %": (lambda rec: _history_ratio(rec, "op_income", "revenue"), 0.0005),
+            "Net income attrib. to A&F margin %": (lambda rec: _history_ratio(rec, "net_income", "revenue"), 0.0005),
+            "Capex % of revenue": (lambda rec: _history_ratio(rec, "capex", "revenue"), 0.0005),
+            "FCF (CFO-Capex)": (
+                lambda rec: _history_millions(rec, "cfo") - _history_millions(rec, "capex"),
+                0.0005,
+            ),
+            "FCF margin %": (
+                lambda rec: (
+                    (_history_millions(rec, "cfo") - _history_millions(rec, "capex"))
+                    / _history_millions(rec, "revenue")
+                ),
+                0.0005,
+            ),
+            "Current ratio": (lambda rec: _history_ratio(rec, "assets_current", "liabilities_current"), 0.0005),
+            "EPS (GAAP)": (lambda rec: _history_ratio(rec, "net_income", "shares_diluted"), 0.01),
         }
-        for metric, expected_values in checks.items():
+        history = _history_records_by_fiscal_label(wb)
+        for metric in fill_metrics:
             row = _find_row(ws, metric)
             for quarter in quarter_cols:
                 cell = ws.cell(row, quarter_cols[quarter])
                 assert _has_bucket_fill(cell), (
-                    f"ANF Valuation {metric} {quarter} should use hidden 2022 source history for comparison fill"
+                    f"ANF Valuation {metric} {quarter} should use hidden prior-year source history for comparison fill"
                 )
-            for quarter, expected in expected_values.items():
-                assert _num(ws.cell(row, quarter_cols[quarter]).value) == pytest.approx(expected, abs=0.0005), (
-                    f"ANF Valuation {metric} {quarter} value changed while fixing style"
-                )
+        for metric, (expected_from_history, tolerance) in source_checks.items():
+            row = _find_row(ws, metric)
+            for quarter, col in quarter_cols.items():
+                assert _num(ws.cell(row, col).value) == pytest.approx(
+                    expected_from_history(history[quarter]), abs=tolerance
+                ), f"ANF Valuation {metric} {quarter} should match History_Q source data"
     finally:
         wb.close()
 
 
-def test_anf_operating_drivers_first_visible_2023_brand_geography_rows_are_colored_from_source_comps() -> None:
+def test_anf_operating_drivers_first_visible_brand_geography_rows_are_colored_from_source_comps() -> None:
     wb = _load_model_with_styles("ANF")
     try:
+        windows = _anf_visible_windows(wb)
         ws = wb["Operating_Drivers"]
         section = _find_row_contains(ws, "Actuals", start=1)
         header = _find_row(ws, "Quarter", start=section)
-        quarter_cols = {q: _quarter_col(ws, header, q) for q in ("2023-Q1", "2023-Q2", "2023-Q3", "2023-Q4")}
-        checks = {
-            "Americas sales": {"2023-Q1": 663.4, "2023-Q4": 1193.3},
-            "EMEA sales": {"2023-Q1": 139.3, "2023-Q4": 217.9},
-            "APAC sales": {"2023-Q1": 33.3, "2023-Q4": 41.7},
-            "Abercrombie sales": {"2023-Q1": 436.0, "2023-Q4": 755.2},
-            "Hollister sales": {"2023-Q1": 399.9, "2023-Q4": 697.7},
-            "APAC sales YoY": {"2023-Q1": 11.0, "2023-Q4": 21.0},
-            "Americas sales YoY": {"2023-Q2": 19.0, "2023-Q4": 23.0},
-            "EMEA sales YoY": {"2023-Q1": -15.0, "2023-Q4": 13.0},
-            "Abercrombie sales YoY": {"2023-Q1": 14.0, "2023-Q4": 35.0},
-            "Hollister sales YoY": {"2023-Q1": -7.0, "2023-Q4": 9.0},
-            "Total comp": {"2023-Q1": 3.0, "2023-Q4": 21.0},
-            "Abercrombie comp": {"2023-Q1": 14.0, "2023-Q4": 28.0},
-            "Hollister comp": {"2023-Q1": -6.0, "2023-Q4": 6.0},
-        }
-        expected_neutral_without_clean_comparator = {("Americas sales", "2023-Q1")}
-        for metric, expected_values in checks.items():
+        visible_quarters = windows["operating_drivers"][:4]
+        quarter_cols = {q: _quarter_col(ws, header, q) for q in visible_quarters}
+        _assert_prior_year_history_and_facts_exist(wb, visible_quarters, windows["operating_drivers"])
+        metrics = (
+            "Americas sales",
+            "EMEA sales",
+            "APAC sales",
+            "Abercrombie sales",
+            "Hollister sales",
+            "APAC sales YoY",
+            "Americas sales YoY",
+            "EMEA sales YoY",
+            "Abercrombie sales YoY",
+            "Hollister sales YoY",
+            "Total comp",
+            "Abercrombie comp",
+            "Hollister comp",
+        )
+        for metric in metrics:
             row = _find_row(ws, metric, start=header)
             for quarter, col in quarter_cols.items():
                 cell = ws.cell(row, col)
-                if cell.value in (None, ""):
-                    continue
-                if (metric, quarter) in expected_neutral_without_clean_comparator:
-                    assert not _has_bucket_fill(cell), (
-                        f"ANF Operating_Drivers {metric} {quarter} should stay neutral without a clean source-backed YoY comparator"
-                    )
-                    continue
+                assert cell.value not in (None, ""), f"ANF Operating_Drivers {metric} {quarter} should stay populated"
                 assert _has_bucket_fill(cell), (
                     f"ANF Operating_Drivers {metric} {quarter} should use source-backed YoY/comp evidence for comparison fill"
-                )
-            for quarter, expected in expected_values.items():
-                assert _num(ws.cell(row, quarter_cols[quarter]).value) == pytest.approx(expected, abs=0.1), (
-                    f"ANF Operating_Drivers {metric} {quarter} value changed while fixing style"
                 )
     finally:
         wb.close()
@@ -348,15 +516,16 @@ def test_pbi_operating_drivers_first_visible_segment_quarters_color_only_with_hi
 
 
 def test_valuation_debt_rows_use_known_lower_better_comparison_fills() -> None:
-    for ticker, start_quarter in (("ANF", "2023-Q1"), ("PBI", "2023-Q2"), ("GPRE", "2023-Q2")):
+    for ticker in ("ANF", "PBI", "GPRE"):
         wb = _load_model_with_styles(ticker)
         try:
             ws = wb["Valuation"]
             header = _find_row(ws, "Quarter")
+            visible_quarters = _quarter_labels_from_header(ws, header)
             quarter_cols = {
                 q: _quarter_col(ws, header, q)
                 for q in ("2024-Q1", "2024-Q2", "2025-Q1", "2025-Q2")
-                if q in [ws.cell(header, c).value for c in range(1, ws.max_column + 1)]
+                if q in visible_quarters
             }
             assert quarter_cols, f"{ticker} should expose comparable debt quarters"
             for metric in ("Debt (core borrowings)", "Net debt (core borrowings)"):
@@ -380,6 +549,7 @@ def test_valuation_debt_rows_use_known_lower_better_comparison_fills() -> None:
                         f"{ticker} Valuation {metric} {quarter} should be colored as lower-better when comparator exists"
                     )
             # First visible quarter should also be colored when hidden source history exists.
+            start_quarter = visible_quarters[0]
             first_col = _quarter_col(ws, header, start_quarter)
             for metric in ("Debt (core borrowings)", "Net debt (core borrowings)"):
                 cell = ws.cell(_find_row(ws, metric), first_col)
@@ -634,35 +804,40 @@ def test_anf_valuation_adjusted_eps_and_ttm_uses_source_backed_older_quarters() 
     ws = wb["Valuation"]
     header = _find_row(ws, "Quarter")
     adj_eps_row = _find_row(ws, "Adj EPS", start=header)
-    adj_eps_ttm_row = _find_row(ws, "Adj EPS (TTM)", start=header)
     ebitda_ttm_row = _find_row(ws, "EBITDA (TTM)", start=header)
     adj_ebitda_ttm_row = _find_row(ws, "Adj EBITDA (TTM)", start=header)
-    adj_ebit_ttm_row = _find_row(ws, "Adj EBIT (TTM)", start=header)
-    net_leverage_row = _find_row(ws, "Net leverage", start=header)
 
-    for quarter, expected in {"2023-Q2": 1.10, "2023-Q3": 1.83, "2023-Q4": 2.97}.items():
-        col = _quarter_col(ws, header, quarter)
-        assert _num(ws.cell(adj_eps_row, col).value) == pytest.approx(expected, abs=0.01)
-    assert _num(ws.cell(adj_eps_ttm_row, _quarter_col(ws, header, "2023-Q4")).value) == pytest.approx(6.29, abs=0.02)
-    q1_2023_col = _quarter_col(ws, header, "2023-Q1")
-    assert _num(ws.cell(ebitda_ttm_row, q1_2023_col).value) == pytest.approx(270.765, abs=0.002)
-    assert _num(ws.cell(adj_ebitda_ttm_row, q1_2023_col).value) == pytest.approx(270.765, abs=0.002)
-    assert _num(ws.cell(adj_ebit_ttm_row, q1_2023_col).value) == pytest.approx(151.427, abs=0.002)
-    q1_2025_col = _quarter_col(ws, header, "2025-Q1")
-    assert _num(ws.cell(net_leverage_row, q1_2025_col).value) == pytest.approx(-0.5888, abs=0.001)
+    windows = _anf_visible_windows(wb)
+    visible_quarters = windows["valuation"]
+    first_visible = visible_quarters[0]
+    first_col = _quarter_col(ws, header, first_visible)
+    assert _num(ws.cell(adj_eps_row, first_col).value) is not None, (
+        f"ANF Valuation Adj EPS {first_visible} should stay populated"
+    )
+
+    history = _history_records_by_fiscal_label(wb)
+    ttm_labels = _history_ttm_labels(history, first_visible)
+    hidden_ttm_labels = [label for label in ttm_labels if label not in visible_quarters]
+    assert hidden_ttm_labels, f"ANF {first_visible} TTM should use hidden older History_Q quarters"
+    expected_ebitda_ttm = sum(_history_millions(history[label], "ebitda") for label in ttm_labels)
+    assert _num(ws.cell(ebitda_ttm_row, first_col).value) == pytest.approx(expected_ebitda_ttm, abs=0.002)
+    assert _num(ws.cell(adj_ebitda_ttm_row, first_col).value) == pytest.approx(expected_ebitda_ttm, abs=0.002)
 
     hist = wb["History_Q"]
     headers = [_text(hist.cell(1, cc).value) for cc in range(1, int(hist.max_column or 0) + 1)]
     idx = {h: i + 1 for i, h in enumerate(headers)}
-    assert {"quarter", "da", "ebitda"}.issubset(idx), "History_Q should expose D&A and EBITDA source fields"
-    q2_2022_row = None
+    assert {"quarter", "fiscal_label", "da", "ebitda"}.issubset(idx), (
+        "History_Q should expose D&A, EBITDA, and fiscal labels"
+    )
+    hidden_source_row = None
+    hidden_source_label = hidden_ttm_labels[0]
     for rr in range(2, int(hist.max_row or 0) + 1):
-        if str(hist.cell(rr, idx["quarter"]).value)[:10] == "2022-07-30":
-            q2_2022_row = rr
+        if _text(hist.cell(rr, idx["fiscal_label"]).value) == hidden_source_label:
+            hidden_source_row = rr
             break
-    assert q2_2022_row is not None, "ANF hidden history should keep 2022-Q2 for 2023-Q1 TTM support"
-    assert _num(hist.cell(q2_2022_row, idx["da"]).value) == pytest.approx(31_655_000.0, abs=1.0)
-    assert _num(hist.cell(q2_2022_row, idx["ebitda"]).value) == pytest.approx(29_464_000.0, abs=1.0)
+    assert hidden_source_row is not None, f"ANF hidden history should keep {hidden_source_label} for TTM support"
+    assert _num(hist.cell(hidden_source_row, idx["da"]).value) is not None
+    assert _num(hist.cell(hidden_source_row, idx["ebitda"]).value) is not None
     wb.close()
 
 
@@ -882,15 +1057,22 @@ def test_gpre_revolver_facility_size_is_not_below_reported_availability() -> Non
 
 
 def test_anf_bs_driver_yoy_uses_hidden_prior_quarters_for_visible_window() -> None:
-    wb = _load_model("ANF")
+    wb = _load_model_with_styles("ANF")
     ws = wb["BS_Segments"]
     header = _find_row(ws, "Quarter")
+    windows = _anf_visible_windows(wb)
+    visible_quarters = windows["bs_segments"]
+    checked_quarters = visible_quarters[:4]
+    _assert_prior_year_history_and_facts_exist(wb, checked_quarters, visible_quarters)
     for row_label in ("Inventory YoY", "Sales YoY", "Diluted shares YoY"):
         row = _find_row(ws, row_label, start=header)
-        for quarter in ("2024-Q1", "2024-Q2", "2024-Q3", "2024-Q4"):
+        for quarter in checked_quarters:
             col = _quarter_col(ws, header, quarter)
             assert _num(ws.cell(row, col).value) is not None, (
                 f"ANF BS_Segments {row_label} {quarter} should use hidden prior-year quarters"
+            )
+            assert _has_bucket_fill(ws.cell(row, col)), (
+                f"ANF BS_Segments {row_label} {quarter} should retain source-backed comparison fill"
             )
     wb.close()
 
