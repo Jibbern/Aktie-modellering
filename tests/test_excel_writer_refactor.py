@@ -20094,6 +20094,37 @@ def test_anf_valuation_support_module_exposes_support_contract() -> None:
     assert "def build_writer_context(" in context_source
 
 
+def test_valuation_render_bundle_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_render_bundle import (
+        ValuationRenderBundleDeps,
+        ensure_valuation_render_bundle,
+    )
+
+    assert [field.name for field in fields(ValuationRenderBundleDeps)] == ["runtime"]
+    assert callable(ensure_valuation_render_bundle)
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_valuation_render_bundle").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class ValuationRenderBundleDeps" in module_source
+    assert "def ensure_valuation_render_bundle(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_valuation_render_bundle import (" in context_source
+    assert "def _ensure_valuation_render_bundle(" in context_source
+    assert "ensure_valuation_render_bundle(" in context_source
+    assert "def _write_valuation_sheet(" in context_source
+    assert "def _get_valuation_style_bundle(" in context_source
+    assert "def _shared_load_local_balance_sheet_detail_payloads(" in context_source
+    assert "def _carry_forward_low_change_series(" in context_source
+    assert "def _sec_cache_roots_local(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_anf_visible_support_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
