@@ -152,6 +152,10 @@ from .excel_writer_valuation_render_bundle import (
     ValuationRenderBundleDeps,
     ensure_valuation_render_bundle,
 )
+from .excel_writer_local_balance_sheet_support import (
+    LocalBalanceSheetSupport,
+    LocalBalanceSheetSupportDeps,
+)
 from .excel_writer_valuation_orchestrator import (
     ValuationOrchestratorDeps,
     write_valuation_sheet,
@@ -3733,163 +3737,56 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     cache_roots = _cache_roots()
     cache_root = next((p for p in cache_roots if p.exists()), Path(__file__).resolve().parents[2] / "sec_cache")
     pdf_text_cache_root = Path(cache_dir) if cache_dir is not None else cache_root
-    _shared_local_bs_payload_cache: Dict[date, Dict[str, Any]] = {}
-    _shared_local_bs_file_index_cache: Optional[List[Dict[str, Any]]] = None
-    _shared_local_bs_records_by_quarter_cache: Optional[Dict[date, List[Dict[str, Any]]]] = None
-    _shared_local_bs_quarter_cache: Dict[str, Optional[date]] = {}
-    _shared_local_bs_payload_by_path_cache: Dict[str, Optional[Dict[str, Any]]] = {}
+    local_balance_sheet_support_state: Dict[str, Any] = {
+        "payload_cache": {},
+        "file_index_cache": None,
+        "records_by_quarter_cache": None,
+        "quarter_cache": {},
+        "payload_by_path_cache": {},
+    }
 
     def _read_material_text(path_in: Path) -> str:
         return _read_cached_doc_text(path_in)
 
-    def _shared_financial_statement_files() -> List[Path]:
-        files: List[Path] = []
-        seen: set[str] = set()
-        for root in material_roots:
-            fs_dir = root / "financial_statement"
-            if not fs_dir.exists() or not fs_dir.is_dir():
-                continue
-            try:
-                cand_files = sorted([p for p in fs_dir.iterdir() if p.is_file()])
-            except Exception:
-                continue
-            for path_in in cand_files:
-                if path_in.suffix.lower() not in {".txt", ".htm", ".html"}:
-                    continue
-                if not _path_belongs_to_ticker(path_in, ticker, ticker_roots):
-                    continue
-                try:
-                    key = str(path_in.resolve())
-                except Exception:
-                    key = str(path_in)
-                if key in seen:
-                    continue
-                seen.add(key)
-                files.append(path_in)
-        return files
+    def _local_balance_sheet_support_runtime() -> Dict[str, Any]:
+        return {
+            "pd": pd,
+            "ticker": ticker,
+            "material_roots": material_roots,
+            "ticker_roots": ticker_roots,
+            "local_balance_sheet_support_state": local_balance_sheet_support_state,
+            "_path_belongs_to_ticker": _path_belongs_to_ticker,
+            "_path_cache_key": _path_cache_key,
+            "_parse_quarter_from_filename": _parse_quarter_from_filename,
+            "_parse_quarter_from_follow_text": _parse_quarter_from_follow_text,
+            "infer_quarter_end_from_text": infer_quarter_end_from_text,
+            "_extract_balance_sheet_from_html": _extract_balance_sheet_from_html,
+            "_extract_balance_sheet_from_text": _extract_balance_sheet_from_text,
+            "_read_material_text": _read_material_text,
+            "_timed_writer_substage": _timed_writer_substage,
+        }
 
-    def _shared_local_balance_sheet_file_index() -> List[Dict[str, Any]]:
-        nonlocal _shared_local_bs_file_index_cache
-        if _shared_local_bs_file_index_cache is not None:
-            return _shared_local_bs_file_index_cache
-        indexed: List[Dict[str, Any]] = []
-        for path_in in _shared_financial_statement_files():
-            indexed.append(
-                {
-                    "path": path_in,
-                    "path_key": _path_cache_key(path_in),
-                    "suffix": path_in.suffix.lower(),
-                    "quarter": _parse_quarter_from_filename(path_in.name),
-                }
-            )
-        _shared_local_bs_file_index_cache = indexed
-        return _shared_local_bs_file_index_cache
+    def _get_local_balance_sheet_support() -> LocalBalanceSheetSupport:
+        return LocalBalanceSheetSupport(
+            LocalBalanceSheetSupportDeps(runtime=_local_balance_sheet_support_runtime())
+        )
+
+    def _shared_financial_statement_files() -> List[Path]:
+        return _get_local_balance_sheet_support().shared_financial_statement_files()
 
     def _shared_local_balance_sheet_quarter(rec: Dict[str, Any]) -> Optional[date]:
-        path_in = rec.get("path")
-        if not isinstance(path_in, Path):
-            return None
-        path_key = str(rec.get("path_key") or _path_cache_key(path_in))
-        if path_key in _shared_local_bs_quarter_cache:
-            return _shared_local_bs_quarter_cache.get(path_key)
-        qd = rec.get("quarter")
-        if not isinstance(qd, date):
-            raw_txt = _read_material_text(path_in)
-            qd = (
-                _parse_quarter_from_follow_text(raw_txt)
-                or infer_quarter_end_from_text(raw_txt)
-            )
-        qd_out = qd if isinstance(qd, date) else None
-        _shared_local_bs_quarter_cache[path_key] = qd_out
-        return qd_out
+        return _get_local_balance_sheet_support().shared_local_balance_sheet_quarter(rec)
 
     def _shared_local_balance_sheet_records_by_quarter() -> Dict[date, List[Dict[str, Any]]]:
-        nonlocal _shared_local_bs_records_by_quarter_cache
-        if _shared_local_bs_records_by_quarter_cache is not None:
-            return _shared_local_bs_records_by_quarter_cache
-        grouped: Dict[date, List[Dict[str, Any]]] = {}
-        for rec in _shared_local_balance_sheet_file_index():
-            qd = rec.get("quarter")
-            if not isinstance(qd, date):
-                qd = _shared_local_balance_sheet_quarter(rec)
-            if not isinstance(qd, date):
-                continue
-            grouped.setdefault(qd, []).append(rec)
-        _shared_local_bs_records_by_quarter_cache = grouped
-        return _shared_local_bs_records_by_quarter_cache
+        return _get_local_balance_sheet_support().shared_local_balance_sheet_records_by_quarter()
 
     def _shared_local_balance_sheet_payload_for_record(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        path_in = rec.get("path")
-        if not isinstance(path_in, Path):
-            return None
-        path_key = str(rec.get("path_key") or _path_cache_key(path_in))
-        if path_key in _shared_local_bs_payload_by_path_cache:
-            return _shared_local_bs_payload_by_path_cache.get(path_key)
-        qd = _shared_local_balance_sheet_quarter(rec)
-        if not isinstance(qd, date):
-            _shared_local_bs_payload_by_path_cache[path_key] = None
-            return None
-        result = None
-        try:
-            if str(rec.get("suffix") or "").lower() in {".htm", ".html"}:
-                result = _extract_balance_sheet_from_html(path_in.read_bytes(), qd)
-            else:
-                result = _extract_balance_sheet_from_text(_read_material_text(path_in), qd)
-        except Exception:
-            result = None
-        if not result:
-            _shared_local_bs_payload_by_path_cache[path_key] = None
-            return None
-        payload = dict(result)
-        payload["source_doc"] = str(path_in)
-        payload["_quarter"] = qd
-        _shared_local_bs_payload_by_path_cache[path_key] = payload
-        return payload
+        return _get_local_balance_sheet_support().shared_local_balance_sheet_payload_for_record(rec)
 
     def _shared_load_local_balance_sheet_detail_payloads(
         target_quarters: Optional[set[date]] = None,
     ) -> Dict[date, Dict[str, Any]]:
-        target_qs = {qd for qd in (target_quarters or set()) if isinstance(qd, date)}
-        if target_qs and all(qd in _shared_local_bs_payload_cache for qd in target_qs):
-            return {
-                qd: payload
-                for qd, payload in _shared_local_bs_payload_cache.items()
-                if qd in target_qs
-            }
-        with _timed_writer_substage("write_excel.valuation.bundle.local_bs.index"):
-            records_by_quarter = _shared_local_balance_sheet_records_by_quarter()
-
-        candidate_records: List[Dict[str, Any]] = []
-        if target_qs:
-            for qd in sorted(target_qs):
-                candidate_records.extend(records_by_quarter.get(qd, []))
-        else:
-            for recs in records_by_quarter.values():
-                candidate_records.extend(recs)
-
-        with _timed_writer_substage("write_excel.valuation.bundle.local_bs.parse_selected"):
-            parsed_payloads: List[Dict[str, Any]] = []
-            for rec in candidate_records:
-                payload = _shared_local_balance_sheet_payload_for_record(rec)
-                if not payload:
-                    continue
-                parsed_payloads.append(payload)
-
-        with _timed_writer_substage("write_excel.valuation.bundle.local_bs.pick_best"):
-            for payload in parsed_payloads:
-                qd = payload.get("_quarter")
-                if not isinstance(qd, date):
-                    continue
-                current = _shared_local_bs_payload_cache.get(qd)
-                if current is None or len(payload.get("values", {})) >= len(current.get("values", {})):
-                    _shared_local_bs_payload_cache[qd] = payload
-        if not target_qs:
-            return dict(_shared_local_bs_payload_cache)
-        return {
-            qd: payload
-            for qd, payload in _shared_local_bs_payload_cache.items()
-            if qd in target_qs
-        }
+        return _get_local_balance_sheet_support().shared_load_local_balance_sheet_detail_payloads(target_quarters)
 
     def _carry_forward_low_change_series(
         src_map: Dict[pd.Timestamp, Optional[float]],
@@ -3899,43 +3796,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         rel_tol: float = 1e-4,
         abs_tol: float = 1_000.0,
     ) -> Dict[pd.Timestamp, Optional[float]]:
-        ordered = [pd.Timestamp(qv) for qv in q_series]
-        out_map: Dict[pd.Timestamp, Optional[float]] = {
-            pd.Timestamp(qv): (None if src_map.get(pd.Timestamp(qv)) is None else float(src_map.get(pd.Timestamp(qv))))
-            for qv in ordered
-        }
-        explicit_idx = [idx for idx, qv in enumerate(ordered) if out_map.get(pd.Timestamp(qv)) is not None]
-        if len(explicit_idx) < 2:
-            return out_map
-
-        def _sameish(a: Optional[float], b: Optional[float]) -> bool:
-            if a is None or b is None:
-                return False
-            lim = max(abs_tol, rel_tol * max(abs(float(a)), abs(float(b)), 1.0))
-            return abs(float(a) - float(b)) <= lim
-
-        for idx, qv in enumerate(ordered):
-            qk = pd.Timestamp(qv)
-            if out_map.get(qk) is not None:
-                continue
-            prev_candidates = [ii for ii in explicit_idx if ii < idx]
-            next_candidates = [ii for ii in explicit_idx if ii > idx]
-            prev_idx = prev_candidates[-1] if prev_candidates else None
-            next_idx = next_candidates[0] if next_candidates else None
-            prev_val = out_map.get(pd.Timestamp(ordered[prev_idx])) if prev_idx is not None else None
-            next_val = out_map.get(pd.Timestamp(ordered[next_idx])) if next_idx is not None else None
-            if (
-                prev_idx is not None
-                and next_idx is not None
-                and (idx - prev_idx) <= max_gap_quarters
-                and (next_idx - idx) <= max_gap_quarters
-                and _sameish(prev_val, next_val)
-            ):
-                out_map[qk] = None if prev_val is None else float(prev_val)
-                continue
-            if prev_idx is not None and (idx - prev_idx) <= max_gap_quarters and prev_val is not None:
-                out_map[qk] = float(prev_val)
-        return out_map
+        return _get_local_balance_sheet_support().carry_forward_low_change_series(
+            src_map,
+            q_series,
+            max_gap_quarters=max_gap_quarters,
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
+        )
 
     if slides_segments is None:
         slides_segments = pd.DataFrame()
