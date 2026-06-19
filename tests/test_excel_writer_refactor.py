@@ -11110,6 +11110,42 @@ def test_valuation_debt_support_module_exposes_thin_wrapper_contract() -> None:
     assert "def build_writer_context(" in context_source
 
 
+def test_valuation_bridge_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_valuation_bridge_support import (
+        ValuationBridgeSupport,
+        ValuationBridgeSupportDeps,
+    )
+
+    assert [field.name for field in fields(ValuationBridgeSupportDeps)] == ["runtime"]
+    assert hasattr(ValuationBridgeSupport, "load_bridge_fy_adjusted_ebitda_records")
+    assert hasattr(ValuationBridgeSupport, "resolve_thesis_fy_base")
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_valuation_bridge_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class ValuationBridgeSupportDeps" in module_source
+    assert "class ValuationBridgeSupport" in module_source
+    assert "def load_bridge_fy_adjusted_ebitda_records(" in module_source
+    assert "def resolve_thesis_fy_base(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_valuation_bridge_support import (" in context_source
+    assert "ValuationBridgeSupportDeps(" in context_source
+    assert "ValuationBridgeSupport(" in context_source
+    assert "def _load_bridge_fy_adjusted_ebitda_records(" in context_source
+    assert "def _resolve_thesis_fy_base(" in context_source
+    assert "\"_resolve_thesis_fy_base\": _resolve_thesis_fy_base" in context_source
+    assert "from .excel_writer_valuation_debt_support import (" in context_source
+    assert "def _source_backed_debt_tranches_from_slides(" in context_source
+    assert "from .excel_writer_debt_convertible_enrichment import (" in context_source
+    assert "def _write_valuation_sheet(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_latest_quarter_qa_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
