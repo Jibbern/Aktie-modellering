@@ -11243,6 +11243,46 @@ def test_operating_drivers_support_module_exposes_support_contract() -> None:
     assert "OperatingDriversSupportDeps(" in context_source
 
 
+def test_operating_driver_workbook_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_operating_driver_workbook_support import (
+        OperatingDriverWorkbookSupport,
+        OperatingDriverWorkbookSupportDeps,
+    )
+
+    expected_methods = [
+        "operating_driver_ttm_sum_from_workbook",
+        "operating_driver_latest_full_year_sum_from_workbook",
+    ]
+
+    assert [field.name for field in fields(OperatingDriverWorkbookSupportDeps)] == ["runtime"]
+    for method_name in expected_methods:
+        assert callable(getattr(OperatingDriverWorkbookSupport, method_name))
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_operating_driver_workbook_support").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class OperatingDriverWorkbookSupportDeps" in module_source
+    assert "class OperatingDriverWorkbookSupport" in module_source
+    for method_name in expected_methods:
+        assert f"def {method_name}(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_operating_driver_workbook_support import (" in context_source
+    assert "def _operating_driver_ttm_sum_from_workbook(" in context_source
+    assert "operating_driver_ttm_sum_from_workbook(" in context_source
+    assert "def _operating_driver_latest_full_year_sum_from_workbook(" in context_source
+    assert "operating_driver_latest_full_year_sum_from_workbook(" in context_source
+    assert "def _date_or_none(" in context_source
+    assert "def _write_operating_drivers_sheet(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_derivative_oci_bridge_writer_module_exposes_render_contract() -> None:
     from dataclasses import fields
 
