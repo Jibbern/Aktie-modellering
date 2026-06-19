@@ -20207,6 +20207,56 @@ def test_local_balance_sheet_support_module_exposes_thin_wrapper_contract() -> N
     assert "def build_writer_context(" in context_source
 
 
+def test_history_q_fiscal_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_history_q_fiscal_support import (
+        HistoryQFiscalSupport,
+        HistoryQFiscalSupportDeps,
+    )
+
+    expected_methods = [
+        "fiscal_profile_from_workbook",
+        "resolve_history_q_fiscal_periods_from_workbook",
+        "history_q_latest_full_year_period_set",
+        "history_q_latest_full_year_actuals_from_workbook",
+        "augment_history_q_frame_for_writer",
+        "history_q_year_default_formulas",
+    ]
+
+    assert [field.name for field in fields(HistoryQFiscalSupportDeps)] == ["runtime"]
+    for method_name in expected_methods:
+        assert callable(getattr(HistoryQFiscalSupport, method_name))
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_history_q_fiscal_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class HistoryQFiscalSupportDeps" in module_source
+    assert "class HistoryQFiscalSupport" in module_source
+    for method_name in expected_methods:
+        assert f"def {method_name}(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_history_q_fiscal_support import (" in context_source
+    assert "def _fiscal_profile_from_workbook(" in context_source
+    assert "fiscal_profile_from_workbook(" in context_source
+    assert "def _history_q_latest_full_year_period_set(" in context_source
+    assert "history_q_latest_full_year_period_set(" in context_source
+    assert "def _history_q_latest_full_year_actuals_from_workbook(" in context_source
+    assert "history_q_latest_full_year_actuals_from_workbook(" in context_source
+    assert "def _augment_history_q_frame_for_writer(" in context_source
+    assert "augment_history_q_frame_for_writer(" in context_source
+    assert "def _history_q_year_default_formulas(" in context_source
+    assert "history_q_year_default_formulas(" in context_source
+    assert "def _date_or_none(" in context_source
+    assert "def _operating_driver_ttm_sum_from_workbook(" in context_source
+    assert "def _operating_driver_latest_full_year_sum_from_workbook(" in context_source
+    assert "def _write_sheet(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_anf_visible_support_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
