@@ -1977,6 +1977,10 @@ from .excel_writer_segments import (
     parse_quarterly_segment_data_from_workbook as ew_parse_quarterly_segment_data_from_workbook,
     quarterly_segment_label as ew_quarterly_segment_label,
 )
+from .excel_writer_cached_document_support import (
+    CachedDocumentSupport,
+    CachedDocumentSupportDeps,
+)
 from .excel_writer_sec_cache_support import (
     SecCacheSupport,
     SecCacheSupportDeps,
@@ -5287,27 +5291,48 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     def _driver_source_note(source_doc: Any, snippet: Any = "", extra: Any = "") -> str:
         return _get_operating_drivers_support().driver_source_note(source_doc, snippet, extra)
 
+    cached_document_support: Optional[CachedDocumentSupport] = None
+
+    def _cached_document_support_runtime() -> Dict[str, Any]:
+        return {
+            "document_cache": document_cache,
+            "cache_roots": cache_roots,
+            "cache_root": cache_root,
+            "pdf_text_cache_root": pdf_text_cache_root,
+            "rebuild_doc_text_cache": rebuild_doc_text_cache,
+            "quiet_pdf_warnings": quiet_pdf_warnings,
+            "_ticker_specific_submission_path": lambda path_in: _ticker_specific_submission_path(path_in),
+            "source_path_cache_key": source_path_cache_key,
+            "source_read_cached_doc_raw": source_read_cached_doc_raw,
+            "source_read_cached_doc_text": source_read_cached_doc_text,
+            "source_infer_cached_doc_quarter": source_infer_cached_doc_quarter,
+            "source_sec_docs_for_accession": source_sec_docs_for_accession,
+            "source_submission_cache_files": source_submission_cache_files,
+            "source_submission_recent_rows": source_submission_recent_rows,
+            "source_resolve_cached_doc_path": source_resolve_cached_doc_path,
+            "_parse_quarter_from_filename": _parse_quarter_from_filename,
+            "_parse_quarter_from_follow_text": _parse_quarter_from_follow_text,
+            "parse_date": parse_date,
+            "_is_quarter_end": _is_quarter_end,
+            "_coerce_prev_quarter_end": _coerce_prev_quarter_end,
+        }
+
+    def _get_cached_document_support() -> CachedDocumentSupport:
+        nonlocal cached_document_support
+        if cached_document_support is None:
+            cached_document_support = CachedDocumentSupport(
+                CachedDocumentSupportDeps(runtime=_cached_document_support_runtime())
+            )
+        return cached_document_support
+
     def _path_cache_key(path_in: Path) -> str:
-        return source_path_cache_key(path_in)
+        return _get_cached_document_support().path_cache_key(path_in)
 
     def _read_cached_doc_raw(path_in: Path) -> str:
-        return source_read_cached_doc_raw(
-            path_in,
-            document_cache=document_cache,
-            pdf_text_cache_root=pdf_text_cache_root,
-            rebuild_doc_text_cache=rebuild_doc_text_cache,
-            quiet_pdf_warnings=quiet_pdf_warnings,
-        )
+        return _get_cached_document_support().read_cached_doc_raw(path_in)
 
     def _read_cached_doc_text(path_in: Path, *, normalize: bool = False) -> str:
-        return source_read_cached_doc_text(
-            path_in,
-            document_cache=document_cache,
-            pdf_text_cache_root=pdf_text_cache_root,
-            rebuild_doc_text_cache=rebuild_doc_text_cache,
-            quiet_pdf_warnings=quiet_pdf_warnings,
-            normalize=normalize,
-        )
+        return _get_cached_document_support().read_cached_doc_text(path_in, normalize=normalize)
 
     def _infer_cached_doc_quarter(
         path_in: Path,
@@ -5316,22 +5341,15 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         latest_q_hint: Any = None,
         include_follow_text: bool = False,
     ) -> Optional[date]:
-        return source_infer_cached_doc_quarter(
+        return _get_cached_document_support().infer_cached_doc_quarter(
             path_in,
-            document_cache=document_cache,
-            parse_quarter_from_filename=_parse_quarter_from_filename,
-            parse_quarter_from_follow_text=_parse_quarter_from_follow_text,
             text=text,
             latest_q_hint=latest_q_hint,
             include_follow_text=include_follow_text,
         )
 
     def _sec_docs_for_accession(accn_in: Any) -> List[Path]:
-        return source_sec_docs_for_accession(
-            accn_in,
-            cache_root=cache_root,
-            document_cache=document_cache,
-        )
+        return _get_cached_document_support().sec_docs_for_accession(accn_in)
 
     def _ticker_specific_submission_path(path_in: Path) -> bool:
         if not _path_belongs_to_ticker(path_in, ticker, ticker_roots):
@@ -5366,30 +5384,13 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         return not has_ticker_specific_root
 
     def _submission_cache_files(*, max_files: Optional[int] = None) -> List[Path]:
-        return source_submission_cache_files(
-            cache_roots=tuple(cache_roots),
-            document_cache=document_cache,
-            max_files=max_files,
-            path_filter=_ticker_specific_submission_path,
-        )
+        return _get_cached_document_support().submission_cache_files(max_files=max_files)
 
     def _submission_recent_row_quarter(row: Dict[str, Any]) -> Optional[date]:
-        rep_d = parse_date(row.get("report"))
-        if rep_d is not None:
-            return rep_d if _is_quarter_end(rep_d) else _coerce_prev_quarter_end(rep_d)
-        filed_d = parse_date(row.get("filed"))
-        if filed_d is not None:
-            return _coerce_prev_quarter_end(filed_d)
-        return None
+        return _get_cached_document_support().submission_recent_row_quarter(row)
 
     def _submission_recent_rows(*, max_files: Optional[int] = None) -> List[Dict[str, Any]]:
-        return source_submission_recent_rows(
-            cache_roots=tuple(cache_roots),
-            document_cache=document_cache,
-            raw_reader=_read_cached_doc_raw,
-            max_files=max_files,
-            path_filter=_ticker_specific_submission_path,
-        )
+        return _get_cached_document_support().submission_recent_rows(max_files=max_files)
 
     def _resolve_cached_doc_path(
         *,
@@ -5397,9 +5398,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         doc_name: Any = "",
         path_hint: Any = "",
     ) -> Optional[Path]:
-        return source_resolve_cached_doc_path(
-            cache_roots=tuple(cache_roots),
-            accession_doc_lookup=_sec_docs_for_accession,
+        return _get_cached_document_support().resolve_cached_doc_path(
             accn=accn,
             doc_name=doc_name,
             path_hint=path_hint,

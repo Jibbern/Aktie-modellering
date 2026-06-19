@@ -11136,6 +11136,83 @@ def test_sec_cache_support_module_exposes_thin_wrapper_contract() -> None:
     assert "def build_writer_context(" in context_source
 
 
+def test_cached_document_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_cached_document_support import (
+        CachedDocumentSupport,
+        CachedDocumentSupportDeps,
+    )
+
+    expected_methods = [
+        "path_cache_key",
+        "read_cached_doc_raw",
+        "read_cached_doc_text",
+        "infer_cached_doc_quarter",
+        "sec_docs_for_accession",
+        "submission_cache_files",
+        "submission_recent_row_quarter",
+        "submission_recent_rows",
+        "resolve_cached_doc_path",
+    ]
+
+    assert [field.name for field in fields(CachedDocumentSupportDeps)] == ["runtime"]
+    for method_name in expected_methods:
+        assert callable(getattr(CachedDocumentSupport, method_name))
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_cached_document_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "excel_writer_sources" not in module_source
+    assert "class CachedDocumentSupportDeps" in module_source
+    assert "class CachedDocumentSupport" in module_source
+    for method_name in expected_methods:
+        assert f"def {method_name}(" in module_source
+    for seam_name in [
+        "source_path_cache_key",
+        "source_read_cached_doc_raw",
+        "source_read_cached_doc_text",
+        "source_infer_cached_doc_quarter",
+        "source_sec_docs_for_accession",
+        "source_submission_cache_files",
+        "source_submission_recent_rows",
+        "source_resolve_cached_doc_path",
+    ]:
+        assert seam_name in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_cached_document_support import (" in context_source
+    assert "def _path_cache_key(" in context_source
+    assert "path_cache_key(" in context_source
+    assert "def _read_cached_doc_raw(" in context_source
+    assert "read_cached_doc_raw(" in context_source
+    assert "def _read_cached_doc_text(" in context_source
+    assert "read_cached_doc_text(" in context_source
+    assert "def _infer_cached_doc_quarter(" in context_source
+    assert "infer_cached_doc_quarter(" in context_source
+    assert "def _sec_docs_for_accession(" in context_source
+    assert "sec_docs_for_accession(" in context_source
+    assert "def _submission_cache_files(" in context_source
+    assert "submission_cache_files(" in context_source
+    assert "def _submission_recent_row_quarter(" in context_source
+    assert "submission_recent_row_quarter(" in context_source
+    assert "def _submission_recent_rows(" in context_source
+    assert "submission_recent_rows(" in context_source
+    assert "def _resolve_cached_doc_path(" in context_source
+    assert "resolve_cached_doc_path(" in context_source
+    assert "def _ticker_specific_submission_path(" in context_source
+    assert "def _company_material_roots(" in context_source
+    assert "def _cache_roots(" in context_source
+    assert "SecCacheSupport(" in context_source
+    assert "def _slide_text_paths(" in context_source
+    assert "def _cached_source_view(" in context_source
+    assert "def _parse_first_evidence(" in context_source
+    assert "def _write_valuation_sheet(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_valuation_debt_support_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
