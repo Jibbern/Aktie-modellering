@@ -1977,6 +1977,10 @@ from .excel_writer_segments import (
     parse_quarterly_segment_data_from_workbook as ew_parse_quarterly_segment_data_from_workbook,
     quarterly_segment_label as ew_quarterly_segment_label,
 )
+from .excel_writer_sec_cache_support import (
+    SecCacheSupport,
+    SecCacheSupportDeps,
+)
 from .excel_writer_sources import (
     build_leverage_audit_doc_index as source_build_leverage_audit_doc_index,
     build_leverage_local_material_index as source_build_leverage_local_material_index,
@@ -3259,129 +3263,48 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     def _normalize_accn_local(val: Any) -> str:
         return re.sub(r"[^0-9]", "", str(val or ""))
 
+    sec_cache_support: Optional[SecCacheSupport] = None
+
+    def _sec_cache_support_runtime() -> Dict[str, Any]:
+        return {
+            "Path": Path,
+            "re": re,
+            "date": date,
+            "ticker": ticker,
+            "cache_dir": cache_dir,
+            "document_cache": document_cache,
+            "ticker_cache_candidates": ticker_cache_candidates,
+            "_parse_quarter_from_filename": _parse_quarter_from_filename,
+            "_parse_quarter_from_follow_text": _parse_quarter_from_follow_text,
+            "_read_cached_doc_text": lambda path_in: _read_cached_doc_text(path_in),
+            "infer_quarter_end_from_text": infer_quarter_end_from_text,
+        }
+
+    def _get_sec_cache_support() -> SecCacheSupport:
+        nonlocal sec_cache_support
+        if sec_cache_support is None:
+            sec_cache_support = SecCacheSupport(
+                SecCacheSupportDeps(runtime=_sec_cache_support_runtime())
+            )
+        return sec_cache_support
+
     def _sec_cache_roots_local() -> List[Path]:
-        roots: List[Path] = []
-        seen: set[str] = set()
-
-        def _add_root(p: Path) -> None:
-            try:
-                rp = str(p.resolve())
-            except Exception:
-                rp = str(p)
-            if rp in seen or not p.exists():
-                return
-            seen.add(rp)
-            roots.append(p)
-
-        repo_root = Path(__file__).resolve().parents[2]
-        for cand in ticker_cache_candidates(repo_root, str(ticker or "").strip(), Path(cache_dir) if cache_dir is not None else None):
-            _add_root(cand)
-        return roots
+        return _get_sec_cache_support().sec_cache_roots_local()
 
     def _sec_cache_doc_paths_local(root: Path) -> List[Path]:
-        cache_key = str(root.resolve()) if root.exists() else str(root)
-        cached = document_cache.sec_cache_doc_paths_by_root.get(cache_key)
-        if cached is not None:
-            return list(cached)
-        doc_paths: List[Path] = []
-        if root.exists():
-            try:
-                for path_in in root.rglob("doc_*"):
-                    if not path_in.is_file():
-                        continue
-                    if path_in.suffix.lower() not in {".htm", ".html", ".txt"}:
-                        continue
-                    doc_paths.append(path_in)
-            except Exception:
-                doc_paths = []
-        doc_paths = sorted(doc_paths, key=lambda z: z.stat().st_mtime if z.exists() else 0, reverse=True)
-        document_cache.sec_cache_doc_paths_by_root[cache_key] = list(doc_paths)
-        return list(doc_paths)
+        return _get_sec_cache_support().sec_cache_doc_paths_local(root)
 
     def _sec_cache_html_paths_local(root: Path) -> List[Path]:
-        cache_key = str(root.resolve()) if root.exists() else str(root)
-        cached = document_cache.sec_cache_html_paths_by_root.get(cache_key)
-        if cached is not None:
-            return list(cached)
-        html_paths: List[Path] = []
-        if root.exists():
-            try:
-                html_paths = sorted(
-                    (
-                        path_in
-                        for path_in in root.glob("*.htm")
-                        if path_in.is_file()
-                    ),
-                    key=lambda z: z.stat().st_mtime if z.exists() else 0,
-                    reverse=True,
-                )
-            except Exception:
-                html_paths = []
-        document_cache.sec_cache_html_paths_by_root[cache_key] = list(html_paths)
-        return list(html_paths)
+        return _get_sec_cache_support().sec_cache_html_paths_local(root)
 
     def _sec_cache_docs_for_token_local(root: Path, token: str) -> List[Path]:
-        token_txt = str(token or "").strip()
-        if not token_txt:
-            return []
-        cache_key = str(root.resolve()) if root.exists() else str(root)
-        token_index = document_cache.sec_cache_doc_paths_by_token_by_root.get(cache_key)
-        if token_index is None:
-            token_index = {}
-            for path_in in _sec_cache_doc_paths_local(root):
-                for token_hit in set(re.findall(r"20\d{6}", path_in.name)):
-                    token_index.setdefault(token_hit, []).append(path_in)
-            document_cache.sec_cache_doc_paths_by_token_by_root[cache_key] = token_index
-        return list(token_index.get(token_txt) or [])
+        return _get_sec_cache_support().sec_cache_docs_for_token_local(root, token)
 
     def _sec_cache_html_paths_for_token_local(root: Path, token: str) -> List[Path]:
-        token_txt = str(token or "").strip()
-        if not token_txt:
-            return []
-        cache_key = str(root.resolve()) if root.exists() else str(root)
-        token_index = document_cache.sec_cache_html_paths_by_token_by_root.get(cache_key)
-        if token_index is None:
-            token_index = {}
-            for path_in in _sec_cache_html_paths_local(root):
-                for token_hit in set(re.findall(r"20\d{6}", path_in.name)):
-                    token_index.setdefault(token_hit, []).append(path_in)
-            document_cache.sec_cache_html_paths_by_token_by_root[cache_key] = token_index
-        return list(token_index.get(token_txt) or [])
+        return _get_sec_cache_support().sec_cache_html_paths_for_token_local(root, token)
 
     def _infer_doc_quarter_local(path_in: Any, raw_text: Any = "") -> Optional[date]:
-        try:
-            p = Path(path_in)
-        except Exception:
-            return None
-        try:
-            path_key = str(p.resolve())
-        except Exception:
-            path_key = str(p)
-        if path_key in document_cache.inferred_quarter_by_path:
-            return document_cache.inferred_quarter_by_path.get(path_key)
-        text_in = str(raw_text or "")
-        qd = _parse_quarter_from_filename(p.name)
-        if not isinstance(qd, date):
-            if not text_in:
-                try:
-                    text_in = _read_cached_doc_text(p)
-                except Exception:
-                    text_in = ""
-            qd = _parse_quarter_from_follow_text(text_in) or infer_quarter_end_from_text(text_in)
-        if not isinstance(qd, date):
-            annual_letter_match = re.search(
-                r"(?:^|[_-])(20\d{2})(?:[^0-9]{0,24})?(?:annualletter|shareholderletter|shareholder.?letter)\b",
-                p.name,
-                re.I,
-            )
-            if annual_letter_match:
-                try:
-                    qd = date(int(annual_letter_match.group(1)), 12, 31)
-                except Exception:
-                    qd = None
-        qd_out = qd if isinstance(qd, date) else None
-        document_cache.inferred_quarter_by_path[path_key] = qd_out
-        return qd_out
+        return _get_sec_cache_support().infer_doc_quarter_local(path_in, raw_text)
 
     debt_convertible_support: Optional[DebtConvertibleEnrichmentSupport] = None
 

@@ -11080,6 +11080,62 @@ def test_debt_convertible_enrichment_module_exposes_support_contract() -> None:
     assert "excel_writer_valuation_debt_detail_render" in _valuation_orchestrator_source()
 
 
+def test_sec_cache_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_sec_cache_support import (
+        SecCacheSupport,
+        SecCacheSupportDeps,
+    )
+
+    expected_methods = [
+        "sec_cache_roots_local",
+        "sec_cache_doc_paths_local",
+        "sec_cache_html_paths_local",
+        "sec_cache_docs_for_token_local",
+        "sec_cache_html_paths_for_token_local",
+        "infer_doc_quarter_local",
+    ]
+
+    assert [field.name for field in fields(SecCacheSupportDeps)] == ["runtime"]
+    for method_name in expected_methods:
+        assert callable(getattr(SecCacheSupport, method_name))
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_sec_cache_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class SecCacheSupportDeps" in module_source
+    assert "class SecCacheSupport" in module_source
+    for method_name in expected_methods:
+        assert f"def {method_name}(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_sec_cache_support import (" in context_source
+    assert "def _sec_cache_roots_local(" in context_source
+    assert "sec_cache_roots_local(" in context_source
+    assert "def _sec_cache_doc_paths_local(" in context_source
+    assert "sec_cache_doc_paths_local(" in context_source
+    assert "def _sec_cache_html_paths_local(" in context_source
+    assert "sec_cache_html_paths_local(" in context_source
+    assert "def _sec_cache_docs_for_token_local(" in context_source
+    assert "sec_cache_docs_for_token_local(" in context_source
+    assert "def _sec_cache_html_paths_for_token_local(" in context_source
+    assert "sec_cache_html_paths_for_token_local(" in context_source
+    assert "def _infer_doc_quarter_local(" in context_source
+    assert "infer_doc_quarter_local(" in context_source
+    assert "def _company_material_roots(" in context_source
+    assert "def _cache_roots(" in context_source
+    assert "def _read_cached_doc_raw(" in context_source
+    assert "def _read_cached_doc_text(" in context_source
+    assert "def _submission_recent_rows(" in context_source
+    assert "def _resolve_cached_doc_path(" in context_source
+    assert "def _slide_text_paths(" in context_source
+    assert "def _write_valuation_sheet(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_valuation_debt_support_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
