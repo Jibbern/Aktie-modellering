@@ -11213,6 +11213,62 @@ def test_cached_document_support_module_exposes_thin_wrapper_contract() -> None:
     assert "def build_writer_context(" in context_source
 
 
+def test_source_root_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_source_root_support import (
+        SourceRootSupport,
+        SourceRootSupportDeps,
+    )
+
+    expected_methods = [
+        "path_within_scope",
+        "company_material_roots",
+        "is_repo_profile_cache_path",
+        "allow_repo_profile_cache_fallback",
+        "cache_roots",
+    ]
+
+    assert [field.name for field in fields(SourceRootSupportDeps)] == ["runtime"]
+    for method_name in expected_methods:
+        assert callable(getattr(SourceRootSupport, method_name))
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_source_root_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class SourceRootSupportDeps" in module_source
+    assert "class SourceRootSupport" in module_source
+    for method_name in expected_methods:
+        assert f"def {method_name}(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_source_root_support import (" in context_source
+    assert "def _path_within_scope(" in context_source
+    assert "path_within_scope(" in context_source
+    assert "def _company_material_roots(" in context_source
+    assert "company_material_roots(" in context_source
+    assert "def _is_repo_profile_cache_path(" in context_source
+    assert "is_repo_profile_cache_path(" in context_source
+    assert "def _allow_repo_profile_cache_fallback(" in context_source
+    assert "allow_repo_profile_cache_fallback(" in context_source
+    assert "def _cache_roots(" in context_source
+    assert "cache_roots(" in context_source
+    assert "ticker_roots: List[Path] = []" in context_source
+    assert "material_roots = _company_material_roots()" in context_source
+    assert "cache_roots = _cache_roots()" in context_source
+    assert "cache_root = next(" in context_source
+    assert "pdf_text_cache_root = " in context_source
+    assert "CachedDocumentSupport(" in context_source
+    assert "SecCacheSupport(" in context_source
+    assert "def _slide_text_paths(" in context_source
+    assert "def _cached_source_view(" in context_source
+    assert "def _parse_first_evidence(" in context_source
+    assert "def _write_valuation_sheet(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_valuation_debt_support_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 

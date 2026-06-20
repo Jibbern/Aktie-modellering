@@ -1981,6 +1981,10 @@ from .excel_writer_cached_document_support import (
     CachedDocumentSupport,
     CachedDocumentSupportDeps,
 )
+from .excel_writer_source_root_support import (
+    SourceRootSupport,
+    SourceRootSupportDeps,
+)
 from .excel_writer_sec_cache_support import (
     SecCacheSupport,
     SecCacheSupportDeps,
@@ -2483,91 +2487,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     ticker_roots: List[Path] = []
     repo_root = Path(__file__).resolve().parents[2]
 
-    def _path_within_scope(path_in: Any, root_in: Any) -> bool:
+    def _source_root_support_runtime() -> Dict[str, Any]:
         try:
-            Path(path_in).expanduser().resolve().relative_to(Path(root_in).expanduser().resolve())
-            return True
-        except Exception:
-            return False
+            profile_ticker_runtime = profile_ticker
+        except NameError:
+            profile_ticker_runtime = ticker
+        return {
+            "Path": Path,
+            "re": re,
+            "ticker": ticker,
+            "profile_ticker": profile_ticker_runtime,
+            "repo_root": repo_root,
+            "out_path": out_path,
+            "cache_dir": cache_dir,
+            "manifest_df": manifest_df,
+            "canonical_shared_cache_root": canonical_shared_cache_root,
+            "ticker_cache_candidates": ticker_cache_candidates,
+            "ticker_cache_roots_from_base_dir": ticker_cache_roots_from_base_dir,
+            "_path_belongs_to_ticker": _path_belongs_to_ticker,
+        }
+
+    def _get_source_root_support() -> SourceRootSupport:
+        return SourceRootSupport(SourceRootSupportDeps(runtime=_source_root_support_runtime()))
+
+    def _path_within_scope(path_in: Any, root_in: Any) -> bool:
+        return _get_source_root_support().path_within_scope(path_in, root_in)
 
     def _company_material_roots() -> List[Path]:
-        roots: List[Path] = []
-        seen: set[str] = set()
-
-        def _add_root(p: Path) -> None:
-            if not _path_belongs_to_ticker(p, ticker, ticker_roots):
-                return
-            try:
-                rp = str(p.resolve())
-            except Exception:
-                rp = str(p)
-            if rp in seen:
-                return
-            seen.add(rp)
-            roots.append(p)
-
-        if out_path.parent.name.lower().endswith("model excel") and out_path.parent.parent.exists():
-            _add_root(out_path.parent.parent)
-        tkr = str(ticker or "").strip()
-        explicit_material_scope = False
-        allow_repo_material_fallback = True
-        if cache_dir is not None:
-            try:
-                cache_base = Path(cache_dir).expanduser().resolve()
-            except Exception:
-                cache_base = Path(cache_dir)
-            if tkr:
-                repo_ticker_root = repo_root / tkr.upper()
-                repo_shared_cache = canonical_shared_cache_root(repo_root)
-                allow_repo_material_fallback = (
-                    _path_within_scope(cache_base, repo_ticker_root)
-                    or _path_within_scope(cache_base, repo_shared_cache)
-                    or _path_within_scope(repo_root, cache_base)
-                )
-            legacy_company_root = cache_base.parent if cache_base.name.lower() == "sec_cache" else None
-            if (
-                legacy_company_root is not None
-                and legacy_company_root.exists()
-                and str(legacy_company_root.name or "").strip().upper() == str(tkr or "").strip().upper()
-            ):
-                ticker_roots.append(legacy_company_root)
-                _add_root(legacy_company_root)
-                explicit_material_scope = True
-            if tkr:
-                nearby_ancestors: List[Path] = []
-                for ancestor in [cache_base.parent, *list(cache_base.parents)[:4]]:
-                    try:
-                        ancestor_key = str(Path(ancestor).expanduser().resolve())
-                    except Exception:
-                        ancestor_key = str(ancestor)
-                    if any(str(x) == ancestor_key for x in nearby_ancestors):
-                        continue
-                    nearby_ancestors.append(Path(ancestor))
-                for ancestor in nearby_ancestors:
-                    for cand in [
-                        ancestor / "tickers" / tkr.upper(),
-                        ancestor / "tickers" / tkr,
-                        ancestor / "tickers" / tkr.lower(),
-                        ancestor / tkr.upper(),
-                        ancestor / tkr,
-                        ancestor / tkr.lower(),
-                    ]:
-                        if not cand.exists() or not cand.is_dir():
-                            continue
-                        ticker_roots.append(cand)
-                        _add_root(cand)
-                        explicit_material_scope = True
-        if tkr:
-            for cand in [repo_root / tkr.upper(), repo_root / tkr, repo_root / tkr.lower()]:
-                if not allow_repo_material_fallback:
-                    break
-                if not cand.exists():
-                    continue
-                if explicit_material_scope:
-                    break
-                ticker_roots.append(cand)
-                _add_root(cand)
-        return roots
+        return _get_source_root_support().company_material_roots(ticker_roots)
 
     material_roots = _company_material_roots()
     company_profile = get_company_profile(ticker)
@@ -2577,30 +2524,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     is_anf_profile = profile_ticker == "ANF"
 
     def _is_repo_profile_cache_path(path_in: Any) -> bool:
-        profile_key = str(profile_ticker or ticker or "").strip().upper()
-        if not profile_key:
-            return False
-        repo_shared = canonical_shared_cache_root(repo_root)
-        repo_profile_roots = [
-            repo_shared,
-            repo_shared / profile_key,
-            repo_root / profile_key / "sec_cache",
-        ]
-        return any(_path_within_scope(path_in, root) for root in repo_profile_roots)
+        return _get_source_root_support().is_repo_profile_cache_path(path_in)
 
     def _allow_repo_profile_cache_fallback() -> bool:
-        if cache_dir is None:
-            return True
-        try:
-            cache_base = Path(cache_dir).expanduser().resolve()
-        except Exception:
-            cache_base = Path(cache_dir)
-        if _path_within_scope(cache_base, canonical_shared_cache_root(repo_root)):
-            return True
-        profile_key = str(profile_ticker or ticker or "").strip().upper()
-        if profile_key and _path_within_scope(cache_base, repo_root / profile_key / "sec_cache"):
-            return True
-        return _path_within_scope(repo_root, cache_base)
+        return _get_source_root_support().allow_repo_profile_cache_fallback()
     enable_operating_drivers_sheet = bool(
         getattr(company_profile, "enable_operating_drivers_sheet", False)
     )
@@ -2963,82 +2890,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     _pbi_promise_theme_re = _get_profile_signal_support().pbi_promise_theme_re
 
     def _cache_roots() -> List[Path]:
-        roots: List[Path] = []
-        seen: set[str] = set()
-
-        def _add_root(p: Path) -> None:
-            try:
-                rp = str(p.resolve())
-            except Exception:
-                rp = str(p)
-            if rp in seen:
-                return
-            seen.add(rp)
-            roots.append(p)
-
-        # Manifest-derived cache roots (highest confidence).
-        if manifest_df is not None and not manifest_df.empty:
-            pcol = None
-            col_map = {str(c).strip().lower(): c for c in manifest_df.columns}
-            for key in ("path", "cache_path", "file_path", "local_path"):
-                if key in col_map:
-                    pcol = col_map[key]
-                    break
-            if pcol is not None:
-                for raw in manifest_df[pcol].dropna().astype(str).head(1000):
-                    s = str(raw).strip()
-                    if s.lower().startswith("file:///"):
-                        s = s[8:]
-                        if re.match(r"^[A-Za-z]:", s):
-                            s = s.replace("/", "\\")
-                    elif s.lower().startswith("file://"):
-                        s = s[7:]
-                    xp = Path(s)
-                    if xp.exists():
-                        _add_root(xp.parent)
-                    else:
-                        # Keep unresolved path parent for later probing.
-                        _add_root(xp.parent)
-
-        repo_root = Path(__file__).resolve().parents[2]
-        tkr = str(ticker or "").strip()
-        ticker_specific_candidates = ticker_cache_candidates(repo_root, tkr, Path(cache_dir) if cache_dir is not None else None)
-        if not _allow_repo_profile_cache_fallback():
-            ticker_specific_candidates = [
-                cand for cand in ticker_specific_candidates if not _is_repo_profile_cache_path(cand)
-            ]
-        for cand in ticker_specific_candidates:
-            if cand.exists():
-                _add_root(cand)
-        if cache_dir is not None and tkr:
-            try:
-                cache_base = Path(cache_dir).expanduser()
-            except Exception:
-                cache_base = Path(cache_dir)
-            nearby_ancestors = [cache_base.parent, *list(cache_base.parents)[:4]]
-            for ancestor in nearby_ancestors:
-                for cand in [
-                    ancestor / "sec_cache" / tkr.upper(),
-                    ancestor / "sec_cache" / tkr,
-                    ancestor / "sec_cache" / tkr.lower(),
-                    ancestor / tkr.upper() / "sec_cache",
-                    ancestor / tkr / "sec_cache",
-                    ancestor / tkr.lower() / "sec_cache",
-                ]:
-                    if cand.exists():
-                        _add_root(cand)
-        for root in material_roots:
-            for cand in ticker_cache_roots_from_base_dir(root):
-                if cand.exists():
-                    _add_root(cand)
-
-        # Only fall back to global cache roots when no ticker-specific cache root exists.
-        if _allow_repo_profile_cache_fallback() and not any(
-            c.exists() and c != canonical_shared_cache_root(repo_root) for c in ticker_specific_candidates
-        ):
-            _add_root(canonical_shared_cache_root(repo_root))
-            _add_root(Path("sec_cache"))
-        return roots
+        return _get_source_root_support().cache_roots(material_roots)
 
     cache_roots = _cache_roots()
     cache_root = next((p for p in cache_roots if p.exists()), Path(__file__).resolve().parents[2] / "sec_cache")
