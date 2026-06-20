@@ -12099,6 +12099,40 @@ def test_legacy_ui_writers_module_exposes_thin_wrapper_contract() -> None:
     assert "def build_writer_context(" in context_source
 
 
+def test_anf_qa_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_anf_qa_support import (
+        AnfQASupport,
+        AnfQASupportDeps,
+    )
+
+    assert [field.name for field in fields(AnfQASupportDeps)] == ["runtime"]
+    assert hasattr(AnfQASupport, "normalize_qa_status_rows")
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_anf_qa_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class AnfQASupportDeps" in module_source
+    assert "class AnfQASupport" in module_source
+    assert "def normalize_qa_status_rows(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_anf_qa_support import (" in context_source
+    assert "AnfQASupportDeps(" in context_source
+    assert "AnfQASupport(" in context_source
+    assert "def _anf_normalize_qa_status_rows(" in context_source
+    assert "normalize_qa_status_rows(" in context_source
+    assert "def _build_hidden_value_flags_fallback(" in context_source
+    assert "def _write_flags_sheet(" in context_source
+    assert "def _write_valuation_sheet(" in context_source
+    assert "callbacks = WriterCallbacks(" in context_source
+    assert "extra_callbacks={" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
