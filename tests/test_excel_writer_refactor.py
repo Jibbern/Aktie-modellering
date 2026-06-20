@@ -12048,6 +12048,57 @@ def test_quarter_notes_context_adapter_module_exposes_thin_wrapper_contract() ->
     assert "def build_writer_context(" in context_source
 
 
+def test_legacy_ui_writers_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_legacy_ui_writers import (
+        LegacyUIWriterDeps,
+        LegacyUIWriters,
+    )
+
+    assert [field.name for field in fields(LegacyUIWriterDeps)] == ["runtime"]
+    assert hasattr(LegacyUIWriters, "write_quarter_notes_ui")
+    assert hasattr(LegacyUIWriters, "write_promise_tracker_ui")
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_legacy_ui_writers").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class LegacyUIWriterDeps" in module_source
+    assert "class LegacyUIWriters" in module_source
+    assert "def write_quarter_notes_ui(" in module_source
+    assert "def write_promise_tracker_ui(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_legacy_ui_writers import (" in context_source
+    assert "LegacyUIWriterDeps(" in context_source
+    assert "LegacyUIWriters(" in context_source
+    assert "def _write_quarter_notes_ui(" in context_source
+    assert "write_quarter_notes_ui(" in context_source
+    assert "def _write_promise_tracker_ui(" in context_source
+    assert "write_promise_tracker_ui(" in context_source
+    assert "def _write_quarter_notes_ui_v2(" in context_source
+    assert "def _write_promise_tracker_ui_v2(" in context_source
+    assert "def _write_promise_progress_ui_v2(" in context_source
+
+    callbacks_start = context_source.index("    callbacks = WriterCallbacks(")
+    callbacks_end = context_source.index("    ctx = WriterContext(", callbacks_start)
+    callbacks_source = context_source[callbacks_start:callbacks_end]
+    assert "write_quarter_notes_ui_v2=_write_quarter_notes_ui_v2" in callbacks_source
+    assert "write_promise_tracker_ui_v2=_write_promise_tracker_ui_v2" in callbacks_source
+    assert "write_promise_progress_ui_v2=_write_promise_progress_ui_v2" in callbacks_source
+    assert "write_quarter_notes_ui=_write_quarter_notes_ui" not in callbacks_source
+    assert "write_promise_tracker_ui=_write_promise_tracker_ui" not in callbacks_source
+    assert '"_write_quarter_notes_ui":' not in callbacks_source
+    assert '"_write_promise_tracker_ui":' not in callbacks_source
+
+    assert "write_quarter_notes_ui_v2 as _write_quarter_notes_ui_v2_impl" in context_source
+    assert "write_promise_tracker_ui_sheet" in context_source
+    assert "promise_progress_write_promise_progress_ui_v2(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
