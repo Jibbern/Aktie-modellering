@@ -12211,6 +12211,57 @@ def test_analysis_sheet_layout_support_module_exposes_thin_wrapper_contract() ->
     assert "def build_writer_context(" in context_source
 
 
+def test_hidden_value_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_hidden_value_support import (
+        HiddenValueSupport,
+        HiddenValueSupportDeps,
+    )
+
+    assert [field.name for field in fields(HiddenValueSupportDeps)] == ["runtime"]
+    assert hasattr(HiddenValueSupport, "build_hidden_value_flags_fallback")
+    assert hasattr(HiddenValueSupport, "write_flags_sheet")
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_hidden_value_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class HiddenValueSupportDeps" in module_source
+    assert "class HiddenValueSupport" in module_source
+    assert "def build_hidden_value_flags_fallback(" in module_source
+    assert "def write_flags_sheet(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    writer_types_source = Path(importlib.import_module("pbi_xbrl.writer_types").__file__).read_text(
+        encoding="utf-8"
+    )
+    hidden_flags_source = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_hidden_value_flags").__file__
+    ).read_text(encoding="utf-8")
+    core_source = Path(importlib.import_module("pbi_xbrl.excel_writer_core").__file__).read_text(
+        encoding="utf-8"
+    )
+
+    assert "from .excel_writer_hidden_value_support import (" in context_source
+    assert "HiddenValueSupportDeps(" in context_source
+    assert "HiddenValueSupport(" in context_source
+    assert "def _build_hidden_value_flags_fallback(" in context_source
+    assert "def _write_flags_sheet(" in context_source
+    assert "write_flags_sheet=_write_flags_sheet" in context_source
+    assert "build_hidden_value_flags_fallback=_build_hidden_value_flags_fallback" in context_source
+    assert "\"_write_flags_sheet\": self.write_flags_sheet" in writer_types_source
+    assert "def write_hidden_value_flags_sheet(" in hidden_flags_source
+    assert "class HiddenValueFlagsSheetInputs" in hidden_flags_source
+    assert "Hidden_Value_Audit" in core_source
+    assert "f_triggered = hdr_f.get(\"triggered\")" in core_source
+    assert "def _write_valuation_sheet(" in context_source
+    assert "callbacks = WriterCallbacks(" in context_source
+    assert "extra_callbacks={" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
