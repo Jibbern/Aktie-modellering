@@ -12312,6 +12312,62 @@ def test_hidden_value_support_module_exposes_thin_wrapper_contract() -> None:
     assert "def build_writer_context(" in context_source
 
 
+def test_evidence_source_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_evidence_source_support import (
+        EvidenceSourceSupport,
+        EvidenceSourceSupportDeps,
+    )
+
+    assert [field.name for field in fields(EvidenceSourceSupportDeps)] == ["runtime"]
+    assert hasattr(EvidenceSourceSupport, "build_qn_evidence_src")
+    assert hasattr(EvidenceSourceSupport, "build_promise_evidence_src")
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_evidence_source_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class EvidenceSourceSupportDeps" in module_source
+    assert "class EvidenceSourceSupport" in module_source
+    assert "def build_qn_evidence_src(" in module_source
+    assert "def build_promise_evidence_src(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    writer_types_source = Path(importlib.import_module("pbi_xbrl.writer_types").__file__).read_text(
+        encoding="utf-8"
+    )
+    core_source = Path(importlib.import_module("pbi_xbrl.excel_writer_core").__file__).read_text(
+        encoding="utf-8"
+    )
+
+    assert "from .excel_writer_evidence_source_support import (" in context_source
+    assert "EvidenceSourceSupportDeps(" in context_source
+    assert "EvidenceSourceSupport(" in context_source
+    assert "def _build_qn_evidence_src(" in context_source
+    assert "build_qn_evidence_src(" in context_source
+    assert "def _build_promise_evidence_src(" in context_source
+    assert "build_promise_evidence_src(" in context_source
+    assert "def _parse_first_evidence(" in context_source
+    assert "def _qend_date(" in context_source
+    assert "build_qn_evidence_src=_build_qn_evidence_src" in context_source
+    assert "build_promise_evidence_src=_build_promise_evidence_src" in context_source
+    assert "\"_build_qn_evidence_src\": self.build_qn_evidence_src" in writer_types_source
+    assert "\"_build_promise_evidence_src\": self.build_promise_evidence_src" in writer_types_source
+    assert "callbacks.build_qn_evidence_src()" in core_source
+    assert "callbacks.build_promise_evidence_src()" in core_source
+    assert "state[\"quarter_notes_evidence_df\"] = quarter_notes_evidence_df" in core_source
+    assert "state[\"promise_evidence_df\"] = promise_evidence_df" in core_source
+    assert "ctx.derived.quarter_notes_evidence_df" in core_source
+    assert "ctx.derived.promise_evidence_df" in core_source
+    assert "def _write_quarter_notes_ui_v2(" in context_source
+    assert "def _write_promise_progress_ui_v2(" in context_source
+    assert "callbacks = WriterCallbacks(" in context_source
+    assert "extra_callbacks={" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
