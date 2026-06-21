@@ -11539,6 +11539,56 @@ def test_operating_drivers_raw_sheet_module_exposes_thin_wrapper_contract() -> N
     assert '"_write_operating_drivers_raw_sheet": self.write_operating_drivers_raw_sheet' in writer_types_source
 
 
+def test_economics_overlay_sheet_adapter_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_economics_overlay_sheet import (
+        EconomicsOverlaySheetDeps,
+        EconomicsOverlaySheetWriter,
+    )
+
+    assert [field.name for field in fields(EconomicsOverlaySheetDeps)] == ["runtime"]
+    assert callable(getattr(EconomicsOverlaySheetWriter, "write_economics_overlay_sheet"))
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_economics_overlay_sheet").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class EconomicsOverlaySheetDeps" in module_source
+    assert "class EconomicsOverlaySheetWriter" in module_source
+    assert "def write_economics_overlay_sheet(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    writer_types_source = Path(importlib.import_module("pbi_xbrl.writer_types").__file__).read_text(
+        encoding="utf-8"
+    )
+    orchestrator_source = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_economics_overlay_orchestrator").__file__
+    ).read_text(encoding="utf-8")
+    basis_source = Path(importlib.import_module("pbi_xbrl.market_data.service").__file__).read_text(encoding="utf-8")
+    market_sources_source = Path(importlib.import_module("pbi_xbrl.excel_writer_market_data_sources").__file__).read_text(
+        encoding="utf-8"
+    )
+
+    assert "from .excel_writer_economics_overlay_sheet import (" in context_source
+    assert "def _write_economics_overlay_sheet(" in context_source
+    assert "EconomicsOverlaySheetDeps(" in context_source
+    assert "EconomicsOverlaySheetWriter(" in context_source
+    assert "write_economics_overlay_sheet=_write_economics_overlay_sheet" in context_source
+    assert "callbacks = WriterCallbacks(" in context_source
+    assert "extra_callbacks={" in context_source
+    assert "def build_writer_context(" in context_source
+    assert "write_economics_overlay_sheet: Callable" in writer_types_source
+    assert '"_write_economics_overlay_sheet": self.write_economics_overlay_sheet' in writer_types_source
+    assert "class EconomicsOverlayOrchestratorDeps" in orchestrator_source
+    assert "def write_economics_overlay_sheet(" in orchestrator_source
+    assert "def build_gpre_basis_proxy_model(" in basis_source
+    assert "def build_economics_market_rows(" in market_sources_source
+
+
 def test_operating_driver_workbook_support_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
