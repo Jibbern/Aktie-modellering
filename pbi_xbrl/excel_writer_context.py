@@ -77,6 +77,10 @@ from .excel_writer_operating_drivers import (
     OperatingDriversWriterDeps,
     write_operating_drivers_sheet,
 )
+from .excel_writer_operating_drivers_raw_sheet import (
+    OperatingDriversRawSheetDeps,
+    OperatingDriversRawSheetWriter,
+)
 from .excel_writer_economics_overlay_charts import (
     EconomicsOverlayChartWriterDeps,
     _build_visible_quarter_label_points,
@@ -4886,99 +4890,23 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         return build_economics_market_rows(deps)
 
     def _write_operating_drivers_raw_sheet(rows: List[Dict[str, Any]]) -> None:
-        ws = wb.create_sheet("operating_drivers_raw")
-        local_header_fill = PatternFill("solid", fgColor="F2F2F2")
-        local_thin_border = Border(
-            left=Side(style="thin", color="BFBFBF"),
-            right=Side(style="thin", color="BFBFBF"),
-            top=Side(style="thin", color="BFBFBF"),
-            bottom=Side(style="thin", color="BFBFBF"),
+        deps = OperatingDriversRawSheetDeps(
+            runtime={
+                "wb": wb,
+                "pd": pd,
+                "ILLEGAL_CHARACTERS_RE": ILLEGAL_CHARACTERS_RE,
+                "PatternFill": PatternFill,
+                "Border": Border,
+                "Side": Side,
+                "Font": Font,
+                "Alignment": Alignment,
+                "header_size": header_size,
+                "_safe_cell": _safe_cell,
+                "_set_cell_comment_local": _set_cell_comment_local,
+                "_estimate_wrapped_row_height": _estimate_wrapped_row_height,
+            }
         )
-        headers = [
-            "Quarter",
-            "Driver group",
-            "Driver",
-            "Value",
-            "Unit",
-            "QoQ change",
-            "YoY change",
-            "Source",
-            "Commentary",
-            "Quality",
-        ]
-        if not rows:
-            ws["A1"] = "No operating-driver history available."
-            return
-        ws.append(headers)
-        for cc, header in enumerate(headers, start=1):
-            cell = ws.cell(row=1, column=cc, value=header)
-            cell.font = Font(bold=True, size=header_size)
-            cell.fill = local_header_fill
-            cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-            cell.border = local_thin_border
-        col_widths = {
-            "A": 14,
-            "B": 28,
-            "C": 30,
-            "D": 14,
-            "E": 12,
-            "F": 14,
-            "G": 14,
-            "H": 18,
-            "I": 56,
-            "J": 14,
-        }
-        for letter, width in col_widths.items():
-            ws.column_dimensions[letter].width = width
-        for row_idx, rec in enumerate(rows, start=2):
-            for col_idx, header in enumerate(headers, start=1):
-                value = rec.get(header)
-                if isinstance(value, str):
-                    value = ILLEGAL_CHARACTERS_RE.sub("", value)
-                elif value is not None:
-                    try:
-                        value = _safe_cell(value)
-                    except Exception:
-                        pass
-                cell = ws.cell(row=row_idx, column=col_idx, value=value)
-                cell.border = local_thin_border
-                if header == "Commentary":
-                    cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
-                else:
-                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-            quarter_cell = ws.cell(row=row_idx, column=1)
-            quarter_cell.number_format = "yyyy-mm-dd"
-            value_cell = ws.cell(row=row_idx, column=4)
-            unit_txt = str(rec.get("Unit") or "")
-            if pd.notna(pd.to_numeric(rec.get("Value"), errors="coerce")):
-                if unit_txt == "%":
-                    value_cell.number_format = "0.0"
-                elif unit_txt in {"$m", "m gallons", "m lbs", "m bushels", "k tons"}:
-                    value_cell.number_format = "#,##0.0"
-                else:
-                    value_cell.number_format = "#,##0.000"
-            src_note = str(rec.get("_source_note") or "").strip()
-            if src_note:
-                try:
-                    _set_cell_comment_local(ws.cell(row=row_idx, column=8), src_note)
-                except Exception:
-                    pass
-            commentary = str(rec.get("Commentary") or "").strip()
-            if commentary:
-                ws.row_dimensions[row_idx].height = _estimate_wrapped_row_height(
-                    commentary,
-                    float(col_widths["I"]),
-                    18,
-                    12,
-                    min_lines=1,
-                    max_lines=5,
-                )
-            else:
-                ws.row_dimensions[row_idx].height = 18
-        ws.freeze_panes = "A2"
-        ws.auto_filter.ref = f"A1:J{ws.max_row}"
-        ws.sheet_format.defaultRowHeight = 18
-        ws.sheet_view.zoomScale = 110
+        OperatingDriversRawSheetWriter(deps).write_operating_drivers_raw_sheet(rows)
 
     def _write_economics_market_raw_sheet(rows: List[Dict[str, Any]]) -> None:
         deps = EconomicsMarketRawWriterDeps(
