@@ -73,6 +73,10 @@ from .excel_writer_layout import (
     estimate_wrapped_line_count as _estimate_wrapped_line_count,
     estimate_wrapped_row_height as _estimate_wrapped_row_height,
 )
+from .excel_writer_analysis_sheet_layout_support import (
+    AnalysisSheetLayoutSupport,
+    AnalysisSheetLayoutSupportDeps,
+)
 from .excel_writer_operating_drivers import (
     OperatingDriversWriterDeps,
     write_operating_drivers_sheet,
@@ -3473,6 +3477,21 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     def _write_promise_tracker_ui() -> List[Dict[str, Any]]:
         return _legacy_ui_writers().write_promise_tracker_ui()
 
+    def _analysis_sheet_layout_support_runtime() -> Dict[str, Any]:
+        return {
+            "_get_analysis_sheet_style_bundle": _get_analysis_sheet_style_bundle,
+            "copy": copy,
+            "Font": Font,
+            "Alignment": Alignment,
+            "Border": Border,
+            "header_size": header_size,
+        }
+
+    def _analysis_sheet_layout_support() -> AnalysisSheetLayoutSupport:
+        return AnalysisSheetLayoutSupport(
+            AnalysisSheetLayoutSupportDeps(runtime=_analysis_sheet_layout_support_runtime())
+        )
+
     def _write_analysis_sheet_title_and_metadata(
         ws: Any,
         title: str,
@@ -3482,52 +3501,14 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         title_row: int = 1,
         metadata_row: int = 2,
     ) -> int:
-        theme = _get_analysis_sheet_style_bundle()
-        title_fill = copy(theme["title_fill"])
-        section_fill = copy(theme["section_fill"])
-        thin_border = copy(theme["thin_border"])
-        title_font = Font(bold=True, size=15, color="FFFFFF")
-        metadata_font = Font(size=10, color=str(theme["text_muted"]), italic=True)
-        try:
-            ws.merge_cells(
-                start_row=title_row,
-                start_column=1,
-                end_row=title_row,
-                end_column=max_col,
-            )
-        except Exception:
-            pass
-        tcell = ws.cell(row=title_row, column=1, value=title)
-        tcell.font = title_font
-        tcell.fill = title_fill
-        tcell.alignment = Alignment(horizontal="center", vertical="center")
-        tcell.border = thin_border
-        ws.row_dimensions[title_row].height = 24.0
-        for cc in range(1, max_col + 1):
-            cell = ws.cell(row=title_row, column=cc)
-            cell.fill = title_fill
-            cell.border = thin_border
-
-        try:
-            ws.merge_cells(
-                start_row=metadata_row,
-                start_column=1,
-                end_row=metadata_row,
-                end_column=max_col,
-            )
-        except Exception:
-            pass
-        mcell = ws.cell(row=metadata_row, column=1, value=metadata_text)
-        mcell.font = metadata_font
-        mcell.fill = section_fill
-        mcell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-        mcell.border = thin_border
-        ws.row_dimensions[metadata_row].height = 18.0
-        for cc in range(1, max_col + 1):
-            cell = ws.cell(row=metadata_row, column=cc)
-            cell.fill = section_fill
-            cell.border = thin_border
-        return metadata_row + 1
+        return _analysis_sheet_layout_support().write_analysis_sheet_title_and_metadata(
+            ws,
+            title,
+            metadata_text,
+            max_col=max_col,
+            title_row=title_row,
+            metadata_row=metadata_row,
+        )
 
     def _render_stacked_quarter_blocks(
         ws: Any,
@@ -3540,49 +3521,17 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         start_row: int = 2,
         blank_row_between: bool = True,
     ) -> int:
-        theme = _get_analysis_sheet_style_bundle()
-        hdr_fill = copy(theme["title_fill"])
-        thin_border = copy(theme["thin_border"])
-        sep_side = copy(theme["thin_side"])
-        row_idx = start_row
-        for qd in quarters:
-            title = block_title_fn(qd) if callable(block_title_fn) else str(qd)
-            h = ws.cell(row=row_idx, column=1, value=title)
-            h.font = Font(bold=True, size=header_size, color="FFFFFF")
-            h.fill = hdr_fill
-            h.alignment = Alignment(horizontal="left", vertical="center")
-            h.border = thin_border
-            for cc in range(2, max_col + 1):
-                ws.cell(row=row_idx, column=cc, value=None).fill = hdr_fill
-                ws.cell(row=row_idx, column=cc).border = thin_border
-            row_idx += 1
-
-            if block_header_writer is not None:
-                row_idx = int(block_header_writer(ws, row_idx, qd, max_col))
-
-            items = rows_by_quarter.get(qd, [])
-            if not items:
-                c = ws.cell(row=row_idx, column=2, value="No high-signal items.")
-                c.font = Font(size=11, italic=True, color="666666")
-                c.alignment = Alignment(vertical="top")
-                row_idx += 1
-            else:
-                for item in items:
-                    row_writer(ws, row_idx, qd, item)
-                    row_idx += 1
-
-            sep_row = max(start_row, row_idx - 1)
-            for cc in range(1, max_col + 1):
-                cell = ws.cell(row=sep_row, column=cc)
-                cell.border = Border(
-                    left=cell.border.left,
-                    right=cell.border.right,
-                    top=cell.border.top,
-                    bottom=sep_side,
-                )
-            if blank_row_between:
-                row_idx += 1
-        return row_idx
+        return _analysis_sheet_layout_support().render_stacked_quarter_blocks(
+            ws,
+            quarters,
+            rows_by_quarter,
+            max_col,
+            block_title_fn,
+            row_writer,
+            block_header_writer=block_header_writer,
+            start_row=start_row,
+            blank_row_between=blank_row_between,
+        )
 
     _quarter_notes_ui_selection_outer_scope = dict(locals())
 

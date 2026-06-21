@@ -12174,6 +12174,43 @@ def test_anf_qa_support_module_exposes_thin_wrapper_contract() -> None:
     assert "def build_writer_context(" in context_source
 
 
+def test_analysis_sheet_layout_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_analysis_sheet_layout_support import (
+        AnalysisSheetLayoutSupport,
+        AnalysisSheetLayoutSupportDeps,
+    )
+
+    assert [field.name for field in fields(AnalysisSheetLayoutSupportDeps)] == ["runtime"]
+    assert hasattr(AnalysisSheetLayoutSupport, "write_analysis_sheet_title_and_metadata")
+    assert hasattr(AnalysisSheetLayoutSupport, "render_stacked_quarter_blocks")
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_analysis_sheet_layout_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class AnalysisSheetLayoutSupportDeps" in module_source
+    assert "class AnalysisSheetLayoutSupport" in module_source
+    assert "def write_analysis_sheet_title_and_metadata(" in module_source
+    assert "def render_stacked_quarter_blocks(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_analysis_sheet_layout_support import (" in context_source
+    assert "AnalysisSheetLayoutSupportDeps(" in context_source
+    assert "AnalysisSheetLayoutSupport(" in context_source
+    assert "def _write_analysis_sheet_title_and_metadata(" in context_source
+    assert "def _render_stacked_quarter_blocks(" in context_source
+    assert "def _write_quarter_notes_ui_v2(" in context_source
+    assert "def _write_promise_progress_ui_v2(" in context_source
+    assert "def _write_promise_tracker_ui_v2(" in context_source
+    assert "def _get_analysis_sheet_style_bundle(" in context_source
+    assert "callbacks = WriterCallbacks(" in context_source
+    assert "extra_callbacks={" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
