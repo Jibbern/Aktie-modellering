@@ -12132,6 +12132,38 @@ def test_shared_ui_conventions_module_exposes_thin_wrapper_contract() -> None:
     assert "def build_writer_context(" in context_source
 
 
+def test_investment_case_readability_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_investment_case_readability import (
+        InvestmentCaseReadability,
+        InvestmentCaseReadabilityDeps,
+    )
+
+    assert [field.name for field in fields(InvestmentCaseReadabilityDeps)] == ["runtime"]
+    assert hasattr(InvestmentCaseReadability, "polish_investment_case_readability")
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_investment_case_readability").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class InvestmentCaseReadabilityDeps" in module_source
+    assert "class InvestmentCaseReadability" in module_source
+    assert "def polish_investment_case_readability(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_investment_case_readability import (" in context_source
+    assert "InvestmentCaseReadabilityDeps(" in context_source
+    assert "InvestmentCaseReadability(" in context_source
+    assert "def _polish_investment_case_readability(" in context_source
+    assert '"_polish_investment_case_readability": _polish_investment_case_readability' in context_source
+    assert "def _apply_shared_ui_conventions_to_workbook(" in context_source
+    assert "def _write_sector_investment_case_sheet(" in context_source
+    assert "def _write_anf_investment_case_sheet(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_quarter_notes_context_adapter_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
