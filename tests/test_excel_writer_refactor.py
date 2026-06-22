@@ -12368,6 +12368,44 @@ def test_evidence_source_support_module_exposes_thin_wrapper_contract() -> None:
     assert "def build_writer_context(" in context_source
 
 
+def test_sector_operating_driver_intro_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_sector_operating_driver_intro_support import (
+        SectorOperatingDriverIntroSupport,
+        SectorOperatingDriverIntroSupportDeps,
+    )
+
+    assert [field.name for field in fields(SectorOperatingDriverIntroSupportDeps)] == ["runtime"]
+    assert hasattr(SectorOperatingDriverIntroSupport, "sector_operating_driver_intro_tables")
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_sector_operating_driver_intro_support").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class SectorOperatingDriverIntroSupportDeps" in module_source
+    assert "class SectorOperatingDriverIntroSupport" in module_source
+    assert "def sector_operating_driver_intro_tables(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+
+    assert "from .excel_writer_sector_operating_driver_intro_support import (" in context_source
+    assert "SectorOperatingDriverIntroSupportDeps(" in context_source
+    assert "SectorOperatingDriverIntroSupport(" in context_source
+    assert "def _sector_operating_driver_intro_tables(" in context_source
+    assert "sector_operating_driver_intro_tables(" in context_source
+    assert "def _guidance_source_contract_label(" in context_source
+    assert "sector_operating_driver_intro_tables=_sector_operating_driver_intro_tables" in context_source
+    assert "def _write_operating_drivers_sheet(" in context_source
+    assert "OperatingDriversWriterDeps(" in context_source
+    assert "callbacks = WriterCallbacks(" in context_source
+    assert "extra_callbacks={" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
