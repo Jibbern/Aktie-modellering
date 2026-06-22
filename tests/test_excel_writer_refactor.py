@@ -11589,6 +11589,48 @@ def test_economics_overlay_sheet_adapter_module_exposes_thin_wrapper_contract() 
     assert "def build_economics_market_rows(" in market_sources_source
 
 
+def test_chart_text_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_chart_text_support import (
+        ChartTextSupport,
+        ChartTextSupportDeps,
+    )
+
+    assert [field.name for field in fields(ChartTextSupportDeps)] == ["runtime"]
+    assert callable(getattr(ChartTextSupport, "apply_chart_text_categories"))
+
+    module_path = Path(importlib.import_module("pbi_xbrl.excel_writer_chart_text_support").__file__)
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class ChartTextSupportDeps" in module_source
+    assert "class ChartTextSupport" in module_source
+    assert "def apply_chart_text_categories(" in module_source
+    assert "def _excel_string_ref(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    charts_source = Path(importlib.import_module("pbi_xbrl.excel_writer_economics_overlay_charts").__file__).read_text(
+        encoding="utf-8"
+    )
+    coproduct_source = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_economics_overlay_coproduct").__file__
+    ).read_text(encoding="utf-8")
+    orchestrator_source = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_economics_overlay_orchestrator").__file__
+    ).read_text(encoding="utf-8")
+
+    assert "from .excel_writer_chart_text_support import (" in context_source
+    assert "def _apply_chart_text_categories(" in context_source
+    assert "ChartTextSupportDeps(" in context_source
+    assert "ChartTextSupport(" in context_source
+    assert '"_apply_chart_text_categories": _apply_chart_text_categories' in context_source
+    assert "def write_economics_overlay_charts(" in charts_source
+    assert "def write_gpre_economics_overlay_coproduct_section(" in coproduct_source
+    assert "class EconomicsOverlayOrchestratorDeps" in orchestrator_source
+
+
 def test_operating_driver_workbook_support_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 

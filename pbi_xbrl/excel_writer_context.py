@@ -77,6 +77,10 @@ from .excel_writer_analysis_sheet_layout_support import (
     AnalysisSheetLayoutSupport,
     AnalysisSheetLayoutSupportDeps,
 )
+from .excel_writer_chart_text_support import (
+    ChartTextSupport,
+    ChartTextSupportDeps,
+)
 from .excel_writer_evidence_source_support import (
     EvidenceSourceSupport,
     EvidenceSourceSupportDeps,
@@ -1840,47 +1844,26 @@ from .period_resolver import (
 )
 
 
-def _excel_string_ref(sheet_name: str, col_idx: int, start_row: int, end_row: int) -> str:
-    safe_sheet = str(sheet_name or "").replace("'", "''")
-    col_letter = get_column_letter(int(col_idx))
-    return f"'{safe_sheet}'!${col_letter}${int(start_row)}:${col_letter}${int(end_row)}"
-
-
 def _apply_chart_text_categories(chart_in: Any, *, sheet_name: str, col_idx: int, start_row: int, end_row: int) -> None:
-    if chart_in is None or int(end_row) < int(start_row):
-        return
-    formula = _excel_string_ref(sheet_name, col_idx, start_row, end_row)
-    try:
-        if not isinstance(getattr(chart_in, "x_axis", None), TextAxis):
-            chart_in.x_axis = TextAxis()
-    except Exception:
-        pass
-    try:
-        chart_in.x_axis.auto = False
-        chart_in.x_axis.axPos = "b"
-        chart_in.x_axis.delete = False
-        chart_in.x_axis.tickLblPos = "low"
-        chart_in.x_axis.majorTickMark = "out"
-        chart_in.x_axis.minorTickMark = "none"
-        chart_in.x_axis.tickLblSkip = 1
-        chart_in.x_axis.tickMarkSkip = 1
-        chart_in.x_axis.noMultiLvlLbl = True
-        chart_in.x_axis.lblOffset = 100
-        chart_in.x_axis.majorGridlines = ChartLines(
-            spPr=GraphicalProperties(
-                ln=LineProperties(
-                    w=6350,
-                    solidFill="D0D0D0",
-                )
-            )
+    return ChartTextSupport(
+        ChartTextSupportDeps(
+            runtime={
+                "get_column_letter": get_column_letter,
+                "TextAxis": TextAxis,
+                "ChartLines": ChartLines,
+                "GraphicalProperties": GraphicalProperties,
+                "LineProperties": LineProperties,
+                "AxDataSource": AxDataSource,
+                "StrRef": StrRef,
+            }
         )
-    except Exception:
-        pass
-    for series_in in list(getattr(chart_in, "series", ()) or ()):
-        try:
-            series_in.cat = AxDataSource(strRef=StrRef(f=formula))
-        except Exception:
-            continue
+    ).apply_chart_text_categories(
+        chart_in,
+        sheet_name=sheet_name,
+        col_idx=col_idx,
+        start_row=start_row,
+        end_row=end_row,
+    )
 from .pipeline_types import WorkbookInputs
 from .quarter_notes_lexicon import (
     compact_snippet as qn_compact_snippet,
