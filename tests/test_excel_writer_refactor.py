@@ -11746,6 +11746,47 @@ def test_sector_investment_case_module_exposes_render_contract() -> None:
     assert "def _write_anf_investment_case_surfaces(" in context_source
 
 
+def test_sector_investment_case_support_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_sector_investment_case_support import (
+        SectorInvestmentCaseSupport,
+        SectorInvestmentCaseSupportDeps,
+    )
+
+    assert [field.name for field in fields(SectorInvestmentCaseSupportDeps)] == ["runtime"]
+    assert hasattr(SectorInvestmentCaseSupport, "company_operating_margin_proxy_from_workbook")
+    assert hasattr(SectorInvestmentCaseSupport, "segment_scenario_label_aliases")
+    assert hasattr(SectorInvestmentCaseSupport, "bs_segments_latest_segment_margin_from_workbook")
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_sector_investment_case_support").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class SectorInvestmentCaseSupportDeps" in module_source
+    assert "class SectorInvestmentCaseSupport" in module_source
+    assert "def company_operating_margin_proxy_from_workbook(" in module_source
+    assert "def segment_scenario_label_aliases(" in module_source
+    assert "def bs_segments_latest_segment_margin_from_workbook(" in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_sector_investment_case_support import (" in context_source
+    assert "SectorInvestmentCaseSupportDeps(" in context_source
+    assert "SectorInvestmentCaseSupport(" in context_source
+    assert "def _company_operating_margin_proxy_from_workbook(" in context_source
+    assert "def _segment_scenario_label_aliases(" in context_source
+    assert "def _bs_segments_latest_segment_margin_from_workbook(" in context_source
+    assert "def _sector_investment_case_render_deps(" in context_source
+    assert '"_bs_segments_latest_segment_margin_from_workbook": _bs_segments_latest_segment_margin_from_workbook' in context_source
+    assert '"_company_operating_margin_proxy_from_workbook": _company_operating_margin_proxy_from_workbook' in context_source
+    assert "def _write_sector_investment_case_data_sheet(" in context_source
+    assert "def _write_sector_investment_case_sheet(" in context_source
+    assert "def build_writer_context(" in context_source
+
+
 def test_anf_investment_case_module_exposes_render_contract() -> None:
     from dataclasses import fields
 
