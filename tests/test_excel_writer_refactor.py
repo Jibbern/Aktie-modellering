@@ -12646,6 +12646,12 @@ def test_excel_writer_context_architecture_doc_records_current_contract() -> Non
         "not macro-enabled production baselines",
         "dedicated Valuation architecture plan",
         "dedicated latest-quarter QA/cache plan",
+        "Active Production And Callback Wrappers",
+        "Runtime-Injected Compatibility Wrappers",
+        "Retire-Later / Test-Contract Wrappers",
+        "write_promise_tracker_ui_v2(render_visible=False)",
+        "`Promise_Tracker_UI` is currently absent in production outputs",
+        "legacy UI wrappers remain unwired",
     ]
     for phrase in expected_phrases:
         assert phrase in normalized_doc_text
@@ -12678,7 +12684,7 @@ def test_excel_writer_context_architecture_contract_keeps_boundaries_visible() -
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    expected_context_names = [
+    active_context_names = [
         "_write_bs_segments_sheet",
         "_write_operating_drivers_sheet",
         "_write_operating_drivers_raw_sheet",
@@ -12687,24 +12693,36 @@ def test_excel_writer_context_architecture_contract_keeps_boundaries_visible() -
         "_build_hidden_value_flags_fallback",
         "_build_qn_evidence_src",
         "_build_promise_evidence_src",
-        "_write_quarter_notes_ui",
-        "_write_promise_tracker_ui",
+        "_write_quarter_notes_ui_v2",
+        "_write_promise_tracker_ui_v2",
+        "_write_promise_progress_ui_v2",
+    ]
+    runtime_injected_context_names = [
         "_write_analysis_sheet_title_and_metadata",
         "_render_stacked_quarter_blocks",
         "_apply_chart_text_categories",
         "_polish_investment_case_readability",
-        "_anf_normalize_qa_status_rows",
         "_sector_operating_driver_intro_tables",
         "_company_operating_margin_proxy_from_workbook",
-        "_segment_scenario_label_aliases",
         "_bs_segments_latest_segment_margin_from_workbook",
+    ]
+    retire_later_context_names = [
+        "_write_quarter_notes_ui",
+        "_write_promise_tracker_ui",
+        "_anf_normalize_qa_status_rows",
+        "_segment_scenario_label_aliases",
+    ]
+    high_risk_context_names = [
         "_write_valuation_sheet",
         "_get_latest_quarter_qa_support",
-        "_write_promise_progress_ui_v2",
-        "_write_promise_tracker_ui_v2",
         "_write_sheet",
     ]
-    for name in expected_context_names:
+    for name in (
+        active_context_names
+        + runtime_injected_context_names
+        + retire_later_context_names
+        + high_risk_context_names
+    ):
         assert f"def {name}(" in context_source
 
     writer_types_source = Path(importlib.import_module("pbi_xbrl.writer_types").__file__).read_text(
@@ -12727,6 +12745,20 @@ def test_excel_writer_context_architecture_contract_keeps_boundaries_visible() -
     ]
     for key in expected_state_keys:
         assert key in writer_types_source
+
+    doc_text = Path("docs/excel_writer_context_architecture.md").read_text(encoding="utf-8")
+    normalized_doc_text = " ".join(doc_text.split())
+    for name in active_context_names:
+        assert name in normalized_doc_text
+    for name in runtime_injected_context_names:
+        assert name in normalized_doc_text
+    for name in retire_later_context_names:
+        assert name in normalized_doc_text
+
+    assert '"_write_quarter_notes_ui": self.write_quarter_notes_ui' not in writer_types_source
+    assert '"_write_promise_tracker_ui": self.write_promise_tracker_ui' not in writer_types_source
+    assert "write_quarter_notes_ui=_write_quarter_notes_ui" not in context_source
+    assert "write_promise_tracker_ui=_write_promise_tracker_ui" not in context_source
 
 
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:

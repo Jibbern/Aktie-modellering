@@ -83,10 +83,17 @@ The context currently relies on these extracted modules:
 These modules must not import `excel_writer_context.py`. Context may import them
 and expose compatibility wrappers.
 
-## Retained Compatibility Wrappers
+## Context-Level Wrapper Policy
 
-These context-level names intentionally remain for callback identity,
-`as_state_mapping`, runtime injection, monkeypatch compatibility, and tests:
+Context-level wrappers do not all have the same status. Keep the distinction
+visible so future cleanup does not confuse active production wiring with retired
+legacy compatibility names.
+
+### Active Production And Callback Wrappers
+
+These wrappers are active production paths. They are registered through
+`WriterCallbacks`, exposed through `writer_types.as_state_mapping()`, called by
+the writer runtime, or directly determine generated workbook surfaces:
 
 - `_write_bs_segments_sheet`
 - `_write_operating_drivers_sheet`
@@ -96,21 +103,51 @@ These context-level names intentionally remain for callback identity,
 - `_build_hidden_value_flags_fallback`
 - `_build_qn_evidence_src`
 - `_build_promise_evidence_src`
-- `_write_quarter_notes_ui`
-- `_write_promise_tracker_ui`
+- `_write_quarter_notes_ui_v2`
+- `_write_promise_tracker_ui_v2`
+- `_write_promise_progress_ui_v2`
+
+Do not delete or bypass these wrappers without a dedicated behavior-preserving
+callback/runtime change and workbook parity plan.
+
+### Runtime-Injected Compatibility Wrappers
+
+These wrappers are not necessarily direct `WriterCallbacks` fields, but extracted
+modules still receive them through runtime/deps maps. They intentionally preserve
+context-level helper names for injected dependencies:
+
 - `_write_analysis_sheet_title_and_metadata`
 - `_render_stacked_quarter_blocks`
 - `_apply_chart_text_categories`
 - `_polish_investment_case_readability`
-- `_anf_normalize_qa_status_rows`
 - `_sector_operating_driver_intro_tables`
 - `_company_operating_margin_proxy_from_workbook`
-- `_segment_scenario_label_aliases`
 - `_bs_segments_latest_segment_margin_from_workbook`
 
-Do not delete wrappers merely because the implementation moved. Remove them only
-after a dedicated compatibility audit proves imports, callbacks, runtime maps,
-tests, and monkeypatch usage no longer depend on the context-level name.
+These are compatibility wrappers, not deletion candidates in ordinary refactors.
+Remove them only after a focused compatibility-removal audit proves extracted
+modules, runtime maps, tests, and monkeypatch usage no longer depend on the
+context-level name.
+
+### Retire-Later / Test-Contract Wrappers
+
+These names are retained temporarily for tests, import compatibility, and
+manual/debug history. They are not active production callbacks:
+
+- `_write_quarter_notes_ui`
+- `_write_promise_tracker_ui`
+- `_segment_scenario_label_aliases`
+- `_anf_normalize_qa_status_rows`
+
+The legacy UI wrappers remain unwired. Production uses
+`write_quarter_notes_ui_v2(...)`,
+`write_promise_tracker_ui_v2(render_visible=False)`, and
+`write_promise_progress_ui_v2()`. `Promise_Tracker_UI` is currently absent in
+production outputs.
+
+Do not delete retire-later wrappers in unrelated cleanup. They can only be
+removed after tests/docs are migrated and a dedicated deletion PR or audit proves
+there is no production, import, callback, runtime, or manual-debug dependency.
 
 ## Context-Owned Seams To Keep
 
