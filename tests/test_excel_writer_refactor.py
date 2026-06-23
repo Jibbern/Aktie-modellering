@@ -11539,6 +11539,55 @@ def test_operating_drivers_raw_sheet_module_exposes_thin_wrapper_contract() -> N
     assert '"_write_operating_drivers_raw_sheet": self.write_operating_drivers_raw_sheet' in writer_types_source
 
 
+def test_operating_drivers_sheet_adapter_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_operating_drivers_sheet_adapter import (
+        OperatingDriversSheetAdapter,
+        OperatingDriversSheetAdapterDeps,
+    )
+
+    assert [field.name for field in fields(OperatingDriversSheetAdapterDeps)] == ["runtime"]
+    assert callable(getattr(OperatingDriversSheetAdapter, "write_operating_drivers_sheet"))
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_operating_drivers_sheet_adapter").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class OperatingDriversSheetAdapterDeps" in module_source
+    assert "class OperatingDriversSheetAdapter" in module_source
+    assert "OperatingDriversWriterDeps(" in module_source
+    assert "write_operating_drivers_sheet(deps, rows)" in module_source
+
+    operating_drivers_source = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_operating_drivers").__file__
+    ).read_text(encoding="utf-8")
+    assert "class OperatingDriversWriterDeps" in operating_drivers_source
+    assert "def write_operating_drivers_sheet(" in operating_drivers_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_operating_drivers_sheet_adapter import (" in context_source
+    assert "def _write_operating_drivers_sheet(" in context_source
+    assert "OperatingDriversSheetAdapterDeps(" in context_source
+    assert "OperatingDriversSheetAdapter(" in context_source
+    assert "write_operating_drivers_sheet=_write_operating_drivers_sheet" in context_source
+    assert "def _write_operating_drivers_raw_sheet(" in context_source
+    assert "def _sector_operating_driver_intro_tables(" in context_source
+    assert "def _get_latest_quarter_qa_support()" in context_source
+    assert "callbacks = WriterCallbacks(" in context_source
+    assert "extra_callbacks={" in context_source
+    assert "def build_writer_context(" in context_source
+
+    writer_types_source = Path(importlib.import_module("pbi_xbrl.writer_types").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "write_operating_drivers_sheet: Callable" in writer_types_source
+    assert '"_write_operating_drivers_sheet": self.write_operating_drivers_sheet' in writer_types_source
+
+
 def test_economics_overlay_sheet_adapter_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
@@ -12513,9 +12562,15 @@ def test_sector_operating_driver_intro_support_module_exposes_thin_wrapper_contr
     assert "def _sector_operating_driver_intro_tables(" in context_source
     assert "sector_operating_driver_intro_tables(" in context_source
     assert "def _guidance_source_contract_label(" in context_source
-    assert "sector_operating_driver_intro_tables=_sector_operating_driver_intro_tables" in context_source
+    assert '"_sector_operating_driver_intro_tables": _sector_operating_driver_intro_tables' in context_source
     assert "def _write_operating_drivers_sheet(" in context_source
-    assert "OperatingDriversWriterDeps(" in context_source
+    assert "OperatingDriversSheetAdapterDeps(" in context_source
+
+    adapter_source = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_operating_drivers_sheet_adapter").__file__
+    ).read_text(encoding="utf-8")
+    assert "sector_operating_driver_intro_tables=self._rt(\"_sector_operating_driver_intro_tables\")" in adapter_source
+    assert "OperatingDriversWriterDeps(" in adapter_source
     assert "callbacks = WriterCallbacks(" in context_source
     assert "extra_callbacks={" in context_source
     assert "def build_writer_context(" in context_source
