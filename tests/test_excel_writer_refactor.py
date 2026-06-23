@@ -12626,6 +12626,109 @@ def test_sector_operating_driver_intro_support_module_exposes_thin_wrapper_contr
     assert "def build_writer_context(" in context_source
 
 
+def test_excel_writer_context_architecture_doc_records_current_contract() -> None:
+    doc_path = Path("docs/excel_writer_context_architecture.md")
+
+    assert doc_path.exists()
+    doc_text = doc_path.read_text(encoding="utf-8")
+    normalized_doc_text = " ".join(doc_text.split())
+
+    expected_phrases = [
+        "`excel_writer_context.py`",
+        "`build_writer_context` spans lines 2042-4869",
+        "4,869 physical lines",
+        "2,828 lines",
+        "132 top-level helpers",
+        "291 nested helpers",
+        "pause small adapter extractions",
+        "Workbook behavior includes",
+        "clean fresh macro-free validation baselines",
+        "not macro-enabled production baselines",
+        "dedicated Valuation architecture plan",
+        "dedicated latest-quarter QA/cache plan",
+    ]
+    for phrase in expected_phrases:
+        assert phrase in normalized_doc_text
+
+
+def test_excel_writer_context_architecture_contract_keeps_boundaries_visible() -> None:
+    extracted_modules = [
+        "pbi_xbrl.excel_writer_bs_segments_sheet_adapter",
+        "pbi_xbrl.excel_writer_operating_drivers_sheet_adapter",
+        "pbi_xbrl.excel_writer_chart_text_support",
+        "pbi_xbrl.excel_writer_investment_case_readability",
+        "pbi_xbrl.excel_writer_sector_investment_case_support",
+        "pbi_xbrl.excel_writer_sector_operating_driver_intro_support",
+        "pbi_xbrl.excel_writer_evidence_source_support",
+        "pbi_xbrl.excel_writer_economics_overlay_sheet",
+        "pbi_xbrl.excel_writer_hidden_value_support",
+        "pbi_xbrl.excel_writer_analysis_sheet_layout_support",
+        "pbi_xbrl.excel_writer_operating_drivers_raw_sheet",
+        "pbi_xbrl.excel_writer_anf_qa_support",
+        "pbi_xbrl.excel_writer_legacy_ui_writers",
+        "pbi_xbrl.excel_writer_source_root_support",
+        "pbi_xbrl.excel_writer_cached_document_support",
+        "pbi_xbrl.excel_writer_sec_cache_support",
+    ]
+    for module_name in extracted_modules:
+        module_path = Path(importlib.import_module(module_name).__file__)
+        module_source = module_path.read_text(encoding="utf-8")
+        assert "excel_writer_context" not in module_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    expected_context_names = [
+        "_write_bs_segments_sheet",
+        "_write_operating_drivers_sheet",
+        "_write_operating_drivers_raw_sheet",
+        "_write_economics_overlay_sheet",
+        "_write_flags_sheet",
+        "_build_hidden_value_flags_fallback",
+        "_build_qn_evidence_src",
+        "_build_promise_evidence_src",
+        "_write_quarter_notes_ui",
+        "_write_promise_tracker_ui",
+        "_write_analysis_sheet_title_and_metadata",
+        "_render_stacked_quarter_blocks",
+        "_apply_chart_text_categories",
+        "_polish_investment_case_readability",
+        "_anf_normalize_qa_status_rows",
+        "_sector_operating_driver_intro_tables",
+        "_company_operating_margin_proxy_from_workbook",
+        "_segment_scenario_label_aliases",
+        "_bs_segments_latest_segment_margin_from_workbook",
+        "_write_valuation_sheet",
+        "_get_latest_quarter_qa_support",
+        "_write_promise_progress_ui_v2",
+        "_write_promise_tracker_ui_v2",
+        "_write_sheet",
+    ]
+    for name in expected_context_names:
+        assert f"def {name}(" in context_source
+
+    writer_types_source = Path(importlib.import_module("pbi_xbrl.writer_types").__file__).read_text(
+        encoding="utf-8"
+    )
+    expected_state_keys = [
+        '"_write_sheet": self.write_sheet',
+        '"_write_flags_sheet": self.write_flags_sheet',
+        '"_write_valuation_sheet": self.write_valuation_sheet',
+        '"_write_bs_segments_sheet": self.write_bs_segments_sheet',
+        '"_write_promise_tracker_ui_v2": self.write_promise_tracker_ui_v2',
+        '"_write_promise_progress_ui_v2": self.write_promise_progress_ui_v2',
+        '"_write_operating_drivers_sheet": self.write_operating_drivers_sheet',
+        '"_write_economics_overlay_sheet": self.write_economics_overlay_sheet',
+        '"_write_operating_drivers_raw_sheet": self.write_operating_drivers_raw_sheet',
+        '"_build_qn_evidence_src": self.build_qn_evidence_src',
+        '"_build_promise_evidence_src": self.build_promise_evidence_src',
+        '"_build_hidden_value_flags_fallback": self.build_hidden_value_flags_fallback',
+        '"_run_latest_quarter_qa": self.run_latest_quarter_qa',
+    ]
+    for key in expected_state_keys:
+        assert key in writer_types_source
+
+
 def test_quarter_notes_ui_orchestrator_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
