@@ -6,6 +6,7 @@ import pytest
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import PatternFill
 
+from pbi_xbrl.excel_writer_anf_qa_support import AnfQASupport, AnfQASupportDeps
 from pbi_xbrl.excel_writer_context import (
     ANF_SEGMENT_BRAND_EXPLANATION,
     _anf_build_guidance_timeline_rows,
@@ -20,7 +21,6 @@ from pbi_xbrl.excel_writer_context import (
     _anf_financial_schedule_support_doc_for_quarter,
     _anf_guidance_visible_period_label,
     _anf_investment_case_sheet_order,
-    _anf_normalize_qa_status_rows,
     _anf_normalize_ytd_buyback_cash_map_for_valuation,
     _anf_format_year_ttm_buyback_summary,
     _anf_polish_quarter_note_visible_fields,
@@ -4189,7 +4189,8 @@ def test_anf_qa_status_normalizer_fills_blanks_and_downgrades_expected_gaps() ->
         ]
     )
 
-    out = _anf_normalize_qa_status_rows(checks, is_anf_profile=True)
+    support = AnfQASupport(AnfQASupportDeps(runtime={"pd": pd, "re": re}))
+    out = support.normalize_qa_status_rows(checks, is_anf_profile=True)
 
     assert out.loc[0, "status"] == "pass"
     assert out.loc[1, "status"] == "warn"

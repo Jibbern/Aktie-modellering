@@ -148,6 +148,9 @@ production outputs.
 Do not delete retire-later wrappers in unrelated cleanup. They can only be
 removed after tests/docs are migrated and a dedicated deletion PR or audit proves
 there is no production, import, callback, runtime, or manual-debug dependency.
+Behavior tests for extracted functionality target the extracted module APIs;
+context-level retire-later wrappers receive only lightweight presence and policy
+classification checks.
 
 ## Context-Owned Seams To Keep
 

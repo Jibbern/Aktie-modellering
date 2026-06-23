@@ -11928,6 +11928,35 @@ def test_sector_investment_case_support_module_exposes_thin_wrapper_contract() -
     assert "def build_writer_context(" in context_source
 
 
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [
+        ("Presort", {"presort", "presortservices"}),
+        ("Send Tech", {"sendtech", "sendtechsolutions", "sendtechservices"}),
+        ("Abercrombie brand", {"abercrombie", "abercrombiebrand"}),
+        ("Hollister", {"hollister", "hollisterbrand"}),
+        ("Americas", {"americas"}),
+        ("EMEA", {"emea"}),
+        ("APAC", {"apac"}),
+        (None, set()),
+    ],
+)
+def test_segment_scenario_label_aliases_uses_extracted_support_api(
+    label: object,
+    expected: set[str],
+) -> None:
+    from pbi_xbrl.excel_writer_sector_investment_case_support import (
+        SectorInvestmentCaseSupport,
+        SectorInvestmentCaseSupportDeps,
+    )
+
+    support = SectorInvestmentCaseSupport(
+        SectorInvestmentCaseSupportDeps(runtime={"re": re})
+    )
+
+    assert support.segment_scenario_label_aliases(label) == expected
+
+
 def test_anf_investment_case_module_exposes_render_contract() -> None:
     from dataclasses import fields
 
@@ -12649,6 +12678,7 @@ def test_excel_writer_context_architecture_doc_records_current_contract() -> Non
         "Active Production And Callback Wrappers",
         "Runtime-Injected Compatibility Wrappers",
         "Retire-Later / Test-Contract Wrappers",
+        "Behavior tests for extracted functionality target the extracted module APIs",
         "write_promise_tracker_ui_v2(render_visible=False)",
         "`Promise_Tracker_UI` is currently absent in production outputs",
         "legacy UI wrappers remain unwired",
