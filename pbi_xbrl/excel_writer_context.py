@@ -53,6 +53,10 @@ from .excel_writer_bs_segments import (
     _should_render_carbon_equipment_liabilities,
     write_bs_segments_sheet,
 )
+from .excel_writer_bs_segments_sheet_adapter import (
+    BSSegmentsSheetAdapter,
+    BSSegmentsSheetAdapterDeps,
+)
 
 from .excel_writer_coloring import (
     QuarterlyRowColorPolicy,
@@ -3999,43 +4003,47 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         return _get_latest_quarter_qa_support().run()
 
     def _write_bs_segments_sheet(quarters_shown: int = 8) -> List[Dict[str, Any]]:
-        deps = BsSegmentsWriterDeps(
-            wb=wb,
-            hist=hist,
-            audit=audit,
-            ticker=ticker,
-            company_profile=company_profile,
-            slides_segments=slides_segments,
-            material_roots=material_roots,
-            ticker_roots=ticker_roots,
-            ui_info_rows=ui_info_rows,
-            font_size=font_size,
-            header_size=header_size,
-            is_pbi_profile=is_pbi_profile,
-            is_gpre_profile=is_gpre_profile,
-            is_anf_profile=is_anf_profile,
-            bank_metrics_enabled=bank_metrics_enabled,
-            enable_quarterly_segment_block=enable_quarterly_segment_block,
-            enable_annual_segment_block=enable_annual_segment_block,
-            quarterly_segment_labels=quarterly_segment_labels,
-            annual_segment_labels=annual_segment_labels,
-            annual_segment_alias_patterns=annual_segment_alias_patterns,
-            anf_segment_brand_explanation=ANF_SEGMENT_BRAND_EXPLANATION,
-            get_valuation_style_bundle=_get_valuation_style_bundle,
-            hist_view=_hist_view,
-            resolve_col=_resolve_col,
-            set_cell_comment=_set_cell_comment_local,
-            shared_load_local_balance_sheet_detail_payloads=_shared_load_local_balance_sheet_detail_payloads,
-            carry_forward_low_change_series=_carry_forward_low_change_series,
-            first_existing_material_dir=_first_existing_material_dir,
-            parse_quarter_from_filename=_parse_quarter_from_filename,
-            parse_quarter_from_follow_text=_parse_quarter_from_follow_text,
-            read_operating_driver_text=_read_operating_driver_text,
-            operating_driver_financial_statement_files=_operating_driver_financial_statement_files,
-            sec_cache_roots_local=_sec_cache_roots_local,
-            anf_visible_quarter_label=_anf_visible_quarter_label,
+        deps = BSSegmentsSheetAdapterDeps(
+            runtime={
+                "BsSegmentsWriterDeps": BsSegmentsWriterDeps,
+                "write_bs_segments_sheet": write_bs_segments_sheet,
+                "wb": wb,
+                "hist": hist,
+                "audit": audit,
+                "ticker": ticker,
+                "company_profile": company_profile,
+                "slides_segments": slides_segments,
+                "material_roots": material_roots,
+                "ticker_roots": ticker_roots,
+                "ui_info_rows": ui_info_rows,
+                "font_size": font_size,
+                "header_size": header_size,
+                "is_pbi_profile": is_pbi_profile,
+                "is_gpre_profile": is_gpre_profile,
+                "is_anf_profile": is_anf_profile,
+                "bank_metrics_enabled": bank_metrics_enabled,
+                "enable_quarterly_segment_block": enable_quarterly_segment_block,
+                "enable_annual_segment_block": enable_annual_segment_block,
+                "quarterly_segment_labels": quarterly_segment_labels,
+                "annual_segment_labels": annual_segment_labels,
+                "annual_segment_alias_patterns": annual_segment_alias_patterns,
+                "ANF_SEGMENT_BRAND_EXPLANATION": ANF_SEGMENT_BRAND_EXPLANATION,
+                "_get_valuation_style_bundle": _get_valuation_style_bundle,
+                "_hist_view": _hist_view,
+                "_resolve_col": _resolve_col,
+                "_set_cell_comment_local": _set_cell_comment_local,
+                "_shared_load_local_balance_sheet_detail_payloads": _shared_load_local_balance_sheet_detail_payloads,
+                "_carry_forward_low_change_series": _carry_forward_low_change_series,
+                "_first_existing_material_dir": _first_existing_material_dir,
+                "_parse_quarter_from_filename": _parse_quarter_from_filename,
+                "_parse_quarter_from_follow_text": _parse_quarter_from_follow_text,
+                "_read_operating_driver_text": _read_operating_driver_text,
+                "_operating_driver_financial_statement_files": _operating_driver_financial_statement_files,
+                "_sec_cache_roots_local": _sec_cache_roots_local,
+                "_anf_visible_quarter_label": _anf_visible_quarter_label,
+            }
         )
-        return write_bs_segments_sheet(deps, quarters_shown=quarters_shown)
+        return BSSegmentsSheetAdapter(deps).write_bs_segments_sheet(quarters_shown=quarters_shown)
 
     operating_drivers_support: Optional[OperatingDriversSupport] = None
 

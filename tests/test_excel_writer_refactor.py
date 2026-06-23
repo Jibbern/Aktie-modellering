@@ -11588,6 +11588,56 @@ def test_operating_drivers_sheet_adapter_module_exposes_thin_wrapper_contract() 
     assert '"_write_operating_drivers_sheet": self.write_operating_drivers_sheet' in writer_types_source
 
 
+def test_bs_segments_sheet_adapter_module_exposes_thin_wrapper_contract() -> None:
+    from dataclasses import fields
+
+    from pbi_xbrl.excel_writer_bs_segments_sheet_adapter import (
+        BSSegmentsSheetAdapter,
+        BSSegmentsSheetAdapterDeps,
+    )
+
+    assert [field.name for field in fields(BSSegmentsSheetAdapterDeps)] == ["runtime"]
+    assert callable(getattr(BSSegmentsSheetAdapter, "write_bs_segments_sheet"))
+
+    module_path = Path(
+        importlib.import_module("pbi_xbrl.excel_writer_bs_segments_sheet_adapter").__file__
+    )
+    module_source = module_path.read_text(encoding="utf-8")
+    assert "excel_writer_context" not in module_source
+    assert "class BSSegmentsSheetAdapterDeps" in module_source
+    assert "class BSSegmentsSheetAdapter" in module_source
+    assert "BsSegmentsWriterDeps(" in module_source
+    assert "write_bs_segments_sheet(deps, quarters_shown=quarters_shown)" in module_source
+
+    bs_segments_source = Path(importlib.import_module("pbi_xbrl.excel_writer_bs_segments").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "class BsSegmentsWriterDeps" in bs_segments_source
+    assert "def write_bs_segments_sheet(" in bs_segments_source
+
+    context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "from .excel_writer_bs_segments_sheet_adapter import (" in context_source
+    assert "def _write_bs_segments_sheet(" in context_source
+    assert "BSSegmentsSheetAdapterDeps(" in context_source
+    assert "BSSegmentsSheetAdapter(" in context_source
+    assert "write_bs_segments_sheet=_write_bs_segments_sheet" in context_source
+    assert "def _shared_load_local_balance_sheet_detail_payloads(" in context_source
+    assert "def _carry_forward_low_change_series(" in context_source
+    assert "def _sector_investment_case_render_deps(" in context_source
+    assert "def _get_latest_quarter_qa_support()" in context_source
+    assert "callbacks = WriterCallbacks(" in context_source
+    assert "extra_callbacks={" in context_source
+    assert "def build_writer_context(" in context_source
+
+    writer_types_source = Path(importlib.import_module("pbi_xbrl.writer_types").__file__).read_text(
+        encoding="utf-8"
+    )
+    assert "write_bs_segments_sheet: Callable" in writer_types_source
+    assert '"_write_bs_segments_sheet": self.write_bs_segments_sheet' in writer_types_source
+
+
 def test_economics_overlay_sheet_adapter_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
