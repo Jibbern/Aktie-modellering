@@ -136,8 +136,6 @@ manual/debug history. They are not active production callbacks:
 
 - `_write_quarter_notes_ui`
 - `_write_promise_tracker_ui`
-- `_segment_scenario_label_aliases`
-- `_anf_normalize_qa_status_rows`
 
 The legacy UI wrappers remain unwired. Production uses
 `write_quarter_notes_ui_v2(...)`,
@@ -151,6 +149,10 @@ there is no production, import, callback, runtime, or manual-debug dependency.
 Behavior tests for extracted functionality target the extracted module APIs;
 context-level retire-later wrappers receive only lightweight presence and policy
 classification checks.
+
+The supported behavior-test surfaces for the retired sector-label and ANF QA
+helpers are `SectorInvestmentCaseSupport.segment_scenario_label_aliases` and
+`AnfQASupport.normalize_qa_status_rows`.
 
 ## Context-Owned Seams To Keep
 

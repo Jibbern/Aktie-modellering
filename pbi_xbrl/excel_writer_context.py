@@ -273,10 +273,6 @@ from .excel_writer_anf_visible_support import (
     AnfVisibleSupport,
     AnfVisibleSupportDeps,
 )
-from .excel_writer_anf_qa_support import (
-    AnfQASupport,
-    AnfQASupportDeps,
-)
 from .excel_writer_financial_report_support import (
     FinancialReportSupport,
     FinancialReportSupportDeps,
@@ -445,19 +441,6 @@ def _company_operating_margin_proxy_from_workbook(wb: Workbook) -> Tuple[Optiona
             }
         )
     ).company_operating_margin_proxy_from_workbook(wb)
-
-
-def _segment_scenario_label_aliases(label: Any) -> Set[str]:
-    return SectorInvestmentCaseSupport(
-        SectorInvestmentCaseSupportDeps(
-            runtime={
-                "pd": pd,
-                "math": math,
-                "re": re,
-                "get_column_letter": get_column_letter,
-            }
-        )
-    ).segment_scenario_label_aliases(label)
 
 
 def _bs_segments_latest_segment_margin_from_workbook(wb: Workbook, label: Any) -> Tuple[Any, str]:
@@ -1208,13 +1191,6 @@ def _anf_format_guidance_display_value(metric: Any, low: Any, high: Any, value: 
 
 def _anf_valuation_guidance_rows(guidance_df: pd.DataFrame) -> List[Dict[str, str]]:
     return _anf_visible_support().valuation_guidance_rows(guidance_df)
-
-
-def _anf_normalize_qa_status_rows(checks: pd.DataFrame, *, is_anf_profile: bool = False) -> pd.DataFrame:
-    return AnfQASupport(AnfQASupportDeps(runtime={"pd": pd, "re": re})).normalize_qa_status_rows(
-        checks,
-        is_anf_profile=is_anf_profile,
-    )
 
 
 ANF_SEGMENT_BRAND_EXPLANATION = (

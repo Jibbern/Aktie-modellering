@@ -11918,7 +11918,6 @@ def test_sector_investment_case_support_module_exposes_thin_wrapper_contract() -
     assert "SectorInvestmentCaseSupportDeps(" in context_source
     assert "SectorInvestmentCaseSupport(" in context_source
     assert "def _company_operating_margin_proxy_from_workbook(" in context_source
-    assert "def _segment_scenario_label_aliases(" in context_source
     assert "def _bs_segments_latest_segment_margin_from_workbook(" in context_source
     assert "def _sector_investment_case_render_deps(" in context_source
     assert '"_bs_segments_latest_segment_margin_from_workbook": _bs_segments_latest_segment_margin_from_workbook' in context_source
@@ -11941,7 +11940,7 @@ def test_sector_investment_case_support_module_exposes_thin_wrapper_contract() -
         (None, set()),
     ],
 )
-def test_segment_scenario_label_aliases_uses_extracted_support_api(
+def test_sector_support_label_aliases_uses_extracted_api(
     label: object,
     expected: set[str],
 ) -> None:
@@ -12454,11 +12453,6 @@ def test_anf_qa_support_module_exposes_thin_wrapper_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "from .excel_writer_anf_qa_support import (" in context_source
-    assert "AnfQASupportDeps(" in context_source
-    assert "AnfQASupport(" in context_source
-    assert "def _anf_normalize_qa_status_rows(" in context_source
-    assert "normalize_qa_status_rows(" in context_source
     assert "def _build_hidden_value_flags_fallback(" in context_source
     assert "def _write_flags_sheet(" in context_source
     assert "def _write_valuation_sheet(" in context_source
@@ -12739,8 +12733,6 @@ def test_excel_writer_context_architecture_contract_keeps_boundaries_visible() -
     retire_later_context_names = [
         "_write_quarter_notes_ui",
         "_write_promise_tracker_ui",
-        "_anf_normalize_qa_status_rows",
-        "_segment_scenario_label_aliases",
     ]
     high_risk_context_names = [
         "_write_valuation_sheet",
