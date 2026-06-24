@@ -73,8 +73,9 @@ The context currently relies on these extracted modules:
 - `excel_writer_operating_drivers_raw_sheet.py`: owns the
   `operating_drivers_raw` sheet writer.
 - `excel_writer_anf_qa_support.py`: owns ANF QA status normalization support.
-- `excel_writer_legacy_ui_writers.py`: owns legacy Quarter Notes and Promise
-  Tracker UI writers while keeping them unwired from active callbacks.
+- `excel_writer_legacy_ui_writers.py`: retains the directly tested legacy
+  Quarter Notes and Promise Tracker UI implementations without exposing
+  context wrappers or wiring them into active callbacks.
 - `excel_writer_source_root_support.py`: owns source root support wrappers.
 - `excel_writer_cached_document_support.py`: owns cached document support
   wrappers.
@@ -129,30 +130,21 @@ Remove them only after a focused compatibility-removal audit proves extracted
 modules, runtime maps, tests, and monkeypatch usage no longer depend on the
 context-level name.
 
-### Retire-Later / Test-Contract Wrappers
+### Retired Legacy UI Surface
 
-These names are retained temporarily for tests, import compatibility, and
-manual/debug history. They are not active production callbacks:
+The context no longer exposes legacy Quarter Notes or Promise Tracker UI
+wrappers. Their directly tested behavior remains available only through
+`LegacyUIWriters` in `excel_writer_legacy_ui_writers.py`.
 
-- `_write_quarter_notes_ui`
-- `_write_promise_tracker_ui`
-
-The legacy UI wrappers remain unwired. Production uses
+Production uses
 `write_quarter_notes_ui_v2(...)`,
 `write_promise_tracker_ui_v2(render_visible=False)`, and
 `write_promise_progress_ui_v2()`. `Promise_Tracker_UI` is currently absent in
 production outputs.
 
-Do not delete retire-later wrappers in unrelated cleanup. They can only be
-removed after tests/docs are migrated and a dedicated deletion PR or audit proves
-there is no production, import, callback, runtime, or manual-debug dependency.
-Behavior tests for extracted functionality target the extracted module APIs;
-context-level retire-later wrappers receive only lightweight presence and policy
-classification checks.
 `LegacyUIWriters.write_quarter_notes_ui` and
-`LegacyUIWriters.write_promise_tracker_ui` now have direct in-memory behavior
-tests; their context wrappers remain RETIRE-LATER candidates for a dedicated
-deletion change.
+`LegacyUIWriters.write_promise_tracker_ui` have direct in-memory behavior
+tests. Active callback and state contracts remain v2-only.
 
 The supported behavior-test surfaces for the retired sector-label and ANF QA
 helpers are `SectorInvestmentCaseSupport.segment_scenario_label_aliases` and

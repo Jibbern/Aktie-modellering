@@ -12369,7 +12369,6 @@ def test_quarter_notes_context_adapter_module_exposes_thin_wrapper_contract() ->
     assert "from .excel_writer_quarter_notes_context_adapter import (" in context_source
     assert "def _standardize_quarter_notes_ui_categories(" in context_source
     assert "standardize_quarter_notes_ui_categories(" in context_source
-    assert "def _write_quarter_notes_ui(" in context_source
     assert "def _write_analysis_sheet_title_and_metadata(" in context_source
     assert "def _render_stacked_quarter_blocks(" in context_source
     assert "def _write_quarter_notes_ui_v2(" in context_source
@@ -12564,7 +12563,7 @@ def test_legacy_ui_writer_renders_promise_status_and_evidence_link() -> None:
     assert evidence_ws["D2"].value == "earnings-release.pdf"
 
 
-def test_legacy_ui_writers_module_exposes_thin_wrapper_contract() -> None:
+def test_legacy_ui_writers_module_exposes_retained_legacy_contract() -> None:
     from dataclasses import fields
 
     from pbi_xbrl.excel_writer_legacy_ui_writers import (
@@ -12587,13 +12586,9 @@ def test_legacy_ui_writers_module_exposes_thin_wrapper_contract() -> None:
     context_source = Path(importlib.import_module("pbi_xbrl.excel_writer_context").__file__).read_text(
         encoding="utf-8"
     )
-    assert "from .excel_writer_legacy_ui_writers import (" in context_source
-    assert "LegacyUIWriterDeps(" in context_source
-    assert "LegacyUIWriters(" in context_source
-    assert "def _write_quarter_notes_ui(" in context_source
-    assert "write_quarter_notes_ui(" in context_source
-    assert "def _write_promise_tracker_ui(" in context_source
-    assert "write_promise_tracker_ui(" in context_source
+    assert "from .excel_writer_legacy_ui_writers import (" not in context_source
+    assert "def _legacy_ui_writer_runtime(" not in context_source
+    assert "def _legacy_ui_writers(" not in context_source
     assert "def _write_quarter_notes_ui_v2(" in context_source
     assert "def _write_promise_tracker_ui_v2(" in context_source
     assert "def _write_promise_progress_ui_v2(" in context_source
@@ -12854,11 +12849,12 @@ def test_excel_writer_context_architecture_doc_records_current_contract() -> Non
         "dedicated latest-quarter QA/cache plan",
         "Active Production And Callback Wrappers",
         "Runtime-Injected Compatibility Wrappers",
-        "Retire-Later / Test-Contract Wrappers",
-        "Behavior tests for extracted functionality target the extracted module APIs",
+        "Retired Legacy UI Surface",
+        "The context no longer exposes legacy Quarter Notes or Promise Tracker UI wrappers",
+        "directly tested behavior remains available only through `LegacyUIWriters`",
         "write_promise_tracker_ui_v2(render_visible=False)",
         "`Promise_Tracker_UI` is currently absent in production outputs",
-        "legacy UI wrappers remain unwired",
+        "Active callback and state contracts remain v2-only",
     ]
     for phrase in expected_phrases:
         assert phrase in normalized_doc_text
@@ -12913,10 +12909,6 @@ def test_excel_writer_context_architecture_contract_keeps_boundaries_visible() -
         "_company_operating_margin_proxy_from_workbook",
         "_bs_segments_latest_segment_margin_from_workbook",
     ]
-    retire_later_context_names = [
-        "_write_quarter_notes_ui",
-        "_write_promise_tracker_ui",
-    ]
     high_risk_context_names = [
         "_write_valuation_sheet",
         "_get_latest_quarter_qa_support",
@@ -12925,7 +12917,6 @@ def test_excel_writer_context_architecture_contract_keeps_boundaries_visible() -
     for name in (
         active_context_names
         + runtime_injected_context_names
-        + retire_later_context_names
         + high_risk_context_names
     ):
         assert f"def {name}(" in context_source
@@ -12957,9 +12948,6 @@ def test_excel_writer_context_architecture_contract_keeps_boundaries_visible() -
         assert name in normalized_doc_text
     for name in runtime_injected_context_names:
         assert name in normalized_doc_text
-    for name in retire_later_context_names:
-        assert name in normalized_doc_text
-
     assert '"_write_quarter_notes_ui": self.write_quarter_notes_ui' not in writer_types_source
     assert '"_write_promise_tracker_ui": self.write_promise_tracker_ui' not in writer_types_source
     assert "write_quarter_notes_ui=_write_quarter_notes_ui" not in context_source

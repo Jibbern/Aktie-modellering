@@ -341,10 +341,6 @@ from .excel_writer_quarter_notes_context_adapter import (
     write_quarter_notes_narrative_ui_surface as _write_quarter_notes_narrative_ui_surface_impl,
     write_quarter_notes_ui_v2 as _write_quarter_notes_ui_v2_impl,
 )
-from .excel_writer_legacy_ui_writers import (
-    LegacyUIWriterDeps,
-    LegacyUIWriters,
-)
 from .excel_writer_quarter_narrative import (
     QuarterNarrativeRecord,
     QUARTER_NARRATIVE_DATA_HEADERS,
@@ -3103,41 +3099,6 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 except Exception:
                     continue
         return {}
-
-    def _legacy_ui_writer_runtime() -> Dict[str, Any]:
-        return {
-            "wb": wb,
-            "pd": pd,
-            "re": re,
-            "json": json,
-            "hashlib": hashlib,
-            "datetime": datetime,
-            "dt": dt,
-            "Font": Font,
-            "Alignment": Alignment,
-            "PatternFill": PatternFill,
-            "FormulaRule": FormulaRule,
-            "get_column_letter": get_column_letter,
-            "header_size": header_size,
-            "quarter_notes": quarter_notes,
-            "promises": promises,
-            "promise_progress": promise_progress,
-            "_quarter_notes_view": _quarter_notes_view,
-            "_promises_view": _promises_view,
-            "_resolve_col": _resolve_col,
-            "_parse_first_evidence": _parse_first_evidence,
-            "_write_sheet": _write_sheet,
-            "_apply_hyperlink_look": _apply_hyperlink_look,
-        }
-
-    def _legacy_ui_writers() -> LegacyUIWriters:
-        return LegacyUIWriters(LegacyUIWriterDeps(runtime=_legacy_ui_writer_runtime()))
-
-    def _write_quarter_notes_ui(top_k: int = 5) -> List[Dict[str, Any]]:
-        return _legacy_ui_writers().write_quarter_notes_ui(top_k=top_k)
-
-    def _write_promise_tracker_ui() -> List[Dict[str, Any]]:
-        return _legacy_ui_writers().write_promise_tracker_ui()
 
     def _analysis_sheet_layout_support_runtime() -> Dict[str, Any]:
         return {
