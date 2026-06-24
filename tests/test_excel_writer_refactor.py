@@ -12381,6 +12381,189 @@ def test_quarter_notes_context_adapter_module_exposes_thin_wrapper_contract() ->
     assert "def build_writer_context(" in context_source
 
 
+def _make_legacy_ui_writer(
+    *,
+    quarter_notes: pd.DataFrame | None = None,
+    promises: pd.DataFrame | None = None,
+    promise_progress: pd.DataFrame | None = None,
+):
+    import datetime as datetime_module
+    import hashlib
+    from datetime import datetime
+
+    from openpyxl.formatting.rule import FormulaRule
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    from pbi_xbrl.excel_writer_legacy_ui_writers import (
+        LegacyUIWriterDeps,
+        LegacyUIWriters,
+    )
+
+    wb = Workbook()
+    quarter_notes_df = quarter_notes if quarter_notes is not None else pd.DataFrame()
+    promises_df = promises if promises is not None else pd.DataFrame()
+    promise_progress_df = promise_progress if promise_progress is not None else pd.DataFrame()
+
+    def _resolve_col(df: pd.DataFrame, aliases: list[str]) -> str | None:
+        columns_by_name = {str(col).strip().lower(): str(col) for col in df.columns}
+        for alias in aliases:
+            resolved = columns_by_name.get(str(alias).strip().lower())
+            if resolved is not None:
+                return resolved
+        return None
+
+    def _write_sheet(name: str, df: pd.DataFrame) -> None:
+        ws = wb.create_sheet(name)
+        for col_idx, column in enumerate(df.columns, start=1):
+            ws.cell(row=1, column=col_idx, value=str(column))
+        for row_idx, row in enumerate(df.itertuples(index=False, name=None), start=2):
+            for col_idx, value in enumerate(row, start=1):
+                ws.cell(row=row_idx, column=col_idx, value=value)
+
+    def _apply_hyperlink_look(cell, target: str) -> None:
+        cell.hyperlink = target
+        cell.style = "Hyperlink"
+
+    runtime = {
+        "wb": wb,
+        "pd": pd,
+        "re": re,
+        "json": json,
+        "hashlib": hashlib,
+        "datetime": datetime,
+        "dt": datetime_module,
+        "Font": Font,
+        "Alignment": Alignment,
+        "PatternFill": PatternFill,
+        "FormulaRule": FormulaRule,
+        "get_column_letter": get_column_letter,
+        "header_size": 11,
+        "quarter_notes": quarter_notes_df,
+        "promises": promises_df,
+        "promise_progress": promise_progress_df,
+        "_quarter_notes_view": lambda: quarter_notes_df.copy(),
+        "_promises_view": lambda: promises_df.copy(),
+        "_resolve_col": _resolve_col,
+        "_parse_first_evidence": lambda row: {},
+        "_write_sheet": _write_sheet,
+        "_apply_hyperlink_look": _apply_hyperlink_look,
+    }
+    return LegacyUIWriters(LegacyUIWriterDeps(runtime=runtime)), wb
+
+
+def test_legacy_ui_writer_renders_empty_quarter_notes_sheet() -> None:
+    writer, wb = _make_legacy_ui_writer(quarter_notes=pd.DataFrame())
+
+    qa_rows = writer.write_quarter_notes_ui()
+
+    ws = wb["Quarter_Notes_UI"]
+    assert qa_rows == []
+    assert ws["A2"].value == "No data."
+    assert ws.freeze_panes == "B2"
+    assert ws.column_dimensions["A"].width == 30
+
+
+def test_legacy_ui_writer_renders_quarter_note_and_evidence_link() -> None:
+    quarter_notes = pd.DataFrame(
+        [
+            {
+                "quarter": "2025-03-31",
+                "category": "Guidance",
+                "claim": "Revenue target by 2025 is $100 million.",
+                "severity": "warn",
+                "severity_score": 2,
+                "metric_ref": "revenue",
+                "metric_value": 100_000_000,
+                "note_id": "note-1",
+                "evidence_doc": "earnings-release.pdf",
+                "evidence_loc": "page 3",
+                "evidence_snippet": "Revenue target by 2025 is $100 million.",
+            }
+        ]
+    )
+    writer, wb = _make_legacy_ui_writer(quarter_notes=quarter_notes)
+
+    qa_rows = writer.write_quarter_notes_ui(top_k=1)
+
+    ws = wb["Quarter_Notes_UI"]
+    assert qa_rows == []
+    assert ws["B1"].value == "2025-03-31"
+    assert ws["A2"].value == "Guidance #1"
+    assert ws["B2"].value == "Revenue target by 2025 is $100 million. ($100.0m)"
+    assert ws["B2"].hyperlink.target == "#'Quarter_Notes_Evidence'!A2"
+    evidence_ws = wb["Quarter_Notes_Evidence"]
+    assert [evidence_ws.cell(row=1, column=col).value for col in range(1, 9)] == [
+        "note_id",
+        "quarter",
+        "category",
+        "claim",
+        "metric",
+        "doc_path",
+        "evidence_loc",
+        "snippet",
+    ]
+    assert evidence_ws["A2"].value == "note-1"
+    assert evidence_ws["F2"].value == "earnings-release.pdf"
+
+
+def test_legacy_ui_writer_renders_empty_promise_tracker_sheet() -> None:
+    writer, wb = _make_legacy_ui_writer(promises=pd.DataFrame())
+
+    qa_rows = writer.write_promise_tracker_ui()
+
+    ws = wb["Promise_Tracker_UI"]
+    assert qa_rows == []
+    assert ws["A2"].value == "No data."
+    assert ws.freeze_panes == "B2"
+    assert ws.column_dimensions["A"].width == 74
+
+
+def test_legacy_ui_writer_renders_promise_status_and_evidence_link() -> None:
+    promises = pd.DataFrame(
+        [
+            {
+                "promise_id": "promise-1",
+                "metric_tag": "revenue",
+                "promise_text": "Grow revenue",
+                "target_time": "2025-06-30",
+                "target_value": 100,
+                "units": "million",
+                "created_quarter": "2025-03-31",
+            }
+        ]
+    )
+    promise_progress = pd.DataFrame(
+        [
+            {
+                "quarter": "2025-06-30",
+                "promise_id": "promise-1",
+                "status": "achieved",
+                "progress_pct": 1.0,
+                "doc_path": "earnings-release.pdf",
+                "section_or_page": "page 4",
+                "evidence_snippet": "The revenue target was achieved.",
+            }
+        ]
+    )
+    writer, wb = _make_legacy_ui_writer(
+        promises=promises,
+        promise_progress=promise_progress,
+    )
+
+    qa_rows = writer.write_promise_tracker_ui()
+
+    ws = wb["Promise_Tracker_UI"]
+    assert qa_rows == []
+    assert ws["A2"].value == "Promise #1 | id:promise-1"
+    assert ws["B1"].value == "2025-06-30"
+    assert ws["B2"].value == "achieved (100%) | TARGET HIT"
+    assert ws["B2"].hyperlink.target == "#'Promise_Evidence'!A2"
+    assert "Grow revenue" in ws["C2"].value
+    evidence_ws = wb["Promise_Evidence"]
+    assert evidence_ws["A2"].value == "promise-1"
+    assert evidence_ws["D2"].value == "earnings-release.pdf"
+
+
 def test_legacy_ui_writers_module_exposes_thin_wrapper_contract() -> None:
     from dataclasses import fields
 
