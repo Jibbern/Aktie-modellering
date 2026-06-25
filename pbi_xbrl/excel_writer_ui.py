@@ -135,7 +135,7 @@ def write_ui_sheets(ctx: WriterContext) -> List[Dict[str, Any]]:
 
     ui_qa_rows: List[Dict[str, Any]] = []
     ticker = str(getattr(ctx.company_profile, "ticker", "") or getattr(ctx.inputs, "ticker", "") or "").upper()
-    if ticker in {"ANF", "PBI", "GPRE"}:
+    if ticker:
         writer = ctx.callbacks.extra_callbacks.get("_write_investment_case_surfaces")
         if not callable(writer):
             writer = ctx.callbacks.extra_callbacks.get("_write_anf_investment_case_surfaces")

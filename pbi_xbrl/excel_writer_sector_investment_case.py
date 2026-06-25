@@ -29,7 +29,7 @@ def write_sector_investment_case_data_sheet(
     wb = runtime["wb"]
     data = df
     ticker_txt = str(ticker or "").strip().upper()
-    if ticker_txt not in {"PBI", "GPRE"}:
+    if not ticker_txt:
         return
     sheet_name = f"{ticker_txt}_Investment_Case_Data"
     if sheet_name in wb.sheetnames:
@@ -129,7 +129,7 @@ def write_sector_investment_case_sheet(
     _write_scenario_bridge_tax_treatment_sheet = runtime["_write_scenario_bridge_tax_treatment_sheet"]
     _write_scenario_driver_assumptions_sheet = runtime["_write_scenario_driver_assumptions_sheet"]
     ticker_txt = str(ticker or "").strip().upper()
-    if ticker_txt not in {"PBI", "GPRE"}:
+    if not ticker_txt:
         return
     sheet_name = f"{ticker_txt}_Investment_Case"
     if sheet_name in wb.sheetnames:
@@ -483,7 +483,11 @@ def write_sector_investment_case_sheet(
                 wb,
                 ticker=ticker_txt,
                 enabled=False,
-                disabled_note="GPRE segment scenario disabled; use ethanol, 45Z, crush and policy drivers.",
+                disabled_note=(
+                    "GPRE segment scenario disabled; use ethanol, 45Z, crush and policy drivers."
+                    if ticker_txt == "GPRE"
+                    else "Segment scenario disabled until ticker-specific segment inputs are configured."
+                ),
             )
             return row, {}
         row = _section(row, "Segment Scenario Inputs")
@@ -1070,7 +1074,7 @@ def write_sector_investment_case_sheet(
             "Capital Structure / Refinancing Risk",
             "Guidance Beat/Miss Setup",
         ]
-    else:
+    elif ticker_txt == "GPRE":
         section_order = [
             "Key Debates",
             "Bear / Base / Bull Scenario",
@@ -1091,6 +1095,8 @@ def write_sector_investment_case_sheet(
             "FCF / Balance Sheet",
             "Guidance Beat/Miss Setup",
         ]
+    else:
+        section_order = []
     for section in section_order:
         if section in {"What Market Is Pricing", "Adj EBITDA x EV/EBITDA", "FCF Yield Implied Equity Value"}:
             continue

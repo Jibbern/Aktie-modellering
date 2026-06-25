@@ -50,7 +50,7 @@ class InvestmentCaseSupport:
         desired = [str(x) for x in (desired_sheet_order or ()) if str(x or "").strip()]
         raw = [str(x) for x in (raw_sheet_cluster or ()) if str(x or "").strip()]
         ticker_txt = str(ticker or "").strip().upper()
-        if ticker_txt not in {"ANF", "PBI", "GPRE"}:
+        if not ticker_txt:
             return tuple(desired), tuple(raw)
         case_sheet = f"{ticker_txt}_Investment_Case"
         data_sheet = f"{ticker_txt}_Investment_Case_Data"
@@ -1246,6 +1246,25 @@ class InvestmentCaseSupport:
             _add("Margin Cycle / Lapping Risk", "Policy lapping", "45Z and policy benefits may be step-function items, not same-store-style growth.", source="Guidance_Normalized")
             _add("Ethanol / Policy Health", "Ethanol demand", "Exports/E15 and domestic demand determine how much margin upside can persist.", source="Operating_Drivers")
             _add("Ethanol / Policy Health", "45Z / RFS / RIN setup", "Policy clarity and monetization are central to the equity case.", source="Guidance_Normalized / Economics_Overlay")
+        else:
+            _add(
+                "Investment Snapshot",
+                "Model read",
+                "General operating, cash-flow and valuation case pending ticker-specific configuration.",
+                investment_read="Use source-backed history and manual scenario inputs until company-specific drivers are configured.",
+            )
+            _add(
+                "Investment Snapshot",
+                "Key debate",
+                "Can current operating performance convert into durable earnings and free cash flow?",
+                source="model-derived",
+            )
+            _add(
+                "Investment Snapshot",
+                "Current stance",
+                "Generic fallback only; add ticker-specific drivers before using this sheet as a complete investment thesis.",
+                source="model-derived",
+            )
         if ticker_txt in {"PBI", "GPRE"}:
             for row in rows:
                 for key in ("source", "source_note", "display", "investment_read", "current_trend", "beat_miss_risk"):

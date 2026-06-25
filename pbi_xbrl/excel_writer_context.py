@@ -4569,7 +4569,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         ticker_txt = str(ticker or "").strip().upper()
         if is_anf_profile:
             return _write_anf_investment_case_surfaces()
-        if ticker_txt not in {"PBI", "GPRE"}:
+        if not ticker_txt:
             return pd.DataFrame()
         guidance_for_case = slides_guidance
         try:

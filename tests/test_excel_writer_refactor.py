@@ -66,6 +66,7 @@ from pbi_xbrl.excel_writer_ui import write_ui_sheets
 from pbi_xbrl.pipeline_types import PipelineArtifacts, WorkbookInputs
 from pbi_xbrl.quarter_notes_runtime import QuarterNotesRuntime
 from pbi_xbrl.workbook_gap_audit import load_pipeline_bundle_map
+from pbi_xbrl.workbook_validation_runner import validate_workbook
 
 
 @contextmanager
@@ -1506,6 +1507,40 @@ def test_write_excel_minimal_workbook_has_core_sheets_and_order() -> None:
         assert sheetnames.index("History_Q") < sheetnames.index("QA_Log")
         assert sheetnames.index("QA_Log") < sheetnames.index("Needs_Review")
         assert sheetnames.index("Needs_Review") < sheetnames.index("QA_Checks")
+
+
+def test_production_writer_unknown_ticker_creates_required_investment_case(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ticker = "FRESHCO"
+    profile = CompanyProfile(
+        ticker=ticker,
+        has_bank=False,
+        industry_keywords=(),
+        segment_patterns=(),
+        segment_alias_patterns=(),
+        key_adv_require_keywords=(),
+        key_adv_deny_keywords=(),
+        enable_operating_drivers_sheet=True,
+    )
+    monkeypatch.setattr(writer_context_module, "get_company_profile", lambda _ticker: profile)
+
+    with _case_dir() as case_dir:
+        out_path = _make_ticker_model_out_path(case_dir, ticker, "freshco.xlsx")
+
+        write_excel_from_inputs(_make_inputs(out_path, ticker=ticker))
+
+        wb = load_workbook(out_path, data_only=False)
+        try:
+            assert f"{ticker}_Investment_Case" in wb.sheetnames
+            assert wb.sheetnames.index("Operating_Drivers") < wb.sheetnames.index(f"{ticker}_Investment_Case")
+            assert wb.sheetnames.index(f"{ticker}_Investment_Case") < wb.sheetnames.index("Quarter_Notes_UI")
+            assert wb[f"{ticker}_Investment_Case"]["A1"].value == f"{ticker} Investment Case"
+        finally:
+            wb.close()
+
+        result = validate_workbook(out_path, ticker)
+        assert result.missing_required_sheets == []
 
 
 def test_write_excel_temp_workbook_preserves_hidden_value_formula_contract() -> None:
