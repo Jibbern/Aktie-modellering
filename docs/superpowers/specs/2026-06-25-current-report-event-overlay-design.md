@@ -2,7 +2,7 @@
 
 ## Objective
 
-Make newly collected post-quarter SEC capital-structure events visible, traceable, and decision-useful in the PBI and GPRE Excel models without rewriting reported historical quarters.
+Make newly collected post-quarter SEC capital-structure events visible, traceable, and decision-useful in the PBI and GPRE Excel models without rewriting reported historical quarters. Also make filing freshness and the material current/post-quarter effects immediately visible on `SUMMARY`, using the same normalized source and event records as `Valuation` and support/audit surfaces.
 
 ## Scope
 
@@ -100,17 +100,27 @@ The visible GPRE narrative must state:
    - ticker
    - reported-quarter anchor
    - event date and filing date
+   - filing type
+   - downloaded-at timestamp
    - event type
    - legal instrument quantities
    - maximum valuation-overlay quantities
    - numeric amounts and units
    - history treatment
    - valuation/dilution treatment
+   - whether and where the event is used in the workbook
    - accession, document, and source path
+   - whether the source path currently exists
 4. Feed the normalized records into an existing support/audit surface when its schema is sufficient.
 5. If existing schemas cannot represent legal warrants, maximum issuable shares, reported values, and overlay values without ambiguity, create a narrowly scoped `PostQuarter_Capital_Events` support sheet.
 6. Apply the normalized records to current/pro-forma presentation surfaces without mutating reported historical datasets.
-7. Render concise visible companion rows in `Valuation` and, where useful, the ticker investment-case sheet.
+7. Build a small filing-freshness record for the workbook ticker from:
+   - the latest reported quarter and its filing metadata already represented in `History_Q`, `SEC_Audit_Log`, or the financial-statement manifest;
+   - the latest normalized model-relevant additional/post-quarter filing, if one exists;
+   - the source-refresh log or manifest download timestamp;
+   - the normalized event's usage surfaces and source-path status.
+8. Render concise visible companion rows in `Valuation` and, where useful, the ticker investment-case sheet.
+9. Render `Source / Filing Freshness` and `Post-quarter / Current Effects` on `SUMMARY` from those same normalized records.
 
 The implementation should reuse existing source-root, cached-document, quarter-note, and valuation support boundaries. It must not add a broad new ingestion framework.
 
@@ -125,6 +135,89 @@ The implementation should reuse existing source-root, cached-document, quarter-n
 - GPRE keeps `500,000` warrants and `550,000` maximum issuable shares separately visible.
 - Each visible note identifies that reported quarter values are unchanged.
 - Source metadata remains traceable to the SEC accession and document.
+
+### Summary behavior
+
+`SUMMARY` must add two user-facing sections after the existing company and financial overview. These sections are views over normalized source/event records; they must not become independent data sources or calculate unsupported estimates.
+
+#### Source / Filing Freshness
+
+The section contains one row for the ticker whose workbook is being generated. It does not list the whole portfolio inside every workbook.
+
+Required columns:
+
+- Ticker
+- Latest reported quarter
+- Latest reported filing type
+- Latest reported filing accession
+- Latest reported filing date
+- Latest reported filing `downloaded_at`
+- Latest additional/post-quarter filing type
+- Latest additional/post-quarter filing accession
+- Latest additional/post-quarter filing date
+- Latest additional/post-quarter `downloaded_at`
+- Event type
+- Used in workbook? (`Yes`, `No`, or `Review`)
+- Used surfaces
+- Source path exists? (`Yes` or `No`)
+
+Rules:
+
+- The latest reported filing must be derived from the latest reported quarter and existing filing/audit/manifest metadata, not inferred from a newer unrelated filing.
+- The latest additional filing must be the latest downloaded filing that produced a model-relevant normalized event, not simply the latest SEC filing by date.
+- `downloaded_at` should use an explicit source-refresh log or manifest timestamp when available. A filesystem timestamp may be used only as a clearly identified fallback.
+- `Used surfaces` must be generated from the same event usage metadata that drives workbook rendering.
+- `Source path exists?` must be evaluated against the actual selected source path at build time.
+- PBI must identify the June 2026 8-K package and exhibits as a refinancing/redemption event used in `Valuation` current Debt Detail and support/audit.
+- GPRE must identify the June 2026 S-3ASR and warrant exhibits as a warrant-dilution event used in Valuation dilution sensitivity and support/audit.
+- If no newer model-relevant normalized event exists, ANF, GTX, and any other ticker must show `None newer / no model-relevant post-quarter event`. They must not receive synthetic or inferred post-quarter events.
+
+#### Post-quarter / Current Effects
+
+Required columns:
+
+- Ticker
+- Event date
+- Filing date
+- Area
+- Reported-quarter anchor
+- Reported value
+- Current / overlay value
+- Change
+- Unit
+- Confidence / treatment
+- Historical treatment
+- Valuation treatment
+- Source document / accession
+
+The rows must be deterministic projections of the normalized event record. They must not repeat parsing or independently derive valuation values.
+
+Required PBI rows:
+
+- 2027 senior notes: reported Q1 active principal of approximately `$347 million`, current active principal `$0` / redeemed, change `-$347 million`, source-backed, current `Valuation` Debt Detail updated.
+- Term Loan A: reported Q1 principal of approximately `$152 million`, current principal `$302 million`, change `+$150 million`, source-backed, current `Valuation` Debt Detail updated.
+- Gross principal delta: `-$197 million`, explicitly limited to source-backed gross principal.
+- Cash / net debt: reported Q1 values unchanged; current exact values `Unresolved / manual review` because cash use, revolver use, fees, costs, premium, accrued interest, and expenses are not fully source-backed.
+- Next scheduled maturity: March 2029.
+- Term Loan A maturity: May 18, 2031.
+
+Required GPRE rows:
+
+- Warrants issued: `500,000`.
+- Potential common shares issuable maximum: `550,000`.
+- Valuation full-dilution overlay: `+0.550 million` shares.
+- Exercise price: `$0.01`.
+- Expiration: June 16, 2036.
+- Reported shares and EPS: unchanged.
+- Valuation treatment: a clearly labelled full-dilution value-per-share sensitivity or `Diluted + post-quarter warrants` mode.
+
+Treatment labels must be explicit:
+
+- Confidence / treatment: `Source-backed`, `Partial / unresolved`, or `Manual review`.
+- Historical treatment: for example `History_Q unchanged`, `Debt_Profile unchanged`, or `Shares/EPS unchanged`.
+- Valuation treatment: for example `Current Debt Detail updated`, `Full-dilution sensitivity`, or `No auto net-debt adjustment`.
+
+The Summary tables must remain readable without hiding source uncertainty. In particular, PBI cash and current net debt must not be displayed as exact values while their components remain unresolved.
 
 ### Required support behavior
 
@@ -179,6 +272,15 @@ Tests are added before production changes and must initially fail for the missin
 - GPRE valuation full-dilution sensitivity uses exactly `+0.550 million` shares.
 - GPRE retains both the `500,000` legal warrant count and `550,000` maximum issuable shares.
 - Duplicate source copies do not create duplicate support or visible rows.
+- `SUMMARY` contains `Source / Filing Freshness` and `Post-quarter / Current Effects`.
+- PBI and GPRE Summary freshness rows include the latest model-relevant additional filing date and `downloaded_at`.
+- PBI Summary identifies the refinancing/redemption event as used in `Valuation` current Debt Detail.
+- GPRE Summary identifies the warrant event as used in the Valuation full-dilution sensitivity.
+- PBI Summary displays current cash/net debt as unresolved/manual rather than an exact current value.
+- PBI Summary states that `History_Q` and `Debt_Profile` remain unchanged.
+- GPRE Summary states that reported shares and EPS remain unchanged.
+- Every source path represented as active in Summary resolves to an existing file.
+- ANF, GTX, and synthetic unknown tickers do not receive a post-quarter effect when no model-relevant normalized event exists.
 
 ### Regression tests
 
@@ -195,7 +297,7 @@ All workbook builds use staging paths under `StockModelData\staging`. Existing c
 2. focused regressions pass;
 3. staged PBI and GPRE workbooks build successfully;
 4. workbook and render/style validation pass;
-5. content inspection confirms the new event overlays are visible and historical rows remain unchanged.
+5. content inspection confirms the new event overlays and Summary freshness/effects tables are visible and historical rows remain unchanged.
 
 Canonical promotion, if approved after verification, replaces only the affected PBI and GPRE `.xlsx` files and preserves rollback copies or hashes of the prior files.
 
@@ -232,5 +334,7 @@ The cleanup report must list every removed, quarantined, and retained path with 
 - No use of the 19.8% beneficial ownership limitation to reduce the GPRE full-dilution sensitivity.
 - No automatic PBI net-debt adjustment based only on gross debt movements.
 - No presentation of redeemed PBI 2027 notes as active current debt in the user-facing `Valuation` Debt Detail.
+- No independent Summary parsing, estimates, or second source of truth.
+- No fake post-quarter events for ANF, GTX, or generic tickers without model-relevant normalized records.
 - No unrelated source-refresh refactor or filename cleanup.
 - No recursive deletion or broad move of `C:\Users\Jibbe\Aktier\sec_cache\PBI`.

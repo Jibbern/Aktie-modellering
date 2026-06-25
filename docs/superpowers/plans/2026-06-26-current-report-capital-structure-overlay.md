@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Parse the June 2026 PBI refinancing and GPRE BlackRock warrant events, preserve reported history, and expose source-traceable current/pro-forma capital-structure overlays in staged Excel models.
+**Goal:** Parse the June 2026 PBI refinancing and GPRE BlackRock warrant events, preserve reported history, and expose source-traceable current/pro-forma capital-structure overlays plus filing freshness/current effects on `SUMMARY` in staged Excel models.
 
-**Architecture:** Add one focused parser module that scans only the known official filing families and returns one normalized row per event. Add one focused workbook module that writes `PostQuarter_Capital_Events` and supplies presentation helpers. Pass the normalized frame through the existing writer context into the Valuation debt-detail renderer; transform only the PBI display copy and add a separate GPRE full-dilution sensitivity without mutating pipeline inputs or named reported-share ranges.
+**Architecture:** Add one focused parser module that scans only the known official filing families and returns one normalized row per event. Add one focused workbook module that writes `PostQuarter_Capital_Events` and supplies presentation helpers. Add one narrow Summary helper that projects the normalized event frame plus existing History/Audit/manifest metadata into filing-freshness and current-effects tables. Build these frames once in the writer context and pass them to both Summary and Valuation; transform only the PBI display copy and add a separate GPRE full-dilution sensitivity without mutating pipeline inputs or named reported-share ranges.
 
 **Tech Stack:** Python 3.13, pandas, BeautifulSoup, openpyxl, pytest, existing stock-model pipeline and validators.
 
@@ -14,10 +14,14 @@
 
 - Create `pbi_xbrl/post_quarter_capital_events.py`: source discovery, text parsing, event normalization, duplicate collapse, and pure PBI debt-display transformation.
 - Create `pbi_xbrl/excel_writer_post_quarter_capital_events.py`: support-sheet writer and compact PBI/GPRE Valuation overlay rendering.
-- Modify `pbi_xbrl/excel_writer_context.py`: build the normalized event frame from scoped material/cache roots, pass it to Valuation, and order the support sheet.
+- Create `pbi_xbrl/excel_writer_summary_freshness.py`: pure filing-freshness/current-effects frame builders and compact Summary table renderer.
+- Modify `pbi_xbrl/excel_writer_context.py`: build the normalized event and Summary projection frames from scoped material/cache roots plus existing History/Audit/manifest data, pass them to Summary and Valuation, and order the support sheet.
+- Modify `pbi_xbrl/excel_writer_summary_sheet.py`: append the two structured Summary tables after the existing overview sections.
 - Modify `pbi_xbrl/excel_writer_valuation_orchestrator.py`: accept the event frame, write the support sheet, and expose it to the debt-detail renderer.
 - Modify `pbi_xbrl/excel_writer_valuation_debt_detail_render.py`: render the PBI current debt table from a transformed copy and append ticker-specific event overlays.
+- Modify `pbi_xbrl/writer_types.py`: retain the three normalized run-scoped frames in `WriterDerivedData`.
 - Create `tests/test_post_quarter_capital_events.py`: parser, duplicate, pure transformation, and production-writer behavior tests.
+- Create `tests/test_summary_filing_freshness.py`: pure Summary projection and production-writer tests, including generic no-event behavior.
 - Create staging-only cleanup inventory under `StockModelData\staging\source-refresh-2026-06-26\cache_cleanup`; do not add cleanup artifacts to Git.
 
 ### Task 1: Normalize PBI and GPRE events
@@ -83,7 +87,9 @@ POST_QUARTER_EVENT_COLUMNS = (
     "event_type",
     "reported_quarter_anchor",
     "event_date",
+    "filing_type",
     "filing_date",
+    "downloaded_at",
     "accession",
     "principal_redeemed",
     "incremental_term_loan",
@@ -99,9 +105,12 @@ POST_QUARTER_EVENT_COLUMNS = (
     "automatic_net_debt_adjustment",
     "history_treatment",
     "valuation_treatment",
+    "used_in_workbook",
+    "used_surfaces",
     "source_documents",
     "source_paths",
     "source_urls",
+    "source_path_exists",
     "qa_status",
 )
 ```
@@ -115,6 +124,8 @@ The parser must:
 - aggregate GPRE warrant exhibits by warrant number and unique amount;
 - use the S-3 prospectus, not the legal warrant count, for `potential_common_shares_issuable_max`;
 - serialize unique source documents and paths deterministically;
+- resolve `downloaded_at` from the existing source-refresh log or manifest, falling back to a clearly marked file timestamp only when no explicit timestamp exists;
+- set usage surfaces and source-path existence on the same normalized event row used by workbook renderers;
 - return an empty frame with the declared schema when no complete event exists.
 
 - [ ] **Step 4: Run parser tests and verify GREEN**
@@ -310,7 +321,161 @@ C:\Users\Jibbe\Aktier\.venv\Scripts\python.exe -m pytest `
 
 Explain the support-sheet and GPRE overlay additions.
 
-### Task 4: Inventory and quarantine only safe duplicate cache artifacts
+### Task 4: Add Summary filing freshness and current-effects views
+
+**Files:**
+- Create: `pbi_xbrl/excel_writer_summary_freshness.py`
+- Create: `tests/test_summary_filing_freshness.py`
+- Modify: `pbi_xbrl/excel_writer_context.py`
+- Modify: `pbi_xbrl/excel_writer_summary_sheet.py`
+- Modify: `pbi_xbrl/writer_types.py`
+- Modify: `tests/test_excel_writer_refactor.py` only for explicit dataclass/render dependency contract updates.
+
+- [ ] **Step 1: Write failing pure projection tests**
+
+Build representative `hist`, `audit`, financial-statement manifest, refresh-log, and normalized event frames. Assert that the freshness projection returns one row for the current workbook ticker:
+
+```python
+freshness = build_source_filing_freshness(
+    ticker="PBI",
+    hist=hist,
+    audit=audit,
+    manifest_df=manifest_df,
+    post_quarter_events=events,
+    source_refresh_records=refresh_records,
+)
+
+assert freshness.iloc[0]["latest_reported_quarter"] == "2026-Q1"
+assert freshness.iloc[0]["latest_reported_filing_type"] == "10-Q"
+assert freshness.iloc[0]["latest_additional_filing_type"] == "8-K package / exhibits"
+assert freshness.iloc[0]["latest_additional_filing_accession"] == "000119312526281893"
+assert freshness.iloc[0]["latest_additional_downloaded_at"]
+assert freshness.iloc[0]["used_in_workbook"] == "Yes"
+assert "Valuation current Debt Detail" in freshness.iloc[0]["used_surfaces"]
+assert freshness.iloc[0]["source_path_exists"] == "Yes"
+```
+
+Required generic assertions:
+
+```python
+assert len(anf_freshness) == 1
+assert anf_freshness.iloc[0]["latest_additional_filing_type"] == "None newer / no model-relevant post-quarter event"
+assert anf_current_effects.empty
+assert gtx_current_effects.empty
+```
+
+- [ ] **Step 2: Write failing current-effects projection tests**
+
+Assert exact PBI rows for:
+
+- 2027 notes reported/current/change;
+- Term Loan A reported/current/change;
+- gross principal delta;
+- unresolved current cash/net debt with no exact current numeric value;
+- March 2029 next maturity;
+- May 18, 2031 Term Loan A maturity.
+
+Assert exact GPRE rows for:
+
+- `500,000` legal warrants;
+- `550,000` maximum issuable shares;
+- `+0.550m` full-dilution overlay;
+- `$0.01` exercise price;
+- June 16, 2036 expiration;
+- reported shares/EPS unchanged.
+
+The builders must be pure projections from `post_quarter_events`; they must not parse files or calculate independent event facts.
+
+- [ ] **Step 3: Run Summary projection tests and verify RED**
+
+Run:
+
+```powershell
+C:\Users\Jibbe\Aktier\.venv\Scripts\python.exe -m pytest tests/test_summary_filing_freshness.py -k "projection or no_event" -v
+```
+
+Expected: import failure because `excel_writer_summary_freshness` does not exist.
+
+- [ ] **Step 4: Implement minimal projection builders**
+
+Create:
+
+```python
+def build_source_filing_freshness(...) -> pd.DataFrame: ...
+def build_post_quarter_current_effects(...) -> pd.DataFrame: ...
+```
+
+Rules:
+
+- derive the latest reported filing from the latest `History_Q` quarter plus existing Audit/manifest metadata;
+- use the normalized event row for the latest model-relevant additional filing;
+- do not select a newer filing that produced no normalized model-relevant event;
+- use explicit refresh-log/manifest `downloaded_at`, with a labelled filesystem fallback only if needed;
+- produce exactly one freshness row for the workbook ticker;
+- produce zero current-effects rows when no normalized event exists;
+- preserve `Unresolved / manual review` as text for PBI current cash/net debt;
+- evaluate source-path existence at build time;
+- never synthesize ANF/GTX events.
+
+- [ ] **Step 5: Run projection tests and verify GREEN**
+
+Expected: pure Summary projection tests pass.
+
+- [ ] **Step 6: Write failing production Summary tests**
+
+Call the production writer for PBI and GPRE fixtures and assert:
+
+```python
+assert summary_contains_section("Source / Filing Freshness")
+assert summary_contains_section("Post-quarter / Current Effects")
+assert summary_row_contains("PBI", "2026-06-25", downloaded_at)
+assert summary_row_contains("Valuation current Debt Detail")
+assert summary_row_contains("Cash / net debt", "Unresolved / manual review")
+assert summary_row_contains("History_Q unchanged; Debt_Profile unchanged")
+assert summary_row_contains("GPRE", "Full-dilution sensitivity")
+assert summary_row_contains("Reported shares/EPS unchanged")
+assert all(active_summary_source_paths_exist)
+```
+
+Also render ANF or a synthetic unknown ticker and assert that the freshness row says `None newer / no model-relevant post-quarter event` and no current-effects rows are present.
+
+- [ ] **Step 7: Append structured tables to SUMMARY**
+
+Keep the existing six-column overview renderer unchanged for existing sections. Append two dedicated tables below it:
+
+- `Source / Filing Freshness`, with 14 columns;
+- `Post-quarter / Current Effects`, with 13 columns.
+
+Use compact headers, filters, wrapped text, sensible widths, frozen panes compatible with the existing sheet, alternating row fills, explicit date formats, and source-path comments where a full path would be too wide. The tables must receive the prebuilt frames; the renderer must not parse files or recalculate event facts.
+
+- [ ] **Step 8: Store and pass frames once**
+
+Add run-scoped fields:
+
+```python
+post_quarter_capital_events: Optional[pd.DataFrame]
+source_filing_freshness: Optional[pd.DataFrame]
+post_quarter_current_effects: Optional[pd.DataFrame]
+```
+
+Build them once in `excel_writer_context.py`, then pass the same event frame to Valuation/support and the two projection frames to Summary.
+
+- [ ] **Step 9: Run production Summary tests and focused contracts**
+
+Run:
+
+```powershell
+C:\Users\Jibbe\Aktier\.venv\Scripts\python.exe -m pytest `
+  tests/test_summary_filing_freshness.py `
+  tests/test_post_quarter_capital_events.py `
+  tests/test_excel_writer_refactor.py -k "summary or post_quarter or valuation_debt_detail or valuation_orchestrator" -q
+```
+
+- [ ] **Step 10: Show diff stat**
+
+Explain that Summary is a read-only projection over the same normalized records and that no new ingestion framework or independent estimates were added.
+
+### Task 5: Inventory and quarantine only safe duplicate cache artifacts
 
 **Files:**
 - Create outside Git: `StockModelData\staging\source-refresh-2026-06-26\cache_cleanup\cache_inventory.csv`
@@ -356,7 +521,7 @@ Before recursive moves, resolve and verify every source and target remains under
 
 Record retained reason per path. Never remove the whole accidental cache root.
 
-### Task 5: Staged builds, validation, readback, and visual QA
+### Task 6: Staged builds, validation, readback, and visual QA
 
 **Files:**
 - Build only:
@@ -395,19 +560,23 @@ Read and report:
 - PBI Term Loan A `$302m`;
 - PBI next maturity March 2029;
 - PBI event reconciliation;
+- PBI `SUMMARY` freshness row, additional filing date/downloaded-at, usage surfaces, and source-path existence;
+- PBI `SUMMARY` current-effects rows including unresolved/manual cash and net debt;
 - PBI Q1 historical debt/cash/net-debt values across `History_Q`, `Debt_Profile`, and `Debt_Tranches_Latest`;
 - GPRE warrants `500k`;
 - GPRE maximum issuable shares `550k`;
 - GPRE `+0.550m` denominator overlay and full-dilution formula/value;
+- GPRE `SUMMARY` freshness row, additional filing date/downloaded-at, usage surfaces, and source-path existence;
+- GPRE `SUMMARY` current-effects rows;
 - GPRE reported Q1 shares and EPS.
 
 - [ ] **Step 6: Render visual previews**
 
-Render PBI `Valuation`, GPRE `Valuation`, and both support-sheet event rows with `@oai/artifact-tool`. Inspect for overlap, clipping, and formula errors.
+Render PBI `Valuation`, GPRE `Valuation`, both `SUMMARY` sheets, and both support-sheet event rows with `@oai/artifact-tool`. Inspect for overlap, clipping, excessive table width, unreadable wrapped text, and formula errors.
 
 - [ ] **Step 7: Verify source paths after cleanup**
 
-Every source path in `PostQuarter_Capital_Events`, comments, and workbook audit sheets must exist.
+Every active source path in `PostQuarter_Capital_Events`, `SUMMARY`, comments, and workbook audit sheets must exist. Generic no-event rows are exempt because they must not claim an active source.
 
 - [ ] **Step 8: Verify canonical models remain unchanged**
 
