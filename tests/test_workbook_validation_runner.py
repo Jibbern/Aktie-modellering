@@ -9,6 +9,7 @@ from openpyxl.workbook.defined_name import DefinedName
 
 from pbi_xbrl.workbook_validation_runner import (
     BAD_MARKER_TERMS,
+    TICKERS,
     ValidationConfig,
     default_workbook_paths,
     resolve_workbook_paths,
@@ -180,6 +181,21 @@ def test_validation_runner_uses_explicit_xlsm_workbook_path(tmp_path: Path) -> N
     result = validate_workbooks(paths)[0]
     assert result.path == str(explicit_path.resolve())
     assert result.overall == "PASS"
+
+
+def test_validation_runner_supports_explicit_non_default_ticker_without_defaulting_it(tmp_path: Path) -> None:
+    assert "GTX" not in TICKERS
+    assert "GTX" not in default_workbook_paths(tmp_path)
+
+    explicit_path = _make_clean_validation_workbook(tmp_path / "GTX_model.xlsx", "GTX")
+
+    paths = resolve_workbook_paths(workbook_dir=explicit_path, tickers=["GTX"])
+
+    assert paths == {"GTX": explicit_path.resolve()}
+    results = validate_workbooks(paths)
+    assert [result.ticker for result in results] == ["GTX"]
+    assert results[0].path == str(explicit_path.resolve())
+    assert results[0].overall == "PASS"
 
 
 def test_validation_runner_folder_mode_prefers_existing_xlsm_outputs(tmp_path: Path) -> None:
