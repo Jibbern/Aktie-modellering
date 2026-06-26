@@ -7,6 +7,8 @@ from typing import Any, MutableMapping, Optional
 import pandas as pd
 from openpyxl.styles import Alignment
 
+from .post_quarter_capital_events import apply_pbi_current_debt_overlay
+
 
 @dataclass(frozen=True)
 class ValuationDebtDetailRenderDeps:
@@ -41,6 +43,21 @@ def render_valuation_debt_detail(
             return context_globals[name]
         return globals().get(name)
 
+    def _coalesce_row_value(row: pd.Series, *names: str, default: Any = None) -> Any:
+        for name in names:
+            value = row.get(name)
+            if value is None:
+                continue
+            try:
+                if pd.isna(value):
+                    continue
+            except (TypeError, ValueError):
+                pass
+            if isinstance(value, str) and not value.strip():
+                continue
+            return value
+        return default
+
     _row_fill = _rt_get("_row_fill")
     _safe_text_value = _rt_get("_safe_text_value")
     _set_cell_comment_local = _rt_get("_set_cell_comment_local")
@@ -51,6 +68,8 @@ def render_valuation_debt_detail(
     debt_maturity = _rt_get("debt_maturity")
     debt_profile = _rt_get("debt_profile")
     debt_tranches_latest = _rt_get("debt_tranches_latest")
+    is_pbi_profile = bool(_rt_get("is_pbi_profile"))
+    post_quarter_capital_events = _rt_get("post_quarter_capital_events")
     header_fill = _rt_get("header_fill")
     qs = _rt_get("qs")
     r = int(_rt_get("r"))
@@ -66,6 +85,30 @@ def render_valuation_debt_detail(
     ws[f"A{r}"].font = bold
     _row_fill(r, section_fill)
     r += 1
+    pbi_event: Optional[pd.Series] = None
+    if (
+        is_pbi_profile
+        and isinstance(post_quarter_capital_events, pd.DataFrame)
+        and not post_quarter_capital_events.empty
+    ):
+        pbi_events = post_quarter_capital_events[
+            post_quarter_capital_events.get("event_type", pd.Series(dtype=object))
+            .astype(str)
+            .eq("refinancing_redemption")
+        ]
+        if not pbi_events.empty:
+            pbi_event = pbi_events.iloc[-1]
+            ws.cell(
+                row=r,
+                column=1,
+                value="Current / post-quarter principal structure; reported Q1 history unchanged",
+            )
+            try:
+                ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=15)
+            except Exception:
+                pass
+            ws.cell(row=r, column=1).alignment = Alignment(wrap_text=True, vertical="top")
+            r += 1
     debt_header_map = {
         1: "Year/Label",
         2: "Principal due ($m)",
@@ -126,6 +169,8 @@ def render_valuation_debt_detail(
             )
             if not source_backed_debt_rows.empty:
                 df = source_backed_debt_rows.copy()
+        if pbi_event is not None:
+            df = apply_pbi_current_debt_overlay(df, pbi_event)
         sum_listed_principal = 0.0
         near_term = 0.0
         carrying_total_m = None
@@ -195,11 +240,16 @@ def render_valuation_debt_detail(
                     basis_label = vals[0]
             for _, row in mat_latest.iterrows():
                 amt_total = pd.to_numeric(row.get("amount_total"), errors="coerce")
-                ws.cell(row=r, column=1, value=row.get("maturity_label") or row.get("maturity_year"))
+                maturity_value = _coalesce_row_value(
+                    row,
+                    "maturity_label",
+                    "maturity_year",
+                )
+                ws.cell(row=r, column=1, value=maturity_value)
                 ws.cell(row=r, column=2, value=(float(amt_total) / 1e6) if pd.notna(amt_total) else None).number_format = "#,##0.000"
                 ws.cell(row=r, column=3, value=None)
                 ws.cell(row=r, column=4, value=None)
-                ws.cell(row=r, column=6, value=row.get("maturity_label") or row.get("maturity_year"))
+                ws.cell(row=r, column=6, value=maturity_value)
                 ws.cell(row=r, column=7, value=None)
                 ws.cell(row=r, column=9, value=None)
                 ws.cell(row=r, column=12, value=None)
@@ -212,7 +262,15 @@ def render_valuation_debt_detail(
                 except Exception:
                     pass
                 ws.cell(row=r, column=15, value=basis_label)
-                ws.cell(row=r, column=17, value=row.get("source_kind") or "Debt_Maturity_Ladder")
+                ws.cell(
+                    row=r,
+                    column=17,
+                    value=_coalesce_row_value(
+                        row,
+                        "source_kind",
+                        default="Debt_Maturity_Ladder",
+                    ),
+                )
                 if pd.notna(amt_total):
                     sum_listed_principal += float(amt_total)
                 r += 1
@@ -241,11 +299,23 @@ def render_valuation_debt_detail(
                     if bool(row.get("near_term")):
                         near_term += float(amt_pr)
                 ws.cell(row=r, column=2, value=(float(amt_pr) / 1e6) if pd.notna(amt_pr) else None).number_format = "#,##0.000"
-                m_disp = row.get("maturity_display")
-                if not m_disp and pd.notna(row.get("maturity_year")):
+                m_disp = _coalesce_row_value(row, "maturity_display")
+                if m_disp is None and pd.notna(row.get("maturity_year")):
                     m_disp = str(int(pd.to_numeric(row.get("maturity_year"), errors="coerce")))
-                ws.cell(row=r, column=3, value=row.get("rate_type") or row.get("instrument_type"))
-                ws.cell(row=r, column=4, value=row.get("coupon_pct") if pd.notna(row.get("coupon_pct")) else row.get("spread_pct"))
+                ws.cell(
+                    row=r,
+                    column=3,
+                    value=_coalesce_row_value(row, "rate_type", "instrument_type"),
+                )
+                coupon_or_spread = pd.to_numeric(
+                    _coalesce_row_value(row, "coupon_pct", "spread_pct"),
+                    errors="coerce",
+                )
+                ws.cell(
+                    row=r,
+                    column=4,
+                    value=float(coupon_or_spread) if pd.notna(coupon_or_spread) else None,
+                )
                 ws.cell(row=r, column=6, value=m_disp)
                 conv_price = pd.to_numeric(row.get("conversion_price"), errors="coerce")
                 conv_shares = pd.to_numeric(row.get("shares_on_full_conversion"), errors="coerce")
@@ -270,11 +340,23 @@ def render_valuation_debt_detail(
                     ws.merge_cells(start_row=r, start_column=17, end_row=r, end_column=18)
                 except Exception:
                     pass
-                basis_display = row.get("source_basis") or "principal_tranche_sum"
+                basis_display = _coalesce_row_value(
+                    row,
+                    "source_basis",
+                    default="principal_tranche_sum",
+                )
                 if "within 24 months of latest quarter end" in str(basis_display):
                     basis_display = "source-backed"
                 ws.cell(row=r, column=15, value=basis_display)
-                ws.cell(row=r, column=17, value=row.get("source_kind") or "Debt_Tranches_Latest")
+                ws.cell(
+                    row=r,
+                    column=17,
+                    value=_coalesce_row_value(
+                        row,
+                        "source_kind",
+                        default="Debt_Tranches_Latest",
+                    ),
+                )
                 row_conv_note = _safe_text_value(row.get("conversion_terms_note"))
                 if (pd.notna(conv_price) or pd.notna(conv_shares)) and row_conv_note:
                     try:
@@ -304,7 +386,10 @@ def render_valuation_debt_detail(
         # visual spacer before tie-out rows
         r += 1
         # principal/carrying reconciliation rows
-        principal_total_m = principal_total_m if principal_total_m is not None else (sum_listed_principal / 1e6 if sum_listed_principal else None)
+        if pbi_event is not None:
+            principal_total_m = sum_listed_principal / 1e6 if sum_listed_principal else None
+        else:
+            principal_total_m = principal_total_m if principal_total_m is not None else (sum_listed_principal / 1e6 if sum_listed_principal else None)
         if carrying_total_m is None:
             debt_core_latest = debt_core_map.get(pd.Timestamp(qs[-1])) if qs else None
             carrying_total_m = (float(debt_core_latest) / 1e6) if debt_core_latest is not None else None
@@ -329,13 +414,20 @@ def render_valuation_debt_detail(
         ws.cell(row=r, column=1, value="Principal total ($m)").font = bold
         ws.cell(row=r, column=2, value=principal_total_m).number_format = "#,##0.000"
         r += 1
-        ws.cell(row=r, column=1, value="Carrying debt_core ($m)").font = bold
+        carrying_label = "Reported Q1 carrying debt_core ($m)" if pbi_event is not None else "Carrying debt_core ($m)"
+        ws.cell(row=r, column=1, value=carrying_label).font = bold
         ws.cell(row=r, column=2, value=carrying_total_m).number_format = "#,##0.000"
         r += 1
-        ws.cell(row=r, column=1, value="Debt current ($m)").font = bold
+        debt_current_label = "Reported Q1 debt current ($m)" if pbi_event is not None else "Debt current ($m)"
+        ws.cell(row=r, column=1, value=debt_current_label).font = bold
         ws.cell(row=r, column=2, value=debt_current_latest_m).number_format = "#,##0.000"
         r += 1
-        ws.cell(row=r, column=1, value="Debt long-term carrying (core-current, $m)").font = bold
+        debt_long_term_label = (
+            "Reported Q1 debt long-term carrying (core-current, $m)"
+            if pbi_event is not None
+            else "Debt long-term carrying (core-current, $m)"
+        )
+        ws.cell(row=r, column=1, value=debt_long_term_label).font = bold
         ws.cell(row=r, column=2, value=debt_long_term_latest_m).number_format = "#,##0.000"
         r += 1
         ws.cell(row=r, column=1, value="Carrying less principal ($m)").font = bold
@@ -366,6 +458,82 @@ def render_valuation_debt_detail(
                 pass
             ws.cell(row=r, column=1).alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
             r += 1
+        if pbi_event is not None:
+            panel_row = row_debt_detail_hdr
+            panel_label_start = 19
+            panel_label_end = 22
+            panel_value_start = 23
+            panel_value_end = 26
+            try:
+                ws.merge_cells(
+                    start_row=panel_row,
+                    start_column=panel_label_start,
+                    end_row=panel_row,
+                    end_column=panel_value_end,
+                )
+            except Exception:
+                pass
+            ws.cell(
+                row=panel_row,
+                column=panel_label_start,
+                value="Post-quarter refinancing overlay / not in reported Q1 values",
+            ).font = bold
+            for column in range(panel_label_start, panel_value_end + 1):
+                ws.cell(row=panel_row, column=column).fill = section_fill
+            source_note = (
+                f"Source: {pbi_event.get('filing_type')} accession {pbi_event.get('accession')}\n"
+                f"{pbi_event.get('source_paths')}"
+            )
+            try:
+                _set_cell_comment_local(
+                    ws.cell(row=panel_row, column=panel_label_start),
+                    source_note,
+                )
+            except Exception:
+                pass
+            panel_row += 1
+            event_rows = (
+                ("2027 Senior Notes redeemed ($m)", -float(pbi_event["principal_redeemed"]) / 1e6),
+                ("Incremental Term Loan A ($m)", float(pbi_event["incremental_term_loan"]) / 1e6),
+                ("Term Loan A total after amendment ($m)", float(pbi_event["term_loan_total"]) / 1e6),
+                ("Gross principal debt delta before fees/costs/other sources ($m)", float(pbi_event["gross_principal_delta"]) / 1e6),
+                ("Cash / current net debt", "Unresolved / manual review"),
+                ("Automatic pro-forma net debt adjustment", "Disabled / manual"),
+                ("Next scheduled maturity", pbi_event["next_scheduled_maturity"]),
+                ("Term Loan A maturity", "May 18, 2031"),
+            )
+            for label, value in event_rows:
+                try:
+                    ws.merge_cells(
+                        start_row=panel_row,
+                        start_column=panel_label_start,
+                        end_row=panel_row,
+                        end_column=panel_label_end,
+                    )
+                    ws.merge_cells(
+                        start_row=panel_row,
+                        start_column=panel_value_start,
+                        end_row=panel_row,
+                        end_column=panel_value_end,
+                    )
+                except Exception:
+                    pass
+                ws.cell(row=panel_row, column=panel_label_start, value=label)
+                ws.cell(row=panel_row, column=panel_value_start, value=value)
+                ws.cell(
+                    row=panel_row,
+                    column=panel_label_start,
+                ).alignment = Alignment(wrap_text=True, vertical="top")
+                ws.cell(
+                    row=panel_row,
+                    column=panel_value_start,
+                ).alignment = Alignment(wrap_text=True, vertical="top")
+                if isinstance(value, (int, float)):
+                    ws.cell(
+                        row=panel_row,
+                        column=panel_value_start,
+                    ).number_format = "#,##0.000"
+                panel_row += 1
 
     return ValuationDebtDetailRenderResult(
         next_row=r,

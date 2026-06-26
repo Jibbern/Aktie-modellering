@@ -19,6 +19,9 @@ class WriterDerivedData:
     valuation_summary_df: Optional[pd.DataFrame] = None
     valuation_grid_df: Optional[pd.DataFrame] = None
     summary_df: Optional[pd.DataFrame] = None
+    post_quarter_capital_events: Optional[pd.DataFrame] = None
+    source_filing_freshness: Optional[pd.DataFrame] = None
+    post_quarter_current_effects: Optional[pd.DataFrame] = None
     report_is: Optional[pd.DataFrame] = None
     report_bs: Optional[pd.DataFrame] = None
     report_cf: Optional[pd.DataFrame] = None

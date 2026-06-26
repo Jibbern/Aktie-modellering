@@ -212,9 +212,14 @@ from .excel_writer_valuation_orchestrator import (
     ValuationOrchestratorDeps,
     write_valuation_sheet,
 )
+from .post_quarter_capital_events import build_post_quarter_capital_events
 from .excel_writer_summary_builder import (
     SummaryBuilderDeps,
     build_summary_dataframe,
+)
+from .excel_writer_summary_freshness import (
+    build_post_quarter_current_effects,
+    build_source_filing_freshness,
 )
 from .excel_writer_latest_quarter_qa import (
     LatestQuarterQADeps,
@@ -2198,6 +2203,34 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     is_pbi_profile = profile_ticker == "PBI"
     is_gpre_profile = profile_ticker == "GPRE"
     is_anf_profile = profile_ticker == "ANF"
+    source_refresh_logs: List[Path] = []
+    refresh_log_roots: Set[Path] = set()
+    for source_root in [*material_roots, Path(cache_dir)]:
+        resolved_root = Path(source_root).expanduser().resolve()
+        for ancestor in (resolved_root, *resolved_root.parents):
+            if ancestor.name.lower() in {"tickers", "sec_cache"}:
+                refresh_log_roots.add(ancestor.parent / "logs")
+                break
+    for log_root in sorted(refresh_log_roots, key=lambda item: str(item).casefold()):
+        if log_root.is_dir():
+            source_refresh_logs.extend(sorted(log_root.glob("source_refresh_*.json")))
+    post_quarter_capital_events = build_post_quarter_capital_events(
+        ticker=profile_ticker,
+        material_roots=material_roots,
+        cache_roots=[cache_dir],
+        source_refresh_logs=source_refresh_logs,
+    )
+    source_filing_freshness = build_source_filing_freshness(
+        ticker=profile_ticker,
+        hist=hist,
+        audit=audit,
+        manifest_df=manifest_df,
+        post_quarter_events=post_quarter_capital_events,
+        source_roots=[*material_roots, cache_dir],
+    )
+    post_quarter_current_effects = build_post_quarter_current_effects(
+        post_quarter_capital_events
+    )
 
     def _is_repo_profile_cache_path(path_in: Any) -> bool:
         return _get_source_root_support().is_repo_profile_cache_path(path_in)
@@ -3470,6 +3503,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 normalize_text=glx_normalize_text,
                 estimate_wrapped_line_count=_estimate_wrapped_line_count,
                 estimate_wrapped_row_height=_estimate_wrapped_row_height,
+                source_filing_freshness=source_filing_freshness,
+                post_quarter_current_effects=post_quarter_current_effects,
             ),
             df,
         )
@@ -3650,6 +3685,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
                 debt_tranches=debt_tranches,
                 debt_tranches_latest=debt_tranches_latest,
                 debt_credit_notes=debt_credit_notes,
+                post_quarter_capital_events=post_quarter_capital_events,
                 company_overview=company_overview,
                 cache_root=cache_root,
                 cache_dir=cache_dir,
@@ -4627,6 +4663,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         "Debt_Recon",
         "Debt_Tranches_Q",
         "Debt_Credit_Notes",
+        "PostQuarter_Capital_Events",
         "Leverage_Liquidity",
         "REPORT_IS_Q",
         "REPORT_BS_Q",
@@ -4705,6 +4742,9 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             "valuation_summary_df": valuation_summary_df,
             "valuation_grid_df": valuation_grid_df,
             "summary_df": summary_df,
+            "post_quarter_capital_events": post_quarter_capital_events,
+            "source_filing_freshness": source_filing_freshness,
+            "post_quarter_current_effects": post_quarter_current_effects,
             "signals_base_df": signals_base_df,
             "flags_df": flags_df,
             "flags_audit_df": flags_audit_df,

@@ -60,6 +60,10 @@ from .excel_writer_valuation_trend_flags_render import (
     ValuationTrendFlagsRenderDeps,
     render_valuation_trend_flags_panel,
 )
+from .excel_writer_post_quarter_capital_events import (
+    render_gpre_warrant_valuation_overlay,
+    write_post_quarter_capital_events_sheet,
+)
 
 
 @dataclass(frozen=True)
@@ -90,6 +94,7 @@ class ValuationOrchestratorDeps:
     debt_tranches: Any
     debt_tranches_latest: Any
     debt_credit_notes: Any
+    post_quarter_capital_events: Any
     company_overview: Any
     cache_root: Any
     cache_dir: Any
@@ -132,6 +137,7 @@ def write_valuation_sheet(deps: ValuationOrchestratorDeps) -> None:
     debt_tranches = deps.debt_tranches
     debt_tranches_latest = deps.debt_tranches_latest
     debt_credit_notes = deps.debt_credit_notes
+    post_quarter_capital_events = deps.post_quarter_capital_events
     company_overview = deps.company_overview
     cache_root = deps.cache_root
     cache_dir = deps.cache_dir
@@ -147,6 +153,7 @@ def write_valuation_sheet(deps: ValuationOrchestratorDeps) -> None:
     runtime_globals = {**context_globals, **globals(), **dict(deps.context_helpers)}
     globals().update(runtime_globals)
 
+    write_post_quarter_capital_events_sheet(wb, post_quarter_capital_events)
     ws = wb.create_sheet(title="Valuation")
     ws.sheet_format.defaultRowHeight = 18
     ws.sheet_view.zoomScale = 110
@@ -443,6 +450,16 @@ def write_valuation_sheet(deps: ValuationOrchestratorDeps) -> None:
     debt_long_term_latest_m = debt_detail_result.debt_long_term_latest_m
     carrying_minus_principal_m = debt_detail_result.carrying_minus_principal_m
     near_term_m = debt_detail_result.near_term_m
+    if is_gpre_profile:
+        render_gpre_warrant_valuation_overlay(
+            ws=ws,
+            start_row=row_debt_detail_hdr,
+            events=post_quarter_capital_events,
+            section_fill=section_fill,
+            bold=bold,
+            row_fill=_row_fill,
+            set_cell_comment=_set_cell_comment_local,
+        )
 
     formula_core_result = render_valuation_formula_core(
         ValuationFormulaCoreRenderDeps(
