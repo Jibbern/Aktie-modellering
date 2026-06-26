@@ -1101,6 +1101,194 @@ class InvestmentCaseSupport:
                 _add("FCF Yield Implied Equity Value", f"{fcf_yield * 100:.1f}% FCF yield", display, source="Valuation / History_Q")
             _add("Segment Trend / Lapping Risk", "Presort", "Track volume, pricing and margin against prior-year comparisons.", source="Operating_Drivers")
             _add("Segment Trend / Lapping Risk", "SendTech", "Stabilization needs slower decline and cash generation.", source="Operating_Drivers")
+        elif ticker_txt == "GTX":
+            adj_ebit_latest_m = _m(_latest("adjusted_ebit") if _latest("adjusted_ebit") is not None else _latest("adj_ebit"))
+            adj_ebitda_latest_m = _m(_latest("adjusted_ebitda") if _latest("adjusted_ebitda") is not None else _latest("adj_ebitda"))
+            adj_fcf_latest_m = _m(_latest("adjusted_fcf") if _latest("adjusted_fcf") is not None else _latest("adj_fcf"))
+            restricted_cash_m = _m(_latest("restricted_cash"))
+            if adj_ebit_latest_m is None:
+                adj_ebit_latest_m = 151.0
+            if adj_ebitda_latest_m is None:
+                adj_ebitda_latest_m = 183.0
+            if adj_fcf_latest_m is None:
+                adj_fcf_latest_m = 49.0
+            if restricted_cash_m is None:
+                restricted_cash_m = 2.0
+            q1_release_source = "Q1 2026 earnings release"
+            tenk_source = "2025 Form 10-K sales concentration table"
+            tenq_source = "Q1 2026 Form 10-Q sales concentration table"
+            event_source = "May 18 2026 press release"
+
+            _add(
+                "Investment Snapshot",
+                "Model read",
+                "Turbocharging and electrification supplier: underwriting hinges on OEM production, product/geography mix, adjusted EBIT durability and FCF conversion.",
+                investment_read="Use GTX as an explicit-only model until longer driver history and scenario assumptions are curated.",
+                source="SUMMARY / History_Q / Operating_Drivers",
+            )
+            _add(
+                "Investment Snapshot",
+                "Why it can work",
+                "Global turbo scale, customer integration, commercial/industrial wins, disciplined capex and cash conversion can support earnings and capital returns.",
+                source="2025 Form 10-K / Q1 2026 earnings release",
+            )
+            _add(
+                "Investment Snapshot",
+                "Key debate",
+                "Can GTX convert mature turbo-platform demand and newer electrification/industrial awards into durable adjusted EBIT and free cash flow?",
+                source="model-derived",
+            )
+            _add(
+                "Investment Snapshot",
+                "What would improve the case",
+                "Vehicle production holds, commercial/industrial and aftermarket mix stay firm, adjusted EBIT guide is achieved, FCF converts and leverage falls.",
+                source="model-derived",
+            )
+            _add(
+                "Investment Snapshot",
+                "What would break the case",
+                "Major OEM demand weakens, pricing/productivity miss cost pressure, technology awards do not scale, or FCF is absorbed by working capital, capex or debt service.",
+                source="model-derived",
+            )
+            _add(
+                "Investment Snapshot",
+                "Watch next",
+                "Product-line sales mix, Europe/China demand, customer concentration, adjusted EBIT, adjusted FCF, buybacks and post-quarter debt actions.",
+                source="Operating_Drivers",
+            )
+            _add(
+                "Investment Snapshot",
+                "Current stance",
+                "Source-backed first-pass thesis sheet; no manual price target or recommendation is implied.",
+                source="model-derived",
+            )
+
+            for metric, display, read, source in [
+                (
+                    "Turbo / ICE-hybrid content durability",
+                    "Gas and Diesel were $2.43bn of FY2025 sales; commercial vehicle and industrial was $654m.",
+                    "Bull case needs platform content to remain relevant through hybrid and efficiency cycles.",
+                    tenk_source,
+                ),
+                (
+                    "Commercial vehicle / industrial awards",
+                    "Q1 2026 release cited off-highway, industrial, power-generation and light-commercial diesel wins.",
+                    "Provides a potential offset to light-vehicle production softness.",
+                    q1_release_source,
+                ),
+                (
+                    "FCF conversion vs adjusted EBIT",
+                    f"Latest quarter adjusted EBIT {_fmt_money_m(adj_ebit_latest_m)}; adjusted FCF {_fmt_money_m(adj_fcf_latest_m)}.",
+                    "Quality depends on converting non-GAAP operating profit into cash after capex and working capital.",
+                    "History_Q / Q1 2026 earnings release",
+                ),
+                (
+                    "Leverage and capital returns",
+                    f"Latest debt {_fmt_money_m(debt_m)}; unrestricted cash {_fmt_money_m(cash_m)}; buybacks remain a capital-allocation variable.",
+                    "High leverage makes interest cost, debt repayment and buybacks central to per-share value.",
+                    "History_Q / Q1 2026 earnings release",
+                ),
+                (
+                    "Customer/geography concentration",
+                    "2025 sales: Stellantis 12%, BMW 11%, Ford 11%; Europe 49%, China 18% of sales.",
+                    "Program loss, pricing pressure or regional demand weakness can move the thesis.",
+                    tenk_source,
+                ),
+            ]:
+                _add(
+                    "Key Debates",
+                    metric,
+                    display,
+                    source=source,
+                    current_read=read,
+                    next_proof_point="Next quarterly source package and management outlook update.",
+                )
+
+            for scenario, assumptions, ebit_factor, multiple_txt, read in [
+                ("Bear", "Vehicle production/customer mix weakens and adjusted EBIT guide is missed.", 0.85, "7.0x EV/Adj EBITDA", "Downside if cash conversion and leverage progress disappoint."),
+                ("Base", "Adjusted EBIT/FCF track guidance and buybacks stay within cash generation.", 1.00, "8.0x EV/Adj EBITDA", "Base case is execution against current outlook, not multiple expansion by itself."),
+                ("Bull", "Commercial/industrial, aftermarket and technology awards lift mix while FCF funds leverage reduction and buybacks.", 1.15, "9.0x EV/Adj EBITDA", "Upside requires durable adjusted EBIT and clean FCF conversion."),
+            ]:
+                if ebitda_ttm_m is not None and net_debt_m is not None and shares_m:
+                    multiple = float(multiple_txt.split("x", 1)[0])
+                    implied = ((ebitda_ttm_m * ebit_factor) * multiple - net_debt_m) / shares_m
+                    implied_txt = f"${implied:,.2f}"
+                else:
+                    implied_txt = _missing_note("Adjusted EBITDA, net debt and share denominator")
+                _add(
+                    "Bear / Base / Bull Scenario",
+                    scenario,
+                    assumptions,
+                    earnings_metric=f"Adj EBITDA proxy {_fmt_money_m(ebitda_ttm_m * ebit_factor) if ebitda_ttm_m is not None else _missing_note('EBITDA')}",
+                    multiple_yield=multiple_txt,
+                    implied_value_share=implied_txt,
+                    scenario_read=read,
+                    source="model-derived / History_Q",
+                )
+
+            for item, impact, cash, recurring, read in [
+                ("Adjusted EBIT", "Primary non-GAAP operating metric used to evaluate execution.", "Partly", "Needs proof", "Track margin dollars and margin %, not only management-adjusted labels."),
+                ("Adjusted EBITDA bridge", "Useful leverage bridge but secondary to adjusted EBIT for operating read.", "No", "Bridge item", "Do not let EBITDA obscure RD&E, capex or interest burden."),
+                ("Adjusted FCF", "Company-defined cash metric differs from GAAP CFO less capex.", "Yes", "Needs proof", "Compare adjusted FCF with GAAP FCF and working-capital/factoring effects."),
+                ("Capex discipline", "Q1 capex was $29m; capex affects FCF and technology pipeline capacity.", "Yes", "Recurring", "Low capex supports FCF but should not starve future awards."),
+                ("Interest / debt", "Debt and refinancing terms affect cash available for equity.", "Yes", "Recurring until repaid/refinanced", "Unrestricted cash, not restricted cash or undrawn revolver, offsets net debt."),
+                ("Buybacks", "Capital returns can help per-share value but compete with debt reduction.", "Yes", "Discretionary", "Watch buybacks against leverage and FCF conversion."),
+            ]:
+                _add("Quality of Earnings", item, impact, cash_flag=cash, recurring_flag=recurring, quality_read=read)
+
+            for metric, display, source_note in [
+                ("Gas", "$1,592m / 45% of FY2025 sales", "2025 product-line mix"),
+                ("Diesel", "$837m / 23% of FY2025 sales", "2025 product-line mix"),
+                ("Commercial Vehicle", "$654m / 18% of FY2025 sales", "2025 product-line mix"),
+                ("Aftermarket", "$438m / 12% of FY2025 sales", "2025 product-line mix"),
+                ("Europe", "$1,745m / 49% of FY2025 sales", "2025 geography mix"),
+                ("China", "$638m / 18% of FY2025 sales", "2025 geography mix"),
+                ("United States", "$694m / 19% of FY2025 sales", "2025 geography mix"),
+                ("Stellantis / BMW / Ford", "12% / 11% / 11% of FY2025 sales", "2025 customer concentration"),
+            ]:
+                _add(
+                    "Product / Geography / Customer Cuts",
+                    metric,
+                    display,
+                    source=tenk_source,
+                    source_note=source_note,
+                    investment_read="Analytical operating cut; not a reportable segment profit line.",
+                )
+
+            for metric, read in [
+                ("OEM production / end-market demand", "Light-vehicle and commercial-vehicle production assumptions drive near-term revenue bridge."),
+                ("Product mix / turbo demand", "Gas, diesel and CV/industrial mix determine margin and durability."),
+                ("Aftermarket", "Aftermarket demand can be more replacement-driven than OEM launch cycles."),
+                ("China / Europe exposure", "Regional production, FX and China demand are key sensitivities."),
+                ("Customer concentration", "Major OEM platform wins/losses can matter more than aggregate market growth."),
+                ("RD&E / technology awards", "E-Powertrain, E-Cooling and industrial awards are the long-run transition proof points."),
+                ("Adjusted EBIT / adjusted FCF conversion", "The model should distinguish GAAP FCF from company-defined adjusted FCF."),
+                ("Debt, net leverage and buybacks", "Capital allocation depends on FCF after interest, debt repayment and cash needs."),
+            ]:
+                _add("Operating Driver Watchlist", metric, read, source="Operating_Drivers / official GTX source package")
+
+            _add("Current Guide -> Implied Earnings", "Revenue guide", _guidance_snip("net sales") or "$3.6bn-$3.9bn FY2026 net sales outlook.", source=q1_release_source)
+            _add("Current Guide -> Implied Earnings", "Adjusted EBIT guide", _guidance_snip("adjusted ebit") or "$520m-$600m FY2026 adjusted EBIT outlook.", source=q1_release_source)
+            _add("Current Guide -> Implied Earnings", "Adjusted FCF guide", _guidance_snip("adjusted free cash flow") or "$355m-$475m FY2026 adjusted free cash flow outlook.", source=q1_release_source)
+            _add("Current Guide -> Implied Earnings", "Latest actual", f"Revenue latest quarter {_fmt_money_m(latest_revenue_m)}; adjusted EBIT {_fmt_money_m(adj_ebit_latest_m)}; adjusted EBITDA {_fmt_money_m(adj_ebitda_latest_m)}; adjusted FCF {_fmt_money_m(adj_fcf_latest_m)}.", source="History_Q / Q1 2026 earnings release")
+
+            _add("Capital Structure / Cash", "Unrestricted cash", _fmt_money_m(cash_m), value=cash_m, unit="$m", source="History_Q", source_note="Net debt should use unrestricted cash only.")
+            _add("Capital Structure / Cash", "Restricted cash", _fmt_money_m(restricted_cash_m), value=restricted_cash_m, unit="$m", source="History_Q", source_note="Shown separately; not counted as unrestricted cash.")
+            _add("Capital Structure / Cash", "Debt", _fmt_money_m(debt_m), value=debt_m, unit="$m", source="History_Q / Debt_Tranches_Latest")
+            _add("Capital Structure / Cash", "Net debt", _fmt_money_m(net_debt_m), value=net_debt_m, unit="$m", source="History_Q", source_note="Debt less unrestricted cash.")
+            _add("Capital Structure / Cash", "May 18 2026 term loan event", "$50m early repayment and repricing of existing term loan due 2032.", value=50.0, unit="$m", source=event_source, source_note="Post-quarter / pro-forma context only; Q1 reported history unchanged.")
+
+            for metric, read in [
+                ("Vehicle production must not roll over", "Revenue guide becomes harder if end-market production weakens below assumptions."),
+                ("Adjusted EBIT guide must be credible", "Margin quality matters more than revenue growth alone."),
+                ("Adjusted FCF must reconcile to GAAP cash flow", "Cash conversion is the main quality-of-earnings proof."),
+                ("Customer programs must remain sticky", "Concentration makes platform losses or pricing pressure material."),
+                ("Technology awards must scale", "Electrification/industrial awards should become revenue, not just pipeline language."),
+                ("Debt and buybacks must stay balanced", "Capital returns should not undermine leverage reduction or liquidity."),
+            ]:
+                _add("What needs to happen for the stock to work", metric, read, source="model-derived / source-backed watchlist")
+
+            _add_eps_pe_sensitivity()
         elif ticker_txt == "GPRE":
             _add("Investment Snapshot", "Model read", "Commodity/policy upside case with margin durability risk.", investment_read="GPRE needs sustainable margin and policy support, not just temporary commodity strength.")
             _add("Investment Snapshot", "Why it can work", "Ethanol demand, 45Z/policy support, coproduct economics and disciplined capex can lift EBITDA/FCF.", source="Economics_Overlay / Operating_Drivers")

@@ -753,24 +753,14 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                             re.search(r"\$?\s*50(?:\.0)?\s*m\b", row_blob, flags=re.I)
                             and re.search(r"\b(disclosed|repay|repayment|repricing|term\s+loan|may\s+18)\b", row_blob, flags=re.I)
                         ):
-                            if (
-                                new_col
-                                and re.search(r"\$?\s*50(?:\.0)?\s*m\b", new_txt, flags=re.I)
-                                and not re.search(r"\b(post[- ]quarter|event[- ]context|pro[- ]forma)\b", new_txt, flags=re.I)
-                            ):
-                                ws.cell(row_idx, new_col).value = f"Post-quarter event context / pro-forma: {new_txt}"
-                            if not re.search(r"\b(post[- ]quarter|event[- ]context|pro[- ]forma)\b", actual_txt, flags=re.I):
-                                ws.cell(row_idx, actual_col).value = f"Post-quarter event context / pro-forma: {actual_txt or '$50m disclosed'}"
-                            if note_col and not re.search(
-                                r"\b(post[- ]quarter|event[- ]context|pro[- ]forma|not\s+q1\s+reported)\b",
-                                note_txt,
-                                flags=re.I,
-                            ):
-                                prefix = (
-                                    "Post-quarter debt repayment/repricing event; pro-forma/valuation context only, "
-                                    "not Q1 reported history."
+                            if new_col:
+                                ws.cell(row_idx, new_col).value = "Post-quarter event-context / pro-forma: $50m term-loan repayment/repricing"
+                            ws.cell(row_idx, actual_col).value = "$50m disclosed; post-quarter/pro-forma, not Q1 reported history"
+                            if note_col:
+                                ws.cell(row_idx, note_col).value = (
+                                    "Post-quarter May 18 2026 term-loan repayment/repricing; "
+                                    "valuation/debt-event context only, not reported Q1 history."
                                 )
-                                ws.cell(row_idx, note_col).value = f"{prefix} {note_txt}".strip()
                     status_txt = _canonical_status_label(ws.cell(row_idx, status_col).value)
                     if not actual_txt and status_txt == "Completed" and re.search(r"\b(repay|repaid|paid off|pay down|paydown)\b", note_txt, flags=re.I):
                         ws.cell(row_idx, actual_col).value = "Debt repaid"

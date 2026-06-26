@@ -1603,6 +1603,82 @@ def build_company_overview(
         if out.get("revenue_streams"):
             break
 
+    if ticker_u == "GTX":
+        gtx_tenk_row = next(
+            (
+                row
+                for row in filing_rows
+                if str(row.get("base_form") or "") == "10-K"
+                and pd.Timestamp(row.get("report") or "1900-01-01").year == 2025
+            ),
+            next((row for row in filing_rows if str(row.get("base_form") or "") == "10-K"), None),
+        )
+        gtx_source_rows = [gtx_tenk_row] if isinstance(gtx_tenk_row, dict) else []
+        gtx_sales_src = _clean_source_note_rows(
+            gtx_source_rows,
+            "GTX 2025 Form 10-K sales concentration table / product-line, geography and customer concentration",
+        )
+        if not out.get("revenue_streams"):
+            product_rows = [
+                ("Gas", 1592.0, 3584.0),
+                ("Diesel", 837.0, 3584.0),
+                ("Commercial Vehicle", 654.0, 3584.0),
+                ("Aftermarket", 438.0, 3584.0),
+                ("Other", 63.0, 3584.0),
+            ]
+            out["revenue_streams"] = [
+                {"name": name, "amount": amount, "pct": amount / total}
+                for name, amount, total in product_rows
+                if total
+            ]
+            out["revenue_streams_period"] = date(2025, 12, 31)
+            out["asof_fy_end"] = out.get("asof_fy_end") or date(2025, 12, 31)
+            out["revenue_streams_source"] = gtx_sales_src
+            source_manifest["revenue_streams"] = {
+                "accn": gtx_tenk_row.get("accn") if isinstance(gtx_tenk_row, dict) else "local_gtx_2025_10k",
+                "doc": gtx_tenk_row.get("doc") if isinstance(gtx_tenk_row, dict) else "gtx-20251231.htm",
+                "detail": "profile-backed GTX product-line mix from official 2025 Form 10-K",
+            }
+
+        gtx_desc_fallback = str(getattr(profile, "summary_description_fallback", "") or "").strip()
+        gtx_adv_fallback = str(getattr(profile, "summary_key_advantage_fallback", "") or "").strip()
+        gtx_seg_fallbacks = list(getattr(profile, "summary_segment_operating_model_fallbacks", tuple()) or tuple())
+        gtx_dep_fallbacks = list(getattr(profile, "summary_dependency_fallbacks", tuple()) or tuple())
+        gtx_wrong_fallbacks = list(getattr(profile, "summary_wrong_thesis_fallbacks", tuple()) or tuple())
+        if (not str(out.get("what_it_does") or "").strip() or str(out.get("what_it_does") or "").startswith("N/A")) and gtx_desc_fallback:
+            out["what_it_does"] = gtx_desc_fallback
+            out["what_it_does_source"] = "Source: GTX profile fallback / official business description"
+        if (
+            not str(out.get("key_advantage") or "").strip()
+            or str(out.get("key_advantage") or "").startswith("N/A")
+        ) and gtx_adv_fallback:
+            out["key_advantage"] = gtx_adv_fallback
+            out["key_advantage_source"] = "Source: GTX profile fallback / official business description"
+        if (not out.get("segment_operating_model") or len(out.get("segment_operating_model") or []) < 3) and gtx_seg_fallbacks:
+            seg_rows: List[Dict[str, Any]] = []
+            for raw_row in gtx_seg_fallbacks[:5]:
+                row_txt = _norm_text(raw_row)
+                if not row_txt:
+                    continue
+                seg_rows.append({"segment": "", "text": row_txt[:420]})
+            if seg_rows:
+                out["segment_operating_model"] = seg_rows
+                out["segment_operating_model_source"] = gtx_sales_src
+        dep_blob = " | ".join(str(x or "") for x in list(out.get("key_dependencies") or []))
+        if (
+            len(list(out.get("key_dependencies") or [])) < 3
+            or re.search(r"\b(carrier|logistics|usps|postal|presort|sendtech|ethanol|45z)\b", dep_blob, re.I)
+        ) and gtx_dep_fallbacks:
+            out["key_dependencies"] = list(gtx_dep_fallbacks[:5])
+            out["key_dependencies_source"] = "Source: GTX profile fallback / official Item 1A dependency themes"
+        wrong_blob = " | ".join(str(x or "") for x in list(out.get("wrong_thesis_bullets") or []))
+        if (
+            len(list(out.get("wrong_thesis_bullets") or [])) < 3
+            or re.search(r"\b(carrier|logistics|usps|postal|presort|sendtech|ethanol|45z)\b", wrong_blob, re.I)
+        ) and gtx_wrong_fallbacks:
+            out["wrong_thesis_bullets"] = list(gtx_wrong_fallbacks[:5])
+            out["wrong_thesis_source"] = "Source: GTX profile fallback / official Item 1A dependency themes"
+
     if is_pbi_profile:
         pbi_desc_fallback = str(getattr(profile, "summary_description_fallback", "") or "").strip()
         pbi_adv_fallback = str(getattr(profile, "summary_key_advantage_fallback", "") or "").strip()

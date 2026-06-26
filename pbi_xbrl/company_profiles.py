@@ -1101,8 +1101,13 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
             "across internal-combustion, hybrid, electric, and industrial platforms."
         ),
         summary_segment_operating_model_fallbacks=(
-            "Garrett reports as one accounting segment; product line, geography, propulsion type, "
-            "and customer concentration are analytical cuts rather than reportable segments.",
+            "Accounting view: Garrett reports as one accounting segment; product line, geography, propulsion type, "
+            "and customer concentration are analytical operating cuts rather than reportable segment profit.",
+            "Product-line mix (2025): Gas $1,592m (45%), Diesel $837m (23%), Commercial Vehicle $654m (18%), "
+            "Aftermarket $438m (12%), and Other $63m (2%).",
+            "Geography (2025): Europe $1,745m (49%), United States $694m (19%), China $638m, "
+            "Rest of Asia $406m, and Other International $101m.",
+            "Customer concentration (2025): Stellantis 12%, BMW 11%, Ford 11%; top ten customers represented about 62% of sales.",
         ),
         summary_dependency_fallbacks=(
             "Global light- and commercial-vehicle production and customer platform launches drive demand.",

@@ -138,6 +138,126 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
     if is_anf_profile:
         rows = _anf_clean_visible_operating_driver_records(rows)
     if not rows:
+        if str(ticker or "").strip().upper() == "GTX":
+            ws.sheet_format.defaultRowHeight = 20
+            ws.sheet_view.zoomScale = 110
+            ws.freeze_panes = "A4"
+            title_fill = PatternFill("solid", fgColor="1F4E78")
+            header_fill = PatternFill("solid", fgColor="D9EAF7")
+            section_fill = PatternFill("solid", fgColor="EAF3FB")
+            thin = Border(
+                left=Side(style="thin", color="D9E2EA"),
+                right=Side(style="thin", color="D9E2EA"),
+                top=Side(style="thin", color="D9E2EA"),
+                bottom=Side(style="thin", color="D9E2EA"),
+            )
+            ws.merge_cells("A1:E1")
+            ws["A1"] = "GTX Operating Driver Watchlist"
+            ws["A1"].fill = title_fill
+            ws["A1"].font = Font(bold=True, color="FFFFFF", size=header_size + 1)
+            ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
+            ws.merge_cells("A2:E2")
+            ws["A2"] = (
+                "Source-backed analytical cuts for Garrett Motion. GTX has one reportable accounting segment; "
+                "these rows are operating drivers, not segment profit."
+            )
+            ws["A2"].fill = section_fill
+            ws["A2"].font = Font(italic=True, color="1F2933", size=font_size)
+            ws["A2"].alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            headers = ["Driver", "Latest source-backed read", "Why it matters", "Source / evidence", "Treatment"]
+            for cc, header in enumerate(headers, 1):
+                cell = ws.cell(3, cc, header)
+                cell.fill = header_fill
+                cell.font = Font(bold=True, color="1F2933", size=font_size)
+                cell.border = thin
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            watchlist_rows = [
+                (
+                    "OEM production / end-market demand",
+                    "Q1 2026 release outlook assumes light-vehicle industry production down 1%-3% and commercial vehicle industry up 1%-2% for FY2026.",
+                    "Volume backdrop drives turbo demand and launch timing.",
+                    "Q1 2026 earnings release / FY2026 outlook assumptions",
+                    "Watchlist; do not treat as reported segment revenue.",
+                ),
+                (
+                    "Product mix / turbo demand",
+                    "FY2025 product-line mix: Gas $1,592m, Diesel $837m, Commercial Vehicle $654m, Aftermarket $438m, Other $63m.",
+                    "Mix determines gross margin, RD&E intensity and platform durability.",
+                    "2025 Form 10-K sales concentration table",
+                    "Analytical product-line cut.",
+                ),
+                (
+                    "Q1 2026 product-line momentum",
+                    "Q1 2026 sales: Gas $443m, Diesel $232m, Commercial Vehicles / Industrial $181m, Aftermarket $114m, Other $15m.",
+                    "Latest quarter mix provides the near-term bridge into guidance.",
+                    "Q1 2026 Form 10-Q sales concentration table",
+                    "Quarterly analytical cut.",
+                ),
+                (
+                    "Commercial vehicle / industrial",
+                    "Q1 2026 release cites commercial vehicle off-highway and industrial strength plus power-generation awards.",
+                    "Industrial and CV awards can offset weaker light-vehicle cycles.",
+                    "Q1 2026 earnings release business highlights",
+                    "Watch awards and conversion to sales.",
+                ),
+                (
+                    "Aftermarket",
+                    "Aftermarket was $438m / 12% of FY2025 revenue and $114m in Q1 2026.",
+                    "Aftermarket can support more durable replacement demand than OEM launches.",
+                    "2025 Form 10-K and Q1 2026 Form 10-Q",
+                    "Analytical product-line cut.",
+                ),
+                (
+                    "China / Europe exposure",
+                    "FY2025 sales: Europe $1,745m, China $638m, Rest of Asia $406m, United States $694m, Other International $101m.",
+                    "FX, regional vehicle production and China demand are key sensitivity points.",
+                    "2025 Form 10-K geographic sales table",
+                    "Analytical geography cut.",
+                ),
+                (
+                    "Customer concentration",
+                    "2025 customer concentration: Stellantis 12%, BMW 11%, Ford 11%; top ten customers about 62% of sales.",
+                    "Platform wins/losses and pricing pressure can matter disproportionately.",
+                    "2025 Form 10-K customer concentration disclosure",
+                    "Concentration risk; not a segment.",
+                ),
+                (
+                    "RD&E / technology awards",
+                    "Q1 2026 release cites light-vehicle turbo awards, range-extended EV awards, E-Powertrain and E-Cooling wins.",
+                    "Technology pipeline is the bridge from mature turbo platforms to future content.",
+                    "Q1 2026 earnings release business highlights",
+                    "Watch next award disclosures and launch timing.",
+                ),
+                (
+                    "Adjusted EBIT / adjusted FCF conversion",
+                    "Q1 2026 adjusted EBIT $151m, adjusted EBITDA $183m and adjusted FCF $49m; FY2026 outlook raised to adjusted EBIT $520m-$600m and adjusted FCF $355m-$475m.",
+                    "The case needs operating profit to convert into cash after capex, interest and working capital.",
+                    "Q1 2026 earnings release / non-GAAP outlook",
+                    "Primary operating and cash-flow scorecard.",
+                ),
+                (
+                    "Debt, net leverage and buybacks",
+                    "Q1 2026 release discloses $1,437m debt outstanding, $87m Q1 buybacks, $163m remaining buyback capacity; May 18 event disclosed $50m term-loan repayment/repricing.",
+                    "Equity value is sensitive to leverage, interest cost, buybacks and unrestricted cash.",
+                    "Q1 2026 earnings release and May 18 2026 press release",
+                    "Keep May 18 item post-quarter / pro-forma; do not rewrite Q1 history.",
+                ),
+            ]
+            for rr, record in enumerate(watchlist_rows, 4):
+                for cc, value in enumerate(record, 1):
+                    cell = ws.cell(rr, cc, value)
+                    cell.border = thin
+                    cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                    cell.font = Font(color="1F2933", size=font_size)
+                if rr % 2 == 0:
+                    for cc in range(1, len(headers) + 1):
+                        ws.cell(rr, cc).fill = PatternFill("solid", fgColor="F8FBFD")
+            widths = {1: 30, 2: 52, 3: 48, 4: 38, 5: 34}
+            for cc, width in widths.items():
+                ws.column_dimensions[get_column_letter(cc)].width = width
+            for rr in range(1, 4 + len(watchlist_rows)):
+                ws.row_dimensions[rr].height = 24 if rr >= 4 else 22
+            return
         ws["A1"] = "No operating-driver history available."
         return
     ws.sheet_format.defaultRowHeight = 18

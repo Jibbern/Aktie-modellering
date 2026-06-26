@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,19 @@ GPRE_ONLY_TERMS = (
     "crush spread",
     "ethanol",
     "RIN",
+)
+GTX_CROSS_COMPANY_LEAKAGE_TERMS = (
+    "PBI",
+    "GPRE",
+    "ANF",
+    "45Z",
+    "RVO",
+    "E15",
+    "RIN",
+    "USPS",
+    "Abercrombie",
+    "Hollister",
+    "Carrier, logistics and service execution reliability",
 )
 
 
@@ -61,6 +75,16 @@ def _sheet_visible_text(wb: openpyxl.Workbook, sheet_name: str) -> str:
     )
 
 
+def _visible_non_empty_rows(wb: openpyxl.Workbook, sheet_name: str) -> list[list[Any]]:
+    ws = wb[sheet_name]
+    out: list[list[Any]] = []
+    for row in ws.iter_rows(values_only=True):
+        values = [value for value in row if value is not None and str(value).strip()]
+        if values:
+            out.append(values)
+    return out
+
+
 def _history_row(wb: openpyxl.Workbook, quarter: dt.date) -> tuple[list[Any], tuple[Any, ...]]:
     ws = wb["History_Q"]
     rows = list(ws.iter_rows(values_only=True))
@@ -84,11 +108,151 @@ def test_gtx_staged_workbook_includes_operating_drivers(gtx_wb: openpyxl.Workboo
     assert "Operating_Drivers" in gtx_wb.sheetnames
 
 
+def test_gtx_operating_drivers_has_user_facing_source_backed_watchlist(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    assert "Operating_Drivers" in gtx_wb.sheetnames
+    rows = _visible_non_empty_rows(gtx_wb, "Operating_Drivers")
+    text = _sheet_visible_text(gtx_wb, "Operating_Drivers")
+
+    assert "No operating-driver history available" not in text
+    assert len(rows) >= 10
+    for needle in (
+        "OEM production",
+        "product mix",
+        "Commercial vehicle",
+        "Aftermarket",
+        "China",
+        "Europe",
+        "customer concentration",
+        "Adjusted EBIT",
+        "Adjusted FCF",
+    ):
+        assert needle.lower() in text.lower()
+
+
 def test_gtx_investment_case_has_no_gpre_only_terms(gtx_wb: openpyxl.Workbook) -> None:
     assert "GTX_Investment_Case" in gtx_wb.sheetnames
     text = _sheet_visible_text(gtx_wb, "GTX_Investment_Case").lower()
 
-    leaked = [term for term in GPRE_ONLY_TERMS if term.lower() in text]
+    leaked: list[str] = []
+    for term in GPRE_ONLY_TERMS:
+        if " " in term:
+            if term.lower() in text:
+                leaked.append(term)
+            continue
+        if re.search(rf"(?<![A-Za-z0-9]){re.escape(term)}(?![A-Za-z0-9])", text, re.I):
+            leaked.append(term)
+
+    assert leaked == []
+
+
+def test_gtx_investment_case_is_gtx_specific_not_generic(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "GTX_Investment_Case")
+    low = text.lower()
+
+    assert "generic fallback only" not in low
+    assert "pending ticker-specific configuration" not in low
+    for needle in (
+        "Model read",
+        "Why it can work",
+        "Key debate",
+        "What would improve",
+        "What would break",
+        "Watch next",
+        "Bear",
+        "Base",
+        "Bull",
+        "Quality of Earnings",
+        "Adjusted EBIT",
+        "Adjusted FCF",
+        "turbo",
+        "customer concentration",
+    ):
+        assert needle.lower() in low
+
+
+def test_gtx_summary_uses_gtx_specific_revenue_and_dependency_language(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "SUMMARY")
+    low = text.lower()
+
+    assert "carrier, logistics and service execution reliability" not in low
+    assert "operates through accounting view" not in low
+    assert "operates through accounting view and product-line mix" not in low
+    assert "business model / revenue streams" in low
+    assert "n/a\nkey dependencies" not in low
+    for needle in (
+        "Gas",
+        "Diesel",
+        "Commercial Vehicle",
+        "Aftermarket",
+        "Europe",
+        "China",
+        "Stellantis",
+        "BMW",
+        "Ford",
+    ):
+        assert needle.lower() in low
+
+
+def test_gtx_investment_case_data_has_meaningful_gtx_sections(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    assert "GTX_Investment_Case_Data" in gtx_wb.sheetnames
+    rows = _visible_non_empty_rows(gtx_wb, "GTX_Investment_Case_Data")
+    text = _sheet_visible_text(gtx_wb, "GTX_Investment_Case_Data")
+    low = text.lower()
+
+    assert len(rows) >= 25
+    assert "generic fallback only" not in low
+    for section in (
+        "Investment Snapshot",
+        "Key Debates",
+        "Bear / Base / Bull Scenario",
+        "Quality of Earnings",
+        "Operating Driver Watchlist",
+        "Product / Geography / Customer Cuts",
+        "Current Guide -> Implied Earnings",
+    ):
+        assert section.lower() in low
+
+
+def test_gtx_investment_case_data_keeps_source_backed_q1_metrics_visible(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "GTX_Investment_Case_Data")
+    low = text.lower()
+
+    assert "adjusted ebit $151.0m" in low or "adjusted ebit $151m" in low
+    assert "adjusted ebitda $183.0m" in low or "adjusted ebitda $183m" in low
+    assert "adjusted fcf $49.0m" in low or "adjusted fcf $49m" in low
+    assert "restricted cash" in low
+    assert "$2.0m" in low or "$2m" in low
+
+
+def test_gtx_visible_text_has_no_cross_company_or_sector_leakage(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    visible_sheets = (
+        "SUMMARY",
+        "Operating_Drivers",
+        "GTX_Investment_Case",
+        "GTX_Investment_Case_Data",
+        "Promise_Progress_UI",
+    )
+    text = "\n".join(_sheet_visible_text(gtx_wb, sheet) for sheet in visible_sheets if sheet in gtx_wb.sheetnames)
+    leaked: list[str] = []
+    for term in GTX_CROSS_COMPANY_LEAKAGE_TERMS:
+        if " " in term or "," in term:
+            if term.lower() in text.lower():
+                leaked.append(term)
+            continue
+        if re.search(rf"(?<![A-Za-z0-9]){re.escape(term)}(?![A-Za-z0-9])", text, re.I):
+            leaked.append(term)
 
     assert leaked == []
 
@@ -196,6 +360,25 @@ def test_gtx_may_2026_debt_repayment_is_labeled_post_quarter_event_context(
         any(marker in line.lower() for marker in ("post-quarter", "event-context", "pro-forma", "pro forma"))
         for line in debt_event_lines
     )
+
+
+def test_gtx_may_2026_debt_event_promise_row_is_concise(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Promise_Progress_UI"]
+    debt_rows: list[tuple[Any, ...]] = []
+    for row in ws.iter_rows(values_only=True):
+        row_text = " | ".join(str(value or "") for value in row)
+        if "Debt reduction" in row_text and ("$50.0m" in row_text or "$50m" in row_text):
+            debt_rows.append(row)
+
+    assert debt_rows, "Expected GTX post-quarter debt-event row"
+    for row in debt_rows:
+        row_text = " | ".join(str(value or "") for value in row)
+        assert re.search(r"\b(post[- ]quarter|event[- ]context|pro[- ]forma|pro forma)\b", row_text, re.I)
+        assert len(row_text) < 420
+        assert "Acquisition and divestiture expenses" not in row_text
+        assert "Full year 2025 outlook" not in row_text
 
 
 def test_gtx_debt_tranches_latest_omits_spurious_tiny_other_row(gtx_wb: openpyxl.Workbook) -> None:

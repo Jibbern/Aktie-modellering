@@ -771,45 +771,59 @@ def write_sector_investment_case_sheet(
         else:
             capex = _manual_ref(refs, "capex")
             capex_baseline = _manual_part_ref(refs, "capex", "ttm")
+            if ticker_txt == "GTX":
+                revenue_mix_read = "Manual GTX sensitivity for OEM production, product-line mix, geography and customer concentration."
+                margin_read = "Manual GTX sensitivity for adjusted EBIT durability, pricing/productivity and product mix."
+                growth_read = "Manual GTX sensitivity for RD&E, technology awards and electrification/industrial pipeline."
+                interest_read = "Manual GTX sensitivity for interest savings or debt paydown; May 18 2026 event remains post-quarter/pro-forma."
+                buyback_read = "Manual GTX sensitivity for buybacks/share count; reported shares remain unchanged in History_Q."
+                generic_tax_basis = "GTX manual non-sector bridge row; no automatic EPS impact until a source-backed numeric driver is entered."
+            else:
+                revenue_mix_read = "Generic placeholder; configure ticker-specific revenue/mix driver before relying on scenario impact."
+                margin_read = "Generic placeholder; configure ticker-specific margin/productivity driver before relying on scenario impact."
+                growth_read = "Generic placeholder; configure ticker-specific growth-investment driver before relying on scenario impact."
+                interest_read = "Generic placeholder; use valuation/debt detail for source-backed debt event treatment."
+                buyback_read = "Generic placeholder; reported shares remain source-backed in History_Q unless a specific overlay is configured."
+                generic_tax_basis = "Generic non-sector bridge row; no automatic EPS impact."
             bridge_specs = [
                 _ScenarioDriverBridgeSpec(
                     "Revenue / volume / mix",
                     SCENARIO_DRIVER_MANUAL_INCREMENTAL,
                     0,
                     0,
-                    "Generic placeholder; configure ticker-specific revenue/mix driver before relying on scenario impact.",
+                    revenue_mix_read,
                     explicit_incremental=True,
                     ebitda_impact="none",
                     fcf_impact="none",
                     eps_impact="none",
                     tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis="Generic non-sector bridge row; no automatic EPS impact.",
+                    tax_source_basis=generic_tax_basis,
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Margin / productivity",
                     SCENARIO_DRIVER_MANUAL_INCREMENTAL,
                     0,
                     0,
-                    "Generic placeholder; configure ticker-specific margin/productivity driver before relying on scenario impact.",
+                    margin_read,
                     explicit_incremental=True,
                     ebitda_impact="none",
                     fcf_impact="none",
                     eps_impact="none",
                     tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis="Generic non-sector bridge row; no automatic EPS impact.",
+                    tax_source_basis=generic_tax_basis,
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Growth investment / RD&E",
                     SCENARIO_DRIVER_MANUAL_INCREMENTAL,
                     0,
                     0,
-                    "Generic placeholder; configure ticker-specific growth-investment driver before relying on scenario impact.",
+                    growth_read,
                     explicit_incremental=True,
                     ebitda_impact="none",
                     fcf_impact="none",
                     eps_impact="none",
                     tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis="Generic non-sector bridge row; no automatic EPS impact.",
+                    tax_source_basis=generic_tax_basis,
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Capex change vs baseline",
@@ -828,26 +842,26 @@ def write_sector_investment_case_sheet(
                     SCENARIO_DRIVER_CAPITAL_STRUCTURE_INTEREST,
                     0,
                     0,
-                    "Generic placeholder; use valuation/debt detail for source-backed debt event treatment.",
+                    interest_read,
                     explicit_incremental=True,
                     ebitda_impact="none",
                     fcf_impact="none",
                     eps_impact="none",
                     tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis="Generic non-sector bridge row; no automatic EPS impact.",
+                    tax_source_basis=generic_tax_basis,
                 ),
                 _ScenarioDriverBridgeSpec(
                     "Buybacks / share-count change",
                     SCENARIO_DRIVER_MANUAL_INCREMENTAL,
                     0,
                     0,
-                    "Generic placeholder; reported shares remain source-backed in History_Q unless a specific overlay is configured.",
+                    buyback_read,
                     explicit_incremental=True,
                     ebitda_impact="none",
                     fcf_impact="none",
                     eps_impact="none",
                     tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis="Generic non-sector bridge row; no automatic EPS impact.",
+                    tax_source_basis=generic_tax_basis,
                 ),
             ]
 
@@ -1176,6 +1190,18 @@ def write_sector_investment_case_sheet(
             "Ethanol / Policy Health",
             "FCF / Balance Sheet",
             "Guidance Beat/Miss Setup",
+        ]
+    elif ticker_txt == "GTX":
+        section_order = [
+            "Key Debates",
+            "Bear / Base / Bull Scenario",
+            "Quality of Earnings",
+            "What needs to happen for the stock to work",
+            "Product / Geography / Customer Cuts",
+            "Operating Driver Watchlist",
+            "Current Guide -> Implied Earnings",
+            "Capital Structure / Cash",
+            "Valuation Sensitivity",
         ]
     else:
         section_order = []
