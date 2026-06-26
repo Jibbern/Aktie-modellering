@@ -13,6 +13,7 @@ from pbi_xbrl.pipeline import (
     _extract_balance_sheet_from_text,
     _extract_eps_shares_from_html,
     _extract_income_statement_from_html,
+    _infer_tranche_meta,
     build_debt_profile,
 )
 
@@ -294,6 +295,13 @@ def test_gtx_debt_parser_keeps_principal_carrying_value_and_fees_separate() -> N
     assert summary["current_portion"] == 7_000_000.0
     assert summary["long_term_debt_carrying_value"] == 1_410_000_000.0
     assert summary["period_match"] is True
+
+
+def test_gtx_term_facility_name_year_is_not_misread_as_maturity_without_due_context() -> None:
+    meta = _infer_tranche_meta("2025 Dollar Term Facility", "2025 Dollar Term Facility")
+
+    assert meta["maturity_year"] is None
+    assert meta["maturity_display"] in (None, "")
 
 
 def test_gtx_cash_parser_and_net_debt_use_unrestricted_cash_only() -> None:

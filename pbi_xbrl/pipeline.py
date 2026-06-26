@@ -1448,6 +1448,8 @@ def _instrument_type_from_text(name: str, row_text: Optional[str] = None) -> str
 def _parse_maturity_from_text(name: str, row_text: Optional[str] = None) -> Tuple[Optional[dt.date], Optional[str], Optional[int]]:
     txt = f"{name or ''} {row_text or ''}"
     txt_low = txt.lower()
+    name_low = str(name or "").strip().lower()
+    row_text_low = str(row_text or "").strip().lower()
     m = re.search(
         r"(?:due\s+(?:in\s+)?)"
         r"(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|"
@@ -1482,6 +1484,25 @@ def _parse_maturity_from_text(name: str, row_text: Optional[str] = None) -> Tupl
             dd = dt.date(year, mon, 15)
             month_name = dt.date(2000, mon, 1).strftime("%B")
             return dd, f"{month_name} {year}", year
+    m_num = re.search(r"\b(\d{1,2})/(\d{1,2})/(20\d{2})\b", txt_low)
+    if m_num:
+        month = int(m_num.group(1))
+        day = int(m_num.group(2))
+        year = int(m_num.group(3))
+        try:
+            dd = dt.date(year, month, day)
+        except Exception:
+            dd = None
+        if dd is not None:
+            month_name = dt.date(2000, month, 1).strftime("%B")
+            return dd, f"{month_name} {year}", year
+    if re.search(r"\bterm\s+(?:loan\s+)?facility\b", name_low):
+        name_years = set(re.findall(r"\b(20\d{2})\b", name_low))
+        context_years = [int(y) for y in re.findall(r"\b(20\d{2})\b", row_text_low) if y not in name_years]
+        if context_years:
+            year = context_years[-1]
+            return None, None, year
+        return None, None, None
     m3 = re.search(r"\b(20\d{2})\b", txt_low)
     if m3:
         year = int(m3.group(1))
@@ -10994,6 +11015,47 @@ def build_gaap_history(
                                 "value": val,
                                 "note": "bank_net_funding = bank_deposits - bank_finance_receivables (post OCR fallback)",
                             })
+    if str(ticker or "").strip().upper() == "GTX" and {"quarter", "gross_profit", "op_income"}.issubset(set(hist.columns)):
+        for idx, row in hist.iterrows():
+            q_raw = pd.to_datetime(row.get("quarter"), errors="coerce")
+            if pd.isna(q_raw):
+                continue
+            qd = q_raw.date()
+            if (quarter_index(qd) or 0) != 4:
+                continue
+            try:
+                gp = float(row.get("gross_profit"))
+                op = float(row.get("op_income"))
+            except Exception:
+                continue
+            if not (math.isfinite(gp) and math.isfinite(op)):
+                continue
+            if op <= gp:
+                continue
+            hist.at[idx, "op_income"] = float("nan")
+            if "operating_margin" in hist.columns:
+                hist.at[idx, "operating_margin"] = float("nan")
+            audit_rows.append(
+                {
+                    "metric": "op_income",
+                    "quarter": qd,
+                    "source": "sanity_guard",
+                    "source_choice": "gtx_q4_op_income_gt_gross_profit",
+                    "tag": "",
+                    "accn": None,
+                    "form": None,
+                    "filed": None,
+                    "start": None,
+                    "end": qd,
+                    "unit": "USD",
+                    "duration_days": None,
+                    "value": float("nan"),
+                    "note": (
+                        "GTX Q4 operating income suppressed because parsed value exceeded gross profit; "
+                        "likely FY/YTD extraction artifact and left unavailable pending source-backed derivation."
+                    ),
+                }
+            )
     audit = pd.DataFrame(audit_rows)
     qfd_preview_df = pd.DataFrame(qfd_preview_rows)
     qfd_unused_df = pd.DataFrame(qfd_unused_rows)

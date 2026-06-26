@@ -108,6 +108,20 @@ def test_gtx_history_q4_2025_operating_income_and_diluted_shares(
     )
 
 
+def test_gtx_older_q4_operating_income_is_not_impossible_vs_gross_profit(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    for quarter in (dt.date(2022, 12, 31), dt.date(2023, 12, 31)):
+        gross_profit = _history_value(gtx_wb, quarter, "gross_profit")
+        operating_income = _history_value(gtx_wb, quarter, "op_income")
+
+        assert gross_profit is not None, f"GTX {quarter} gross profit should remain source-backed"
+        assert operating_income is None or operating_income <= gross_profit, (
+            f"GTX {quarter} operating income should be quarterized or blank, "
+            f"not an impossible FY/YTD artifact above gross profit"
+        )
+
+
 def test_gtx_q1_2026_fcf_qa_excludes_may_18_special_event_source(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -136,6 +150,21 @@ def test_gtx_q1_2026_fcf_qa_excludes_may_18_special_event_source(
     assert not any("extracted quarter text=$4.0m" in line for line in fcf_qa_lines)
 
 
+def test_gtx_q1_2026_fcf_qa_labels_gaap_vs_adjusted_fcf_definition_difference(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    qa_text = _sheet_text(gtx_wb, "QA_Log")
+    fcf_qa_lines = [
+        line
+        for line in qa_text.splitlines()
+        if "FCF (Q)" in line or "free cash flow" in line.lower()
+    ]
+
+    assert any("CFO-capex" in line and "company-defined" in line for line in fcf_qa_lines)
+    assert any("definition mismatch" in line.lower() for line in fcf_qa_lines)
+    assert not any("likely conflicting extraction or source mismatch" in line for line in fcf_qa_lines)
+
+
 def test_gtx_may_18_debt_event_does_not_contaminate_reported_history_or_qa(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -150,6 +179,23 @@ def test_gtx_may_18_debt_event_does_not_contaminate_reported_history_or_qa(
                 contaminated.append((sheet_name, marker))
 
     assert contaminated == []
+
+
+def test_gtx_may_2026_debt_repayment_is_labeled_post_quarter_event_context(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "Promise_Progress_UI")
+    debt_event_lines = [
+        line
+        for line in text.splitlines()
+        if "$50.0m disclosed" in line or "$50m" in line
+    ]
+
+    assert debt_event_lines, "Expected visible GTX debt repayment/event row"
+    assert all(
+        any(marker in line.lower() for marker in ("post-quarter", "event-context", "pro-forma", "pro forma"))
+        for line in debt_event_lines
+    )
 
 
 def test_gtx_debt_tranches_latest_omits_spurious_tiny_other_row(gtx_wb: openpyxl.Workbook) -> None:
@@ -168,3 +214,26 @@ def test_gtx_debt_tranches_latest_omits_spurious_tiny_other_row(gtx_wb: openpyxl
     ]
 
     assert tiny_other_rows == []
+
+
+def test_gtx_debt_tranches_latest_does_not_misread_term_facility_name_as_2025_maturity(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    assert "Debt_Tranches_Latest" in gtx_wb.sheetnames
+    ws = gtx_wb["Debt_Tranches_Latest"]
+    rows = list(ws.iter_rows(values_only=True))
+    headers = list(rows[0])
+    name_idx = headers.index("tranche_name")
+    maturity_year_idx = headers.index("maturity_year")
+    maturity_display_idx = headers.index("maturity_display")
+
+    term_rows = [
+        row
+        for row in rows[1:]
+        if str(row[name_idx] or "").strip() == "2025 Dollar Term Facility"
+    ]
+
+    assert len(term_rows) == 1
+    term_row = term_rows[0]
+    assert term_row[maturity_year_idx] != 2025
+    assert str(term_row[maturity_display_idx] or "").strip() != "2025"

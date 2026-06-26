@@ -830,6 +830,19 @@ class LatestQuarterQASupport:
                 txt = str(doc_rec.get("text") or "")
                 if not txt or "free cash flow" not in txt.lower():
                     return None
+
+                def _mark_company_defined_adjusted_fcf(result: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+                    if not isinstance(result, dict):
+                        return result
+                    blob = f"{result.get('excerpt') or ''} {txt}"
+                    if not re.search(r"\badjusted\s+(?:free\s+cash\s+flow|fcf)\b", blob, re.I):
+                        return result
+                    out = dict(result)
+                    out["basis_kind"] = "company_defined_free_cash_flow"
+                    out["basis_note"] = "selected quarter text states company-defined free cash flow"
+                    out["same_basis"] = False
+                    return out
+
                 if re.search(r"\b(guidance|outlook|full[- ]year|fy\s*20\d{2}|low\s+high|midpoint|target)\b", txt, re.I):
                     explicit = _extract_labeled_amount_from_doc(
                         doc_rec,
@@ -837,17 +850,19 @@ class LatestQuarterQASupport:
                         max_gap=40,
                     )
                     if explicit is not None:
-                        return explicit
-                return _extract_labeled_amount_from_doc(
-                    doc_rec,
-                    [
-                        r"\bfree\s+cash\s+flow\s+was\b",
-                        r"\bfree\s+cash\s+flow\b",
-                    ],
-                    max_gap=44,
-                    extra_guard=lambda window: not bool(
-                        re.search(r"\b(guidance|outlook|full[- ]year|fy\s*20\d{2}|low\s+high|midpoint|target)\b", window, re.I)
-                    ),
+                        return _mark_company_defined_adjusted_fcf(explicit)
+                return _mark_company_defined_adjusted_fcf(
+                    _extract_labeled_amount_from_doc(
+                        doc_rec,
+                        [
+                            r"\bfree\s+cash\s+flow\s+was\b",
+                            r"\bfree\s+cash\s+flow\b",
+                        ],
+                        max_gap=44,
+                        extra_guard=lambda window: not bool(
+                            re.search(r"\b(guidance|outlook|full[- ]year|fy\s*20\d{2}|low\s+high|midpoint|target)\b", window, re.I)
+                        ),
+                    )
                 )
 
             return _pick_metric_support(_local)

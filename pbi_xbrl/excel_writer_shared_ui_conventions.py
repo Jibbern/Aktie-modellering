@@ -728,6 +728,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 progress_col = active_cols.get("progress / run-rate")
                 status_col = active_cols.get("status")
                 note_col = active_cols.get("source / note") or active_cols.get("notes/source")
+                new_col = active_cols.get("new/current guide")
                 if not metric_col or not actual_col:
                     continue
                 metric_txt = str(ws.cell(row_idx, metric_col).value or "").strip()
@@ -744,7 +745,32 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
 
                 note_txt = str(ws.cell(row_idx, note_col).value or "").strip() if note_col else ""
                 actual_txt = str(ws.cell(row_idx, actual_col).value or "").strip()
+                new_txt = str(ws.cell(row_idx, new_col).value or "").strip() if new_col else ""
                 if metric_txt.lower() == "debt reduction" and status_col:
+                    if ticker_txt == "GTX":
+                        row_blob = f"{new_txt} {actual_txt} {note_txt}"
+                        if (
+                            re.search(r"\$?\s*50(?:\.0)?\s*m\b", row_blob, flags=re.I)
+                            and re.search(r"\b(disclosed|repay|repayment|repricing|term\s+loan|may\s+18)\b", row_blob, flags=re.I)
+                        ):
+                            if (
+                                new_col
+                                and re.search(r"\$?\s*50(?:\.0)?\s*m\b", new_txt, flags=re.I)
+                                and not re.search(r"\b(post[- ]quarter|event[- ]context|pro[- ]forma)\b", new_txt, flags=re.I)
+                            ):
+                                ws.cell(row_idx, new_col).value = f"Post-quarter event context / pro-forma: {new_txt}"
+                            if not re.search(r"\b(post[- ]quarter|event[- ]context|pro[- ]forma)\b", actual_txt, flags=re.I):
+                                ws.cell(row_idx, actual_col).value = f"Post-quarter event context / pro-forma: {actual_txt or '$50m disclosed'}"
+                            if note_col and not re.search(
+                                r"\b(post[- ]quarter|event[- ]context|pro[- ]forma|not\s+q1\s+reported)\b",
+                                note_txt,
+                                flags=re.I,
+                            ):
+                                prefix = (
+                                    "Post-quarter debt repayment/repricing event; pro-forma/valuation context only, "
+                                    "not Q1 reported history."
+                                )
+                                ws.cell(row_idx, note_col).value = f"{prefix} {note_txt}".strip()
                     status_txt = _canonical_status_label(ws.cell(row_idx, status_col).value)
                     if not actual_txt and status_txt == "Completed" and re.search(r"\b(repay|repaid|paid off|pay down|paydown)\b", note_txt, flags=re.I):
                         ws.cell(row_idx, actual_col).value = "Debt repaid"
