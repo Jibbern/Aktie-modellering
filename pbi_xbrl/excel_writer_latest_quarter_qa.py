@@ -45,6 +45,51 @@ class LatestQuarterQADeps:
     context_helpers: Mapping[str, Any]
 
 
+def _is_quarter_financial_qa_source_candidate(
+    source_kind: str,
+    text_norm: Any,
+    *,
+    selection_reason: str = "",
+    match_reasons: Sequence[str] = (),
+) -> bool:
+    """Return False for event/thematic EX-99 docs that only match via filing metadata.
+
+    Latest-quarter financial QA should reconcile to the quarter filing/release corpus.
+    Some subsequent-event decks or investor-day exhibits share an accession/audit path
+    with model-relevant events, but they should not become the numeric source for
+    reported-quarter revenue/FCF/cash/debt checks unless the document itself has a
+    filename/text quarter match.
+    """
+    source_kind_l = str(source_kind or "").strip().lower()
+    reasons_l = {str(x or "").strip().lower() for x in (match_reasons or ())}
+    if not reasons_l:
+        return True
+    if source_kind_l not in {"earnings_release", "earnings_presentation", "press_release"}:
+        return True
+    if "filename quarter match" in reasons_l:
+        return True
+    text_l = re.sub(r"\s+", " ", str(text_norm or "").strip().lower())
+    quarter_results = bool(
+        re.search(
+            r"\b(?:reports?|announces?|releases?)\s+(?:its\s+)?"
+            r"(?:q[1-4]|first\s+quarter|second\s+quarter|third\s+quarter|fourth\s+quarter)"
+            r"\s+20\d{2}\s+(?:financial\s+)?results\b"
+            r"|\b(?:q[1-4]|first\s+quarter|second\s+quarter|third\s+quarter|fourth\s+quarter)"
+            r"\s+20\d{2}\s+(?:financial\s+)?results\b"
+            r"|\b(?:quarter|three\s+months)\s+ended\s+[a-z]+\s+\d{1,2},\s+20\d{2}\b",
+            text_l,
+            re.I,
+        )
+    )
+    if quarter_results:
+        return True
+    selection_l = str(selection_reason or "").strip().lower()
+    metadata_only_or_text_only = reasons_l.issubset({"submission quarter match", "text quarter match"})
+    if metadata_only_or_text_only and ("accession doc" in selection_l or "submission" in selection_l):
+        return False
+    return True
+
+
 class LatestQuarterQASupport:
     def __init__(self, deps: LatestQuarterQADeps) -> None:
         self.deps = deps
@@ -177,6 +222,13 @@ class LatestQuarterQASupport:
                 return
             reasons = _quarter_match_reasons(path_in, text_norm, submission_quarter=submission_quarter)
             if not reasons:
+                return
+            if not _is_quarter_financial_qa_source_candidate(
+                source_kind,
+                text_norm,
+                selection_reason=selection_reason,
+                match_reasons=reasons,
+            ):
                 return
             role = source_material_role(path_in)
             metadata_values: Dict[str, str] = {}

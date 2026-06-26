@@ -705,7 +705,7 @@ def write_sector_investment_case_sheet(
                     tax_source_basis="Debt paydown changes net debt/equity bridge only unless a separate interest effect is modeled.",
                 ),
             ]
-        else:
+        elif ticker_txt == "GPRE":
             credit_45z = _manual_ref(refs, "credit_45z")
             crush_margin = _manual_ref(refs, "crush_margin")
             capex = _manual_ref(refs, "capex")
@@ -766,6 +766,88 @@ def write_sector_investment_case_sheet(
                     eps_impact="auto",
                     tax_treatment=SCENARIO_TAX_TAXABLE,
                     tax_source_basis="Numeric policy/RVO/E15/export input is treated as taxable operating uplift unless explicitly tax-like.",
+                ),
+            ]
+        else:
+            capex = _manual_ref(refs, "capex")
+            capex_baseline = _manual_part_ref(refs, "capex", "ttm")
+            bridge_specs = [
+                _ScenarioDriverBridgeSpec(
+                    "Revenue / volume / mix",
+                    SCENARIO_DRIVER_MANUAL_INCREMENTAL,
+                    0,
+                    0,
+                    "Generic placeholder; configure ticker-specific revenue/mix driver before relying on scenario impact.",
+                    explicit_incremental=True,
+                    ebitda_impact="none",
+                    fcf_impact="none",
+                    eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
+                    tax_source_basis="Generic non-sector bridge row; no automatic EPS impact.",
+                ),
+                _ScenarioDriverBridgeSpec(
+                    "Margin / productivity",
+                    SCENARIO_DRIVER_MANUAL_INCREMENTAL,
+                    0,
+                    0,
+                    "Generic placeholder; configure ticker-specific margin/productivity driver before relying on scenario impact.",
+                    explicit_incremental=True,
+                    ebitda_impact="none",
+                    fcf_impact="none",
+                    eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
+                    tax_source_basis="Generic non-sector bridge row; no automatic EPS impact.",
+                ),
+                _ScenarioDriverBridgeSpec(
+                    "Growth investment / RD&E",
+                    SCENARIO_DRIVER_MANUAL_INCREMENTAL,
+                    0,
+                    0,
+                    "Generic placeholder; configure ticker-specific growth-investment driver before relying on scenario impact.",
+                    explicit_incremental=True,
+                    ebitda_impact="none",
+                    fcf_impact="none",
+                    eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
+                    tax_source_basis="Generic non-sector bridge row; no automatic EPS impact.",
+                ),
+                _ScenarioDriverBridgeSpec(
+                    "Capex change vs baseline",
+                    SCENARIO_DRIVER_CASH_FLOW_CAPEX,
+                    f'=IF({capex_baseline}="","Unknown",{capex_baseline})',
+                    _active_value_formula(capex),
+                    "Capex change affects FCF only.",
+                    ebitda_impact="none",
+                    fcf_impact="negative",
+                    eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_CASH_ONLY,
+                    tax_source_basis="Capex affects cash flow, not direct EPS or Adj EBITDA.",
+                ),
+                _ScenarioDriverBridgeSpec(
+                    "Interest savings / debt paydown",
+                    SCENARIO_DRIVER_CAPITAL_STRUCTURE_INTEREST,
+                    0,
+                    0,
+                    "Generic placeholder; use valuation/debt detail for source-backed debt event treatment.",
+                    explicit_incremental=True,
+                    ebitda_impact="none",
+                    fcf_impact="none",
+                    eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
+                    tax_source_basis="Generic non-sector bridge row; no automatic EPS impact.",
+                ),
+                _ScenarioDriverBridgeSpec(
+                    "Buybacks / share-count change",
+                    SCENARIO_DRIVER_MANUAL_INCREMENTAL,
+                    0,
+                    0,
+                    "Generic placeholder; reported shares remain source-backed in History_Q unless a specific overlay is configured.",
+                    explicit_incremental=True,
+                    ebitda_impact="none",
+                    fcf_impact="none",
+                    eps_impact="none",
+                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
+                    tax_source_basis="Generic non-sector bridge row; no automatic EPS impact.",
                 ),
             ]
 

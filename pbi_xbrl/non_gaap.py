@@ -100,9 +100,9 @@ def _slice_three_month_block(lines: List[str]) -> List[str]:
 
 def _detect_scale(html: str) -> float:
     scale = 1.0
-    if re.search(r"in\s+thousands", html, re.IGNORECASE):
+    if re.search(r"(?:in|\$)\s+thousands|thousands\s*\(unless", html, re.IGNORECASE):
         scale = 1000.0
-    if re.search(r"in\s+millions", html, re.IGNORECASE):
+    if re.search(r"(?:in|\$)\s+millions|millions\s*\(unless", html, re.IGNORECASE):
         scale = 1_000_000.0
     return scale
 
@@ -666,6 +666,34 @@ def parse_adjusted_from_ex99(
             if m:
                 col_quarters[i] = (int(m.group(2)), int(m.group(1)))
 
+        header_context: Dict[int, str] = {}
+        header_labels: Dict[int, str] = {}
+        for i in range(len(cols)):
+            parts = [str(cols[i])]
+            for ridx in range(min(6, len(t2))):
+                if i >= len(t2.iloc[ridx]):
+                    continue
+                cell = str(t2.iloc[ridx, i] or "").strip()
+                if not cell or cell.lower() == "nan":
+                    continue
+                parts.append(cell)
+                if i not in header_labels and re.search(
+                    r"\bQ[1-4]\s*20\d{2}\b|\bFull\s+Year\s+20\d{2}\b",
+                    cell,
+                    re.IGNORECASE,
+                ):
+                    header_labels[i] = cell
+            header_context[i] = " ".join(parts)
+            if i not in col_quarters:
+                m = re.search(r"\bQ([1-4])\s*(20\d{2})\b", header_context[i], re.IGNORECASE)
+                if m:
+                    col_quarters[i] = (int(m.group(2)), int(m.group(1)))
+            if col_periods.get(i) is None:
+                if re.search(r"\bfull\s+year\b|\byear\s+ended\b|\bfiscal\s+year\b", header_context[i], re.IGNORECASE):
+                    col_periods[i] = "FY"
+                elif re.search(r"\bQ[1-4]\s*20\d{2}\b", header_context[i], re.IGNORECASE):
+                    col_periods[i] = "3M"
+
         col_idx = None
         col_label = None
         if mode == "strict":
@@ -692,10 +720,22 @@ def parse_adjusted_from_ex99(
                 if match_cols:
                     candidate_cols = match_cols
             if quarter_end is not None:
+                q = (int(quarter_end.month) - 1) // 3 + 1
                 y = int(quarter_end.year)
-                year_match = [i for i in candidate_cols if str(y) in str(cols[i])]
+                quarter_match = [
+                    i
+                    for i in candidate_cols
+                    if col_quarters.get(i) == (y, q)
+                    and col_periods.get(i) in (None, "3M")
+                ]
+                if quarter_match:
+                    candidate_cols = quarter_match
+                year_match = [i for i in candidate_cols if str(y) in header_context.get(i, str(cols[i]))]
                 if year_match:
                     candidate_cols = year_match
+                three_month_match = [i for i in candidate_cols if col_periods.get(i) in (None, "3M")]
+                if three_month_match:
+                    candidate_cols = three_month_match
 
             def _score_col(i: int) -> Tuple[int, float]:
                 nums = []
@@ -714,7 +754,7 @@ def parse_adjusted_from_ex99(
                 continue
             scored.sort(key=lambda x: (x[1], x[2]), reverse=True)
             col_idx = scored[0][0]
-            col_label = cols[col_idx]
+            col_label = header_labels.get(col_idx, cols[col_idx])
 
         first = t2.columns[0]
         t2[first] = t2[first].astype(str)
@@ -735,10 +775,17 @@ def parse_adjusted_from_ex99(
             else:
                 v_eps = to_num_eps(row.iloc[col_idx]) if col_idx < len(row) else None
 
-            if "adjusted ebitda" in label:
+            is_margin_row = "margin" in label or label.rstrip().endswith("%")
+
+            if "adjusted ebitda" in label and not is_margin_row and v is not None:
                 adj_ebitda = v
                 has_adjusted = True
-            if _label_matches(label, _ADJ_EBIT_SYNONYMS) and "ebitda" not in label:
+            if (
+                _label_matches(label, _ADJ_EBIT_SYNONYMS)
+                and "ebitda" not in label
+                and not is_margin_row
+                and v is not None
+            ):
                 adj_ebit = v
                 has_adjusted = True
             if _is_eps_label(label):
@@ -748,9 +795,9 @@ def parse_adjusted_from_ex99(
                     adj_eps = v_eps
                     has_adj_eps = True
 
-            if "free cash flow" in label and v is not None:
+            if "free cash flow" in label and not is_margin_row and v is not None:
                 adj_fcf = v
-            if _label_matches(label, adjustments_keywords):
+            if _label_matches(label, adjustments_keywords) and v is not None:
                 adjustments[label] = v
                 has_recon = True
 

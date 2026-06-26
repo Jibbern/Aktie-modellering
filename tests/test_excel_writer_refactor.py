@@ -1536,6 +1536,12 @@ def test_production_writer_unknown_ticker_creates_required_investment_case(
             assert wb.sheetnames.index("Operating_Drivers") < wb.sheetnames.index(f"{ticker}_Investment_Case")
             assert wb.sheetnames.index(f"{ticker}_Investment_Case") < wb.sheetnames.index("Quarter_Notes_UI")
             assert wb[f"{ticker}_Investment_Case"]["A1"].value == f"{ticker} Investment Case"
+            case_text = "\n".join(
+                " | ".join(str(v) for v in row if v is not None and not str(v).startswith("="))
+                for row in wb[f"{ticker}_Investment_Case"].iter_rows(values_only=True)
+            ).lower()
+            for gpre_only_term in ("45z", "rvo", "e15", "crush margin", "crush spread", "ethanol", "rin"):
+                assert gpre_only_term not in case_text
         finally:
             wb.close()
 

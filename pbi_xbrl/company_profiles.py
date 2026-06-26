@@ -66,6 +66,13 @@ class SourceMaterialSeed:
 
 
 @dataclasses.dataclass(frozen=True)
+class HistoricalComparabilityBreak:
+    period: str
+    metrics: Tuple[str, ...]
+    note: str
+
+
+@dataclasses.dataclass(frozen=True)
 class CompanyProfile:
     ticker: str
     has_bank: bool
@@ -96,6 +103,7 @@ class CompanyProfile:
     official_source_seeds: Tuple[SourceMaterialSeed, ...] = tuple()
     source_material_coverage_quarters: int = 16
     source_material_quarter_alias_mode: str = ""
+    comparability_breaks: Tuple[HistoricalComparabilityBreak, ...] = tuple()
     thesis_bridge_labels: Tuple[str, ...] = tuple()
     summary_description_fallback: str = ""
     summary_key_advantage_fallback: str = ""
@@ -988,6 +996,127 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
             "Inventory growth outruns demand and forces heavier promotions.",
             "Store, marketing, or technology investments fail to convert into durable traffic and sales.",
             "Buybacks consume cash without offsetting lower earnings or valuation compression.",
+        ),
+    ),
+    "GTX": CompanyProfile(
+        ticker="GTX",
+        has_bank=False,
+        industry_keywords=(
+            "turbocharging",
+            "electrification",
+            "automotive",
+            "commercial vehicles",
+            "light vehicles",
+            "power electronics",
+            "thermal management",
+        ),
+        segment_patterns=tuple(),
+        segment_alias_patterns=tuple(),
+        key_adv_require_keywords=(
+            "technology",
+            "differentiated",
+            "turbo",
+            "engineering",
+            "innovation",
+            "customer",
+            "platform",
+            "scale",
+        ),
+        key_adv_deny_keywords=_DENY_COMMON,
+        commentary_prefer_terms=(
+            "net sales",
+            "adjusted ebit",
+            "adjusted ebitda",
+            "adjusted free cash flow",
+            "gross margin",
+            "customer reimbursable engineering",
+            "research development and engineering",
+            "light vehicle",
+            "commercial vehicle",
+            "gasoline",
+            "diesel",
+            "hybrid",
+            "battery electric",
+            "term loan",
+            "senior notes",
+            "share repurchase",
+        ),
+        commentary_deny_terms=(
+            "ethanol",
+            "presort",
+            "sendtech",
+            "hollister",
+            "abercrombie",
+        ),
+        quarter_note_priority_terms=(
+            "adjusted ebit",
+            "adjusted free cash flow",
+            "gross margin",
+            "constant currency",
+            "customer reimbursable engineering",
+            "term loan",
+            "share repurchase",
+        ),
+        promise_priority_terms=(
+            "guidance",
+            "adjusted ebit",
+            "adjusted free cash flow",
+            "net sales",
+            "deleveraging",
+            "term loan",
+        ),
+        source_material_coverage_quarters=16,
+        enable_operating_drivers_sheet=True,
+        comparability_breaks=(
+            HistoricalComparabilityBreak(
+                period="2023",
+                metrics=(
+                    "shares_outstanding",
+                    "shares_diluted",
+                    "eps",
+                    "preferred_dividends",
+                ),
+                note=(
+                    "Series A Preferred Stock repurchase and conversion created a comparability break "
+                    "for common shares, diluted shares, EPS, preferred dividends, and deemed dividends."
+                ),
+            ),
+        ),
+        thesis_bridge_labels=(
+            "Base Adjusted EBIT",
+            "Volume / product mix",
+            "Gross margin / productivity",
+            "RD&E and growth investment",
+            "Interest savings / debt paydown",
+            "Buybacks / share-count change",
+            "Other",
+        ),
+        summary_description_fallback=(
+            "Garrett Motion is a global automotive technology supplier focused on turbocharging, "
+            "electrification, and related powertrain and thermal-management applications."
+        ),
+        summary_key_advantage_fallback=(
+            "Garrett's advantage rests on long-standing turbocharging and engineering expertise, "
+            "deep customer integration, global manufacturing scale, and technology applicable "
+            "across internal-combustion, hybrid, electric, and industrial platforms."
+        ),
+        summary_segment_operating_model_fallbacks=(
+            "Garrett reports as one accounting segment; product line, geography, propulsion type, "
+            "and customer concentration are analytical cuts rather than reportable segments.",
+        ),
+        summary_dependency_fallbacks=(
+            "Global light- and commercial-vehicle production and customer platform launches drive demand.",
+            "Product mix, pricing, productivity, material costs, tariffs, and foreign exchange affect margin.",
+            "RD&E investment supports new turbo, electrification, power-electronics, and thermal-management programs.",
+            "Customer concentration and long platform cycles shape revenue visibility and execution risk.",
+            "Debt repayment, refinancing, buybacks, and unrestricted cash affect equity value.",
+        ),
+        summary_wrong_thesis_fallbacks=(
+            "Global vehicle production or major customer programs underperform expectations.",
+            "Electrification investment fails to offset mature turbo-platform pressure.",
+            "Pricing and productivity do not absorb material, tariff, labor, or foreign-exchange pressure.",
+            "Customer concentration creates a larger-than-expected program or pricing loss.",
+            "Free cash flow conversion weakens because of working capital, factoring, capex, or restructuring.",
         ),
     ),
     "GPRE": CompanyProfile(
