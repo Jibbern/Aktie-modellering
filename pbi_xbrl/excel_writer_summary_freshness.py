@@ -512,8 +512,32 @@ def append_summary_freshness_sections(
         row: int,
         columns: tuple[str, ...],
         labels: tuple[str, ...],
+        group_labels: tuple[tuple[str, int, int], ...],
         no_data_text: str,
     ) -> int:
+        for label, start_column, end_column in group_labels:
+            if end_column > start_column:
+                ws.merge_cells(
+                    start_row=row,
+                    start_column=start_column,
+                    end_row=row,
+                    end_column=end_column,
+                )
+            cell = ws.cell(row=row, column=start_column, value=label)
+            cell.font = Font(bold=True, size=font_size, color="FFFFFF")
+            cell.fill = header_fill
+            cell.alignment = Alignment(
+                horizontal="center",
+                vertical="center",
+                wrap_text=True,
+            )
+            cell.border = border
+            for column_index in range(start_column, end_column + 1):
+                group_cell = ws.cell(row=row, column=column_index)
+                group_cell.fill = header_fill
+                group_cell.border = border
+        ws.row_dimensions[row].height = 22
+        row += 1
         for column_index, label in enumerate(labels, start=1):
             cell = ws.cell(row=row, column=column_index, value=label)
             cell.font = Font(bold=True, size=font_size, color="FFFFFF")
@@ -524,7 +548,7 @@ def append_summary_freshness_sections(
                 wrap_text=True,
             )
             cell.border = border
-        ws.row_dimensions[row].height = 38
+        ws.row_dimensions[row].height = 30
         row += 1
         if frame.empty:
             ws.merge_cells(
@@ -553,7 +577,17 @@ def append_summary_freshness_sections(
                 cell.fill = fill
                 cell.border = border
                 cell.alignment = Alignment(
-                    horizontal="left",
+                    horizontal=(
+                        "right"
+                        if column
+                        in {
+                            "reported_value",
+                            "current_overlay_value",
+                            "change",
+                        }
+                        and isinstance(value, (int, float))
+                        else "left"
+                    ),
                     vertical="top",
                     wrap_text=True,
                 )
@@ -564,42 +598,95 @@ def append_summary_freshness_sections(
                     "filing_date",
                 }:
                     cell.number_format = "yyyy-mm-dd"
+                if (
+                    column
+                    in {
+                        "reported_value",
+                        "current_overlay_value",
+                        "change",
+                    }
+                    and isinstance(value, (int, float))
+                ):
+                    cell.number_format = "#,##0.000"
             ws.row_dimensions[row].height = 44
             row += 1
         return row
 
-    freshness_columns = SOURCE_FILING_FRESHNESS_COLUMNS
-    freshness_labels = (
-        "Ticker",
-        "Latest reported quarter",
-        "Latest reported filing type",
-        "Latest reported filing accession",
-        "Latest reported filing date",
-        "Latest reported filing downloaded_at",
-        "Latest additional/post-quarter filing type",
-        "Latest additional/post-quarter filing accession",
-        "Latest additional/post-quarter filing date",
-        "Latest additional/post-quarter downloaded_at",
-        "Event type",
-        "Used in workbook?",
-        "Used surfaces",
-        "Source path exists?",
+    freshness_columns = (
+        "latest_reported_quarter",
+        "latest_reported_filing_type",
+        "latest_reported_filing_accession",
+        "latest_reported_filing_date",
+        "latest_reported_downloaded_at",
+        "latest_additional_filing_type",
+        "latest_additional_filing_accession",
+        "latest_additional_filing_date",
+        "latest_additional_downloaded_at",
+        "event_type",
+        "used_in_workbook",
+        "used_surfaces",
+        "source_path_exists",
+        "ticker",
     )
-    effects_columns = POST_QUARTER_CURRENT_EFFECT_COLUMNS
-    effects_labels = (
+    freshness_labels = (
+        "Quarter",
+        "Type",
+        "Accession",
+        "Filed",
+        "Downloaded",
+        "Type",
+        "Accession",
+        "Filed",
+        "Downloaded",
+        "Category",
+        "Used?",
+        "Surfaces",
+        "Source ok?",
         "Ticker",
+    )
+    freshness_groups = (
+        ("Reported filing", 1, 5),
+        ("Post-quarter / current filing", 6, 9),
+        ("Workbook use", 10, 13),
+        ("Reference", 14, 14),
+    )
+    effects_columns = (
+        "event_date",
+        "filing_date",
+        "area",
+        "reported_quarter_anchor",
+        "reported_value",
+        "current_overlay_value",
+        "change",
+        "unit",
+        "confidence_treatment",
+        "historical_treatment",
+        "valuation_treatment",
+        "source_document_accession",
+        "ticker",
+    )
+    effects_labels = (
         "Event date",
         "Filing date",
-        "Area",
-        "Reported-quarter anchor",
+        "Category",
+        "Reported quarter",
         "Reported value",
         "Current / overlay value",
         "Change",
         "Unit",
-        "Confidence / treatment",
-        "Historical treatment",
-        "Valuation treatment",
-        "Source document / accession",
+        "Confidence",
+        "Historical handling",
+        "Valuation handling",
+        "Source / accession",
+        "Ticker",
+    )
+    effects_groups = (
+        ("Dates", 1, 2),
+        ("Event", 3, 4),
+        ("Values", 5, 8),
+        ("Handling / control", 9, 11),
+        ("Evidence", 12, 12),
+        ("Reference", 13, 13),
     )
 
     row = start_row + 1
@@ -609,6 +696,7 @@ def append_summary_freshness_sections(
         row=row,
         columns=freshness_columns,
         labels=freshness_labels,
+        group_labels=freshness_groups,
         no_data_text="No filing freshness record available.",
     )
     row += 1
@@ -618,24 +706,25 @@ def append_summary_freshness_sections(
         row=row,
         columns=effects_columns,
         labels=effects_labels,
+        group_labels=effects_groups,
         no_data_text="None newer / no model-relevant post-quarter event",
     )
 
     widths = {
-        "A": 12,
-        "B": 18,
-        "C": 18,
-        "D": 26,
-        "E": 20,
+        "A": 18,
+        "B": 16,
+        "C": 28,
+        "D": 18,
+        "E": 24,
         "F": 24,
-        "G": 28,
-        "H": 24,
-        "I": 18,
-        "J": 24,
-        "K": 24,
-        "L": 28,
-        "M": 42,
-        "N": 18,
+        "G": 26,
+        "H": 16,
+        "I": 24,
+        "J": 26,
+        "K": 26,
+        "L": 38,
+        "M": 14,
+        "N": 10,
     }
     for column, width in widths.items():
         ws.column_dimensions[column].width = max(

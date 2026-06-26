@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from openpyxl import Workbook
 import pandas as pd
 
 from pbi_xbrl.excel_writer_summary_freshness import (
+    append_summary_freshness_sections,
     build_post_quarter_current_effects,
     build_source_filing_freshness,
 )
@@ -246,3 +248,64 @@ def test_reported_filing_downloaded_at_falls_back_to_accession_source_mtime(
     row = freshness.iloc[0]
     assert row["latest_reported_downloaded_at"]
     assert "filesystem fallback" in row["latest_reported_downloaded_at"]
+
+
+def test_summary_freshness_render_groups_repeated_labels_and_moves_ticker_right(
+    tmp_path: Path,
+) -> None:
+    event_source = tmp_path / "d88573d8k.htm"
+    event_source.write_text("event filing", encoding="utf-8")
+    hist = pd.DataFrame({"quarter": pd.to_datetime(["2026-03-31"])})
+    audit = pd.DataFrame(
+        [
+            {
+                "quarter": "2026-03-31",
+                "form": "10-Q",
+                "accn": "000162828026031003",
+                "filed": "2026-05-06",
+                "doc": str(event_source),
+                "downloaded_at": "2026-05-06T12:00:00+00:00",
+            }
+        ]
+    )
+    freshness = build_source_filing_freshness(
+        ticker="PBI",
+        hist=hist,
+        audit=audit,
+        manifest_df=pd.DataFrame(),
+        post_quarter_events=_pbi_event(event_source),
+    )
+    effects = build_post_quarter_current_effects(_pbi_event(event_source))
+    wb = Workbook()
+    ws = wb.active
+
+    append_summary_freshness_sections(
+        ws=ws,
+        start_row=1,
+        source_filing_freshness=freshness,
+        post_quarter_current_effects=effects,
+        font_size=11,
+        header_size=12,
+    )
+
+    values = [
+        ws.cell(row=row, column=column).value
+        for row in range(1, ws.max_row + 1)
+        for column in range(1, ws.max_column + 1)
+    ]
+    assert "Latest reported filing type" not in values
+    assert "Event type" not in values
+    assert "Area" not in values
+    assert ws.cell(row=3, column=1).value == "Reported filing"
+    assert ws.cell(row=3, column=6).value == "Post-quarter / current filing"
+    assert ws.cell(row=4, column=10).value == "Category"
+    assert ws.cell(row=4, column=14).value == "Ticker"
+    assert ws.cell(row=5, column=14).value == "PBI"
+    effects_section_row = next(
+        row
+        for row in range(1, ws.max_row + 1)
+        if ws.cell(row=row, column=1).value == "Post-quarter / Current Effects"
+    )
+    assert ws.cell(row=effects_section_row + 1, column=3).value == "Event"
+    assert ws.cell(row=effects_section_row + 2, column=3).value == "Category"
+    assert ws.cell(row=effects_section_row + 3, column=13).value == "PBI"

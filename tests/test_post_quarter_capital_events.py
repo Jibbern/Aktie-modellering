@@ -484,3 +484,25 @@ def test_pbi_current_debt_overlay_replaces_slide_style_reported_rows() -> None:
     assert len(term_rows) == 1
     assert term_rows.iloc[0]["amount_principal"] == 302_000_000.0
     assert term_rows.iloc[0]["maturity_display"] == "May 18, 2031"
+
+
+def test_post_quarter_support_sheet_uses_plain_range_autofilter_not_excel_table() -> None:
+    wb = Workbook()
+    events = pd.DataFrame(
+        [
+            {
+                "ticker": "PBI",
+                "event_key": "PBI|refinancing",
+                "event_type": "refinancing_redemption",
+                "source_documents": "d88573d8k.htm",
+                "source_path_exists": True,
+            }
+        ]
+    )
+
+    write_post_quarter_capital_events_sheet(wb, events)
+
+    ws = wb["PostQuarter_Capital_Events"]
+    assert list(ws.tables.keys()) == []
+    assert ws.auto_filter.ref == "A1:E2"
+    assert ws.freeze_panes == "A2"
