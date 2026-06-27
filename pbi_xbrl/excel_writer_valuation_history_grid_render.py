@@ -174,6 +174,12 @@ def render_valuation_history_grid(
     is_anf_profile = _rt_get("is_anf_profile")
     is_gpre_profile = _rt_get("is_gpre_profile")
     is_pbi_profile = _rt_get("is_pbi_profile")
+    profile_ticker_txt = str(
+        getattr(company_profile, "ticker", "")
+        or getattr(company_profile, "symbol", "")
+        or ""
+    ).strip().upper()
+    is_gtx_profile = profile_ticker_txt == "GTX"
     last_col = _rt_get("last_col")
     leverage_df = _rt_get("leverage_df")
     material_roots = _rt_get("material_roots")
@@ -974,6 +980,41 @@ def render_valuation_history_grid(
     def _ttm_map(src: Dict[pd.Timestamp, Any]) -> Dict[pd.Timestamp, Any]:
         return ttm_map(last4_quarters_map, src, all_qs_ts)
 
+    def _complete_history_cashflow_ttm_map_local(col: str) -> Dict[pd.Timestamp, Any]:
+        if hist is None or not hasattr(hist, "columns") or col not in getattr(hist, "columns", []):
+            return {}
+        src: Dict[pd.Timestamp, Any] = {}
+        for _, row in hist.iterrows():
+            try:
+                q_ts = pd.Timestamp(row.get("quarter")).normalize()
+            except Exception:
+                continue
+            if pd.isna(q_ts):
+                continue
+            raw = row.get(col)
+            if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+                src[q_ts] = None
+            else:
+                try:
+                    src[q_ts] = float(raw)
+                except Exception:
+                    src[q_ts] = None
+        out: Dict[pd.Timestamp, Any] = {}
+        for q_now, last4_now in dict(last4_quarters_map or {}).items():
+            q_key = pd.Timestamp(q_now).normalize()
+            if not last4_now or len(last4_now) < 4:
+                out[q_key] = None
+                continue
+            vals: List[float] = []
+            for qv in last4_now:
+                val = src.get(pd.Timestamp(qv).normalize())
+                if val is None or (isinstance(val, float) and pd.isna(val)):
+                    vals = []
+                    break
+                vals.append(float(val))
+            out[q_key] = sum(vals) if len(vals) == 4 else None
+        return out
+
     def _history_numeric_source_map_local(col: str) -> Dict[pd.Timestamp, Any]:
         return history_numeric_source_map(hist, col)
 
@@ -1266,6 +1307,9 @@ def render_valuation_history_grid(
     if is_anf_profile:
         buyback_ttm_map = _ttm_sparse_cashflow_map_local(buyback_map) if buyback_map else {}
     dividend_ttm_map = dict(valuation_precompute_bundle.get("dividend_ttm_resolved_map") or (_ttm_map(dividend_map) if dividend_map else {}))
+    if is_gtx_profile:
+        buyback_ttm_map = _complete_history_cashflow_ttm_map_local("buybacks_cash")
+        dividend_ttm_map = _complete_history_cashflow_ttm_map_local("dividends_cash")
     acquisitions_ttm_map = _ttm_map(acquisitions_map) if acquisitions_map else {}
     if is_gpre_profile:
         debt_repay_ttm_map = _ttm_sparse_cashflow_map_local(debt_repay_map) if debt_repay_map else {}
@@ -1413,6 +1457,11 @@ def render_valuation_history_grid(
 
     _set_subheader_row(r, "Adjusted operating")
     r += 1
+    if is_gtx_profile:
+        _set_row(r, "Adj EBIT", {k: (v / 1e6) if v is not None else None for k, v in adj_ebit_map.items()}, "#,##0.000")
+        r += 1
+        _set_row(r, "Adj EBIT margin %", _margin(adj_ebit_map, rev_map), "0.0%")
+        r += 1
     _set_row(r, "Adj EBITDA", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_map.items()}, "#,##0.000")
     r += 1
     _set_row(r, "Adj EBITDA - EBITDA", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_diff_map.items()}, "#,##0.000")
@@ -1530,6 +1579,9 @@ def render_valuation_history_grid(
     r += 1
     _set_subheader_row(r, "Adjusted / derived")
     r += 1
+    if is_gtx_profile:
+        _set_row(r, "Adj FCF", {k: (v / 1e6) if v is not None else None for k, v in adj_fcf_map.items()}, "#,##0.000")
+        r += 1
     adj_fcf_row = r
     _set_row(r, "Adj FCF (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_fcf_ttm_map.items()}, "#,##0.000")
     try:

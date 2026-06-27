@@ -3,8 +3,9 @@ from __future__ import annotations
 import datetime as dt
 import os
 import re
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import openpyxl
 import pytest
@@ -47,6 +48,18 @@ def _gtx_workbook_path() -> Path:
     return Path(os.environ.get("GTX_STAGED_WORKBOOK", DEFAULT_GTX_STAGED_WORKBOOK))
 
 
+@contextmanager
+def _gtx_style_workbook() -> Iterator[openpyxl.Workbook]:
+    path = _gtx_workbook_path()
+    if not path.exists():
+        pytest.skip(f"GTX staged workbook not found: {path}")
+    wb = openpyxl.load_workbook(path, data_only=False, read_only=False)
+    try:
+        yield wb
+    finally:
+        wb.close()
+
+
 @pytest.fixture()
 def gtx_wb() -> openpyxl.Workbook:
     path = _gtx_workbook_path()
@@ -85,6 +98,26 @@ def _visible_non_empty_rows(wb: openpyxl.Workbook, sheet_name: str) -> list[list
     return out
 
 
+def _used_max_col(wb: openpyxl.Workbook, sheet_name: str) -> int:
+    ws = wb[sheet_name]
+    max_col = 0
+    for row in ws.iter_rows(values_only=True):
+        for idx, value in enumerate(row, start=1):
+            if value is not None and str(value).strip():
+                max_col = max(max_col, idx)
+    return max_col
+
+
+def _row_texts(wb: openpyxl.Workbook, sheet_name: str) -> list[str]:
+    ws = wb[sheet_name]
+    out: list[str] = []
+    for row in ws.iter_rows(values_only=True):
+        values = [str(value) for value in row if value is not None and str(value).strip()]
+        if values:
+            out.append(" | ".join(values))
+    return out
+
+
 def _history_row(wb: openpyxl.Workbook, quarter: dt.date) -> tuple[list[Any], tuple[Any, ...]]:
     ws = wb["History_Q"]
     rows = list(ws.iter_rows(values_only=True))
@@ -102,6 +135,26 @@ def _history_value(wb: openpyxl.Workbook, quarter: dt.date, column: str) -> Any:
     headers, row = _history_row(wb, quarter)
     assert column in headers, f"History_Q missing column {column}"
     return row[headers.index(column)]
+
+
+def _find_row_with_first_cell(ws: Any, label: str) -> int:
+    needle = label.strip().lower()
+    for row_idx in range(1, int(ws.max_row or 0) + 1):
+        if str(ws.cell(row_idx, 1).value or "").strip().lower() == needle:
+            return row_idx
+    raise AssertionError(f"{ws.title}: missing row label {label!r}")
+
+
+def _row_values(ws: Any, row_idx: int, *, max_col: int = 15) -> list[Any]:
+    return [ws.cell(row_idx, cc).value for cc in range(1, max_col + 1)]
+
+
+def _numeric_row_values(ws: Any, row_idx: int, *, max_col: int = 15) -> list[float]:
+    values: list[float] = []
+    for value in _row_values(ws, row_idx, max_col=max_col):
+        if isinstance(value, (int, float)):
+            values.append(float(value))
+    return values
 
 
 def test_gtx_staged_workbook_includes_operating_drivers(gtx_wb: openpyxl.Workbook) -> None:
@@ -129,6 +182,73 @@ def test_gtx_operating_drivers_has_user_facing_source_backed_watchlist(
         "Adjusted FCF",
     ):
         assert needle.lower() in text.lower()
+
+
+def test_gtx_operating_drivers_uses_broad_pbi_style_sections(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    assert "Operating_Drivers" in gtx_wb.sheetnames
+    rows = _visible_non_empty_rows(gtx_wb, "Operating_Drivers")
+    text = _sheet_visible_text(gtx_wb, "Operating_Drivers")
+
+    assert len(rows) >= 40
+    assert _used_max_col(gtx_wb, "Operating_Drivers") >= 12
+    for section in (
+        "Current watchlist",
+        "Current/latest outlook",
+        "Recent quarter commentary",
+        "Data tables",
+        "Product-line revenue history",
+        "Geography revenue history",
+        "Customer concentration",
+        "Debt / buyback / leverage watch",
+    ):
+        assert section.lower() in text.lower()
+    assert all(len(row_text) < 700 for row_text in _row_texts(gtx_wb, "Operating_Drivers"))
+
+
+def test_gtx_operating_drivers_matches_pbi_anf_top_style_conventions(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+
+        assert str(ws["A2"].value or "").strip() == "Operating Drivers"
+        assert str(ws["A2"].fill.fgColor.rgb or "").upper() == "006FA8DC"
+        assert float(ws["A2"].font.sz or 0) == pytest.approx(15.0)
+        assert bool(ws["A2"].font.bold)
+        assert str(ws["A4"].value or "").strip() == "Current watchlist"
+        assert ws.row_dimensions[2].height == pytest.approx(24.0)
+        assert ws.row_dimensions[4].height == pytest.approx(22.5)
+
+
+def test_gtx_operating_drivers_watchlist_uses_anf_pbi_broad_merges(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+
+        assert str(ws["A5"].value or "").strip() == "Watch item"
+        assert str(ws["B5"].value or "").strip() == "Current read"
+        assert str(ws["H5"].value or "").strip() == "Why it matters"
+        for row_idx in range(5, 11):
+            assert f"B{row_idx}:G{row_idx}" in merged_ranges
+            assert f"H{row_idx}:N{row_idx}" in merged_ranges
+
+
+def test_gtx_operating_driver_watchlist_cells_are_readable(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Operating_Drivers"]
+    long_cells: list[tuple[str, int]] = []
+    for row in ws.iter_rows(min_row=4, max_row=13, min_col=1, max_col=5):
+        for cell in row:
+            value = str(cell.value or "").strip()
+            if len(value) > 110:
+                long_cells.append((cell.coordinate, len(value)))
+
+    assert long_cells == []
 
 
 def test_gtx_investment_case_has_no_gpre_only_terms(gtx_wb: openpyxl.Workbook) -> None:
@@ -199,6 +319,22 @@ def test_gtx_summary_uses_gtx_specific_revenue_and_dependency_language(
         assert needle.lower() in low
 
 
+def test_gtx_summary_as_of_quarter_is_human_label_not_excel_serial(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["SUMMARY"]
+    for row in ws.iter_rows(values_only=True):
+        values = list(row)
+        if values and str(values[0]).strip().lower() == "as of quarter":
+            rendered = values[1]
+            assert not isinstance(rendered, (int, float))
+            assert not isinstance(rendered, dt.datetime)
+            assert str(rendered).strip() in {"2026-Q1", "2026-03-31"}
+            break
+    else:
+        raise AssertionError("SUMMARY missing As of quarter row")
+
+
 def test_gtx_investment_case_data_has_meaningful_gtx_sections(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -257,6 +393,510 @@ def test_gtx_visible_text_has_no_cross_company_or_sector_leakage(
     assert leaked == []
 
 
+def test_gtx_promise_progress_has_management_dashboard_guidance_and_actuals(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "Promise_Progress_UI")
+    low = text.lower()
+
+    for section in (
+        "Management Credibility Scorecard",
+        "2026 open guidance",
+        "2025 completed actuals",
+        "Quarterly guidance timeline / revision log",
+        "Post-quarter May 2026 debt repayment/repricing event",
+    ):
+        assert section.lower() in low
+
+    for required in (
+        "Net sales",
+        "$3.6bn-$3.9bn",
+        "Adjusted EBIT",
+        "$520m-$600m",
+        "Adjusted FCF",
+        "$355m-$475m",
+        "FY2025 net sales",
+        "$3.584bn",
+        "FY2025 buybacks",
+        "$208m",
+        "common share count reduction",
+        "8%",
+    ):
+        assert required.lower() in low
+
+
+def test_gtx_guidance_normalized_includes_recent_official_outlook_rows(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    assert "Guidance_Normalized" in gtx_wb.sheetnames
+    text = _sheet_visible_text(gtx_wb, "Guidance_Normalized")
+    low = text.lower()
+
+    assert "2025-q4" in low
+    assert "2026-q1" in low
+    for required in (
+        "net sales",
+        "$3.6bn-$3.9bn",
+        "adjusted ebit",
+        "$520m-$600m",
+        "adjusted fcf",
+        "$355m-$475m",
+        "fy2025 net sales",
+        "$3.584bn",
+        "fy2025 adjusted ebit",
+        "$510m",
+        "fy2025 adjusted fcf",
+        "$403m",
+    ):
+        assert required in low
+
+
+def test_gtx_valuation_guidance_panel_uses_curated_guidance_rows(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "Valuation")
+    low = text.lower()
+
+    assert "guidance (as of 2026-03-31)" in low
+    assert "guidance (as of 2025-12-31)" in low
+    assert "no guidance items for this quarter" not in low
+    for required in (
+        "net sales",
+        "$3.6bn-$3.9bn",
+        "constant-currency sales growth",
+        "-2% to +6%",
+        "net income",
+        "$300m-$360m",
+        "adjusted ebit",
+        "$520m-$600m",
+        "cfo",
+        "$407m-$522m",
+        "adjusted fcf",
+        "$355m-$475m",
+        "light vehicle production",
+        "down 1%-3%",
+        "commercial vehicle industry",
+        "up 1%-2%",
+        "bev penetration",
+        "about 19%",
+        "eur/usd",
+        "1.17",
+        "rd&e",
+        "about 4.2% of sales",
+        "capex",
+        "about 2.5% of sales",
+        "fy2025 actuals",
+        "$3.584bn",
+    ):
+        assert required.lower() in low
+
+
+def test_gtx_valuation_operating_driver_panel_is_populated(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "Valuation")
+    low = text.lower()
+
+    assert "operating drivers" in low
+    assert "no operating-driver map available for this ticker yet" not in low
+    for required in (
+        "OEM production / end-market demand",
+        "Product mix / turbo demand",
+        "Commercial vehicle / industrial",
+        "Aftermarket",
+        "China / Europe exposure",
+        "Customer concentration",
+        "RD&E / technology awards",
+        "Adjusted EBIT / adjusted FCF conversion",
+        "Debt, net leverage and buybacks",
+    ):
+        assert required.lower() in low
+
+
+def test_gtx_valuation_capital_return_rows_have_no_year_artifacts(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Valuation"]
+    labels = {"Buybacks (TTM, cash)", "Dividends (TTM, cash)"}
+    bad: list[tuple[str, str, Any]] = []
+    found: set[str] = set()
+    for row in ws.iter_rows():
+        label = str(row[0].value or "").strip() if row else ""
+        if label not in labels:
+            continue
+        found.add(label)
+        for cell in row[1:13]:
+            value = cell.value
+            if isinstance(value, (int, float)) and float(value).is_integer() and 1900 <= int(value) <= 2100:
+                bad.append((label, cell.coordinate, value))
+
+    assert found == labels
+    assert bad == []
+
+
+def test_gtx_operating_drivers_recent_commentary_uses_broad_layout(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+
+    header_row = None
+    for row_idx in range(1, int(ws.max_row or 0) + 1):
+        if "Recent quarter commentary" in str(ws.cell(row_idx, 1).value or ""):
+            header_row = row_idx + 1
+            break
+    assert header_row is not None
+
+    headers = [str(ws.cell(header_row, cc).value or "").strip() for cc in range(1, 15)]
+    assert headers[2].lower() == "actual / guide"
+    assert headers[5].lower() == "why it matters"
+    assert "Source" not in headers[3:9]
+    assert "Source" in headers[9:]
+    first_commentary_row = header_row + 1
+    assert str(ws.cell(first_commentary_row, 3).value or "").strip()
+    assert not str(ws.cell(first_commentary_row, 4).value or "").strip()
+    assert not str(ws.cell(first_commentary_row, 5).value or "").strip()
+    assert str(ws.cell(first_commentary_row, 6).value or "").strip()
+    assert f"C{header_row}:E{header_row}" in merged_ranges
+    assert f"F{header_row}:I{header_row}" in merged_ranges
+    assert f"C{first_commentary_row}:E{first_commentary_row}" in merged_ranges
+    assert f"F{first_commentary_row}:I{first_commentary_row}" in merged_ranges
+    assert ws.row_dimensions[first_commentary_row].height >= 30.0
+
+
+def test_gtx_operating_drivers_table_columns_are_wide_enough_for_labels(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        widths = {col: float(ws.column_dimensions[col].width or 0.0) for col in ("B", "C", "D", "E", "F", "G", "H", "I")}
+
+    assert widths["G"] >= 12.0, "Source date / spacer column should not clip headers like 'Source date'"
+    assert min(widths[col] for col in ("B", "C", "D", "E", "F")) >= 15.0
+    assert widths["E"] >= 20.0, "Basis column should fit labels like '2026 year assumption'"
+    assert widths["H"] >= 24.0
+    assert widths["I"] >= 28.0
+
+
+def test_gtx_operating_driver_tables_are_chronological_older_to_newer(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Operating_Drivers"]
+
+    def _headers_after(section: str) -> list[str]:
+        for row_idx in range(1, int(ws.max_row or 0) + 1):
+            if str(ws.cell(row_idx, 1).value or "").strip() == section:
+                return [str(ws.cell(row_idx + 1, cc).value or "").strip() for cc in range(1, 8)]
+        raise AssertionError(f"Missing section {section}")
+
+    assert _headers_after("Product-line revenue history")[:6] == [
+        "Product line",
+        "2023 year",
+        "2024 year",
+        "2025 year",
+        "2025-Q1",
+        "2026-Q1",
+    ]
+    assert _headers_after("Geography revenue history")[:6] == [
+        "Geography",
+        "2023 year",
+        "2024 year",
+        "2025 year",
+        "2025-Q1",
+        "2026-Q1",
+    ]
+
+
+def test_gtx_operating_driver_tables_inline_units_in_row_labels(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Operating_Drivers"]
+
+    for section, expected_labels in {
+        "Product-line revenue history": ("Gas ($m)", "Diesel ($m)", "Aftermarket ($m)"),
+        "Geography revenue history": ("United States ($m)", "Europe ($m)", "China ($m)"),
+    }.items():
+        section_row = _find_row_with_first_cell(ws, section)
+        headers = [str(ws.cell(section_row + 1, cc).value or "").strip() for cc in range(1, 15)]
+        assert "Unit" not in headers
+        block_text = "\n".join(
+            str(ws.cell(rr, 1).value or "")
+            for rr in range(section_row + 2, min(section_row + 12, int(ws.max_row or 0)) + 1)
+        )
+        for label in expected_labels:
+            assert label in block_text
+
+
+def test_gtx_customer_concentration_separates_revenue_and_sales_percent_blocks(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Operating_Drivers"]
+    section_row = _find_row_with_first_cell(ws, "Customer concentration")
+    labels = [
+        str(ws.cell(rr, 1).value or "").strip()
+        for rr in range(section_row + 2, min(section_row + 14, int(ws.max_row or 0)) + 1)
+    ]
+
+    revenue_positions = {
+        label: idx
+        for idx, label in enumerate(labels)
+        if label.endswith("revenue ($m)") or label == "Top ten customers revenue ($m)"
+    }
+    percent_positions = {
+        label: idx
+        for idx, label in enumerate(labels)
+        if label.endswith("% sales") or label == "Top ten customers % sales"
+    }
+    blank_positions = [idx for idx, label in enumerate(labels) if not label]
+
+    assert {"Stellantis revenue ($m)", "BMW revenue ($m)", "Ford revenue ($m)"}.issubset(revenue_positions)
+    assert {"Stellantis % sales", "BMW % sales", "Ford % sales", "Top ten customers % sales"}.issubset(percent_positions)
+    assert blank_positions, "Expected visual separator between revenue rows and % sales rows"
+    assert max(revenue_positions.values()) < min(blank_positions) < min(percent_positions.values())
+
+
+def test_gtx_bs_segments_analytical_cuts_use_readable_units_and_customer_blocks(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["BS_Segments"]
+
+    product_row = _find_row_with_first_cell(ws, "Product-line revenue by year")
+    product_headers = [str(ws.cell(product_row + 1, cc).value or "").strip() for cc in range(1, 10)]
+    assert "Unit" not in product_headers
+    product_labels = [
+        str(ws.cell(rr, 1).value or "").strip()
+        for rr in range(product_row + 2, min(product_row + 8, int(ws.max_row or 0)) + 1)
+    ]
+    assert {"Gas ($m)", "Diesel ($m)", "Aftermarket ($m)"}.issubset(set(product_labels))
+
+    geography_row = _find_row_with_first_cell(ws, "Geography revenue by year")
+    geography_headers = [str(ws.cell(geography_row + 1, cc).value or "").strip() for cc in range(1, 10)]
+    assert "Unit" not in geography_headers
+    geography_labels = [
+        str(ws.cell(rr, 1).value or "").strip()
+        for rr in range(geography_row + 2, min(geography_row + 8, int(ws.max_row or 0)) + 1)
+    ]
+    assert {"United States ($m)", "Europe ($m)", "China ($m)"}.issubset(set(geography_labels))
+
+    customer_row = _find_row_with_first_cell(ws, "Customer concentration")
+    labels = [
+        str(ws.cell(rr, 1).value or "").strip()
+        for rr in range(customer_row + 2, min(customer_row + 14, int(ws.max_row or 0)) + 1)
+    ]
+    revenue_positions = {
+        label: idx
+        for idx, label in enumerate(labels)
+        if label.endswith("revenue ($m)") or label == "Top ten customers revenue ($m)"
+    }
+    percent_positions = {
+        label: idx
+        for idx, label in enumerate(labels)
+        if label.endswith("% sales") or label == "Top ten customers % sales"
+    }
+    blank_positions = [idx for idx, label in enumerate(labels) if not label]
+
+    assert {"Stellantis revenue ($m)", "BMW revenue ($m)", "Ford revenue ($m)"}.issubset(revenue_positions)
+    assert {"Stellantis % sales", "BMW % sales", "Ford % sales", "Top ten customers % sales"}.issubset(percent_positions)
+    assert blank_positions, "Expected visual separator between customer revenue and % sales rows"
+    assert max(revenue_positions.values()) < min(blank_positions) < min(percent_positions.values())
+
+
+def test_gtx_operating_drivers_keeps_adjusted_metric_history_out_of_driver_sheet(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "Operating_Drivers")
+    assert "Adjusted EBIT / EBITDA / adjusted FCF history" not in text
+
+
+def test_gtx_valuation_quarterly_grid_includes_adjusted_operating_and_fcf_rows(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Valuation"]
+    text = _sheet_visible_text(gtx_wb, "Valuation")
+    low = text.lower()
+
+    for label in ("Adj EBIT", "Adj EBITDA", "Adj FCF"):
+        assert label.lower() in low
+
+    adj_ebit_row = _find_row_with_first_cell(ws, "Adj EBIT")
+    adj_ebitda_row = _find_row_with_first_cell(ws, "Adj EBITDA")
+    adj_fcf_row = _find_row_with_first_cell(ws, "Adj FCF")
+    assert any(value == pytest.approx(151.0, abs=0.01) for value in _numeric_row_values(ws, adj_ebit_row))
+    assert any(value == pytest.approx(183.0, abs=0.01) for value in _numeric_row_values(ws, adj_ebitda_row))
+    assert any(value == pytest.approx(49.0, abs=0.01) for value in _numeric_row_values(ws, adj_fcf_row))
+
+
+def test_gtx_promise_progress_body_font_matches_ui_convention(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Promise_Progress_UI"]
+    mismatches: list[tuple[str, Any]] = []
+    for row in ws.iter_rows(min_row=6, max_row=min(int(ws.max_row or 0), 42), min_col=1, max_col=14):
+        fg_color = getattr(getattr(row[0], "fill", None), "fgColor", None)
+        section_fill = str(getattr(fg_color, "rgb", "") or "").upper()
+        if section_fill.endswith(("5B9BD5", "6FA8DC", "4472C4")):
+            continue
+        for cell in row:
+            if cell.value is None or str(cell.value).strip() == "":
+                continue
+            if float(cell.font.sz or 0) < 12.0:
+                mismatches.append((cell.coordinate, cell.font.sz))
+
+    assert mismatches == []
+
+
+def test_gtx_promise_progress_uses_anf_pbi_card_layout(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+
+        assert str(ws["A1"].value or "").strip() == "Promise Progress"
+        assert str(ws["A3"].value or "").strip() == "Management Credibility Scorecard"
+        assert str(ws["A3"].fill.fgColor.rgb or "").upper() == "005B9BD5"
+        assert ws.row_dimensions[1].height >= 26.0
+        assert ws.row_dimensions[3].height >= 24.0
+        for row_idx in (5, 6, 7, 36, 37, 38):
+            assert ws.row_dimensions[row_idx].height >= 30.0
+        for required_merge in ("A3:L3", "C5:F5", "G5:L5"):
+            assert required_merge in merged_ranges
+
+
+def test_gtx_promise_progress_has_quarter_context_beyond_two_topline_sections(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "Promise_Progress_UI").lower()
+
+    for required in (
+        "quarterly actuals / source-backed context",
+        "2026-q1",
+        "2025-q4",
+        "2025-q3",
+        "only clean official guidance revisions are shown",
+    ):
+        assert required in text
+
+
+def test_gtx_bs_segments_shows_analytical_cuts_not_missing_segment_stub(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "BS_Segments")
+    low = text.lower()
+
+    assert "no annual segment data found for gtx" not in low
+    assert "annual analytical cuts" in low
+    assert low.count("annual analytical cuts") == 1
+    assert "one operating/reportable segment" in low
+    assert "not segment profit" in low
+    for required in (
+        "Gas",
+        "Diesel",
+        "Commercial Vehicles / Industrial",
+        "Aftermarket",
+        "Other",
+        "United States",
+        "Europe",
+        "China",
+        "Rest of Asia",
+        "Other International",
+        "Stellantis",
+        "BMW",
+        "Ford",
+    ):
+        assert required.lower() in low
+
+
+def test_gtx_bs_segments_analytical_cut_columns_are_not_overwide(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["BS_Segments"]
+        base_widths = [float(ws.column_dimensions[col].width or 0.0) for col in ("B", "C", "D", "E")]
+        note_widths = [float(ws.column_dimensions[col].width or 0.0) for col in ("F", "G", "H", "I")]
+        max_base = max(base_widths)
+
+        assert min(base_widths) >= 12.0
+        assert max(note_widths) <= max_base + 2.0
+
+
+def test_gtx_valuation_has_no_guidance_or_driver_fallback_text(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "Valuation").lower()
+
+    assert "no guidance items for this quarter" not in text
+    assert "no operating-driver map available for this ticker yet" not in text
+
+
+def test_gtx_quarter_notes_filters_boilerplate_ocr_and_policy_noise(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "Quarter_Notes_UI").lower()
+    forbidden = (
+        "forward-looking statements",
+        "in many cases, you can identify",
+        "aim,",
+        "anticipate",
+        "believe,",
+        "continue,",
+        "could",
+        "variable consideration",
+        "revenue is measured as the amount of consideration",
+        "pension contribution",
+        "make contributions of cash and/or marketable securities",
+        "each grantee is granted",
+        "guidance signal in filing text",
+        "margin signal in filing text",
+        "revenue signal in filing text",
+        "69 >5% average annual cost",
+    )
+    found = [needle for needle in forbidden if needle in text]
+
+    assert found == []
+
+
+def test_gtx_quarter_notes_uses_clean_source_backed_latest_quarter_reads(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    text = _sheet_visible_text(gtx_wb, "Quarter_Notes_UI").lower()
+
+    for required in (
+        "2026-q1 - quarter notes",
+        "net sales $985m",
+        "adjusted ebit $151m",
+        "adjusted fcf $49m",
+        "buybacks $87m",
+        "2026 guidance raised",
+        "business award",
+        "2025-q4 - quarter notes",
+        "q4 net sales $891m",
+        "q4 adjusted ebit $122m",
+        "q4 adjusted fcf $139m",
+        "2025 year buybacks $208m",
+        "initial 2026 outlook",
+    ):
+        assert required in text
+
+
+def test_gtx_quarter_notes_matches_peer_depth_and_section_pattern(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Quarter_Notes_UI"]
+    text = _sheet_visible_text(gtx_wb, "Quarter_Notes_UI").lower()
+    quarter_blocks = [
+        str(ws.cell(rr, 1).value or "").strip().lower()
+        for rr in range(1, int(ws.max_row or 0) + 1)
+        if str(ws.cell(rr, 1).value or "").strip().lower().endswith("- quarter notes")
+    ]
+
+    assert len(quarter_blocks) >= 4
+    assert "guidance / promise interpretation" in text
+    assert "model mapping / double-count guardrails" in text
+    assert "2025-q3 - quarter notes" in text
+
+
 def test_gtx_history_q4_2025_operating_income_and_diluted_shares(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -284,6 +924,51 @@ def test_gtx_older_q4_operating_income_is_not_impossible_vs_gross_profit(
             f"GTX {quarter} operating income should be quarterized or blank, "
             f"not an impossible FY/YTD artifact above gross profit"
         )
+
+
+def test_gtx_nongaap_credibility_does_not_show_impossible_q4_gaap_ebit(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    assert "NonGAAP_Credibility" in gtx_wb.sheetnames
+    ws = gtx_wb["NonGAAP_Credibility"]
+    rows = list(ws.iter_rows(values_only=True))
+    headers = list(rows[0])
+    quarter_idx = headers.index("quarter")
+    gaap_idx = headers.index("gaap_ebit")
+    revenue_idx = headers.index("revenue")
+
+    bad: list[tuple[Any, Any, Any]] = []
+    impossible_values = {345_000_000, 388_000_000, 347_000_000, 353_000_000}
+    for row in rows[1:]:
+        quarter = row[quarter_idx]
+        if not str(quarter).startswith(("2022-12-31", "2023-12-31", "2024-12-31", "2025-12-31")):
+            continue
+        gaap_ebit = row[gaap_idx]
+        revenue = row[revenue_idx]
+        if gaap_ebit in impossible_values:
+            bad.append((quarter, gaap_ebit, revenue))
+
+    assert bad == []
+
+
+def test_gtx_adjusted_metrics_filters_low_confidence_local_fallback_rows(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    assert "Adjusted_Metrics" in gtx_wb.sheetnames
+    ws = gtx_wb["Adjusted_Metrics"]
+    rows = list(ws.iter_rows(values_only=True))
+    headers = list(rows[0])
+    confidence_idx = headers.index("confidence")
+    source_type_idx = headers.index("source_type")
+
+    low_rows = [
+        row
+        for row in rows[1:]
+        if str(row[confidence_idx] or "").strip().lower() == "low"
+        or str(row[source_type_idx] or "").strip().lower() == "earnings_deck"
+    ]
+
+    assert low_rows == []
 
 
 def test_gtx_q1_2026_fcf_qa_excludes_may_18_special_event_source(

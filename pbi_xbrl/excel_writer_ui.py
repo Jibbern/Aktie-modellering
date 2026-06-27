@@ -92,6 +92,223 @@ def _shared_guidance_normalized_frame(guidance_df: Any) -> Any:
     return df
 
 
+def _gtx_guidance_normalized_frame(guidance_df: Any) -> Any:
+    """Append curated, official GTX outlook/actual rows missing from noisy slide OCR."""
+    df = _shared_guidance_normalized_frame(guidance_df)
+    if not isinstance(df, pd.DataFrame):
+        return df
+    if df.empty:
+        columns = [
+            "quarter",
+            "line",
+            "numbers",
+            "metric_hint",
+            "doc",
+            "page",
+            "source",
+            "period_label",
+            "metric",
+            "source_date",
+            "stated_in_label",
+            "horizon_label",
+            "horizon_type",
+            "source_context",
+        ]
+        df = pd.DataFrame(columns=columns)
+    columns = list(df.columns)
+
+    def _curated(
+        *,
+        stated_quarter: str,
+        metric: str,
+        line: str,
+        numbers: str,
+        source_date: str,
+        source_doc: str,
+        horizon: str = "2026 year",
+        period_label: str = "2026 year",
+    ) -> Dict[str, Any]:
+        row = {col: "" for col in columns}
+        row.update(
+            {
+                "quarter": pd.Timestamp(stated_quarter),
+                "line": line,
+                "numbers": numbers,
+                "metric_hint": metric,
+                "doc": source_doc,
+                "source": "earnings_release_curated",
+                "period_label": period_label,
+                "metric": metric,
+                "source_date": source_date,
+                "stated_in_label": _shared_quarter_label(stated_quarter),
+                "horizon_label": horizon,
+                "horizon_type": "annual" if "year" in horizon.lower() or horizon.startswith("FY") else "quarter",
+                "source_context": line,
+            }
+        )
+        return row
+
+    q1_doc = r"C:\Users\Jibbe\Aktier\StockModelData\tickers\GTX\earnings_release\exhibit99_1-2026q1.htm"
+    q4_doc = r"C:\Users\Jibbe\Aktier\StockModelData\tickers\GTX\earnings_release\exhibit99_1-2025q4.htm"
+    curated_rows = [
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="Net sales",
+            line="2026-Q1 raised FY2026 outlook: net sales $3.6bn-$3.9bn.",
+            numbers="$3.6bn-$3.9bn",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="Constant-currency sales growth",
+            line="2026-Q1 FY2026 outlook assumption: constant-currency sales growth -2% to +6%.",
+            numbers="-2% to +6%",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="Net income",
+            line="2026-Q1 raised FY2026 outlook: net income $300m-$360m.",
+            numbers="$300m-$360m",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="Adjusted EBIT",
+            line="2026-Q1 raised FY2026 outlook: adjusted EBIT $520m-$600m.",
+            numbers="$520m-$600m",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="CFO",
+            line="2026-Q1 FY2026 outlook: CFO $407m-$522m.",
+            numbers="$407m-$522m",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="Adjusted FCF",
+            line="2026-Q1 raised FY2026 outlook: adjusted FCF $355m-$475m.",
+            numbers="$355m-$475m",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="Light vehicle production",
+            line="2026-Q1 FY2026 assumption: light vehicle industry production down 1%-3%.",
+            numbers="-1% to -3%",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="Commercial vehicle industry",
+            line="2026-Q1 FY2026 assumption: commercial vehicle industry up 1%-2%.",
+            numbers="+1% to +2%",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="BEV penetration",
+            line="2026-Q1 FY2026 assumption: BEV penetration about 19%.",
+            numbers="about 19%",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="EUR/USD",
+            line="2026-Q1 FY2026 assumption: EUR/USD 1.17.",
+            numbers="1.17",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="RD&E",
+            line="2026-Q1 FY2026 assumption: RD&E about 4.2% of sales.",
+            numbers="about 4.2% of sales",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2026-03-31",
+            metric="Capex",
+            line="2026-Q1 FY2026 assumption: capex about 2.5% of sales.",
+            numbers="about 2.5% of sales",
+            source_date="2026-04-30",
+            source_doc=q1_doc,
+        ),
+        _curated(
+            stated_quarter="2025-12-31",
+            metric="FY2025 net sales",
+            line="2025-Q4 actual: FY2025 net sales $3.584bn.",
+            numbers="$3.584bn",
+            source_date="2026-02-19",
+            source_doc=q4_doc,
+            horizon="FY2025 actual",
+            period_label="FY2025 actual",
+        ),
+        _curated(
+            stated_quarter="2025-12-31",
+            metric="FY2025 adjusted EBIT",
+            line="2025-Q4 actual: FY2025 adjusted EBIT $510m.",
+            numbers="$510m",
+            source_date="2026-02-19",
+            source_doc=q4_doc,
+            horizon="FY2025 actual",
+            period_label="FY2025 actual",
+        ),
+        _curated(
+            stated_quarter="2025-12-31",
+            metric="FY2025 adjusted FCF",
+            line="2025-Q4 actual: FY2025 adjusted FCF $403m.",
+            numbers="$403m",
+            source_date="2026-02-19",
+            source_doc=q4_doc,
+            horizon="FY2025 actual",
+            period_label="FY2025 actual",
+        ),
+        _curated(
+            stated_quarter="2025-12-31",
+            metric="FY2025 buybacks",
+            line="2025-Q4 actual: FY2025 buybacks $208m and common share count reduction 8% year-over-year.",
+            numbers="$208m; 8%",
+            source_date="2026-02-19",
+            source_doc=q4_doc,
+            horizon="FY2025 actual",
+            period_label="FY2025 actual",
+        ),
+    ]
+    return pd.concat([df, pd.DataFrame(curated_rows, columns=columns)], ignore_index=True)
+
+
+def _visible_non_gaap_credibility_frame_for_workbook(ticker: str, non_gaap_df: Any) -> Any:
+    if ticker != "GTX" or not isinstance(non_gaap_df, pd.DataFrame) or non_gaap_df.empty:
+        return non_gaap_df
+    required = {"quarter", "gaap_ebit"}
+    if not required.issubset(set(non_gaap_df.columns)):
+        return non_gaap_df
+    out = non_gaap_df.copy()
+    q = pd.to_datetime(out["quarter"], errors="coerce")
+    gaap = pd.to_numeric(out["gaap_ebit"], errors="coerce")
+    impossible_q4 = q.dt.strftime("%Y-%m-%d").isin(
+        {"2022-12-31", "2023-12-31", "2024-12-31", "2025-12-31"}
+    ) & gaap.isin([345_000_000, 388_000_000, 347_000_000, 353_000_000])
+    out.loc[impossible_q4, "gaap_ebit"] = pd.NA
+    if "total_adjustments" in out.columns:
+        out.loc[impossible_q4, "total_adjustments"] = pd.NA
+    return out
+
+
 def _write_ui_raw_frames(ctx: WriterContext, *, debug_subset: bool = False) -> None:
     write_sheet = ctx.callbacks.write_sheet
     with timed_writer_stage(
@@ -115,14 +332,16 @@ def _write_ui_raw_frames(ctx: WriterContext, *, debug_subset: bool = False) -> N
             )
         write_sheet("Promise_Progress", ctx.inputs.promise_progress)
         if not debug_subset:
-            write_sheet("NonGAAP_Credibility", ctx.inputs.non_gaap_cred)
+            ticker = str(getattr(ctx.company_profile, "ticker", "") or getattr(ctx.inputs, "ticker", "") or "").upper()
+            write_sheet("NonGAAP_Credibility", _visible_non_gaap_credibility_frame_for_workbook(ticker, ctx.inputs.non_gaap_cred))
             write_sheet("Guidance_Raw", ctx.inputs.guidance_raw)
             guidance_normalized = ctx.inputs.slides_guidance
-            ticker = str(getattr(ctx.company_profile, "ticker", "") or getattr(ctx.inputs, "ticker", "") or "").upper()
             if ticker == "ANF":
                 from .excel_writer_context import _anf_visible_guidance_normalized_frame
 
                 guidance_normalized = _anf_visible_guidance_normalized_frame(guidance_normalized)
+            elif ticker == "GTX":
+                guidance_normalized = _gtx_guidance_normalized_frame(guidance_normalized)
             else:
                 guidance_normalized = _shared_guidance_normalized_frame(guidance_normalized)
             write_sheet("Guidance_Normalized", guidance_normalized)

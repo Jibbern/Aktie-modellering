@@ -141,32 +141,42 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
         if str(ticker or "").strip().upper() == "GTX":
             ws.sheet_format.defaultRowHeight = 20
             ws.sheet_view.zoomScale = 110
-            ws.freeze_panes = "A4"
-            title_fill = PatternFill("solid", fgColor="1F4E78")
+            ws.freeze_panes = "A5"
+            title_fill = PatternFill("solid", fgColor="6FA8DC")
             header_fill = PatternFill("solid", fgColor="D9EAF7")
             section_fill = PatternFill("solid", fgColor="EAF3FB")
+            white_fill = PatternFill("solid", fgColor="FFFFFF")
+            alt_fill = PatternFill("solid", fgColor="F8FBFD")
             thin = Border(
                 left=Side(style="thin", color="D9E2EA"),
                 right=Side(style="thin", color="D9E2EA"),
                 top=Side(style="thin", color="D9E2EA"),
                 bottom=Side(style="thin", color="D9E2EA"),
             )
-            ws.merge_cells("A1:E1")
-            ws["A1"] = "GTX Operating Driver Watchlist"
-            ws["A1"].fill = title_fill
-            ws["A1"].font = Font(bold=True, color="FFFFFF", size=header_size + 1)
-            ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
-            ws.merge_cells("A2:E2")
-            ws["A2"] = (
+            ws.merge_cells("A2:N2")
+            ws["A2"] = "Operating Drivers"
+            ws["A2"].fill = title_fill
+            ws["A2"].font = Font(bold=True, color="FFFFFF", size=15)
+            ws["A2"].alignment = Alignment(horizontal="left", vertical="center")
+            ws.merge_cells("A3:N3")
+            ws["A3"] = (
                 "Source-backed analytical cuts for Garrett Motion. GTX has one reportable accounting segment; "
                 "these rows are operating drivers, not segment profit."
             )
-            ws["A2"].fill = section_fill
-            ws["A2"].font = Font(italic=True, color="1F2933", size=font_size)
-            ws["A2"].alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-            headers = ["Driver", "Latest source-backed read", "Why it matters", "Source / evidence", "Treatment"]
-            for cc, header in enumerate(headers, 1):
-                cell = ws.cell(3, cc, header)
+            ws["A3"].font = Font(italic=True, color="1F2933", size=10)
+            ws["A3"].alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            ws.merge_cells("A4:N4")
+            ws["A4"] = "Current watchlist"
+            ws["A4"].fill = title_fill
+            ws["A4"].font = Font(bold=True, color="FFFFFF", size=12)
+            ws["A4"].alignment = Alignment(horizontal="left", vertical="center")
+            ws.merge_cells("B5:G5")
+            ws.merge_cells("H5:N5")
+            header_map = {1: "Watch item", 2: "Current read", 8: "Why it matters"}
+            for cc in range(1, 15):
+                cell = ws.cell(5, cc)
+                if cc in header_map:
+                    cell.value = header_map[cc]
                 cell.fill = header_fill
                 cell.font = Font(bold=True, color="1F2933", size=font_size)
                 cell.border = thin
@@ -174,89 +184,241 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
             watchlist_rows = [
                 (
                     "OEM production / end-market demand",
-                    "Q1 2026 release outlook assumes light-vehicle industry production down 1%-3% and commercial vehicle industry up 1%-2% for FY2026.",
+                    "FY2026 LV down 1%-3%; CV up 1%-2%.",
                     "Volume backdrop drives turbo demand and launch timing.",
-                    "Q1 2026 earnings release / FY2026 outlook assumptions",
-                    "Watchlist; do not treat as reported segment revenue.",
                 ),
                 (
                     "Product mix / turbo demand",
-                    "FY2025 product-line mix: Gas $1,592m, Diesel $837m, Commercial Vehicle $654m, Aftermarket $438m, Other $63m.",
+                    "Product-line mix is the key revenue cut; see table below.",
                     "Mix determines gross margin, RD&E intensity and platform durability.",
-                    "2025 Form 10-K sales concentration table",
-                    "Analytical product-line cut.",
                 ),
                 (
                     "Q1 2026 product-line momentum",
-                    "Q1 2026 sales: Gas $443m, Diesel $232m, Commercial Vehicles / Industrial $181m, Aftermarket $114m, Other $15m.",
+                    "Q1 2026 product-line update is in the data table below.",
                     "Latest quarter mix provides the near-term bridge into guidance.",
-                    "Q1 2026 Form 10-Q sales concentration table",
-                    "Quarterly analytical cut.",
                 ),
                 (
                     "Commercial vehicle / industrial",
-                    "Q1 2026 release cites commercial vehicle off-highway and industrial strength plus power-generation awards.",
+                    "Q1 release cites CV/off-highway strength and power-generation awards.",
                     "Industrial and CV awards can offset weaker light-vehicle cycles.",
-                    "Q1 2026 earnings release business highlights",
-                    "Watch awards and conversion to sales.",
                 ),
                 (
                     "Aftermarket",
-                    "Aftermarket was $438m / 12% of FY2025 revenue and $114m in Q1 2026.",
+                    "Aftermarket remains a durability watch; see product table below.",
                     "Aftermarket can support more durable replacement demand than OEM launches.",
-                    "2025 Form 10-K and Q1 2026 Form 10-Q",
-                    "Analytical product-line cut.",
                 ),
                 (
                     "China / Europe exposure",
-                    "FY2025 sales: Europe $1,745m, China $638m, Rest of Asia $406m, United States $694m, Other International $101m.",
+                    "Europe and China remain key geography sensitivities; see table below.",
                     "FX, regional vehicle production and China demand are key sensitivity points.",
-                    "2025 Form 10-K geographic sales table",
-                    "Analytical geography cut.",
                 ),
                 (
-                    "Customer concentration",
-                    "2025 customer concentration: Stellantis 12%, BMW 11%, Ford 11%; top ten customers about 62% of sales.",
+                    "Customer concentration watch",
+                    "Stellantis, BMW and Ford are the largest disclosed FY2025 customers.",
                     "Platform wins/losses and pricing pressure can matter disproportionately.",
-                    "2025 Form 10-K customer concentration disclosure",
-                    "Concentration risk; not a segment.",
                 ),
                 (
                     "RD&E / technology awards",
-                    "Q1 2026 release cites light-vehicle turbo awards, range-extended EV awards, E-Powertrain and E-Cooling wins.",
+                    "Q1 release cites turbo, range-extended EV, E-Powertrain and E-Cooling awards.",
                     "Technology pipeline is the bridge from mature turbo platforms to future content.",
-                    "Q1 2026 earnings release business highlights",
-                    "Watch next award disclosures and launch timing.",
                 ),
                 (
-                    "Adjusted EBIT / adjusted FCF conversion",
-                    "Q1 2026 adjusted EBIT $151m, adjusted EBITDA $183m and adjusted FCF $49m; FY2026 outlook raised to adjusted EBIT $520m-$600m and adjusted FCF $355m-$475m.",
-                    "The case needs operating profit to convert into cash after capex, interest and working capital.",
-                    "Q1 2026 earnings release / non-GAAP outlook",
-                    "Primary operating and cash-flow scorecard.",
+                    "Margin / cash conversion",
+                    "Quarterly non-GAAP values now sit on Valuation.",
+                    "The case needs profit to convert into cash after capex, interest and working capital.",
                 ),
                 (
                     "Debt, net leverage and buybacks",
-                    "Q1 2026 release discloses $1,437m debt outstanding, $87m Q1 buybacks, $163m remaining buyback capacity; May 18 event disclosed $50m term-loan repayment/repricing.",
+                    "Q1 debt/buybacks are reported; May 18 debt event stays post-quarter.",
                     "Equity value is sensitive to leverage, interest cost, buybacks and unrestricted cash.",
-                    "Q1 2026 earnings release and May 18 2026 press release",
-                    "Keep May 18 item post-quarter / pro-forma; do not rewrite Q1 history.",
                 ),
             ]
-            for rr, record in enumerate(watchlist_rows, 4):
-                for cc, value in enumerate(record, 1):
-                    cell = ws.cell(rr, cc, value)
+            for rr, record in enumerate(watchlist_rows, 6):
+                ws.merge_cells(start_row=rr, start_column=2, end_row=rr, end_column=7)
+                ws.merge_cells(start_row=rr, start_column=8, end_row=rr, end_column=14)
+                ws.cell(rr, 1, record[0])
+                ws.cell(rr, 2, record[1])
+                ws.cell(rr, 8, record[2])
+                row_fill = alt_fill if rr % 2 == 0 else white_fill
+                for cc in range(1, 15):
+                    cell = ws.cell(rr, cc)
+                    cell.fill = copy(row_fill)
                     cell.border = thin
-                    cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
                     cell.font = Font(color="1F2933", size=font_size)
-                if rr % 2 == 0:
-                    for cc in range(1, len(headers) + 1):
-                        ws.cell(rr, cc).fill = PatternFill("solid", fgColor="F8FBFD")
-            widths = {1: 30, 2: 52, 3: 48, 4: 38, 5: 34}
+
+            def _section(row_idx: int, title: str, note: str = "") -> int:
+                ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=14)
+                cell = ws.cell(row_idx, 1, title if not note else f"{title} — {note}")
+                cell.fill = title_fill
+                cell.font = Font(bold=True, color="FFFFFF", size=12)
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+                return row_idx + 1
+
+            def _headers(row_idx: int, values: Sequence[str]) -> int:
+                for cc, header in enumerate(values, 1):
+                    cell = ws.cell(row_idx, cc, header)
+                    cell.fill = header_fill
+                    cell.font = Font(bold=True, color="1F2933", size=font_size)
+                    cell.border = thin
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                return row_idx + 1
+
+            def _rows(row_idx: int, records: Sequence[Sequence[Any]]) -> int:
+                for record in records:
+                    for cc, value in enumerate(record, 1):
+                        cell = ws.cell(row_idx, cc, value)
+                        cell.border = thin
+                        cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=False)
+                        cell.font = Font(color="1F2933", size=font_size)
+                    if row_idx % 2 == 0:
+                        for cc in range(1, min(14, len(record)) + 1):
+                            ws.cell(row_idx, cc).fill = PatternFill("solid", fgColor="F8FBFD")
+                    row_idx += 1
+                return row_idx
+
+            rr = 6 + len(watchlist_rows) + 2
+            rr = _section(rr, "Current/latest outlook", "official Q1 2026 release, FY2026 outlook")
+            rr = _headers(rr, ["Metric", "Low", "High", "Unit", "Basis", "Stated in", "Source date", "Source", "Workbook use", "Status", "Notes", "Review flag", "Source path exists?", "Audit note"])
+            rr = _rows(
+                rr,
+                [
+                    ("Net sales", "$3.6bn", "$3.9bn", "$bn", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Promise / valuation context", "Open", "Raised 2026 outlook."),
+                    ("Constant-currency sales growth", "-2%", "+6%", "%", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Demand backdrop", "Open", "Use as growth sensitivity, not reported result."),
+                    ("Net income", "$300m", "$360m", "$m", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Bridge to EPS/cash", "Open", "GAAP outlook."),
+                    ("Adjusted EBIT", "$520m", "$600m", "$m", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Primary operating metric", "Open", "Primary non-GAAP operating scorecard."),
+                    ("CFO", "$407m", "$522m", "$m", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Cash conversion", "Open", "GAAP operating cash flow outlook."),
+                    ("Adjusted FCF", "$355m", "$475m", "$m", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Cash conversion", "Open", "Company-defined adjusted FCF."),
+                    ("Light vehicle production", "-1%", "-3%", "%", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "End-market assumption", "Watch", "Industry production down 1%-3%."),
+                    ("Commercial vehicle industry", "+1%", "+2%", "%", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "End-market assumption", "Watch", "Commercial vehicle industry up 1%-2%."),
+                    ("BEV penetration", "about 19%", "", "%", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Powertrain mix assumption", "Watch", "Sensitivity for turbo/electrification mix."),
+                    ("EUR/USD", "1.17", "", "FX", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "FX assumption", "Watch", "Do not treat as actual FX."),
+                    ("RD&E", "about 4.2%", "", "% of sales", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Technology investment watch", "Watch", "Supports new awards/pipeline."),
+                    ("Capex", "about 2.5%", "", "% of sales", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "FCF bridge", "Watch", "Capex intensity assumption."),
+                ],
+            )
+            rr += 1
+            rr = _section(rr, "Recent quarter commentary", "source-backed actuals and management framing")
+            commentary_header_row = rr
+            commentary_headers = {
+                1: "Period",
+                2: "Read",
+                3: "Actual / guide",
+                6: "Why it matters",
+                10: "Source",
+                11: "Workbook treatment",
+                13: "Confidence",
+                14: "Notes",
+            }
+            for cc in range(1, 15):
+                cell = ws.cell(commentary_header_row, cc, commentary_headers.get(cc, ""))
+                cell.fill = header_fill
+                cell.font = Font(bold=True, color="1F2933", size=font_size)
+                cell.border = thin
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            ws.merge_cells(start_row=commentary_header_row, start_column=3, end_row=commentary_header_row, end_column=5)
+            ws.merge_cells(start_row=commentary_header_row, start_column=6, end_row=commentary_header_row, end_column=9)
+            ws.merge_cells(start_row=commentary_header_row, start_column=11, end_row=commentary_header_row, end_column=12)
+            rr += 1
+            commentary_rows = [
+                ("2026-Q1", "Net sales", "$985m; +12% reported, +6% constant currency", "Latest quarter revenue base for FY2026 guide.", "Q1 2026 earnings release", "History_Q / Summary", "High", "Do not mix with May 2026 debt event."),
+                ("2026-Q1", "Product-line mix", "Gas $443m; Diesel $232m; CV/Industrial $181m; Aftermarket $114m.", "Mix explains where the Q1 growth is coming from.", "Q1 2026 10-Q", "Operating-driver table below", "High", "Analytical revenue cuts, not accounting segments."),
+                ("2026-Q1", "Geography mix", "Europe $503m; US $179m; China $167m.", "Regional exposure links demand, FX and platform risk.", "Q1 2026 10-Q", "Operating-driver table below", "High", "Europe includes Germany plus rest of Europe."),
+                ("2026-Q1", "Capital allocation", "Q1 buybacks $87m; remaining authorization $163m.", "Buybacks matter only with leverage and cash capacity in view.", "Q1 2026 earnings release", "Promise / Valuation context", "High", "Do not let buybacks increase operating profit."),
+                ("2025-Q4", "Net sales", "$891m", "Q4 actual used for quarterized history.", "Q4 2025 earnings release", "History_Q", "High", "Quarter value, not FY value."),
+                ("2025-Q4", "FY2025 capital returns", "FY2025 buybacks $208m; share count down 8% YoY.", "Capital allocation shapes per-share outcomes.", "Q4 2025 earnings release", "Promise / Valuation context", "High", "Annual actual, not a quarterly cash-flow row."),
+            ]
+            for record in commentary_rows:
+                period, read, actual, why, source, treatment, confidence, notes = record
+                ws.cell(rr, 1, period)
+                ws.cell(rr, 2, read)
+                ws.cell(rr, 3, actual)
+                ws.merge_cells(start_row=rr, start_column=3, end_row=rr, end_column=5)
+                ws.merge_cells(start_row=rr, start_column=6, end_row=rr, end_column=9)
+                ws.merge_cells(start_row=rr, start_column=11, end_row=rr, end_column=12)
+                ws.cell(rr, 6, why)
+                ws.cell(rr, 10, source)
+                ws.cell(rr, 11, treatment)
+                ws.cell(rr, 13, confidence)
+                ws.cell(rr, 14, notes)
+                for cc in range(1, 15):
+                    cell = ws.cell(rr, cc)
+                    cell.border = thin
+                    cell.font = Font(color="1F2933", size=font_size)
+                    cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                    if rr % 2 == 0:
+                        cell.fill = PatternFill("solid", fgColor="F8FBFD")
+                rr += 1
+            rr += 1
+            rr = _section(rr, "Data tables", "analytical cuts only; GTX still has one reportable accounting segment")
+            rr = _section(rr, "Product-line revenue history")
+            rr = _headers(rr, ["Product line", "2023 year", "2024 year", "2025 year", "2025-Q1", "2026-Q1", "", "Source", "Treatment", "", "", "", "", ""])
+            rr = _rows(
+                rr,
+                [
+                    ("Gas ($m)", 1720, 1505, 1592, 403, 443, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+                    ("Diesel ($m)", 992, 827, 837, 208, 232, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+                    ("Commercial Vehicles / Industrial ($m)", 656, 629, 654, 155, 181, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+                    ("Aftermarket ($m)", 456, 459, 438, 98, 114, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+                    ("Other ($m)", 62, 55, 63, 14, 15, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+                ],
+            )
+            rr += 1
+            rr = _section(rr, "Geography revenue history")
+            rr = _headers(rr, ["Geography", "2023 year", "2024 year", "2025 year", "2025-Q1", "2026-Q1", "", "Source", "Treatment", "", "", "", "", ""])
+            rr = _rows(
+                rr,
+                [
+                    ("United States ($m)", 744, 700, 694, 176, 179, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+                    ("Europe ($m)", 1874, 1642, 1745, 425, 503, "", "2025 10-K / 2026-Q1 10-Q", "Includes Germany + rest of Europe for Q1."),
+                    ("Germany ($m)", "", "", "", 89, 93, "", "2026-Q1 10-Q", "Shown separately in Q1 filing table."),
+                    ("Rest of Europe ($m)", "", "", "", 336, 410, "", "2026-Q1 10-Q", "Shown separately in Q1 filing table."),
+                    ("China ($m)", 768, 643, 638, 153, 167, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+                    ("Rest of Asia ($m)", 433, 413, 406, 104, 110, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+                    ("Other International ($m)", 67, 77, 101, 20, 26, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+                ],
+            )
+            rr += 1
+            rr = _section(rr, "Customer concentration")
+            rr = _headers(rr, ["Customer / group", "2023 year", "2024 year", "2025 year", "", "", "", "Source", "Treatment", "", "", "", "", ""])
+            rr = _rows(
+                rr,
+                [
+                    ("Stellantis revenue ($m)", 347, 330, 424, "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("BMW revenue ($m)", 474, 401, 385, "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("Ford revenue ($m)", 364, 354, 377, "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    tuple(),
+                    ("Stellantis % sales", "9%", "9%", "12%", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("BMW % sales", "12%", "12%", "11%", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("Ford % sales", "9%", "10%", "11%", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("Top ten customers % sales", "", "", "about 62%", "", "", "", "2025 Form 10-K customer disclosure", "Concentration risk; not a segment"),
+                ],
+            )
+            rr += 1
+            rr = _section(rr, "Debt / buyback / leverage watch")
+            rr = _headers(rr, ["Item", "Reported / disclosed value", "Period / event", "Source", "Workbook treatment", "Status", "Notes", "", "", "", "", "", "", ""])
+            rr = _rows(
+                rr,
+                [
+                    ("Debt outstanding", "$1,437m", "2026-Q1 reported", "Q1 2026 earnings release", "History_Q / Debt_Profile", "Reported", "Reported Q1 history remains unchanged."),
+                    ("Unrestricted cash", "$142m", "2026-Q1 reported", "Q1 2026 10-Q", "Net debt uses unrestricted cash only", "Reported", "Restricted cash shown separately."),
+                    ("Restricted cash", "$2m", "2026-Q1 reported", "Q1 2026 10-Q", "Shown separately", "Reported", "Not counted as unrestricted cash."),
+                    ("Q1 buybacks", "$87m", "2026-Q1", "Q1 2026 earnings release", "Capital allocation watch", "Actual", "Returned more than $100m including dividends."),
+                    ("Remaining buyback authorization", "$163m", "2026-Q1", "Q1 2026 earnings release", "Capital allocation watch", "Open", "Not a guaranteed repurchase."),
+                    ("FY2025 buybacks", "$208m", "FY2025", "Q4 2025 earnings release", "Management credibility actual", "Completed", "Common share count reduction 8% YoY."),
+                    ("May 18 debt event", "$50m term-loan repayment/repricing", "Post-quarter event", "May 18 2026 press release / 8-K package", "Pro-forma/event context only", "Post-quarter", "Do not rewrite Q1 reported history."),
+                ],
+            )
+
+            widths = {1: 42, 2: 16, 3: 16, 4: 16, 5: 22, 6: 16, 7: 14, 8: 24, 9: 30, 10: 26, 11: 15, 12: 18, 13: 18, 14: 18}
             for cc, width in widths.items():
                 ws.column_dimensions[get_column_letter(cc)].width = width
-            for rr in range(1, 4 + len(watchlist_rows)):
-                ws.row_dimensions[rr].height = 24 if rr >= 4 else 22
+            ws.row_dimensions[2].height = 24
+            ws.row_dimensions[3].height = 24
+            for row_idx in range(4, int(ws.max_row or 0) + 1):
+                ws.row_dimensions[row_idx].height = 21 if row_idx == 5 else 22.5
+            for row_idx in range(commentary_header_row + 1, commentary_header_row + 1 + len(commentary_rows)):
+                ws.row_dimensions[row_idx].height = 32.0
             return
         ws["A1"] = "No operating-driver history available."
         return
