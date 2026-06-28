@@ -139,6 +139,7 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
         rows = _anf_clean_visible_operating_driver_records(rows)
     if not rows:
         if str(ticker or "").strip().upper() == "GTX":
+            font_size = max(float(font_size or 11.0), 11.0)
             ws.sheet_format.defaultRowHeight = 20
             ws.sheet_view.zoomScale = 110
             ws.freeze_panes = "A5"
@@ -279,22 +280,22 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
 
             rr = 6 + len(watchlist_rows) + 2
             rr = _section(rr, "Current/latest outlook", "official Q1 2026 release, FY2026 outlook")
-            rr = _headers(rr, ["Metric", "Low", "High", "Unit", "Basis", "Stated in", "Source date", "Source", "Workbook use", "Status", "Notes", "Review flag", "Source path exists?", "Audit note"])
+            rr = _headers(rr, ["Metric", "Low", "High", "Unit", "Basis", "Stated in", "Status", "Read", "", "Source", "Workbook treatment", "Confidence", "Notes", "Audit note"])
             rr = _rows(
                 rr,
                 [
-                    ("Net sales", "$3.6bn", "$3.9bn", "$bn", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Promise / valuation context", "Open", "Raised 2026 outlook."),
-                    ("Constant-currency sales growth", "-2%", "+6%", "%", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Demand backdrop", "Open", "Use as growth sensitivity, not reported result."),
-                    ("Net income", "$300m", "$360m", "$m", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Bridge to EPS/cash", "Open", "GAAP outlook."),
-                    ("Adjusted EBIT", "$520m", "$600m", "$m", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Primary operating metric", "Open", "Primary non-GAAP operating scorecard."),
-                    ("CFO", "$407m", "$522m", "$m", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Cash conversion", "Open", "GAAP operating cash flow outlook."),
-                    ("Adjusted FCF", "$355m", "$475m", "$m", "FY2026 outlook", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Cash conversion", "Open", "Company-defined adjusted FCF."),
-                    ("Light vehicle production", "-1%", "-3%", "%", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "End-market assumption", "Watch", "Industry production down 1%-3%."),
-                    ("Commercial vehicle industry", "+1%", "+2%", "%", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "End-market assumption", "Watch", "Commercial vehicle industry up 1%-2%."),
-                    ("BEV penetration", "about 19%", "", "%", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Powertrain mix assumption", "Watch", "Sensitivity for turbo/electrification mix."),
-                    ("EUR/USD", "1.17", "", "FX", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "FX assumption", "Watch", "Do not treat as actual FX."),
-                    ("RD&E", "about 4.2%", "", "% of sales", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "Technology investment watch", "Watch", "Supports new awards/pipeline."),
-                    ("Capex", "about 2.5%", "", "% of sales", "FY2026 assumption", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "FCF bridge", "Watch", "Capex intensity assumption."),
+                    ("Net sales", "$3.6bn", "$3.9bn", "$bn", "FY2026 outlook", "2026-Q1", "Open", "Raised guide", "", "2026-04-30 / Q1 2026 earnings release", "Promise / valuation context", "Source-backed", "Raised 2026 outlook.", ""),
+                    ("Constant-currency sales growth", "-2%", "+6%", "%", "FY2026 outlook", "2026-Q1", "Open", "Demand range", "", "2026-04-30 / Q1 2026 earnings release", "Demand backdrop", "Source-backed", "Use as growth sensitivity, not reported result.", ""),
+                    ("Net income", "$300m", "$360m", "$m", "FY2026 outlook", "2026-Q1", "Open", "GAAP guide", "", "2026-04-30 / Q1 2026 earnings release", "Bridge to EPS/cash", "Source-backed", "GAAP outlook.", ""),
+                    ("Adjusted EBIT", "$520m", "$600m", "$m", "FY2026 outlook", "2026-Q1", "Open", "Primary non-GAAP metric", "", "2026-04-30 / Q1 2026 earnings release", "Primary operating metric", "Source-backed", "Primary non-GAAP operating scorecard.", ""),
+                    ("CFO", "$407m", "$522m", "$m", "FY2026 outlook", "2026-Q1", "Open", "Cash guide", "", "2026-04-30 / Q1 2026 earnings release", "Cash conversion", "Source-backed", "GAAP operating cash flow outlook.", ""),
+                    ("Adjusted FCF", "$355m", "$475m", "$m", "FY2026 outlook", "2026-Q1", "Open", "Adjusted cash guide", "", "2026-04-30 / Q1 2026 earnings release", "Cash conversion", "Source-backed", "Company-defined adjusted FCF.", ""),
+                    ("Light vehicle production", "-1%", "-3%", "%", "FY2026 assumption", "2026-Q1", "Watch", "Industry assumption", "", "2026-04-30 / Q1 2026 earnings release", "End-market assumption", "Source-backed", "Industry production down 1%-3%.", ""),
+                    ("Commercial vehicle industry", "+1%", "+2%", "%", "FY2026 assumption", "2026-Q1", "Watch", "Industry assumption", "", "2026-04-30 / Q1 2026 earnings release", "End-market assumption", "Source-backed", "Commercial vehicle industry up 1%-2%.", ""),
+                    ("BEV penetration", "about 19%", "", "%", "FY2026 assumption", "2026-Q1", "Watch", "Powertrain mix", "", "2026-04-30 / Q1 2026 earnings release", "Powertrain mix assumption", "Source-backed", "Sensitivity for turbo/electrification mix.", ""),
+                    ("EUR/USD", "1.17", "", "FX", "FY2026 assumption", "2026-Q1", "Watch", "FX assumption", "", "2026-04-30 / Q1 2026 earnings release", "FX assumption", "Source-backed", "Do not treat as actual FX.", ""),
+                    ("RD&E", "about 4.2%", "", "% of sales", "FY2026 assumption", "2026-Q1", "Watch", "Investment intensity", "", "2026-04-30 / Q1 2026 earnings release", "Technology investment watch", "Source-backed", "Supports new awards/pipeline.", ""),
+                    ("Capex", "about 2.5%", "", "% of sales", "FY2026 assumption", "2026-Q1", "Watch", "Capital intensity", "", "2026-04-30 / Q1 2026 earnings release", "FCF bridge", "Source-backed", "Capex intensity assumption.", ""),
                 ],
             )
             rr += 1
@@ -352,65 +353,65 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
             rr += 1
             rr = _section(rr, "Data tables", "analytical cuts only; GTX still has one reportable accounting segment")
             rr = _section(rr, "Product-line revenue history")
-            rr = _headers(rr, ["Product line", "2023 year", "2024 year", "2025 year", "2025-Q1", "2026-Q1", "", "Source", "Treatment", "", "", "", "", ""])
+            rr = _headers(rr, ["Product line", "2023 year", "2024 year", "2025 year", "2025-Q1", "2026-Q1", "", "", "", "Source", "Treatment", "", "", ""])
             rr = _rows(
                 rr,
                 [
-                    ("Gas ($m)", 1720, 1505, 1592, 403, 443, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
-                    ("Diesel ($m)", 992, 827, 837, 208, 232, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
-                    ("Commercial Vehicles / Industrial ($m)", 656, 629, 654, 155, 181, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
-                    ("Aftermarket ($m)", 456, 459, 438, 98, 114, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
-                    ("Other ($m)", 62, 55, 63, 14, 15, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+                    ("Gas ($m)", 1720, 1505, 1592, 403, 443, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+                    ("Diesel ($m)", 992, 827, 837, 208, 232, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+                    ("Commercial Vehicles / Industrial ($m)", 656, 629, 654, 155, 181, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+                    ("Aftermarket ($m)", 456, 459, 438, 98, 114, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+                    ("Other ($m)", 62, 55, 63, 14, 15, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
                 ],
             )
             rr += 1
             rr = _section(rr, "Geography revenue history")
-            rr = _headers(rr, ["Geography", "2023 year", "2024 year", "2025 year", "2025-Q1", "2026-Q1", "", "Source", "Treatment", "", "", "", "", ""])
+            rr = _headers(rr, ["Geography", "2023 year", "2024 year", "2025 year", "2025-Q1", "2026-Q1", "", "", "", "Source", "Treatment", "", "", ""])
             rr = _rows(
                 rr,
                 [
-                    ("United States ($m)", 744, 700, 694, 176, 179, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
-                    ("Europe ($m)", 1874, 1642, 1745, 425, 503, "", "2025 10-K / 2026-Q1 10-Q", "Includes Germany + rest of Europe for Q1."),
-                    ("Germany ($m)", "", "", "", 89, 93, "", "2026-Q1 10-Q", "Shown separately in Q1 filing table."),
-                    ("Rest of Europe ($m)", "", "", "", 336, 410, "", "2026-Q1 10-Q", "Shown separately in Q1 filing table."),
-                    ("China ($m)", 768, 643, 638, 153, 167, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
-                    ("Rest of Asia ($m)", 433, 413, 406, 104, 110, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
-                    ("Other International ($m)", 67, 77, 101, 20, 26, "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+                    ("United States ($m)", 744, 700, 694, 176, 179, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+                    ("Europe ($m)", 1874, 1642, 1745, 425, 503, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Includes Germany + rest of Europe for Q1."),
+                    ("Germany ($m)", "", "", "", 89, 93, "", "", "", "2026-Q1 10-Q", "Shown separately in Q1 filing table."),
+                    ("Rest of Europe ($m)", "", "", "", 336, 410, "", "", "", "2026-Q1 10-Q", "Shown separately in Q1 filing table."),
+                    ("China ($m)", 768, 643, 638, 153, 167, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+                    ("Rest of Asia ($m)", 433, 413, 406, 104, 110, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+                    ("Other International ($m)", 67, 77, 101, 20, 26, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
                 ],
             )
             rr += 1
             rr = _section(rr, "Customer concentration")
-            rr = _headers(rr, ["Customer / group", "2023 year", "2024 year", "2025 year", "", "", "", "Source", "Treatment", "", "", "", "", ""])
+            rr = _headers(rr, ["Customer / group", "2023 year", "2024 year", "2025 year", "", "", "", "", "", "Source", "Treatment", "", "", ""])
             rr = _rows(
                 rr,
                 [
-                    ("Stellantis revenue ($m)", 347, 330, 424, "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-                    ("BMW revenue ($m)", 474, 401, 385, "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-                    ("Ford revenue ($m)", 364, 354, 377, "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("Stellantis revenue ($m)", 347, 330, 424, "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("BMW revenue ($m)", 474, 401, 385, "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("Ford revenue ($m)", 364, 354, 377, "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
                     tuple(),
-                    ("Stellantis % sales", "9%", "9%", "12%", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-                    ("BMW % sales", "12%", "12%", "11%", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-                    ("Ford % sales", "9%", "10%", "11%", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-                    ("Top ten customers % sales", "", "", "about 62%", "", "", "", "2025 Form 10-K customer disclosure", "Concentration risk; not a segment"),
+                    ("Stellantis % sales", "9%", "9%", "12%", "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("BMW % sales", "12%", "12%", "11%", "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("Ford % sales", "9%", "10%", "11%", "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+                    ("Top ten customers % sales", "", "", "about 62%", "", "", "", "", "", "2025 Form 10-K customer disclosure", "Concentration risk; not a segment"),
                 ],
             )
             rr += 1
             rr = _section(rr, "Debt / buyback / leverage watch")
-            rr = _headers(rr, ["Item", "Reported / disclosed value", "Period / event", "Source", "Workbook treatment", "Status", "Notes", "", "", "", "", "", "", ""])
+            rr = _headers(rr, ["Item", "Reported / disclosed value", "Period / event", "Status", "Read", "", "", "", "", "Source", "Workbook treatment", "Confidence", "Notes", "Audit note"])
             rr = _rows(
                 rr,
                 [
-                    ("Debt outstanding", "$1,437m", "2026-Q1 reported", "Q1 2026 earnings release", "History_Q / Debt_Profile", "Reported", "Reported Q1 history remains unchanged."),
-                    ("Unrestricted cash", "$142m", "2026-Q1 reported", "Q1 2026 10-Q", "Net debt uses unrestricted cash only", "Reported", "Restricted cash shown separately."),
-                    ("Restricted cash", "$2m", "2026-Q1 reported", "Q1 2026 10-Q", "Shown separately", "Reported", "Not counted as unrestricted cash."),
-                    ("Q1 buybacks", "$87m", "2026-Q1", "Q1 2026 earnings release", "Capital allocation watch", "Actual", "Returned more than $100m including dividends."),
-                    ("Remaining buyback authorization", "$163m", "2026-Q1", "Q1 2026 earnings release", "Capital allocation watch", "Open", "Not a guaranteed repurchase."),
-                    ("FY2025 buybacks", "$208m", "FY2025", "Q4 2025 earnings release", "Management credibility actual", "Completed", "Common share count reduction 8% YoY."),
-                    ("May 18 debt event", "$50m term-loan repayment/repricing", "Post-quarter event", "May 18 2026 press release / 8-K package", "Pro-forma/event context only", "Post-quarter", "Do not rewrite Q1 reported history."),
+                    ("Debt outstanding", "$1,437m", "2026-Q1 reported", "Reported", "Q1 history", "", "", "", "", "Q1 2026 earnings release", "History_Q / Debt_Profile", "Source-backed", "Reported Q1 history remains unchanged.", ""),
+                    ("Unrestricted cash", "$142m", "2026-Q1 reported", "Reported", "Net debt input", "", "", "", "", "Q1 2026 10-Q", "Net debt uses unrestricted cash only", "Source-backed", "Restricted cash shown separately.", ""),
+                    ("Restricted cash", "$2m", "2026-Q1 reported", "Reported", "Separate cash line", "", "", "", "", "Q1 2026 10-Q", "Shown separately", "Source-backed", "Not counted as unrestricted cash.", ""),
+                    ("Q1 buybacks", "$87m", "2026-Q1", "Actual", "Capital return", "", "", "", "", "Q1 2026 earnings release", "Capital allocation watch", "Source-backed", "Returned more than $100m including dividends.", ""),
+                    ("Remaining buyback authorization", "$163m", "2026-Q1", "Open", "Authorization", "", "", "", "", "Q1 2026 earnings release", "Capital allocation watch", "Source-backed", "Not a guaranteed repurchase.", ""),
+                    ("FY2025 buybacks", "$208m", "FY2025", "Completed", "Capital return", "", "", "", "", "Q4 2025 earnings release", "Management credibility actual", "Source-backed", "Common share count reduction 8% YoY.", ""),
+                    ("May 18 debt event", "$50m term-loan repayment/repricing", "Post-quarter event", "Post-quarter", "Event context", "", "", "", "", "May 18 2026 press release / 8-K package", "Pro-forma/event context only", "Source-backed", "Do not rewrite Q1 reported history.", ""),
                 ],
             )
 
-            widths = {1: 42, 2: 16, 3: 16, 4: 16, 5: 22, 6: 16, 7: 14, 8: 24, 9: 30, 10: 26, 11: 15, 12: 18, 13: 18, 14: 18}
+            widths = {1: 42, 2: 16, 3: 16, 4: 16, 5: 16, 6: 16, 7: 16, 8: 16, 9: 16, 10: 16, 11: 16, 12: 16, 13: 16, 14: 16}
             for cc, width in widths.items():
                 ws.column_dimensions[get_column_letter(cc)].width = width
             ws.row_dimensions[2].height = 24

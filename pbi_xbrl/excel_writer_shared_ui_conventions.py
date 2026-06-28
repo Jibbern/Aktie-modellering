@@ -503,7 +503,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             cell = ws.cell(rr, cc)
             cell.fill = title_fill
             cell.border = thin
-            cell.font = Font(bold=True, color="1F2933", size=11)
+            cell.font = Font(bold=True, color="1F2933", size=12)
         rr += 1
         ws.merge_cells(start_row=rr, start_column=1, end_row=rr, end_column=9)
         ws.cell(rr, 1, "GTX reports one operating/reportable segment; these rows are analytical revenue cuts, not segment profit.")
@@ -511,7 +511,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             cell = ws.cell(rr, cc)
             cell.fill = alt_fill
             cell.border = thin
-            cell.font = Font(italic=True, color="1F2933", size=10)
+            cell.font = Font(italic=True, color="1F2933", size=12)
         rr += 2
 
         def _write_table(title: str, headers_in: Sequence[str], records: Sequence[Sequence[Any]]) -> None:
@@ -522,20 +522,20 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 cell = ws.cell(rr, cc)
                 cell.fill = title_fill
                 cell.border = thin
-                cell.font = Font(bold=True, color="1F2933", size=10)
+                cell.font = Font(bold=True, color="1F2933", size=12)
             rr += 1
             for cc, header in enumerate(headers_in, start=1):
                 cell = ws.cell(rr, cc, header)
                 cell.fill = header_fill
                 cell.border = thin
-                cell.font = Font(bold=True, color="1F2933", size=10)
+                cell.font = Font(bold=True, color="1F2933", size=12)
             rr += 1
             for record in records:
                 for cc, value in enumerate(record, start=1):
                     cell = ws.cell(rr, cc, value)
                     cell.fill = alt_fill if rr % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
                     cell.border = thin
-                    cell.font = Font(color="1F2933", size=10)
+                    cell.font = Font(color="1F2933", size=12)
                     cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc >= 5)
                 ws.row_dimensions[rr].height = 24 if any(str(value or "").strip() for value in record) else 16
                 rr += 1
@@ -577,7 +577,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 ("Top ten customers % sales", "", "", "about 62%", "2025 Form 10-K", "Not a segment; customer risk"),
             ],
         )
-        for cc, width in {1: 36, 2: 14, 3: 14, 4: 14, 5: 22, 6: 24, 7: 12, 8: 12, 9: 12}.items():
+        for cc, width in {1: 36, 2: 14, 3: 14, 4: 14, 5: 14, 6: 14, 7: 14, 8: 14, 9: 14}.items():
             ws.column_dimensions[get_column_letter(cc)].width = width
 
     def _clean_gtx_quarter_notes_visible_noise() -> None:
@@ -591,7 +591,9 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
 
         title_fill = PatternFill("solid", fgColor="5B9BD5")
         sub_fill = PatternFill("solid", fgColor="DDEBF7")
+        table_header_fill = PatternFill("solid", fgColor="EAF3F8")
         body_fill = PatternFill("solid", fgColor="F7FBFF")
+        alt_body_fill = PatternFill("solid", fgColor="EDF4FB")
         white_fill = PatternFill("solid", fgColor="FFFFFF")
         thin = Border(
             left=Side(style="thin", color="D9E2EA"),
@@ -611,13 +613,13 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 ws.cell(row_idx, cc).fill = fill
                 ws.cell(row_idx, cc).border = thin
 
-        def _label_row(row_idx: int, label: str, text: str) -> None:
+        def _label_row(row_idx: int, label: str, text: str, *, fill: Any = body_fill) -> None:
             ws.cell(row_idx, 1, label)
             ws.merge_cells(start_row=row_idx, start_column=2, end_row=row_idx, end_column=15)
             ws.cell(row_idx, 2, text)
             for cc in range(1, 16):
                 cell = ws.cell(row_idx, cc)
-                cell.fill = body_fill
+                cell.fill = fill
                 cell.border = thin
                 cell.font = Font(bold=cc == 1, color="1F2933", size=11)
                 cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
@@ -637,7 +639,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 cell = ws.cell(row_idx, cc)
                 if cc in headers:
                     cell.value = headers[cc]
-                cell.fill = sub_fill
+                cell.fill = table_header_fill
                 cell.border = thin
                 cell.font = Font(bold=True, color="1F2933", size=11)
                 cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
@@ -703,13 +705,13 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             row_idx += 1
             _merge(row_idx, 1, 15, "Quarter read", fill=sub_fill, bold=True, size=13)
             row_idx += 1
-            _label_row(row_idx, "Model read", read)
+            _label_row(row_idx, "Model read", read, fill=body_fill)
             row_idx += 1
-            _label_row(row_idx, "What changed", changed)
+            _label_row(row_idx, "What changed", changed, fill=alt_body_fill)
             row_idx += 1
-            _label_row(row_idx, "Watch next", watch)
+            _label_row(row_idx, "Watch next", watch, fill=body_fill)
             row_idx += 1
-            _label_row(row_idx, "Key caveat", caveat)
+            _label_row(row_idx, "Key caveat", caveat, fill=alt_body_fill)
             row_idx += 2
             _merge(row_idx, 1, 15, "Key developments", fill=sub_fill, bold=True, size=13)
             row_idx += 1

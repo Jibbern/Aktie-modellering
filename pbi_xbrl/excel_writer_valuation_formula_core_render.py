@@ -1490,6 +1490,44 @@ def render_valuation_formula_core(
         bucket_terms=["debt", "liquidity", "program"],
         metric_terms=["leverage", "debt", "refinancing", "buyback", "dividend", "capital allocation"],
     )
+    is_gtx_profile = str(ticker or "").strip().upper() == "GTX"
+
+    def _gtx_user_facing_driver_text(raw_text: Any, fallback_text: str) -> str:
+        text = str(raw_text or "").strip()
+        if not is_gtx_profile:
+            return text
+        low = glx_normalize_text(text).lower()
+        noisy_fragments = (
+            "guidance signal in filing text",
+            "margin signal in filing text",
+            "revenue signal in filing text",
+            "forward-looking statements",
+            "in many cases, you can identify",
+            "variable consideration",
+            "revenue is measured as the amount of consideration",
+            "69 >5% average annual cost",
+            "cost discipline and flexibility for margins and cash generation 69",
+        )
+        if any(fragment in low for fragment in noisy_fragments):
+            return fallback_text
+        return text
+
+    rev_drv_txt = _gtx_user_facing_driver_text(
+        rev_drv_txt,
+        "Use official GTX revenue rows, guidance and operating-driver tables; noisy slide OCR is excluded.",
+    )
+    mar_drv_txt = _gtx_user_facing_driver_text(
+        mar_drv_txt,
+        "Use official GTX adjusted EBIT and margin rows; noisy slide OCR is excluded from Valuation.",
+    )
+    fcf_drv_txt = _gtx_user_facing_driver_text(
+        fcf_drv_txt,
+        "Use official GTX CFO, capex and adjusted FCF rows; company-defined adjusted FCF stays separate from GAAP FCF.",
+    )
+    lev_drv_txt = _gtx_user_facing_driver_text(
+        lev_drv_txt,
+        "Use reported GTX debt, unrestricted cash, buybacks and clearly labeled post-quarter debt-event context.",
+    )
 
     _box(row_drv_rev, "Revenue trend driver", rev_drv_txt, False, None, driver_label_col, driver_value_col)
     _box(row_drv_margin, "Margin driver", mar_drv_txt, False, None, driver_label_col, driver_value_col)

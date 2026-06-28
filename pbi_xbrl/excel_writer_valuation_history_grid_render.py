@@ -1460,9 +1460,14 @@ def render_valuation_history_grid(
     if is_gtx_profile:
         _set_row(r, "Adj EBIT", {k: (v / 1e6) if v is not None else None for k, v in adj_ebit_map.items()}, "#,##0.000")
         r += 1
+        if adj_ebit_ttm_map or is_gtx_profile:
+            _set_row(r, "Adj EBIT (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_ebit_ttm_map.items()}, "#,##0.000")
+            r += 1
         _set_row(r, "Adj EBIT margin %", _margin(adj_ebit_map, rev_map), "0.0%")
         r += 1
     _set_row(r, "Adj EBITDA", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_map.items()}, "#,##0.000")
+    r += 1
+    _set_row(r, "Adj EBITDA (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_ttm_map.items()}, "#,##0.000")
     r += 1
     _set_row(r, "Adj EBITDA - EBITDA", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_diff_map.items()}, "#,##0.000")
     r += 1
@@ -1474,14 +1479,12 @@ def render_valuation_history_grid(
     adj_ebitda_yoy_row = r
     _set_row(r, "Adj EBITDA YoY %", _yoy(adj_ebitda_map), "0.0%")
     r += 1
-    _set_row(r, "Adj EBITDA (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_ttm_map.items()}, "#,##0.000")
-    r += 1
     adj_ebitda_margin_ttm_map = _margin(adj_ebitda_ttm_map, rev_ttm_map)
     _set_row(r, "Adj EBITDA margin (TTM)", adj_ebitda_margin_ttm_map, "0.0%")
     if ebitda_margin_ttm_source_map:
         valuation_row_source_values["Adj EBITDA margin (TTM)"].update(ebitda_margin_ttm_source_map)
     r += 1
-    if adj_ebit_ttm_map or is_gpre_profile:
+    if (adj_ebit_ttm_map or is_gpre_profile) and not is_gtx_profile:
         _set_row(r, "Adj EBIT (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_ebit_ttm_map.items()}, "#,##0.000")
         r += 1
 

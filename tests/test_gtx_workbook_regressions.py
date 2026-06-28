@@ -42,6 +42,30 @@ GTX_CROSS_COMPANY_LEAKAGE_TERMS = (
     "Hollister",
     "Carrier, logistics and service execution reliability",
 )
+GTX_VISIBLE_UI_SHEETS = (
+    "SUMMARY",
+    "Valuation",
+    "Operating_Drivers",
+    "Promise_Progress_UI",
+    "Quarter_Notes_UI",
+    "GTX_Investment_Case",
+    "BS_Segments",
+)
+GTX_FORBIDDEN_UI_FRAGMENTS = (
+    "forward-looking statements",
+    "in many cases, you can identify",
+    "aim, anticipate, believe, continue, could",
+    "variable consideration",
+    "revenue is measured as the amount of consideration",
+    "pension contribution boilerplate",
+    "make contributions of cash and/or marketable securities",
+    "each grantee is granted",
+    "guidance signal in filing text",
+    "margin signal in filing text",
+    "revenue signal in filing text",
+    "69 >5% average annual cost",
+    "cost discipline and flexibility for margins and cash generation 69",
+)
 
 
 def _gtx_workbook_path() -> Path:
@@ -534,6 +558,16 @@ def test_gtx_valuation_capital_return_rows_have_no_year_artifacts(
     assert bad == []
 
 
+def test_gtx_valuation_adjusted_metric_ttm_rows_follow_base_metrics(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Valuation"]
+
+    assert _find_row_with_first_cell(ws, "Adj EBIT (TTM)") == _find_row_with_first_cell(ws, "Adj EBIT") + 1
+    assert _find_row_with_first_cell(ws, "Adj EBITDA (TTM)") == _find_row_with_first_cell(ws, "Adj EBITDA") + 1
+    assert _find_row_with_first_cell(ws, "Adj FCF (TTM)") == _find_row_with_first_cell(ws, "Adj FCF") + 1
+
+
 def test_gtx_operating_drivers_recent_commentary_uses_broad_layout(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -565,6 +599,26 @@ def test_gtx_operating_drivers_recent_commentary_uses_broad_layout(
     assert ws.row_dimensions[first_commentary_row].height >= 30.0
 
 
+def test_gtx_operating_drivers_uses_uniform_peer_widths_and_right_side_audit_columns(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        widths = [float(ws.column_dimensions[col].width or 0.0) for col in "BCDEFGHIJKLMN"]
+        assert min(widths) >= 13.0
+        assert max(widths) - min(widths) <= 1.0
+
+        misplaced: list[tuple[int, int, str]] = []
+        audit_terms = {"source", "evidence", "workbook treatment", "confidence", "notes", "audit note"}
+        for rr in range(1, int(ws.max_row or 0) + 1):
+            for cc in range(2, 10):
+                value = str(ws.cell(rr, cc).value or "").strip().lower()
+                if value in audit_terms:
+                    misplaced.append((rr, cc, value))
+
+        assert misplaced == []
+
+
 def test_gtx_operating_drivers_table_columns_are_wide_enough_for_labels(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -572,11 +626,8 @@ def test_gtx_operating_drivers_table_columns_are_wide_enough_for_labels(
         ws = full_wb["Operating_Drivers"]
         widths = {col: float(ws.column_dimensions[col].width or 0.0) for col in ("B", "C", "D", "E", "F", "G", "H", "I")}
 
-    assert widths["G"] >= 12.0, "Source date / spacer column should not clip headers like 'Source date'"
-    assert min(widths[col] for col in ("B", "C", "D", "E", "F")) >= 15.0
-    assert widths["E"] >= 20.0, "Basis column should fit labels like '2026 year assumption'"
-    assert widths["H"] >= 24.0
-    assert widths["I"] >= 28.0
+    assert min(widths.values()) >= 13.0
+    assert max(widths.values()) - min(widths.values()) <= 1.0
 
 
 def test_gtx_operating_driver_tables_are_chronological_older_to_newer(
@@ -813,12 +864,17 @@ def test_gtx_bs_segments_analytical_cut_columns_are_not_overwide(
 ) -> None:
     with _gtx_style_workbook() as full_wb:
         ws = full_wb["BS_Segments"]
-        base_widths = [float(ws.column_dimensions[col].width or 0.0) for col in ("B", "C", "D", "E")]
-        note_widths = [float(ws.column_dimensions[col].width or 0.0) for col in ("F", "G", "H", "I")]
-        max_base = max(base_widths)
+        widths = [float(ws.column_dimensions[col].width or 0.0) for col in ("B", "C", "D", "E", "F", "G", "H", "I")]
 
-        assert min(base_widths) >= 12.0
-        assert max(note_widths) <= max_base + 2.0
+        assert min(widths) >= 12.0
+        assert max(widths) - min(widths) <= 1.0
+        body_sizes = {
+            float(ws.cell(rr, cc).font.sz or 0.0)
+            for rr in range(59, min(86, int(ws.max_row or 0)) + 1)
+            for cc in range(1, 10)
+            if ws.cell(rr, cc).value not in (None, "")
+        }
+        assert any(size >= 12.0 for size in body_sizes)
 
 
 def test_gtx_valuation_has_no_guidance_or_driver_fallback_text(
@@ -828,6 +884,20 @@ def test_gtx_valuation_has_no_guidance_or_driver_fallback_text(
 
     assert "no guidance items for this quarter" not in text
     assert "no operating-driver map available for this ticker yet" not in text
+
+
+def test_gtx_visible_ui_sheets_filter_boilerplate_ocr_and_policy_noise(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    found: list[tuple[str, str]] = []
+    for sheet_name in GTX_VISIBLE_UI_SHEETS:
+        assert sheet_name in gtx_wb.sheetnames
+        text = _sheet_visible_text(gtx_wb, sheet_name).lower()
+        for needle in GTX_FORBIDDEN_UI_FRAGMENTS:
+            if needle.lower() in text:
+                found.append((sheet_name, needle))
+
+    assert found == []
 
 
 def test_gtx_quarter_notes_filters_boilerplate_ocr_and_policy_noise(
@@ -895,6 +965,39 @@ def test_gtx_quarter_notes_matches_peer_depth_and_section_pattern(
     assert "guidance / promise interpretation" in text
     assert "model mapping / double-count guardrails" in text
     assert "2025-q3 - quarter notes" in text
+
+
+def test_gtx_quarter_notes_uses_peer_style_title_and_quarter_blocks(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Quarter_Notes_UI"]
+        merged = {str(rng) for rng in ws.merged_cells.ranges}
+        quarter_rows = [
+            rr
+            for rr in range(1, int(ws.max_row or 0) + 1)
+            if str(ws.cell(rr, 1).value or "").strip().lower().endswith("- quarter notes")
+        ]
+
+        assert any(str(rng).startswith("A1:") for rng in merged)
+        assert len(quarter_rows) >= 5
+        for expected in ("2026-Q1", "2025-Q4", "2025-Q3", "2025-Q2", "2025-Q1"):
+            assert any(str(ws.cell(rr, 1).value or "").startswith(expected) for rr in quarter_rows)
+        for rr in quarter_rows:
+            assert str(ws.cell(rr, 1).fill.fgColor.rgb or "").upper() in {
+                "FF5B9BD5",
+                "005B9BD5",
+                "FF6FA8DC",
+                "006FA8DC",
+                "FF1F4E78",
+                "001F4E78",
+            }
+            if rr + 5 <= int(ws.max_row or 0):
+                fills = [
+                    str(ws.cell(rr + offset, 1).fill.fgColor.rgb or "").upper()
+                    for offset in (3, 4, 5)
+                ]
+                assert len(set(fills)) >= 2
 
 
 def test_gtx_history_q4_2025_operating_income_and_diluted_shares(
