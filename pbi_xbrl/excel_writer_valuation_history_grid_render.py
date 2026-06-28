@@ -1469,13 +1469,27 @@ def render_valuation_history_grid(
     r += 1
     _set_row(r, "Adj EBITDA (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_ttm_map.items()}, "#,##0.000")
     r += 1
-    _set_row(r, "Adj EBITDA - EBITDA", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_diff_map.items()}, "#,##0.000")
-    r += 1
+    if not is_gtx_profile:
+        _set_row(r, "Adj EBITDA - EBITDA", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_diff_map.items()}, "#,##0.000")
+        r += 1
     adj_ebitda_margin_pct_map = _margin(adj_ebitda_map, rev_map)
     _set_row(r, "Adj EBITDA margin %", adj_ebitda_margin_pct_map, "0.0%")
     if history_ebitda_margin_source_map:
         valuation_row_source_values["Adj EBITDA margin %"].update(history_ebitda_margin_source_map)
     r += 1
+    if is_gtx_profile:
+        _set_row(r, "Adj FCF", {k: (v / 1e6) if v is not None else None for k, v in adj_fcf_map.items()}, "#,##0.000")
+        r += 1
+        adj_fcf_row = r
+        _set_row(r, "Adj FCF (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_fcf_ttm_map.items()}, "#,##0.000")
+        try:
+            ws.cell(row=adj_fcf_row, column=1).comment = Comment("company-defined", "Codex")
+        except Exception:
+            pass
+        r += 1
+    if is_gtx_profile:
+        _set_row(r, "Adj EBITDA - EBITDA", {k: (v / 1e6) if v is not None else None for k, v in adj_ebitda_diff_map.items()}, "#,##0.000")
+        r += 1
     adj_ebitda_yoy_row = r
     _set_row(r, "Adj EBITDA YoY %", _yoy(adj_ebitda_map), "0.0%")
     r += 1
@@ -1583,18 +1597,21 @@ def render_valuation_history_grid(
     _set_subheader_row(r, "Adjusted / derived")
     r += 1
     if is_gtx_profile:
+        _set_row(r, "Adj FCF - FCF", {k: (v / 1e6) if v is not None else None for k, v in adj_fcf_diff_map.items()}, "#,##0.000")
+        r += 1
+    else:
         _set_row(r, "Adj FCF", {k: (v / 1e6) if v is not None else None for k, v in adj_fcf_map.items()}, "#,##0.000")
         r += 1
-    adj_fcf_row = r
-    _set_row(r, "Adj FCF (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_fcf_ttm_map.items()}, "#,##0.000")
-    try:
-        fcf_comment = "No FCF adjustment identified; Adj FCF defaults to FCF." if is_anf_profile and not adj_fcf_map else "company-defined"
-        ws.cell(row=adj_fcf_row, column=1).comment = Comment(fcf_comment, "Codex")
-    except Exception:
-        pass
-    r += 1
-    _set_row(r, "Adj FCF - FCF", {k: (v / 1e6) if v is not None else None for k, v in adj_fcf_diff_map.items()}, "#,##0.000")
-    r += 1
+        adj_fcf_row = r
+        _set_row(r, "Adj FCF (TTM)", {k: (v / 1e6) if v is not None else None for k, v in adj_fcf_ttm_map.items()}, "#,##0.000")
+        try:
+            fcf_comment = "No FCF adjustment identified; Adj FCF defaults to FCF." if is_anf_profile and not adj_fcf_map else "company-defined"
+            ws.cell(row=adj_fcf_row, column=1).comment = Comment(fcf_comment, "Codex")
+        except Exception:
+            pass
+        r += 1
+        _set_row(r, "Adj FCF - FCF", {k: (v / 1e6) if v is not None else None for k, v in adj_fcf_diff_map.items()}, "#,##0.000")
+        r += 1
     _set_row(r, "Owner earnings (proxy)", {k: (v / 1e6) if v is not None else None for k, v in owner_fcf_proxy_map.items()}, "#,##0.000")
     r += 1
     _set_subheader_row(r, "Cash-flow quality")

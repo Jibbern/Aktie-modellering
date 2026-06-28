@@ -567,6 +567,19 @@ def test_gtx_valuation_adjusted_metric_ttm_rows_follow_base_metrics(
     assert _find_row_with_first_cell(ws, "Adj EBITDA (TTM)") == _find_row_with_first_cell(ws, "Adj EBITDA") + 1
     assert _find_row_with_first_cell(ws, "Adj FCF (TTM)") == _find_row_with_first_cell(ws, "Adj FCF") + 1
 
+    adjusted_sequence = [
+        "Adj EBIT",
+        "Adj EBIT (TTM)",
+        "Adj EBIT margin %",
+        "Adj EBITDA",
+        "Adj EBITDA (TTM)",
+        "Adj EBITDA margin %",
+        "Adj FCF",
+        "Adj FCF (TTM)",
+    ]
+    adjusted_rows = [_find_row_with_first_cell(ws, label) for label in adjusted_sequence]
+    assert adjusted_rows == list(range(adjusted_rows[0], adjusted_rows[0] + len(adjusted_rows)))
+
 
 def test_gtx_operating_drivers_recent_commentary_uses_broad_layout(
     gtx_wb: openpyxl.Workbook,
@@ -609,7 +622,7 @@ def test_gtx_operating_drivers_uses_uniform_peer_widths_and_right_side_audit_col
         assert max(widths) - min(widths) <= 1.0
 
         misplaced: list[tuple[int, int, str]] = []
-        audit_terms = {"source", "evidence", "workbook treatment", "confidence", "notes", "audit note"}
+        audit_terms = {"source", "evidence", "workbook treatment", "confidence", "audit note"}
         for rr in range(1, int(ws.max_row or 0) + 1):
             for cc in range(2, 10):
                 value = str(ws.cell(rr, cc).value or "").strip().lower()
@@ -628,6 +641,77 @@ def test_gtx_operating_drivers_table_columns_are_wide_enough_for_labels(
 
     assert min(widths.values()) >= 13.0
     assert max(widths.values()) - min(widths.values()) <= 1.0
+
+
+def test_gtx_operating_drivers_outlook_removes_unit_and_read_columns(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+        section_row = _find_row_with_first_cell(ws, "Current/latest outlook \u2014 official 2026-Q1 release, 2026 year outlook")
+        header_row = section_row + 1
+        headers = [str(ws.cell(header_row, cc).value or "").strip() for cc in range(1, 15)]
+
+        assert "Unit" not in headers
+        assert "Read" not in headers
+        assert headers[:6] == ["Metric", "Low", "High", "Basis", "Stated in", "Status"]
+        assert headers[6] == "Notes"
+        assert "Source" in headers[9:]
+        assert "Workbook treatment" in headers[9:]
+        assert "Confidence" in headers[9:]
+        assert f"G{header_row}:I{header_row}" in merged_ranges
+        assert f"K{header_row}:L{header_row}" in merged_ranges
+        first_data_row = header_row + 1
+        assert f"G{first_data_row}:I{first_data_row}" in merged_ranges
+        assert f"K{first_data_row}:L{first_data_row}" in merged_ranges
+
+
+def test_gtx_operating_drivers_outlook_values_inline_units_and_clean_wording(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Operating_Drivers"]
+    section_row = _find_row_with_first_cell(ws, "Current/latest outlook \u2014 official 2026-Q1 release, 2026 year outlook")
+    rows = {
+        str(ws.cell(rr, 1).value or "").strip(): [
+            str(ws.cell(rr, cc).value or "").strip()
+            for cc in range(1, 15)
+        ]
+        for rr in range(section_row + 2, section_row + 16)
+        if str(ws.cell(rr, 1).value or "").strip()
+    }
+
+    assert rows["Net sales"][1:3] == ["$3.6bn", "$3.9bn"]
+    assert rows["Constant-currency sales growth"][1:3] == ["-2%", "+6%"]
+    assert rows["BEV penetration"][1] == "~19%"
+    assert rows["RD&E"][1] == "4.2% of sales"
+    assert rows["Capex"][1] == "2.5% of sales"
+    visible_text = "\n".join("\n".join(values) for values in rows.values()).lower()
+    assert "about 19%" not in visible_text
+    assert "about 4.2%" not in visible_text
+    assert "about 2.5%" not in visible_text
+
+
+def test_gtx_operating_drivers_debt_watch_uses_broad_business_columns(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+        section_row = _find_row_with_first_cell(ws, "Debt / buyback / leverage watch")
+        header_row = section_row + 1
+        headers = [str(ws.cell(header_row, cc).value or "").strip() for cc in range(1, 15)]
+
+        assert headers[1] == "Reported / disclosed value"
+        assert headers[4] == "Period / event"
+        assert headers[10] == "Workbook treatment"
+        assert "Source" in headers[9:]
+        assert "Confidence" in headers[9:]
+        for row_idx in (header_row, header_row + 1):
+            assert f"B{row_idx}:D{row_idx}" in merged_ranges
+            assert f"E{row_idx}:F{row_idx}" in merged_ranges
+            assert f"H{row_idx}:I{row_idx}" in merged_ranges
+            assert f"K{row_idx}:M{row_idx}" in merged_ranges
 
 
 def test_gtx_operating_driver_tables_are_chronological_older_to_newer(
@@ -791,7 +875,7 @@ def test_gtx_promise_progress_body_font_matches_ui_convention(
         for cell in row:
             if cell.value is None or str(cell.value).strip() == "":
                 continue
-            if float(cell.font.sz or 0) < 12.0:
+            if float(cell.font.sz or 0) < 11.0:
                 mismatches.append((cell.coordinate, cell.font.sz))
 
     assert mismatches == []
@@ -815,13 +899,115 @@ def test_gtx_promise_progress_uses_anf_pbi_card_layout(
             assert required_merge in merged_ranges
 
 
+def test_gtx_promise_progress_open_guidance_uses_compact_peer_columns(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+        section_row = _find_row_with_first_cell(ws, "2026 open guidance")
+        headers = [
+            str(ws.cell(section_row + 1, cc).value or "").strip()
+            for cc in range(1, 13)
+            if str(ws.cell(section_row + 1, cc).value or "").strip()
+        ]
+
+        assert "Current guide" in headers
+        assert "Status" in headers
+        assert "Notes/source" in headers
+        assert "Unit" not in headers
+        assert "Source date" not in headers
+        assert "Workbook treatment" not in headers
+        assert "Confidence" not in headers
+
+        open_rows = [
+            rr
+            for rr in range(section_row + 2, min(section_row + 16, int(ws.max_row or 0)) + 1)
+            if str(ws.cell(rr, 1).value or "").strip()
+        ]
+        for rr in open_rows:
+            last_visible_col = max(
+                cc
+                for cc in range(1, 15)
+                if str(ws.cell(rr, cc).value or "").strip()
+            )
+            assert last_visible_col <= 12
+
+
+def test_gtx_promise_progress_status_cells_are_colored_like_peer_dashboards(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+        status_palette = {"0099CCFF", "005B9BD5", "0064C2A6", "00A9D18E", "00F4B183", "00ED7D31"}
+        sections = ("2026 open guidance", "2025 completed actuals", "Quarterly guidance timeline / revision log")
+
+        for section in sections:
+            section_row = _find_row_with_first_cell(ws, section)
+            headers = {
+                str(ws.cell(section_row + 1, cc).value or "").strip(): cc
+                for cc in range(1, 13)
+            }
+            status_col = headers.get("Status")
+            assert status_col is not None
+            checked = 0
+            for rr in range(section_row + 2, int(ws.max_row or 0) + 1):
+                marker = str(ws.cell(rr, 1).value or "").strip()
+                if marker in {
+                    "2025 completed actuals",
+                    "Quarterly actual/context rows",
+                    "Quarterly guidance timeline / revision log",
+                    "Post-quarter May 2026 debt repayment/repricing event",
+                }:
+                    break
+                if not marker:
+                    continue
+                status = str(ws.cell(rr, status_col).value or "").strip()
+                if not status:
+                    continue
+                fill = str(ws.cell(rr, status_col).fill.fgColor.rgb or "").upper()
+                assert fill in status_palette, (section, rr, status, fill)
+                checked += 1
+            assert checked >= 1
+
+
+def test_gtx_promise_progress_core_columns_are_not_cramped_or_audit_dominated(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+        merged_ranges = list(ws.merged_cells.ranges)
+
+        def _merged_width(row_idx: int, col_idx: int) -> int:
+            for rng in merged_ranges:
+                if rng.min_row <= row_idx <= rng.max_row and rng.min_col <= col_idx <= rng.max_col:
+                    return int(rng.max_col - rng.min_col + 1)
+            return 1
+
+        audit_terms = ("source-backed", "workbook treatment", "confidence", "8-k package")
+        cramped: list[tuple[str, str, int]] = []
+        audit_in_core: list[tuple[str, str]] = []
+        for rr in range(1, min(int(ws.max_row or 0), 90) + 1):
+            for cc in range(1, 8):
+                value = str(ws.cell(rr, cc).value or "").strip()
+                if not value:
+                    continue
+                low = value.lower()
+                if any(term in low for term in audit_terms):
+                    audit_in_core.append((ws.cell(rr, cc).coordinate, value[:90]))
+                if len(value) > 95 and _merged_width(rr, cc) < 2:
+                    cramped.append((ws.cell(rr, cc).coordinate, value[:90], len(value)))
+
+        assert audit_in_core == []
+        assert cramped == []
+
+
 def test_gtx_promise_progress_has_quarter_context_beyond_two_topline_sections(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
     text = _sheet_visible_text(gtx_wb, "Promise_Progress_UI").lower()
 
     for required in (
-        "quarterly actuals / source-backed context",
+        "quarterly actual/context rows",
         "2026-q1",
         "2025-q4",
         "2025-q3",
@@ -875,6 +1061,39 @@ def test_gtx_bs_segments_analytical_cut_columns_are_not_overwide(
             if ws.cell(rr, cc).value not in (None, "")
         }
         assert any(size >= 12.0 for size in body_sizes)
+
+
+def test_gtx_bs_segments_source_treatment_uses_merged_note_area(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["BS_Segments"]
+        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+        product_row = _find_row_with_first_cell(ws, "Product-line revenue by year")
+        header_row = product_row + 1
+        first_data_row = product_row + 2
+
+        headers = [str(ws.cell(header_row, cc).value or "").strip() for cc in range(1, 10)]
+        assert headers[0] == "Product line"
+        assert headers[1:4] == ["2023 year", "2024 year", "2025 year"]
+        assert headers[4] == "Source / treatment"
+        assert "Source" not in headers[5:]
+        assert "Treatment" not in headers[5:]
+        assert f"E{header_row}:I{header_row}" in merged_ranges
+        assert f"E{first_data_row}:I{first_data_row}" in merged_ranges
+        assert "2025 Form 10-K" in str(ws.cell(first_data_row, 5).value or "")
+
+
+def test_gtx_investment_case_key_columns_have_room_for_readability(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["GTX_Investment_Case"]
+        widths = {col: float(ws.column_dimensions[col].width or 0.0) for col in "ABCDEFGHIJ"}
+
+    assert widths["A"] >= 48.0
+    assert widths["B"] + widths["C"] >= 70.0
+    assert widths["H"] + widths["I"] + widths["J"] >= 84.0
 
 
 def test_gtx_valuation_has_no_guidance_or_driver_fallback_text(
@@ -998,6 +1217,102 @@ def test_gtx_quarter_notes_uses_peer_style_title_and_quarter_blocks(
                     for offset in (3, 4, 5)
                 ]
                 assert len(set(fills)) >= 2
+
+
+def test_gtx_quarter_notes_key_development_layout_uses_peer_merges(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Quarter_Notes_UI"]
+        merged = {str(rng) for rng in ws.merged_cells.ranges}
+        header_rows = [
+            rr
+            for rr in range(1, int(ws.max_row or 0) + 1)
+            if str(ws.cell(rr, 1).value or "").strip() == "Theme"
+        ]
+
+        assert header_rows
+        for rr in header_rows[:5]:
+            assert f"A{rr}:B{rr}" in merged
+            assert f"C{rr}:E{rr}" in merged
+            assert f"F{rr}:G{rr}" in merged
+            assert f"H{rr}:L{rr}" in merged
+            assert f"M{rr}:O{rr}" in merged
+            assert str(ws.cell(rr, 13).value or "").strip() == "Source / confidence"
+            central_headers = [
+                str(ws.cell(rr, cc).value or "").strip().lower()
+                for cc in range(1, 13)
+            ]
+            assert not any("source" in value or "confidence" in value for value in central_headers)
+
+            first_body_row = rr + 1
+            assert f"A{first_body_row}:B{first_body_row}" in merged
+            assert f"C{first_body_row}:E{first_body_row}" in merged
+            assert f"F{first_body_row}:G{first_body_row}" in merged
+            assert f"H{first_body_row}:L{first_body_row}" in merged
+            assert f"M{first_body_row}:O{first_body_row}" in merged
+
+
+def test_gtx_quarter_notes_uses_peer_spacing_row_heights_and_source_width(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Quarter_Notes_UI"]
+        quarter_rows = [
+            rr
+            for rr in range(1, int(ws.max_row or 0) + 1)
+            if str(ws.cell(rr, 1).value or "").strip().endswith(" - Quarter Notes")
+        ]
+        blank_spacers = [
+            rr
+            for rr in range(2, int(ws.max_row or 0))
+            if not any(str(ws.cell(rr, cc).value or "").strip() for cc in range(1, 16))
+            and any(str(ws.cell(rr - 1, cc).value or "").strip() for cc in range(1, 16))
+            and any(str(ws.cell(rr + 1, cc).value or "").strip() for cc in range(1, 16))
+        ]
+        theme_rows = [
+            rr
+            for rr in range(1, int(ws.max_row or 0) + 1)
+            if str(ws.cell(rr, 1).value or "").strip() == "Theme"
+        ]
+
+        assert [str(ws.cell(rr, 1).value or "").strip() for rr in quarter_rows[:5]] == [
+            "2026-Q1 - Quarter Notes",
+            "2025-Q4 - Quarter Notes",
+            "2025-Q3 - Quarter Notes",
+            "2025-Q2 - Quarter Notes",
+            "2025-Q1 - Quarter Notes",
+        ]
+        assert blank_spacers
+        assert all(float(ws.row_dimensions[rr].height or 0.0) <= 12.0 for rr in blank_spacers[:10])
+        assert all(float(ws.row_dimensions[rr].height or 0.0) <= 30.0 for rr in quarter_rows[:5])
+        assert all(float(ws.row_dimensions[rr + 1].height or 0.0) <= 30.0 for rr in quarter_rows[:5])
+        assert all(float(ws.row_dimensions[rr].height or 0.0) >= 48.0 for rr in (row + 1 for row in theme_rows[:5]))
+        assert max(float(ws.row_dimensions[rr].height or 0.0) for rr in range(1, int(ws.max_row or 0) + 1)) <= 90.0
+        assert float(ws.column_dimensions["O"].width or 0.0) >= 40.0
+
+
+def test_gtx_quarter_notes_core_reading_columns_are_not_clipped_by_long_unmerged_text(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Quarter_Notes_UI"]
+        merged_cells: set[tuple[int, int]] = set()
+        for rng in ws.merged_cells.ranges:
+            for rr in range(rng.min_row, rng.max_row + 1):
+                for cc in range(rng.min_col, rng.max_col + 1):
+                    merged_cells.add((rr, cc))
+
+        offenders: list[tuple[str, int, int, int]] = []
+        for row in ws.iter_rows(min_col=1, max_col=12):
+            for cell in row:
+                value = str(cell.value or "").strip()
+                if not value or (cell.row, cell.column) in merged_cells:
+                    continue
+                if len(value) > 110:
+                    offenders.append((cell.coordinate, cell.row, cell.column, len(value)))
+
+        assert offenders == []
 
 
 def test_gtx_history_q4_2025_operating_income_and_diluted_shares(

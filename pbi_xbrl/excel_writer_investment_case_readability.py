@@ -21,6 +21,7 @@ class InvestmentCaseReadability:
 
         if ws is None or not str(getattr(ws, "title", "")).endswith("_Investment_Case"):
             return
+        is_gtx_case = str(getattr(ws, "title", "") or "").strip() == "GTX_Investment_Case"
 
         max_row = int(getattr(ws, "max_row", 0) or 0)
         max_col = int(getattr(ws, "max_column", 0) or 0)
@@ -92,3 +93,20 @@ class InvestmentCaseReadability:
                 except ValueError:
                     continue
                 ws.cell(body_rr, note_col).alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+
+        if is_gtx_case:
+            # GTX has longer scenario-read, quality-impact and "what needs to
+            # happen" labels than the generic sector template.  Give those
+            # columns peer-style breathing room without changing formulas or
+            # source-backed content.
+            for col, width in {
+                "A": 50.0,
+                "B": 36.0,
+                "C": 34.0,
+                "H": 30.0,
+                "I": 28.0,
+                "J": 28.0,
+            }.items():
+                current = float(ws.column_dimensions[col].width or 0.0)
+                if current < width:
+                    ws.column_dimensions[col].width = width

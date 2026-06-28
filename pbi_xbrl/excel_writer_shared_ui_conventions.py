@@ -131,23 +131,44 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             bottom=Side(style="thin", color="D9E2EA"),
         )
 
-        columns = [
-            "Metric",
-            "Previous guide",
-            "New/current guide",
-            "Change type",
-            "Actual",
-            "Progress / run-rate",
-            "Status",
-            "Horizon",
-            "Stated in",
-            "Source date",
-            "Source / note",
-            "Unit",
-            "Confidence",
-            "Workbook treatment",
-            "promise id",
-        ]
+        status_fills = {
+            "completed": PatternFill("solid", fgColor="64C2A6"),
+            "open": PatternFill("solid", fgColor="99CCFF"),
+            "reported": PatternFill("solid", fgColor="99CCFF"),
+            "watch": PatternFill("solid", fgColor="F4B183"),
+            "raised": PatternFill("solid", fgColor="5B9BD5"),
+            "updated": PatternFill("solid", fgColor="5B9BD5"),
+            "initial": PatternFill("solid", fgColor="D9EAF7"),
+            "post-quarter": PatternFill("solid", fgColor="F4B183"),
+        }
+
+        def _status_fill(value: Any) -> Any:
+            key = str(value or "").strip().lower()
+            return status_fills.get(key, PatternFill("solid", fgColor="D9EAF7"))
+
+        def _style_cell(row_idx: int, col_idx: int, *, fill: Any, bold: bool = False, size: float = 11.0) -> None:
+            cell = ws.cell(row_idx, col_idx)
+            cell.fill = copy(fill)
+            cell.border = thin
+            cell.font = Font(bold=bold, color="1F2933", size=size)
+            cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+        def _merge_write(
+            row_idx: int,
+            start_col: int,
+            end_col: int,
+            value: Any,
+            *,
+            fill: Any,
+            bold: bool = False,
+            size: float = 11.0,
+        ) -> None:
+            if end_col > start_col:
+                ws.merge_cells(start_row=row_idx, start_column=start_col, end_row=row_idx, end_column=end_col)
+            cell = ws.cell(row_idx, start_col, value)
+            for cc in range(start_col, end_col + 1):
+                _style_cell(row_idx, cc, fill=fill, bold=bold, size=size)
+            cell.value = value
 
         def _section(row_idx: int, title: str) -> int:
             ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=12)
@@ -158,25 +179,77 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
             return row_idx + 1
 
-        def _headers(row_idx: int) -> int:
-            for cc, header in enumerate(columns, 1):
-                cell = ws.cell(row_idx, cc, header)
-                cell.fill = header_fill
-                cell.font = Font(bold=True, color="1F2933", size=12)
-                cell.border = thin
-                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        def _headers(row_idx: int, headers: Sequence[Tuple[int, int, str]]) -> int:
+            for start_col, end_col, header in headers:
+                _merge_write(row_idx, start_col, end_col, header, fill=header_fill, bold=True, size=11.0)
             return row_idx + 1
 
-        def _write_rows(row_idx: int, records: Iterable[Tuple[Any, ...]]) -> int:
-            for record in records:
-                padded = list(record) + [""] * (len(columns) - len(record))
-                row_fill = PatternFill("solid", fgColor="F8FBFD" if row_idx % 2 == 0 else "FFFFFF")
-                for cc in range(1, 15):
-                    cell = ws.cell(row_idx, cc, padded[cc - 1] if cc <= len(padded) else "")
-                    cell.border = thin
-                    cell.fill = row_fill
-                    cell.font = Font(color="1F2933", size=12)
-                    cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+        def _row_fill(row_idx: int) -> Any:
+            return PatternFill("solid", fgColor="F8FBFD" if row_idx % 2 == 0 else "FFFFFF")
+
+        def _write_open_rows(row_idx: int, records: Iterable[Tuple[Any, ...]]) -> int:
+            for metric, guide, horizon, status, note in records:
+                fill = _row_fill(row_idx)
+                _merge_write(row_idx, 1, 1, metric, fill=fill)
+                _merge_write(row_idx, 2, 2, guide, fill=fill)
+                _merge_write(row_idx, 3, 3, horizon, fill=fill)
+                _merge_write(row_idx, 4, 4, status, fill=_status_fill(status))
+                _merge_write(row_idx, 5, 12, note, fill=fill)
+                ws.row_dimensions[row_idx].height = 30
+                row_idx += 1
+            return row_idx
+
+        def _write_actual_rows(row_idx: int, records: Iterable[Tuple[Any, ...]]) -> int:
+            for metric, actual, period, status, note in records:
+                fill = _row_fill(row_idx)
+                _merge_write(row_idx, 1, 1, metric, fill=fill)
+                _merge_write(row_idx, 2, 2, actual, fill=fill)
+                _merge_write(row_idx, 3, 3, period, fill=fill)
+                _merge_write(row_idx, 4, 4, status, fill=_status_fill(status))
+                _merge_write(row_idx, 5, 12, note, fill=fill)
+                ws.row_dimensions[row_idx].height = 30
+                row_idx += 1
+            return row_idx
+
+        def _write_context_rows(row_idx: int, records: Iterable[Tuple[Any, ...]]) -> int:
+            for period, actuals, progress, status, note in records:
+                fill = _row_fill(row_idx)
+                _merge_write(row_idx, 1, 1, period, fill=fill)
+                _merge_write(row_idx, 2, 4, actuals, fill=fill)
+                _merge_write(row_idx, 5, 6, progress, fill=fill)
+                _merge_write(row_idx, 7, 7, status, fill=_status_fill(status))
+                _merge_write(row_idx, 8, 12, note, fill=fill)
+                ws.row_dimensions[row_idx].height = 34
+                row_idx += 1
+            return row_idx
+
+        def _write_revision_rows(row_idx: int, records: Iterable[Tuple[Any, ...]]) -> int:
+            for metric, previous, current, change, actual, progress, status, horizon, stated, note in records:
+                fill = _row_fill(row_idx)
+                _merge_write(row_idx, 1, 1, metric, fill=fill)
+                _merge_write(row_idx, 2, 2, previous, fill=fill)
+                _merge_write(row_idx, 3, 4, current, fill=fill)
+                _merge_write(row_idx, 5, 5, change, fill=fill)
+                _merge_write(row_idx, 6, 6, actual, fill=fill)
+                _merge_write(row_idx, 7, 7, progress, fill=fill)
+                _merge_write(row_idx, 8, 8, status, fill=_status_fill(status))
+                _merge_write(row_idx, 9, 9, horizon, fill=fill)
+                _merge_write(row_idx, 10, 10, stated, fill=fill)
+                _merge_write(row_idx, 11, 12, note, fill=fill)
+                ws.row_dimensions[row_idx].height = 34
+                row_idx += 1
+            return row_idx
+
+        def _write_event_rows(row_idx: int, records: Iterable[Tuple[Any, ...]]) -> int:
+            for event, current, disclosed, status, period, treatment in records:
+                fill = _row_fill(row_idx)
+                _merge_write(row_idx, 1, 1, event, fill=fill)
+                _merge_write(row_idx, 2, 4, current, fill=fill)
+                _merge_write(row_idx, 5, 5, disclosed, fill=fill)
+                _merge_write(row_idx, 6, 6, status, fill=_status_fill(status))
+                _merge_write(row_idx, 7, 8, period, fill=fill)
+                _merge_write(row_idx, 9, 12, treatment, fill=fill)
+                ws.row_dimensions[row_idx].height = 34
                 row_idx += 1
             return row_idx
 
@@ -202,7 +275,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
         for cc, header in ((1, "Category"), (2, "Score"), (3, "Evidence"), (7, "Read")):
             cell = ws.cell(rr, cc, header)
             cell.fill = header_fill
-            cell.font = Font(bold=True, color="1F2933", size=12)
+            cell.font = Font(bold=True, color="1F2933", size=11)
             cell.border = thin
             cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
         for cc in range(1, 13):
@@ -225,80 +298,84 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 cell = ws.cell(rr, cc)
                 cell.fill = row_fill
                 cell.border = thin
-                cell.font = Font(color="1F2933", size=12)
+                cell.font = Font(color="1F2933", size=11)
                 cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+            ws.cell(rr, 2).fill = _status_fill(record[1])
+            ws.row_dimensions[rr].height = 34
             rr += 1
         rr += 1
         rr = _section(rr, "2026 open guidance")
-        rr = _headers(rr)
-        rr = _write_rows(
+        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Current guide"), (3, 3, "Horizon"), (4, 4, "Status"), (5, 12, "Notes/source")])
+        rr = _write_open_rows(
             rr,
             [
-                ("Net sales", "", "$3.6bn-$3.9bn", "Raised", "", "Q1 actual $985m", "Open", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "$bn", "Source-backed", "Open annual guide", "gtx_2026_guide_sales"),
-                ("Constant-currency sales growth", "", "-2% to +6%", "Updated", "", "Industry-sensitive range", "Open", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "%", "Source-backed", "Demand backdrop", "gtx_2026_guide_cc_growth"),
-                ("Net income", "", "$300m-$360m", "Raised", "", "Q1 net income $95m", "Open", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "$m", "Source-backed", "GAAP guide", "gtx_2026_guide_net_income"),
-                ("Adjusted EBIT", "", "$520m-$600m", "Raised", "", "Q1 adjusted EBIT $151m", "Open", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "$m", "Source-backed", "Primary non-GAAP guide", "gtx_2026_guide_adj_ebit"),
-                ("CFO", "", "$407m-$522m", "Updated", "", "Q1 CFO $98m", "Open", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "$m", "Source-backed", "GAAP cash-flow guide", "gtx_2026_guide_cfo"),
-                ("Adjusted FCF", "", "$355m-$475m", "Raised", "", "Q1 adjusted FCF $49m", "Open", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "$m", "Source-backed", "Company-defined adjusted FCF", "gtx_2026_guide_adj_fcf"),
-                ("Light vehicle production", "", "down 1%-3%", "Assumption", "", "", "Watch", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "%", "Source-backed", "End-market assumption", "gtx_2026_assumption_lv"),
-                ("Commercial vehicle industry", "", "up 1%-2%", "Assumption", "", "", "Watch", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "%", "Source-backed", "End-market assumption", "gtx_2026_assumption_cv"),
-                ("BEV penetration", "", "about 19%", "Assumption", "", "", "Watch", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "%", "Source-backed", "Powertrain mix assumption", "gtx_2026_assumption_bev"),
-                ("EUR/USD", "", "1.17", "Assumption", "", "", "Watch", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "FX", "Source-backed", "FX assumption", "gtx_2026_assumption_fx"),
-                ("RD&E", "", "about 4.2% of sales", "Assumption", "", "", "Watch", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "% sales", "Source-backed", "Technology investment assumption", "gtx_2026_assumption_rde"),
-                ("Capex", "", "about 2.5% of sales", "Assumption", "", "", "Watch", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "% sales", "Source-backed", "FCF bridge assumption", "gtx_2026_assumption_capex"),
+                ("Net sales", "$3.6bn-$3.9bn", "2026 year", "Open", "Raised after Q1; Q1 actual was $985m. Source: Q1 2026 earnings release."),
+                ("Constant-currency sales growth", "-2% to +6%", "2026 year", "Open", "Updated range; demand backdrop stays industry-sensitive. Source: Q1 2026 earnings release."),
+                ("Net income", "$300m-$360m", "2026 year", "Open", "Raised GAAP guide; Q1 net income was $95m. Source: Q1 2026 earnings release."),
+                ("Adjusted EBIT", "$520m-$600m", "2026 year", "Open", "Primary non-GAAP guide; Q1 adjusted EBIT was $151m. Source: Q1 2026 earnings release."),
+                ("CFO", "$407m-$522m", "2026 year", "Open", "GAAP cash-flow guide; Q1 CFO was $98m. Source: Q1 2026 earnings release."),
+                ("Adjusted FCF", "$355m-$475m", "2026 year", "Open", "Company-defined adjusted FCF; Q1 adjusted FCF was $49m. Source: Q1 2026 earnings release."),
+                ("Light vehicle production", "down 1%-3%", "2026 year", "Watch", "End-market assumption. Source: Q1 2026 earnings release."),
+                ("Commercial vehicle industry", "up 1%-2%", "2026 year", "Watch", "End-market assumption. Source: Q1 2026 earnings release."),
+                ("BEV penetration", "~19%", "2026 year", "Watch", "Powertrain mix assumption. Source: Q1 2026 earnings release."),
+                ("EUR/USD", "1.17", "2026 year", "Watch", "FX assumption. Source: Q1 2026 earnings release."),
+                ("RD&E", "4.2% of sales", "2026 year", "Watch", "Technology investment assumption; keep as outlook/driver, not historical RD&E series. Source: Q1 2026 earnings release."),
+                ("Capex", "2.5% of sales", "2026 year", "Watch", "FCF bridge assumption. Source: Q1 2026 earnings release."),
             ],
         )
         rr += 1
         rr = _section(rr, "2025 completed actuals")
-        rr = _headers(rr)
-        rr = _write_rows(
+        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Actual"), (3, 3, "Period"), (4, 4, "Status"), (5, 12, "Notes/source")])
+        rr = _write_actual_rows(
             rr,
             [
-                ("Q4 2025 net sales", "", "", "Actual", "$891m", "Completed quarter actual", "Completed", "2025-Q4", "2025-Q4", "2026-02-19", "Q4 2025 earnings release", "$m", "Source-backed", "Quarter value, not FY", "gtx_2025_q4_sales_actual"),
-                ("Q4 2025 adjusted EBIT", "", "", "Actual", "$122m", "Completed quarter actual", "Completed", "2025-Q4", "2025-Q4", "2026-02-19", "Q4 2025 earnings release", "$m", "Source-backed", "Quarter value", "gtx_2025_q4_adj_ebit_actual"),
-                ("Q4 2025 adjusted FCF", "", "", "Actual", "$139m", "Completed quarter actual", "Completed", "2025-Q4", "2025-Q4", "2026-02-19", "Q4 2025 earnings release", "$m", "Source-backed", "Quarter value", "gtx_2025_q4_adj_fcf_actual"),
-                ("FY2025 net sales", "", "", "Actual", "$3.584bn", "Completed annual actual", "Completed", "FY2025", "2025-Q4", "2026-02-19", "Q4 2025 earnings release", "$bn", "Source-backed", "Annual actual", "gtx_2025_fy_sales_actual"),
-                ("FY2025 adjusted EBIT", "", "", "Actual", "$510m", "Completed annual actual", "Completed", "FY2025", "2025-Q4", "2026-02-19", "Q4 2025 earnings release", "$m", "Source-backed", "Annual actual", "gtx_2025_fy_adj_ebit_actual"),
-                ("FY2025 adjusted FCF", "", "", "Actual", "$403m", "Completed annual actual", "Completed", "FY2025", "2025-Q4", "2026-02-19", "Q4 2025 earnings release", "$m", "Source-backed", "Annual actual", "gtx_2025_fy_adj_fcf_actual"),
-                ("FY2025 buybacks", "", "", "Actual", "$208m", "Common share count reduction 8% year-over-year", "Completed", "FY2025", "2025-Q4", "2026-02-19", "Q4 2025 earnings release", "$m / %", "Source-backed", "Capital allocation actual", "gtx_2025_fy_buybacks_actual"),
+                ("Q4 2025 net sales", "$891m", "2025-Q4", "Completed", "Quarter value, not FY. Source: Q4 2025 earnings release."),
+                ("Q4 2025 adjusted EBIT", "$122m", "2025-Q4", "Completed", "Quarter value. Source: Q4 2025 earnings release."),
+                ("Q4 2025 adjusted FCF", "$139m", "2025-Q4", "Completed", "Quarter value. Source: Q4 2025 earnings release."),
+                ("FY2025 net sales", "$3.584bn", "FY2025", "Completed", "Completed annual actual. Source: Q4 2025 earnings release."),
+                ("FY2025 adjusted EBIT", "$510m", "FY2025", "Completed", "Completed annual actual. Source: Q4 2025 earnings release."),
+                ("FY2025 adjusted FCF", "$403m", "FY2025", "Completed", "Completed annual actual. Source: Q4 2025 earnings release."),
+                ("FY2025 buybacks", "$208m", "FY2025", "Completed", "Capital allocation actual; common share count reduction 8% year-over-year. Source: Q4 2025 earnings release."),
             ],
         )
         rr += 1
-        rr = _section(rr, "Quarterly actuals / source-backed context")
-        rr = _headers(rr)
-        rr = _write_rows(
+        rr = _section(rr, "Quarterly actual/context rows")
+        rr = _headers(rr, [(1, 1, "Quarter"), (2, 4, "Actuals"), (5, 6, "Progress / run-rate"), (7, 7, "Status"), (8, 12, "Notes/source")])
+        rr = _write_context_rows(
             rr,
             [
-                ("2026-Q1", "", "", "Actual", "Sales $985m; adj EBIT $151m; adj EBITDA $183m; adj FCF $49m", "CFO $98m; capex $29m; buybacks $87m", "Reported", "2026-Q1", "2026-Q1", "2026-04-30", "History_Q / Adjusted_Metrics high-confidence official rows", "$m", "Source-backed", "Quarterly context; post-quarter debt event stays separate", "gtx_2026_q1_actuals"),
-                ("2025-Q4", "", "", "Actual", "Sales $891m; adj EBIT $122m; adj EBITDA $159m; adj FCF $139m", "CFO $99m; capex $21m; buybacks $72m", "Reported", "2025-Q4", "2025-Q4", "2026-02-19", "History_Q / Adjusted_Metrics high-confidence official rows", "$m", "Source-backed", "Quarter values; do not select FY columns", "gtx_2025_q4_actuals"),
-                ("2025-Q3", "", "", "Actual", "Sales $902m; adj EBIT $133m; adj EBITDA $164m; adj FCF $107m", "CFO $100m; capex $10m; buybacks $84m", "Reported", "2025-Q3", "2025-Q3", "2025-10-23", "History_Q / Adjusted_Metrics high-confidence official rows", "$m", "Source-backed", "Actuals-only context, not guidance revision", "gtx_2025_q3_actuals"),
-                ("2025-Q2", "", "", "Actual", "Sales $913m; adj EBIT $124m; adj EBITDA $154m; adj FCF $121m", "CFO $158m; capex $15m; buybacks $22m", "Reported", "2025-Q2", "2025-Q2", "2025-07-24", "History_Q / Adjusted_Metrics high-confidence official rows", "$m", "Source-backed", "Actuals-only context, not guidance revision", "gtx_2025_q2_actuals"),
-                ("2025-Q1", "", "", "Actual", "Sales $878m; adj EBIT $131m; adj EBITDA $159m; adj FCF $36m", "CFO $56m; capex $26m; buybacks $30m", "Reported", "2025-Q1", "2025-Q1", "2025-04-24", "History_Q / Adjusted_Metrics high-confidence official rows", "$m", "Source-backed", "Actuals-only context, not guidance revision", "gtx_2025_q1_actuals"),
+                ("2026-Q1", "Sales $985m; adj EBIT $151m; adj EBITDA $183m; adj FCF $49m", "CFO $98m; capex $29m; buybacks $87m", "Reported", "High-confidence official rows; post-quarter debt event stays separate."),
+                ("2025-Q4", "Sales $891m; adj EBIT $122m; adj EBITDA $159m; adj FCF $139m", "CFO $99m; capex $21m; buybacks $72m", "Reported", "Quarter values; do not select FY columns."),
+                ("2025-Q3", "Sales $902m; adj EBIT $133m; adj EBITDA $164m; adj FCF $107m", "CFO $100m; capex $10m; buybacks $84m", "Reported", "Actuals-only context, not a guidance revision."),
+                ("2025-Q2", "Sales $913m; adj EBIT $124m; adj EBITDA $154m; adj FCF $121m", "CFO $158m; capex $15m; buybacks $22m", "Reported", "Actuals-only context, not a guidance revision."),
+                ("2025-Q1", "Sales $878m; adj EBIT $131m; adj EBITDA $159m; adj FCF $36m", "CFO $56m; capex $26m; buybacks $30m", "Reported", "Actuals-only context, not a guidance revision."),
             ],
         )
         rr += 1
         rr = _section(rr, "Quarterly guidance timeline / revision log")
-        rr = _headers(rr)
-        rr = _write_rows(
+        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Previous guide"), (3, 4, "New/current guide"), (5, 5, "Change type"), (6, 6, "Actual"), (7, 7, "Progress / run-rate"), (8, 8, "Status"), (9, 9, "Horizon"), (10, 10, "Stated in"), (11, 12, "Notes/source")])
+        rr = _write_revision_rows(
             rr,
             [
-                ("Initial FY2026 outlook", "", "FY2026 outlook issued with FY2025 results", "Initial", "FY2025 actuals completed", "Base guide from Q4/FY2025 release", "Open", "2026 year", "2025-Q4", "2026-02-19", "Q4 2025 earnings release", "", "Source-backed", "Track revisions against Q1 guide", "gtx_2026_initial_outlook"),
-                ("Raised FY2026 outlook", "Initial 2026 outlook", "Net sales $3.6bn-$3.9bn; adj EBIT $520m-$600m; adj FCF $355m-$475m", "Raised", "Q1 2026 actuals reported", "Open annual guidance after Q1", "Open", "2026 year", "2026-Q1", "2026-04-30", "Q1 2026 earnings release", "$m / $bn", "Source-backed", "Annual guide remains open", "gtx_2026_raised_outlook"),
+                ("Initial FY2026 outlook", "", "FY2026 outlook issued with FY2025 results", "Initial", "FY2025 actuals completed", "Base guide from Q4/FY2025 release", "Open", "2026 year", "2025-Q4", "Q4 2025 earnings release; track revisions against Q1 guide."),
+                ("Raised FY2026 outlook", "Initial 2026 outlook", "Net sales $3.6bn-$3.9bn; adj EBIT $520m-$600m; adj FCF $355m-$475m", "Raised", "Q1 2026 actuals reported", "Annual guide remains open", "Open", "2026 year", "2026-Q1", "Q1 2026 earnings release."),
             ],
         )
         rr += 1
         rr = _section(rr, "Post-quarter May 2026 debt repayment/repricing event")
-        rr = _headers(rr)
-        rr = _write_rows(
+        rr = _headers(rr, [(1, 1, "Event"), (2, 4, "Current/pro-forma event"), (5, 5, "Disclosed value"), (6, 6, "Status"), (7, 8, "Period/event"), (9, 12, "Treatment/source")])
+        rr = _write_event_rows(
             rr,
             [
-                ("Debt reduction", "", "Post-quarter event-context / pro-forma: $50m term-loan repayment/repricing", "Post-quarter", "$50m disclosed post-quarter", "Event context only", "Watch", "Post-quarter", "2026-Q2", "2026-05-18", "May 18 2026 press release / 8-K package", "$m", "Source-backed", "Not Q1 reported history", "gtx_may_2026_debt_event"),
+                ("Debt reduction", "Post-quarter event-context / pro-forma: $50m term-loan repayment/repricing", "$50m disclosed post-quarter", "Watch", "Post-quarter May 18 2026", "May 18 2026 press release / 8-K package; not Q1 reported history."),
             ],
         )
 
-        widths = {1: 28, 2: 26, 3: 32, 4: 16, 5: 38, 6: 36, 7: 16, 8: 14, 9: 16, 10: 14, 11: 42, 12: 16, 13: 18, 14: 42, 15: 24}
+        widths = {1: 28, 2: 24, 3: 22, 4: 18, 5: 20, 6: 20, 7: 18, 8: 18, 9: 18, 10: 18, 11: 28, 12: 28, 13: 3, 14: 3, 15: 3}
         for cc, width in widths.items():
             ws.column_dimensions[get_column_letter(cc)].width = width
+            if cc >= 13:
+                ws.column_dimensions[get_column_letter(cc)].hidden = True
         for row_idx in range(1, int(ws.max_row or 0) + 1):
             if row_idx in {1, 2}:
                 ws.row_dimensions[row_idx].height = 28
@@ -306,13 +383,13 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 "Management Credibility Scorecard",
                 "2026 open guidance",
                 "2025 completed actuals",
-                "Quarterly actuals / source-backed context",
+                "Quarterly actual/context rows",
                 "Quarterly guidance timeline / revision log",
                 "Post-quarter May 2026 debt repayment/repricing event",
             }:
                 ws.row_dimensions[row_idx].height = 26
             else:
-                ws.row_dimensions[row_idx].height = 32 if row_idx >= 5 else 24
+                ws.row_dimensions[row_idx].height = max(float(ws.row_dimensions[row_idx].height or 0), 30.0 if row_idx >= 5 else 24.0)
 
     def _rewrite_gtx_valuation_guidance_and_driver_panels() -> None:
         if ticker_txt != "GTX" or "Valuation" not in getattr(wb, "sheetnames", []):
@@ -516,27 +593,47 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
 
         def _write_table(title: str, headers_in: Sequence[str], records: Sequence[Sequence[Any]]) -> None:
             nonlocal rr
-            ws.merge_cells(start_row=rr, start_column=1, end_row=rr, end_column=len(headers_in))
+            ws.merge_cells(start_row=rr, start_column=1, end_row=rr, end_column=9)
             ws.cell(rr, 1, title)
-            for cc in range(1, len(headers_in) + 1):
+            for cc in range(1, 10):
                 cell = ws.cell(rr, cc)
                 cell.fill = title_fill
                 cell.border = thin
                 cell.font = Font(bold=True, color="1F2933", size=12)
             rr += 1
-            for cc, header in enumerate(headers_in, start=1):
+            display_headers = [*(str(header) for header in headers_in[:4]), "Source / treatment"]
+            for cc, header in enumerate(display_headers, start=1):
                 cell = ws.cell(rr, cc, header)
                 cell.fill = header_fill
                 cell.border = thin
                 cell.font = Font(bold=True, color="1F2933", size=12)
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            for cc in range(len(display_headers) + 1, 10):
+                cell = ws.cell(rr, cc)
+                cell.fill = header_fill
+                cell.border = thin
+                cell.font = Font(bold=True, color="1F2933", size=12)
+            ws.merge_cells(start_row=rr, start_column=5, end_row=rr, end_column=9)
             rr += 1
             for record in records:
-                for cc, value in enumerate(record, start=1):
+                values = list(record)
+                while len(values) < 6:
+                    values.append("")
+                source_note = " — ".join(str(value or "").strip() for value in values[4:6] if str(value or "").strip())
+                display_values = [*values[:4], source_note]
+                for cc, value in enumerate(display_values, start=1):
                     cell = ws.cell(rr, cc, value)
                     cell.fill = alt_fill if rr % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
                     cell.border = thin
                     cell.font = Font(color="1F2933", size=12)
                     cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=cc >= 5)
+                for cc in range(len(display_values) + 1, 10):
+                    cell = ws.cell(rr, cc)
+                    cell.fill = alt_fill if rr % 2 == 0 else PatternFill("solid", fgColor="FFFFFF")
+                    cell.border = thin
+                    cell.font = Font(color="1F2933", size=12)
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                ws.merge_cells(start_row=rr, start_column=5, end_row=rr, end_column=9)
                 ws.row_dimensions[rr].height = 24 if any(str(value or "").strip() for value in record) else 16
                 rr += 1
             rr += 1
@@ -577,7 +674,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 ("Top ten customers % sales", "", "", "about 62%", "2025 Form 10-K", "Not a segment; customer risk"),
             ],
         )
-        for cc, width in {1: 36, 2: 14, 3: 14, 4: 14, 5: 14, 6: 14, 7: 14, 8: 14, 9: 14}.items():
+        for cc, width in {1: 34, 2: 13, 3: 13, 4: 13, 5: 13, 6: 13, 7: 13, 8: 13, 9: 13}.items():
             ws.column_dimensions[get_column_letter(cc)].width = width
 
     def _clean_gtx_quarter_notes_visible_noise() -> None:
@@ -613,7 +710,13 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 ws.cell(row_idx, cc).fill = fill
                 ws.cell(row_idx, cc).border = thin
 
-        def _label_row(row_idx: int, label: str, text: str, *, fill: Any = body_fill) -> None:
+        def _set_height(row_idx: int, height: float) -> None:
+            ws.row_dimensions[row_idx].height = height
+
+        def _spacer(row_idx: int) -> None:
+            _set_height(row_idx, 10.0)
+
+        def _label_row(row_idx: int, label: str, text: str, *, fill: Any = body_fill, height: float = 44.0) -> None:
             ws.cell(row_idx, 1, label)
             ws.merge_cells(start_row=row_idx, start_column=2, end_row=row_idx, end_column=15)
             ws.cell(row_idx, 2, text)
@@ -623,6 +726,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 cell.border = thin
                 cell.font = Font(bold=cc == 1, color="1F2933", size=11)
                 cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+            _set_height(row_idx, height)
 
         def _table_header(row_idx: int) -> None:
             headers = {
@@ -632,7 +736,9 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 8: "Model / valuation implication",
                 13: "Source / confidence",
             }
+            ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=2)
             ws.merge_cells(start_row=row_idx, start_column=3, end_row=row_idx, end_column=5)
+            ws.merge_cells(start_row=row_idx, start_column=6, end_row=row_idx, end_column=7)
             ws.merge_cells(start_row=row_idx, start_column=8, end_row=row_idx, end_column=12)
             ws.merge_cells(start_row=row_idx, start_column=13, end_row=row_idx, end_column=15)
             for cc in range(1, 16):
@@ -643,11 +749,14 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 cell.border = thin
                 cell.font = Font(bold=True, color="1F2933", size=11)
                 cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            _set_height(row_idx, 26.0)
 
         def _table_row(row_idx: int, theme: str, happened: str, why: str, treatment: str, source: str) -> None:
             ws.cell(row_idx, 1, theme)
+            ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=2)
             ws.merge_cells(start_row=row_idx, start_column=3, end_row=row_idx, end_column=5)
             ws.cell(row_idx, 3, happened)
+            ws.merge_cells(start_row=row_idx, start_column=6, end_row=row_idx, end_column=7)
             ws.cell(row_idx, 6, why)
             ws.merge_cells(start_row=row_idx, start_column=8, end_row=row_idx, end_column=12)
             ws.cell(row_idx, 8, treatment)
@@ -660,18 +769,18 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 cell.border = thin
                 cell.font = Font(color="1F2933", size=11)
                 cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+            _set_height(row_idx, 48.0)
 
         def _promise_header(row_idx: int) -> None:
             headers = {
                 1: "Promise / guidance item",
                 3: "Read",
-                6: "Actual / progress interpretation",
-                9: "Status / caveat",
-                13: "Source / confidence",
+                7: "Actual / progress interpretation",
+                13: "Status / source",
             }
-            ws.merge_cells(start_row=row_idx, start_column=3, end_row=row_idx, end_column=5)
-            ws.merge_cells(start_row=row_idx, start_column=6, end_row=row_idx, end_column=8)
-            ws.merge_cells(start_row=row_idx, start_column=9, end_row=row_idx, end_column=12)
+            ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=2)
+            ws.merge_cells(start_row=row_idx, start_column=3, end_row=row_idx, end_column=6)
+            ws.merge_cells(start_row=row_idx, start_column=7, end_row=row_idx, end_column=12)
             ws.merge_cells(start_row=row_idx, start_column=13, end_row=row_idx, end_column=15)
             for cc in range(1, 16):
                 cell = ws.cell(row_idx, cc)
@@ -681,17 +790,17 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 cell.border = thin
                 cell.font = Font(bold=True, color="1F2933", size=11)
                 cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            _set_height(row_idx, 26.0)
 
         def _promise_row(row_idx: int, item: str, read: str, progress: str, status: str, source: str) -> None:
             ws.cell(row_idx, 1, item)
-            ws.merge_cells(start_row=row_idx, start_column=3, end_row=row_idx, end_column=5)
+            ws.merge_cells(start_row=row_idx, start_column=1, end_row=row_idx, end_column=2)
+            ws.merge_cells(start_row=row_idx, start_column=3, end_row=row_idx, end_column=6)
             ws.cell(row_idx, 3, read)
-            ws.merge_cells(start_row=row_idx, start_column=6, end_row=row_idx, end_column=8)
-            ws.cell(row_idx, 6, progress)
-            ws.merge_cells(start_row=row_idx, start_column=9, end_row=row_idx, end_column=12)
-            ws.cell(row_idx, 9, status)
+            ws.merge_cells(start_row=row_idx, start_column=7, end_row=row_idx, end_column=12)
+            ws.cell(row_idx, 7, progress)
             ws.merge_cells(start_row=row_idx, start_column=13, end_row=row_idx, end_column=15)
-            ws.cell(row_idx, 13, source)
+            ws.cell(row_idx, 13, " — ".join(part for part in (status, source) if str(part or "").strip()))
             row_fill = body_fill if row_idx % 2 == 0 else white_fill
             for cc in range(1, 16):
                 cell = ws.cell(row_idx, cc)
@@ -699,29 +808,37 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 cell.border = thin
                 cell.font = Font(color="1F2933", size=11)
                 cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+            _set_height(row_idx, 48.0 if max(len(str(read or "")), len(str(progress or "")), len(str(status or ""))) > 115 else 34.0)
 
         def _quarter_block(row_idx: int, title: str, read: str, changed: str, watch: str, caveat: str, rows_in: Sequence[Tuple[str, str, str, str, str]]) -> int:
             _merge(row_idx, 1, 15, title, fill=title_fill, bold=True, size=14)
+            _set_height(row_idx, 24.0)
             row_idx += 1
             _merge(row_idx, 1, 15, "Quarter read", fill=sub_fill, bold=True, size=13)
+            _set_height(row_idx, 25.0)
             row_idx += 1
-            _label_row(row_idx, "Model read", read, fill=body_fill)
+            _label_row(row_idx, "Model read", read, fill=body_fill, height=44.0)
             row_idx += 1
-            _label_row(row_idx, "What changed", changed, fill=alt_body_fill)
+            _label_row(row_idx, "What changed", changed, fill=alt_body_fill, height=44.0)
             row_idx += 1
-            _label_row(row_idx, "Watch next", watch, fill=body_fill)
+            _label_row(row_idx, "Watch next", watch, fill=body_fill, height=30.0)
             row_idx += 1
-            _label_row(row_idx, "Key caveat", caveat, fill=alt_body_fill)
-            row_idx += 2
+            _label_row(row_idx, "Key caveat", caveat, fill=alt_body_fill, height=30.0)
+            row_idx += 1
+            _spacer(row_idx)
+            row_idx += 1
             _merge(row_idx, 1, 15, "Key developments", fill=sub_fill, bold=True, size=13)
+            _set_height(row_idx, 25.0)
             row_idx += 1
             _table_header(row_idx)
             row_idx += 1
             for record in rows_in:
                 _table_row(row_idx, *record)
                 row_idx += 1
+            _spacer(row_idx)
             row_idx += 1
             _merge(row_idx, 1, 15, "Guidance / Promise interpretation", fill=sub_fill, bold=True, size=13)
+            _set_height(row_idx, 25.0)
             row_idx += 1
             _promise_header(row_idx)
             row_idx += 1
@@ -742,8 +859,11 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 "Do not invent revisions for quarters without source-backed guide updates.",
                 "History_Q / Adjusted_Metrics",
             )
-            row_idx += 2
+            row_idx += 1
+            _spacer(row_idx)
+            row_idx += 1
             _merge(row_idx, 1, 15, "Model mapping / double-count guardrails", fill=sub_fill, bold=True, size=13)
+            _set_height(row_idx, 25.0)
             row_idx += 1
             _promise_header(row_idx)
             row_idx += 1
@@ -774,7 +894,8 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 "May 18 2026 release / 8-K package",
             )
             row_idx += 1
-            return row_idx + 2
+            _spacer(row_idx)
+            return row_idx + 1
 
         rr = 1
         rr = _quarter_block(
@@ -849,11 +970,13 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ],
         )
 
-        widths = {1: 20, 2: 22, 3: 26, 4: 26, 5: 26, 6: 26, 7: 26, 8: 26, 9: 26, 10: 24, 11: 24, 12: 24, 13: 22, 14: 22, 15: 22}
+        widths = {1: 20, 2: 22, 3: 26, 4: 26, 5: 26, 6: 26, 7: 26, 8: 26, 9: 26, 10: 24, 11: 24, 12: 24, 13: 22, 14: 22, 15: 46}
         for cc, width in widths.items():
             ws.column_dimensions[get_column_letter(cc)].width = width
         for row_idx in range(1, int(ws.max_row or 0) + 1):
-            ws.row_dimensions[row_idx].height = 24 if row_idx in {1, 2, rr} else 44
+            if ws.row_dimensions[row_idx].height is None:
+                has_text = any(str(ws.cell(row_idx, cc).value or "").strip() for cc in range(1, 16))
+                ws.row_dimensions[row_idx].height = 34.0 if has_text else 10.0
         ws.freeze_panes = "A8"
 
     if ticker_txt == "GTX":

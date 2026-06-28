@@ -280,24 +280,30 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
 
             rr = 6 + len(watchlist_rows) + 2
             rr = _section(rr, "Current/latest outlook", "official Q1 2026 release, FY2026 outlook")
-            rr = _headers(rr, ["Metric", "Low", "High", "Unit", "Basis", "Stated in", "Status", "Read", "", "Source", "Workbook treatment", "Confidence", "Notes", "Audit note"])
+            outlook_header_row = rr
+            rr = _headers(rr, ["Metric", "Low", "High", "Basis", "Stated in", "Status", "Notes", "", "", "Source", "Workbook treatment", "", "Confidence", "Audit note"])
+            outlook_data_start = rr
             rr = _rows(
                 rr,
                 [
-                    ("Net sales", "$3.6bn", "$3.9bn", "$bn", "FY2026 outlook", "2026-Q1", "Open", "Raised guide", "", "2026-04-30 / Q1 2026 earnings release", "Promise / valuation context", "Source-backed", "Raised 2026 outlook.", ""),
-                    ("Constant-currency sales growth", "-2%", "+6%", "%", "FY2026 outlook", "2026-Q1", "Open", "Demand range", "", "2026-04-30 / Q1 2026 earnings release", "Demand backdrop", "Source-backed", "Use as growth sensitivity, not reported result.", ""),
-                    ("Net income", "$300m", "$360m", "$m", "FY2026 outlook", "2026-Q1", "Open", "GAAP guide", "", "2026-04-30 / Q1 2026 earnings release", "Bridge to EPS/cash", "Source-backed", "GAAP outlook.", ""),
-                    ("Adjusted EBIT", "$520m", "$600m", "$m", "FY2026 outlook", "2026-Q1", "Open", "Primary non-GAAP metric", "", "2026-04-30 / Q1 2026 earnings release", "Primary operating metric", "Source-backed", "Primary non-GAAP operating scorecard.", ""),
-                    ("CFO", "$407m", "$522m", "$m", "FY2026 outlook", "2026-Q1", "Open", "Cash guide", "", "2026-04-30 / Q1 2026 earnings release", "Cash conversion", "Source-backed", "GAAP operating cash flow outlook.", ""),
-                    ("Adjusted FCF", "$355m", "$475m", "$m", "FY2026 outlook", "2026-Q1", "Open", "Adjusted cash guide", "", "2026-04-30 / Q1 2026 earnings release", "Cash conversion", "Source-backed", "Company-defined adjusted FCF.", ""),
-                    ("Light vehicle production", "-1%", "-3%", "%", "FY2026 assumption", "2026-Q1", "Watch", "Industry assumption", "", "2026-04-30 / Q1 2026 earnings release", "End-market assumption", "Source-backed", "Industry production down 1%-3%.", ""),
-                    ("Commercial vehicle industry", "+1%", "+2%", "%", "FY2026 assumption", "2026-Q1", "Watch", "Industry assumption", "", "2026-04-30 / Q1 2026 earnings release", "End-market assumption", "Source-backed", "Commercial vehicle industry up 1%-2%.", ""),
-                    ("BEV penetration", "about 19%", "", "%", "FY2026 assumption", "2026-Q1", "Watch", "Powertrain mix", "", "2026-04-30 / Q1 2026 earnings release", "Powertrain mix assumption", "Source-backed", "Sensitivity for turbo/electrification mix.", ""),
-                    ("EUR/USD", "1.17", "", "FX", "FY2026 assumption", "2026-Q1", "Watch", "FX assumption", "", "2026-04-30 / Q1 2026 earnings release", "FX assumption", "Source-backed", "Do not treat as actual FX.", ""),
-                    ("RD&E", "about 4.2%", "", "% of sales", "FY2026 assumption", "2026-Q1", "Watch", "Investment intensity", "", "2026-04-30 / Q1 2026 earnings release", "Technology investment watch", "Source-backed", "Supports new awards/pipeline.", ""),
-                    ("Capex", "about 2.5%", "", "% of sales", "FY2026 assumption", "2026-Q1", "Watch", "Capital intensity", "", "2026-04-30 / Q1 2026 earnings release", "FCF bridge", "Source-backed", "Capex intensity assumption.", ""),
+                    ("Net sales", "$3.6bn", "$3.9bn", "2026 year outlook", "2026-Q1", "Open", "Raised 2026 outlook.", "", "", "2026-04-30 / 2026-Q1 earnings release", "Promise / valuation context", "", "Source-backed", ""),
+                    ("Constant-currency sales growth", "-2%", "+6%", "2026 year outlook", "2026-Q1", "Open", "Use as growth sensitivity, not reported result.", "", "", "2026-04-30 / 2026-Q1 earnings release", "Demand backdrop", "", "Source-backed", ""),
+                    ("Net income", "$300m", "$360m", "2026 year outlook", "2026-Q1", "Open", "GAAP outlook.", "", "", "2026-04-30 / 2026-Q1 earnings release", "Bridge to EPS/cash", "", "Source-backed", ""),
+                    ("Adjusted EBIT", "$520m", "$600m", "2026 year outlook", "2026-Q1", "Open", "Primary non-GAAP operating scorecard.", "", "", "2026-04-30 / 2026-Q1 earnings release", "Primary operating metric", "", "Source-backed", ""),
+                    ("CFO", "$407m", "$522m", "2026 year outlook", "2026-Q1", "Open", "GAAP operating cash flow outlook.", "", "", "2026-04-30 / 2026-Q1 earnings release", "Cash conversion", "", "Source-backed", ""),
+                    ("Adjusted FCF", "$355m", "$475m", "2026 year outlook", "2026-Q1", "Open", "Company-defined adjusted FCF.", "", "", "2026-04-30 / 2026-Q1 earnings release", "Cash conversion", "", "Source-backed", ""),
+                    ("Light vehicle production", "-1%", "-3%", "2026 year assumption", "2026-Q1", "Watch", "Industry production down 1%-3%.", "", "", "2026-04-30 / 2026-Q1 earnings release", "End-market assumption", "", "Source-backed", ""),
+                    ("Commercial vehicle industry", "+1%", "+2%", "2026 year assumption", "2026-Q1", "Watch", "Commercial vehicle industry up 1%-2%.", "", "", "2026-04-30 / 2026-Q1 earnings release", "End-market assumption", "", "Source-backed", ""),
+                    ("BEV penetration", "~19%", "", "2026 year assumption", "2026-Q1", "Watch", "Sensitivity for turbo/electrification mix.", "", "", "2026-04-30 / 2026-Q1 earnings release", "Powertrain mix assumption", "", "Source-backed", ""),
+                    ("EUR/USD", "1.17", "", "2026 year assumption", "2026-Q1", "Watch", "Do not treat as actual FX.", "", "", "2026-04-30 / 2026-Q1 earnings release", "FX assumption", "", "Source-backed", ""),
+                    ("RD&E", "4.2% of sales", "", "2026 year assumption", "2026-Q1", "Watch", "Supports new awards/pipeline.", "", "", "2026-04-30 / 2026-Q1 earnings release", "Technology investment watch", "", "Source-backed", ""),
+                    ("Capex", "2.5% of sales", "", "2026 year assumption", "2026-Q1", "Watch", "Capex intensity assumption.", "", "", "2026-04-30 / 2026-Q1 earnings release", "FCF bridge", "", "Source-backed", ""),
                 ],
             )
+            outlook_data_end = rr - 1
+            for merge_row in range(outlook_header_row, outlook_data_end + 1):
+                ws.merge_cells(start_row=merge_row, start_column=7, end_row=merge_row, end_column=9)
+                ws.merge_cells(start_row=merge_row, start_column=11, end_row=merge_row, end_column=12)
             rr += 1
             rr = _section(rr, "Recent quarter commentary", "source-backed actuals and management framing")
             commentary_header_row = rr
@@ -397,19 +403,27 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
             )
             rr += 1
             rr = _section(rr, "Debt / buyback / leverage watch")
-            rr = _headers(rr, ["Item", "Reported / disclosed value", "Period / event", "Status", "Read", "", "", "", "", "Source", "Workbook treatment", "Confidence", "Notes", "Audit note"])
+            debt_header_row = rr
+            rr = _headers(rr, ["Item", "Reported / disclosed value", "", "", "Period / event", "", "Status", "Notes", "", "Source", "Workbook treatment", "", "", "Confidence"])
+            debt_data_start = rr
             rr = _rows(
                 rr,
                 [
-                    ("Debt outstanding", "$1,437m", "2026-Q1 reported", "Reported", "Q1 history", "", "", "", "", "Q1 2026 earnings release", "History_Q / Debt_Profile", "Source-backed", "Reported Q1 history remains unchanged.", ""),
-                    ("Unrestricted cash", "$142m", "2026-Q1 reported", "Reported", "Net debt input", "", "", "", "", "Q1 2026 10-Q", "Net debt uses unrestricted cash only", "Source-backed", "Restricted cash shown separately.", ""),
-                    ("Restricted cash", "$2m", "2026-Q1 reported", "Reported", "Separate cash line", "", "", "", "", "Q1 2026 10-Q", "Shown separately", "Source-backed", "Not counted as unrestricted cash.", ""),
-                    ("Q1 buybacks", "$87m", "2026-Q1", "Actual", "Capital return", "", "", "", "", "Q1 2026 earnings release", "Capital allocation watch", "Source-backed", "Returned more than $100m including dividends.", ""),
-                    ("Remaining buyback authorization", "$163m", "2026-Q1", "Open", "Authorization", "", "", "", "", "Q1 2026 earnings release", "Capital allocation watch", "Source-backed", "Not a guaranteed repurchase.", ""),
-                    ("FY2025 buybacks", "$208m", "FY2025", "Completed", "Capital return", "", "", "", "", "Q4 2025 earnings release", "Management credibility actual", "Source-backed", "Common share count reduction 8% YoY.", ""),
-                    ("May 18 debt event", "$50m term-loan repayment/repricing", "Post-quarter event", "Post-quarter", "Event context", "", "", "", "", "May 18 2026 press release / 8-K package", "Pro-forma/event context only", "Source-backed", "Do not rewrite Q1 reported history.", ""),
+                    ("Debt outstanding", "$1,437m", "", "", "2026-Q1 reported", "", "Reported", "Reported Q1 history remains unchanged.", "", "2026-Q1 earnings release", "History_Q / Debt_Profile", "", "", "Source-backed"),
+                    ("Unrestricted cash", "$142m", "", "", "2026-Q1 reported", "", "Reported", "Restricted cash shown separately.", "", "2026-Q1 10-Q", "Net debt uses unrestricted cash only", "", "", "Source-backed"),
+                    ("Restricted cash", "$2m", "", "", "2026-Q1 reported", "", "Reported", "Not counted as unrestricted cash.", "", "2026-Q1 10-Q", "Shown separately", "", "", "Source-backed"),
+                    ("Q1 buybacks", "$87m", "", "", "2026-Q1", "", "Actual", "Returned more than $100m including dividends.", "", "2026-Q1 earnings release", "Capital allocation watch", "", "", "Source-backed"),
+                    ("Remaining buyback authorization", "$163m", "", "", "2026-Q1", "", "Open", "Not a guaranteed repurchase.", "", "2026-Q1 earnings release", "Capital allocation watch", "", "", "Source-backed"),
+                    ("2025 year buybacks", "$208m", "", "", "2025 year", "", "Completed", "Common share count reduction 8% YoY.", "", "2025-Q4 earnings release", "Management credibility actual", "", "", "Source-backed"),
+                    ("May 18 debt event", "$50m term-loan repayment/repricing", "", "", "Post-quarter event", "", "Post-quarter", "Do not rewrite Q1 reported history.", "", "May 18 2026 press release / 8-K package", "Pro-forma/event context only", "", "", "Source-backed"),
                 ],
             )
+            debt_data_end = rr - 1
+            for merge_row in range(debt_header_row, debt_data_end + 1):
+                ws.merge_cells(start_row=merge_row, start_column=2, end_row=merge_row, end_column=4)
+                ws.merge_cells(start_row=merge_row, start_column=5, end_row=merge_row, end_column=6)
+                ws.merge_cells(start_row=merge_row, start_column=8, end_row=merge_row, end_column=9)
+                ws.merge_cells(start_row=merge_row, start_column=11, end_row=merge_row, end_column=13)
 
             widths = {1: 42, 2: 16, 3: 16, 4: 16, 5: 16, 6: 16, 7: 16, 8: 16, 9: 16, 10: 16, 11: 16, 12: 16, 13: 16, 14: 16}
             for cc, width in widths.items():
