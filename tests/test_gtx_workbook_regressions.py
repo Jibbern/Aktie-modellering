@@ -9,6 +9,7 @@ from typing import Any, Iterator
 
 import openpyxl
 import pytest
+from pbi_xbrl.workbook_validation_runner import validate_workbook
 
 
 DEFAULT_GTX_STAGED_WORKBOOK = Path(
@@ -597,18 +598,21 @@ def test_gtx_operating_drivers_recent_commentary_uses_broad_layout(
 
     headers = [str(ws.cell(header_row, cc).value or "").strip() for cc in range(1, 15)]
     assert headers[2].lower() == "actual / guide"
-    assert headers[5].lower() == "why it matters"
-    assert "Source" not in headers[3:9]
-    assert "Source" in headers[9:]
+    assert headers[4].lower() == "why it matters"
+    assert "Source" not in headers[3:8]
+    assert "Source" in headers[8:]
     first_commentary_row = header_row + 1
     assert str(ws.cell(first_commentary_row, 3).value or "").strip()
     assert not str(ws.cell(first_commentary_row, 4).value or "").strip()
-    assert not str(ws.cell(first_commentary_row, 5).value or "").strip()
-    assert str(ws.cell(first_commentary_row, 6).value or "").strip()
-    assert f"C{header_row}:E{header_row}" in merged_ranges
-    assert f"F{header_row}:I{header_row}" in merged_ranges
-    assert f"C{first_commentary_row}:E{first_commentary_row}" in merged_ranges
-    assert f"F{first_commentary_row}:I{first_commentary_row}" in merged_ranges
+    assert str(ws.cell(first_commentary_row, 5).value or "").strip()
+    assert f"C{header_row}:D{header_row}" in merged_ranges
+    assert f"E{header_row}:H{header_row}" in merged_ranges
+    assert f"I{header_row}:J{header_row}" in merged_ranges
+    assert f"K{header_row}:L{header_row}" in merged_ranges
+    assert f"C{first_commentary_row}:D{first_commentary_row}" in merged_ranges
+    assert f"E{first_commentary_row}:H{first_commentary_row}" in merged_ranges
+    assert f"I{first_commentary_row}:J{first_commentary_row}" in merged_ranges
+    assert f"K{first_commentary_row}:L{first_commentary_row}" in merged_ranges
     assert ws.row_dimensions[first_commentary_row].height >= 30.0
 
 
@@ -624,7 +628,7 @@ def test_gtx_operating_drivers_uses_uniform_peer_widths_and_right_side_audit_col
         misplaced: list[tuple[int, int, str]] = []
         audit_terms = {"source", "evidence", "workbook treatment", "confidence", "audit note"}
         for rr in range(1, int(ws.max_row or 0) + 1):
-            for cc in range(2, 10):
+            for cc in range(2, 9):
                 value = str(ws.cell(rr, cc).value or "").strip().lower()
                 if value in audit_terms:
                     misplaced.append((rr, cc, value))
@@ -667,6 +671,19 @@ def test_gtx_operating_drivers_outlook_removes_unit_and_read_columns(
         assert f"K{first_data_row}:L{first_data_row}" in merged_ranges
 
 
+def test_gtx_operating_drivers_has_no_freeze_panes_and_release_commentary_note(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        text = _sheet_visible_text(full_wb, "Operating_Drivers").lower()
+
+        assert ws.freeze_panes in (None, "")
+        assert "management / release commentary" in text
+        assert "official transcripts not loaded" in text
+        assert "earnings release / presentation text only" in text
+
+
 def test_gtx_operating_drivers_outlook_values_inline_units_and_clean_wording(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -704,14 +721,14 @@ def test_gtx_operating_drivers_debt_watch_uses_broad_business_columns(
 
         assert headers[1] == "Reported / disclosed value"
         assert headers[4] == "Period / event"
-        assert headers[10] == "Workbook treatment"
-        assert "Source" in headers[9:]
-        assert "Confidence" in headers[9:]
+        assert headers[6] == "Why it matters"
+        assert headers[9] == "Source"
+        assert headers[10] == "Workbook treatment / note"
         for row_idx in (header_row, header_row + 1):
             assert f"B{row_idx}:D{row_idx}" in merged_ranges
             assert f"E{row_idx}:F{row_idx}" in merged_ranges
-            assert f"H{row_idx}:I{row_idx}" in merged_ranges
-            assert f"K{row_idx}:M{row_idx}" in merged_ranges
+            assert f"G{row_idx}:I{row_idx}" in merged_ranges
+            assert f"K{row_idx}:N{row_idx}" in merged_ranges
 
 
 def test_gtx_operating_driver_tables_are_chronological_older_to_newer(
@@ -879,6 +896,30 @@ def test_gtx_promise_progress_body_font_matches_ui_convention(
                 mismatches.append((cell.coordinate, cell.font.sz))
 
     assert mismatches == []
+
+
+def test_gtx_promise_progress_uses_peer_freeze_and_wide_note_columns(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+
+        assert ws.freeze_panes in (None, "", "A2")
+        assert int(ws.max_column or 0) >= 15
+        assert float(ws.column_dimensions["K"].width or 0.0) >= 40.0
+        assert float(ws.column_dimensions["L"].width or 0.0) >= 40.0
+        assert float(ws.column_dimensions["M"].width or 0.0) <= 5.0
+        assert float(ws.column_dimensions["N"].width or 0.0) <= 5.0
+
+
+def test_gtx_promise_progress_has_no_validation_quarter_label_issues(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    result = validate_workbook(_gtx_workbook_path(), "GTX")
+    promise_issues = [issue.detail for issue in result.issues if "Promise_Progress_UI!" in issue.detail]
+
+    assert result.quarter_label_issue_count == 0
+    assert promise_issues == []
 
 
 def test_gtx_promise_progress_uses_anf_pbi_card_layout(
@@ -1052,8 +1093,7 @@ def test_gtx_bs_segments_analytical_cut_columns_are_not_overwide(
         ws = full_wb["BS_Segments"]
         widths = [float(ws.column_dimensions[col].width or 0.0) for col in ("B", "C", "D", "E", "F", "G", "H", "I")]
 
-        assert min(widths) >= 12.0
-        assert max(widths) - min(widths) <= 1.0
+        assert all(width == pytest.approx(11.29, abs=0.03) for width in widths)
         body_sizes = {
             float(ws.cell(rr, cc).font.sz or 0.0)
             for rr in range(59, min(86, int(ws.max_row or 0)) + 1)
@@ -1089,11 +1129,32 @@ def test_gtx_investment_case_key_columns_have_room_for_readability(
 ) -> None:
     with _gtx_style_workbook() as full_wb:
         ws = full_wb["GTX_Investment_Case"]
-        widths = {col: float(ws.column_dimensions[col].width or 0.0) for col in "ABCDEFGHIJ"}
+        widths = {col: float(ws.column_dimensions[col].width or 0.0) for col in "ABCDEFGHIJKLMN"}
 
-    assert widths["A"] >= 48.0
-    assert widths["B"] + widths["C"] >= 70.0
-    assert widths["H"] + widths["I"] + widths["J"] >= 84.0
+    assert widths["A"] + widths["B"] >= 54.0
+    assert widths["B"] + widths["C"] + widths["D"] >= 70.0
+    assert sum(widths[col] for col in "HIJKLMN") >= 120.0
+
+
+def test_gtx_investment_case_key_sections_use_broad_reading_ranges(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["GTX_Investment_Case"]
+        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+
+        bridge_header = _find_row_with_first_cell(ws, "Bridge item")
+        assert f"H{bridge_header}:N{bridge_header}" in merged_ranges
+
+        quality_row = _find_row_with_first_cell(ws, "Quality of Earnings")
+        quality_header = quality_row + 1
+        assert f"B{quality_header}:D{quality_header}" in merged_ranges
+        assert f"G{quality_header}:N{quality_header}" in merged_ranges
+
+        work_row = _find_row_with_first_cell(ws, "What needs to happen for the stock to work")
+        work_header = work_row + 1
+        assert f"A{work_header}:B{work_header}" in merged_ranges
+        assert f"C{work_header}:J{work_header}" in merged_ranges
 
 
 def test_gtx_valuation_has_no_guidance_or_driver_fallback_text(
@@ -1198,10 +1259,13 @@ def test_gtx_quarter_notes_uses_peer_style_title_and_quarter_blocks(
             if str(ws.cell(rr, 1).value or "").strip().lower().endswith("- quarter notes")
         ]
 
+        assert str(ws["A1"].value or "").strip() == "Quarter Notes"
+        assert ws.freeze_panes in (None, "", "A2")
         assert any(str(rng).startswith("A1:") for rng in merged)
         assert len(quarter_rows) >= 5
         for expected in ("2026-Q1", "2025-Q4", "2025-Q3", "2025-Q2", "2025-Q1"):
             assert any(str(ws.cell(rr, 1).value or "").startswith(expected) for rr in quarter_rows)
+        assert all(rr > 1 for rr in quarter_rows[:5])
         for rr in quarter_rows:
             assert str(ws.cell(rr, 1).fill.fgColor.rgb or "").upper() in {
                 "FF5B9BD5",
@@ -1217,6 +1281,34 @@ def test_gtx_quarter_notes_uses_peer_style_title_and_quarter_blocks(
                     for offset in (3, 4, 5)
                 ]
                 assert len(set(fills)) >= 2
+
+
+def test_gtx_quarter_notes_has_required_quarter_read_labels(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    ws = gtx_wb["Quarter_Notes_UI"]
+    required_quarters = {
+        "2026-Q1 - Quarter Notes",
+        "2025-Q4 - Quarter Notes",
+        "2025-Q3 - Quarter Notes",
+        "2025-Q2 - Quarter Notes",
+        "2025-Q1 - Quarter Notes",
+    }
+    quarter_rows = {
+        str(ws.cell(rr, 1).value or "").strip(): rr
+        for rr in range(1, int(ws.max_row or 0) + 1)
+        if str(ws.cell(rr, 1).value or "").strip() in required_quarters
+    }
+
+    assert set(quarter_rows) == required_quarters
+    for title, rr in quarter_rows.items():
+        nearby_labels = {
+            str(ws.cell(row_idx, 1).value or "").strip()
+            for row_idx in range(rr, min(rr + 8, int(ws.max_row or 0)) + 1)
+        }
+        assert {"Quarter read", "Model read", "What changed", "Watch next", "Key caveat"}.issubset(
+            nearby_labels
+        ), title
 
 
 def test_gtx_quarter_notes_key_development_layout_uses_peer_merges(

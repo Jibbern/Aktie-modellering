@@ -153,7 +153,7 @@ def write_sector_investment_case_sheet(
     input_fill = PatternFill("solid", fgColor="FFF2CC")
     thin = Border(left=Side(style="thin", color="D9E2EA"), right=Side(style="thin", color="D9E2EA"), top=Side(style="thin", color="D9E2EA"), bottom=Side(style="thin", color="D9E2EA"))
     dark = "1F2933"
-    max_col = 10
+    max_col = 14 if ticker_txt == "GTX" else 10
 
     def _records(section: str) -> List[Dict[str, Any]]:
         if df.empty or "section" not in df.columns:
@@ -1287,7 +1287,13 @@ def write_sector_investment_case_sheet(
                 )
                 ws.row_dimensions[row - 1].height = 26
         elif section == "Quality of Earnings":
-            row = _header(row, ["Item", "Impact", "", "Cash?", "Recurring?", "Read"], merge_spans=[(2, 3), (6, 10)])
+            quality_impact_span = (2, 4) if ticker_txt == "GTX" else (2, 3)
+            quality_read_start = 7 if ticker_txt == "GTX" else 6
+            row = _header(
+                row,
+                ["Item", "Impact", "", "", "Cash?", "Recurring?", "Read"],
+                merge_spans=[quality_impact_span, (quality_read_start, max_col)],
+            )
             for idx, rec in enumerate(recs):
                 row = _row(
                     row,
@@ -1295,12 +1301,24 @@ def write_sector_investment_case_sheet(
                         rec.get("metric"),
                         rec.get("display"),
                         "",
+                        "",
                         rec.get("cash_flag"),
                         rec.get("recurring_flag"),
                         rec.get("quality_read"),
                     ],
                     fill=alt_fill if idx % 2 else white_fill,
-                    spans=[(2, 3), (6, 10)],
+                    spans=[quality_impact_span, (quality_read_start, max_col)],
+                )
+                ws.row_dimensions[row - 1].height = 24
+        elif section == "What needs to happen for the stock to work" and ticker_txt == "GTX":
+            row = _header(row, ["Metric", "", "Value / read", "", "", "", "", "", "", "", "Source / investment read"], merge_spans=[(1, 2), (3, 10), (11, max_col)])
+            for idx, rec in enumerate(recs):
+                note = _source_read(rec)
+                row = _row(
+                    row,
+                    [rec.get("metric"), "", rec.get("display"), "", "", "", "", "", "", "", note],
+                    fill=alt_fill if idx % 2 else white_fill,
+                    spans=[(1, 2), (3, 10), (11, max_col)],
                 )
                 ws.row_dimensions[row - 1].height = 24
         elif section == "Guidance Beat/Miss Setup":
@@ -1359,6 +1377,8 @@ def write_sector_investment_case_sheet(
         "I": 22,
         "J": 22,
     }
+    if ticker_txt == "GTX":
+        widths.update({"A": 34, "B": 24, "C": 26, "D": 24, "E": 24, "F": 18, "G": 18, "H": 18, "I": 18, "J": 18, "K": 18, "L": 18, "M": 18, "N": 18})
     for col, width in widths.items():
         ws.column_dimensions[col].width = width
     ws.freeze_panes = "A4"

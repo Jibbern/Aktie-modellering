@@ -142,7 +142,7 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
             font_size = max(float(font_size or 11.0), 11.0)
             ws.sheet_format.defaultRowHeight = 20
             ws.sheet_view.zoomScale = 110
-            ws.freeze_panes = "A5"
+            ws.freeze_panes = None
             title_fill = PatternFill("solid", fgColor="6FA8DC")
             header_fill = PatternFill("solid", fgColor="D9EAF7")
             section_fill = PatternFill("solid", fgColor="EAF3FB")
@@ -311,8 +311,8 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
                 1: "Period",
                 2: "Read",
                 3: "Actual / guide",
-                6: "Why it matters",
-                10: "Source",
+                5: "Why it matters",
+                9: "Source",
                 11: "Workbook treatment",
                 13: "Confidence",
                 14: "Notes",
@@ -323,8 +323,9 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
                 cell.font = Font(bold=True, color="1F2933", size=font_size)
                 cell.border = thin
                 cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-            ws.merge_cells(start_row=commentary_header_row, start_column=3, end_row=commentary_header_row, end_column=5)
-            ws.merge_cells(start_row=commentary_header_row, start_column=6, end_row=commentary_header_row, end_column=9)
+            ws.merge_cells(start_row=commentary_header_row, start_column=3, end_row=commentary_header_row, end_column=4)
+            ws.merge_cells(start_row=commentary_header_row, start_column=5, end_row=commentary_header_row, end_column=8)
+            ws.merge_cells(start_row=commentary_header_row, start_column=9, end_row=commentary_header_row, end_column=10)
             ws.merge_cells(start_row=commentary_header_row, start_column=11, end_row=commentary_header_row, end_column=12)
             rr += 1
             commentary_rows = [
@@ -340,11 +341,12 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
                 ws.cell(rr, 1, period)
                 ws.cell(rr, 2, read)
                 ws.cell(rr, 3, actual)
-                ws.merge_cells(start_row=rr, start_column=3, end_row=rr, end_column=5)
-                ws.merge_cells(start_row=rr, start_column=6, end_row=rr, end_column=9)
+                ws.merge_cells(start_row=rr, start_column=3, end_row=rr, end_column=4)
+                ws.merge_cells(start_row=rr, start_column=5, end_row=rr, end_column=8)
+                ws.merge_cells(start_row=rr, start_column=9, end_row=rr, end_column=10)
                 ws.merge_cells(start_row=rr, start_column=11, end_row=rr, end_column=12)
-                ws.cell(rr, 6, why)
-                ws.cell(rr, 10, source)
+                ws.cell(rr, 5, why)
+                ws.cell(rr, 9, source)
                 ws.cell(rr, 11, treatment)
                 ws.cell(rr, 13, confidence)
                 ws.cell(rr, 14, notes)
@@ -355,6 +357,57 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
                     cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
                     if rr % 2 == 0:
                         cell.fill = PatternFill("solid", fgColor="F8FBFD")
+                rr += 1
+            rr += 1
+            rr = _section(rr, "Management / release commentary", "Official transcripts not loaded; commentary uses earnings release / presentation text only.")
+            mgmt_header_row = rr
+            mgmt_headers = {
+                1: "Theme",
+                2: "Release read",
+                5: "Why it matters",
+                9: "Source",
+                11: "Workbook treatment",
+                13: "Confidence",
+                14: "Notes",
+            }
+            for cc in range(1, 15):
+                cell = ws.cell(mgmt_header_row, cc, mgmt_headers.get(cc, ""))
+                cell.fill = header_fill
+                cell.font = Font(bold=True, color="1F2933", size=font_size)
+                cell.border = thin
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            ws.merge_cells(start_row=mgmt_header_row, start_column=2, end_row=mgmt_header_row, end_column=4)
+            ws.merge_cells(start_row=mgmt_header_row, start_column=5, end_row=mgmt_header_row, end_column=8)
+            ws.merge_cells(start_row=mgmt_header_row, start_column=9, end_row=mgmt_header_row, end_column=10)
+            ws.merge_cells(start_row=mgmt_header_row, start_column=11, end_row=mgmt_header_row, end_column=12)
+            rr += 1
+            management_rows = [
+                ("Transcript status", "Official transcripts not loaded.", "Use clean release/presentation language only; do not invent call quotes.", "GTX source package", "Workbook narrative guardrail", "High", "Fewer clean rows are better than noisy commentary."),
+                ("2026 outlook", "Q1 release shows full-year 2026 net sales, adjusted EBIT, CFO and adjusted FCF guide.", "Guidance frames the near-term operating scorecard.", "2026-Q1 earnings release", "Guidance / Promise_Progress_UI", "High", "Do not treat outlook as reported actuals."),
+                ("Technology awards", "Q1 release cites turbo, range-extended EV, E-Powertrain and E-Cooling awards.", "Award pipeline is the watch item for content durability beyond mature turbo demand.", "2026-Q1 release / presentation", "Operating-driver watchlist", "High", "Release commentary, not transcript quote."),
+                ("Capital allocation", "Q4 2025 release shows full-year 2025 buybacks and 8% YoY common share-count reduction.", "Per-share case depends on FCF conversion, leverage and remaining authorization.", "2025-Q4 earnings release", "Promise_Progress_UI / Valuation", "High", "Keep buybacks separate from operating profit."),
+            ]
+            for record in management_rows:
+                theme, release_read, why, source, treatment, confidence, notes = record
+                ws.cell(rr, 1, theme)
+                ws.cell(rr, 2, release_read)
+                ws.cell(rr, 5, why)
+                ws.cell(rr, 9, source)
+                ws.cell(rr, 11, treatment)
+                ws.cell(rr, 13, confidence)
+                ws.cell(rr, 14, notes)
+                ws.merge_cells(start_row=rr, start_column=2, end_row=rr, end_column=4)
+                ws.merge_cells(start_row=rr, start_column=5, end_row=rr, end_column=8)
+                ws.merge_cells(start_row=rr, start_column=9, end_row=rr, end_column=10)
+                ws.merge_cells(start_row=rr, start_column=11, end_row=rr, end_column=12)
+                for cc in range(1, 15):
+                    cell = ws.cell(rr, cc)
+                    cell.border = thin
+                    cell.font = Font(color="1F2933", size=font_size)
+                    cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+                    if rr % 2 == 0:
+                        cell.fill = PatternFill("solid", fgColor="F8FBFD")
+                ws.row_dimensions[rr].height = 34.0
                 rr += 1
             rr += 1
             rr = _section(rr, "Data tables", "analytical cuts only; GTX still has one reportable accounting segment")
@@ -404,26 +457,26 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
             rr += 1
             rr = _section(rr, "Debt / buyback / leverage watch")
             debt_header_row = rr
-            rr = _headers(rr, ["Item", "Reported / disclosed value", "", "", "Period / event", "", "Status", "Notes", "", "Source", "Workbook treatment", "", "", "Confidence"])
+            rr = _headers(rr, ["Item", "Reported / disclosed value", "", "", "Period / event", "", "Why it matters", "", "", "Source", "Workbook treatment / note", "", "", ""])
             debt_data_start = rr
             rr = _rows(
                 rr,
                 [
-                    ("Debt outstanding", "$1,437m", "", "", "2026-Q1 reported", "", "Reported", "Reported Q1 history remains unchanged.", "", "2026-Q1 earnings release", "History_Q / Debt_Profile", "", "", "Source-backed"),
-                    ("Unrestricted cash", "$142m", "", "", "2026-Q1 reported", "", "Reported", "Restricted cash shown separately.", "", "2026-Q1 10-Q", "Net debt uses unrestricted cash only", "", "", "Source-backed"),
-                    ("Restricted cash", "$2m", "", "", "2026-Q1 reported", "", "Reported", "Not counted as unrestricted cash.", "", "2026-Q1 10-Q", "Shown separately", "", "", "Source-backed"),
-                    ("Q1 buybacks", "$87m", "", "", "2026-Q1", "", "Actual", "Returned more than $100m including dividends.", "", "2026-Q1 earnings release", "Capital allocation watch", "", "", "Source-backed"),
-                    ("Remaining buyback authorization", "$163m", "", "", "2026-Q1", "", "Open", "Not a guaranteed repurchase.", "", "2026-Q1 earnings release", "Capital allocation watch", "", "", "Source-backed"),
-                    ("2025 year buybacks", "$208m", "", "", "2025 year", "", "Completed", "Common share count reduction 8% YoY.", "", "2025-Q4 earnings release", "Management credibility actual", "", "", "Source-backed"),
-                    ("May 18 debt event", "$50m term-loan repayment/repricing", "", "", "Post-quarter event", "", "Post-quarter", "Do not rewrite Q1 reported history.", "", "May 18 2026 press release / 8-K package", "Pro-forma/event context only", "", "", "Source-backed"),
+                    ("Debt outstanding", "$1,437m", "", "", "2026-Q1 reported", "", "Leverage is a primary equity-value sensitivity.", "", "", "2026-Q1 earnings release", "History_Q / Debt_Profile; source-backed.", "", "", ""),
+                    ("Unrestricted cash", "$142m", "", "", "2026-Q1 reported", "", "Only unrestricted cash offsets net debt.", "", "", "2026-Q1 10-Q", "Net debt uses unrestricted cash only; source-backed.", "", "", ""),
+                    ("Restricted cash", "$2m", "", "", "2026-Q1 reported", "", "Restricted cash is not liquidity for valuation net debt.", "", "", "2026-Q1 10-Q", "Shown separately; source-backed.", "", "", ""),
+                    ("Q1 buybacks", "$87m", "", "", "2026-Q1", "", "Capital returns matter only with leverage and cash capacity.", "", "", "2026-Q1 earnings release", "Capital allocation watch; source-backed.", "", "", ""),
+                    ("Remaining buyback authorization", "$163m", "", "", "2026-Q1", "", "Authorization is capacity, not an obligation.", "", "", "2026-Q1 earnings release", "Capital allocation watch; source-backed.", "", "", ""),
+                    ("2025 year buybacks", "$208m", "", "", "2025 year", "", "Completed repurchases affected per-share outcomes.", "", "", "2025-Q4 earnings release", "Management credibility actual; source-backed.", "", "", ""),
+                    ("May 18 debt event", "$50m term-loan repayment/repricing", "", "", "Post-quarter event", "", "Event changes pro-forma debt context, not Q1 history.", "", "", "May 18 2026 press release / 8-K package", "Pro-forma/event context only; source-backed.", "", "", ""),
                 ],
             )
             debt_data_end = rr - 1
             for merge_row in range(debt_header_row, debt_data_end + 1):
                 ws.merge_cells(start_row=merge_row, start_column=2, end_row=merge_row, end_column=4)
                 ws.merge_cells(start_row=merge_row, start_column=5, end_row=merge_row, end_column=6)
-                ws.merge_cells(start_row=merge_row, start_column=8, end_row=merge_row, end_column=9)
-                ws.merge_cells(start_row=merge_row, start_column=11, end_row=merge_row, end_column=13)
+                ws.merge_cells(start_row=merge_row, start_column=7, end_row=merge_row, end_column=9)
+                ws.merge_cells(start_row=merge_row, start_column=11, end_row=merge_row, end_column=14)
 
             widths = {1: 42, 2: 16, 3: 16, 4: 16, 5: 16, 6: 16, 7: 16, 8: 16, 9: 16, 10: 16, 11: 16, 12: 16, 13: 16, 14: 16}
             for cc, width in widths.items():

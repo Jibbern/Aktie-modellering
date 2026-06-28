@@ -189,11 +189,18 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
         ws["A1"] = "Scale"
         ws["B1"] = "$m"
     ws["A2"] = "Values scaled to $m unless %"
-    ws["A4"] = "QA: pending"
-    ws["A4"].font = Font(bold=True, size=11)
+    qa_row = 3
+    title_row = 4
+    note_row = 5
+    actuals_row = 6
+    quarter_row = 7
+    row_idx = 8
+    standard_data_col_width = 11.29
+    ws[f"A{qa_row}"] = "QA: pending"
+    ws[f"A{qa_row}"].font = Font(bold=True, size=11)
 
     if hist is None or hist.empty or "quarter" not in hist.columns:
-        ws["A4"] = "No data."
+        ws[f"A{qa_row}"] = "No data."
         return qa_rows
 
     h = _hist_view().copy()
@@ -201,31 +208,28 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
         h["quarter"] = h["_quarter"]
     h = h[h["quarter"].notna()].sort_values("quarter")
     if h.empty:
-        ws["A4"] = "No data."
+        ws[f"A{qa_row}"] = "No data."
         return qa_rows
 
     qs = sorted(h["quarter"].dropna().unique())
     qs = qs[-int(max(1, quarters_shown)) :]
     start_col = 2
-    actuals_row = 10
-    quarter_row = 11
-    row_idx = 12
     last_col = start_col + len(qs) - 1
     last_col_letter = get_column_letter(last_col)
 
     title_end_col = max(last_col, 9)
     if is_anf_profile:
-        ws.merge_cells(start_row=5, start_column=1, end_row=5, end_column=title_end_col)
-        ws["A5"] = "ANF quarter labels are fiscal periods; Q4 2025 ended 2026-01-31."
-        ws["A5"].font = Font(italic=True, size=10, color="666666")
-        ws["A5"].alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
-        ws.row_dimensions[5].height = 16.0
-    ws.merge_cells(start_row=8, start_column=1, end_row=8, end_column=title_end_col)
-    ws["A8"] = "Balance sheet & Segments"
-    ws["A8"].font = Font(bold=True, size=15, color="FFFFFF")
-    ws["A8"].alignment = Alignment(horizontal="center", vertical="center")
-    ws["A8"].fill = title_fill
-    ws.row_dimensions[8].height = 24
+        ws.merge_cells(start_row=note_row, start_column=1, end_row=note_row, end_column=title_end_col)
+        ws[f"A{note_row}"] = "ANF quarter labels are fiscal periods; Q4 2025 ended 2026-01-31."
+        ws[f"A{note_row}"].font = Font(italic=True, size=10, color="666666")
+        ws[f"A{note_row}"].alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+        ws.row_dimensions[note_row].height = 16.0
+    ws.merge_cells(start_row=title_row, start_column=1, end_row=title_row, end_column=title_end_col)
+    ws[f"A{title_row}"] = "Balance sheet & Segments"
+    ws[f"A{title_row}"].font = Font(bold=True, size=15, color="FFFFFF")
+    ws[f"A{title_row}"].alignment = Alignment(horizontal="center", vertical="center")
+    ws[f"A{title_row}"].fill = title_fill
+    ws.row_dimensions[title_row].height = 24
 
     ws.merge_cells(start_row=actuals_row, start_column=start_col, end_row=actuals_row, end_column=last_col)
     ws[f"{get_column_letter(start_col)}{actuals_row}"] = "Actuals"
@@ -2309,8 +2313,8 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
         else:
             qa_status_bits.append("Annual Seg N/A")
 
-    ws["A4"] = "QA: " + (" | ".join(qa_status_bits) if qa_status_bits else "No latest-quarter checks")
-    ws["A4"].font = Font(bold=True, size=11)
+    ws[f"A{qa_row}"] = "QA: " + (" | ".join(qa_status_bits) if qa_status_bits else "No latest-quarter checks")
+    ws[f"A{qa_row}"].font = Font(bold=True, size=11)
 
     def _bucket_fill(v: float) -> PatternFill:
         x = float(v)
@@ -2434,17 +2438,15 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
                 ratio = float(delta_raw * 1e6) / abs(float(denom))
                 cur_cell.fill = _bucket_fill(ratio)
 
-    ws.freeze_panes = "B12"
+    ws.freeze_panes = "B8"
     w_a = valuation_col_widths.get("A")
     ws.column_dimensions["A"].width = max(54, float(w_a) if w_a is not None else 54)
     for i in range(start_col, last_col + 1):
         letter = get_column_letter(i)
-        ws.column_dimensions[letter].width = 12
-    # Keep mid quarter columns compact to avoid oversized visual gaps in BS_Segments.
-    for letter, idx_letter in (("F", 6), ("G", 7)):
-        if start_col <= idx_letter <= last_col:
-            ws.column_dimensions[letter].width = 10
-    for rr in range(10, ws.max_row + 1):
+        ws.column_dimensions[letter].width = standard_data_col_width
+    for fixed_col in range(2, 10):
+        ws.column_dimensions[get_column_letter(fixed_col)].width = standard_data_col_width
+    for rr in range(actuals_row, ws.max_row + 1):
         for cc in range(1, last_col + 1):
             ws.cell(row=rr, column=cc).border = thin_border
     for r in qa_rows:

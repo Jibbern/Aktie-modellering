@@ -4857,8 +4857,8 @@ def test_pbi_bs_segments_prefers_quarterly_segment_block_from_segment_workbook(
         assert quarterly_row is not None
         assert annual_row is not None
         assert quarterly_row < annual_row
-        assert str(ws["A4"].value).startswith("QA:")
-        assert [ws.cell(row=11, column=cc).value for cc in range(2, 6)] == [
+        assert str(ws["A3"].value).startswith("QA:")
+        assert [ws.cell(row=7, column=cc).value for cc in range(2, 6)] == [
             "2025-Q1",
             "2025-Q2",
             "2025-Q3",
@@ -18001,10 +18001,10 @@ def test_current_delivered_workbooks_analysis_sheets_share_blue_theme() -> None:
             assert _find_row_with_value(ws_val, "Goodwill % of assets") is None
 
             ws_bs = wb["BS_Segments"]
-            assert _fill_rgb(ws_bs["A8"]) == theme_title
-            assert _font_rgb(ws_bs["A8"]) == "00FFFFFF"
-            assert _fill_rgb(ws_bs["B10"]) == theme_header
-            assert _fill_rgb(ws_bs["A11"]) == theme_header
+            assert _fill_rgb(ws_bs["A4"]) == theme_title
+            assert _font_rgb(ws_bs["A4"]) == "00FFFFFF"
+            assert _fill_rgb(ws_bs["B6"]) == theme_header
+            assert _fill_rgb(ws_bs["A7"]) == theme_header
             quarterly_segments_row = _find_row_with_value(ws_bs, "Quarterly segments")
             if quarterly_segments_row is not None:
                 assert _fill_rgb(ws_bs.cell(row=quarterly_segments_row, column=1)) == theme_title
@@ -21023,8 +21023,8 @@ def test_current_delivered_workbooks_quarterly_color_logic_is_metric_and_basis_a
         assert _fill_rgb(ws_val.cell(row=ev_adj_ebitda_row, column=q4_2025)) == "00000000"
 
         ws_bs = wb_pbi["BS_Segments"]
-        q2_2024_bs = _find_col_with_value(ws_bs, "2024-Q2", row=11)
-        q1_2025_bs = _find_col_with_value(ws_bs, "2025-Q1", row=11)
+        q2_2024_bs = _find_col_with_value(ws_bs, "2024-Q2", row=7)
+        q1_2025_bs = _find_col_with_value(ws_bs, "2025-Q1", row=7)
         assert q2_2024_bs is not None and q1_2025_bs is not None
 
         cash_qoq_row = _find_row_with_value(ws_bs, "Δ Cash QoQ ($m)")
@@ -21098,7 +21098,7 @@ def test_current_delivered_workbooks_quarterly_color_logic_is_metric_and_basis_a
         assert _fill_rgb(ws_val.cell(row=ev_adj_ebitda_row, column=q4_2025)) == "00000000"
 
         ws_bs = wb_gpre["BS_Segments"]
-        q4_2025_bs = _find_col_with_value(ws_bs, "2025-Q4", row=11)
+        q4_2025_bs = _find_col_with_value(ws_bs, "2025-Q4", row=7)
         shares_out_row = _find_row_with_value(ws_bs, "Shares outstanding (m)")
         year_row = _find_row_with_value(ws_bs, "Year")
         assert q4_2025_bs is not None
