@@ -280,6 +280,24 @@ def test_gtx_operating_drivers_matches_pbi_anf_top_style_conventions(
         assert ws.row_dimensions[4].height == pytest.approx(22.5)
 
 
+def test_gtx_operating_drivers_uses_peer_template_blank_context_row(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    """GTX should inject content into the peer template, not add a custom subtitle row."""
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+
+        assert str(ws["A2"].value or "").strip() == "Operating Drivers"
+        assert str(ws["A3"].value or "").strip() == ""
+        assert str(ws["A4"].value or "").strip() == "Current watchlist"
+
+        top_rows = [
+            float(ws.row_dimensions[row_idx].height or 0.0)
+            for row_idx in (2, 4, 5)
+        ]
+        assert top_rows == pytest.approx([24.0, 22.5, 21.0])
+
+
 def test_gtx_operating_drivers_watchlist_uses_anf_pbi_broad_merges(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -746,28 +764,27 @@ def test_gtx_operating_drivers_table_columns_are_wide_enough_for_labels(
     assert max(widths.values()) - min(widths.values()) <= 1.0
 
 
-def test_gtx_operating_drivers_outlook_removes_unit_and_read_columns(
+def test_gtx_operating_drivers_outlook_uses_peer_topic_read_source_template(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
     with _gtx_style_workbook() as full_wb:
         ws = full_wb["Operating_Drivers"]
         merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
-        section_row = _find_row_with_first_cell(ws, "Current/latest outlook \u2014 official 2026-Q1 release, 2026 year outlook")
+        section_row = _find_row_with_first_cell(ws, "Current/latest outlook")
         header_row = section_row + 1
         headers = [str(ws.cell(header_row, cc).value or "").strip() for cc in range(1, 15)]
 
         assert "Unit" not in headers
-        assert "Read" not in headers
-        assert headers[:6] == ["Metric", "Low", "High", "Basis", "Stated in", "Status"]
-        assert headers[6] == "Notes"
-        assert "Source" in headers[9:]
-        assert "Workbook treatment" in headers[9:]
-        assert "Confidence" in headers[9:]
-        assert f"G{header_row}:I{header_row}" in merged_ranges
-        assert f"K{header_row}:L{header_row}" in merged_ranges
+        assert "Low" not in headers
+        assert "High" not in headers
+        assert headers[0] == "Topic"
+        assert headers[1] == "Current read"
+        assert headers[7] == "Source / use"
+        assert f"B{header_row}:G{header_row}" in merged_ranges
+        assert f"H{header_row}:N{header_row}" in merged_ranges
         first_data_row = header_row + 1
-        assert f"G{first_data_row}:I{first_data_row}" in merged_ranges
-        assert f"K{first_data_row}:L{first_data_row}" in merged_ranges
+        assert f"B{first_data_row}:G{first_data_row}" in merged_ranges
+        assert f"H{first_data_row}:N{first_data_row}" in merged_ranges
 
 
 def test_gtx_operating_drivers_has_no_freeze_panes_and_release_commentary_note(
@@ -794,7 +811,7 @@ def test_gtx_operating_drivers_peer_font_and_row_height_pattern(
             for row_idx in range(1, int(ws.max_row or 0) + 1)
         ]
 
-        assert font_counts[12.0] >= 360
+        assert font_counts[12.0] >= 300
         assert font_counts[10.5] <= 5
         assert max(row_heights) <= 24.5
         assert 18.0 <= (sum(row_heights) / len(row_heights)) <= 22.0
@@ -804,22 +821,14 @@ def test_gtx_operating_drivers_outlook_values_inline_units_and_clean_wording(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
     ws = gtx_wb["Operating_Drivers"]
-    section_row = _find_row_with_first_cell(ws, "Current/latest outlook \u2014 official 2026-Q1 release, 2026 year outlook")
-    rows = {
-        str(ws.cell(rr, 1).value or "").strip(): [
-            str(ws.cell(rr, cc).value or "").strip()
-            for cc in range(1, 15)
-        ]
-        for rr in range(section_row + 2, section_row + 16)
-        if str(ws.cell(rr, 1).value or "").strip()
-    }
+    section_row = _find_row_with_first_cell(ws, "Current/latest outlook")
+    visible_text = "\n".join(
+        " ".join(str(ws.cell(rr, cc).value or "").strip() for cc in range(1, 15))
+        for rr in range(section_row, section_row + 10)
+    ).lower()
 
-    assert rows["Net sales"][1:3] == ["$3.6bn", "$3.9bn"]
-    assert rows["Constant-currency sales growth"][1:3] == ["-2%", "+6%"]
-    assert rows["BEV penetration"][1] == "~19%"
-    assert rows["RD&E"][1] == "4.2% of sales"
-    assert rows["Capex"][1] == "2.5% of sales"
-    visible_text = "\n".join("\n".join(values) for values in rows.values()).lower()
+    for required in ("$3.6bn", "$3.9bn", "-2%", "+6%", "~19%", "4.2% of sales", "2.5% of sales"):
+        assert required in visible_text
     assert "about 19%" not in visible_text
     assert "about 4.2%" not in visible_text
     assert "about 2.5%" not in visible_text
@@ -855,7 +864,7 @@ def test_gtx_operating_driver_audit_fields_are_visually_secondary(
         ws = full_wb["Operating_Drivers"]
         checked_cells: list[str] = []
         for section, audit_start_col in (
-            ("Current/latest outlook \u2014 official 2026-Q1 release, 2026 year outlook", 10),
+            ("Current/latest outlook", 8),
             ("Recent quarter commentary \u2014 source-backed actuals and management framing", 9),
             (
                 "Management / release commentary \u2014 Official transcripts not loaded; commentary uses earnings release / presentation text only.",
@@ -1389,6 +1398,23 @@ def test_gtx_promise_progress_density_and_row_heights_match_peer_dashboard(
         assert sum(1 for height in row_heights if height > 26.0) == 0
 
 
+def test_gtx_promise_progress_top_spacing_matches_peer_dashboard_template(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+
+        assert str(ws["A1"].value or "").strip() == "Promise Progress"
+        assert str(ws["A3"].value or "").strip() == "Management Credibility Scorecard"
+        assert str(ws["A11"].value or "").strip().endswith("guidance progression")
+        assert str(ws["A21"].value or "").strip() == "2026 open guidance"
+        assert float(ws.column_dimensions["O"].width or 0.0) >= 13.0
+        assert [
+            float(ws.row_dimensions[row_idx].height or 0.0)
+            for row_idx in range(1, 13)
+        ] == pytest.approx([24.0, 24.0, 22.0, 22.0, 24.0, 24.0, 24.0, 24.0, 24.0, 18.0, 22.0, 22.0])
+
+
 def test_gtx_bs_segments_shows_analytical_cuts_not_missing_segment_stub(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -1658,6 +1684,22 @@ def test_gtx_quarter_notes_uses_peer_style_title_and_quarter_blocks(
                     for offset in (3, 4, 5)
                 ]
                 assert len(set(fills)) >= 2
+
+
+def test_gtx_quarter_notes_top_block_uses_peer_row_height_template(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    """Missing source depth should not create a smaller GTX-specific top block."""
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Quarter_Notes_UI"]
+
+        assert str(ws["A1"].value or "").strip() == "2026-Q1 - Quarter Notes"
+        assert str(ws["A2"].value or "").strip() == "Quarter read"
+        assert ws.freeze_panes == "A2"
+        assert [
+            float(ws.row_dimensions[row_idx].height or 0.0)
+            for row_idx in range(1, 8)
+        ] == pytest.approx([24.0, 25.0, 44.0, 44.0, 44.0, 30.0, 10.0])
 
 
 def test_gtx_quarter_notes_has_required_quarter_read_labels(
