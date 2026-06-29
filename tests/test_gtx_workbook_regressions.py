@@ -191,6 +191,10 @@ def _font_size_counts(ws: Any, *, max_rows: int = 400, max_cols: int = 20) -> Co
     return counts
 
 
+def _rgb(cell: Any) -> str:
+    return str(cell.fill.fgColor.rgb or "").upper()
+
+
 def _non_empty_row_indices(ws: Any, *, max_col: int = 20) -> list[int]:
     rows: list[int] = []
     for rr in range(1, int(ws.max_row or 0) + 1):
@@ -296,6 +300,33 @@ def test_gtx_operating_drivers_uses_peer_template_blank_context_row(
             for row_idx in (2, 4, 5)
         ]
         assert top_rows == pytest.approx([24.0, 22.5, 21.0])
+
+
+def test_gtx_operating_drivers_exact_peer_style_rhythm(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    """GTX Operating_Drivers must use the peer visual contract, not a near-match."""
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+
+        assert _rgb(ws["A2"]) == "006FA8DC"
+        assert _rgb(ws["A4"]) == "006FA8DC"
+        assert _rgb(ws["A5"]) == "00EAF3FB"
+        assert float(ws["A4"].font.sz or 0) == pytest.approx(13.0)
+        assert float(ws["A5"].font.sz or 0) == pytest.approx(13.0)
+        assert ws.row_dimensions[3].height in (None, 0)
+
+        # Peers use 22.5pt body rhythm and white/F7F9FC zebra fills.
+        for rr, expected_fill in (
+            (6, "00FFFFFF"),
+            (7, "00F7F9FC"),
+            (8, "00FFFFFF"),
+            (9, "00F7F9FC"),
+            (10, "00FFFFFF"),
+        ):
+            assert float(ws.row_dimensions[rr].height or 0) == pytest.approx(22.5)
+            assert _rgb(ws.cell(rr, 1)) == expected_fill
+            assert float(ws.cell(rr, 1).font.sz or 0) == pytest.approx(12.0)
 
 
 def test_gtx_operating_drivers_watchlist_uses_anf_pbi_broad_merges(
@@ -605,6 +636,20 @@ def test_gtx_valuation_guidance_panel_uses_peer_typography(
         assert small_cells == []
 
 
+def test_gtx_valuation_guidance_panel_uses_peer_fills(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Valuation"]
+
+        for coord in ("O7", "O22", "O29"):
+            assert _rgb(ws[coord]) == "006FA8DC", coord
+        for coord in ("O8", "O23", "O30"):
+            assert _rgb(ws[coord]) == "00EAF3FB", coord
+        assert _rgb(ws["O9"]) == "00F7FAFC"
+        assert _rgb(ws["O10"]) == "00FFFFFF"
+
+
 def test_gtx_valuation_operating_driver_panel_is_populated(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -811,10 +856,11 @@ def test_gtx_operating_drivers_peer_font_and_row_height_pattern(
             for row_idx in range(1, int(ws.max_row or 0) + 1)
         ]
 
-        assert font_counts[12.0] >= 300
+        assert font_counts[12.0] >= 250
+        assert font_counts[13.0] >= 20
         assert font_counts[10.5] <= 5
         assert max(row_heights) <= 24.5
-        assert 18.0 <= (sum(row_heights) / len(row_heights)) <= 22.0
+        assert 18.0 <= (sum(row_heights) / len(row_heights)) <= 23.0
 
 
 def test_gtx_operating_drivers_outlook_values_inline_units_and_clean_wording(
@@ -873,7 +919,7 @@ def test_gtx_operating_driver_audit_fields_are_visually_secondary(
             ("Debt / buyback / leverage watch", 10),
         ):
             section_row = _find_row_with_first_cell(ws, section)
-            row_idx = section_row + 1
+            row_idx = section_row + 2
             while row_idx <= int(ws.max_row or 0):
                 if row_idx > section_row + 1:
                     first_col = str(ws.cell(row_idx, 1).value or "").strip()
@@ -1415,6 +1461,28 @@ def test_gtx_promise_progress_top_spacing_matches_peer_dashboard_template(
         ] == pytest.approx([24.0, 24.0, 22.0, 22.0, 24.0, 24.0, 24.0, 24.0, 24.0, 18.0, 22.0, 22.0])
 
 
+def test_gtx_promise_progress_uses_exact_peer_fills_and_body_rhythm(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+
+        assert _rgb(ws["A1"]) == "005B9BD5"
+        assert _rgb(ws["A2"]) == "00F6F9FC"
+        assert _rgb(ws["A3"]) == "005B9BD5"
+        assert _rgb(ws["A4"]) == "00EAF3FB"
+        assert _rgb(ws["A5"]) == "00F6F9FC"
+        assert _rgb(ws["A6"]) == "00FFFFFF"
+        assert _rgb(ws["A7"]) == "00F6F9FC"
+
+        # Body rows in the dashboard use 24pt rhythm; section/header rows use 22pt.
+        assert float(ws.row_dimensions[13].height or 0) == pytest.approx(24.0)
+        assert float(ws.row_dimensions[14].height or 0) == pytest.approx(24.0)
+        assert float(ws.row_dimensions[23].height or 0) == pytest.approx(24.0)
+        assert float(ws["A1"].font.sz or 0) == pytest.approx(12.0)
+        assert float(ws["A4"].font.sz or 0) == pytest.approx(11.0)
+
+
 def test_gtx_bs_segments_shows_analytical_cuts_not_missing_segment_stub(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -1700,6 +1768,25 @@ def test_gtx_quarter_notes_top_block_uses_peer_row_height_template(
             float(ws.row_dimensions[row_idx].height or 0.0)
             for row_idx in range(1, 8)
         ] == pytest.approx([24.0, 25.0, 44.0, 44.0, 44.0, 30.0, 10.0])
+
+
+def test_gtx_quarter_notes_uses_exact_peer_fills_and_body_heights(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Quarter_Notes_UI"]
+
+        assert _rgb(ws["A1"]) == "005B9BD5"
+        assert _rgb(ws["A2"]) == "00DDEBF7"
+        assert _rgb(ws["A3"]) == "00F7FBFF"
+        assert _rgb(ws["A4"]) == "00EDF4FB"
+        assert _rgb(ws["A8"]) == "00DDEBF7"
+        assert _rgb(ws["A9"]) == "00EAF3F8"
+
+        for rr in (10, 11, 12, 13):
+            assert float(ws.row_dimensions[rr].height or 0) == pytest.approx(48.0)
+        assert float(ws.row_dimensions[8].height or 0) == pytest.approx(25.0)
+        assert float(ws["A3"].font.sz or 0) == pytest.approx(14.0)
 
 
 def test_gtx_quarter_notes_has_required_quarter_read_labels(

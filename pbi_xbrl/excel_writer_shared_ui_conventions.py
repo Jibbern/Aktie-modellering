@@ -1105,6 +1105,38 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
         body_fill = PatternFill("solid", fgColor="FFFFFF")
         return title_fill, section_fill, header_fill, alt_fill, body_fill
 
+    def _gtx_peer_operating_fills() -> Tuple[Any, Any, Any, Any, Any]:
+        title_fill = PatternFill("solid", fgColor="6FA8DC")
+        section_fill = PatternFill("solid", fgColor="6FA8DC")
+        header_fill = PatternFill("solid", fgColor="EAF3FB")
+        alt_fill = PatternFill("solid", fgColor="F7F9FC")
+        body_fill = PatternFill("solid", fgColor="FFFFFF")
+        return title_fill, section_fill, header_fill, alt_fill, body_fill
+
+    def _gtx_peer_quarter_note_fills() -> Tuple[Any, Any, Any, Any, Any]:
+        title_fill = PatternFill("solid", fgColor="5B9BD5")
+        section_fill = PatternFill("solid", fgColor="DDEBF7")
+        header_fill = PatternFill("solid", fgColor="EAF3F8")
+        alt_fill = PatternFill("solid", fgColor="EDF4FB")
+        body_fill = PatternFill("solid", fgColor="F7FBFF")
+        return title_fill, section_fill, header_fill, alt_fill, body_fill
+
+    def _gtx_peer_promise_fills() -> Tuple[Any, Any, Any, Any, Any]:
+        title_fill = PatternFill("solid", fgColor="5B9BD5")
+        subtitle_fill = PatternFill("solid", fgColor="F6F9FC")
+        header_fill = PatternFill("solid", fgColor="EAF3FB")
+        alt_fill = PatternFill("solid", fgColor="F6F9FC")
+        body_fill = PatternFill("solid", fgColor="FFFFFF")
+        return title_fill, subtitle_fill, header_fill, alt_fill, body_fill
+
+    def _gtx_peer_valuation_fills() -> Tuple[Any, Any, Any, Any, Any]:
+        title_fill = PatternFill("solid", fgColor="6FA8DC")
+        section_fill = PatternFill("solid", fgColor="6FA8DC")
+        header_fill = PatternFill("solid", fgColor="EAF3FB")
+        alt_fill = PatternFill("solid", fgColor="F7FAFC")
+        body_fill = PatternFill("solid", fgColor="FFFFFF")
+        return title_fill, section_fill, header_fill, alt_fill, body_fill
+
     def _gtx_thin_border() -> Any:
         return Border(
             left=Side(style="thin", color="D9E2EA"),
@@ -1121,7 +1153,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ws.unmerge_cells(str(merged))
         if int(ws.max_row or 0) > 1:
             ws.delete_rows(1, int(ws.max_row or 0))
-        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_fill_styles()
+        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_quarter_note_fills()
         thin = _gtx_thin_border()
         quarter_rows = _gtx_latest_quarter_rows()[:12]
         quarter_by_label = {str(row.get("label") or ""): row for row in quarter_rows}
@@ -1175,11 +1207,11 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ws.row_dimensions[row_idx].height = 26.0
 
         def _table_row(row_idx: int, theme: str, happened: str, why: str, treatment: str, source: str) -> None:
-            fill = body_fill if row_idx % 2 else alt_fill
+            fill = body_fill if row_idx % 2 == 0 else alt_fill
             spans = ((1, 2, theme), (3, 5, happened), (6, 7, why), (8, 12, treatment), (13, 15, source))
             for start_col, end_col, value in spans:
                 _merge(row_idx, start_col, end_col, value, fill=fill, size=14.0)
-            ws.row_dimensions[row_idx].height = 46.0
+            ws.row_dimensions[row_idx].height = 48.0
 
         def _promise_header(row_idx: int) -> None:
             spans = ((1, 2, "Promise / guidance item"), (3, 6, "Read"), (7, 12, "Actual / progress interpretation"), (13, 15, "Status / source"))
@@ -1188,11 +1220,11 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ws.row_dimensions[row_idx].height = 25.0
 
         def _promise_row(row_idx: int, item: str, read: str, progress: str, status: str, source: str) -> None:
-            fill = body_fill if row_idx % 2 else alt_fill
+            fill = body_fill if row_idx % 2 == 0 else alt_fill
             spans = ((1, 2, item), (3, 6, read), (7, 12, progress), (13, 15, " - ".join(part for part in (status, source) if str(part or "").strip())))
             for start_col, end_col, value in spans:
                 _merge(row_idx, start_col, end_col, value, fill=fill, size=14.0)
-            ws.row_dimensions[row_idx].height = 42.0
+            ws.row_dimensions[row_idx].height = 48.0
 
         def _block(row_idx: int, label: str, rows_in: Sequence[Tuple[str, str, str, str, str]], *, read: str, changed: str, watch: str, caveat: str) -> int:
             _merge(row_idx, 1, 15, f"{label} - Quarter Notes", fill=title_fill, bold=True, size=14.0, white=True)
@@ -1212,7 +1244,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             _spacer(row_idx)
             row_idx += 1
             _merge(row_idx, 1, 15, "Key developments", fill=section_fill, bold=True, size=13.0)
-            ws.row_dimensions[row_idx].height = 24.0
+            ws.row_dimensions[row_idx].height = 25.0
             row_idx += 1
             _table_header(row_idx)
             row_idx += 1
@@ -1222,7 +1254,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             _spacer(row_idx)
             row_idx += 1
             _merge(row_idx, 1, 15, "Guidance / Promise interpretation", fill=section_fill, bold=True, size=13.0)
-            ws.row_dimensions[row_idx].height = 24.0
+            ws.row_dimensions[row_idx].height = 25.0
             row_idx += 1
             _promise_header(row_idx)
             row_idx += 1
@@ -1233,7 +1265,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             _spacer(row_idx)
             row_idx += 1
             _merge(row_idx, 1, 15, "Model mapping / double-count guardrails", fill=section_fill, bold=True, size=13.0)
-            ws.row_dimensions[row_idx].height = 24.0
+            ws.row_dimensions[row_idx].height = 25.0
             row_idx += 1
             _promise_header(row_idx)
             row_idx += 1
@@ -1287,7 +1319,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ws.unmerge_cells(str(merged))
         if int(ws.max_row or 0) > 1:
             ws.delete_rows(1, int(ws.max_row or 0))
-        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_fill_styles()
+        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_promise_fills()
         thin = _gtx_thin_border()
         status_fills = {
             "open": PatternFill("solid", fgColor="99CCFF"),
@@ -1341,7 +1373,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                     cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
         def _score_row(row_idx: int, category: str, score: str, evidence: str, read: str) -> int:
-            fill = alt_fill if row_idx % 2 == 0 else body_fill
+            fill = alt_fill if row_idx % 2 else body_fill
             _merge(row_idx, 1, 1, category, fill=fill)
             _merge(row_idx, 2, 2, score, fill=_fill_for(score))
             _merge(row_idx, 3, 6, evidence, fill=fill)
@@ -1350,11 +1382,11 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             return row_idx + 1
 
         def _row(row_idx: int, values: Sequence[Any], spans: Sequence[Tuple[int, int]], *, status_col: Optional[int] = None, source_cols: Iterable[int] = (11, 12)) -> int:
-            fill = alt_fill if row_idx % 2 == 0 else body_fill
+            fill = alt_fill if row_idx % 2 else body_fill
             for value, (start_col, end_col) in zip(values, spans):
                 _merge(row_idx, start_col, end_col, value, fill=_fill_for(value) if status_col == start_col else fill)
             _source_style(row_idx, source_cols)
-            ws.row_dimensions[row_idx].height = 22.0
+            ws.row_dimensions[row_idx].height = 24.0
             return row_idx + 1
 
         def _hidden_key_slug(value: Any) -> str:
@@ -1516,8 +1548,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ws.unmerge_cells(str(merged))
         if int(ws.max_row or 0) > 1:
             ws.delete_rows(1, int(ws.max_row or 0))
-        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_fill_styles()
-        title_fill = PatternFill("solid", fgColor="6FA8DC")
+        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_operating_fills()
         thin = _gtx_thin_border()
 
         def _style(row_idx: int, start_col: int, end_col: int, *, fill: Any, bold: bool = False, size: float = 12.0, white: bool = False, gray: bool = False) -> None:
@@ -1536,61 +1567,61 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
 
         def _section(row_idx: int, title: str, note: str = "") -> int:
             text = title if not note else f"{title} — {note}"
-            _merge(row_idx, 1, 14, text, fill=title_fill, bold=True, size=12.0, white=True)
+            _merge(row_idx, 1, 14, text, fill=title_fill, bold=True, size=13.0, white=True)
             ws.row_dimensions[row_idx].height = 22.5
             return row_idx + 1
 
         def _simple_headers(row_idx: int, headers: Sequence[Any]) -> int:
             for cc in range(1, 15):
-                _style(row_idx, cc, cc, fill=header_fill, bold=True, size=12.0)
+                _style(row_idx, cc, cc, fill=header_fill, bold=True, size=13.0)
                 if cc <= len(headers):
                     ws.cell(row_idx, cc, headers[cc - 1])
-            ws.row_dimensions[row_idx].height = 20.0
+            ws.row_dimensions[row_idx].height = 21.0
             return row_idx + 1
 
         def _plain_row(row_idx: int, values: Sequence[Any], *, gray_from: int = 99) -> int:
-            fill = alt_fill if row_idx % 2 == 0 else body_fill
+            fill = body_fill if row_idx % 2 == 0 else alt_fill
             for cc in range(1, 15):
                 _style(row_idx, cc, cc, fill=fill, size=12.0, gray=cc >= gray_from)
                 if cc <= len(values):
                     ws.cell(row_idx, cc, values[cc - 1])
-            ws.row_dimensions[row_idx].height = 20.0
+            ws.row_dimensions[row_idx].height = 22.5
             return row_idx + 1
 
         def _driver_commentary_header(row_idx: int) -> int:
-            _merge(row_idx, 1, 1, "Horizon", fill=header_fill, bold=True)
-            _merge(row_idx, 2, 2, "Stated in", fill=header_fill, bold=True)
-            _merge(row_idx, 3, 14, "Commentary", fill=header_fill, bold=True)
-            ws.row_dimensions[row_idx].height = 20.0
+            _merge(row_idx, 1, 1, "Horizon", fill=header_fill, bold=True, size=13.0)
+            _merge(row_idx, 2, 2, "Stated in", fill=header_fill, bold=True, size=13.0)
+            _merge(row_idx, 3, 14, "Commentary", fill=header_fill, bold=True, size=13.0)
+            ws.row_dimensions[row_idx].height = 21.0
             return row_idx + 1
 
         def _driver_commentary_row(row_idx: int, horizon: str, stated: str, commentary: str) -> int:
-            fill = alt_fill if row_idx % 2 == 0 else body_fill
+            fill = body_fill if row_idx % 2 == 0 else alt_fill
             _merge(row_idx, 1, 1, horizon, fill=fill)
             _merge(row_idx, 2, 2, stated, fill=fill)
             _merge(row_idx, 3, 14, commentary, fill=fill)
-            ws.row_dimensions[row_idx].height = 20.0
+            ws.row_dimensions[row_idx].height = 22.5
             return row_idx + 1
 
         def _driver_data_headers(row_idx: int, labels: Sequence[str]) -> int:
             for cc in range(1, 10):
-                _style(row_idx, cc, cc, fill=header_fill, bold=True, size=12.0)
+                _style(row_idx, cc, cc, fill=header_fill, bold=True, size=13.0)
                 if cc <= len(labels):
                     ws.cell(row_idx, cc, labels[cc - 1])
-            _merge(row_idx, 10, 11, "Source", fill=header_fill, bold=True, gray=True)
-            _merge(row_idx, 12, 14, "Treatment", fill=header_fill, bold=True, gray=True)
-            ws.row_dimensions[row_idx].height = 20.0
+            _merge(row_idx, 10, 11, "Source", fill=header_fill, bold=True, size=13.0, gray=True)
+            _merge(row_idx, 12, 14, "Treatment", fill=header_fill, bold=True, size=13.0, gray=True)
+            ws.row_dimensions[row_idx].height = 21.0
             return row_idx + 1
 
         def _driver_data_row(row_idx: int, values: Sequence[Any], source: str, treatment: str) -> int:
-            fill = alt_fill if row_idx % 2 == 0 else body_fill
+            fill = body_fill if row_idx % 2 == 0 else alt_fill
             for cc in range(1, 10):
                 _style(row_idx, cc, cc, fill=fill, size=12.0)
                 if cc <= len(values):
                     ws.cell(row_idx, cc, values[cc - 1])
             _merge(row_idx, 10, 11, source, fill=fill, gray=True)
             _merge(row_idx, 12, 14, treatment, fill=fill, gray=True)
-            ws.row_dimensions[row_idx].height = 20.0
+            ws.row_dimensions[row_idx].height = 22.5
             return row_idx + 1
 
         ws.sheet_view.zoomScale = 110
@@ -1599,9 +1630,9 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
         ws.row_dimensions[2].height = 24.0
         rr = 4
         rr = _section(rr, "Current watchlist")
-        _merge(rr, 1, 1, "Watch item", fill=header_fill, bold=True)
-        _merge(rr, 2, 7, "Current read", fill=header_fill, bold=True)
-        _merge(rr, 8, 14, "Why it matters", fill=header_fill, bold=True)
+        _merge(rr, 1, 1, "Watch item", fill=header_fill, bold=True, size=13.0)
+        _merge(rr, 2, 7, "Current read", fill=header_fill, bold=True, size=13.0)
+        _merge(rr, 8, 14, "Why it matters", fill=header_fill, bold=True, size=13.0)
         ws.row_dimensions[rr].height = 21.0
         rr += 1
         for record in (
@@ -1615,17 +1646,17 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ("Margin / cash conversion", "Quarterly non-GAAP values sit on Valuation.", "The case needs profit to convert into cash after capex, interest and working capital."),
             ("Debt, net leverage and buybacks", "Q1 debt/buybacks are reported; May 18 debt event stays post-quarter.", "Equity value is sensitive to leverage, interest cost, buybacks and unrestricted cash."),
         ):
-            fill = alt_fill if rr % 2 == 0 else body_fill
+            fill = body_fill if rr % 2 == 0 else alt_fill
             _merge(rr, 1, 1, record[0], fill=fill)
             _merge(rr, 2, 7, record[1], fill=fill)
             _merge(rr, 8, 14, record[2], fill=fill)
-            ws.row_dimensions[rr].height = 20.0
+            ws.row_dimensions[rr].height = 22.5
             rr += 1
         rr += 1
         rr = _section(rr, "Current/latest outlook")
-        _merge(rr, 1, 1, "Topic", fill=header_fill, bold=True)
-        _merge(rr, 2, 7, "Current read", fill=header_fill, bold=True)
-        _merge(rr, 8, 14, "Source / use", fill=header_fill, bold=True, gray=True)
+        _merge(rr, 1, 1, "Topic", fill=header_fill, bold=True, size=13.0)
+        _merge(rr, 2, 7, "Current read", fill=header_fill, bold=True, size=13.0)
+        _merge(rr, 8, 14, "Source / use", fill=header_fill, bold=True, size=13.0, gray=True)
         ws.row_dimensions[rr].height = 21.0
         rr += 1
         for record in (
@@ -1636,7 +1667,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ("Capital structure", "Q1 debt/cash/buybacks are reported; May 18 debt event stays post-quarter.", "History_Q / Debt_Profile / event context; no Q1 history rewrite."),
             ("Technology awards", "Q1 release cites turbo, range-extended EV, E-Powertrain and E-Cooling awards.", "Release/presentation commentary; watchlist context, not reported revenue."),
         ):
-            fill = alt_fill if rr % 2 == 0 else body_fill
+            fill = body_fill if rr % 2 == 0 else alt_fill
             _merge(rr, 1, 1, record[0], fill=fill)
             _merge(rr, 2, 7, record[1], fill=fill)
             _merge(rr, 8, 14, record[2], fill=fill, gray=True)
@@ -1728,7 +1759,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
         rr += 1
         rr = _section(rr, "Debt / buyback / leverage watch")
         for spec in ((1, 1, "Item"), (2, 4, "Reported / disclosed value"), (5, 6, "Period / event"), (7, 9, "Why it matters"), (10, 11, "Source"), (12, 14, "Workbook treatment / note")):
-            _merge(rr, spec[0], spec[1], spec[2], fill=header_fill, bold=True, gray=spec[0] >= 10)
+            _merge(rr, spec[0], spec[1], spec[2], fill=header_fill, bold=True, size=13.0, gray=spec[0] >= 10)
         rr += 1
         for record in (
             ("Debt outstanding", "$1,437m", "2026-Q1 reported", "Leverage is a primary equity-value sensitivity.", "2026-Q1 release", "History_Q / Debt_Profile; source-backed."),
@@ -1739,20 +1770,19 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ("2025 year buybacks", "$208m", "2025 year", "Completed repurchases affected per-share outcomes.", "2025-Q4 release", "Management credibility actual; source-backed."),
             ("May 18 debt event", "$50m term-loan repayment/repricing", "Post-quarter event", "Event changes pro-forma debt context, not Q1 history.", "May 18 2026 release / 8-K", "Pro-forma/event context only; source-backed."),
         ):
-            fill = alt_fill if rr % 2 == 0 else body_fill
+            fill = body_fill if rr % 2 == 0 else alt_fill
             _merge(rr, 1, 1, record[0], fill=fill)
             _merge(rr, 2, 4, record[1], fill=fill)
             _merge(rr, 5, 6, record[2], fill=fill)
             _merge(rr, 7, 9, record[3], fill=fill)
             _merge(rr, 10, 11, record[4], fill=fill, gray=True)
             _merge(rr, 12, 14, record[5], fill=fill, gray=True)
-            ws.row_dimensions[rr].height = 20.0
+            ws.row_dimensions[rr].height = 22.5
             rr += 1
         for cc, width in {1: 42, 2: 16, 3: 16, 4: 16, 5: 16, 6: 16, 7: 16, 8: 16, 9: 16, 10: 16, 11: 16, 12: 16, 13: 16, 14: 16}.items():
             ws.column_dimensions[get_column_letter(cc)].width = width
-        for row_idx in range(1, int(ws.max_row or 0) + 1):
-            if ws.row_dimensions[row_idx].height is None:
-                ws.row_dimensions[row_idx].height = 20.0
+        ws.row_dimensions[1].height = None
+        ws.row_dimensions[3].height = None
 
     def _rewrite_gtx_valuation_guidance_peer_panel() -> None:
         if ticker_txt != "GTX" or "Valuation" not in getattr(wb, "sheetnames", []):
@@ -1761,7 +1791,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
         panel_start = 15
         panel_end = 28
         thin = _gtx_thin_border()
-        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_fill_styles()
+        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_valuation_fills()
 
         for merged in list(ws.merged_cells.ranges):
             if merged.max_row >= 7 and merged.min_row <= 35 and merged.max_col >= panel_start and merged.min_col <= panel_end:
@@ -1788,7 +1818,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ws.cell(row_idx, start_col, value)
 
         def _row(row_idx: int, metric: str, stated: str, applies: str, guidance: str) -> int:
-            fill = alt_fill if row_idx % 2 == 0 else body_fill
+            fill = alt_fill if row_idx % 2 else body_fill
             _merge(row_idx, panel_start, panel_start + 2, metric, fill=fill)
             _merge(row_idx, panel_start + 3, panel_start + 3, stated, fill=fill)
             _merge(row_idx, panel_start + 4, panel_start + 5, applies, fill=fill)
@@ -1846,7 +1876,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ("Technology / conversion", "RD&E / technology awards; Adjusted EBIT / adjusted FCF conversion", "Awards support future content; the case needs profit to convert into cash."),
             ("Cash / leverage", "Debt, net leverage and buybacks", "Equity value is sensitive to leverage, cash and repurchases."),
         ):
-            fill = alt_fill if rr % 2 == 0 else body_fill
+            fill = body_fill if rr % 2 == 0 else alt_fill
             _merge(rr, panel_start, panel_start + 2, group, fill=fill)
             _merge(rr, panel_start + 3, panel_start + 6, driver, fill=fill)
             _merge(rr, panel_start + 7, panel_end, why, fill=fill)
