@@ -8,6 +8,7 @@ import pytest
 
 import stock_models
 from pbi_xbrl.data_portability import (
+    TICKERS,
     cleanup_old_layout,
     main as portability_main,
     migrate_legacy_layout,
@@ -21,6 +22,10 @@ def _write(path: Path, text: str = "x") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     return path
+
+
+def test_data_portability_default_tickers_include_gtx() -> None:
+    assert TICKERS == ("PBI", "GPRE", "ANF", "GTX")
 
 
 def test_migrate_maps_legacy_folders_into_portable_layout_and_skips_temp_files(tmp_path: Path) -> None:
@@ -123,7 +128,7 @@ def test_restore_dry_run_validates_manifest_without_extracting(tmp_path: Path) -
 
 def test_validate_data_root_writes_gate_report(tmp_path: Path) -> None:
     data_root = tmp_path / "StockModelData"
-    for ticker in ("PBI", "GPRE", "ANF"):
+    for ticker in ("PBI", "GPRE", "ANF", "GTX"):
         _write(data_root / "sec_cache" / ticker / "submissions.json", "{}")
         _write(data_root / "tickers" / ticker / "press_release" / "release.txt", "release")
         _write(data_root / "outputs" / "Excel stock models" / f"{ticker}_model.xlsx", "excel")
@@ -136,12 +141,15 @@ def test_validate_data_root_writes_gate_report(tmp_path: Path) -> None:
     assert (data_root / "logs" / "data_root_validation_report.json").exists()
 
 
-def test_validate_data_root_accepts_fresh_xlsm_outputs(tmp_path: Path) -> None:
+def test_validate_data_root_accepts_gtx_xlsx_without_requiring_xlsm(tmp_path: Path) -> None:
     data_root = tmp_path / "StockModelData"
     for ticker in ("PBI", "GPRE", "ANF"):
         _write(data_root / "sec_cache" / ticker / "submissions.json", "{}")
         _write(data_root / "tickers" / ticker / "press_release" / "release.txt", "release")
         _write(data_root / "outputs" / "Excel stock models" / f"{ticker}_model.xlsm", "excel")
+    _write(data_root / "sec_cache" / "GTX" / "submissions.json", "{}")
+    _write(data_root / "tickers" / "GTX" / "press_release" / "release.txt", "release")
+    _write(data_root / "outputs" / "Excel stock models" / "GTX_model.xlsx", "excel")
     for folder in ("market_cache", "writer_cache", "basis_proxy", "logs"):
         (data_root / folder).mkdir(parents=True, exist_ok=True)
 
@@ -187,7 +195,7 @@ def test_cleanup_old_confirm_requires_snapshot_workbooks_and_validation(tmp_path
     with pytest.raises(RuntimeError, match="workbook outputs missing"):
         cleanup_old_layout(repo_root=repo_root, data_root=data_root, dry_run=False, confirm=True)
 
-    for ticker in ("PBI", "GPRE", "ANF"):
+    for ticker in ("PBI", "GPRE", "ANF", "GTX"):
         _write(data_root / "outputs" / "Excel stock models" / f"{ticker}_model.xlsx", "excel")
     with pytest.raises(RuntimeError, match="validation PASS"):
         cleanup_old_layout(repo_root=repo_root, data_root=data_root, dry_run=False, confirm=True)
@@ -200,9 +208,9 @@ def test_cleanup_old_archive_requires_prior_dry_run_and_archives_after_gates(tmp
     _write(data_root / "logs" / "data_migration_report.json", "{}")
     _write(data_root / "logs" / "data_snapshot_report.json", json.dumps({"out_path": str(tmp_path / "snapshot.zip")}))
     _write(tmp_path / "snapshot.zip", "zip-placeholder")
-    for ticker in ("PBI", "GPRE", "ANF"):
+    for ticker in ("PBI", "GPRE", "ANF", "GTX"):
         _write(data_root / "outputs" / "Excel stock models" / f"{ticker}_model.xlsx", "excel")
-    validation_rows = [{"ticker": ticker, "overall": "PASS"} for ticker in ("PBI", "GPRE", "ANF")]
+    validation_rows = [{"ticker": ticker, "overall": "PASS"} for ticker in ("PBI", "GPRE", "ANF", "GTX")]
     _write(data_root / "validation_reports" / "workbook_validation" / "workbook_validation_report.json", json.dumps(validation_rows))
 
     with pytest.raises(RuntimeError, match="dry-run"):

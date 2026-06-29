@@ -183,11 +183,13 @@ def test_validation_runner_uses_explicit_xlsm_workbook_path(tmp_path: Path) -> N
     assert result.overall == "PASS"
 
 
-def test_validation_runner_supports_explicit_non_default_ticker_without_defaulting_it(tmp_path: Path) -> None:
-    assert "GTX" not in TICKERS
-    assert "GTX" not in default_workbook_paths(tmp_path)
+def test_validation_runner_defaults_include_gtx_and_accept_xlsx_only(tmp_path: Path) -> None:
+    assert "GTX" in TICKERS
 
     explicit_path = _make_clean_validation_workbook(tmp_path / "GTX_model.xlsx", "GTX")
+    defaults = default_workbook_paths(tmp_path)
+
+    assert defaults["GTX"] == explicit_path
 
     paths = resolve_workbook_paths(workbook_dir=explicit_path, tickers=["GTX"])
 
