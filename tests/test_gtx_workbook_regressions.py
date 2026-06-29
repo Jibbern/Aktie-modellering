@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import os
 import re
+from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
@@ -13,7 +14,7 @@ from pbi_xbrl.workbook_validation_runner import validate_workbook
 
 
 DEFAULT_GTX_STAGED_WORKBOOK = Path(
-    r"C:\Users\Jibbe\Aktier\StockModelData\staging\GTX\GTX_model.xlsx"
+    r"C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models\GTX_model.xlsx"
 )
 GTX_SPECIAL_EVENT_MARKERS = (
     "eh260781731_ex9902",
@@ -172,6 +173,38 @@ def _find_row_with_first_cell(ws: Any, label: str) -> int:
 
 def _row_values(ws: Any, row_idx: int, *, max_col: int = 15) -> list[Any]:
     return [ws.cell(row_idx, cc).value for cc in range(1, max_col + 1)]
+
+
+def _font_size_counts(ws: Any, *, max_rows: int = 400, max_cols: int = 20) -> Counter[float]:
+    counts: Counter[float] = Counter()
+    for row in ws.iter_rows(
+        min_row=1,
+        max_row=min(int(ws.max_row or 0), max_rows),
+        min_col=1,
+        max_col=min(int(ws.max_column or 0), max_cols),
+    ):
+        for cell in row:
+            if cell.value is None or str(cell.value).strip() == "":
+                continue
+            if cell.font and cell.font.sz:
+                counts[float(cell.font.sz)] += 1
+    return counts
+
+
+def _non_empty_row_indices(ws: Any, *, max_col: int = 20) -> list[int]:
+    rows: list[int] = []
+    for rr in range(1, int(ws.max_row or 0) + 1):
+        if any(str(ws.cell(rr, cc).value or "").strip() for cc in range(1, min(int(ws.max_column or 0), max_col) + 1)):
+            rows.append(rr)
+    return rows
+
+
+def _quarter_note_titles(ws: Any) -> list[str]:
+    return [
+        str(ws.cell(rr, 1).value or "").strip()
+        for rr in range(1, int(ws.max_row or 0) + 1)
+        if str(ws.cell(rr, 1).value or "").strip().endswith("- Quarter Notes")
+    ]
 
 
 def _numeric_row_values(ws: Any, row_idx: int, *, max_col: int = 15) -> list[float]:
@@ -479,12 +512,28 @@ def test_gtx_guidance_normalized_includes_recent_official_outlook_rows(
 def test_gtx_valuation_guidance_panel_uses_curated_guidance_rows(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
+    ws = gtx_wb["Valuation"]
     text = _sheet_visible_text(gtx_wb, "Valuation")
     low = text.lower()
 
     assert "guidance (as of 2026-03-31)" in low
     assert "guidance (as of 2025-12-31)" in low
     assert "no guidance items for this quarter" not in low
+    guidance_header_row = None
+    for rr in range(1, int(ws.max_row or 0) + 1):
+        row_values = [str(ws.cell(rr, cc).value or "").strip() for cc in range(1, int(ws.max_column or 0) + 1)]
+        if any(value.startswith("Guidance (As of 2026-03-31)") for value in row_values):
+            guidance_header_row = rr + 1
+            break
+    assert guidance_header_row is not None
+    guidance_headers = [
+        str(ws.cell(guidance_header_row, cc).value or "").strip()
+        for cc in range(15, 29)
+        if str(ws.cell(guidance_header_row, cc).value or "").strip()
+    ]
+    assert guidance_headers[:4] == ["Metric", "Stated in", "Applies to", "Guidance"]
+    assert guidance_headers.count("Metric") == 1
+    assert guidance_headers.count("Guidance") == 1
     for required in (
         "net sales",
         "$3.6bn-$3.9bn",
@@ -503,13 +552,13 @@ def test_gtx_valuation_guidance_panel_uses_curated_guidance_rows(
         "commercial vehicle industry",
         "up 1%-2%",
         "bev penetration",
-        "about 19%",
+        "~19%",
         "eur/usd",
         "1.17",
         "rd&e",
-        "about 4.2% of sales",
+        "4.2% of sales",
         "capex",
-        "about 2.5% of sales",
+        "2.5% of sales",
         "fy2025 actuals",
         "$3.584bn",
     ):
@@ -587,7 +636,6 @@ def test_gtx_operating_drivers_recent_commentary_uses_broad_layout(
 ) -> None:
     with _gtx_style_workbook() as full_wb:
         ws = full_wb["Operating_Drivers"]
-        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
 
     header_row = None
     for row_idx in range(1, int(ws.max_row or 0) + 1):
@@ -597,23 +645,29 @@ def test_gtx_operating_drivers_recent_commentary_uses_broad_layout(
     assert header_row is not None
 
     headers = [str(ws.cell(header_row, cc).value or "").strip() for cc in range(1, 15)]
-    assert headers[2].lower() == "actual / guide"
-    assert headers[4].lower() == "why it matters"
-    assert "Source" not in headers[3:8]
-    assert "Source" in headers[8:]
-    first_commentary_row = header_row + 1
+    assert headers[:3] == ["Horizon", "Stated in", "Commentary"]
+    assert not any("source" in value.lower() for value in headers[:8])
+    assert not any("confidence" in value.lower() for value in headers[:8])
+
+    commentary_rows = [
+        rr
+        for rr in range(header_row + 1, int(ws.max_row or 0) + 1)
+        if str(ws.cell(rr, 2).value or "").strip().startswith(("2026-Q1", "2025-Q", "2024-Q", "2023-Q"))
+    ]
+    assert len(commentary_rows) >= 12
+    commentary_text = _sheet_visible_text(gtx_wb, "Operating_Drivers").lower()
+    for expected in ("2026-q1", "2025-q4", "2025-q3", "2025-q2", "2025-q1", "2024-q4"):
+        assert expected in commentary_text
+    assert "official transcripts not loaded" in commentary_text
+    assert "earnings release / presentation text only" in commentary_text
+
+    first_commentary_row = next(
+        rr
+        for rr in range(header_row + 1, int(ws.max_row or 0) + 1)
+        if str(ws.cell(rr, 2).value or "").strip()
+    )
     assert str(ws.cell(first_commentary_row, 3).value or "").strip()
-    assert not str(ws.cell(first_commentary_row, 4).value or "").strip()
-    assert str(ws.cell(first_commentary_row, 5).value or "").strip()
-    assert f"C{header_row}:D{header_row}" in merged_ranges
-    assert f"E{header_row}:H{header_row}" in merged_ranges
-    assert f"I{header_row}:J{header_row}" in merged_ranges
-    assert f"K{header_row}:L{header_row}" in merged_ranges
-    assert f"C{first_commentary_row}:D{first_commentary_row}" in merged_ranges
-    assert f"E{first_commentary_row}:H{first_commentary_row}" in merged_ranges
-    assert f"I{first_commentary_row}:J{first_commentary_row}" in merged_ranges
-    assert f"K{first_commentary_row}:L{first_commentary_row}" in merged_ranges
-    assert ws.row_dimensions[first_commentary_row].height >= 30.0
+    assert float(ws.row_dimensions[first_commentary_row].height or 0.0) <= 24.5
 
 
 def test_gtx_operating_drivers_uses_uniform_peer_widths_and_right_side_audit_columns(
@@ -682,6 +736,23 @@ def test_gtx_operating_drivers_has_no_freeze_panes_and_release_commentary_note(
         assert "management / release commentary" in text
         assert "official transcripts not loaded" in text
         assert "earnings release / presentation text only" in text
+
+
+def test_gtx_operating_drivers_peer_font_and_row_height_pattern(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        font_counts = _font_size_counts(ws, max_rows=160, max_cols=14)
+        row_heights = [
+            float(ws.row_dimensions[row_idx].height or 15.0)
+            for row_idx in range(1, int(ws.max_row or 0) + 1)
+        ]
+
+        assert font_counts[12.0] >= 360
+        assert font_counts[10.5] <= 5
+        assert max(row_heights) <= 24.5
+        assert 18.0 <= (sum(row_heights) / len(row_heights)) <= 22.0
 
 
 def test_gtx_operating_drivers_outlook_values_inline_units_and_clean_wording(
@@ -761,7 +832,7 @@ def test_gtx_operating_driver_audit_fields_are_visually_secondary(
                     if not str(cell.value or "").strip():
                         continue
                     checked_cells.append(cell.coordinate)
-                    assert float(cell.font.sz or 0.0) <= 10.5
+                    assert float(cell.font.sz or 0.0) <= 12.0
                     assert str(cell.font.color.rgb or "").upper().endswith("5F6B76")
                 row_idx += 1
 
@@ -987,10 +1058,15 @@ def test_gtx_promise_progress_uses_anf_pbi_card_layout(
         assert str(ws["A1"].value or "").strip() == "Promise Progress"
         assert str(ws["A3"].value or "").strip() == "Management Credibility Scorecard"
         assert str(ws["A3"].fill.fgColor.rgb or "").upper() == "005B9BD5"
-        assert ws.row_dimensions[1].height >= 26.0
-        assert ws.row_dimensions[3].height >= 24.0
-        for row_idx in (5, 6, 7, 36, 37, 38):
-            assert ws.row_dimensions[row_idx].height >= 30.0
+        assert int(ws.max_row or 0) >= 70
+        assert float(ws.row_dimensions[1].height or 0.0) <= 24.0
+        assert float(ws.row_dimensions[3].height or 0.0) <= 24.0
+        tall_rows = [
+            row_idx
+            for row_idx in range(1, int(ws.max_row or 0) + 1)
+            if float(ws.row_dimensions[row_idx].height or 0.0) > 24.5
+        ]
+        assert tall_rows == []
         for required_merge in ("A3:L3", "C5:F5", "G5:L5"):
             assert required_merge in merged_ranges
 
@@ -1111,8 +1187,10 @@ def test_gtx_promise_progress_source_notes_are_right_side_and_secondary(
                     continue
                 if str(ws.cell(rr, 1).fill.fgColor.rgb or "").upper().endswith(("5B9BD5", "6FA8DC", "4472C4")):
                     continue
+                if bool(cell.font.bold):
+                    continue
                 checked_cells.append(cell.coordinate)
-                assert float(cell.font.sz or 0.0) <= 10.5
+                assert float(cell.font.sz or 0.0) <= 11.0
                 assert str(cell.font.color.rgb or "").upper().endswith("5F6B76")
 
         assert checked_cells
@@ -1124,13 +1202,36 @@ def test_gtx_promise_progress_has_quarter_context_beyond_two_topline_sections(
     text = _sheet_visible_text(gtx_wb, "Promise_Progress_UI").lower()
 
     for required in (
-        "quarterly actual/context rows",
+        "2025 guidance progression",
+        "2024 guidance progression",
+        "quarterly guidance timeline / revision log",
         "2026-q1",
         "2025-q4",
         "2025-q3",
+        "2025-q2",
+        "2025-q1",
         "only clean official guidance revisions are shown",
     ):
         assert required in text
+
+
+def test_gtx_promise_progress_density_and_row_heights_match_peer_dashboard(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+        non_empty = _non_empty_row_indices(ws, max_col=15)
+        font_counts = _font_size_counts(ws, max_rows=140, max_cols=15)
+        row_heights = [
+            float(ws.row_dimensions[row_idx].height or 15.0)
+            for row_idx in range(1, int(ws.max_row or 0) + 1)
+        ]
+
+        assert len(non_empty) >= 65
+        assert font_counts[11.0] >= 350
+        assert font_counts[13.0] + font_counts[14.0] <= 5
+        assert max(row_heights) <= 24.5
+        assert sum(1 for height in row_heights if height > 26.0) == 0
 
 
 def test_gtx_bs_segments_shows_analytical_cuts_not_missing_segment_stub(
@@ -1312,16 +1413,26 @@ def test_gtx_quarter_notes_matches_peer_depth_and_section_pattern(
 ) -> None:
     ws = gtx_wb["Quarter_Notes_UI"]
     text = _sheet_visible_text(gtx_wb, "Quarter_Notes_UI").lower()
-    quarter_blocks = [
-        str(ws.cell(rr, 1).value or "").strip().lower()
-        for rr in range(1, int(ws.max_row or 0) + 1)
-        if str(ws.cell(rr, 1).value or "").strip().lower().endswith("- quarter notes")
-    ]
+    quarter_blocks = [title.lower() for title in _quarter_note_titles(ws)]
 
-    assert len(quarter_blocks) >= 4
+    assert len(quarter_blocks) >= 10
+    assert int(ws.max_row or 0) >= 260
+    assert len(_non_empty_row_indices(ws, max_col=15)) >= 220
     assert "guidance / promise interpretation" in text
     assert "model mapping / double-count guardrails" in text
-    assert "2025-q3 - quarter notes" in text
+    for expected in (
+        "2026-q1 - quarter notes",
+        "2025-q4 - quarter notes",
+        "2025-q3 - quarter notes",
+        "2025-q2 - quarter notes",
+        "2025-q1 - quarter notes",
+        "2024-q4 - quarter notes",
+        "2024-q3 - quarter notes",
+        "2024-q2 - quarter notes",
+        "2024-q1 - quarter notes",
+        "2023-q4 - quarter notes",
+    ):
+        assert expected in quarter_blocks
 
 
 def test_gtx_quarter_notes_uses_peer_style_title_and_quarter_blocks(
@@ -1340,8 +1451,19 @@ def test_gtx_quarter_notes_uses_peer_style_title_and_quarter_blocks(
         assert str(ws["A2"].value or "").strip() == "Quarter read"
         assert ws.freeze_panes == "A2"
         assert any(str(rng).startswith("A1:") for rng in merged)
-        assert len(quarter_rows) >= 5
-        for expected in ("2026-Q1", "2025-Q4", "2025-Q3", "2025-Q2", "2025-Q1"):
+        assert len(quarter_rows) >= 10
+        for expected in (
+            "2026-Q1",
+            "2025-Q4",
+            "2025-Q3",
+            "2025-Q2",
+            "2025-Q1",
+            "2024-Q4",
+            "2024-Q3",
+            "2024-Q2",
+            "2024-Q1",
+            "2023-Q4",
+        ):
             assert any(str(ws.cell(rr, 1).value or "").startswith(expected) for rr in quarter_rows)
         assert quarter_rows[0] == 1
         for rr in quarter_rows:
@@ -1371,6 +1493,11 @@ def test_gtx_quarter_notes_has_required_quarter_read_labels(
         "2025-Q3 - Quarter Notes",
         "2025-Q2 - Quarter Notes",
         "2025-Q1 - Quarter Notes",
+        "2024-Q4 - Quarter Notes",
+        "2024-Q3 - Quarter Notes",
+        "2024-Q2 - Quarter Notes",
+        "2024-Q1 - Quarter Notes",
+        "2023-Q4 - Quarter Notes",
     }
     quarter_rows = {
         str(ws.cell(rr, 1).value or "").strip(): rr
@@ -1453,13 +1580,17 @@ def test_gtx_quarter_notes_uses_peer_spacing_row_heights_and_source_width(
             "2025-Q2 - Quarter Notes",
             "2025-Q1 - Quarter Notes",
         ]
+        assert len(quarter_rows) >= 10
         assert blank_spacers
         assert all(float(ws.row_dimensions[rr].height or 0.0) <= 12.0 for rr in blank_spacers[:10])
         assert all(float(ws.row_dimensions[rr].height or 0.0) <= 30.0 for rr in quarter_rows[:5])
         assert all(float(ws.row_dimensions[rr + 1].height or 0.0) <= 30.0 for rr in quarter_rows[:5])
-        assert all(float(ws.row_dimensions[rr].height or 0.0) >= 48.0 for rr in (row + 1 for row in theme_rows[:5]))
-        assert max(float(ws.row_dimensions[rr].height or 0.0) for rr in range(1, int(ws.max_row or 0) + 1)) <= 90.0
+        assert max(float(ws.row_dimensions[rr].height or 0.0) for rr in range(1, int(ws.max_row or 0) + 1)) <= 62.5
         assert float(ws.column_dimensions["O"].width or 0.0) >= 40.0
+
+        font_counts = _font_size_counts(ws, max_rows=400, max_cols=15)
+        assert font_counts[13.0] + font_counts[14.0] >= 200
+        assert font_counts[11.0] <= 10
 
 
 def test_gtx_quarter_notes_core_reading_columns_are_not_clipped_by_long_unmerged_text(

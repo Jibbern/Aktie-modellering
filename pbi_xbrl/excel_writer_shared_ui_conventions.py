@@ -690,7 +690,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
 
         _write_table(
             "Product-line revenue by year",
-            ["Product line", "FY2023", "FY2024", "FY2025", "Source", "Treatment"],
+            ["Product line", "2023 year", "2024 year", "2025 year", "Source", "Treatment"],
             [
                 ("Gas ($m)", 1720, 1505, 1592, "2025 Form 10-K", "Product revenue cut"),
                 ("Diesel ($m)", 992, 827, 837, "2025 Form 10-K", "Product revenue cut"),
@@ -701,7 +701,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
         )
         _write_table(
             "Geography revenue by year",
-            ["Geography", "FY2023", "FY2024", "FY2025", "Source", "Treatment"],
+            ["Geography", "2023 year", "2024 year", "2025 year", "Source", "Treatment"],
             [
                 ("United States ($m)", 744, 700, 694, "2025 Form 10-K", "Geography revenue cut"),
                 ("Europe ($m)", 1874, 1642, 1745, "2025 Form 10-K", "Geography revenue cut"),
@@ -712,7 +712,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
         )
         _write_table(
             "Customer concentration",
-            ["Customer / group", "FY2023", "FY2024", "FY2025", "Source", "Treatment"],
+            ["Customer / group", "2023 year", "2024 year", "2025 year", "Source", "Treatment"],
             [
                 ("Stellantis revenue ($m)", 347, 330, 424, "2025 Form 10-K", "Customer watch"),
                 ("BMW revenue ($m)", 474, 401, 385, "2025 Form 10-K", "Customer watch"),
@@ -1029,12 +1029,763 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 ws.row_dimensions[row_idx].height = 34.0 if has_text else 10.0
         ws.freeze_panes = "A2"
 
+    def _gtx_latest_quarter_rows() -> List[Dict[str, Any]]:
+        history: Dict[str, Dict[str, Any]] = {}
+        adjusted: Dict[str, Dict[str, Any]] = {}
+        if "History_Q" in getattr(wb, "sheetnames", []):
+            hws = wb["History_Q"]
+            headers = [
+                str(hws.cell(1, cc).value or "").strip()
+                for cc in range(1, int(hws.max_column or 0) + 1)
+            ]
+            for rr in range(2, int(hws.max_row or 0) + 1):
+                raw_q = hws.cell(rr, headers.index("quarter") + 1).value if "quarter" in headers else None
+                qd = _date_or_none(raw_q)
+                if qd is None:
+                    continue
+                label = f"{int(qd.year)}-Q{((int(qd.month) - 1) // 3) + 1}"
+                record: Dict[str, Any] = {"label": label, "date": qd}
+                for name in (
+                    "revenue",
+                    "gross_profit",
+                    "op_income",
+                    "net_income",
+                    "cfo",
+                    "capex",
+                    "buybacks_cash",
+                    "cash",
+                    "restricted_cash",
+                    "debt_core",
+                    "shares_diluted",
+                ):
+                    if name in headers:
+                        record[name] = hws.cell(rr, headers.index(name) + 1).value
+                history[label] = record
+        if "Adjusted_Metrics" in getattr(wb, "sheetnames", []):
+            aws = wb["Adjusted_Metrics"]
+            headers = [
+                str(aws.cell(1, cc).value or "").strip()
+                for cc in range(1, int(aws.max_column or 0) + 1)
+            ]
+            for rr in range(2, int(aws.max_row or 0) + 1):
+                raw_q = aws.cell(rr, headers.index("quarter") + 1).value if "quarter" in headers else None
+                qd = _date_or_none(raw_q)
+                if qd is None:
+                    continue
+                label = f"{int(qd.year)}-Q{((int(qd.month) - 1) // 3) + 1}"
+                record = adjusted.setdefault(label, {})
+                for name in ("adj_ebit", "adj_ebitda", "adj_fcf"):
+                    if name in headers:
+                        record[name] = aws.cell(rr, headers.index(name) + 1).value
+        rows: List[Dict[str, Any]] = []
+        for label, record in history.items():
+            merged = dict(record)
+            merged.update(adjusted.get(label) or {})
+            rows.append(merged)
+        rows.sort(key=lambda item: item.get("date") or date.min, reverse=True)
+        return rows
+
+    def _gtx_fmt_m(value: Any, *, decimals: int = 0, signed: bool = False) -> str:
+        try:
+            val = float(value)
+        except Exception:
+            return ""
+        if math.isnan(val):
+            return ""
+        if abs(val) >= 1_000_000:
+            val = val / 1_000_000.0
+        sign = "+" if signed and val > 0 else ""
+        return f"{sign}${val:,.{decimals}f}m"
+
+    def _gtx_peer_fill_styles() -> Tuple[Any, Any, Any, Any, Any]:
+        title_fill = PatternFill("solid", fgColor="5B9BD5")
+        section_fill = PatternFill("solid", fgColor="D9EAF7")
+        header_fill = PatternFill("solid", fgColor="EAF3FB")
+        alt_fill = PatternFill("solid", fgColor="F8FBFD")
+        body_fill = PatternFill("solid", fgColor="FFFFFF")
+        return title_fill, section_fill, header_fill, alt_fill, body_fill
+
+    def _gtx_thin_border() -> Any:
+        return Border(
+            left=Side(style="thin", color="D9E2EA"),
+            right=Side(style="thin", color="D9E2EA"),
+            top=Side(style="thin", color="D9E2EA"),
+            bottom=Side(style="thin", color="D9E2EA"),
+        )
+
+    def _rewrite_gtx_quarter_notes_peer_style() -> None:
+        if ticker_txt != "GTX" or "Quarter_Notes_UI" not in getattr(wb, "sheetnames", []):
+            return
+        ws = wb["Quarter_Notes_UI"]
+        for merged in list(ws.merged_cells.ranges):
+            ws.unmerge_cells(str(merged))
+        if int(ws.max_row or 0) > 1:
+            ws.delete_rows(1, int(ws.max_row or 0))
+        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_fill_styles()
+        thin = _gtx_thin_border()
+        quarter_rows = _gtx_latest_quarter_rows()[:12]
+        quarter_by_label = {str(row.get("label") or ""): row for row in quarter_rows}
+
+        def _quarter(label: str) -> Dict[str, Any]:
+            return dict(quarter_by_label.get(label) or {"label": label})
+
+        def _m(label: str, key: str) -> str:
+            return _gtx_fmt_m(_quarter(label).get(key))
+
+        def _metric_line(label: str) -> str:
+            q = _quarter(label)
+            pieces = [
+                f"net sales {_m(label, 'revenue')}" if q.get("revenue") is not None else "",
+                f"operating income {_m(label, 'op_income')}" if q.get("op_income") is not None else "",
+                f"adjusted EBIT {_m(label, 'adj_ebit')}" if q.get("adj_ebit") is not None else "",
+                f"adjusted EBITDA {_m(label, 'adj_ebitda')}" if q.get("adj_ebitda") is not None else "",
+                f"adjusted FCF {_m(label, 'adj_fcf')}" if q.get("adj_fcf") is not None else "",
+            ]
+            return "; ".join(part for part in pieces if part)
+
+        def _style_range(row_idx: int, start_col: int, end_col: int, *, fill: Any, bold: bool = False, size: float = 14.0, white: bool = False) -> None:
+            for cc in range(start_col, end_col + 1):
+                cell = ws.cell(row_idx, cc)
+                cell.fill = copy(fill)
+                cell.border = thin
+                cell.font = Font(bold=bold, color="FFFFFF" if white else "1F2933", size=size)
+                cell.alignment = Alignment(horizontal="left", vertical="top" if size >= 14 else "center", wrap_text=True)
+
+        def _merge(row_idx: int, start_col: int, end_col: int, value: Any, *, fill: Any, bold: bool = False, size: float = 14.0, white: bool = False) -> None:
+            if end_col > start_col:
+                ws.merge_cells(start_row=row_idx, start_column=start_col, end_row=row_idx, end_column=end_col)
+            ws.cell(row_idx, start_col, value)
+            _style_range(row_idx, start_col, end_col, fill=fill, bold=bold, size=size, white=white)
+
+        def _spacer(row_idx: int) -> None:
+            ws.row_dimensions[row_idx].height = 10.0
+
+        def _label_row(row_idx: int, label: str, text: str, fill: Any) -> None:
+            ws.cell(row_idx, 1, label)
+            ws.merge_cells(start_row=row_idx, start_column=2, end_row=row_idx, end_column=15)
+            ws.cell(row_idx, 2, text)
+            _style_range(row_idx, 1, 15, fill=fill, size=14.0)
+            ws.cell(row_idx, 1).font = Font(bold=True, color="1F2933", size=14)
+            ws.row_dimensions[row_idx].height = 34.0
+
+        def _table_header(row_idx: int) -> None:
+            spans = ((1, 2, "Theme"), (3, 5, "What happened"), (6, 7, "Why it matters"), (8, 12, "Model / valuation implication"), (13, 15, "Source / confidence"))
+            for start_col, end_col, header in spans:
+                _merge(row_idx, start_col, end_col, header, fill=header_fill, bold=True, size=14.0)
+            ws.row_dimensions[row_idx].height = 26.0
+
+        def _table_row(row_idx: int, theme: str, happened: str, why: str, treatment: str, source: str) -> None:
+            fill = body_fill if row_idx % 2 else alt_fill
+            spans = ((1, 2, theme), (3, 5, happened), (6, 7, why), (8, 12, treatment), (13, 15, source))
+            for start_col, end_col, value in spans:
+                _merge(row_idx, start_col, end_col, value, fill=fill, size=14.0)
+            ws.row_dimensions[row_idx].height = 46.0
+
+        def _promise_header(row_idx: int) -> None:
+            spans = ((1, 2, "Promise / guidance item"), (3, 6, "Read"), (7, 12, "Actual / progress interpretation"), (13, 15, "Status / source"))
+            for start_col, end_col, header in spans:
+                _merge(row_idx, start_col, end_col, header, fill=section_fill, bold=True, size=13.0)
+            ws.row_dimensions[row_idx].height = 25.0
+
+        def _promise_row(row_idx: int, item: str, read: str, progress: str, status: str, source: str) -> None:
+            fill = body_fill if row_idx % 2 else alt_fill
+            spans = ((1, 2, item), (3, 6, read), (7, 12, progress), (13, 15, " - ".join(part for part in (status, source) if str(part or "").strip())))
+            for start_col, end_col, value in spans:
+                _merge(row_idx, start_col, end_col, value, fill=fill, size=14.0)
+            ws.row_dimensions[row_idx].height = 42.0
+
+        def _block(row_idx: int, label: str, rows_in: Sequence[Tuple[str, str, str, str, str]], *, read: str, changed: str, watch: str, caveat: str) -> int:
+            _merge(row_idx, 1, 15, f"{label} - Quarter Notes", fill=title_fill, bold=True, size=14.0, white=True)
+            ws.row_dimensions[row_idx].height = 24.0
+            row_idx += 1
+            _merge(row_idx, 1, 15, "Quarter read", fill=section_fill, bold=True, size=13.0)
+            ws.row_dimensions[row_idx].height = 24.0
+            row_idx += 1
+            _label_row(row_idx, "Model read", read, body_fill)
+            row_idx += 1
+            _label_row(row_idx, "What changed", changed, alt_fill)
+            row_idx += 1
+            _label_row(row_idx, "Watch next", watch, body_fill)
+            row_idx += 1
+            _label_row(row_idx, "Key caveat", caveat, alt_fill)
+            row_idx += 1
+            _spacer(row_idx)
+            row_idx += 1
+            _merge(row_idx, 1, 15, "Key developments", fill=section_fill, bold=True, size=13.0)
+            ws.row_dimensions[row_idx].height = 24.0
+            row_idx += 1
+            _table_header(row_idx)
+            row_idx += 1
+            for record in rows_in:
+                _table_row(row_idx, *record)
+                row_idx += 1
+            _spacer(row_idx)
+            row_idx += 1
+            _merge(row_idx, 1, 15, "Guidance / Promise interpretation", fill=section_fill, bold=True, size=13.0)
+            ws.row_dimensions[row_idx].height = 24.0
+            row_idx += 1
+            _promise_header(row_idx)
+            row_idx += 1
+            _promise_row(row_idx, "Clean official guidance", "Show guidance only when a release, filing or presentation gives a clean row.", "Latest clean guide and FY actual rows feed Promise_Progress_UI.", "Source-backed", "GTX source package")
+            row_idx += 1
+            _promise_row(row_idx, "Actuals-only context", "Quarter actuals explain progress when no clean guide revision exists.", "Use History_Q and high-confidence Adjusted_Metrics rows.", "No invented revisions", "History_Q / Adjusted_Metrics")
+            row_idx += 1
+            _spacer(row_idx)
+            row_idx += 1
+            _merge(row_idx, 1, 15, "Model mapping / double-count guardrails", fill=section_fill, bold=True, size=13.0)
+            ws.row_dimensions[row_idx].height = 24.0
+            row_idx += 1
+            _promise_header(row_idx)
+            row_idx += 1
+            _promise_row(row_idx, "Revenue / mix", "Product, geography and customer data are analytical cuts.", "Use Operating_Drivers and BS_Segments; keep one reportable-segment treatment.", "Guardrail", "Official filing tables")
+            row_idx += 1
+            _promise_row(row_idx, "Adjusted metrics", "Adjusted EBIT, adjusted EBITDA and adjusted FCF are non-GAAP scorecard rows.", "Show quarterly values on Valuation; keep GAAP FCF separate.", "Guardrail", "Earnings releases")
+            row_idx += 1
+            _spacer(row_idx)
+            return row_idx + 1
+
+        blocks: List[Tuple[str, str, str, str, str, Sequence[Tuple[str, str, str, str, str]]]] = []
+        for label in ("2026-Q1", "2025-Q4", "2025-Q3", "2025-Q2", "2025-Q1", "2024-Q4", "2024-Q3", "2024-Q2", "2024-Q1", "2023-Q4", "2023-Q3", "2023-Q2"):
+            q = _quarter(label)
+            read = f"{label} read: {_metric_line(label)}."
+            if label == "2026-Q1":
+                changed = "2026 guidance raised after Q1; business award highlights remained an operating-driver watch item."
+                watch = "Watch conversion of the raised annual guide into adjusted EBIT, adjusted FCF and unrestricted-cash-backed leverage reduction."
+                caveat = "May 18 2026 term-loan repayment/repricing is post-quarter/event context only and does not rewrite Q1 reported history."
+            elif label == "2025-Q4":
+                read = "Q4 read: Q4 net sales $891m; Q4 adjusted EBIT $122m; Q4 adjusted EBITDA $159m; Q4 adjusted FCF $139m."
+                changed = "FY2025 actuals closed the year; 2025 year buybacks $208m and common share count declined 8% year-over-year."
+                watch = "Watch whether the initial 2026 outlook and later Q1 raise convert into quarterly adjusted EBIT and adjusted FCF."
+                caveat = "Q4 values are quarter values, not FY values; do not mix annual and quarterly non-GAAP rows."
+            else:
+                changed = "Official quarter actuals add source-backed context for revenue, cash conversion, buybacks and leverage."
+                watch = "Watch product/geography mix, adjusted EBITDA and adjusted FCF conversion across the cycle."
+                caveat = "Actuals-only context is shown when no clean official guidance revision is loaded for the quarter."
+            actuals = _metric_line(label)
+            rows_in = [
+                ("Revenue / history", f"Net sales {_m(label, 'revenue')}.", "Quarter actuals anchor the model period.", "Use History_Q for reported values; do not treat annual outlook as quarterly revenue.", f"High; {label} official filing/release package"),
+                ("Operating scorecard", actuals or "High-confidence adjusted metrics are used when reported.", "GTX uses adjusted EBIT/EBITDA and adjusted FCF as the non-GAAP scorecard.", "Use Valuation adjusted rows; do not replace GAAP EBITDA when only adjusted EBITDA is reported.", "High; Adjusted_Metrics / earnings release"),
+                ("Cash / capital return", f"CFO {_m(label, 'cfo')}; capex {_m(label, 'capex')}; buybacks {_m(label, 'buybacks_cash')}.", "Cash conversion and buybacks shape per-share value and leverage capacity.", "Use GAAP FCF and company adjusted FCF as different definitions.", "High; History_Q / earnings release"),
+                ("Balance sheet", f"Cash {_m(label, 'cash')}; core debt {_m(label, 'debt_core')}.", "Leverage and liquidity remain central valuation sensitivities.", "Use unrestricted cash for net debt; keep special events in event context.", "High; filing-grade history"),
+            ]
+            blocks.append((label, read, changed, watch, caveat, rows_in))
+
+        rr = 1
+        for label, read, changed, watch, caveat, rows_in in blocks:
+            rr = _block(rr, label, rows_in, read=read, changed=changed, watch=watch, caveat=caveat)
+
+        widths = {1: 20, 2: 22, 3: 26, 4: 26, 5: 26, 6: 26, 7: 26, 8: 26, 9: 26, 10: 24, 11: 24, 12: 24, 13: 22, 14: 22, 15: 46}
+        for cc, width in widths.items():
+            ws.column_dimensions[get_column_letter(cc)].width = width
+        ws.freeze_panes = "A2"
+
+    def _rewrite_gtx_promise_progress_peer_style() -> None:
+        if ticker_txt != "GTX" or "Promise_Progress_UI" not in getattr(wb, "sheetnames", []):
+            return
+        ws = wb["Promise_Progress_UI"]
+        for merged in list(ws.merged_cells.ranges):
+            ws.unmerge_cells(str(merged))
+        if int(ws.max_row or 0) > 1:
+            ws.delete_rows(1, int(ws.max_row or 0))
+        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_fill_styles()
+        thin = _gtx_thin_border()
+        status_fills = {
+            "open": PatternFill("solid", fgColor="99CCFF"),
+            "watch": PatternFill("solid", fgColor="F4B183"),
+            "hit": PatternFill("solid", fgColor="64C2A6"),
+            "completed": PatternFill("solid", fgColor="64C2A6"),
+            "on track": PatternFill("solid", fgColor="99CCFF"),
+            "raised": PatternFill("solid", fgColor="5B9BD5"),
+            "initial": PatternFill("solid", fgColor="D9EAF7"),
+            "reported": PatternFill("solid", fgColor="99CCFF"),
+            "event": PatternFill("solid", fgColor="F4B183"),
+        }
+
+        def _fill_for(value: Any) -> Any:
+            return status_fills.get(str(value or "").strip().lower(), body_fill)
+
+        def _style(row_idx: int, start_col: int, end_col: int, *, fill: Any, bold: bool = False, size: float = 11.0, white: bool = False) -> None:
+            for cc in range(start_col, end_col + 1):
+                cell = ws.cell(row_idx, cc)
+                cell.fill = copy(fill)
+                cell.border = thin
+                cell.font = Font(bold=bold, color="FFFFFF" if white else "1F2933", size=size)
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+        def _merge(row_idx: int, start_col: int, end_col: int, value: Any, *, fill: Any, bold: bool = False, size: float = 11.0, white: bool = False) -> None:
+            if end_col > start_col:
+                ws.merge_cells(start_row=row_idx, start_column=start_col, end_row=row_idx, end_column=end_col)
+            ws.cell(row_idx, start_col, value)
+            _style(row_idx, start_col, end_col, fill=fill, bold=bold, size=size, white=white)
+
+        def _section(row_idx: int, title: str) -> int:
+            _merge(row_idx, 1, 12, title, fill=title_fill, bold=True, size=12.0, white=True)
+            for cc in range(13, 16):
+                _style(row_idx, cc, cc, fill=title_fill, bold=True, size=12.0, white=True)
+            ws.row_dimensions[row_idx].height = 24.0
+            return row_idx + 1
+
+        def _headers(row_idx: int, headers: Sequence[Tuple[int, int, str]]) -> int:
+            for start_col, end_col, header in headers:
+                _merge(row_idx, start_col, end_col, header, fill=header_fill, bold=True, size=11.0)
+            for cc in range(13, 16):
+                _style(row_idx, cc, cc, fill=header_fill, bold=True, size=11.0)
+            ws.row_dimensions[row_idx].height = 22.0
+            return row_idx + 1
+
+        def _source_style(row_idx: int, cols: Iterable[int] = (11, 12)) -> None:
+            for cc in cols:
+                cell = ws.cell(row_idx, cc)
+                if str(cell.value or "").strip():
+                    cell.font = Font(color="5F6B76", size=10.5)
+                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+        def _score_row(row_idx: int, category: str, score: str, evidence: str, read: str) -> int:
+            fill = alt_fill if row_idx % 2 == 0 else body_fill
+            _merge(row_idx, 1, 1, category, fill=fill)
+            _merge(row_idx, 2, 2, score, fill=_fill_for(score))
+            _merge(row_idx, 3, 6, evidence, fill=fill)
+            _merge(row_idx, 7, 12, read, fill=fill)
+            ws.row_dimensions[row_idx].height = 22.0
+            return row_idx + 1
+
+        def _row(row_idx: int, values: Sequence[Any], spans: Sequence[Tuple[int, int]], *, status_col: Optional[int] = None, source_cols: Iterable[int] = (11, 12)) -> int:
+            fill = alt_fill if row_idx % 2 == 0 else body_fill
+            for value, (start_col, end_col) in zip(values, spans):
+                _merge(row_idx, start_col, end_col, value, fill=_fill_for(value) if status_col == start_col else fill)
+            _source_style(row_idx, source_cols)
+            ws.row_dimensions[row_idx].height = 22.0
+            return row_idx + 1
+
+        ws.sheet_view.zoomScale = 90
+        ws.freeze_panes = "A2"
+        _merge(1, 1, 12, "Promise Progress", fill=title_fill, bold=True, size=12.0, white=True)
+        _merge(2, 1, 12, "GTX guidance dashboard | only clean official guidance revisions are shown", fill=section_fill, size=11.0)
+        ws.row_dimensions[1].height = 24.0
+        ws.row_dimensions[2].height = 22.0
+        rr = 3
+        rr = _section(rr, "Management Credibility Scorecard")
+        rr = _headers(rr, [(1, 1, "Category"), (2, 2, "Score"), (3, 6, "Evidence"), (7, 12, "Read")])
+        for record in (
+            ("2026 outlook", "Open", "Raised FY2026 outlook after Q1; Q1 sales $985m, adjusted EBIT $151m and adjusted FCF $49m.", "Annual guide remains open; Q1 is a read-through, not full-year completion."),
+            ("Capital allocation", "Watch", "Q1 buybacks $87m; remaining authorization $163m; FY2025 buybacks were $208m.", "Watch leverage, share count and unrestricted cash before giving buybacks full valuation credit."),
+            ("Debt event separation", "Watch", "Post-quarter May 18 2026 $50m term-loan repayment/repricing disclosed.", "Event context only; do not rewrite Q1 reported history."),
+            ("Source quality", "Open", "Official transcripts are not loaded; releases, presentations and filings are used.", "Clean official rows are shown; noisy slide/legal text remains excluded."),
+            ("Cash conversion", "Watch", "Adjusted FCF differs from GAAP CFO minus capex by company definition.", "Treat GAAP FCF and adjusted FCF as separate definitions."),
+        ):
+            rr = _score_row(rr, *record)
+        rr += 1
+        rr = _section(rr, "2025 guidance progression")
+        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Initial guide"), (3, 3, "Q1 update"), (4, 4, "Q2 update"), (5, 5, "Q3 update"), (6, 6, "Q4 / actual"), (7, 7, "Status"), (8, 12, "Notes/source")])
+        for record in (
+            ("Net sales", "Initial FY2025 guide", "Actual/context", "Actual/context", "Actual/context", "$3.584bn", "Completed", "FY2025 actual from 2025-Q4 earnings release; older clean guide ranges not forced."),
+            ("Adjusted EBIT", "Initial FY2025 guide", "Actual/context", "Actual/context", "Actual/context", "$510m", "Completed", "FY2025 adjusted EBIT from 2025-Q4 earnings release."),
+            ("Adjusted FCF", "Initial FY2025 guide", "Actual/context", "Actual/context", "Actual/context", "$403m", "Completed", "FY2025 adjusted FCF from 2025-Q4 earnings release."),
+            ("Buybacks", "", "Q1 $30m", "Q2 $22m", "Q3 $84m", "FY $208m", "Completed", "Quarterly buybacks from History_Q; FY value from 2025-Q4 release."),
+        ):
+            rr = _row(rr, record, [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 12)], status_col=7)
+        rr += 1
+        rr = _section(rr, "2024 guidance progression")
+        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Initial guide"), (3, 3, "Q1 update"), (4, 4, "Q2 update"), (5, 5, "Q3 update"), (6, 6, "Q4 / actual"), (7, 7, "Status"), (8, 12, "Notes/source")])
+        for record in (
+            ("Revenue context", "Official releases loaded", "Q1 actual", "Q2 actual", "Q3 actual", "FY actual", "Completed", "Use clean official actuals; no noisy OCR guidance rows are promoted."),
+            ("Adjusted EBITDA", "Actual/context", "$151m", "$150m", "$144m", "$153m", "Reported", "High-confidence adjusted EBITDA rows from official releases."),
+            ("Adjusted FCF", "Actual/context", "$68m", "$62m", "$71m", "$157m", "Reported", "High-confidence adjusted FCF rows from official releases."),
+            ("Buybacks", "Actual/context", "$107m", "$66m", "$53m", "$70m", "Reported", "Capital return context from History_Q."),
+        ):
+            rr = _row(rr, record, [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 12)], status_col=7)
+        rr += 1
+        rr = _section(rr, "2026 open guidance")
+        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Current guide"), (3, 3, "Horizon"), (4, 4, "Status"), (5, 10, "Read / progress"), (11, 12, "Notes/source")])
+        for record in (
+            ("Net sales", "$3.6bn-$3.9bn", "2026 year", "Open", "Raised after 2026-Q1; actual was $985m.", "2026-Q1 earnings release"),
+            ("Constant-currency sales growth", "-2% to +6%", "2026 year", "Open", "Updated range; demand backdrop stays industry-sensitive.", "2026-Q1 earnings release"),
+            ("Net income", "$300m-$360m", "2026 year", "Open", "Raised GAAP guide; 2026-Q1 net income was $95m.", "2026-Q1 earnings release"),
+            ("Adjusted EBIT", "$520m-$600m", "2026 year", "Open", "Primary non-GAAP guide; 2026-Q1 adjusted EBIT was $151m.", "2026-Q1 earnings release"),
+            ("CFO", "$407m-$522m", "2026 year", "Open", "GAAP cash-flow guide; 2026-Q1 CFO was $98m.", "2026-Q1 earnings release"),
+            ("Adjusted FCF", "$355m-$475m", "2026 year", "Open", "Company-defined adjusted FCF; 2026-Q1 adjusted FCF was $49m.", "2026-Q1 earnings release"),
+            ("Light vehicle production", "down 1%-3%", "2026 year", "Watch", "End-market assumption.", "2026-Q1 earnings release"),
+            ("Commercial vehicle industry", "up 1%-2%", "2026 year", "Watch", "End-market assumption.", "2026-Q1 earnings release"),
+            ("BEV penetration", "~19%", "2026 year", "Watch", "Powertrain mix assumption.", "2026-Q1 earnings release"),
+            ("EUR/USD", "1.17", "2026 year", "Watch", "FX assumption.", "2026-Q1 earnings release"),
+            ("RD&E", "4.2% of sales", "2026 year", "Watch", "Technology investment assumption; keep as outlook/driver, not historical RD&E series.", "2026-Q1 earnings release"),
+            ("Capex", "2.5% of sales", "2026 year", "Watch", "FCF bridge assumption.", "2026-Q1 earnings release"),
+        ):
+            rr = _row(rr, record, [(1, 1), (2, 2), (3, 3), (4, 4), (5, 10), (11, 12)], status_col=4)
+        rr += 1
+        rr = _section(rr, "2025 completed actuals")
+        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Actual"), (3, 3, "Period"), (4, 4, "Status"), (5, 10, "Read / progress"), (11, 12, "Notes/source")])
+        for record in (
+            ("2025-Q4 net sales", "$891m", "2025-Q4", "Completed", "Quarter value, not FY.", "2025-Q4 earnings release"),
+            ("2025-Q4 adjusted EBIT", "$122m", "2025-Q4", "Completed", "Quarter value.", "2025-Q4 earnings release"),
+            ("2025-Q4 adjusted FCF", "$139m", "2025-Q4", "Completed", "Quarter value.", "2025-Q4 earnings release"),
+            ("FY2025 net sales", "$3.584bn", "FY2025", "Completed", "Completed annual actual.", "2025-Q4 earnings release"),
+            ("FY2025 adjusted EBIT", "$510m", "FY2025", "Completed", "Completed annual actual.", "2025-Q4 earnings release"),
+            ("FY2025 adjusted FCF", "$403m", "FY2025", "Completed", "Completed annual actual.", "2025-Q4 earnings release"),
+            ("FY2025 buybacks", "$208m", "FY2025", "Completed", "Capital allocation actual; common share count reduction 8% year-over-year.", "2025-Q4 earnings release"),
+        ):
+            rr = _row(rr, record, [(1, 1), (2, 2), (3, 3), (4, 4), (5, 10), (11, 12)], status_col=4)
+        rr += 1
+        rr = _section(rr, "Quarterly guidance timeline / revision log")
+        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Previous guide"), (3, 4, "New/current guide"), (5, 5, "Change type"), (6, 6, "Actual"), (7, 7, "Progress / run-rate"), (8, 8, "Status"), (9, 9, "Horizon"), (10, 10, "Stated in"), (11, 12, "Source / note")])
+        for record in (
+            ("Revenue guidance", "Initial 2026 outlook", "$3.6bn-$3.9bn", "Raised", "$985m", "Q1 actual", "Open", "2026 year", "2026-Q1", "2026-Q1 release raised guide."),
+            ("Adjusted EBIT guidance", "Initial 2026 outlook", "$520m-$600m", "Raised", "$151m", "Q1 actual", "Open", "2026 year", "2026-Q1", "2026-Q1 release raised guide."),
+            ("Adjusted FCF guidance", "Initial 2026 outlook", "$355m-$475m", "Raised", "$49m", "Q1 actual", "Open", "2026 year", "2026-Q1", "2026-Q1 release raised guide."),
+            ("2025-Q4 actual context", "", "FY2025 actuals", "Completed", "$891m / $122m / $139m", "Quarter actual", "Completed", "2025 year", "2025-Q4", "Q4 values feed completed-actual section."),
+            ("2025-Q3 actual context", "", "Actuals-only", "Reported", "$902m / $133m / $107m", "YTD context", "Reported", "2025 year", "2025-Q3", "No clean guide revision forced."),
+            ("2025-Q2 actual context", "", "Actuals-only", "Reported", "$913m / $124m / $121m", "YTD context", "Reported", "2025 year", "2025-Q2", "No clean guide revision forced."),
+            ("2025-Q1 actual context", "", "Actuals-only", "Reported", "$878m / $131m / $36m", "YTD context", "Reported", "2025 year", "2025-Q1", "No clean guide revision forced."),
+            ("2024-Q4 actual context", "", "Actuals-only", "Reported", "$844m / $153m EBITDA / $157m FCF", "FY context", "Reported", "2024 year", "2024-Q4", "Official release actuals only."),
+            ("2024-Q3 actual context", "", "Actuals-only", "Reported", "$826m / $144m EBITDA / $71m FCF", "YTD context", "Reported", "2024 year", "2024-Q3", "Official release actuals only."),
+            ("2024-Q2 actual context", "", "Actuals-only", "Reported", "$890m / $150m EBITDA / $62m FCF", "YTD context", "Reported", "2024 year", "2024-Q2", "Official release actuals only."),
+            ("2024-Q1 actual context", "", "Actuals-only", "Reported", "$915m / $151m EBITDA / $68m FCF", "YTD context", "Reported", "2024 year", "2024-Q1", "Official release actuals only."),
+            ("2023-Q4 actual context", "", "Actuals-only", "Reported", "$945m / $145m EBITDA / $137m FCF", "FY context", "Reported", "2023 year", "2023-Q4", "Official release actuals only."),
+            ("2023-Q3 actual context", "", "Actuals-only", "Reported", "$960m / $152m EBITDA / $57m FCF", "YTD context", "Reported", "2023 year", "2023-Q3", "Official release actuals only."),
+            ("2023-Q2 actual context", "", "Actuals-only", "Reported", "$1.011bn / $170m EBITDA / $140m FCF", "YTD context", "Reported", "2023 year", "2023-Q2", "Official release actuals only."),
+            ("2023-Q1 actual context", "", "Actuals-only", "Reported", "$970m / $168m EBITDA / $88m FCF", "YTD context", "Reported", "2023 year", "2023-Q1", "Official release actuals only."),
+            ("2022-Q4 actual context", "", "Actuals-only", "Reported", "$898m / $140m EBITDA / $132m FCF", "FY context", "Reported", "2022 year", "2022-Q4", "Official release actuals only."),
+        ):
+            rr = _row(rr, record, [(1, 1), (2, 2), (3, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10), (11, 12)], status_col=8)
+        rr += 1
+        rr = _section(rr, "Post-quarter May 2026 debt repayment/repricing event")
+        rr = _headers(rr, [(1, 1, "Event"), (2, 4, "Current/pro-forma event"), (5, 5, "Disclosed value"), (6, 6, "Status"), (7, 8, "Period/event"), (9, 10, "Treatment"), (11, 12, "Notes/source")])
+        rr = _row(rr, ("Debt reduction", "Post-quarter event-context / pro-forma: $50m term-loan repayment/repricing", "$50m disclosed post-quarter", "Event", "Post-quarter May 18 2026", "Not 2026-Q1 reported history.", "May 18 2026 press release / 8-K package"), [(1, 1), (2, 4), (5, 5), (6, 6), (7, 8), (9, 10), (11, 12)], status_col=6)
+
+        widths = {1: 28, 2: 28, 3: 32, 4: 15, 5: 22, 6: 28, 7: 15, 8: 14, 9: 16, 10: 14, 11: 42, 12: 42, 13: 4, 14: 4, 15: 4}
+        for cc, width in widths.items():
+            ws.column_dimensions[get_column_letter(cc)].width = width
+            ws.column_dimensions[get_column_letter(cc)].hidden = False
+        for row_idx in range(1, int(ws.max_row or 0) + 1):
+            current_height = float(ws.row_dimensions[row_idx].height or 22.0)
+            ws.row_dimensions[row_idx].height = min(max(current_height, 22.0), 24.0)
+
+    def _rewrite_gtx_operating_drivers_peer_style() -> None:
+        if ticker_txt != "GTX" or "Operating_Drivers" not in getattr(wb, "sheetnames", []):
+            return
+        ws = wb["Operating_Drivers"]
+        for merged in list(ws.merged_cells.ranges):
+            ws.unmerge_cells(str(merged))
+        if int(ws.max_row or 0) > 1:
+            ws.delete_rows(1, int(ws.max_row or 0))
+        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_fill_styles()
+        title_fill = PatternFill("solid", fgColor="6FA8DC")
+        thin = _gtx_thin_border()
+
+        def _style(row_idx: int, start_col: int, end_col: int, *, fill: Any, bold: bool = False, size: float = 12.0, white: bool = False, gray: bool = False) -> None:
+            for cc in range(start_col, end_col + 1):
+                cell = ws.cell(row_idx, cc)
+                cell.fill = copy(fill)
+                cell.border = thin
+                cell.font = Font(bold=bold, color="5F6B76" if gray else ("FFFFFF" if white else "1F2933"), size=size)
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+        def _merge(row_idx: int, start_col: int, end_col: int, value: Any, *, fill: Any, bold: bool = False, size: float = 12.0, white: bool = False, gray: bool = False) -> None:
+            if end_col > start_col:
+                ws.merge_cells(start_row=row_idx, start_column=start_col, end_row=row_idx, end_column=end_col)
+            ws.cell(row_idx, start_col, value)
+            _style(row_idx, start_col, end_col, fill=fill, bold=bold, size=size, white=white, gray=gray)
+
+        def _section(row_idx: int, title: str, note: str = "") -> int:
+            text = title if not note else f"{title} — {note}"
+            _merge(row_idx, 1, 14, text, fill=title_fill, bold=True, size=12.0, white=True)
+            ws.row_dimensions[row_idx].height = 22.5
+            return row_idx + 1
+
+        def _simple_headers(row_idx: int, headers: Sequence[Any]) -> int:
+            for cc in range(1, 15):
+                _style(row_idx, cc, cc, fill=header_fill, bold=True, size=12.0)
+                if cc <= len(headers):
+                    ws.cell(row_idx, cc, headers[cc - 1])
+            ws.row_dimensions[row_idx].height = 20.0
+            return row_idx + 1
+
+        def _plain_row(row_idx: int, values: Sequence[Any], *, gray_from: int = 99) -> int:
+            fill = alt_fill if row_idx % 2 == 0 else body_fill
+            for cc in range(1, 15):
+                _style(row_idx, cc, cc, fill=fill, size=12.0, gray=cc >= gray_from)
+                if cc <= len(values):
+                    ws.cell(row_idx, cc, values[cc - 1])
+            ws.row_dimensions[row_idx].height = 20.0
+            return row_idx + 1
+
+        ws.sheet_view.zoomScale = 110
+        ws.freeze_panes = None
+        _merge(2, 1, 14, "Operating Drivers", fill=title_fill, bold=True, size=15.0, white=True)
+        ws.row_dimensions[2].height = 24.0
+        _merge(3, 1, 14, "Source-backed GTX driver map. GTX has one reportable accounting segment; product/geography/customer rows are analytical cuts, not segment profit.", fill=section_fill, size=12.0)
+        ws.row_dimensions[3].height = 20.0
+        rr = 4
+        rr = _section(rr, "Current watchlist")
+        _merge(rr, 1, 1, "Watch item", fill=header_fill, bold=True)
+        _merge(rr, 2, 7, "Current read", fill=header_fill, bold=True)
+        _merge(rr, 8, 14, "Why it matters", fill=header_fill, bold=True)
+        ws.row_dimensions[rr].height = 20.0
+        rr += 1
+        for record in (
+            ("OEM production / end-market demand", "FY2026 LV down 1%-3%; CV up 1%-2%.", "Volume backdrop drives turbo demand and launch timing."),
+            ("Product mix / turbo demand", "Product-line mix is the key revenue cut; see table below.", "Mix determines gross margin, RD&E intensity and platform durability."),
+            ("Commercial vehicle / industrial", "Q1 release cites CV/off-highway strength and power-generation awards.", "Industrial and CV awards can offset weaker light-vehicle cycles."),
+            ("Aftermarket", "Aftermarket remains a durability watch; see product table below.", "Aftermarket can support durable replacement demand."),
+            ("China / Europe exposure", "Europe and China remain key geography sensitivities.", "FX, regional vehicle production and China demand are key sensitivity points."),
+            ("Customer concentration watch", "Stellantis, BMW and Ford are the largest disclosed FY2025 customers.", "Platform wins/losses and pricing pressure can matter disproportionately."),
+            ("RD&E / technology awards", "Q1 release cites turbo, range-extended EV, E-Powertrain and E-Cooling awards.", "Technology pipeline bridges mature turbo platforms to future content."),
+            ("Margin / cash conversion", "Quarterly non-GAAP values sit on Valuation.", "The case needs profit to convert into cash after capex, interest and working capital."),
+            ("Debt, net leverage and buybacks", "Q1 debt/buybacks are reported; May 18 debt event stays post-quarter.", "Equity value is sensitive to leverage, interest cost, buybacks and unrestricted cash."),
+        ):
+            fill = alt_fill if rr % 2 == 0 else body_fill
+            _merge(rr, 1, 1, record[0], fill=fill)
+            _merge(rr, 2, 7, record[1], fill=fill)
+            _merge(rr, 8, 14, record[2], fill=fill)
+            ws.row_dimensions[rr].height = 20.0
+            rr += 1
+        rr += 1
+        rr = _section(rr, "Current/latest outlook", "official 2026-Q1 release, 2026 year outlook")
+        header_row = rr
+        for spec in ((1, 1, "Metric"), (2, 2, "Low"), (3, 3, "High"), (4, 4, "Basis"), (5, 5, "Stated in"), (6, 6, "Status"), (7, 9, "Notes"), (10, 10, "Source"), (11, 12, "Workbook treatment"), (13, 13, "Confidence"), (14, 14, "Audit note")):
+            _merge(rr, spec[0], spec[1], spec[2], fill=header_fill, bold=True, gray=spec[0] >= 10)
+        rr += 1
+        for record in (
+            ("Net sales", "$3.6bn", "$3.9bn", "2026 year outlook", "2026-Q1", "Open", "Raised 2026 outlook.", "2026-Q1 release", "Promise / valuation context", "Source-backed", ""),
+            ("Constant-currency sales growth", "-2%", "+6%", "2026 year outlook", "2026-Q1", "Open", "Use as growth sensitivity, not reported result.", "2026-Q1 release", "Demand backdrop", "Source-backed", ""),
+            ("Net income", "$300m", "$360m", "2026 year outlook", "2026-Q1", "Open", "GAAP outlook.", "2026-Q1 release", "Bridge to EPS/cash", "Source-backed", ""),
+            ("Adjusted EBIT", "$520m", "$600m", "2026 year outlook", "2026-Q1", "Open", "Primary non-GAAP operating scorecard.", "2026-Q1 release", "Primary operating metric", "Source-backed", ""),
+            ("CFO", "$407m", "$522m", "2026 year outlook", "2026-Q1", "Open", "GAAP operating cash flow outlook.", "2026-Q1 release", "Cash conversion", "Source-backed", ""),
+            ("Adjusted FCF", "$355m", "$475m", "2026 year outlook", "2026-Q1", "Open", "Company-defined adjusted FCF.", "2026-Q1 release", "Cash conversion", "Source-backed", ""),
+            ("Light vehicle production", "-1%", "-3%", "2026 year assumption", "2026-Q1", "Watch", "Industry production down 1%-3%.", "2026-Q1 release", "End-market assumption", "Source-backed", ""),
+            ("Commercial vehicle industry", "+1%", "+2%", "2026 year assumption", "2026-Q1", "Watch", "Commercial vehicle industry up 1%-2%.", "2026-Q1 release", "End-market assumption", "Source-backed", ""),
+            ("BEV penetration", "~19%", "", "2026 year assumption", "2026-Q1", "Watch", "Powertrain mix assumption.", "2026-Q1 release", "Powertrain mix", "Source-backed", ""),
+            ("EUR/USD", "1.17", "", "2026 year assumption", "2026-Q1", "Watch", "FX assumption.", "2026-Q1 release", "FX assumption", "Source-backed", ""),
+            ("RD&E", "4.2% of sales", "", "2026 year assumption", "2026-Q1", "Watch", "Technology investment assumption.", "2026-Q1 release", "Technology investment", "Source-backed", ""),
+            ("Capex", "2.5% of sales", "", "2026 year assumption", "2026-Q1", "Watch", "FCF bridge assumption.", "2026-Q1 release", "FCF bridge", "Source-backed", ""),
+        ):
+            fill = alt_fill if rr % 2 == 0 else body_fill
+            for start, end, value, gray in (
+                (1, 1, record[0], False), (2, 2, record[1], False), (3, 3, record[2], False), (4, 4, record[3], False), (5, 5, record[4], False), (6, 6, record[5], False), (7, 9, record[6], False), (10, 10, record[7], True), (11, 12, record[8], True), (13, 13, record[9], True), (14, 14, record[10], True)
+            ):
+                _merge(rr, start, end, value, fill=fill, gray=gray)
+            ws.row_dimensions[rr].height = 20.0
+            rr += 1
+        rr += 1
+        rr = _section(rr, "Recent quarter commentary", "source-backed actuals and management framing")
+        rr = _simple_headers(rr, ["Horizon", "Stated in", "Commentary"])
+        commentary_rows = [
+            ("2026 / current", "", ""),
+            ("2026-Q1", "2026-Q1", "Net sales $985m; adjusted EBIT $151m; adjusted EBITDA $183m; adjusted FCF $49m; buybacks $87m."),
+            ("2026-Q1", "2026-Q1", "Raised FY2026 guide to net sales $3.6bn-$3.9bn, adjusted EBIT $520m-$600m and adjusted FCF $355m-$475m."),
+            ("2026-Q1", "2026-Q1", "Business award highlights support the technology/RD&E watchlist; do not treat awards as reported revenue."),
+            ("2025", "", ""),
+            ("2025-Q4", "2025-Q4", "Q4 net sales $891m, adjusted EBIT $122m, adjusted EBITDA $159m and adjusted FCF $139m."),
+            ("2025-Q4", "2025-Q4", "FY2025 actuals: net sales $3.584bn, adjusted EBIT $510m, adjusted FCF $403m and buybacks $208m."),
+            ("2025-Q3", "2025-Q3", "Net sales $902m; adjusted EBIT $133m; adjusted EBITDA $164m; adjusted FCF $107m."),
+            ("2025-Q2", "2025-Q2", "Net sales $913m; adjusted EBIT $124m; adjusted EBITDA $154m; adjusted FCF $121m."),
+            ("2025-Q1", "2025-Q1", "Net sales $878m; adjusted EBIT $131m; adjusted EBITDA $159m; adjusted FCF $36m."),
+            ("2024", "", ""),
+            ("2024-Q4", "2024-Q4", "Net sales $844m; operating income $119m; adjusted EBITDA $153m; adjusted FCF $157m."),
+            ("2024-Q3", "2024-Q3", "Net sales $826m; operating income $112m; adjusted EBITDA $144m; adjusted FCF $71m."),
+            ("2024-Q2", "2024-Q2", "Net sales $890m; operating income $121m; adjusted EBITDA $150m; adjusted FCF $62m."),
+            ("2024-Q1", "2024-Q1", "Net sales $915m; operating income $107m; adjusted EBITDA $151m; adjusted FCF $68m."),
+            ("2023", "", ""),
+            ("2023-Q4", "2023-Q4", "Net sales $945m; adjusted EBITDA $145m; adjusted FCF $137m; operating income left blank when no safe source-backed derivation exists."),
+            ("2023-Q3", "2023-Q3", "Net sales $960m; operating income $116m; adjusted EBITDA $152m; adjusted FCF $57m."),
+        ]
+        for horizon, stated, commentary in commentary_rows:
+            if stated == "" and commentary == "":
+                _plain_row(rr, [horizon, "", ""], gray_from=99)
+                ws.cell(rr, 1).font = Font(bold=True, color="16365C", size=12)
+            else:
+                _plain_row(rr, [horizon, stated, commentary], gray_from=99)
+            rr += 1
+        rr += 1
+        rr = _section(rr, "Management / release commentary", "Official transcripts not loaded; commentary uses earnings release / presentation text only.")
+        rr = _simple_headers(rr, ["Horizon", "Stated in", "Commentary"])
+        for record in (
+            ("Transcript status", "GTX source package", "Official transcripts not loaded; commentary uses earnings release / presentation text only."),
+            ("2026 outlook", "2026-Q1", "Full-year guide frames the near-term operating scorecard and Promise_Progress_UI."),
+            ("Technology awards", "2026-Q1", "Turbo, range-extended EV, E-Powertrain and E-Cooling awards are operating-driver context."),
+            ("Capital allocation", "2025-Q4 / 2026-Q1", "Buybacks matter with leverage, cash capacity and remaining authorization in view."),
+        ):
+            _plain_row(rr, record, gray_from=99)
+            rr += 1
+        rr += 1
+        rr = _section(rr, "Data tables", "analytical cuts only; GTX still has one reportable accounting segment")
+        rr = _section(rr, "Product-line revenue history")
+        rr = _simple_headers(rr, ["Product line", "2023 year", "2024 year", "2025 year", "2025-Q1", "2026-Q1", "", "", "", "Source", "Treatment", "", "", ""])
+        for record in (
+            ("Gas ($m)", 1720, 1505, 1592, 403, 443, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+            ("Diesel ($m)", 992, 827, 837, 208, 232, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+            ("Commercial Vehicles / Industrial ($m)", 656, 629, 654, 155, 181, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+            ("Aftermarket ($m)", 456, 459, 438, 98, 114, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+            ("Other ($m)", 62, 55, 63, 14, 15, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
+        ):
+            _plain_row(rr, record, gray_from=10)
+            rr += 1
+        rr += 1
+        rr = _section(rr, "Geography revenue history")
+        rr = _simple_headers(rr, ["Geography", "2023 year", "2024 year", "2025 year", "2025-Q1", "2026-Q1", "", "", "", "Source", "Treatment", "", "", ""])
+        for record in (
+            ("United States ($m)", 744, 700, 694, 176, 179, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+            ("Europe ($m)", 1874, 1642, 1745, 425, 503, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Includes Germany + rest of Europe for Q1."),
+            ("Germany ($m)", "", "", "", 89, 93, "", "", "", "2026-Q1 10-Q", "Shown separately in Q1 filing table."),
+            ("Rest of Europe ($m)", "", "", "", 336, 410, "", "", "", "2026-Q1 10-Q", "Shown separately in Q1 filing table."),
+            ("China ($m)", 768, 643, 638, 153, 167, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+            ("Rest of Asia ($m)", 433, 413, 406, 104, 110, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+            ("Other International ($m)", 67, 77, 101, 20, 26, "", "", "", "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+        ):
+            _plain_row(rr, record, gray_from=10)
+            rr += 1
+        rr += 1
+        rr = _section(rr, "Customer concentration")
+        rr = _simple_headers(rr, ["Customer / group", "2023 year", "2024 year", "2025 year", "", "", "", "", "", "Source", "Treatment", "", "", ""])
+        for record in (
+            ("Stellantis revenue ($m)", 347, 330, 424, "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+            ("BMW revenue ($m)", 474, 401, 385, "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+            ("Ford revenue ($m)", 364, 354, 377, "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+            ("", "", "", "", "", "", "", "", "", "", ""),
+            ("Stellantis % sales", "9%", "9%", "12%", "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+            ("BMW % sales", "12%", "12%", "11%", "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+            ("Ford % sales", "9%", "10%", "11%", "", "", "", "", "", "2025 Form 10-K customer table", "Concentration risk / platform watch"),
+            ("Top ten customers % sales", "", "", "about 62%", "", "", "", "", "", "2025 Form 10-K customer disclosure", "Concentration risk; not a segment"),
+        ):
+            _plain_row(rr, record, gray_from=10)
+            rr += 1
+        rr += 1
+        rr = _section(rr, "Debt / buyback / leverage watch")
+        for spec in ((1, 1, "Item"), (2, 4, "Reported / disclosed value"), (5, 6, "Period / event"), (7, 9, "Why it matters"), (10, 10, "Source"), (11, 14, "Workbook treatment / note")):
+            _merge(rr, spec[0], spec[1], spec[2], fill=header_fill, bold=True, gray=spec[0] >= 10)
+        rr += 1
+        for record in (
+            ("Debt outstanding", "$1,437m", "2026-Q1 reported", "Leverage is a primary equity-value sensitivity.", "2026-Q1 release", "History_Q / Debt_Profile; source-backed."),
+            ("Unrestricted cash", "$142m", "2026-Q1 reported", "Only unrestricted cash offsets net debt.", "2026-Q1 10-Q", "Net debt uses unrestricted cash only; source-backed."),
+            ("Restricted cash", "$2m", "2026-Q1 reported", "Restricted cash is not liquidity for valuation net debt.", "2026-Q1 10-Q", "Shown separately; source-backed."),
+            ("Q1 buybacks", "$87m", "2026-Q1", "Capital returns matter with leverage and cash capacity.", "2026-Q1 release", "Capital allocation watch; source-backed."),
+            ("Remaining buyback authorization", "$163m", "2026-Q1", "Authorization is capacity, not an obligation.", "2026-Q1 release", "Capital allocation watch; source-backed."),
+            ("2025 year buybacks", "$208m", "2025 year", "Completed repurchases affected per-share outcomes.", "2025-Q4 release", "Management credibility actual; source-backed."),
+            ("May 18 debt event", "$50m term-loan repayment/repricing", "Post-quarter event", "Event changes pro-forma debt context, not Q1 history.", "May 18 2026 release / 8-K", "Pro-forma/event context only; source-backed."),
+        ):
+            fill = alt_fill if rr % 2 == 0 else body_fill
+            _merge(rr, 1, 1, record[0], fill=fill)
+            _merge(rr, 2, 4, record[1], fill=fill)
+            _merge(rr, 5, 6, record[2], fill=fill)
+            _merge(rr, 7, 9, record[3], fill=fill)
+            _merge(rr, 10, 10, record[4], fill=fill, gray=True)
+            _merge(rr, 11, 14, record[5], fill=fill, gray=True)
+            ws.row_dimensions[rr].height = 20.0
+            rr += 1
+        for cc, width in {1: 42, 2: 16, 3: 16, 4: 16, 5: 16, 6: 16, 7: 16, 8: 16, 9: 16, 10: 16, 11: 16, 12: 16, 13: 16, 14: 16}.items():
+            ws.column_dimensions[get_column_letter(cc)].width = width
+        for row_idx in range(1, int(ws.max_row or 0) + 1):
+            if ws.row_dimensions[row_idx].height is None:
+                ws.row_dimensions[row_idx].height = 20.0
+
+    def _rewrite_gtx_valuation_guidance_peer_panel() -> None:
+        if ticker_txt != "GTX" or "Valuation" not in getattr(wb, "sheetnames", []):
+            return
+        ws = wb["Valuation"]
+        panel_start = 15
+        panel_end = 28
+        thin = _gtx_thin_border()
+        title_fill, section_fill, header_fill, alt_fill, body_fill = _gtx_peer_fill_styles()
+
+        for merged in list(ws.merged_cells.ranges):
+            if merged.max_row >= 7 and merged.min_row <= 35 and merged.max_col >= panel_start and merged.min_col <= panel_end:
+                ws.unmerge_cells(str(merged))
+        for rr in range(7, 36):
+            for cc in range(panel_start, panel_end + 1):
+                cell = ws.cell(rr, cc)
+                cell.value = None
+                cell.comment = None
+                cell.fill = body_fill
+                cell.border = thin
+                cell.font = Font(color="1F2933", size=10)
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+
+        def _merge(row_idx: int, start_col: int, end_col: int, value: Any, *, fill: Any, bold: bool = False) -> None:
+            if end_col > start_col:
+                ws.merge_cells(start_row=row_idx, start_column=start_col, end_row=row_idx, end_column=end_col)
+            for cc in range(start_col, end_col + 1):
+                cell = ws.cell(row_idx, cc)
+                cell.fill = copy(fill)
+                cell.border = thin
+                cell.font = Font(bold=bold, color="1F2933", size=10)
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+            ws.cell(row_idx, start_col, value)
+
+        def _row(row_idx: int, metric: str, stated: str, applies: str, guidance: str) -> int:
+            fill = alt_fill if row_idx % 2 == 0 else body_fill
+            _merge(row_idx, panel_start, panel_start + 1, metric, fill=fill)
+            _merge(row_idx, panel_start + 2, panel_start + 2, stated, fill=fill)
+            _merge(row_idx, panel_start + 3, panel_start + 4, applies, fill=fill)
+            _merge(row_idx, panel_start + 5, panel_end, guidance, fill=fill)
+            ws.row_dimensions[row_idx].height = 19.5
+            return row_idx + 1
+
+        _merge(7, panel_start, panel_end, "Guidance (As of 2026-03-31) - Status: Raised", fill=section_fill, bold=True)
+        _merge(8, panel_start, panel_start + 1, "Metric", fill=header_fill, bold=True)
+        _merge(8, panel_start + 2, panel_start + 2, "Stated in", fill=header_fill, bold=True)
+        _merge(8, panel_start + 3, panel_start + 4, "Applies to", fill=header_fill, bold=True)
+        _merge(8, panel_start + 5, panel_end, "Guidance", fill=header_fill, bold=True)
+        rr = 9
+        for record in (
+            ("Net sales", "2026-Q1", "2026 year", "$3.6bn-$3.9bn"),
+            ("Constant-currency sales growth", "2026-Q1", "2026 year", "-2% to +6%"),
+            ("Net income", "2026-Q1", "2026 year", "$300m-$360m"),
+            ("Adjusted EBIT", "2026-Q1", "2026 year", "$520m-$600m"),
+            ("CFO", "2026-Q1", "2026 year", "$407m-$522m"),
+            ("Adjusted FCF", "2026-Q1", "2026 year", "$355m-$475m"),
+            ("Light vehicle production", "2026-Q1", "2026 year", "down 1%-3%"),
+            ("Commercial vehicle industry", "2026-Q1", "2026 year", "up 1%-2%"),
+            ("BEV penetration", "2026-Q1", "2026 year", "~19%"),
+            ("EUR/USD", "2026-Q1", "2026 year", "1.17"),
+            ("RD&E", "2026-Q1", "2026 year", "4.2% of sales"),
+            ("Capex", "2026-Q1", "2026 year", "2.5% of sales"),
+        ):
+            rr = _row(rr, *record)
+        rr += 1
+        _merge(rr, panel_start, panel_end, "Guidance (As of 2025-12-31) - Status: Initial / FY2025 actuals", fill=section_fill, bold=True)
+        rr += 1
+        _merge(rr, panel_start, panel_start + 1, "Metric", fill=header_fill, bold=True)
+        _merge(rr, panel_start + 2, panel_start + 2, "Stated in", fill=header_fill, bold=True)
+        _merge(rr, panel_start + 3, panel_start + 4, "Applies to", fill=header_fill, bold=True)
+        _merge(rr, panel_start + 5, panel_end, "Guidance", fill=header_fill, bold=True)
+        rr += 1
+        for record in (
+            ("FY2025 net sales", "2025-Q4", "FY2025 actual", "$3.584bn"),
+            ("FY2025 adjusted EBIT", "2025-Q4", "FY2025 actual", "$510m"),
+            ("FY2025 adjusted FCF", "2025-Q4", "FY2025 actual", "$403m"),
+            ("FY2025 buybacks", "2025-Q4", "FY2025 actual", "$208m; 8%"),
+        ):
+            rr = _row(rr, *record)
+        rr += 1
+        _merge(rr, panel_start, panel_end, "Operating Drivers", fill=section_fill, bold=True)
+        rr += 1
+        _merge(rr, panel_start, panel_start + 2, "Driver group", fill=header_fill, bold=True)
+        _merge(rr, panel_start + 3, panel_start + 5, "Driver", fill=header_fill, bold=True)
+        _merge(rr, panel_start + 6, panel_end, "Why it matters", fill=header_fill, bold=True)
+        rr += 1
+        for group, driver, why in (
+            ("End-market / mix", "OEM production / end-market demand; Product mix / turbo demand", "Turbo demand follows vehicle production, launch timing and mix."),
+            ("Industrial / aftermarket", "Commercial vehicle / industrial; Aftermarket", "Industrial awards and replacement demand support durability."),
+            ("Geography / customers", "China / Europe exposure; Customer concentration", "Regional exposure and Stellantis/BMW/Ford concentration shape risk."),
+            ("Technology / conversion", "RD&E / technology awards; Adjusted EBIT / adjusted FCF conversion", "Awards support future content; the case needs profit to convert into cash."),
+            ("Cash / leverage", "Debt, net leverage and buybacks", "Equity value is sensitive to leverage, cash and repurchases."),
+        ):
+            fill = alt_fill if rr % 2 == 0 else body_fill
+            _merge(rr, panel_start, panel_start + 2, group, fill=fill)
+            _merge(rr, panel_start + 3, panel_start + 5, driver, fill=fill)
+            _merge(rr, panel_start + 6, panel_end, why, fill=fill)
+            rr += 1
+
     if ticker_txt == "GTX":
         _fix_gtx_summary_quarter_label()
         _rewrite_gtx_promise_progress_dashboard()
         _rewrite_gtx_valuation_guidance_and_driver_panels()
         _rewrite_gtx_bs_segments_analytical_cuts()
         _clean_gtx_quarter_notes_visible_noise()
+        _rewrite_gtx_quarter_notes_peer_style()
+        _rewrite_gtx_promise_progress_peer_style()
+        _rewrite_gtx_operating_drivers_peer_style()
+        _rewrite_gtx_valuation_guidance_peer_panel()
 
     for ws in list(wb.worksheets):
         if not _is_visible_ui_sheet(ws.title):
@@ -2401,7 +3152,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                     for cell in row:
                         if isinstance(cell.value, str) and "2025 year" in cell.value:
                             cell.value = cell.value.replace("2025 year", "FY2025")
-                _clamp_rows(3, 26.0, 34.0)
+                _clamp_rows(3, 22.0, 24.0)
                 continue
             _standardize_promise_status_cells()
             _remove_empty_promise_revision_blocks(ws)
