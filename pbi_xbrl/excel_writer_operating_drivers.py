@@ -478,6 +478,29 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
                 ws.merge_cells(start_row=merge_row, start_column=7, end_row=merge_row, end_column=9)
                 ws.merge_cells(start_row=merge_row, start_column=11, end_row=merge_row, end_column=14)
 
+            def _deemphasize_audit_columns(start_row: int, end_row: int, *, start_col: int = 10) -> None:
+                for audit_rr in range(start_row, end_row + 1):
+                    for audit_cc in range(start_col, 15):
+                        cell = ws.cell(audit_rr, audit_cc)
+                        if not str(cell.value or "").strip():
+                            continue
+                        cell.font = Font(
+                            bold=bool(cell.font.bold),
+                            italic=bool(cell.font.italic),
+                            color="5F6B76",
+                            size=min(float(font_size or 11.0), 10.5),
+                        )
+                        cell.alignment = Alignment(
+                            horizontal="left",
+                            vertical="top" if audit_rr not in {outlook_header_row, commentary_header_row, mgmt_header_row, debt_header_row} else "center",
+                            wrap_text=True,
+                        )
+
+            _deemphasize_audit_columns(outlook_header_row, outlook_data_end, start_col=10)
+            _deemphasize_audit_columns(commentary_header_row, commentary_header_row + len(commentary_rows), start_col=9)
+            _deemphasize_audit_columns(mgmt_header_row, mgmt_header_row + len(management_rows), start_col=9)
+            _deemphasize_audit_columns(debt_header_row, debt_data_end, start_col=10)
+
             widths = {1: 42, 2: 16, 3: 16, 4: 16, 5: 16, 6: 16, 7: 16, 8: 16, 9: 16, 10: 16, 11: 16, 12: 16, 13: 16, 14: 16}
             for cc, width in widths.items():
                 ws.column_dimensions[get_column_letter(cc)].width = width

@@ -731,6 +731,43 @@ def test_gtx_operating_drivers_debt_watch_uses_broad_business_columns(
             assert f"K{row_idx}:N{row_idx}" in merged_ranges
 
 
+def test_gtx_operating_driver_audit_fields_are_visually_secondary(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        checked_cells: list[str] = []
+        for section, audit_start_col in (
+            ("Current/latest outlook \u2014 official 2026-Q1 release, 2026 year outlook", 10),
+            ("Recent quarter commentary \u2014 source-backed actuals and management framing", 9),
+            (
+                "Management / release commentary \u2014 Official transcripts not loaded; commentary uses earnings release / presentation text only.",
+                9,
+            ),
+            ("Debt / buyback / leverage watch", 10),
+        ):
+            section_row = _find_row_with_first_cell(ws, section)
+            row_idx = section_row + 1
+            while row_idx <= int(ws.max_row or 0):
+                if row_idx > section_row + 1:
+                    first_col = str(ws.cell(row_idx, 1).value or "").strip()
+                    first_fill = str(ws.cell(row_idx, 1).fill.fgColor.rgb or "").upper()
+                    if first_col and first_fill.endswith("6FA8DC"):
+                        break
+                if not any(str(ws.cell(row_idx, cc).value or "").strip() for cc in range(1, 15)):
+                    break
+                for cc in range(audit_start_col, 15):
+                    cell = ws.cell(row_idx, cc)
+                    if not str(cell.value or "").strip():
+                        continue
+                    checked_cells.append(cell.coordinate)
+                    assert float(cell.font.sz or 0.0) <= 10.5
+                    assert str(cell.font.color.rgb or "").upper().endswith("5F6B76")
+                row_idx += 1
+
+        assert checked_cells
+
+
 def test_gtx_operating_driver_tables_are_chronological_older_to_newer(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -889,7 +926,9 @@ def test_gtx_promise_progress_body_font_matches_ui_convention(
         section_fill = str(getattr(fg_color, "rgb", "") or "").upper()
         if section_fill.endswith(("5B9BD5", "6FA8DC", "4472C4")):
             continue
-        for cell in row:
+        for col_idx, cell in enumerate(row, start=1):
+            if col_idx in {11, 12}:
+                continue
             if cell.value is None or str(cell.value).strip() == "":
                 continue
             if float(cell.font.sz or 0) < 11.0:
@@ -906,10 +945,26 @@ def test_gtx_promise_progress_uses_peer_freeze_and_wide_note_columns(
 
         assert ws.freeze_panes in (None, "", "A2")
         assert int(ws.max_column or 0) >= 15
-        assert float(ws.column_dimensions["K"].width or 0.0) >= 40.0
-        assert float(ws.column_dimensions["L"].width or 0.0) >= 40.0
-        assert float(ws.column_dimensions["M"].width or 0.0) <= 5.0
-        assert float(ws.column_dimensions["N"].width or 0.0) <= 5.0
+        expected_widths = {
+            "A": 28.0,
+            "B": 28.0,
+            "C": 32.0,
+            "D": 15.0,
+            "E": 22.0,
+            "F": 28.0,
+            "G": 15.0,
+            "H": 14.0,
+            "I": 16.0,
+            "J": 14.0,
+            "K": 42.0,
+            "L": 42.0,
+            "M": 4.0,
+            "N": 4.0,
+        }
+        for col, expected in expected_widths.items():
+            assert float(ws.column_dimensions[col].width or 0.0) == pytest.approx(expected, abs=0.03)
+        o_width = float(ws.column_dimensions["O"].width or 0.0)
+        assert o_width == pytest.approx(4.0, abs=0.03) or o_width == pytest.approx(24.0, abs=0.03)
 
 
 def test_gtx_promise_progress_has_no_validation_quarter_label_issues(
@@ -1042,6 +1097,27 @@ def test_gtx_promise_progress_core_columns_are_not_cramped_or_audit_dominated(
         assert cramped == []
 
 
+def test_gtx_promise_progress_source_notes_are_right_side_and_secondary(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+        checked_cells: list[str] = []
+        for rr in range(1, min(int(ws.max_row or 0), 90) + 1):
+            for cc in (11, 12):
+                cell = ws.cell(rr, cc)
+                value = str(cell.value or "").strip()
+                if not value:
+                    continue
+                if str(ws.cell(rr, 1).fill.fgColor.rgb or "").upper().endswith(("5B9BD5", "6FA8DC", "4472C4")):
+                    continue
+                checked_cells.append(cell.coordinate)
+                assert float(cell.font.sz or 0.0) <= 10.5
+                assert str(cell.font.color.rgb or "").upper().endswith("5F6B76")
+
+        assert checked_cells
+
+
 def test_gtx_promise_progress_has_quarter_context_beyond_two_topline_sections(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -1091,6 +1167,7 @@ def test_gtx_bs_segments_analytical_cut_columns_are_not_overwide(
 ) -> None:
     with _gtx_style_workbook() as full_wb:
         ws = full_wb["BS_Segments"]
+        assert float(ws.column_dimensions["A"].width or 0.0) == pytest.approx(54.0, abs=0.03)
         widths = [float(ws.column_dimensions[col].width or 0.0) for col in ("B", "C", "D", "E", "F", "G", "H", "I")]
 
         assert all(width == pytest.approx(11.29, abs=0.03) for width in widths)
@@ -1259,13 +1336,14 @@ def test_gtx_quarter_notes_uses_peer_style_title_and_quarter_blocks(
             if str(ws.cell(rr, 1).value or "").strip().lower().endswith("- quarter notes")
         ]
 
-        assert str(ws["A1"].value or "").strip() == "Quarter Notes"
-        assert ws.freeze_panes in (None, "", "A2")
+        assert str(ws["A1"].value or "").strip() == "2026-Q1 - Quarter Notes"
+        assert str(ws["A2"].value or "").strip() == "Quarter read"
+        assert ws.freeze_panes == "A2"
         assert any(str(rng).startswith("A1:") for rng in merged)
         assert len(quarter_rows) >= 5
         for expected in ("2026-Q1", "2025-Q4", "2025-Q3", "2025-Q2", "2025-Q1"):
             assert any(str(ws.cell(rr, 1).value or "").startswith(expected) for rr in quarter_rows)
-        assert all(rr > 1 for rr in quarter_rows[:5])
+        assert quarter_rows[0] == 1
         for rr in quarter_rows:
             assert str(ws.cell(rr, 1).fill.fgColor.rgb or "").upper() in {
                 "FF5B9BD5",

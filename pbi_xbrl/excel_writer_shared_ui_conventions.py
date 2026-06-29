@@ -391,6 +391,22 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ],
         )
 
+        for note_rr in range(1, int(ws.max_row or 0) + 1):
+            first_fill = str(ws.cell(note_rr, 1).fill.fgColor.rgb or "").upper()
+            if first_fill.endswith(("5B9BD5", "6FA8DC", "4472C4")):
+                continue
+            for note_cc in (11, 12):
+                note_cell = ws.cell(note_rr, note_cc)
+                if not str(note_cell.value or "").strip():
+                    continue
+                note_cell.font = Font(
+                    bold=bool(note_cell.font.bold),
+                    italic=bool(note_cell.font.italic),
+                    color="5F6B76",
+                    size=10.5,
+                )
+                note_cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+
         widths = {1: 28, 2: 28, 3: 32, 4: 15, 5: 22, 6: 28, 7: 15, 8: 14, 9: 16, 10: 14, 11: 42, 12: 42, 13: 4, 14: 4, 15: 4}
         for cc, width in widths.items():
             ws.column_dimensions[get_column_letter(cc)].width = width
@@ -708,7 +724,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 ("Top ten customers % sales", "", "", "about 62%", "2025 Form 10-K", "Not a segment; customer risk"),
             ],
         )
-        for cc, width in {1: 34, 2: 11.29, 3: 11.29, 4: 11.29, 5: 11.29, 6: 11.29, 7: 11.29, 8: 11.29, 9: 11.29}.items():
+        for cc, width in {1: 54, 2: 11.29, 3: 11.29, 4: 11.29, 5: 11.29, 6: 11.29, 7: 11.29, 8: 11.29, 9: 11.29}.items():
             ws.column_dimensions[get_column_letter(cc)].width = width
 
     def _clean_gtx_quarter_notes_visible_noise() -> None:
@@ -932,22 +948,6 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             return row_idx + 1
 
         rr = 1
-        _merge(rr, 1, 15, "Quarter Notes", fill=title_fill, bold=True, size=16)
-        _set_height(rr, 28.0)
-        rr += 1
-        _merge(
-            rr,
-            1,
-            15,
-            "GTX clean quarter blocks | official releases and filings only | fewer clean rows over noisy rows",
-            fill=sub_fill,
-            bold=False,
-            size=11,
-        )
-        _set_height(rr, 22.0)
-        rr += 1
-        _spacer(rr)
-        rr += 1
         rr = _quarter_block(
             rr,
             "2026-Q1 - Quarter Notes",
