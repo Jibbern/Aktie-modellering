@@ -159,11 +159,52 @@ QUARTER_NARRATIVE_DATA_HEADERS = [
 ]
 
 
+_GTX_QUARTER_NARRATIVE_UI_NOISE_RE = re.compile(
+    r"\b("
+    r"forward-looking statements|in many cases, you can identify|"
+    r"aim,\s*anticipate,\s*believe,\s*continue,\s*could|"
+    r"variable consideration|revenue is measured as the amount of consideration|"
+    r"make contributions of cash and/or marketable securities|"
+    r"each grantee is granted|"
+    r"guidance signal in filing text|margin signal in filing text|revenue signal in filing text|"
+    r"69\s*>5%\s*average annual cost|"
+    r"cost discipline and flexibility for margins and cash generation\s*69"
+    r")\b",
+    re.I,
+)
+
+
+def _quarter_narrative_record_ui_eligible(record: QuarterNarrativeRecord) -> bool:
+    if not bool(record.include_in_quarter_notes):
+        return False
+    if str(record.ticker or "").strip().upper() != "GTX":
+        return True
+    text = " ".join(
+        str(value or "")
+        for value in (
+            record.category,
+            record.theme,
+            record.what_happened,
+            record.management_framing,
+            record.why_it_matters,
+            record.model_implication,
+            record.valuation_implication,
+            record.double_count_guardrail,
+            record.source_note,
+            record.raw_quote_short,
+            record.raw_quote_exact,
+        )
+        if str(value or "").strip()
+    )
+    return not bool(_GTX_QUARTER_NARRATIVE_UI_NOISE_RE.search(text))
+
+
 def _quarter_narrative_record_to_audit_row(record: QuarterNarrativeRecord) -> List[Any]:
     source_bits = [record.source_file, record.source_note]
     source_note = " | ".join(str(bit).strip() for bit in source_bits if str(bit or "").strip())
     if record.source_period:
         source_note = f"{source_note} | stated in {record.source_period}" if source_note else f"stated in {record.source_period}"
+    include_in_ui = _quarter_narrative_record_ui_eligible(record)
     return [
         record.ticker,
         record.fiscal_period,
@@ -183,7 +224,7 @@ def _quarter_narrative_record_to_audit_row(record: QuarterNarrativeRecord) -> Li
         record.source_type,
         source_note,
         record.confidence,
-        "Yes" if record.include_in_quarter_notes else "No",
+        "Yes" if include_in_ui else "No",
     ]
 
 
@@ -1834,7 +1875,7 @@ def _write_quarter_notes_ui_narrative_sheet(
     history_periods: Optional[Sequence[str]] = None,
 ) -> bool:
     records_list = list(records if records is not None else _quarter_narrative_records_for_ticker(ticker))
-    records_list = [r for r in records_list if r.include_in_quarter_notes]
+    records_list = [r for r in records_list if _quarter_narrative_record_ui_eligible(r)]
     recent_history_periods = [
         str(period or "").strip()
         for period in (history_periods if history_periods is not None else _quarter_narrative_recent_history_periods(wb, limit=8))

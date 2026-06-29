@@ -1513,6 +1513,28 @@ def test_gtx_visible_ui_sheets_filter_boilerplate_ocr_and_policy_noise(
     assert found == []
 
 
+def test_gtx_quarter_narrative_data_does_not_mark_noisy_rows_ui_eligible(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    assert "Quarter_Narrative_Data" in gtx_wb.sheetnames
+    ws = gtx_wb["Quarter_Narrative_Data"]
+    rows = list(ws.iter_rows(values_only=True))
+    headers = list(rows[0])
+    include_idx = headers.index("Include in UI")
+
+    bad_rows: list[tuple[int, str]] = []
+    for row_idx, row in enumerate(rows[1:], start=2):
+        include_value = str(row[include_idx] or "").strip().lower()
+        if include_value not in {"yes", "true", "1"}:
+            continue
+        row_text = " ".join(str(value) for value in row if value not in (None, "")).lower()
+        for needle in GTX_FORBIDDEN_UI_FRAGMENTS:
+            if needle.lower() in row_text:
+                bad_rows.append((row_idx, needle))
+
+    assert bad_rows == []
+
+
 def test_gtx_quarter_notes_filters_boilerplate_ocr_and_policy_noise(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -1823,6 +1845,31 @@ def test_gtx_nongaap_credibility_does_not_show_impossible_q4_gaap_ebit(
             bad.append((quarter, gaap_ebit, revenue))
 
     assert bad == []
+
+
+def test_gtx_nongaap_credibility_excludes_pre_package_local_fallback_rows(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    assert "NonGAAP_Credibility" in gtx_wb.sheetnames
+    ws = gtx_wb["NonGAAP_Credibility"]
+    rows = list(ws.iter_rows(values_only=True))
+    headers = list(rows[0])
+    quarter_idx = headers.index("quarter")
+    fallback_idx = headers.index("qa_fallback_source")
+    snippet_idx = headers.index("evidence_snippet")
+
+    fallback_rows: list[tuple[int, Any, Any]] = []
+    for row_idx, row in enumerate(rows[1:], start=2):
+        quarter = row[quarter_idx]
+        quarter_txt = str(quarter or "")
+        fallback_txt = str(row[fallback_idx] or "").strip().lower()
+        snippet_txt = str(row[snippet_idx] or "").strip().lower()
+        if not quarter_txt.startswith(("2020-", "2021-", "2022-03-31")):
+            continue
+        if fallback_txt or "local fallback" in snippet_txt:
+            fallback_rows.append((row_idx, quarter, row[snippet_idx]))
+
+    assert fallback_rows == []
 
 
 def test_gtx_adjusted_metrics_filters_low_confidence_local_fallback_rows(

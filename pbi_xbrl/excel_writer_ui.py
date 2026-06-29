@@ -299,6 +299,23 @@ def _visible_non_gaap_credibility_frame_for_workbook(ticker: str, non_gaap_df: A
         return non_gaap_df
     out = non_gaap_df.copy()
     q = pd.to_datetime(out["quarter"], errors="coerce")
+    fallback_source = (
+        out["qa_fallback_source"].astype(str)
+        if "qa_fallback_source" in out.columns
+        else pd.Series([""] * len(out), index=out.index, dtype="object")
+    )
+    evidence_snippet = (
+        out["evidence_snippet"].astype(str)
+        if "evidence_snippet" in out.columns
+        else pd.Series([""] * len(out), index=out.index, dtype="object")
+    )
+    local_fallback = (
+        fallback_source.str.strip().ne("")
+        | evidence_snippet.str.contains("local fallback", case=False, na=False)
+        | evidence_snippet.str.contains("Merged local fallback metrics", case=False, na=False)
+    )
+    out = out.loc[~((q < pd.Timestamp("2022-06-30")) & local_fallback)].copy()
+    q = pd.to_datetime(out["quarter"], errors="coerce")
     gaap = pd.to_numeric(out["gaap_ebit"], errors="coerce")
     impossible_q4 = q.dt.strftime("%Y-%m-%d").isin(
         {"2022-12-31", "2023-12-31", "2024-12-31", "2025-12-31"}
