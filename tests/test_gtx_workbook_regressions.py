@@ -565,6 +565,28 @@ def test_gtx_valuation_guidance_panel_uses_curated_guidance_rows(
         assert required.lower() in low
 
 
+def test_gtx_valuation_guidance_panel_uses_peer_typography(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Valuation"]
+        panel_cells: list[str] = []
+        small_cells: list[tuple[str, Any, float]] = []
+        for row_idx in range(7, 36):
+            for col_idx in range(15, 29):
+                cell = ws.cell(row_idx, col_idx)
+                value = str(cell.value or "").strip()
+                if not value:
+                    continue
+                panel_cells.append(cell.coordinate)
+                font_size = float(cell.font.sz or 0.0)
+                if font_size < 12.0:
+                    small_cells.append((cell.coordinate, value[:80], font_size))
+
+        assert panel_cells
+        assert small_cells == []
+
+
 def test_gtx_valuation_operating_driver_panel_is_populated(
     gtx_wb: openpyxl.Workbook,
 ) -> None:
@@ -668,6 +690,29 @@ def test_gtx_operating_drivers_recent_commentary_uses_broad_layout(
     )
     assert str(ws.cell(first_commentary_row, 3).value or "").strip()
     assert float(ws.row_dimensions[first_commentary_row].height or 0.0) <= 24.5
+
+
+def test_gtx_operating_drivers_recent_commentary_text_spans_wide_area(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+        section_row = _find_row_with_first_cell(
+            ws,
+            "Recent quarter commentary \u2014 source-backed actuals and management framing",
+        )
+        header_row = section_row + 1
+        assert f"C{header_row}:N{header_row}" in merged_ranges
+
+        data_rows = [
+            row_idx
+            for row_idx in range(header_row + 1, int(ws.max_row or 0) + 1)
+            if str(ws.cell(row_idx, 2).value or "").strip().startswith(("2026-Q", "2025-Q", "2024-Q", "2023-Q"))
+        ]
+        assert data_rows
+        for row_idx in data_rows[:12]:
+            assert f"C{row_idx}:N{row_idx}" in merged_ranges
 
 
 def test_gtx_operating_drivers_uses_uniform_peer_widths_and_right_side_audit_columns(
@@ -794,12 +839,13 @@ def test_gtx_operating_drivers_debt_watch_uses_broad_business_columns(
         assert headers[4] == "Period / event"
         assert headers[6] == "Why it matters"
         assert headers[9] == "Source"
-        assert headers[10] == "Workbook treatment / note"
+        assert headers[11] == "Workbook treatment / note"
         for row_idx in (header_row, header_row + 1):
             assert f"B{row_idx}:D{row_idx}" in merged_ranges
             assert f"E{row_idx}:F{row_idx}" in merged_ranges
             assert f"G{row_idx}:I{row_idx}" in merged_ranges
-            assert f"K{row_idx}:N{row_idx}" in merged_ranges
+            assert f"J{row_idx}:K{row_idx}" in merged_ranges
+            assert f"L{row_idx}:N{row_idx}" in merged_ranges
 
 
 def test_gtx_operating_driver_audit_fields_are_visually_secondary(
@@ -866,6 +912,50 @@ def test_gtx_operating_driver_tables_are_chronological_older_to_newer(
         "2025-Q1",
         "2026-Q1",
     ]
+
+
+def test_gtx_operating_driver_data_table_source_treatment_cells_are_wide_merges(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+        for section in (
+            "Product-line revenue history",
+            "Geography revenue history",
+            "Customer concentration",
+        ):
+            section_row = _find_row_with_first_cell(ws, section)
+            header_row = section_row + 1
+            assert str(ws.cell(header_row, 10).value or "").strip() == "Source"
+            assert str(ws.cell(header_row, 12).value or "").strip() == "Treatment"
+            assert f"J{header_row}:K{header_row}" in merged_ranges
+            assert f"L{header_row}:N{header_row}" in merged_ranges
+            body_rows = [
+                rr
+                for rr in range(header_row + 1, min(header_row + 8, int(ws.max_row or 0)) + 1)
+                if str(ws.cell(rr, 1).value or "").strip()
+                and not str(ws.cell(rr, 1).fill.fgColor.rgb or "").upper().endswith("6FA8DC")
+            ]
+            assert body_rows
+            for rr in body_rows:
+                assert f"J{rr}:K{rr}" in merged_ranges
+                assert f"L{rr}:N{rr}" in merged_ranges
+
+
+def test_gtx_operating_driver_debt_watch_source_and_treatment_are_wide_merges(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Operating_Drivers"]
+        merged_ranges = {str(rng) for rng in ws.merged_cells.ranges}
+        section_row = _find_row_with_first_cell(ws, "Debt / buyback / leverage watch")
+        header_row = section_row + 1
+        assert f"J{header_row}:K{header_row}" in merged_ranges
+        assert f"L{header_row}:N{header_row}" in merged_ranges
+        for row_idx in range(header_row + 1, header_row + 8):
+            assert f"J{row_idx}:K{row_idx}" in merged_ranges
+            assert f"L{row_idx}:N{row_idx}" in merged_ranges
 
 
 def test_gtx_operating_driver_tables_inline_units_in_row_labels(
@@ -1111,7 +1201,7 @@ def test_gtx_promise_progress_status_cells_are_colored_like_peer_dashboards(
     with _gtx_style_workbook() as full_wb:
         ws = full_wb["Promise_Progress_UI"]
         status_palette = {"0099CCFF", "005B9BD5", "0064C2A6", "00A9D18E", "00F4B183", "00ED7D31"}
-        sections = ("2026 open guidance", "2025 completed actuals", "Quarterly guidance timeline / revision log")
+        sections = ("2026 open guidance", "2025 completed actuals", "2026-Q1 revisions")
 
         for section in sections:
             section_row = _find_row_with_first_cell(ws, section)
@@ -1123,6 +1213,8 @@ def test_gtx_promise_progress_status_cells_are_colored_like_peer_dashboards(
             assert status_col is not None
             checked = 0
             for rr in range(section_row + 2, int(ws.max_row or 0) + 1):
+                if rr > section_row + 2 and str(ws.cell(rr, 1).fill.fgColor.rgb or "").upper().endswith("5B9BD5"):
+                    break
                 marker = str(ws.cell(rr, 1).value or "").strip()
                 if marker in {
                     "2025 completed actuals",
@@ -1213,6 +1305,69 @@ def test_gtx_promise_progress_has_quarter_context_beyond_two_topline_sections(
         "only clean official guidance revisions are shown",
     ):
         assert required in text
+
+
+def test_gtx_promise_progress_timeline_uses_peer_quarter_revision_blocks(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+        timeline_row = _find_row_with_first_cell(ws, "Quarterly guidance timeline / revision log")
+        required_blocks = [
+            "2026-Q1 revisions",
+            "2025-Q4 revisions",
+            "2025-Q3 revisions",
+            "2025-Q2 revisions",
+            "2025-Q1 revisions",
+            "2024-Q4 revisions",
+            "2024-Q3 revisions",
+            "2024-Q2 revisions",
+            "2024-Q1 revisions",
+            "2023-Q4 revisions",
+            "2023-Q3 revisions",
+            "2023-Q2 revisions",
+            "2023-Q1 revisions",
+            "2022-Q4 revisions",
+        ]
+        block_rows: dict[str, int] = {}
+        for row_idx in range(timeline_row + 1, int(ws.max_row or 0) + 1):
+            value = str(ws.cell(row_idx, 1).value or "").strip()
+            if value in required_blocks:
+                block_rows[value] = row_idx
+
+        assert list(block_rows) == required_blocks
+        for block, row_idx in block_rows.items():
+            assert str(ws.cell(row_idx, 1).fill.fgColor.rgb or "").upper().endswith("5B9BD5"), block
+            next_row = row_idx + 1
+            headers = [
+                str(ws.cell(next_row, cc).value or "").strip()
+                for cc in range(1, 13)
+                if str(ws.cell(next_row, cc).value or "").strip()
+            ]
+            assert headers[:3] == ["Metric", "Previous guide", "New/current guide"], block
+
+
+def test_gtx_promise_progress_source_backed_rows_keep_hidden_source_keys(
+    gtx_wb: openpyxl.Workbook,
+) -> None:
+    with _gtx_style_workbook() as full_wb:
+        ws = full_wb["Promise_Progress_UI"]
+        missing: list[str] = []
+
+        for rr in range(1, int(ws.max_row or 0) + 1):
+            first = str(ws.cell(rr, 1).value or "").strip()
+            if not first or first in {"Metric", "Event"}:
+                continue
+            if not (first.endswith("guidance") or first.endswith("actuals") or first == "Debt reduction"):
+                continue
+            source_blob = " ".join(str(ws.cell(rr, cc).value or "") for cc in range(10, 13)).lower()
+            if not any(token in source_blob for token in ("release", "history_q", "source-backed", "8-k", "10-q")):
+                continue
+            hidden_key = str(ws.cell(rr, 15).value or "").strip()
+            if not hidden_key.startswith("guidance:"):
+                missing.append(f"{ws.title}!O{rr} for {first!r}: {hidden_key!r}")
+
+        assert missing == []
 
 
 def test_gtx_promise_progress_density_and_row_heights_match_peer_dashboard(
