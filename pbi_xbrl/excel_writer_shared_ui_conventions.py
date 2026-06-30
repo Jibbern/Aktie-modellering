@@ -1183,11 +1183,14 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 cell.font = Font(bold=bold, color="FFFFFF" if white else "1F2933", size=size)
                 cell.alignment = Alignment(horizontal="left", vertical="top" if size >= 14 else "center", wrap_text=True)
 
-        def _merge(row_idx: int, start_col: int, end_col: int, value: Any, *, fill: Any, bold: bool = False, size: float = 14.0, white: bool = False) -> None:
+        def _merge(row_idx: int, start_col: int, end_col: int, value: Any, *, fill: Any, bold: bool = False, size: float = 14.0, white: bool = False, blue: bool = False) -> None:
             if end_col > start_col:
                 ws.merge_cells(start_row=row_idx, start_column=start_col, end_row=row_idx, end_column=end_col)
             ws.cell(row_idx, start_col, value)
             _style_range(row_idx, start_col, end_col, fill=fill, bold=bold, size=size, white=white)
+            if blue and not white:
+                for cc in range(start_col, end_col + 1):
+                    ws.cell(row_idx, cc).font = Font(bold=bold, color="1F4E78", size=size)
 
         def _spacer(row_idx: int) -> None:
             ws.row_dimensions[row_idx].height = 10.0
@@ -1197,7 +1200,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ws.merge_cells(start_row=row_idx, start_column=2, end_row=row_idx, end_column=15)
             ws.cell(row_idx, 2, text)
             _style_range(row_idx, 1, 15, fill=fill, size=14.0)
-            ws.cell(row_idx, 1).font = Font(bold=True, color="1F2933", size=14)
+            ws.cell(row_idx, 1).font = Font(bold=True, color="1F4E78", size=14)
             ws.row_dimensions[row_idx].height = height
 
         def _table_header(row_idx: int) -> None:
@@ -1216,7 +1219,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
         def _promise_header(row_idx: int) -> None:
             spans = ((1, 2, "Promise / guidance item"), (3, 6, "Read"), (7, 12, "Actual / progress interpretation"), (13, 15, "Status / source"))
             for start_col, end_col, header in spans:
-                _merge(row_idx, start_col, end_col, header, fill=section_fill, bold=True, size=13.0)
+                _merge(row_idx, start_col, end_col, header, fill=header_fill, bold=True, size=13.0)
             ws.row_dimensions[row_idx].height = 25.0
 
         def _promise_row(row_idx: int, item: str, read: str, progress: str, status: str, source: str) -> None:
@@ -1230,7 +1233,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             _merge(row_idx, 1, 15, f"{label} - Quarter Notes", fill=title_fill, bold=True, size=14.0, white=True)
             ws.row_dimensions[row_idx].height = 24.0
             row_idx += 1
-            _merge(row_idx, 1, 15, "Quarter read", fill=section_fill, bold=True, size=13.0)
+            _merge(row_idx, 1, 15, "Quarter read", fill=section_fill, bold=True, size=13.0, blue=True)
             ws.row_dimensions[row_idx].height = 25.0
             row_idx += 1
             _label_row(row_idx, "Model read", read, body_fill, height=44.0)
@@ -1243,7 +1246,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             row_idx += 1
             _spacer(row_idx)
             row_idx += 1
-            _merge(row_idx, 1, 15, "Key developments", fill=section_fill, bold=True, size=13.0)
+            _merge(row_idx, 1, 15, "Key developments", fill=section_fill, bold=True, size=13.0, blue=True)
             ws.row_dimensions[row_idx].height = 25.0
             row_idx += 1
             _table_header(row_idx)
@@ -1253,7 +1256,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
                 row_idx += 1
             _spacer(row_idx)
             row_idx += 1
-            _merge(row_idx, 1, 15, "Guidance / Promise interpretation", fill=section_fill, bold=True, size=13.0)
+            _merge(row_idx, 1, 15, "Guidance / Promise interpretation", fill=section_fill, bold=True, size=13.0, blue=True)
             ws.row_dimensions[row_idx].height = 25.0
             row_idx += 1
             _promise_header(row_idx)
@@ -1264,7 +1267,7 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             row_idx += 1
             _spacer(row_idx)
             row_idx += 1
-            _merge(row_idx, 1, 15, "Model mapping / double-count guardrails", fill=section_fill, bold=True, size=13.0)
+            _merge(row_idx, 1, 15, "Model mapping / double-count guardrails", fill=section_fill, bold=True, size=13.0, blue=True)
             ws.row_dimensions[row_idx].height = 25.0
             row_idx += 1
             _promise_header(row_idx)
@@ -1405,14 +1408,27 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
 
         def _timeline_block(row_idx: int, title: str, records: Sequence[Sequence[Any]]) -> int:
             row_idx = _section(row_idx, title)
-            row_idx = _headers(row_idx, [(1, 1, "Metric"), (2, 2, "Previous guide"), (3, 4, "New/current guide"), (5, 5, "Change type"), (6, 6, "Actual"), (7, 7, "Progress / run-rate"), (8, 8, "Status"), (9, 9, "Horizon"), (10, 10, "Stated in"), (11, 12, "Source / note")])
+            row_idx = _headers(row_idx, [(1, 1, "Metric"), (2, 2, "Previous guide"), (3, 3, "New/current guide"), (4, 4, "Change type"), (5, 5, "Actual"), (6, 6, "Progress / run-rate"), (7, 7, "Status"), (8, 8, "Horizon"), (9, 9, "Stated in"), (10, 10, "Source date"), (11, 12, "Source / note")])
             for record in records:
                 current_row = row_idx
-                row_idx = _row(row_idx, record, [(1, 1), (2, 2), (3, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10), (11, 12)], status_col=8)
+                display_record = (
+                    record[0] if len(record) > 0 else "",
+                    record[1] if len(record) > 1 else "",
+                    record[2] if len(record) > 2 else "",
+                    record[3] if len(record) > 3 else "",
+                    record[4] if len(record) > 4 else "",
+                    record[5] if len(record) > 5 else "",
+                    record[6] if len(record) > 6 else "",
+                    record[7] if len(record) > 7 else "",
+                    record[8] if len(record) > 8 else "",
+                    "",
+                    record[9] if len(record) > 9 else "",
+                )
+                row_idx = _row(row_idx, display_record, [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10), (11, 12)], status_col=7)
                 _set_hidden_key(current_row, record[0] if len(record) > 0 else "", record[7] if len(record) > 7 else "", record[8] if len(record) > 8 else "")
             return row_idx + 1
 
-        ws.sheet_view.zoomScale = 90
+        ws.sheet_view.zoomScale = 112
         ws.freeze_panes = "A2"
         _merge(1, 1, 12, "Promise Progress", fill=title_fill, bold=True, size=12.0, white=True)
         _merge(2, 1, 12, "GTX guidance dashboard | only clean official guidance revisions are shown", fill=section_fill, size=11.0)
@@ -1432,21 +1448,24 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
         ws.row_dimensions[rr].height = 18.0
         rr += 1
         rr = _section(rr, "2025 guidance progression")
-        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Initial guide"), (3, 3, "Q1 update"), (4, 4, "Q2 update"), (5, 5, "Q3 update"), (6, 6, "Q4 / actual"), (7, 7, "Status"), (8, 12, "Notes/source")])
+        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Initial guide"), (3, 3, "Q1 update"), (4, 4, "Q2 update"), (5, 5, "Q3 update"), (6, 6, "Q4 update"), (7, 7, "Actual"), (8, 8, "Status"), (9, 12, "Notes/source")])
         for record in (
-            ("Net sales", "Initial FY2025 guide", "Actual/context", "Actual/context", "Actual/context", "$3.584bn", "Completed", "FY2025 actual from 2025-Q4 earnings release; older clean guide ranges not forced."),
-            ("Adjusted EBIT", "Initial FY2025 guide", "Actual/context", "Actual/context", "Actual/context", "$510m", "Completed", "FY2025 adjusted EBIT from 2025-Q4 earnings release."),
-            ("Adjusted FCF", "Initial FY2025 guide", "Actual/context", "Actual/context", "Actual/context", "$403m", "Completed", "FY2025 adjusted FCF from 2025-Q4 earnings release."),
-            ("Buybacks", "", "Q1 $30m", "Q2 $22m", "Q3 $84m", "FY $208m", "Completed", "Quarterly buybacks from History_Q; FY value from 2025-Q4 release."),
+            ("Net sales", "$3.3bn-$3.5bn", "$3.3bn-$3.5bn", "$3.4bn-$3.6bn", "$3.5bn-$3.6bn", "$3.584bn", "$3.584bn", "Completed", "2025 guide progression and FY actual from official 2025 releases."),
+            ("Adjusted EBIT", "$427m-$487m", "$427m-$487m", "$470m-$530m", "$490m-$530m", "$510m", "$510m", "Completed", "2025 guide progression and FY adjusted EBIT from official 2025 releases."),
+            ("Adjusted FCF", "$300m-$390m", "$300m-$390m", "$330m-$410m", "$350m-$420m", "$403m", "$403m", "Completed", "2025 guide progression and FY adjusted FCF from official 2025 releases."),
+            ("Buybacks", "", "$30m", "$22m", "$84m", "$72m", "$208m", "Completed", "Quarterly buybacks from History_Q; FY value from 2025-Q4 release."),
         ):
-            rr = _row(rr, record, [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 12)], status_col=7)
+            rr = _row(rr, record, [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 12)], status_col=8)
         rr += 1
         rr = _section(rr, "2024 guidance progression")
-        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Initial guide"), (3, 3, "Q1 update"), (4, 4, "Q2 update"), (5, 5, "Q3 update"), (6, 6, "Q4 / actual"), (7, 7, "Status"), (8, 12, "Notes/source")])
+        rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Initial guide"), (3, 3, "Q1 update"), (4, 4, "Q2 update"), (5, 5, "Q3 update"), (6, 6, "Q4 update"), (7, 7, "Actual"), (8, 8, "Status"), (9, 12, "Notes/source")])
         for record in (
-            ("Actual context", "Official releases loaded", "Q1-Q3 actuals", "Q4/FY actual", "", "Actuals-only", "Reported", "Clean 2024 official actuals are shown in the quarterly timeline; no noisy OCR guidance rows are promoted."),
+            ("Revenue context", "", "$915m", "$890m", "$826m", "$844m", "$3.475bn", "Reported", "Clean 2024 official actuals are shown; no noisy OCR guidance rows are promoted."),
+            ("Adjusted EBITDA", "", "$151m", "$150m", "$144m", "$153m", "$598m", "Reported", "High-confidence adjusted EBITDA rows from official releases."),
+            ("Adjusted FCF", "", "$68m", "$62m", "$71m", "$157m", "$358m", "Reported", "High-confidence adjusted FCF rows from official releases."),
+            ("Buybacks", "", "$107m", "$66m", "$53m", "$70m", "$296m", "Reported", "Capital return context from History_Q."),
         ):
-            rr = _row(rr, record, [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 12)], status_col=7)
+            rr = _row(rr, record, [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 12)], status_col=8)
         rr = _section(rr, "2026 open guidance")
         rr = _headers(rr, [(1, 1, "Metric"), (2, 2, "Current guide"), (3, 3, "Horizon"), (4, 4, "Status"), (5, 10, "Read / progress"), (11, 12, "Notes/source")])
         for record in (
@@ -1480,48 +1499,51 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
         rr += 1
         rr = _section(rr, "Quarterly guidance timeline / revision log")
         rr = _timeline_block(rr, "2026-Q1 revisions", (
-            ("Revenue guidance", "Initial 2026 outlook", "$3.6bn-$3.9bn", "Raised", "$985m", "Q1 actual", "Open", "2026 year", "2026-Q1", "2026-Q1 release raised guide."),
-            ("Adjusted EBIT guidance", "Initial 2026 outlook", "$520m-$600m", "Raised", "$151m", "Q1 actual", "Open", "2026 year", "2026-Q1", "2026-Q1 release raised guide."),
-            ("Adjusted FCF guidance", "Initial 2026 outlook", "$355m-$475m", "Raised", "$49m", "Q1 actual", "Open", "2026 year", "2026-Q1", "2026-Q1 release raised guide."),
+            ("Revenue guidance", "$3.6bn-$3.8bn", "$3.6bn-$3.9bn", "Raised", "$985m", "Q1 actual", "Open", "2026 year", "2026-Q1", "Q1 release raised 2026 net-sales guide."),
+            ("Constant-currency sales growth", "-2% to +2%", "-2% to +6%", "Raised", "6%", "Q1 actual", "Open", "2026 year", "2026-Q1", "Q1 release raised constant-currency sales-growth guide."),
+            ("Net income guidance", "$295m-$335m", "$300m-$360m", "Raised", "$95m", "Q1 actual", "Open", "2026 year", "2026-Q1", "Q1 release raised GAAP net-income guide."),
+            ("Adjusted EBIT guidance", "$520m-$570m", "$520m-$600m", "Raised", "$151m", "Q1 actual", "Open", "2026 year", "2026-Q1", "Q1 release raised adjusted EBIT guide."),
+            ("CFO guidance", "$407m-$502m", "$407m-$522m", "Raised", "$98m", "Q1 actual", "Open", "2026 year", "2026-Q1", "Q1 release raised CFO guide."),
+            ("Adjusted FCF guidance", "$355m-$455m", "$355m-$475m", "Raised", "$49m", "Q1 actual", "Open", "2026 year", "2026-Q1", "Q1 release raised adjusted FCF guide."),
         ))
         rr = _timeline_block(rr, "2025-Q4 revisions", (
-            ("Revenue / adjusted actuals", "", "FY2025 actuals", "Completed", "$891m / $122m / $139m", "Quarter actual", "Completed", "2025 year", "2025-Q4", "Q4 values feed completed-actual section."),
+            ("Revenue / adjusted actuals", "$3.5bn-$3.6bn", "$3.584bn FY actual", "Completed", "$891m / $122m / $139m", "Quarter actual", "Completed", "FY2025", "2025-Q4", "Q4 values feed completed-actual section."),
         ))
         rr = _timeline_block(rr, "2025-Q3 revisions", (
-            ("Revenue / adjusted actuals", "", "Actuals-only", "Reported", "$902m / $133m / $107m", "YTD context", "Reported", "2025 year", "2025-Q3", "No clean guide revision forced."),
+            ("Revenue / adjusted actuals", "$3.4bn-$3.6bn", "Sales $902m; adj EBIT $133m; adj FCF $107m", "Reported", "$902m / $133m / $107m", "YTD context", "Reported", "FY2025", "2025-Q3", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2025-Q2 revisions", (
-            ("Revenue / adjusted actuals", "", "Actuals-only", "Reported", "$913m / $124m / $121m", "YTD context", "Reported", "2025 year", "2025-Q2", "No clean guide revision forced."),
+            ("Revenue / adjusted actuals", "$3.3bn-$3.5bn", "Sales $913m; adj EBIT $124m; adj FCF $121m", "Reported", "$913m / $124m / $121m", "YTD context", "Reported", "FY2025", "2025-Q2", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2025-Q1 revisions", (
-            ("Revenue / adjusted actuals", "", "Actuals-only", "Reported", "$878m / $131m / $36m", "YTD context", "Reported", "2025 year", "2025-Q1", "No clean guide revision forced."),
+            ("Revenue / adjusted actuals", "$3.3bn-$3.5bn", "Sales $878m; adj EBIT $131m; adj FCF $36m", "Reported", "$878m / $131m / $36m", "YTD context", "Reported", "FY2025", "2025-Q1", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2024-Q4 revisions", (
-            ("2024-Q4 actuals", "", "Actuals-only", "Reported", "$844m / $153m EBITDA / $157m FCF", "FY context", "Reported", "2024 year", "2024-Q4", "Official release actuals only."),
+            ("2024-Q4 actuals", "", "Sales $844m; adj EBITDA $153m; adj FCF $157m", "Reported", "$844m / $153m EBITDA / $157m FCF", "FY context", "Reported", "2024 year", "2024-Q4", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2024-Q3 revisions", (
-            ("2024-Q3 actuals", "", "Actuals-only", "Reported", "$826m / $144m EBITDA / $71m FCF", "YTD context", "Reported", "2024 year", "2024-Q3", "Official release actuals only."),
+            ("2024-Q3 actuals", "", "Sales $826m; adj EBITDA $144m; adj FCF $71m", "Reported", "$826m / $144m EBITDA / $71m FCF", "YTD context", "Reported", "2024 year", "2024-Q3", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2024-Q2 revisions", (
-            ("2024-Q2 actuals", "", "Actuals-only", "Reported", "$890m / $150m EBITDA / $62m FCF", "YTD context", "Reported", "2024 year", "2024-Q2", "Official release actuals only."),
+            ("2024-Q2 actuals", "", "Sales $890m; adj EBITDA $150m; adj FCF $62m", "Reported", "$890m / $150m EBITDA / $62m FCF", "YTD context", "Reported", "2024 year", "2024-Q2", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2024-Q1 revisions", (
-            ("2024-Q1 actuals", "", "Actuals-only", "Reported", "$915m / $151m EBITDA / $68m FCF", "YTD context", "Reported", "2024 year", "2024-Q1", "Official release actuals only."),
+            ("2024-Q1 actuals", "", "Sales $915m; adj EBITDA $151m; adj FCF $68m", "Reported", "$915m / $151m EBITDA / $68m FCF", "YTD context", "Reported", "2024 year", "2024-Q1", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2023-Q4 revisions", (
-            ("2023-Q4 actuals", "", "Actuals-only", "Reported", "$945m / $145m EBITDA / $137m FCF", "FY context", "Reported", "2023 year", "2023-Q4", "Official release actuals only."),
+            ("2023-Q4 actuals", "", "Sales $945m; adj EBITDA $145m; adj FCF $137m", "Reported", "$945m / $145m EBITDA / $137m FCF", "FY context", "Reported", "2023 year", "2023-Q4", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2023-Q3 revisions", (
-            ("2023-Q3 actuals", "", "Actuals-only", "Reported", "$960m / $152m EBITDA / $57m FCF", "YTD context", "Reported", "2023 year", "2023-Q3", "Official release actuals only."),
+            ("2023-Q3 actuals", "", "Sales $960m; adj EBITDA $152m; adj FCF $57m", "Reported", "$960m / $152m EBITDA / $57m FCF", "YTD context", "Reported", "2023 year", "2023-Q3", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2023-Q2 revisions", (
-            ("2023-Q2 actuals", "", "Actuals-only", "Reported", "$1.011bn / $170m EBITDA / $140m FCF", "YTD context", "Reported", "2023 year", "2023-Q2", "Official release actuals only."),
+            ("2023-Q2 actuals", "", "Sales $1.011bn; adj EBITDA $170m; adj FCF $140m", "Reported", "$1.011bn / $170m EBITDA / $140m FCF", "YTD context", "Reported", "2023 year", "2023-Q2", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2023-Q1 revisions", (
-            ("2023-Q1 actuals", "", "Actuals-only", "Reported", "$970m / $168m EBITDA / $88m FCF", "YTD context", "Reported", "2023 year", "2023-Q1", "Official release actuals only."),
+            ("2023-Q1 actuals", "", "Sales $970m; adj EBITDA $168m; adj FCF $88m", "Reported", "$970m / $168m EBITDA / $88m FCF", "YTD context", "Reported", "2023 year", "2023-Q1", "Official release actuals; no clean guide revision loaded."),
         ))
         rr = _timeline_block(rr, "2022-Q4 revisions", (
-            ("2022-Q4 actuals", "", "Actuals-only", "Reported", "$898m / $140m EBITDA / $132m FCF", "FY context", "Reported", "2022 year", "2022-Q4", "Official release actuals only."),
+            ("2022-Q4 actuals", "", "Sales $898m; adj EBITDA $140m; adj FCF $132m", "Reported", "$898m / $140m EBITDA / $132m FCF", "FY context", "Reported", "2022 year", "2022-Q4", "Official release actuals; no clean guide revision loaded."),
         ))
         rr += 1
         rr = _section(rr, "Post-quarter May 2026 debt repayment/repricing event")
@@ -1624,6 +1646,160 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             ws.row_dimensions[row_idx].height = 22.5
             return row_idx + 1
 
+        def _actual_grid_headers(row_idx: int, quarter_labels: Sequence[str]) -> int:
+            _style(row_idx, 1, 1, fill=header_fill, bold=True, size=13.0)
+            ws.cell(row_idx, 1, "Quarter")
+            for offset, label in enumerate(quarter_labels, start=2):
+                if offset > 13:
+                    break
+                _style(row_idx, offset, offset, fill=header_fill, bold=True, size=13.0)
+                ws.cell(row_idx, offset, label)
+                ws.cell(row_idx, offset).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            _style(row_idx, 14, 14, fill=header_fill, bold=True, size=13.0)
+            ws.row_dimensions[row_idx].height = 21.0
+            return row_idx + 1
+
+        def _coerce_grid_number(value: Any) -> Optional[float]:
+            try:
+                val = float(value)
+            except Exception:
+                return None
+            if math.isnan(val):
+                return None
+            return val
+
+        def _grid_value_fill(values: Sequence[Any], idx: int, default_fill: Any) -> Any:
+            cur = _coerce_grid_number(values[idx] if idx < len(values) else None)
+            if cur is None:
+                return default_fill
+            prev: Optional[float] = None
+            for prev_idx in range(idx - 1, -1, -1):
+                prev = _coerce_grid_number(values[prev_idx] if prev_idx < len(values) else None)
+                if prev is not None:
+                    break
+            if prev is None or abs(prev) < 1e-9:
+                return default_fill
+            change = (cur - prev) / abs(prev)
+            if change >= 0.15:
+                return PatternFill("solid", fgColor="2F80ED")
+            if change >= 0.05:
+                return PatternFill("solid", fgColor="9DCEF0")
+            if change <= -0.15:
+                return PatternFill("solid", fgColor="C65911")
+            if change <= -0.05:
+                return PatternFill("solid", fgColor="D9D9D9")
+            return default_fill
+
+        def _actual_grid_group(row_idx: int, label: str) -> int:
+            _merge(row_idx, 1, 14, label, fill=section_fill, bold=True, size=13.0, white=True)
+            ws.row_dimensions[row_idx].height = 18.0
+            return row_idx + 1
+
+        def _scaled_grid_value(value: Any, scale: str) -> Optional[float]:
+            number_value = _coerce_grid_number(value)
+            if number_value is None:
+                return None
+            if scale in {"money_m", "shares_m"} and abs(number_value) >= 1_000_000:
+                return number_value / 1_000_000.0
+            return number_value
+
+        def _actual_grid_row(row_idx: int, label: str, values: Sequence[Any], *, number_format: str = "#,##0.0", scale: str = "money_m") -> int:
+            scaled_values = [_scaled_grid_value(value, scale) for value in values]
+            base_fill = body_fill if row_idx % 2 == 0 else alt_fill
+            _style(row_idx, 1, 1, fill=base_fill, size=12.0)
+            ws.cell(row_idx, 1, label)
+            for offset in range(12):
+                cc = offset + 2
+                value = scaled_values[offset] if offset < len(scaled_values) else None
+                cell_fill = _grid_value_fill(scaled_values, offset, base_fill)
+                _style(row_idx, cc, cc, fill=cell_fill, size=12.0)
+                if value is not None:
+                    ws.cell(row_idx, cc, value)
+                    ws.cell(row_idx, cc).number_format = number_format
+                else:
+                    ws.cell(row_idx, cc, None)
+                ws.cell(row_idx, cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
+            _style(row_idx, 14, 14, fill=base_fill, size=12.0)
+            ws.row_dimensions[row_idx].height = 18.0
+            return row_idx + 1
+
+        def _write_actuals_grid(row_idx: int) -> int:
+            latest_rows = list(reversed(_gtx_latest_quarter_rows()[:12]))
+            if not latest_rows:
+                return row_idx
+            quarter_labels = [str(item.get("label") or "") for item in latest_rows]
+            row_idx = _section(row_idx, "Actuals — latest 12 quarters")
+            row_idx = _actual_grid_headers(row_idx, quarter_labels)
+
+            def _series(key: str) -> List[Any]:
+                return [item.get(key) for item in latest_rows]
+
+            row_idx = _actual_grid_group(row_idx, "Operating scorecard")
+            for label, key in (
+                ("Revenue ($m)", "revenue"),
+                ("Gross profit ($m)", "gross_profit"),
+                ("Operating income ($m)", "op_income"),
+                ("Adjusted EBIT ($m)", "adj_ebit"),
+                ("Adjusted EBITDA ($m)", "adj_ebitda"),
+                ("Adjusted FCF ($m)", "adj_fcf"),
+            ):
+                row_idx = _actual_grid_row(row_idx, label, _series(key), scale="money_m")
+            row_idx = _actual_grid_group(row_idx, "Cash / balance sheet")
+            for label, key, fmt in (
+                ("CFO ($m)", "cfo", "#,##0.0"),
+                ("Capex ($m)", "capex", "#,##0.0"),
+                ("Buybacks ($m)", "buybacks_cash", "#,##0.0"),
+                ("Unrestricted cash ($m)", "cash", "#,##0.0"),
+                ("Restricted cash ($m)", "restricted_cash", "#,##0.0"),
+                ("Debt core ($m)", "debt_core", "#,##0.0"),
+                ("Diluted shares (m)", "shares_diluted", "#,##0.0"),
+            ):
+                row_idx = _actual_grid_row(
+                    row_idx,
+                    label,
+                    _series(key),
+                    number_format=fmt,
+                    scale="shares_m" if key == "shares_diluted" else "money_m",
+                )
+            return row_idx + 1
+
+        def _support_grid_header(row_idx: int, periods: Sequence[str]) -> int:
+            _style(row_idx, 1, 1, fill=header_fill, bold=True, size=13.0)
+            ws.cell(row_idx, 1, "Metric / driver")
+            for offset, period in enumerate(periods, start=2):
+                _style(row_idx, offset, offset, fill=header_fill, bold=True, size=13.0)
+                ws.cell(row_idx, offset, period)
+                ws.cell(row_idx, offset).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            for cc in range(2 + len(periods), 15):
+                _style(row_idx, cc, cc, fill=header_fill, bold=True, size=13.0)
+            ws.row_dimensions[row_idx].height = 19.5
+            return row_idx + 1
+
+        def _support_group(row_idx: int, label: str) -> int:
+            _merge(row_idx, 1, 14, label, fill=section_fill, bold=True, size=13.0)
+            ws.row_dimensions[row_idx].height = 19.5
+            return row_idx + 1
+
+        def _support_row(row_idx: int, label: str, values: Sequence[Any], *, number_format: str = "#,##0") -> int:
+            base_fill = body_fill if row_idx % 2 == 0 else alt_fill
+            _style(row_idx, 1, 1, fill=base_fill, size=12.0)
+            ws.cell(row_idx, 1, label)
+            numeric_values = [_coerce_grid_number(value) for value in values]
+            for offset in range(5):
+                cc = offset + 2
+                value = values[offset] if offset < len(values) else None
+                cell_fill = _grid_value_fill(numeric_values, offset, base_fill)
+                _style(row_idx, cc, cc, fill=cell_fill, size=12.0)
+                if value not in (None, ""):
+                    ws.cell(row_idx, cc, value)
+                    if isinstance(value, (int, float)):
+                        ws.cell(row_idx, cc).number_format = number_format
+                ws.cell(row_idx, cc).alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
+            for cc in range(7, 15):
+                _style(row_idx, cc, cc, fill=base_fill, size=12.0)
+            ws.row_dimensions[row_idx].height = 19.5
+            return row_idx + 1
+
         ws.sheet_view.zoomScale = 110
         ws.freeze_panes = None
         _merge(2, 1, 14, "Operating Drivers", fill=title_fill, bold=True, size=15.0, white=True)
@@ -1716,46 +1892,52 @@ def apply_shared_ui_conventions_to_workbook(deps: SharedUiConventionsDeps, wb: A
             rr += 1
         rr += 1
         rr = _section(rr, "Data tables", "analytical cuts only; GTX still has one reportable accounting segment")
-        rr = _section(rr, "Product-line revenue history")
-        rr = _driver_data_headers(rr, ["Product line", "2023 year", "2024 year", "2025 year", "2025-Q1", "2026-Q1"])
-        for record in (
-            (("Gas ($m)", 1720, 1505, 1592, 403, 443), "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
-            (("Diesel ($m)", 992, 827, 837, 208, 232), "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
-            (("Commercial Vehicles / Industrial ($m)", 656, 629, 654, 155, 181), "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
-            (("Aftermarket ($m)", 456, 459, 438, 98, 114), "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
-            (("Other ($m)", 62, 55, 63, 14, 15), "2025 10-K / 2026-Q1 10-Q", "Operating-driver revenue cut"),
-        ):
-            _driver_data_row(rr, record[0], record[1], record[2])
-            rr += 1
+        rr = _section(rr, "Driver support — latest available product/geography/customer cuts")
+        _merge(
+            rr,
+            1,
+            14,
+            "GTX has one operating/reportable segment; product/geography/customer rows are analytical cuts, not segment profit.",
+            fill=section_fill,
+            size=12.0,
+            gray=True,
+        )
+        ws.row_dimensions[rr].height = 19.5
         rr += 1
-        rr = _section(rr, "Geography revenue history")
-        rr = _driver_data_headers(rr, ["Geography", "2023 year", "2024 year", "2025 year", "2025-Q1", "2026-Q1"])
-        for record in (
-            (("United States ($m)", 744, 700, 694, 176, 179), "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
-            (("Europe ($m)", 1874, 1642, 1745, 425, 503), "2025 10-K / 2026-Q1 10-Q", "Includes Germany + rest of Europe for Q1."),
-            (("Germany ($m)", "", "", "", 89, 93), "2026-Q1 10-Q", "Shown separately in Q1 filing table."),
-            (("Rest of Europe ($m)", "", "", "", 336, 410), "2026-Q1 10-Q", "Shown separately in Q1 filing table."),
-            (("China ($m)", 768, 643, 638, 153, 167), "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
-            (("Rest of Asia ($m)", 433, 413, 406, 104, 110), "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
-            (("Other International ($m)", 67, 77, 101, 20, 26), "2025 10-K / 2026-Q1 10-Q", "Operating-driver geography cut"),
+        rr = _support_grid_header(rr, ["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4", "2026-Q1"])
+        rr = _support_group(rr, "Product-line revenue ($m)")
+        for label, values in (
+            ("Gas", (403, 398, 405, 386, 443)),
+            ("Diesel", (208, 217, 201, 211, 232)),
+            ("Commercial Vehicles / Industrial", (155, 170, 164, 165, 181)),
+            ("Aftermarket", (98, 111, 116, 113, 114)),
+            ("Other", (14, 17, 16, 16, 15)),
+            ("Total net sales", (878, 913, 902, 891, 985)),
         ):
-            _driver_data_row(rr, record[0], record[1], record[2])
-            rr += 1
-        rr += 1
-        rr = _section(rr, "Customer concentration")
-        rr = _driver_data_headers(rr, ["Customer / group", "2023 year", "2024 year", "2025 year"])
-        for record in (
-            (("Stellantis revenue ($m)", 347, 330, 424), "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-            (("BMW revenue ($m)", 474, 401, 385), "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-            (("Ford revenue ($m)", 364, 354, 377), "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-            (("", "", "", ""), "", ""),
-            (("Stellantis % sales", "9%", "9%", "12%"), "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-            (("BMW % sales", "12%", "12%", "11%"), "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-            (("Ford % sales", "9%", "10%", "11%"), "2025 Form 10-K customer table", "Concentration risk / platform watch"),
-            (("Top ten customers % sales", "", "", "about 62%"), "2025 Form 10-K customer disclosure", "Concentration risk; not a segment"),
+            rr = _support_row(rr, label, values)
+        rr = _support_group(rr, "Geography revenue ($m)")
+        for label, values in (
+            ("United States", (176, 178, 170, 170, 179)),
+            ("Europe", (425, 461, 434, 425, 503)),
+            ("China", (153, 151, 167, 167, 167)),
+            ("Rest of Asia", (104, 99, 97, 106, 110)),
+            ("Other International", (20, 24, 34, 23, 26)),
+            ("Total net sales", (878, 913, 902, 891, 985)),
         ):
-            _driver_data_row(rr, record[0], record[1], record[2])
-            rr += 1
+            rr = _support_row(rr, label, values)
+        rr = _support_group(rr, "Customer concentration")
+        rr = _support_grid_header(rr, ["2023 year", "2024 year", "2025 year", "", ""])
+        for label, values, fmt in (
+            ("Stellantis revenue ($m)", (347, 330, 424, "", ""), "#,##0"),
+            ("BMW revenue ($m)", (474, 401, 385, "", ""), "#,##0"),
+            ("Ford revenue ($m)", (364, 354, 377, "", ""), "#,##0"),
+            ("", ("", "", "", "", ""), "#,##0"),
+            ("Stellantis % sales", ("9%", "9%", "12%", "", ""), "0%"),
+            ("BMW % sales", ("12%", "12%", "11%", "", ""), "0%"),
+            ("Ford % sales", ("9%", "10%", "11%", "", ""), "0%"),
+            ("Top ten customers % sales", ("", "", "~62%", "", ""), "0%"),
+        ):
+            rr = _support_row(rr, label, values, number_format=fmt)
         rr += 1
         rr = _section(rr, "Debt / buyback / leverage watch")
         for spec in ((1, 1, "Item"), (2, 4, "Reported / disclosed value"), (5, 6, "Period / event"), (7, 9, "Why it matters"), (10, 11, "Source"), (12, 14, "Workbook treatment / note")):

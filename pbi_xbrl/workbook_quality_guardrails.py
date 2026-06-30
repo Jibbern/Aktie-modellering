@@ -198,6 +198,8 @@ def _promise_revision_blocks(ws: Any) -> Dict[str, List[Tuple[int, Dict[str, Any
             first = _text(ws.cell(body_row, 1).value)
             if first.endswith("revisions") or first.endswith("guidance progression") or first.endswith("open guidance"):
                 break
+            if first and all(_is_blank(ws.cell(body_row, cc).value) for cc in range(2, min(int(ws.max_column or 0), 15) + 1)):
+                break
             values = {name: ws.cell(body_row, col).value for name, col in headers.items()}
             metric = _text(values.get("metric") or values.get("milestone"))
             if metric and metric.lower() not in {"metric", "milestone"}:
