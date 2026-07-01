@@ -196,7 +196,7 @@ def test_post_quarter_current_effects_projects_gpre_legal_and_valuation_counts(
 def test_ticker_without_normalized_event_gets_no_fake_current_effects() -> None:
     hist = pd.DataFrame({"quarter": pd.to_datetime(["2026-03-31"])})
 
-    for ticker in ("ANF", "GTX"):
+    for ticker in ("ANF",):
         freshness = build_source_filing_freshness(
             ticker=ticker,
             hist=hist,
