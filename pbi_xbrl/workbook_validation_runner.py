@@ -20,7 +20,7 @@ from .path_config import resolve_stock_model_paths
 from .workbook_quality_guardrails import run_workbook_quality_guardrails
 
 
-TICKERS: Sequence[str] = ("PBI", "GPRE", "ANF", "GTX")
+TICKERS: Sequence[str] = ("PBI", "GPRE", "ANF")
 ERROR_TOKENS: Sequence[str] = ("#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#N/A", "#NULL!", "#NUM!")
 REQUIRED_NAMED_RANGES: Sequence[str] = (
     "CompanyOperatingMargin_Latest",

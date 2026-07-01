@@ -311,31 +311,6 @@ INCOME_STATEMENT_RULES: dict = {
         "cogs_min_ratio": 0.20,
         "cogs_max_ratio": 0.70,
     },
-    "GTX": {
-        "titles_any": [
-            "condensed consolidated statements of operations",
-            "consolidated statements of operations",
-            "statements of operations",
-        ],
-        "period_markers": ["three months ended", "quarter ended"],
-        "require_labels": [
-            "net sales",
-            "cost of goods sold",
-        ],
-        "revenue_primary": ["net sales"],
-        "revenue_parts": [],
-        "cogs_parts": [],
-        "cogs_alt": ["cost of goods sold"],
-        "anti_labels": ["interest expense", "income tax", "tax expense"],
-        "op_income_parts": [
-            "selling general and administrative expenses",
-            "other expense net",
-        ],
-        "use_first_numeric_after_label": True,
-        "allow_title_missing_with_required_labels": True,
-        "cogs_min_ratio": 0.50,
-        "cogs_max_ratio": 0.95,
-    },
 }
 
 

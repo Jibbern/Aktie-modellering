@@ -153,7 +153,7 @@ def write_sector_investment_case_sheet(
     input_fill = PatternFill("solid", fgColor="FFF2CC")
     thin = Border(left=Side(style="thin", color="D9E2EA"), right=Side(style="thin", color="D9E2EA"), top=Side(style="thin", color="D9E2EA"), bottom=Side(style="thin", color="D9E2EA"))
     dark = "1F2933"
-    max_col = 14 if ticker_txt == "GTX" else 10
+    max_col = 10
 
     def _records(section: str) -> List[Dict[str, Any]]:
         if df.empty or "section" not in df.columns:
@@ -705,7 +705,7 @@ def write_sector_investment_case_sheet(
                     tax_source_basis="Debt paydown changes net debt/equity bridge only unless a separate interest effect is modeled.",
                 ),
             ]
-        elif ticker_txt == "GPRE":
+        else:
             credit_45z = _manual_ref(refs, "credit_45z")
             crush_margin = _manual_ref(refs, "crush_margin")
             capex = _manual_ref(refs, "capex")
@@ -766,102 +766,6 @@ def write_sector_investment_case_sheet(
                     eps_impact="auto",
                     tax_treatment=SCENARIO_TAX_TAXABLE,
                     tax_source_basis="Numeric policy/RVO/E15/export input is treated as taxable operating uplift unless explicitly tax-like.",
-                ),
-            ]
-        else:
-            capex = _manual_ref(refs, "capex")
-            capex_baseline = _manual_part_ref(refs, "capex", "ttm")
-            if ticker_txt == "GTX":
-                revenue_mix_read = "Manual GTX sensitivity for OEM production, product-line mix, geography and customer concentration."
-                margin_read = "Manual GTX sensitivity for adjusted EBIT durability, pricing/productivity and product mix."
-                growth_read = "Manual GTX sensitivity for RD&E, technology awards and electrification/industrial pipeline."
-                interest_read = "Manual GTX sensitivity for interest savings or debt paydown; May 18 2026 event remains post-quarter/pro-forma."
-                buyback_read = "Manual GTX sensitivity for buybacks/share count; reported shares remain unchanged in History_Q."
-                generic_tax_basis = "GTX manual non-sector bridge row; no automatic EPS impact until a source-backed numeric driver is entered."
-            else:
-                revenue_mix_read = "Generic placeholder; configure ticker-specific revenue/mix driver before relying on scenario impact."
-                margin_read = "Generic placeholder; configure ticker-specific margin/productivity driver before relying on scenario impact."
-                growth_read = "Generic placeholder; configure ticker-specific growth-investment driver before relying on scenario impact."
-                interest_read = "Generic placeholder; use valuation/debt detail for source-backed debt event treatment."
-                buyback_read = "Generic placeholder; reported shares remain source-backed in History_Q unless a specific overlay is configured."
-                generic_tax_basis = "Generic non-sector bridge row; no automatic EPS impact."
-            bridge_specs = [
-                _ScenarioDriverBridgeSpec(
-                    "Revenue / volume / mix",
-                    SCENARIO_DRIVER_MANUAL_INCREMENTAL,
-                    0,
-                    0,
-                    revenue_mix_read,
-                    explicit_incremental=True,
-                    ebitda_impact="none",
-                    fcf_impact="none",
-                    eps_impact="none",
-                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis=generic_tax_basis,
-                ),
-                _ScenarioDriverBridgeSpec(
-                    "Margin / productivity",
-                    SCENARIO_DRIVER_MANUAL_INCREMENTAL,
-                    0,
-                    0,
-                    margin_read,
-                    explicit_incremental=True,
-                    ebitda_impact="none",
-                    fcf_impact="none",
-                    eps_impact="none",
-                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis=generic_tax_basis,
-                ),
-                _ScenarioDriverBridgeSpec(
-                    "Growth investment / RD&E",
-                    SCENARIO_DRIVER_MANUAL_INCREMENTAL,
-                    0,
-                    0,
-                    growth_read,
-                    explicit_incremental=True,
-                    ebitda_impact="none",
-                    fcf_impact="none",
-                    eps_impact="none",
-                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis=generic_tax_basis,
-                ),
-                _ScenarioDriverBridgeSpec(
-                    "Capex change vs baseline",
-                    SCENARIO_DRIVER_CASH_FLOW_CAPEX,
-                    f'=IF({capex_baseline}="","Unknown",{capex_baseline})',
-                    _active_value_formula(capex),
-                    "Capex change affects FCF only.",
-                    ebitda_impact="none",
-                    fcf_impact="negative",
-                    eps_impact="none",
-                    tax_treatment=SCENARIO_TAX_CASH_ONLY,
-                    tax_source_basis="Capex affects cash flow, not direct EPS or Adj EBITDA.",
-                ),
-                _ScenarioDriverBridgeSpec(
-                    "Interest savings / debt paydown",
-                    SCENARIO_DRIVER_CAPITAL_STRUCTURE_INTEREST,
-                    0,
-                    0,
-                    interest_read,
-                    explicit_incremental=True,
-                    ebitda_impact="none",
-                    fcf_impact="none",
-                    eps_impact="none",
-                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis=generic_tax_basis,
-                ),
-                _ScenarioDriverBridgeSpec(
-                    "Buybacks / share-count change",
-                    SCENARIO_DRIVER_MANUAL_INCREMENTAL,
-                    0,
-                    0,
-                    buyback_read,
-                    explicit_incremental=True,
-                    ebitda_impact="none",
-                    fcf_impact="none",
-                    eps_impact="none",
-                    tax_treatment=SCENARIO_TAX_NO_EPS_IMPACT,
-                    tax_source_basis=generic_tax_basis,
                 ),
             ]
 
@@ -1191,18 +1095,6 @@ def write_sector_investment_case_sheet(
             "FCF / Balance Sheet",
             "Guidance Beat/Miss Setup",
         ]
-    elif ticker_txt == "GTX":
-        section_order = [
-            "Key Debates",
-            "Bear / Base / Bull Scenario",
-            "Quality of Earnings",
-            "What needs to happen for the stock to work",
-            "Product / Geography / Customer Cuts",
-            "Operating Driver Watchlist",
-            "Current Guide -> Implied Earnings",
-            "Capital Structure / Cash",
-            "Valuation Sensitivity",
-        ]
     else:
         section_order = []
     for section in section_order:
@@ -1287,13 +1179,7 @@ def write_sector_investment_case_sheet(
                 )
                 ws.row_dimensions[row - 1].height = 26
         elif section == "Quality of Earnings":
-            quality_impact_span = (2, 4) if ticker_txt == "GTX" else (2, 3)
-            quality_read_start = 7 if ticker_txt == "GTX" else 6
-            row = _header(
-                row,
-                ["Item", "Impact", "", "", "Cash?", "Recurring?", "Read"],
-                merge_spans=[quality_impact_span, (quality_read_start, max_col)],
-            )
+            row = _header(row, ["Item", "Impact", "", "Cash?", "Recurring?", "Read"], merge_spans=[(2, 3), (6, 10)])
             for idx, rec in enumerate(recs):
                 row = _row(
                     row,
@@ -1301,24 +1187,12 @@ def write_sector_investment_case_sheet(
                         rec.get("metric"),
                         rec.get("display"),
                         "",
-                        "",
                         rec.get("cash_flag"),
                         rec.get("recurring_flag"),
                         rec.get("quality_read"),
                     ],
                     fill=alt_fill if idx % 2 else white_fill,
-                    spans=[quality_impact_span, (quality_read_start, max_col)],
-                )
-                ws.row_dimensions[row - 1].height = 24
-        elif section == "What needs to happen for the stock to work" and ticker_txt == "GTX":
-            row = _header(row, ["Metric", "", "Value / read", "", "", "", "", "", "", "", "Source / investment read"], merge_spans=[(1, 2), (3, 10), (11, max_col)])
-            for idx, rec in enumerate(recs):
-                note = _source_read(rec)
-                row = _row(
-                    row,
-                    [rec.get("metric"), "", rec.get("display"), "", "", "", "", "", "", "", note],
-                    fill=alt_fill if idx % 2 else white_fill,
-                    spans=[(1, 2), (3, 10), (11, max_col)],
+                    spans=[(2, 3), (6, 10)],
                 )
                 ws.row_dimensions[row - 1].height = 24
         elif section == "Guidance Beat/Miss Setup":
@@ -1377,8 +1251,6 @@ def write_sector_investment_case_sheet(
         "I": 22,
         "J": 22,
     }
-    if ticker_txt == "GTX":
-        widths.update({"A": 34, "B": 24, "C": 26, "D": 24, "E": 24, "F": 18, "G": 18, "H": 18, "I": 18, "J": 18, "K": 18, "L": 18, "M": 18, "N": 18})
     for col, width in widths.items():
         ws.column_dimensions[col].width = width
     ws.freeze_panes = "A4"

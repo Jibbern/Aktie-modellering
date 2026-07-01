@@ -739,11 +739,6 @@ def _prune_saved_promise_progress_stub_rows(workbook_path: Path) -> None:
     if "Promise_Progress_UI" not in wb.sheetnames:
         return
     ws = wb["Promise_Progress_UI"]
-    ticker = Path(workbook_path).stem.split("_", 1)[0].upper()
-    if ticker == "GTX":
-        _downgrade_saved_qsum_false_positive_rows(wb, ticker)
-        wb.save(workbook_path)
-        return
     active_header: Dict[str, int] = {}
     rows_to_delete: List[int] = []
     visible_max_col = 12
@@ -816,6 +811,7 @@ def _prune_saved_promise_progress_stub_rows(workbook_path: Path) -> None:
                 ws.unmerge_cells(str(merge_range))
     _repair_promise_table_header_merges(ws)
     _polish_promise_scorecard_layout(ws)
+    ticker = Path(workbook_path).stem.split("_", 1)[0]
     _downgrade_saved_qsum_false_positive_rows(wb, ticker)
     wb.save(workbook_path)
 

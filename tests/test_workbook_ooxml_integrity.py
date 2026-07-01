@@ -18,7 +18,7 @@ WORKBOOK_DIR = Path(
         r"C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models",
     )
 )
-CANONICAL_TICKERS = ("PBI", "GPRE", "ANF", "GTX")
+CANONICAL_TICKERS = ("PBI", "GPRE", "ANF")
 
 OOXML_NS = {
     "main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
@@ -106,7 +106,6 @@ def test_workbook_has_no_duplicate_invalid_or_overlapping_merged_ranges(ticker: 
         ]
     finally:
         wb.close()
-
     assert issues == []
 
 
@@ -126,28 +125,5 @@ def test_bs_segments_shared_top_layout_and_standard_widths(ticker: str) -> None:
             letter = get_column_letter(col_idx)
             assert float(ws.column_dimensions[letter].width or 0.0) == pytest.approx(11.29, abs=0.03)
         assert float(ws.column_dimensions["A"].width or 0.0) > 11.29
-    finally:
-        wb.close()
-
-
-def test_gtx_bs_segments_analytical_cut_merges_are_non_overlapping_and_use_b_to_i_standard_widths() -> None:
-    wb = openpyxl.load_workbook(_workbook_path("GTX"), read_only=False, data_only=False)
-    try:
-        ws = wb["BS_Segments"]
-        issues = _merged_range_issues(ws)
-        assert not any("A61:I61" in issue or "A69:I69" in issue or "A77:I77" in issue for issue in issues)
-        assert issues == []
-
-        merged_refs = {str(merged) for merged in ws.merged_cells.ranges}
-        for row_idx in range(1, int(ws.max_row or 0) + 1):
-            label = str(ws.cell(row_idx, 1).value or "").strip()
-            if label in {"Product-line revenue by year", "Geography revenue by year", "Customer concentration"}:
-                assert f"A{row_idx}:I{row_idx}" in merged_refs
-                assert f"E{row_idx}:I{row_idx}" not in merged_refs
-                assert f"E{row_idx + 1}:I{row_idx + 1}" in merged_refs
-
-        for col_idx in range(2, 10):
-            letter = get_column_letter(col_idx)
-            assert float(ws.column_dimensions[letter].width or 0.0) == pytest.approx(11.29, abs=0.03)
     finally:
         wb.close()

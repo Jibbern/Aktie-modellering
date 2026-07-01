@@ -1448,8 +1448,6 @@ def _instrument_type_from_text(name: str, row_text: Optional[str] = None) -> str
 def _parse_maturity_from_text(name: str, row_text: Optional[str] = None) -> Tuple[Optional[dt.date], Optional[str], Optional[int]]:
     txt = f"{name or ''} {row_text or ''}"
     txt_low = txt.lower()
-    name_low = str(name or "").strip().lower()
-    row_text_low = str(row_text or "").strip().lower()
     m = re.search(
         r"(?:due\s+(?:in\s+)?)"
         r"(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|"
@@ -1484,25 +1482,6 @@ def _parse_maturity_from_text(name: str, row_text: Optional[str] = None) -> Tupl
             dd = dt.date(year, mon, 15)
             month_name = dt.date(2000, mon, 1).strftime("%B")
             return dd, f"{month_name} {year}", year
-    m_num = re.search(r"\b(\d{1,2})/(\d{1,2})/(20\d{2})\b", txt_low)
-    if m_num:
-        month = int(m_num.group(1))
-        day = int(m_num.group(2))
-        year = int(m_num.group(3))
-        try:
-            dd = dt.date(year, month, day)
-        except Exception:
-            dd = None
-        if dd is not None:
-            month_name = dt.date(2000, month, 1).strftime("%B")
-            return dd, f"{month_name} {year}", year
-    if re.search(r"\bterm\s+(?:loan\s+)?facility\b", name_low):
-        name_years = set(re.findall(r"\b(20\d{2})\b", name_low))
-        context_years = [int(y) for y in re.findall(r"\b(20\d{2})\b", row_text_low) if y not in name_years]
-        if context_years:
-            year = context_years[-1]
-            return None, None, year
-        return None, None, None
     m3 = re.search(r"\b(20\d{2})\b", txt_low)
     if m3:
         year = int(m3.group(1))
@@ -1967,7 +1946,7 @@ def build_debt_profile(
             tiny_floor = max(5_000_000.0, 0.01 * max(1.0, med_amt))
             tiny_mask = (
                 (pd.to_numeric(cdf.get("amount_principal"), errors="coerce").fillna(0).abs() < tiny_floor)
-                & (cdf.get("source_kind").astype(str).isin(["filing_debt_table", "slides_debt_profile"]))
+                & (cdf.get("source_kind").astype(str) == "filing_debt_table")
             )
             tiny_drop_n = int(tiny_mask.sum())
             if tiny_drop_n > 0:
@@ -1977,7 +1956,7 @@ def build_debt_profile(
                         "quarter": as_of_date,
                         "metric": "debt_profile_tiny_amount_filtered",
                         "severity": "info",
-                        "message": f"Filtered {tiny_drop_n} suspicious tiny debt rows (<${tiny_floor/1e6:,.2f}m).",
+                        "message": f"Filtered {tiny_drop_n} suspicious tiny filing debt rows (<${tiny_floor/1e6:,.2f}m).",
                         "source": "Debt_Tranches_Latest",
                     }
                 )
@@ -5491,10 +5470,7 @@ def _extract_income_statement_from_html(
         if part_set
     ]
     cogs_alt = [s.lower() for s in rules.get("cogs_alt", [])]
-    op_income_parts = [_norm for _norm in (str(s).lower() for s in rules.get("op_income_parts", [])) if _norm]
     anti_labels = [s.lower() for s in rules.get("anti_labels", [])]
-    use_first_numeric_after_label = bool(rules.get("use_first_numeric_after_label", False))
-    allow_title_missing_with_required_labels = bool(rules.get("allow_title_missing_with_required_labels", False))
     cogs_min_ratio = float(rules.get("cogs_min_ratio", 0.15))
     cogs_max_ratio = float(rules.get("cogs_max_ratio", 0.95))
 
@@ -5561,33 +5537,6 @@ def _extract_income_statement_from_html(
                     year_to_col[value_col] = yr
                     last_value_col = value_col
                 return data_start, year_to_col
-        return None
-
-    def _selected_numeric_ordinal_from_year_header(t2: pd.DataFrame) -> Optional[int]:
-        """Return the ordinal of the current-period numeric token in split-currency rows.
-
-        Garrett statement tables can put "Three Months" and "Nine Months" headers
-        above a year row, while individual data rows include separate "$" columns.
-        In those rows physical columns no longer line up with the compact year
-        header.  The year-header ordinal still matches the numeric-token ordinal:
-        e.g. 2025/2024/2025/2024 -> the second 2025 is the third numeric value.
-        """
-        max_rows = min(4, len(t2))
-        for r in range(max_rows):
-            row = [str(x) for x in t2.iloc[r].tolist()]
-            year_cells: List[int] = []
-            for cell in row:
-                m = re.search(r"\b(20\d{2})\b", str(cell))
-                if m:
-                    year_cells.append(int(m.group(1)))
-            if len(year_cells) < 2:
-                continue
-            matches = [idx for idx, yr in enumerate(year_cells) if yr == quarter_end.year]
-            if not matches:
-                continue
-            if period_hint == "9M" and len(matches) > 1:
-                return int(matches[-1])
-            return int(matches[0])
         return None
 
     best = None
@@ -5686,12 +5635,7 @@ def _extract_income_statement_from_html(
             # fallback: use first numeric column after label
             col_idx = num_cols[0]
 
-        selected_numeric_ordinal = (
-            _selected_numeric_ordinal_from_year_header(t2)
-            if use_first_numeric_after_label
-            else None
-        )
-        rows = t2.copy() if use_first_numeric_after_label else t2[[label_col, col_idx]].copy()
+        rows = t2[[label_col, col_idx]].copy()
         if data_start_row:
             rows = rows.iloc[data_start_row:].copy()
         rows[label_col] = rows[label_col].astype(str)
@@ -5700,7 +5644,6 @@ def _extract_income_statement_from_html(
         cogs_candidates: List[Tuple[str, float]] = []
         gp_candidates: List[Tuple[str, float]] = []
         op_candidates: List[Tuple[str, float]] = []
-        op_expense_values: Dict[str, Tuple[float, str]] = {}
         total_costs_val = None
         total_costs_label = ""
 
@@ -5728,14 +5671,8 @@ def _extract_income_statement_from_html(
             has_total_rev = any("total revenue" in lab for lab in norm_labels)
             has_total_costs = any("total costs and expenses" in lab for lab in norm_labels)
             has_cogs_marker = any(("cost of" in lab or "cost of sales" in lab) for lab in norm_labels)
-            has_required_gtx_shape = (
-                allow_title_missing_with_required_labels
-                and any("net sales" in lab for lab in norm_labels)
-                and any("cost of goods sold" in lab for lab in norm_labels)
-                and any("gross profit" in lab for lab in norm_labels)
-            )
             # allow title-missing tables only if they are clearly IS (total revenue + total costs + cost rows)
-            if not has_required_gtx_shape and not (has_total_rev and has_total_costs and has_cogs_marker):
+            if not (has_total_rev and has_total_costs and has_cogs_marker):
                 continue
 
         for _, r in rows.iterrows():
@@ -5754,20 +5691,7 @@ def _extract_income_statement_from_html(
                     continue
             if "year ended" in label_norm or "years ended" in label_norm or "months ended" in label_norm:
                 continue
-            if use_first_numeric_after_label:
-                candidates = []
-                for raw_value in r.iloc[1:].tolist():
-                    candidate = coerce_number(raw_value)
-                    if candidate is not None:
-                        candidates.append(candidate)
-                if not candidates:
-                    v = None
-                elif selected_numeric_ordinal is not None and selected_numeric_ordinal < len(candidates):
-                    v = candidates[selected_numeric_ordinal]
-                else:
-                    v = candidates[0]
-            else:
-                v = coerce_number(r[col_idx])
+            v = coerce_number(r[col_idx])
             if v is None:
                 continue
             v = float(v) * scale
@@ -5786,19 +5710,8 @@ def _extract_income_statement_from_html(
                 cogs_candidates.append((label_norm, v))
             if "gross profit" in label_norm:
                 gp_candidates.append((label, v))
-            if (
-                (
-                    "operating income" in label_norm
-                    or "operating loss" in label_norm
-                    or "income from operations" in label_norm
-                    or "loss from operations" in label_norm
-                )
-                and "non operating" not in label_norm
-            ):
+            if "operating income" in label_norm or "operating loss" in label_norm or "income from operations" in label_norm or "loss from operations" in label_norm:
                 op_candidates.append((label, v))
-            for expense_label in op_income_parts:
-                if expense_label in label_norm and expense_label not in op_expense_values:
-                    op_expense_values[expense_label] = (v, label_norm)
 
         def _pick_best_cost(cands: List[Tuple[str, float]]) -> Optional[Tuple[float, str]]:
             if not cands:
@@ -5908,12 +5821,6 @@ def _extract_income_statement_from_html(
         op_pick = _pick_best_simple(op_candidates)
         if op_pick is not None:
             vals["op_income"], labels["op_income"] = op_pick
-        elif "gross_profit" in vals and op_income_parts and all(part in op_expense_values for part in op_income_parts):
-            expense_total = sum(op_expense_values[part][0] for part in op_income_parts)
-            vals["op_income"] = float(vals["gross_profit"]) - float(expense_total)
-            labels["op_income"] = "gross profit - (" + " + ".join(
-                op_expense_values[part][1] for part in op_income_parts
-            ) + ")"
 
         if vals:
             if not title_ok:
@@ -7127,7 +7034,6 @@ def _extract_balance_sheet_from_html(
         lease_cur = lease_non = None
         lease_fin_cur = lease_fin_non = None
         debt_cur = debt_non = debt_lt = None
-        cash = None
         equity = None
         goodwill = None
         intang = None
@@ -7150,22 +7056,11 @@ def _extract_balance_sheet_from_html(
             label_norm = _norm_label(label_raw)
             if not label_norm or _is_header_like(label_norm):
                 continue
-            raw_value = t.iat[rr, col_idx]
-            v = coerce_number(raw_value)
-            if v is None and str(raw_value or "").strip() in {"$", "US$"}:
-                for probe_idx in range(col_idx + 1, min(t.shape[1], col_idx + 3)):
-                    candidate = coerce_number(t.iat[rr, probe_idx])
-                    if candidate is not None:
-                        v = candidate
-                        break
+            v = coerce_number(t.iat[rr, col_idx])
             if v is None:
                 continue
             v = float(v) * scale
 
-            if label_norm.startswith("cash and cash equivalents") and "restricted" not in label_norm:
-                cash = v
-                labels["cash"] = label_raw
-                continue
             if "customer deposits" in label_norm:
                 if "noncurrent" in label_norm or "non current" in label_norm:
                     dep_non = v
@@ -7233,12 +7128,8 @@ def _extract_balance_sheet_from_html(
                 labels["debt_core_noncurrent"] = label_raw
                 continue
             if label_norm.startswith("long term debt") or label_norm.startswith("long-term debt"):
-                if debt_cur is not None:
-                    debt_non = v
-                    labels["debt_core_noncurrent"] = label_raw
-                else:
-                    debt_lt = v
-                    labels["debt_core_longterm"] = label_raw
+                debt_lt = v
+                labels["debt_core_longterm"] = label_raw
                 continue
             if (
                 label_norm.startswith("total stockholders")
@@ -7346,9 +7237,6 @@ def _extract_balance_sheet_from_html(
             else:
                 labels["debt_core"] = "current debt (fallback)"
 
-        if cash is not None:
-            values["cash"] = float(cash)
-            labels["cash"] = labels.get("cash", "cash and cash equivalents")
         if equity is not None:
             values["total_equity"] = float(equity)
             labels["total_equity"] = labels.get("total_equity", "total equity")
@@ -7847,10 +7735,10 @@ def _extract_eps_shares_from_html(
     html_bytes: bytes,
     quarter_end: dt.date,
 ) -> Optional[Dict[str, Any]]:
-    html_text = html_bytes.decode("utf-8", errors="ignore")
+    html = html_bytes.decode("utf-8", errors="ignore")
     eps_diluted_re = re.compile(r"weighted[- ]?average\s+shares.*dilut", re.I)
     eps_diluted_tokens = ["weighted", "average", "share", "dilut"]
-    scale = 1000.0 if re.search(r"in\s+thousands", html_text, re.I) else 1.0
+    scale = 1000.0 if re.search(r"in\s+thousands", html, re.I) else 1.0
     tables = read_html_tables_any(html_bytes)
     for t in tables:
         if t is None or t.empty:
@@ -7940,38 +7828,10 @@ def _extract_eps_shares_from_html(
             "label_basic": bas_label,
         }
 
-    # Fallback: parse raw visible text if tables are not parsed well (e.g., EX-99.1).
-    # Use tag-stripped text so inline XBRL ids such as "ic6679" are not treated as
-    # share counts before the visible 197,514-style value.
-    visible_text = re.sub(r"\s+", " ", html.unescape(strip_html(html_text))).strip()
-    amount_re = r"(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d{4,}(?:\.\d+)?)"
-
-    common_shares_m = re.search(
-        rf"weighted\s+average\s+common\s+shares\s+outstanding\b(?P<body>.{{0,1200}}?)\bdiluted\b(?P<tail>.{{0,500}})",
-        visible_text,
-        re.I,
-    )
-    if common_shares_m:
-        nums = re.findall(amount_re, common_shares_m.group("tail") or "")
-        if nums:
-            diluted = float(nums[0].replace(",", ""))
-            scale_local = 1000.0 if re.search(r"in\s+thousands", visible_text, re.I) else 1.0
-            diluted *= scale_local
-            if diluted < 5_000_000:
-                diluted *= 1000.0
-            if 0 < diluted <= 5_000_000_000:
-                if scale_local == 1000.0:
-                    diluted = round(diluted / 1000.0) * 1000.0
-                return {
-                    "shares_diluted": round(diluted, 3),
-                    "shares_basic": None,
-                    "label_diluted": "weighted average common shares outstanding diluted (html text)",
-                    "label_basic": "",
-                }
-
-    m = eps_diluted_re.search(visible_text)
+    # Fallback: parse raw HTML row if tables are not parsed well (e.g., EX-99.1)
+    m = eps_diluted_re.search(html)
     if not m:
-        for ln in visible_text.splitlines():
+        for ln in html.splitlines():
             l = ln.strip().lower()
             if not l:
                 continue
@@ -7990,17 +7850,17 @@ def _extract_eps_shares_from_html(
                         }
         return None
     # look back for "three months ended" header
-    back = visible_text[max(0, m.start() - 2000):m.start()]
+    back = html[max(0, m.start() - 2000):m.start()]
     years = re.findall(r"(20\\d{2})", back)
     years = [int(y) for y in years][-4:]  # keep recent
     # extract numbers after the label
-    after = visible_text[m.start():m.start() + 2000]
+    after = html[m.start():m.start() + 2000]
     nums = re.findall(r"(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d{4,}(?:\.\d+)?)", after)
     if not nums:
         return None
     vals = [float(n.replace(",", "")) for n in nums]
     # if "in thousands" appears anywhere (header may be far from row), scale
-    if re.search(r"in\s+thousands", back + after, re.I) or re.search(r"in\s+thousands", html_text, re.I):
+    if re.search(r"in\s+thousands", back + after, re.I) or re.search(r"in\s+thousands", html, re.I):
         scale = 1000.0
     else:
         scale = 1.0
@@ -11015,47 +10875,6 @@ def build_gaap_history(
                                 "value": val,
                                 "note": "bank_net_funding = bank_deposits - bank_finance_receivables (post OCR fallback)",
                             })
-    if str(ticker or "").strip().upper() == "GTX" and {"quarter", "gross_profit", "op_income"}.issubset(set(hist.columns)):
-        for idx, row in hist.iterrows():
-            q_raw = pd.to_datetime(row.get("quarter"), errors="coerce")
-            if pd.isna(q_raw):
-                continue
-            qd = q_raw.date()
-            if (quarter_index(qd) or 0) != 4:
-                continue
-            try:
-                gp = float(row.get("gross_profit"))
-                op = float(row.get("op_income"))
-            except Exception:
-                continue
-            if not (math.isfinite(gp) and math.isfinite(op)):
-                continue
-            if op <= gp:
-                continue
-            hist.at[idx, "op_income"] = float("nan")
-            if "operating_margin" in hist.columns:
-                hist.at[idx, "operating_margin"] = float("nan")
-            audit_rows.append(
-                {
-                    "metric": "op_income",
-                    "quarter": qd,
-                    "source": "sanity_guard",
-                    "source_choice": "gtx_q4_op_income_gt_gross_profit",
-                    "tag": "",
-                    "accn": None,
-                    "form": None,
-                    "filed": None,
-                    "start": None,
-                    "end": qd,
-                    "unit": "USD",
-                    "duration_days": None,
-                    "value": float("nan"),
-                    "note": (
-                        "GTX Q4 operating income suppressed because parsed value exceeded gross profit; "
-                        "likely FY/YTD extraction artifact and left unavailable pending source-backed derivation."
-                    ),
-                }
-            )
     audit = pd.DataFrame(audit_rows)
     qfd_preview_df = pd.DataFrame(qfd_preview_rows)
     qfd_unused_df = pd.DataFrame(qfd_unused_rows)

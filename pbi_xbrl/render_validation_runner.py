@@ -459,7 +459,7 @@ def _write_reports(report: RenderValidationReport) -> None:
 
 def _default_workbooks(workbook_dir: Path) -> Dict[str, Path]:
     workbooks: Dict[str, Path] = {}
-    for ticker in ("PBI", "GPRE", "ANF", "GTX"):
+    for ticker in ("PBI", "GPRE", "ANF"):
         workbooks[ticker] = next(
             (
                 workbook_dir / f"{ticker}_model{suffix}"

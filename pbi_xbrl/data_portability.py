@@ -28,7 +28,7 @@ SNAPSHOT_REPORT_NAME = "data_snapshot_report.json"
 CLEANUP_REPORT_NAME = "data_cleanup_report.json"
 CLEANUP_DRY_RUN_REPORT_NAME = "data_cleanup_dry_run_report.json"
 DATA_ROOT_VALIDATION_REPORT_NAME = "data_root_validation_report.json"
-TICKERS: Tuple[str, ...] = ("PBI", "GPRE", "ANF", "GTX")
+TICKERS: Tuple[str, ...] = ("PBI", "GPRE", "ANF")
 EXCEL_OUTPUT_FOLDER = "Excel stock models"
 
 

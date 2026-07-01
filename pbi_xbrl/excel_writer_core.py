@@ -997,20 +997,6 @@ def ensure_ui_evidence(ctx: WriterContext) -> None:
         ctx.derived.promise_evidence_df = promise_evidence_df
 
 
-def _visible_adjusted_metrics_frame_for_workbook(ctx: WriterContext) -> pd.DataFrame:
-    """Return the workbook-facing adjusted metrics sheet frame."""
-    df = ctx.inputs.adj_metrics
-    ticker = str(getattr(ctx.company_profile, "ticker", "") or getattr(ctx.inputs, "ticker", "") or "").strip().upper()
-    if ticker != "GTX" or not isinstance(df, pd.DataFrame) or df.empty:
-        return df
-    out = df.copy()
-    if "confidence" in out.columns:
-        out = out[out["confidence"].astype(str).str.strip().str.lower() != "low"].copy()
-    if "source_type" in out.columns:
-        out = out[out["source_type"].astype(str).str.strip().str.lower() != "earnings_deck"].copy()
-    return out
-
-
 def write_raw_data_sheets(ctx: WriterContext) -> None:
     data = ctx.data
     callbacks = ctx.callbacks
@@ -1030,7 +1016,7 @@ def write_raw_data_sheets(ctx: WriterContext) -> None:
         _write_raw_stage("operating_drivers_raw", lambda: callbacks.write_operating_drivers_raw_sheet(data.operating_driver_history_rows))
     if data.enable_economics_market_raw_sheet:
         _write_raw_stage("economics_market_raw", lambda: callbacks.write_economics_market_raw_sheet(data.economics_market_rows))
-    _write_raw_stage("adjusted_metrics", lambda: callbacks.write_sheet("Adjusted_Metrics", _visible_adjusted_metrics_frame_for_workbook(ctx)))
+    _write_raw_stage("adjusted_metrics", lambda: callbacks.write_sheet("Adjusted_Metrics", ctx.inputs.adj_metrics))
     _write_raw_stage("adjustments_breakdown", lambda: callbacks.write_sheet("Adjustments_Breakdown", ctx.inputs.adj_breakdown))
     _write_raw_stage("non_gaap_files", lambda: callbacks.write_sheet("NonGAAP_Files", ctx.inputs.non_gaap_files))
     _write_raw_stage("slides_segments", lambda: callbacks.write_sheet("Slides_Segments", ctx.inputs.slides_segments))

@@ -21,7 +21,7 @@ WORKBOOK_DIR = Path(
         r"C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models",
     )
 )
-TICKERS = ("PBI", "GPRE", "ANF", "GTX")
+TICKERS = ("PBI", "GPRE", "ANF")
 
 
 def _workbook_path(ticker: str) -> Path:
@@ -60,7 +60,6 @@ def test_render_runner_prefers_generated_xlsm_workbooks(tmp_path: Path) -> None:
     assert workbooks["PBI"] == tmp_path / "PBI_model.xlsm"
     assert workbooks["GPRE"] == tmp_path / "GPRE_model.xlsm"
     assert workbooks["ANF"] == tmp_path / "ANF_model.xlsx"
-    assert workbooks["GTX"] == tmp_path / "GTX_model.xlsx"
 
 
 def test_openpyxl_style_validation_passes_current_workbooks() -> None:

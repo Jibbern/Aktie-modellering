@@ -3394,7 +3394,7 @@ def run_pipeline_impl(
     # is driven by recent submissions identity plus a compact signature of facts.
     gaap_history_key = "|".join(
         [
-            "v7_gtx_q4_op_income_sanity",
+            "v4",
             f"sub={submissions_sig}",
             f"facts={df_all_sig}",
             f"max_q={config.max_quarters}",
