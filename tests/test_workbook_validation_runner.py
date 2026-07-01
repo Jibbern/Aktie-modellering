@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import csv
+import posixpath
+import xml.etree.ElementTree as ET
+from zipfile import ZipFile
 
 from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.workbook.defined_name import DefinedName
 
 from pbi_xbrl.workbook_validation_runner import (
@@ -70,6 +74,112 @@ def _make_clean_validation_workbook(path: Path, ticker: str = "PBI") -> Path:
     return path
 
 
+def _ooxml_root(zf: ZipFile, part_name: str) -> ET.Element:
+    return ET.fromstring(zf.read(part_name))
+
+
+def _rel_target_to_part(base_part: str, target: str) -> str:
+    if target.startswith("/"):
+        return target.lstrip("/")
+    return posixpath.normpath(posixpath.join(posixpath.dirname(base_part), target))
+
+
+def _sheet_part_for_name(path: Path, sheet_name: str) -> str:
+    ns = {
+        "main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+        "rel": "http://schemas.openxmlformats.org/package/2006/relationships",
+    }
+    office_rel_ns = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    with ZipFile(path) as zf:
+        workbook_root = _ooxml_root(zf, "xl/workbook.xml")
+        workbook_rels = _ooxml_root(zf, "xl/_rels/workbook.xml.rels")
+        rels = {rel.attrib["Id"]: rel.attrib["Target"] for rel in workbook_rels.findall("rel:Relationship", ns)}
+        for sheet in workbook_root.find("main:sheets", ns).findall("main:sheet", ns):
+            if sheet.attrib.get("name") != sheet_name:
+                continue
+            rid = sheet.attrib[f"{{{office_rel_ns}}}id"]
+            return _rel_target_to_part("xl/workbook.xml", rels[rid])
+    raise AssertionError(f"Missing sheet part for {sheet_name}")
+
+
+def _blank_header_row_in_sheet_xml(path: Path, sheet_name: str) -> None:
+    ns = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    ET.register_namespace("", ns["main"])
+    sheet_part = _sheet_part_for_name(path, sheet_name)
+    replacements: dict[str, bytes] = {}
+    with ZipFile(path) as zf:
+        for name in zf.namelist():
+            data = zf.read(name)
+            if name == sheet_part:
+                root = ET.fromstring(data)
+                for row in root.findall(".//main:sheetData/main:row", ns):
+                    if row.attrib.get("r") != "1":
+                        continue
+                    for cell in row.findall("main:c", ns):
+                        for child in list(cell):
+                            cell.remove(child)
+                        cell.attrib.pop("t", None)
+                    break
+                data = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+            replacements[name] = data
+    with ZipFile(path, "w") as zf:
+        for name, data in replacements.items():
+            zf.writestr(name, data)
+
+
+def _make_post_quarter_table_workbook(path: Path) -> Path:
+    wb = Workbook()
+    _add_required_sheets(wb, "PBI")
+    _add_required_named_ranges(wb)
+    wb.calculation.calcMode = "auto"
+    wb.calculation.fullCalcOnLoad = True
+    wb.calculation.forceFullCalc = True
+    wb["Needs_Review"].append(["priority", "issue"])
+    wb["Needs_Review"].append(["P2", "allowed non-P1 note"])
+    wb["QA_Log"].append(["check", "status"])
+    wb["QA_Log"].append(["visible status", "pass"])
+    ws = wb.create_sheet("PostQuarter_Capital_Events")
+    headers = [
+        "ticker",
+        "event_key",
+        "event_type",
+        "reported_quarter_anchor",
+        "event_date",
+        "filing_type",
+        "filing_date",
+        "downloaded_at",
+        "accession",
+        "principal_redeemed",
+        "incremental_term_loan",
+        "term_loan_total",
+        "gross_principal_delta",
+        "next_scheduled_maturity",
+        "term_loan_maturity",
+        "warrants_issued",
+        "potential_common_shares_issuable_max",
+        "exercise_price",
+        "expiration_date",
+        "beneficial_ownership_limitation",
+        "automatic_net_debt_adjustment",
+        "history_treatment",
+        "valuation_treatment",
+        "used_in_workbook",
+        "used_surfaces",
+        "source_documents",
+        "source_paths",
+        "source_urls",
+        "source_path_exists",
+        "qa_status",
+    ]
+    ws.append(headers)
+    ws.append(["PBI", "PBI|2026-06-23|refinancing_redemption", "refinancing_redemption", "2026-Q1", *([None] * 26)])
+    table = Table(displayName="PostQuarterCapitalEvents", ref="A1:AD2")
+    table.tableStyleInfo = TableStyleInfo(name="TableStyleMedium9", showRowStripes=True)
+    ws.add_table(table)
+    wb.save(path)
+    return path
+
+
 def test_validation_runner_passes_clean_workbook_and_writes_reports(tmp_path: Path) -> None:
     workbook_path = _make_clean_validation_workbook(tmp_path / "PBI_model.xlsx", "PBI")
 
@@ -96,7 +206,27 @@ def test_validation_runner_passes_clean_workbook_and_writes_reports(tmp_path: Pa
     assert "Sampled sheets" in row
     assert "Guardrail P0/P1" in row
     assert "Guardrail P2" in row
+    assert "OOXML table issues" in row
     assert "Elapsed seconds" in row
+
+
+def test_validation_runner_flags_ooxml_table_with_blank_post_quarter_header_cells(tmp_path: Path) -> None:
+    workbook_path = _make_post_quarter_table_workbook(tmp_path / "PBI_model.xlsx")
+
+    clean_result = validate_workbook(workbook_path, "PBI", config=ValidationConfig(enable_quality_guardrails=False))
+    assert clean_result.ooxml_table_issue_count == 0
+    assert clean_result.overall == "PASS"
+
+    _blank_header_row_in_sheet_xml(workbook_path, "PostQuarter_Capital_Events")
+
+    result = validate_workbook(workbook_path, "PBI", config=ValidationConfig(enable_quality_guardrails=False))
+    details = "\n".join(issue.detail for issue in result.issues)
+
+    assert result.overall == "FAIL"
+    assert result.ooxml_table_issue_count >= 2
+    assert "blank_worksheet_header_cell" in details
+    assert "worksheet_header_table_column_mismatch" in details
+    assert "PostQuarterCapitalEvents" in details
 
 
 def test_validation_runner_reports_cells_and_values_for_failures(tmp_path: Path) -> None:

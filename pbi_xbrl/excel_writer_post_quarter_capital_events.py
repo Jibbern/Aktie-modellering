@@ -44,7 +44,6 @@ def write_post_quarter_capital_events_sheet(
     )
     ws.add_table(table)
     ws.freeze_panes = "A2"
-    ws.auto_filter.ref = table.ref
     for column_index, header in enumerate(headers, start=1):
         width = 18
         if header in {"source_documents", "source_paths", "source_urls", "used_surfaces"}:

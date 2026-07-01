@@ -8,13 +8,17 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import posixpath
 import re
 import time
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
+from zipfile import BadZipFile, ZipFile
 
 from openpyxl import load_workbook
+from openpyxl.utils.cell import range_boundaries
 
 from .path_config import resolve_stock_model_paths
 from .workbook_quality_guardrails import run_workbook_quality_guardrails
@@ -199,6 +203,7 @@ class WorkbookValidationResult:
     cross_company_leakage_count: int = 0
     bad_marker_count: int = 0
     quarter_label_issue_count: int = 0
+    ooxml_table_issue_count: int = 0
     missing_required_sheets: List[str] = field(default_factory=list)
     missing_named_ranges: List[str] = field(default_factory=list)
     calc_settings_ok: bool = True
@@ -231,6 +236,7 @@ class WorkbookValidationResult:
                 self.cross_company_leakage_count,
                 self.bad_marker_count,
                 self.quarter_label_issue_count,
+                self.ooxml_table_issue_count,
                 0 if self.quality_guardrails_warn_only else self.quality_guardrail_p0_p1_count,
             ]
         )
@@ -246,6 +252,7 @@ class WorkbookValidationResult:
             "cross_company_leakage": self.cross_company_leakage_count,
             "bad_markers": self.bad_marker_count,
             "quarter_label_issues": self.quarter_label_issue_count,
+            "ooxml_table_issues": self.ooxml_table_issue_count,
             "missing_required_sheets": self.missing_required_sheets,
             "missing_named_ranges": self.missing_named_ranges,
             "calc_settings_ok": self.calc_settings_ok,
@@ -632,6 +639,241 @@ def _check_calc_settings(wb: Any, result: WorkbookValidationResult) -> None:
         )
 
 
+_OOXML_MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+_OOXML_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+_OOXML_OFFICE_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_OOXML_NS = {
+    "main": _OOXML_MAIN_NS,
+    "rel": _OOXML_REL_NS,
+}
+
+
+def _ooxml_root(zf: ZipFile, part_name: str) -> ET.Element:
+    return ET.fromstring(zf.read(part_name))
+
+
+def _ooxml_rel_target_to_part(base_part: str, target: str) -> str:
+    if target.startswith("/"):
+        return target.lstrip("/")
+    return posixpath.normpath(posixpath.join(posixpath.dirname(base_part), target))
+
+
+def _ooxml_sheet_rels_part(sheet_part: str) -> str:
+    return posixpath.join(posixpath.dirname(sheet_part), "_rels", posixpath.basename(sheet_part) + ".rels")
+
+
+def _ooxml_cell_coordinate_col(cell_ref: str) -> int:
+    letters = "".join(ch for ch in str(cell_ref or "") if ch.isalpha()).upper()
+    col_idx = 0
+    for ch in letters:
+        col_idx = col_idx * 26 + (ord(ch) - ord("A") + 1)
+    return col_idx
+
+
+def _ooxml_shared_strings(zf: ZipFile) -> List[str]:
+    if "xl/sharedStrings.xml" not in zf.namelist():
+        return []
+    root = _ooxml_root(zf, "xl/sharedStrings.xml")
+    values: List[str] = []
+    for si in root.findall("main:si", _OOXML_NS):
+        texts = [t.text or "" for t in si.findall(".//main:t", _OOXML_NS)]
+        values.append("".join(texts))
+    return values
+
+
+def _ooxml_cell_value(cell: ET.Element, shared_strings: Sequence[str]) -> str:
+    cell_type = cell.attrib.get("t")
+    value = cell.find("main:v", _OOXML_NS)
+    if cell_type == "s" and value is not None:
+        try:
+            return str(shared_strings[int(value.text or "0")])
+        except (IndexError, ValueError):
+            return ""
+    if cell_type == "inlineStr":
+        return "".join(t.text or "" for t in cell.findall(".//main:t", _OOXML_NS))
+    return "" if value is None or value.text is None else str(value.text)
+
+
+def _ooxml_header_values(
+    zf: ZipFile,
+    sheet_part: str,
+    ref: str,
+    shared_strings: Sequence[str],
+) -> List[str]:
+    min_col, min_row, max_col, _max_row = range_boundaries(ref)
+    sheet_root = _ooxml_root(zf, sheet_part)
+    values_by_col: Dict[int, str] = {}
+    for row in sheet_root.findall(".//main:sheetData/main:row", _OOXML_NS):
+        try:
+            if int(row.attrib.get("r", "0")) != int(min_row):
+                continue
+        except ValueError:
+            continue
+        for cell in row.findall("main:c", _OOXML_NS):
+            col_idx = _ooxml_cell_coordinate_col(cell.attrib.get("r", ""))
+            if min_col <= col_idx <= max_col:
+                values_by_col[col_idx] = _ooxml_cell_value(cell, shared_strings)
+        break
+    return [values_by_col.get(col_idx, "") for col_idx in range(min_col, max_col + 1)]
+
+
+def _valid_excel_table_name(name: str) -> bool:
+    if not name:
+        return False
+    if len(name) > 255:
+        return False
+    if re.search(r"\s", name):
+        return False
+    if not re.match(r"^[A-Za-z_\\]", name):
+        return False
+    if not re.match(r"^[A-Za-z_\\][A-Za-z0-9_.\\]*$", name):
+        return False
+    if re.match(r"^[A-Za-z]{1,3}[1-9][0-9]*$", name):
+        return False
+    return True
+
+
+def _scan_ooxml_tables(workbook_path: Path, result: WorkbookValidationResult) -> None:
+    """Validate OOXML table/header consistency that Excel repairs aggressively.
+
+    This catches issues such as a table part declaring column names while the
+    underlying worksheet header row is blank, a mismatched autoFilter/ref, or a
+    tableColumns count that does not match the declared table range width.
+    """
+
+    try:
+        with ZipFile(workbook_path) as zf:
+            workbook_root = _ooxml_root(zf, "xl/workbook.xml")
+            workbook_rels = _ooxml_root(zf, "xl/_rels/workbook.xml.rels")
+            workbook_rel_targets = {
+                rel.attrib.get("Id", ""): rel.attrib.get("Target", "")
+                for rel in workbook_rels.findall("rel:Relationship", _OOXML_NS)
+            }
+            sheet_parts: Dict[str, str] = {}
+            sheets_el = workbook_root.find("main:sheets", _OOXML_NS)
+            for sheet in list(sheets_el) if sheets_el is not None else []:
+                sheet_name = sheet.attrib.get("name", "")
+                rid = sheet.attrib.get(f"{{{_OOXML_OFFICE_REL_NS}}}id", "")
+                target = workbook_rel_targets.get(rid, "")
+                if sheet_name and target:
+                    sheet_parts[sheet_name] = _ooxml_rel_target_to_part("xl/workbook.xml", target)
+
+            table_to_sheet: Dict[str, str] = {}
+            for sheet_name, sheet_part in sheet_parts.items():
+                rels_part = _ooxml_sheet_rels_part(sheet_part)
+                if rels_part not in zf.namelist():
+                    continue
+                rels_root = _ooxml_root(zf, rels_part)
+                for rel in rels_root.findall("rel:Relationship", _OOXML_NS):
+                    if str(rel.attrib.get("Type", "")).endswith("/table"):
+                        table_part = _ooxml_rel_target_to_part(sheet_part, rel.attrib.get("Target", ""))
+                        table_to_sheet[table_part] = sheet_name
+
+            shared_strings = _ooxml_shared_strings(zf)
+            table_names_seen: set[str] = set()
+            for table_part in sorted(
+                name for name in zf.namelist() if name.startswith("xl/tables/table") and name.endswith(".xml")
+            ):
+                table_root = _ooxml_root(zf, table_part)
+                table_ref = str(table_root.attrib.get("ref") or "")
+                table_name = str(table_root.attrib.get("name") or "")
+                display_name = str(table_root.attrib.get("displayName") or "")
+                sheet_name = table_to_sheet.get(table_part, "")
+                columns_el = table_root.find("main:tableColumns", _OOXML_NS)
+                table_columns = [str(col.attrib.get("name") or "") for col in list(columns_el) if columns_el is not None]
+                declared_count = int(columns_el.attrib.get("count", "0")) if columns_el is not None else 0
+                auto_filter_el = table_root.find("main:autoFilter", _OOXML_NS)
+                auto_filter_ref = str(auto_filter_el.attrib.get("ref") or "") if auto_filter_el is not None else ""
+
+                def add_issue(kind: str, detail: str) -> None:
+                    result.ooxml_table_issue_count += 1
+                    _append_issue(
+                        result,
+                        ValidationIssue(
+                            category="ooxml_table",
+                            sheet=sheet_name,
+                            value=f"/{table_part}",
+                            detail=f"{kind}: {detail}",
+                        ),
+                    )
+
+                if not sheet_name:
+                    add_issue("missing_sheet_relationship", f"Table part /{table_part} is not attached to a worksheet.")
+                    continue
+                if not table_ref:
+                    add_issue("missing_ref", f"{display_name or table_name} has no table ref.")
+                    continue
+                try:
+                    min_col, min_row, max_col, max_row = range_boundaries(table_ref)
+                except ValueError:
+                    add_issue("invalid_ref", f"{display_name or table_name} has invalid ref {table_ref!r}.")
+                    continue
+                if max_row < min_row or max_col < min_col:
+                    add_issue("empty_ref", f"{display_name or table_name} has empty ref {table_ref!r}.")
+                    continue
+                range_width = max_col - min_col + 1
+                header_values = _ooxml_header_values(zf, sheet_parts[sheet_name], table_ref, shared_strings)
+                header_text = [str(value or "").strip() for value in header_values]
+                column_text = [str(value or "").strip() for value in table_columns]
+
+                if auto_filter_ref and auto_filter_ref != table_ref:
+                    add_issue(
+                        "autofilter_ref_mismatch",
+                        f"{sheet_name} {display_name or table_name} ref={table_ref} autoFilter={auto_filter_ref}.",
+                    )
+                if declared_count != range_width or len(table_columns) != range_width:
+                    add_issue(
+                        "table_columns_count_mismatch",
+                        f"{sheet_name} {display_name or table_name} ref={table_ref} width={range_width} "
+                        f"declared={declared_count} actual={len(table_columns)}.",
+                    )
+                if any(not value for value in column_text):
+                    add_issue(
+                        "blank_table_column_name",
+                        f"{sheet_name} {display_name or table_name} has blank tableColumn names.",
+                    )
+                if len(column_text) != len(set(column_text)):
+                    add_issue(
+                        "duplicate_table_column_name",
+                        f"{sheet_name} {display_name or table_name} has duplicate tableColumn names.",
+                    )
+                if any(not value for value in header_text):
+                    add_issue(
+                        "blank_worksheet_header_cell",
+                        f"{sheet_name} {display_name or table_name} {table_ref} has blank worksheet header cells.",
+                    )
+                if len(header_text) != len(set(header_text)):
+                    add_issue(
+                        "duplicate_worksheet_header_cell",
+                        f"{sheet_name} {display_name or table_name} {table_ref} has duplicate worksheet headers.",
+                    )
+                if header_text != column_text:
+                    add_issue(
+                        "worksheet_header_table_column_mismatch",
+                        f"{sheet_name} {display_name or table_name} worksheet headers do not match tableColumns.",
+                    )
+                for candidate_name in [table_name, display_name]:
+                    if not _valid_excel_table_name(candidate_name):
+                        add_issue(
+                            "invalid_table_name",
+                            f"{sheet_name} table name/displayName {candidate_name!r} is not Excel-table-safe.",
+                        )
+                identity_name = display_name or table_name
+                if identity_name in table_names_seen:
+                    add_issue("duplicate_table_name", f"Duplicate table name/displayName: {identity_name}")
+                if identity_name:
+                    table_names_seen.add(identity_name)
+    except (BadZipFile, KeyError, ET.ParseError, OSError, ValueError) as exc:
+        result.ooxml_table_issue_count += 1
+        _append_issue(
+            result,
+            ValidationIssue(
+                category="ooxml_table",
+                detail=f"Could not validate OOXML table package: {exc!r}",
+            ),
+        )
+
+
 def _guardrail_failure_area(rule_id: str, owner: str, reason: str) -> str:
     blob = f"{rule_id} {owner} {reason}".lower()
     if "comparison_coloring" in blob or "color" in blob or "valuation hidden-value display" in blob:
@@ -752,6 +994,10 @@ def validate_workbook(
         _check_calc_settings(wb, result)
         _record_elapsed(result, "workbook_metadata", started)
 
+        started = time.perf_counter()
+        _scan_ooxml_tables(workbook_path, result)
+        _record_elapsed(result, "ooxml_tables", started)
+
         if cfg.enable_quality_guardrails:
             started = time.perf_counter()
             _run_quality_guardrails(wb, ticker_txt, result)
@@ -789,6 +1035,7 @@ def summary_rows(results: Sequence[WorkbookValidationResult]) -> List[Dict[str, 
                 "QA blank/nan": result.qa_blank_nan_status_count,
                 "Cross-company leakage": result.cross_company_leakage_count,
                 "Bad markers": result.bad_marker_count,
+                "OOXML table issues": result.ooxml_table_issue_count,
                 "Required sheets": "pass" if result.required_sheets_ok else f"missing {len(result.missing_required_sheets)}",
                 "Named ranges": "pass" if result.named_ranges_ok else f"missing {len(result.missing_named_ranges)}",
                 "Calc flags": "pass" if result.calc_settings_ok else "fail",
@@ -812,6 +1059,7 @@ def format_summary_table(results: Sequence[WorkbookValidationResult]) -> str:
         "QA blank/nan",
         "Cross-company leakage",
         "Bad markers",
+        "OOXML table issues",
         "Required sheets",
         "Named ranges",
         "Calc flags",

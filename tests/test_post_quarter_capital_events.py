@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from openpyxl import Workbook, load_workbook
 
+from pbi_xbrl.excel_writer_post_quarter_capital_events import (
+    write_post_quarter_capital_events_sheet,
+)
 from pbi_xbrl.post_quarter_capital_events import (
     apply_pbi_current_debt_overlay,
     build_post_quarter_capital_events,
@@ -249,6 +253,35 @@ def test_duplicate_material_and_cache_copies_collapse_to_one_event(
 
     assert len(events) == 1
     assert events.iloc[0]["principal_redeemed"] == 347_000_000.0
+
+
+def test_post_quarter_capital_events_writer_uses_table_filter_only(tmp_path: Path) -> None:
+    wb = Workbook()
+    events = pd.DataFrame(
+        [
+            {
+                "ticker": "PBI",
+                "event_key": "PBI|2026-06-23|refinancing_redemption",
+                "event_type": "refinancing_redemption",
+            }
+        ]
+    )
+
+    write_post_quarter_capital_events_sheet(wb, events)
+    workbook_path = tmp_path / "PBI_model.xlsx"
+    wb.save(workbook_path)
+
+    roundtrip = load_workbook(workbook_path)
+    ws = roundtrip["PostQuarter_Capital_Events"]
+
+    assert ws.auto_filter.ref is None
+    assert "PostQuarterCapitalEvents" in ws.tables
+    assert ws.tables["PostQuarterCapitalEvents"].ref == "A1:C2"
+    assert [ws.cell(1, col).value for col in range(1, 4)] == [
+        "ticker",
+        "event_key",
+        "event_type",
+    ]
 
 
 def test_gpre_event_is_not_emitted_without_max_issuable_share_source(
