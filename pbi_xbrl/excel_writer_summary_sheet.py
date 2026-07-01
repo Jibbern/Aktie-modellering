@@ -9,6 +9,8 @@ import pandas as pd
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from .excel_writer_summary_freshness import append_summary_freshness_sections
+
 
 @dataclass(frozen=True)
 class SummarySheetRenderDeps:
@@ -19,6 +21,8 @@ class SummarySheetRenderDeps:
     normalize_text: Callable[..., str]
     estimate_wrapped_line_count: Callable[..., int]
     estimate_wrapped_row_height: Callable[..., float]
+    source_filing_freshness: Any
+    post_quarter_current_effects: Any
 
 
 def write_summary_sheet(
@@ -32,6 +36,8 @@ def write_summary_sheet(
     glx_normalize_text = deps.normalize_text
     _estimate_wrapped_line_count = deps.estimate_wrapped_line_count
     _estimate_wrapped_row_height = deps.estimate_wrapped_row_height
+    source_filing_freshness = deps.source_filing_freshness
+    post_quarter_current_effects = deps.post_quarter_current_effects
 
     ws = wb.create_sheet(title="SUMMARY")
     if df is None or df.empty:
@@ -418,3 +424,20 @@ def write_summary_sheet(
             ws.row_dimensions[row_idx].height = max(ws.row_dimensions[row_idx].height or 18, 22)
             band_idx += 1
             row_idx += 1
+
+    append_summary_freshness_sections(
+        ws=ws,
+        start_row=row_idx,
+        source_filing_freshness=(
+            source_filing_freshness
+            if isinstance(source_filing_freshness, pd.DataFrame)
+            else pd.DataFrame()
+        ),
+        post_quarter_current_effects=(
+            post_quarter_current_effects
+            if isinstance(post_quarter_current_effects, pd.DataFrame)
+            else pd.DataFrame()
+        ),
+        font_size=font_size,
+        header_size=header_size,
+    )

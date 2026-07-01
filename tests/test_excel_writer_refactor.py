@@ -5534,6 +5534,394 @@ def test_valuation_adds_ratio_notes_and_convertible_dilution_structure_comments_
             assert ws.cell(row=buyback_only_row, column=19).comment is None
 
 
+def test_pbi_valuation_debt_detail_uses_current_refinancing_overlay_without_mutating_reported_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "PBI"):
+            out_path = _make_ticker_model_out_path(
+                case_dir,
+                "PBI",
+                "pbi_current_refinancing_overlay.xlsx",
+            )
+            sec_cache_dir = case_dir / "PBI" / "sec_cache"
+            sec_cache_dir.mkdir(parents=True, exist_ok=True)
+            (sec_cache_dir / "d88573d8k.htm").write_text(
+                "The company redeemed $347 million aggregate principal amount "
+                "of its 6.875% Senior Notes due March 2027.",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "d88573dex101.htm").write_text(
+                "Incremental Term Loan A commitment is $150 million. "
+                "Total Term Loan A borrowings are $302 million. "
+                "The Term Loan A maturity remains May 18, 2031.",
+                encoding="utf-8",
+            )
+            (sec_cache_dir / "d88573dex991.htm").write_text(
+                "The next scheduled debt maturity is March 2029. Existing cash "
+                "and other liquidity funded redemption, fees, costs and expenses.",
+                encoding="utf-8",
+            )
+            reported_tranches = pd.DataFrame(
+                [
+                    {
+                        "tranche_name": "6.875% Senior Notes due March 2027",
+                        "amount_principal": 346_700_000.0,
+                        "maturity_display": "March 2027",
+                        "maturity_year": 2027,
+                        "near_term": True,
+                        "source_kind": "Debt_Tranches_Latest",
+                        "source_basis": "reported_q1",
+                    },
+                    {
+                        "tranche_name": "Term Loan A",
+                        "amount_principal": 152_000_000.0,
+                        "maturity_display": "May 18, 2031",
+                        "maturity_year": 2031,
+                        "near_term": False,
+                        "rate_type": pd.NA,
+                        "instrument_type": pd.NA,
+                        "coupon_pct": pd.NA,
+                        "spread_pct": pd.NA,
+                        "source_kind": "Debt_Tranches_Latest",
+                        "source_basis": "reported_q1",
+                    },
+                    {
+                        "tranche_name": "Senior Notes due March 2029",
+                        "amount_principal": 400_000_000.0,
+                        "maturity_display": "March 2029",
+                        "maturity_year": 2029,
+                        "near_term": False,
+                        "rate_type": pd.NA,
+                        "instrument_type": pd.NA,
+                        "coupon_pct": pd.NA,
+                        "spread_pct": pd.NA,
+                        "source_kind": "Debt_Tranches_Latest",
+                        "source_basis": pd.NA,
+                    },
+                ]
+            )
+            reported_profile = pd.DataFrame(
+                [
+                    {"metric": "debt_principal_total", "value": 898_700_000.0},
+                    {"metric": "debt_carrying_total", "value": 895_000_000.0},
+                    {"metric": "debt_current", "value": 346_700_000.0},
+                ]
+            )
+            original_tranches = reported_tranches.copy(deep=True)
+            original_profile = reported_profile.copy(deep=True)
+            hist = _make_hist()
+            hist["quarter"] = pd.to_datetime(
+                ["2025-06-30", "2025-09-30", "2025-12-31", "2026-03-31"]
+            )
+            reported_filing = sec_cache_dir / "pbi-20260331.htm"
+            reported_filing.write_text("PBI Q1 2026 10-Q", encoding="utf-8")
+            audit = pd.DataFrame(
+                [
+                    {
+                        "quarter": "2026-03-31",
+                        "form": "10-Q",
+                        "accn": "000162828026031003",
+                        "filed": "2026-05-06",
+                        "doc": str(reported_filing),
+                        "downloaded_at": "2026-05-06T12:00:00+00:00",
+                    }
+                ]
+            )
+            base_inputs = _make_inputs(
+                out_path,
+                ticker="PBI",
+                hist=hist,
+                audit=audit,
+            )
+            inputs = base_inputs.__class__(
+                **{
+                    **vars(base_inputs),
+                    "cache_dir": sec_cache_dir,
+                    "debt_tranches_latest": reported_tranches,
+                    "debt_profile": reported_profile,
+                }
+            )
+
+            ctx = build_writer_context(inputs)
+            ensure_valuation_inputs(ctx)
+            ctx.callbacks.write_valuation_sheet()
+            ensure_summary_inputs(ctx)
+            write_summary_sheets(ctx)
+            ws = ctx.wb["Valuation"]
+
+            debt_header_row = _find_row_with_value(ws, "Debt Detail (latest)")
+            principal_total_row = _find_row_with_value(ws, "Principal total ($m)")
+            assert debt_header_row is not None
+            assert principal_total_row is not None
+            active_labels = [
+                str(ws.cell(row=row, column=1).value or "")
+                for row in range(debt_header_row + 1, principal_total_row)
+            ]
+            assert not any("2027" in label and "Senior Notes" in label for label in active_labels)
+            term_loan_row = next(
+                row
+                for row in range(debt_header_row + 1, principal_total_row)
+                if "Term Loan A" in str(ws.cell(row=row, column=1).value or "")
+            )
+            assert float(ws.cell(row=term_loan_row, column=2).value) == pytest.approx(302.0)
+            assert str(ws.cell(row=term_loan_row, column=6).value or "") == "May 18, 2031"
+            assert _find_row_with_value(
+                ws,
+                "Next scheduled maturity",
+                column=19,
+            ) is not None
+            next_maturity_row = _find_row_with_value(
+                ws,
+                "Next scheduled maturity",
+                column=19,
+            )
+            assert "March 2029" in {
+                str(ws.cell(row=next_maturity_row, column=column).value or "")
+                for column in range(1, ws.max_column + 1)
+            }
+            assert _find_row_with_value(
+                ws,
+                "Current / post-quarter principal structure; reported Q1 history unchanged",
+            ) is not None
+            assert _find_row_with_value(
+                ws,
+                "Automatic pro-forma net debt adjustment",
+                column=19,
+            ) is not None
+            overlay_labels = (
+                "Post-quarter refinancing overlay / not in reported Q1 values",
+                "2027 Senior Notes redeemed ($m)",
+                "Incremental Term Loan A ($m)",
+                "Term Loan A total after amendment ($m)",
+                "Gross principal debt delta before fees/costs/other sources ($m)",
+                "Cash / current net debt",
+                "Automatic pro-forma net debt adjustment",
+                "Next scheduled maturity",
+                "Term Loan A maturity",
+            )
+            overlay_cells = {}
+            for row in ws.iter_rows():
+                for cell in row:
+                    if str(cell.value or "").strip() in overlay_labels:
+                        overlay_cells[str(cell.value).strip()] = cell
+            assert set(overlay_cells) == set(overlay_labels)
+            assert all(cell.column == 19 for cell in overlay_cells.values())
+            hidden_value_row = _find_row_with_value(ws, "Hidden value flags")
+            assert hidden_value_row is not None
+            assert max(cell.row for cell in overlay_cells.values()) < hidden_value_row
+            summary_ws = ctx.wb["SUMMARY"]
+            assert _find_row_with_value(summary_ws, "Source / Filing Freshness") is not None
+            assert _find_row_with_value(summary_ws, "Post-quarter / Current Effects") is not None
+            summary_blob = "\n".join(
+                str(summary_ws.cell(row=row, column=column).value or "")
+                for row in range(1, summary_ws.max_row + 1)
+                for column in range(1, summary_ws.max_column + 1)
+            )
+            assert "000162828026031003" in summary_blob
+            assert "000119312526281893" in summary_blob
+            assert "2026-06-25" in summary_blob
+            assert "Valuation current Debt Detail" in summary_blob
+            assert "Unresolved / manual review" in summary_blob
+            assert "History_Q unchanged" in summary_blob
+            assert "Debt_Profile unchanged" in summary_blob
+            freshness = ctx.state["source_filing_freshness"].iloc[0]
+            assert freshness["latest_additional_downloaded_at"]
+            assert freshness["source_path_exists"] == "Yes"
+
+            pd.testing.assert_frame_equal(reported_tranches, original_tranches)
+            pd.testing.assert_frame_equal(reported_profile, original_profile)
+
+
+def test_gpre_valuation_uses_550k_full_dilution_overlay_without_mutating_reported_shares(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _case_dir() as case_dir:
+        with _profile_override(monkeypatch, "GPRE"):
+            out_path = _make_ticker_model_out_path(
+                case_dir,
+                "GPRE",
+                "gpre_post_quarter_warrant_overlay.xlsx",
+            )
+            sec_cache_dir = case_dir / "GPRE" / "sec_cache"
+            sec_cache_dir.mkdir(parents=True, exist_ok=True)
+            (sec_cache_dir / "tm2618355d2_ex10-2.htm").write_text(
+                "The Investors receive their pro rata share of 500,000 warrants "
+                "to purchase 500,000 shares of Common Stock.",
+                encoding="utf-8",
+            )
+            for suffix, amount in zip(
+                ("a", "b", "c", "d"),
+                (366_240, 37_120, 10_360, 86_280),
+            ):
+                (sec_cache_dir / f"tm2618355d2_ex4-4{suffix}.htm").write_text(
+                    f"Number of Warrants: {amount:,}. Each Warrant Share may be "
+                    "purchased for a price of $0.01 per share, the Per Share "
+                    "Exercise Price. Before 5:00 P.M. on June 16, 2036 "
+                    "(the Expiration Date). The Beneficial Ownership Limitation "
+                    "shall be 19.8% of common shares outstanding.",
+                    encoding="utf-8",
+                )
+            (sec_cache_dir / "tm2618355-1_s3asr.htm").write_text(
+                "This prospectus covers up to 550,000 shares of common stock "
+                "issuable on the exercise of outstanding warrants. This "
+                "prospectus covers the resale of the maximum number of shares "
+                "issuable upon exercise without regard to the beneficial "
+                "ownership limitation.",
+                encoding="utf-8",
+            )
+            hist = _make_hist()
+            hist["quarter"] = pd.to_datetime(
+                ["2025-06-30", "2025-09-30", "2025-12-31", "2026-03-31"]
+            )
+            hist["shares_outstanding"] = [70_000_000.0] * 4
+            hist["shares_diluted"] = [70_100_000.0] * 4
+            hist["net_income"] = [5_000_000.0, 6_000_000.0, 7_000_000.0, 8_000_000.0]
+            original_hist = hist.copy(deep=True)
+            reported_filing = sec_cache_dir / "gpre-20260331.htm"
+            reported_filing.write_text("GPRE Q1 2026 10-Q", encoding="utf-8")
+            audit = pd.DataFrame(
+                [
+                    {
+                        "quarter": "2026-03-31",
+                        "form": "10-Q",
+                        "accn": "000130940226000063",
+                        "filed": "2026-05-07",
+                        "doc": str(reported_filing),
+                        "downloaded_at": "2026-05-07T12:00:00+00:00",
+                    }
+                ]
+            )
+            base_inputs = _make_inputs(
+                out_path,
+                ticker="GPRE",
+                hist=hist,
+                audit=audit,
+            )
+            inputs = base_inputs.__class__(
+                **{
+                    **vars(base_inputs),
+                    "cache_dir": sec_cache_dir,
+                }
+            )
+
+            ctx = build_writer_context(inputs)
+            ensure_valuation_inputs(ctx)
+            ctx.callbacks.write_valuation_sheet()
+            ensure_summary_inputs(ctx)
+            write_summary_sheets(ctx)
+
+            assert "PostQuarter_Capital_Events" in ctx.wb.sheetnames
+            support_ws = ctx.wb["PostQuarter_Capital_Events"]
+            assert support_ws.max_row == 2
+            ws = ctx.wb["Valuation"]
+            warrants_row = _find_row_with_value(ws, "Warrants issued (m)", column=19)
+            max_shares_row = _find_row_with_value(
+                ws,
+                "Maximum common shares issuable (m)",
+                column=19,
+            )
+            overlay_row = _find_row_with_value(
+                ws,
+                "Post-quarter potential dilution shares (m)",
+                column=19,
+            )
+            full_dilution_row = _find_row_with_value(
+                ws,
+                "Full-dilution overlay shares (m)",
+                column=19,
+            )
+            sensitivity_row = _find_row_with_value(
+                ws,
+                "Value/share sensitivity: diluted + post-quarter warrants",
+                column=19,
+            )
+            assert warrants_row is not None
+            assert max_shares_row is not None
+            assert overlay_row is not None
+            assert full_dilution_row is not None
+            assert sensitivity_row is not None
+            assert float(ws.cell(row=warrants_row, column=23).value) == pytest.approx(0.500)
+            assert float(ws.cell(row=max_shares_row, column=23).value) == pytest.approx(0.550)
+            assert float(ws.cell(row=overlay_row, column=23).value) == pytest.approx(0.550)
+            assert str(ws.cell(row=full_dilution_row, column=23).value or "") == "=SharesDiluted+0.550"
+            assert "SharesDiluted+0.550" in str(ws.cell(row=sensitivity_row, column=23).value or "")
+            narrative_row = _find_row_with_value(
+                ws,
+                (
+                    "Post-quarter BlackRock warrant overlay: 500k warrants issued; "
+                    "S-3 registers up to 550k common shares issuable on exercise. "
+                    "Reported 2026-Q1 shares/EPS unchanged; valuation full-dilution "
+                    "sensitivity uses +0.55m shares."
+                ),
+                column=19,
+            )
+            assert narrative_row is not None
+            gpre_overlay_labels = (
+                "Post-quarter warrant dilution overlay",
+                "Warrants issued (m)",
+                "Maximum common shares issuable (m)",
+                "Exercise price",
+                "Expiration",
+                "Beneficial ownership limitation",
+                "Reported diluted shares (m)",
+                "Post-quarter potential dilution shares (m)",
+                "Full-dilution overlay shares (m)",
+                "Value/share sensitivity: diluted + post-quarter warrants",
+            )
+            overlay_cells = {}
+            for row in ws.iter_rows():
+                for cell in row:
+                    if str(cell.value or "").strip() in gpre_overlay_labels:
+                        overlay_cells[str(cell.value).strip()] = cell
+            assert set(overlay_cells) == set(gpre_overlay_labels)
+            assert all(cell.column == 19 for cell in overlay_cells.values())
+            hidden_value_row = _find_row_with_value(ws, "Hidden value flags")
+            assert hidden_value_row is not None
+            assert max(cell.row for cell in overlay_cells.values()) < hidden_value_row
+            summary_ws = ctx.wb["SUMMARY"]
+            assert _find_row_with_value(summary_ws, "Source / Filing Freshness") is not None
+            assert _find_row_with_value(summary_ws, "Post-quarter / Current Effects") is not None
+            summary_blob = "\n".join(
+                str(summary_ws.cell(row=row, column=column).value or "")
+                for row in range(1, summary_ws.max_row + 1)
+                for column in range(1, summary_ws.max_column + 1)
+            )
+            assert "000130940226000063" in summary_blob
+            assert "000110465926076397" in summary_blob
+            assert "2026-06-22" in summary_blob
+            assert "Valuation full-dilution sensitivity" in summary_blob
+            assert "500000" in summary_blob
+            assert "550000" in summary_blob
+            assert "Shares/EPS unchanged" in summary_blob
+            freshness = ctx.state["source_filing_freshness"].iloc[0]
+            assert freshness["latest_additional_downloaded_at"]
+            assert freshness["source_path_exists"] == "Yes"
+            pd.testing.assert_frame_equal(hist, original_hist)
+
+
+def test_summary_generic_ticker_does_not_invent_post_quarter_event() -> None:
+    with _case_dir() as case_dir:
+        out_path = _make_ticker_model_out_path(
+            case_dir,
+            "TEST",
+            "summary_no_fake_post_quarter_event.xlsx",
+        )
+        ctx = build_writer_context(_make_inputs(out_path, ticker="TEST"))
+        ensure_summary_inputs(ctx)
+        write_summary_sheets(ctx)
+
+        ws = ctx.wb["SUMMARY"]
+        assert _find_row_with_value(ws, "Source / Filing Freshness") is not None
+        assert _find_row_with_value(ws, "Post-quarter / Current Effects") is not None
+        assert _find_row_with_value(
+            ws,
+            "None newer / no model-relevant post-quarter event",
+        ) is not None
+        assert ctx.state["post_quarter_capital_events"].empty
+        assert ctx.state["post_quarter_current_effects"].empty
+
+
 def test_valuation_thesis_bridge_adds_note_keeps_label_and_formulas() -> None:
     with _case_dir() as case_dir:
         out_path = _make_model_out_path(case_dir, "thesis_bridge.xlsx")
@@ -10962,6 +11350,7 @@ def test_valuation_orchestrator_module_exposes_thin_wrapper_contract() -> None:
         "debt_tranches",
         "debt_tranches_latest",
         "debt_credit_notes",
+        "post_quarter_capital_events",
         "company_overview",
         "cache_root",
         "cache_dir",
@@ -11055,6 +11444,8 @@ def test_summary_sheet_module_exposes_render_contract() -> None:
         "normalize_text",
         "estimate_wrapped_line_count",
         "estimate_wrapped_row_height",
+        "source_filing_freshness",
+        "post_quarter_current_effects",
     ]
     assert callable(write_summary_sheet)
 
