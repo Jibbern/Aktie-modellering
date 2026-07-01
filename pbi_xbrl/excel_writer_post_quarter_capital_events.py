@@ -6,6 +6,7 @@ from typing import Any, Callable
 import pandas as pd
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.table import Table, TableStyleInfo
 
 
 def write_post_quarter_capital_events_sheet(
@@ -31,6 +32,18 @@ def write_post_quarter_capital_events_sheet(
             cell = ws.cell(row=row_index, column=column_index, value=value)
             cell.alignment = Alignment(vertical="top", wrap_text=True)
     end_col = ws.cell(row=1, column=len(headers)).column_letter
+    table = Table(
+        displayName="PostQuarterCapitalEvents",
+        ref=f"A1:{end_col}{len(events) + 1}",
+    )
+    table.tableStyleInfo = TableStyleInfo(
+        name="TableStyleMedium2",
+        showFirstColumn=False,
+        showLastColumn=False,
+        showRowStripes=True,
+        showColumnStripes=False,
+    )
+    ws.add_table(table)
     ws.freeze_panes = "A2"
     for column_index, header in enumerate(headers, start=1):
         width = 18
