@@ -35,7 +35,6 @@ Preview mode: openpyxl/static only. These PNGs are contact sheets for structural
 - Writable cells blank/nonblank: `41` / `0`
 - Visually complete: `True`
 - Gaps: none material after clearing company-specific value zones.
-
 ### Valuation
 
 - Used range: shell `A1:AI261` vs ANF lab `A1:AI261`
@@ -188,4 +187,3 @@ Preview mode: openpyxl/static only. These PNGs are contact sheets for structural
 - Writable cells blank/nonblank: `129974` / `0`
 - Visually complete: `True`
 - Gaps: none material after clearing company-specific value zones.
-
