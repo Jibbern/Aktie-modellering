@@ -1,0 +1,781 @@
+{
+  "$schema": "https://local.stockmodel/sheet_data_flow_map.schema.json",
+  "version": "0.1.0",
+  "purpose": "Read-only data lineage and sheet architecture map for the future value-only new-ticker filler runtime.",
+  "standard_visible_sheets": [
+    "SUMMARY",
+    "Valuation",
+    "BS_Segments",
+    "Operating_Drivers",
+    "{ticker}_Investment_Case",
+    "Quarter_Notes_UI",
+    "Promise_Progress_UI",
+    "QA_Log",
+    "Needs_Review",
+    "QA_Checks"
+  ],
+  "runtime_rule": "Future filler writes validated normalized values only into shell writable zones; it must not parse sources, mutate layout, or patch rendered content.",
+  "support_sheet_dependencies": [
+    {
+      "name": "History_Q",
+      "storage_type": "workbook_support_sheet",
+      "role": "Quarterly financial history and derived facts.",
+      "feeds_visible_sheets": ["SUMMARY", "Valuation", "BS_Segments", "Operating_Drivers", "{ticker}_Investment_Case"],
+      "future_role": "Audit/output support; normalized package should be runtime input."
+    },
+    {
+      "name": "DATA_Facts_Long",
+      "storage_type": "workbook_support_sheet",
+      "role": "Long-form SEC/XBRL fact table.",
+      "feeds_visible_sheets": ["BS_Segments", "QA_Checks"],
+      "future_role": "Source coverage and audit support."
+    },
+    {
+      "name": "SEC_Audit_Log",
+      "storage_type": "workbook_support_sheet",
+      "role": "SEC tag/source/filing audit rows.",
+      "feeds_visible_sheets": ["SUMMARY", "QA_Log", "QA_Checks"],
+      "future_role": "Source refs and audit support."
+    },
+    {
+      "name": "Guidance_Normalized",
+      "storage_type": "workbook_support_sheet",
+      "role": "Current guidance support/readback sheet.",
+      "feeds_visible_sheets": ["Promise_Progress_UI", "Valuation", "{ticker}_Investment_Case", "Quarter_Notes_UI"],
+      "future_role": "Input to normalized guidance builder, not filler runtime source."
+    },
+    {
+      "name": "Guidance_Raw",
+      "storage_type": "workbook_support_sheet",
+      "role": "Raw guidance extraction output.",
+      "feeds_visible_sheets": ["Promise_Progress_UI", "QA_Checks"],
+      "future_role": "Audit-only source; must not bind directly."
+    },
+    {
+      "name": "Slides_Guidance",
+      "storage_type": "workbook_support_sheet",
+      "role": "Guidance extracted from presentations and releases.",
+      "feeds_visible_sheets": ["Promise_Progress_UI", "Valuation", "{ticker}_Investment_Case"],
+      "future_role": "Input to normalized guidance builder."
+    },
+    {
+      "name": "Quarter_Notes",
+      "storage_type": "workbook_support_sheet",
+      "role": "Quarter-note candidates.",
+      "feeds_visible_sheets": ["Quarter_Notes_UI", "{ticker}_Investment_Case"],
+      "future_role": "Input to normalized quarter-notes builder."
+    },
+    {
+      "name": "Quarter_Notes_Evidence",
+      "storage_type": "workbook_support_sheet",
+      "role": "Evidence rows behind quarter notes.",
+      "feeds_visible_sheets": ["Quarter_Notes_UI", "QA_Log"],
+      "future_role": "Source refs and audit support."
+    },
+    {
+      "name": "Quarter_Narrative_Data",
+      "storage_type": "workbook_support_sheet",
+      "role": "Selected quarter narrative rows and audit data.",
+      "feeds_visible_sheets": ["Quarter_Notes_UI"],
+      "future_role": "Audit support for normalized quarter notes."
+    },
+    {
+      "name": "Promise_Progress",
+      "storage_type": "workbook_support_sheet",
+      "role": "Promise/guidance lifecycle rows.",
+      "feeds_visible_sheets": ["Promise_Progress_UI", "{ticker}_Investment_Case"],
+      "future_role": "Input to normalized guidance lifecycle builder."
+    },
+    {
+      "name": "Promise_Evidence",
+      "storage_type": "workbook_support_sheet",
+      "role": "Evidence backing promise rows.",
+      "feeds_visible_sheets": ["Promise_Progress_UI", "QA_Log"],
+      "future_role": "Source refs and audit support."
+    },
+    {
+      "name": "Slides_Segments",
+      "storage_type": "workbook_support_sheet",
+      "role": "Segment taxonomy and values from IR files.",
+      "feeds_visible_sheets": ["BS_Segments", "Operating_Drivers", "{ticker}_Investment_Case"],
+      "future_role": "Input to normalized segment builder."
+    },
+    {
+      "name": "operating_drivers_raw",
+      "storage_type": "workbook_support_sheet",
+      "role": "Operating driver rows/source snippets.",
+      "feeds_visible_sheets": ["Operating_Drivers", "QA_Checks"],
+      "future_role": "Audit support for normalized operating drivers."
+    },
+    {
+      "name": "Debt_Tranches_Q",
+      "storage_type": "workbook_support_sheet",
+      "role": "Debt tranche support by quarter.",
+      "feeds_visible_sheets": ["Valuation", "BS_Segments", "SUMMARY"],
+      "future_role": "Input to normalized debt/liquidity builder."
+    },
+    {
+      "name": "Hidden_Value_Flags",
+      "storage_type": "workbook_support_sheet",
+      "role": "Hidden value scoring/readback support.",
+      "feeds_visible_sheets": ["Valuation"],
+      "future_role": "Shell/readback support only."
+    },
+    {
+      "name": "QA_Log",
+      "storage_type": "visible_qa_sheet",
+      "role": "Validation and review audit output.",
+      "feeds_visible_sheets": [],
+      "future_role": "Output-only from validator/readback checks."
+    },
+    {
+      "name": "Needs_Review",
+      "storage_type": "visible_qa_sheet",
+      "role": "Curated manual review output.",
+      "feeds_visible_sheets": [],
+      "future_role": "Output-only from manual_review_flags."
+    },
+    {
+      "name": "QA_Checks",
+      "storage_type": "visible_qa_sheet",
+      "role": "Binding/quality check output.",
+      "feeds_visible_sheets": [],
+      "future_role": "Output-only from mapping_gaps and readback checks."
+    }
+  ],
+  "cross_sheet_dependencies": [
+    {
+      "from": "History_Q",
+      "to": "Valuation",
+      "data": "actual quarterly financial series, share count, cash flow, debt and cash",
+      "calculation_type": "source-derived values plus Excel-formula-derived presentation",
+      "future_normalization_point": "quarterly_financials, debt_liquidity, capital_returns"
+    },
+    {
+      "from": "History_Q",
+      "to": "SUMMARY",
+      "data": "latest and trend financial facts",
+      "calculation_type": "source-derived and derived summary metrics",
+      "future_normalization_point": "quarterly_financials, debt_liquidity"
+    },
+    {
+      "from": "Guidance_Normalized",
+      "to": "Promise_Progress_UI",
+      "data": "metric, value/range, horizon, stated-in period, source context",
+      "calculation_type": "source-derived classification",
+      "future_normalization_point": "normalized_guidance.items"
+    },
+    {
+      "from": "Guidance_Normalized",
+      "to": "Valuation",
+      "data": "guidance panels and trend flags",
+      "calculation_type": "source-derived guidance plus formula-derived display",
+      "future_normalization_point": "normalized_guidance.items"
+    },
+    {
+      "from": "Quarter_Notes_Evidence",
+      "to": "Quarter_Notes_UI",
+      "data": "evidence-backed quarter notes and model implications",
+      "calculation_type": "source-derived text selection",
+      "future_normalization_point": "quarter_notes.items"
+    },
+    {
+      "from": "Slides_Segments",
+      "to": "BS_Segments",
+      "data": "quarterly and annual segment rows",
+      "calculation_type": "source-derived segment taxonomy and values",
+      "future_normalization_point": "segments.items"
+    },
+    {
+      "from": "BS_Segments",
+      "to": "Operating_Drivers",
+      "data": "segment support values and consistency checks",
+      "calculation_type": "source-derived visible duplication",
+      "future_normalization_point": "segments.items and operating_drivers.items"
+    },
+    {
+      "from": "Operating_Drivers",
+      "to": "{ticker}_Investment_Case",
+      "data": "driver reads and scenario hooks",
+      "calculation_type": "source-derived text/table rows",
+      "future_normalization_point": "operating_drivers.items and investment_case.scenario_drivers"
+    },
+    {
+      "from": "Valuation",
+      "to": "{ticker}_Investment_Case",
+      "data": "valuation hooks and formula-derived scenario outputs",
+      "calculation_type": "Excel-formula-derived presentation from source-derived inputs",
+      "future_normalization_point": "investment_case.valuation_hooks and shell formulas"
+    },
+    {
+      "from": "normalized_company_data_validation",
+      "to": "QA_Log",
+      "data": "structured validation issues",
+      "calculation_type": "pre-render validation output",
+      "future_normalization_point": "manual_review_flags"
+    },
+    {
+      "from": "workbook_binding_map",
+      "to": "QA_Checks",
+      "data": "binding gaps and required field coverage",
+      "calculation_type": "pre-render mapping validation output",
+      "future_normalization_point": "mapping_gaps"
+    }
+  ],
+  "sheets": [
+    {
+      "sheet": "SUMMARY",
+      "source_inputs": {
+        "sec_xbrl": ["History_Q", "SEC_Audit_Log", "DATA_Facts_Long"],
+        "ir_files": ["company overview source material when profile/doc-intel provides it"],
+        "transcripts": ["strategic context when parsed into overview evidence"],
+        "presentations": ["revenue streams and operating model when parsed"],
+        "manual_profile_data": ["company_overview", "company_profiles.py"],
+        "derived_calculated_fields": ["latest quarter metrics", "YoY/TTM summary metrics", "leverage/liquidity summary"]
+      },
+      "storage_layer": {
+        "raw_source_cache": ["StockModelData/sec_cache/{ticker}", "StockModelData/tickers/{ticker}"],
+        "parsed_data": ["summary_df", "History_Q", "Leverage_Liquidity", "SEC_Audit_Log"],
+        "normalized_fields_should_live": ["company_profile", "quarterly_financials", "debt_liquidity", "source_coverage"],
+        "support_sheets_currently_store_intermediate_data": ["History_Q", "SEC_Audit_Log", "Leverage_Liquidity"],
+        "visible_ui_vs_audit_only": {
+          "visible_ui": ["SUMMARY"],
+          "audit_only": ["SEC_Audit_Log", "DATA_Facts_Long"]
+        }
+      },
+      "transformation_logic": {
+        "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_summary_builder.py", "pbi_xbrl/summary_overview.py", "pbi_xbrl/excel_writer_core.py"],
+        "data_selection_rules": ["select latest source-ranked financials", "use company overview/profile rows for descriptive sections", "attach source notes/comments"],
+        "ticker_specific_branches": ["profile-specific overview text and sector terminology"],
+        "source_backed_vs_profile_backed_vs_inferred": "Financial facts are source-backed or derived from source-backed facts; narrative overview can be profile-backed only where binding policy allows it.",
+        "missing_source_behavior": "Current writer may render N/A/generic fallback; future filler must leave values blank and emit mapping gaps/manual review flags."
+      },
+      "workbook_presentation": [
+        {
+          "visible_sheet_section": "Company Overview",
+          "binding_ids": ["summary_company_description", "summary_revenue_model", "summary_key_risks"],
+          "normalized_fields": ["company_profile.business_description", "company_profile.revenue_model", "company_profile.key_risks"],
+          "target_or_anchor": "Company Overview / B4:F16",
+          "missing_display": "blank mapped value plus Needs_Review or mapping gap",
+          "must_never_show": ["raw cache paths", "unsupported sector terms", "generic copied text as source fact"]
+        },
+        {
+          "visible_sheet_section": "Key Financials",
+          "binding_ids": ["summary_quarterly_revenue", "summary_quarterly_operating_income"],
+          "normalized_fields": ["quarterly_financials.rows.0.revenue", "quarterly_financials.rows.0.operating_income"],
+          "target_or_anchor": "Key Financials / B30:F38",
+          "missing_display": "blank values and mapping gap",
+          "must_never_show": ["raw SEC tags as prose", "parser snippets"]
+        },
+        {
+          "visible_sheet_section": "Leverage/Liquidity",
+          "binding_ids": ["summary_net_debt", "summary_liquidity"],
+          "normalized_fields": ["debt_liquidity.net_debt", "debt_liquidity.liquidity"],
+          "target_or_anchor": "Leverage / Liquidity / B40:F47",
+          "missing_display": "blank values and mapping gap",
+          "must_never_show": ["invented liquidity facts"]
+        }
+      ],
+      "validation_and_qa": {
+        "pre_render_validation_rules": ["unexplained_empty_core_field", "unsupported_sector_specific_leakage"],
+        "workbook_validation_rules": ["bad marker scan", "cross-company leakage scan", "required sheet scan"],
+        "manual_review_flag": "required when profile-backed narrative is missing or unsupported",
+        "mapping_gap_behavior": "required financial/debt fields create mapping_gaps before render"
+      },
+      "ownership": {
+        "current_code_owner_modules": ["pbi_xbrl/excel_writer_summary_builder.py", "pbi_xbrl/excel_writer_summary_sheet.py", "pbi_xbrl/summary_overview.py"],
+        "future_intended_owner_modules": ["future normalized_company_data_builder", "docs/workbook_binding_map.json", "future value-only filler"],
+        "current_implementation_recommendation": "refactor data selection out of writer; keep source-ranking concepts"
+      }
+    },
+    {
+      "sheet": "Valuation",
+      "source_inputs": {
+        "sec_xbrl": ["History_Q", "DATA_Facts_Long", "SEC_Audit_Log"],
+        "ir_files": ["guidance/debt/capital-return support files"],
+        "transcripts": ["guidance and management commentary when parsed"],
+        "presentations": ["Slides_Guidance", "Slides_Debt_Profile"],
+        "manual_profile_data": ["company_profile", "ticker flags"],
+        "derived_calculated_fields": ["valuation_grid_df", "valuation_summary_df", "hidden value state", "formula outputs"]
+      },
+      "storage_layer": {
+        "raw_source_cache": ["StockModelData/sec_cache/{ticker}", "StockModelData/tickers/{ticker}", "StockModelData/market_cache"],
+        "parsed_data": ["History_Q", "Debt_Tranches_Q", "Leverage_Liquidity", "Valuation_Summary", "Valuation_Grid", "Hidden_Value_Flags"],
+        "normalized_fields_should_live": ["quarterly_financials", "annual_financials", "debt_liquidity", "capital_returns", "normalized_guidance"],
+        "support_sheets_currently_store_intermediate_data": ["History_Q", "Debt_Tranches_Q", "Debt_Profile", "Hidden_Value_Base", "Hidden_Value_Flags"],
+        "visible_ui_vs_audit_only": {
+          "visible_ui": ["Valuation"],
+          "audit_only": ["Valuation_Summary", "Valuation_Grid", "Hidden_Value_Audit", "Debt_Tranches_Q"]
+        }
+      },
+      "transformation_logic": {
+        "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_core.py", "pbi_xbrl/excel_writer_valuation_orchestrator.py", "pbi_xbrl/valuation.py", "pbi_xbrl/valuation_precompute_runtime.py"],
+        "data_selection_rules": ["derive valuation source views", "select latest 12 quarters", "precompute debt/capital-return/guidance support", "render formulas and support panels"],
+        "ticker_specific_branches": ["ANF side panel/fiscal behavior", "PBI/GPRE guidance source contract labels", "GPRE warrant overlays", "sector hidden-value flags"],
+        "source_backed_vs_profile_backed_vs_inferred": "Core actuals/debt/capital returns must be source-backed or derived from source-backed rows; valuation formulas are shell-owned.",
+        "missing_source_behavior": "Current output can show blanks/NM and later QA; future filler must emit valuation mapping gaps before render."
+      },
+      "workbook_presentation": [
+        {
+          "visible_sheet_section": "Actuals and operating metrics",
+          "binding_ids": ["valuation_revenue_series", "valuation_operating_income_series", "valuation_ebitda_series", "valuation_fcf_series"],
+          "normalized_fields": ["quarterly_financials.rows.0.revenue", "quarterly_financials.rows.0.operating_income", "quarterly_financials.rows.0.adjusted_ebitda", "quarterly_financials.rows.0.free_cash_flow"],
+          "target_or_anchor": "Actuals / B20:M80",
+          "missing_display": "blank value cells; formulas/static labels remain intact",
+          "must_never_show": ["parser snippets", "raw source text", "wrong metric guidance"]
+        },
+        {
+          "visible_sheet_section": "Share count",
+          "binding_ids": ["valuation_diluted_shares_series"],
+          "normalized_fields": ["quarterly_financials.rows.0.diluted_shares"],
+          "target_or_anchor": "Diluted shares (m) / B81:M90",
+          "missing_display": "blank and mapping gap",
+          "must_never_show": ["share count unit outliers"]
+        },
+        {
+          "visible_sheet_section": "Leverage and liquidity / Capital return",
+          "binding_ids": ["valuation_total_debt_series", "valuation_cash_series", "valuation_buybacks_series"],
+          "normalized_fields": ["debt_liquidity.total_debt", "debt_liquidity.cash", "capital_returns.buybacks"],
+          "target_or_anchor": "Leverage & Liquidity and Capital return / B120:M170",
+          "missing_display": "blank required values plus mapping gaps; optional capital returns can be not_applicable",
+          "must_never_show": ["invented debt or buyback facts"]
+        }
+      ],
+      "validation_and_qa": {
+        "pre_render_validation_rules": ["valuation_core_mapping_gap", "share_count_outlier", "guidance_metric_misclassification", "parser_noise_snippet"],
+        "workbook_validation_rules": ["formula/error token scan", "bad marker scan", "hidden value sync", "Needs_Review P1"],
+        "manual_review_flag": "required for optional valuation proxies and non-source-backed guidance",
+        "mapping_gap_behavior": "required valuation bindings block promotion"
+      },
+      "ownership": {
+        "current_code_owner_modules": ["pbi_xbrl/excel_writer_valuation_orchestrator.py", "pbi_xbrl/excel_writer_valuation_*", "pbi_xbrl/valuation.py"],
+        "future_intended_owner_modules": ["frozen template shell", "docs/workbook_binding_map.json", "future value-only filler"],
+        "current_implementation_recommendation": "keep formulas/layout as shell knowledge; refactor source selection into normalized package"
+      }
+    },
+    {
+      "sheet": "BS_Segments",
+      "source_inputs": {
+        "sec_xbrl": ["History_Q", "DATA_Facts_Long", "local balance-sheet details"],
+        "ir_files": ["Slides_Segments", "financial statement files"],
+        "transcripts": [],
+        "presentations": ["segment slides"],
+        "manual_profile_data": ["segment labels", "sector policies"],
+        "derived_calculated_fields": ["segment totals", "carry-forward low-change series"]
+      },
+      "storage_layer": {
+        "raw_source_cache": ["StockModelData/sec_cache/{ticker}", "StockModelData/tickers/{ticker}"],
+        "parsed_data": ["History_Q", "Slides_Segments", "DATA_Facts_Long"],
+        "normalized_fields_should_live": ["debt_liquidity", "segments"],
+        "support_sheets_currently_store_intermediate_data": ["Slides_Segments", "DATA_Facts_Long", "History_Q"],
+        "visible_ui_vs_audit_only": {
+          "visible_ui": ["BS_Segments"],
+          "audit_only": ["Slides_Segments", "DATA_Facts_Long"]
+        }
+      },
+      "transformation_logic": {
+        "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_bs_segments.py", "pbi_xbrl/excel_writer_segments.py", "pbi_xbrl/excel_writer_segment_sources.py"],
+        "data_selection_rules": ["select balance-sheet rows", "parse quarterly/annual segment rows", "apply segment source policies"],
+        "ticker_specific_branches": ["GPRE carbon equipment policy", "ANF fiscal/brand handling", "PBI segment repair helpers"],
+        "source_backed_vs_profile_backed_vs_inferred": "Segment values must be source-backed; profile can only provide allowed labels/taxonomy hints.",
+        "missing_source_behavior": "Current writer may omit/blank rows; future filler emits mapping gaps and omits unsupported rows."
+      },
+      "workbook_presentation": [
+        {
+          "visible_sheet_section": "Balance sheet",
+          "binding_ids": ["bs_cash_series", "bs_debt_series"],
+          "normalized_fields": ["debt_liquidity.cash", "debt_liquidity.total_debt"],
+          "target_or_anchor": "Liquidity / Assets / B8:I45",
+          "missing_display": "blank values and mapping gaps",
+          "must_never_show": ["invented balance-sheet facts"]
+        },
+        {
+          "visible_sheet_section": "Quarterly and annual segments",
+          "binding_ids": ["bs_segment_quarterly_rows", "bs_segment_annual_rows"],
+          "normalized_fields": ["segments.items.0.revenue", "segments.items.0.annual_revenue"],
+          "target_or_anchor": "Quarterly segments and Annual segments / B50:I120",
+          "missing_display": "no segment row until taxonomy/value exists",
+          "must_never_show": ["unsupported sector-specific segment rows"]
+        }
+      ],
+      "validation_and_qa": {
+        "pre_render_validation_rules": ["unsupported_sector_specific_leakage", "unexplained_empty_core_field"],
+        "workbook_validation_rules": ["BS_Segments source-backed hydration", "segment cross-sheet checks"],
+        "manual_review_flag": "required when segment taxonomy is missing or source conflicts",
+        "mapping_gap_behavior": "segment gaps are optional/manual-review unless promotion requires segment detail"
+      },
+      "ownership": {
+        "current_code_owner_modules": ["pbi_xbrl/excel_writer_bs_segments.py", "pbi_xbrl/excel_writer_segment_sources.py"],
+        "future_intended_owner_modules": ["future segments normalizer", "docs/workbook_binding_map.json"],
+        "current_implementation_recommendation": "refactor segment row selection; avoid ticker-specific sheet repairs as runtime behavior"
+      }
+    },
+    {
+      "sheet": "Operating_Drivers",
+      "source_inputs": {
+        "sec_xbrl": ["10-Q/10-K filing text", "History_Q"],
+        "ir_files": ["earnings releases", "financial statements", "source directories"],
+        "transcripts": ["operating commentary"],
+        "presentations": ["earnings presentations and slides text"],
+        "manual_profile_data": ["driver templates", "priority terms", "sector intro tables"],
+        "derived_calculated_fields": ["driver history rows", "segment support values", "derivative OCI bridge"]
+      },
+      "storage_layer": {
+        "raw_source_cache": ["StockModelData/sec_cache/{ticker}", "StockModelData/tickers/{ticker}", "writer cache"],
+        "parsed_data": ["operating_driver_history_rows", "operating_drivers_raw", "Quarter_Notes", "Promise_Progress", "Slides_Segments"],
+        "normalized_fields_should_live": ["operating_drivers", "segments", "quarter_notes"],
+        "support_sheets_currently_store_intermediate_data": ["operating_drivers_raw", "Slides_Segments", "Quarter_Notes"],
+        "visible_ui_vs_audit_only": {
+          "visible_ui": ["Operating_Drivers"],
+          "audit_only": ["operating_drivers_raw"]
+        }
+      },
+      "transformation_logic": {
+        "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_drivers.py", "pbi_xbrl/operating_drivers_runtime.py", "pbi_xbrl/excel_writer_operating_drivers.py"],
+        "data_selection_rules": ["load source records by quarter", "rank source lines", "apply driver templates", "build current outlook/watchlist/actuals"],
+        "ticker_specific_branches": ["ANF retail/fiscal cleanup", "GPRE commercial/economics drivers", "profile-specific templates"],
+        "source_backed_vs_profile_backed_vs_inferred": "Profile templates can define expected rows; visible values/current reads must be source-backed or manual-review.",
+        "missing_source_behavior": "Current fallback can be profile/template-driven; future filler emits manual review and leaves section blank."
+      },
+      "workbook_presentation": [
+        {
+          "visible_sheet_section": "Current watchlist",
+          "binding_ids": ["od_watchlist_rows"],
+          "normalized_fields": ["operating_drivers.items.0.current_read"],
+          "target_or_anchor": "Current watchlist / B7:N30",
+          "missing_display": "blank row family and manual review",
+          "must_never_show": ["sector fallback facts", "unsupported terminology"]
+        },
+        {
+          "visible_sheet_section": "Current/latest outlook and actuals",
+          "binding_ids": ["od_current_outlook_rows", "od_driver_actuals_rows"],
+          "normalized_fields": ["operating_drivers.items.0.driver", "operating_drivers.items.0.metric_value"],
+          "target_or_anchor": "Current/latest outlook and Actuals / B31:N125",
+          "missing_display": "omit value rows until source-backed",
+          "must_never_show": ["parser noise snippets", "raw source paths"]
+        }
+      ],
+      "validation_and_qa": {
+        "pre_render_validation_rules": ["parser_noise_snippet", "unsupported_sector_specific_leakage"],
+        "workbook_validation_rules": ["Operating_Drivers direct BS_Segments segment mapping", "bad marker scan"],
+        "manual_review_flag": "required for missing source-backed driver families",
+        "mapping_gap_behavior": "required watchlist/outlook gaps block promotion"
+      },
+      "ownership": {
+        "current_code_owner_modules": ["pbi_xbrl/excel_writer_drivers.py", "pbi_xbrl/operating_drivers_runtime.py", "pbi_xbrl/excel_writer_operating_drivers.py"],
+        "future_intended_owner_modules": ["future operating_drivers normalizer", "normalized_company_data_validation.py"],
+        "current_implementation_recommendation": "keep source ranking; refactor visible row assembly and avoid profile fallback facts"
+      }
+    },
+    {
+      "sheet": "{ticker}_Investment_Case",
+      "source_inputs": {
+        "sec_xbrl": ["History_Q", "SEC_Audit_Log"],
+        "ir_files": ["presentations", "financial schedules", "post-quarter capital event sources"],
+        "transcripts": ["management thesis/debate evidence when parsed"],
+        "presentations": ["Slides_Guidance", "Slides_Segments"],
+        "manual_profile_data": ["company profile", "manual scenario inputs", "investment-case framing"],
+        "derived_calculated_fields": ["scenario bridge formulas", "valuation hooks", "full-year actual formulas"]
+      },
+      "storage_layer": {
+        "raw_source_cache": ["StockModelData/sec_cache/{ticker}", "StockModelData/tickers/{ticker}"],
+        "parsed_data": ["{ticker}_Investment_Case_Data", "Scenario_Bridge_Tax_Treatment", "Scenario_Driver_Assumptions", "Valuation_Summary"],
+        "normalized_fields_should_live": ["investment_case", "segments", "normalized_guidance", "operating_drivers"],
+        "support_sheets_currently_store_intermediate_data": ["{ticker}_Investment_Case_Data", "Scenario_Bridge_Tax_Treatment", "Scenario_Driver_Assumptions"],
+        "visible_ui_vs_audit_only": {
+          "visible_ui": ["{ticker}_Investment_Case"],
+          "audit_only": ["{ticker}_Investment_Case_Data", "Scenario_Bridge_Tax_Treatment", "Scenario_Driver_Assumptions"]
+        }
+      },
+      "transformation_logic": {
+        "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_sector_investment_case.py", "pbi_xbrl/excel_writer_investment_case_support.py", "pbi_xbrl/excel_writer_anf_investment_case.py"],
+        "data_selection_rules": ["compose investment case data sheet", "select manual inputs", "derive scenario bridges", "read support values from History_Q/Operating_Drivers/Valuation"],
+        "ticker_specific_branches": ["ANF-specific renderer/data builder", "PBI/GPRE sector defaults", "GPRE sheet order adjustment"],
+        "source_backed_vs_profile_backed_vs_inferred": "Thesis/debate can be manual but must not be placeholder; scenario values must be source-backed, manual, or explicitly reviewed.",
+        "missing_source_behavior": "Current writer can show generic/manual defaults; future promotion is blocked until core thesis fields are reviewed."
+      },
+      "workbook_presentation": [
+        {
+          "visible_sheet_section": "Investment Snapshot and Key Debate",
+          "binding_ids": ["ic_investment_summary", "ic_key_debate"],
+          "normalized_fields": ["investment_case.summary", "investment_case.key_debate"],
+          "target_or_anchor": "Investment Snapshot and Key Debate / B5:K80",
+          "missing_display": "block promotion and emit manual review flag",
+          "must_never_show": ["placeholder investment case", "generic thesis", "copied sector case"]
+        },
+        {
+          "visible_sheet_section": "Scenario inputs and bridge",
+          "binding_ids": ["ic_bull_base_bear_rows", "ic_scenario_bridge_rows"],
+          "normalized_fields": ["investment_case.scenario_drivers", "segments.items.0.revenue"],
+          "target_or_anchor": "Scenario Inputs and Scenario Driver Bridge / B81:K190",
+          "missing_display": "manual input blank or mapping gap",
+          "must_never_show": ["invented scenario facts", "raw source snippets"]
+        }
+      ],
+      "validation_and_qa": {
+        "pre_render_validation_rules": ["placeholder_investment_case", "unsupported_sector_specific_leakage", "valuation_core_mapping_gap"],
+        "workbook_validation_rules": ["bad marker scan", "cross-company leakage scan", "formula/error token scan"],
+        "manual_review_flag": "required for manual thesis/scenario fields",
+        "mapping_gap_behavior": "promotion blocked for missing core summary/debate"
+      },
+      "ownership": {
+        "current_code_owner_modules": ["pbi_xbrl/excel_writer_sector_investment_case.py", "pbi_xbrl/excel_writer_investment_case_support.py", "pbi_xbrl/excel_writer_anf_investment_case.py"],
+        "future_intended_owner_modules": ["future investment_case normalizer/review workflow", "docs/workbook_binding_map.json"],
+        "current_implementation_recommendation": "refactor content curation out of renderer; avoid ticker-specific rescue text"
+      }
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "source_inputs": {
+        "sec_xbrl": ["filing text", "SEC docs for accession", "History_Q"],
+        "ir_files": ["earnings releases", "source directories"],
+        "transcripts": ["quarter commentary"],
+        "presentations": ["quarter decks"],
+        "manual_profile_data": ["priority terms and ticker profile cleanup"],
+        "derived_calculated_fields": ["candidate rankings", "model implications", "capital allocation state"]
+      },
+      "storage_layer": {
+        "raw_source_cache": ["StockModelData/sec_cache/{ticker}", "StockModelData/tickers/{ticker}", "doc text cache"],
+        "parsed_data": ["Quarter_Notes", "Quarter_Notes_Evidence", "Quarter_Narrative_Data", "quarter_notes_runtime cache"],
+        "normalized_fields_should_live": ["quarter_notes"],
+        "support_sheets_currently_store_intermediate_data": ["Quarter_Notes", "Quarter_Notes_Evidence", "Quarter_Narrative_Data"],
+        "visible_ui_vs_audit_only": {
+          "visible_ui": ["Quarter_Notes_UI"],
+          "audit_only": ["Quarter_Notes_Evidence", "Quarter_Narrative_Data"]
+        }
+      },
+      "transformation_logic": {
+        "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_quarter_notes_ui_orchestrator.py", "pbi_xbrl/excel_writer_quarter_notes_ui_*", "pbi_xbrl/quarter_notes.py", "pbi_xbrl/quarter_notes_runtime.py"],
+        "data_selection_rules": ["harvest sources", "build candidates", "rank and select visible rows", "emit audit trace", "render blocks"],
+        "ticker_specific_branches": ["ANF visible quarter labels/cleanup", "profile priority terms"],
+        "source_backed_vs_profile_backed_vs_inferred": "Notes must be source-backed; model implications can be derived only from source-backed notes.",
+        "missing_source_behavior": "Current sheet may show Missing required source columns/No data; future filler omits bad blocks and emits review flags."
+      },
+      "workbook_presentation": [
+        {
+          "visible_sheet_section": "Quarter blocks",
+          "binding_ids": ["qn_quarter_note_rows", "qn_quarter_model_implication_rows"],
+          "normalized_fields": ["quarter_notes.items.0.note", "quarter_notes.items.0.model_implication"],
+          "target_or_anchor": "Quarter read / B8:O360",
+          "missing_display": "omit quarter block content and emit manual review",
+          "must_never_show": ["safe harbor boilerplate", "XBRL/XML fragments", "raw_json", "source_txt_file"]
+        }
+      ],
+      "validation_and_qa": {
+        "pre_render_validation_rules": ["parser_noise_snippet", "boilerplate_guidance"],
+        "workbook_validation_rules": ["Quarter_Narrative_Data amount extraction", "bad marker scan"],
+        "manual_review_flag": "required for parser_conflict notes or missing required quarter content",
+        "mapping_gap_behavior": "required quarter note rows block promotion"
+      },
+      "ownership": {
+        "current_code_owner_modules": ["pbi_xbrl/excel_writer_quarter_notes_ui_orchestrator.py", "pbi_xbrl/excel_writer_quarter_notes_ui_*", "pbi_xbrl/quarter_notes.py"],
+        "future_intended_owner_modules": ["future quarter_notes normalizer", "normalized_company_data_validation.py"],
+        "current_implementation_recommendation": "keep candidate audit; refactor visible selection before render; avoid render repairs as runtime dependency"
+      }
+    },
+    {
+      "sheet": "Promise_Progress_UI",
+      "source_inputs": {
+        "sec_xbrl": ["filing guidance snippets when classified"],
+        "ir_files": ["earnings releases", "presentations"],
+        "transcripts": ["guidance commentary"],
+        "presentations": ["Slides_Guidance"],
+        "manual_profile_data": ["guidance source contracts and profile priority terms"],
+        "derived_calculated_fields": ["promise lifecycle state", "status/progress evaluation"]
+      },
+      "storage_layer": {
+        "raw_source_cache": ["StockModelData/sec_cache/{ticker}", "StockModelData/tickers/{ticker}", "doc text cache"],
+        "parsed_data": ["Guidance_Raw", "Guidance_Normalized", "Slides_Guidance", "Promise_Tracker", "Promise_Progress", "Promise_Evidence"],
+        "normalized_fields_should_live": ["normalized_guidance"],
+        "support_sheets_currently_store_intermediate_data": ["Guidance_Raw", "Guidance_Normalized", "Slides_Guidance", "Promise_Progress", "Promise_Evidence"],
+        "visible_ui_vs_audit_only": {
+          "visible_ui": ["Promise_Progress_UI"],
+          "audit_only": ["Guidance_Raw", "Promise_Evidence"]
+        }
+      },
+      "transformation_logic": {
+        "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_promise_progress.py", "pbi_xbrl/excel_writer_promise_progress_*", "pbi_xbrl/doc_intel.py"],
+        "data_selection_rules": ["normalize guidance frame", "select open guidance", "dedupe metric+horizon", "evaluate status/progress"],
+        "ticker_specific_branches": ["ANF fiscal guidance handling", "PBI/GPRE guidance normalized markers"],
+        "source_backed_vs_profile_backed_vs_inferred": "Guidance rows must be source-backed; lifecycle status can be derived from source-backed target/latest values.",
+        "missing_source_behavior": "Current guardrails catch hidden/source issues after render; future validator blocks conflicted/missing guidance before render."
+      },
+      "workbook_presentation": [
+        {
+          "visible_sheet_section": "Scorecard and open guidance",
+          "binding_ids": ["pp_scorecard_rows", "pp_open_guidance_rows"],
+          "normalized_fields": ["normalized_guidance.items.0.metric", "normalized_guidance.items.0.value"],
+          "target_or_anchor": "Scorecard/Open guidance / B8:O80",
+          "missing_display": "no visible row until metric/value/source are clean",
+          "must_never_show": ["misclassified guidance", "legal boilerplate", "hidden source keys"]
+        },
+        {
+          "visible_sheet_section": "Guidance timeline",
+          "binding_ids": ["pp_guidance_timeline_rows"],
+          "normalized_fields": ["normalized_guidance.items.0.horizon"],
+          "target_or_anchor": "Guidance timeline / B81:O115",
+          "missing_display": "optional blank until source-backed",
+          "must_never_show": ["duplicate metric+horizon rows", "parser snippets"]
+        }
+      ],
+      "validation_and_qa": {
+        "pre_render_validation_rules": ["guidance_metric_misclassification", "boilerplate_guidance", "parser_noise_snippet"],
+        "workbook_validation_rules": ["promise_duplicate_metric_horizon", "promise_stated_in_mismatch", "Promise_Progress_UI source-backed value hydration"],
+        "manual_review_flag": "required for parser_conflict or manual guidance classification",
+        "mapping_gap_behavior": "required open guidance gaps block promotion"
+      },
+      "ownership": {
+        "current_code_owner_modules": ["pbi_xbrl/excel_writer_promise_progress.py", "pbi_xbrl/excel_writer_promise_progress_*", "pbi_xbrl/doc_intel.py"],
+        "future_intended_owner_modules": ["future normalized_guidance builder", "normalized_company_data_validation.py"],
+        "current_implementation_recommendation": "keep lifecycle QA; refactor row construction out of visible writer"
+      }
+    },
+    {
+      "sheet": "QA_Log",
+      "source_inputs": {
+        "sec_xbrl": ["SEC_Audit_Log issue context"],
+        "ir_files": ["source coverage issues"],
+        "transcripts": ["doc-intel issue context"],
+        "presentations": ["doc-intel issue context"],
+        "manual_profile_data": ["manual review annotations"],
+        "derived_calculated_fields": ["pipeline QA rows", "UI QA rows", "normalized validation issues"]
+      },
+      "storage_layer": {
+        "raw_source_cache": [],
+        "parsed_data": ["qa_log dataframe", "manual_review_flags"],
+        "normalized_fields_should_live": ["manual_review_flags"],
+        "support_sheets_currently_store_intermediate_data": ["SEC_Audit_Log", "Info_Log", "OCR_Text_Log"],
+        "visible_ui_vs_audit_only": {
+          "visible_ui": ["QA_Log"],
+          "audit_only": ["Info_Log", "OCR_Text_Log"]
+        }
+      },
+      "transformation_logic": {
+        "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_core.py", "pbi_xbrl/writer_qa_policy.py", "pbi_xbrl/normalized_company_data_validation.py"],
+        "data_selection_rules": ["normalize audit-like rows", "dedupe issues", "assign issue family and review status"],
+        "ticker_specific_branches": ["mostly generic; issue context may be ticker-specific"],
+        "source_backed_vs_profile_backed_vs_inferred": "Validation-output only.",
+        "missing_source_behavior": "Write structured validation rows; an empty-pass row only when validator has no issues."
+      },
+      "workbook_presentation": [
+        {
+          "visible_sheet_section": "Validation results",
+          "binding_ids": ["qa_log_validation_rows"],
+          "normalized_fields": ["manual_review_flags"],
+          "target_or_anchor": "QA Log / A2:Z1000",
+          "missing_display": "empty/pass row after validation success",
+          "must_never_show": ["unstructured blanks", "raw blobs"]
+        }
+      ],
+      "validation_and_qa": {
+        "pre_render_validation_rules": ["normalized_data_issue_shape"],
+        "workbook_validation_rules": ["blank/nan QA marker scan"],
+        "manual_review_flag": "not applicable; this sheet displays review flags",
+        "mapping_gap_behavior": "mapping gaps are referenced or summarized, not hidden"
+      },
+      "ownership": {
+        "current_code_owner_modules": ["pbi_xbrl/excel_writer_core.py", "pbi_xbrl/writer_qa_policy.py"],
+        "future_intended_owner_modules": ["pbi_xbrl/normalized_company_data_validation.py", "future filler QA writer"],
+        "current_implementation_recommendation": "keep issue shaping; refactor to consume structured pre-render issues"
+      }
+    },
+    {
+      "sheet": "Needs_Review",
+      "source_inputs": {
+        "sec_xbrl": ["audit/validation gaps"],
+        "ir_files": ["source coverage gaps"],
+        "transcripts": ["source coverage gaps"],
+        "presentations": ["source coverage gaps"],
+        "manual_profile_data": ["manual review annotations"],
+        "derived_calculated_fields": ["curated review rows", "manual_review_flags"]
+      },
+      "storage_layer": {
+        "raw_source_cache": [],
+        "parsed_data": ["needs_review dataframe", "manual_review_flags"],
+        "normalized_fields_should_live": ["manual_review_flags"],
+        "support_sheets_currently_store_intermediate_data": ["QA_Log"],
+        "visible_ui_vs_audit_only": {
+          "visible_ui": ["Needs_Review"],
+          "audit_only": ["QA_Log"]
+        }
+      },
+      "transformation_logic": {
+        "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_core.py", "pbi_xbrl/writer_qa_policy.py", "pbi_xbrl/pipeline_qa.py"],
+        "data_selection_rules": ["filter current review relevance", "coalesce issue families", "export curated review rows"],
+        "ticker_specific_branches": ["mostly generic; policy may include metric family context"],
+        "source_backed_vs_profile_backed_vs_inferred": "Validation-output/manual-review only.",
+        "missing_source_behavior": "Required gaps should appear here before any workbook promotion."
+      },
+      "workbook_presentation": [
+        {
+          "visible_sheet_section": "Manual review",
+          "binding_ids": ["needs_review_validation_rows"],
+          "normalized_fields": ["manual_review_flags"],
+          "target_or_anchor": "Needs Review / A2:Z1000",
+          "missing_display": "structured manual review row",
+          "must_never_show": ["low-value duplicate noise as P1", "raw parser blobs"]
+        }
+      ],
+      "validation_and_qa": {
+        "pre_render_validation_rules": ["normalized_data_issue_shape"],
+        "workbook_validation_rules": ["Needs_Review P1 count", "blank/nan marker scan"],
+        "manual_review_flag": "this sheet is the manual review output",
+        "mapping_gap_behavior": "required gaps are surfaced as review rows"
+      },
+      "ownership": {
+        "current_code_owner_modules": ["pbi_xbrl/excel_writer_core.py", "pbi_xbrl/writer_qa_policy.py", "pbi_xbrl/pipeline_qa.py"],
+        "future_intended_owner_modules": ["pbi_xbrl/normalized_company_data_validation.py", "future filler QA writer"],
+        "current_implementation_recommendation": "keep curated issue taxonomy; refactor to consume normalized issues"
+      }
+    },
+    {
+      "sheet": "QA_Checks",
+      "source_inputs": {
+        "sec_xbrl": ["financial/source QA rows"],
+        "ir_files": ["source coverage QA"],
+        "transcripts": ["doc-intel QA"],
+        "presentations": ["doc-intel QA"],
+        "manual_profile_data": ["manual review status"],
+        "derived_calculated_fields": ["binding gaps", "quality guardrail rows", "share-count diagnostics"]
+      },
+      "storage_layer": {
+        "raw_source_cache": [],
+        "parsed_data": ["qa_checks dataframe", "mapping_gaps"],
+        "normalized_fields_should_live": ["mapping_gaps"],
+        "support_sheets_currently_store_intermediate_data": ["SEC_Audit_Log", "QA_Log"],
+        "visible_ui_vs_audit_only": {
+          "visible_ui": ["QA_Checks"],
+          "audit_only": ["SEC_Audit_Log", "QA_Log"]
+        }
+      },
+      "transformation_logic": {
+        "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_core.py", "pbi_xbrl/workbook_validation_runner.py", "pbi_xbrl/workbook_quality_guardrails.py", "pbi_xbrl/normalized_company_data_validation.py"],
+        "data_selection_rules": ["normalize QA rows", "assign severity/status", "write one check per binding gap"],
+        "ticker_specific_branches": ["validation runner has ticker-specific cross-company leakage patterns for PBI/GPRE/ANF"],
+        "source_backed_vs_profile_backed_vs_inferred": "Validation-output only.",
+        "missing_source_behavior": "Missing required bindings create fail/warn rows before render."
+      },
+      "workbook_presentation": [
+        {
+          "visible_sheet_section": "Binding checks",
+          "binding_ids": ["qa_checks_mapping_gap_rows"],
+          "normalized_fields": ["mapping_gaps"],
+          "target_or_anchor": "QA Checks / A2:Z1000",
+          "missing_display": "structured check row with status/severity",
+          "must_never_show": ["clean status for missing required binding", "blank status fields"]
+        }
+      ],
+      "validation_and_qa": {
+        "pre_render_validation_rules": ["valuation_core_mapping_gap", "normalized_data_issue_shape"],
+        "workbook_validation_rules": ["blank/nan marker scan", "quality guardrails"],
+        "manual_review_flag": "manual_review_required when a check cannot be resolved automatically",
+        "mapping_gap_behavior": "one row per binding gap"
+      },
+      "ownership": {
+        "current_code_owner_modules": ["pbi_xbrl/excel_writer_core.py", "pbi_xbrl/workbook_validation_runner.py", "pbi_xbrl/workbook_quality_guardrails.py"],
+        "future_intended_owner_modules": ["docs/workbook_binding_map.json", "pbi_xbrl/normalized_company_data_validation.py", "future filler QA writer"],
+        "current_implementation_recommendation": "keep readback quality guardrails; add pre-render binding validation before runtime"
+      }
+    }
+  ]
+}

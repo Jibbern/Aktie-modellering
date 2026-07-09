@@ -1,0 +1,1158 @@
+{
+  "version": "0.1.0",
+  "generated_at": "2026-07-07T19:38:57+00:00",
+  "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
+  "support_sheets": [
+    {
+      "sheet_name": "Adjusted_Metrics",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Adjustments_Breakdown",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Basis_Proxy_Sandbox",
+      "owner": "optional_sector_pack",
+      "lifecycle": "optional_sector_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "metric",
+        "period",
+        "value",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "sector-pack-defined rows"
+      ],
+      "source_of_data": "ticker profile selected sector pack",
+      "created_when": "only when an explicit sector pack is selected",
+      "visibility": "hidden_or_visible_by_pack_contract",
+      "validation_rules": [
+        "must not appear in default standard shell"
+      ]
+    },
+    {
+      "sheet_name": "DATA_Facts_Long",
+      "owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "ticker",
+        "taxonomy",
+        "fact",
+        "period",
+        "value",
+        "unit",
+        "source_ref"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined audit rows"
+      ],
+      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
+      "created_when": "only during runtime report/workbook generation",
+      "visibility": "hidden",
+      "validation_rules": [
+        "runtime-generated only",
+        "no raw source rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "DATA_IS_Rules",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "DATA_LineItem_Map",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "DATA_Period_Index",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Debt_Buckets",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Debt_Credit_Notes",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Debt_Maturity_Ladder",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Debt_Profile",
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "metric",
+        "value",
+        "period",
+        "unit",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "A2:Z5000"
+      ],
+      "source_of_data": "future normalized company data package/runtime projections",
+      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "visibility": "hidden",
+      "validation_rules": [
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Debt_Recon",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Debt_Tranches_Latest",
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "instrument",
+        "principal",
+        "coupon",
+        "maturity",
+        "secured",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "A2:Z5000"
+      ],
+      "source_of_data": "future normalized company data package/runtime projections",
+      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "visibility": "hidden",
+      "validation_rules": [
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Debt_Tranches_Q",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Economics_Overlay",
+      "owner": "optional_sector_pack",
+      "lifecycle": "optional_sector_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "metric",
+        "period",
+        "value",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "sector-pack-defined rows"
+      ],
+      "source_of_data": "ticker profile selected sector pack",
+      "created_when": "only when an explicit sector pack is selected",
+      "visibility": "hidden_or_visible_by_pack_contract",
+      "validation_rules": [
+        "must not appear in default standard shell"
+      ]
+    },
+    {
+      "sheet_name": "Guidance_Normalized",
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "metric",
+        "horizon",
+        "period",
+        "value",
+        "unit",
+        "status",
+        "source_ref",
+        "notes"
+      ],
+      "allowed_writable_zones": [
+        "A2:Z5000"
+      ],
+      "source_of_data": "future normalized company data package/runtime projections",
+      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "visibility": "hidden",
+      "validation_rules": [
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Guidance_Raw",
+      "owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "source_ref",
+        "date",
+        "metric_text",
+        "raw_value",
+        "snippet",
+        "parser_status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined audit rows"
+      ],
+      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
+      "created_when": "only during runtime report/workbook generation",
+      "visibility": "hidden",
+      "validation_rules": [
+        "runtime-generated only",
+        "no raw source rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Hidden_Value_Audit",
+      "owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "source_ref",
+        "field",
+        "message",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined audit rows"
+      ],
+      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
+      "created_when": "only during runtime report/workbook generation",
+      "visibility": "hidden",
+      "validation_rules": [
+        "runtime-generated only",
+        "no raw source rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Hidden_Value_Base",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Hidden_Value_Flags",
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "field",
+        "display_name",
+        "metric_type",
+        "source_policy",
+        "status",
+        "reason",
+        "sheet",
+        "target",
+        "binding_id",
+        "review_status",
+        "reserved",
+        "has_hidden_value_issue"
+      ],
+      "allowed_writable_zones": [
+        "A2:Z5000"
+      ],
+      "source_of_data": "future normalized company data package/runtime projections",
+      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "visibility": "hidden",
+      "validation_rules": [
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Hidden_Value_Recompute",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "History_Q",
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "period",
+        "metric",
+        "value",
+        "unit",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "A2:Z5000"
+      ],
+      "source_of_data": "future normalized company data package/runtime projections",
+      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "visibility": "hidden",
+      "validation_rules": [
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Info_Log",
+      "owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "source_ref",
+        "field",
+        "message",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined audit rows"
+      ],
+      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
+      "created_when": "only during runtime report/workbook generation",
+      "visibility": "hidden",
+      "validation_rules": [
+        "runtime-generated only",
+        "no raw source rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Leverage_Liquidity",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "NonGAAP_Bridge",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "NonGAAP_Credibility",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "NonGAAP_Files",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "OCR_Text_Log",
+      "owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "source_ref",
+        "field",
+        "message",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined audit rows"
+      ],
+      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
+      "created_when": "only during runtime report/workbook generation",
+      "visibility": "hidden",
+      "validation_rules": [
+        "runtime-generated only",
+        "no raw source rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Promise_Evidence",
+      "owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "promise_id",
+        "metric",
+        "period",
+        "evidence",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined audit rows"
+      ],
+      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
+      "created_when": "only during runtime report/workbook generation",
+      "visibility": "hidden",
+      "validation_rules": [
+        "runtime-generated only",
+        "no raw source rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Promise_Progress",
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "period",
+        "metric",
+        "previous_guide",
+        "current_guide",
+        "actual",
+        "status",
+        "source_ref"
+      ],
+      "allowed_writable_zones": [
+        "A2:Z5000"
+      ],
+      "source_of_data": "future normalized company data package/runtime projections",
+      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "visibility": "hidden",
+      "validation_rules": [
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Promise_Tracker",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Quarter_Narrative_Data",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Quarter_Notes",
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "period",
+        "theme",
+        "metric",
+        "note",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "A2:Z5000"
+      ],
+      "source_of_data": "future normalized company data package/runtime projections",
+      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "visibility": "hidden",
+      "validation_rules": [
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Quarter_Notes_Audit",
+      "owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "period",
+        "note_id",
+        "source_ref",
+        "parser_status",
+        "review_status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined audit rows"
+      ],
+      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
+      "created_when": "only during runtime report/workbook generation",
+      "visibility": "hidden",
+      "validation_rules": [
+        "runtime-generated only",
+        "no raw source rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Quarter_Notes_Evidence",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "REPORT_BS_Q",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "REPORT_CF_Q",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "REPORT_IS_Q",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Revolver_History",
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "period",
+        "capacity",
+        "drawn",
+        "availability",
+        "covenant_status",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "A2:Z5000"
+      ],
+      "source_of_data": "future normalized company data package/runtime projections",
+      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "visibility": "hidden",
+      "validation_rules": [
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "SEC_Audit_Log",
+      "owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "source_ref",
+        "field",
+        "message",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined audit rows"
+      ],
+      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
+      "created_when": "only during runtime report/workbook generation",
+      "visibility": "hidden",
+      "validation_rules": [
+        "runtime-generated only",
+        "no raw source rows in frozen shell"
+      ]
+    },
+    {
+      "sheet_name": "Scenario_Bridge_Tax_Treatment",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Scenario_Driver_Assumptions",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Slides_Debt_Profile",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Slides_Guidance",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Slides_Segments",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Valuation_Grid",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "Valuation_Summary",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    },
+    {
+      "sheet_name": "economics_market_raw",
+      "owner": "optional_sector_pack",
+      "lifecycle": "optional_sector_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "metric",
+        "period",
+        "value",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "sector-pack-defined rows"
+      ],
+      "source_of_data": "ticker profile selected sector pack",
+      "created_when": "only when an explicit sector pack is selected",
+      "visibility": "hidden_or_visible_by_pack_contract",
+      "validation_rules": [
+        "must not appear in default standard shell"
+      ]
+    },
+    {
+      "sheet_name": "operating_drivers_raw",
+      "owner": "value_only_runtime",
+      "lifecycle": "runtime_output",
+      "neutral_shell_required": false,
+      "headers_required": [
+        "field",
+        "value",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "runtime-defined table rows"
+      ],
+      "source_of_data": "normalized package plus derived/runtime calculations",
+      "created_when": "only when a promoted output workbook needs the support projection",
+      "visibility": "hidden",
+      "validation_rules": [
+        "documented runtime output",
+        "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    }
+  ]
+}

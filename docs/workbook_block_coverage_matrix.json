@@ -1,0 +1,3363 @@
+{
+  "version": "0.1.0",
+  "generated_at": "2026-07-07T19:39:11+00:00",
+  "source_workbooks": {
+    "ANF": {
+      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
+      "sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
+      "exists": true
+    },
+    "PBI": {
+      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\PBI_model.xlsx",
+      "sha256": "cf87600fbeeea285cf192f30520b1819bc4280ddbccd94c343828712d2020646",
+      "exists": true
+    },
+    "GPRE": {
+      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\GPRE_model.xlsx",
+      "sha256": "31493242bd4a10e7c33ba2579e2d7a8ad699128bc748d12ba1012fdba7e03afb",
+      "exists": true
+    }
+  },
+  "coverage_rows": [
+    {
+      "block_id": "summary_company_description_value",
+      "sheet": "SUMMARY",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A3:F3",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 34.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A3:F3",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 52.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A3:F3",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 46,
+        "max_column": 6,
+        "average_row_height": 52.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "company_profile"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "summary_strategic_context_value",
+      "sheet": "SUMMARY",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A5:F5",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 68.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A5:F5",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 24.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A5:F5",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 46,
+        "max_column": 6,
+        "average_row_height": 34.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "company_profile"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "summary_key_advantage_value",
+      "sheet": "SUMMARY",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A7:F7",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 52.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A7:F7",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 52.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A7:F7",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 46,
+        "max_column": 6,
+        "average_row_height": 52.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "company_profile"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "summary_revenue_model_values",
+      "sheet": "SUMMARY",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A9:F11",
+        "nonempty_cells": 6,
+        "formula_cells": 0,
+        "merge_count": 3,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 24.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A9:F11",
+        "nonempty_cells": 6,
+        "formula_cells": 0,
+        "merge_count": 3,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 24.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A9:F11",
+        "nonempty_cells": 5,
+        "formula_cells": 0,
+        "merge_count": 3,
+        "freeze_panes": "A2",
+        "max_row": 46,
+        "max_column": 6,
+        "average_row_height": 23.33
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "company_profile"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "summary_segment_model_values",
+      "sheet": "SUMMARY",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A13:F15",
+        "nonempty_cells": 6,
+        "formula_cells": 0,
+        "merge_count": 3,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 34.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A13:F15",
+        "nonempty_cells": 5,
+        "formula_cells": 0,
+        "merge_count": 3,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 42.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A13:F15",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 3,
+        "freeze_panes": "A2",
+        "max_row": 46,
+        "max_column": 6,
+        "average_row_height": 26.67
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "segments"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "summary_key_dependencies_values",
+      "sheet": "SUMMARY",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A17:F21",
+        "nonempty_cells": 5,
+        "formula_cells": 0,
+        "merge_count": 5,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 26.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A17:F21",
+        "nonempty_cells": 9,
+        "formula_cells": 0,
+        "merge_count": 5,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 31.6
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A17:F21",
+        "nonempty_cells": 5,
+        "formula_cells": 0,
+        "merge_count": 5,
+        "freeze_panes": "A2",
+        "max_row": 46,
+        "max_column": 6,
+        "average_row_height": 23.6
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "company_profile"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "summary_wrong_if_values",
+      "sheet": "SUMMARY",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A23:F24",
+        "nonempty_cells": 2,
+        "formula_cells": 0,
+        "merge_count": 2,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 24.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A23:F24",
+        "nonempty_cells": 2,
+        "formula_cells": 0,
+        "merge_count": 2,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 24.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "A23:F24",
+        "nonempty_cells": 2,
+        "formula_cells": 0,
+        "merge_count": 2,
+        "freeze_panes": "A2",
+        "max_row": 46,
+        "max_column": 6,
+        "average_row_height": 24.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "investment_case"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "summary_key_financials_values",
+      "sheet": "SUMMARY",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "B26:B39",
+        "nonempty_cells": 14,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 22.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "B26:B39",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 2,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 22.29
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "B26:B39",
+        "nonempty_cells": 13,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 46,
+        "max_column": 6,
+        "average_row_height": 22.14
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "summary_leverage_liquidity_values",
+      "sheet": "SUMMARY",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "B41:B45",
+        "nonempty_cells": 5,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 22.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "B41:B45",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 22.4
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "B41:B45",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 46,
+        "max_column": 6,
+        "average_row_height": 22.4
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "debt_liquidity"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_actuals_quarterly_values",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B6:M80",
+        "nonempty_cells": 647,
+        "formula_cells": 0,
+        "merge_count": 11,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B6:M80",
+        "nonempty_cells": 679,
+        "formula_cells": 0,
+        "merge_count": 11,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B6:M80",
+        "nonempty_cells": 624,
+        "formula_cells": 0,
+        "merge_count": 11,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_guidance_values",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O9:T27",
+        "nonempty_cells": 69,
+        "formula_cells": 0,
+        "merge_count": 35,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O9:T27",
+        "nonempty_cells": 50,
+        "formula_cells": 0,
+        "merge_count": 32,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O9:T27",
+        "nonempty_cells": 56,
+        "formula_cells": 0,
+        "merge_count": 32,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_guidance_values_lower",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O29:T36",
+        "nonempty_cells": 28,
+        "formula_cells": 0,
+        "merge_count": 14,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O29:T36",
+        "nonempty_cells": 7,
+        "formula_cells": 0,
+        "merge_count": 7,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O29:T36",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 12,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_operating_driver_values",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O39:AA47",
+        "nonempty_cells": 32,
+        "formula_cells": 0,
+        "merge_count": 32,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O39:AA47",
+        "nonempty_cells": 26,
+        "formula_cells": 2,
+        "merge_count": 27,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O39:AA47",
+        "nonempty_cells": 26,
+        "formula_cells": 2,
+        "merge_count": 27,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "operating_drivers"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_thesis_bridge_values",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O51:AA62",
+        "nonempty_cells": 36,
+        "formula_cells": 0,
+        "merge_count": 36,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O51:AA62",
+        "nonempty_cells": 18,
+        "formula_cells": 5,
+        "merge_count": 18,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O51:AA62",
+        "nonempty_cells": 12,
+        "formula_cells": 3,
+        "merge_count": 12,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "investment_case"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_output_values",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O64:AA170",
+        "nonempty_cells": 39,
+        "formula_cells": 11,
+        "merge_count": 40,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O64:AA170",
+        "nonempty_cells": 22,
+        "formula_cells": 0,
+        "merge_count": 23,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "O64:AA170",
+        "nonempty_cells": 22,
+        "formula_cells": 0,
+        "merge_count": 24,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "mapping_gaps"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_guidance_status_values",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "X9:AA27",
+        "nonempty_cells": 17,
+        "formula_cells": 0,
+        "merge_count": 35,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "X9:AA27",
+        "nonempty_cells": 14,
+        "formula_cells": 0,
+        "merge_count": 32,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "X9:AA27",
+        "nonempty_cells": 11,
+        "formula_cells": 0,
+        "merge_count": 32,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_guidance_status_values_lower",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "X29:AA36",
+        "nonempty_cells": 7,
+        "formula_cells": 0,
+        "merge_count": 14,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "X29:AA36",
+        "nonempty_cells": 5,
+        "formula_cells": 0,
+        "merge_count": 7,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "X29:AA36",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 12,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_share_count_values",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B81:M90",
+        "nonempty_cells": 96,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B81:M90",
+        "nonempty_cells": 102,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B81:M90",
+        "nonempty_cells": 94,
+        "formula_cells": 0,
+        "merge_count": 2,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_debt_liquidity_values",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B124:M132",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B124:M132",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B124:M132",
+        "nonempty_cells": 7,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "debt_liquidity"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_cash_values",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B133:M137",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B133:M137",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B133:M137",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "debt_liquidity"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_capital_return_values",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B152:M156",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 4,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B152:M156",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 4,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B152:M156",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 4,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "capital_returns"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_liquidity_values",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B7:I49",
+        "nonempty_cells": 179,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.03
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B7:I49",
+        "nonempty_cells": 255,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.03
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B7:I49",
+        "nonempty_cells": 197,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.03
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "debt_liquidity"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_segment_quarterly_values",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B50:I90",
+        "nonempty_cells": 102,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.18
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B50:I90",
+        "nonempty_cells": 227,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.11
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B50:I90",
+        "nonempty_cells": 50,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.14
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "segments"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: source sheet shorter than block range",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_segment_annual_values",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B91:I120",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B91:I120",
+        "nonempty_cells": 39,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B91:I120",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "segments"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "od_watchlist_values",
+      "sheet": "Operating_Drivers",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B6:N11",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 9,
+        "freeze_panes": "",
+        "max_row": 115,
+        "max_column": 14,
+        "average_row_height": 22.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B6:N11",
+        "nonempty_cells": 10,
+        "formula_cells": 0,
+        "merge_count": 10,
+        "freeze_panes": "",
+        "max_row": 77,
+        "max_column": 14,
+        "average_row_height": 22.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B6:N11",
+        "nonempty_cells": 10,
+        "formula_cells": 0,
+        "merge_count": 10,
+        "freeze_panes": "",
+        "max_row": 98,
+        "max_column": 14,
+        "average_row_height": 22.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "operating_drivers"
+      ],
+      "support_sheet_dependencies": [
+        "History_Q",
+        "Quarter_Notes",
+        "Slides_Segments",
+        "operating_drivers_raw"
+      ],
+      "ticker_specific_differences": [
+        "GPRE has separate sector overlays that are excluded from standard blocks"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "od_topic_current_read_values",
+      "sheet": "Operating_Drivers",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B13:N18",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 9,
+        "freeze_panes": "",
+        "max_row": 115,
+        "max_column": 14,
+        "average_row_height": 22.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B13:N18",
+        "nonempty_cells": 10,
+        "formula_cells": 0,
+        "merge_count": 10,
+        "freeze_panes": "",
+        "max_row": 77,
+        "max_column": 14,
+        "average_row_height": 21.75
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B13:N18",
+        "nonempty_cells": 10,
+        "formula_cells": 0,
+        "merge_count": 10,
+        "freeze_panes": "",
+        "max_row": 98,
+        "max_column": 14,
+        "average_row_height": 21.75
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "operating_drivers"
+      ],
+      "support_sheet_dependencies": [
+        "History_Q",
+        "Quarter_Notes",
+        "Slides_Segments",
+        "operating_drivers_raw"
+      ],
+      "ticker_specific_differences": [
+        "GPRE has separate sector overlays that are excluded from standard blocks"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "od_horizon_commentary_values",
+      "sheet": "Operating_Drivers",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B20:N30",
+        "nonempty_cells": 16,
+        "formula_cells": 0,
+        "merge_count": 11,
+        "freeze_panes": "",
+        "max_row": 115,
+        "max_column": 14,
+        "average_row_height": 19.91
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B20:N30",
+        "nonempty_cells": 18,
+        "formula_cells": 0,
+        "merge_count": 11,
+        "freeze_panes": "",
+        "max_row": 77,
+        "max_column": 14,
+        "average_row_height": 19.91
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B20:N30",
+        "nonempty_cells": 18,
+        "formula_cells": 0,
+        "merge_count": 11,
+        "freeze_panes": "",
+        "max_row": 98,
+        "max_column": 14,
+        "average_row_height": 19.91
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "operating_drivers"
+      ],
+      "support_sheet_dependencies": [
+        "History_Q",
+        "Quarter_Notes",
+        "Slides_Segments",
+        "operating_drivers_raw"
+      ],
+      "ticker_specific_differences": [
+        "GPRE has separate sector overlays that are excluded from standard blocks"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "od_current_outlook_values",
+      "sheet": "Operating_Drivers",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B31:N55",
+        "nonempty_cells": 113,
+        "formula_cells": 0,
+        "merge_count": 14,
+        "freeze_panes": "",
+        "max_row": 115,
+        "max_column": 14,
+        "average_row_height": 20.1
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B31:N55",
+        "nonempty_cells": 92,
+        "formula_cells": 0,
+        "merge_count": 19,
+        "freeze_panes": "",
+        "max_row": 77,
+        "max_column": 14,
+        "average_row_height": 19.92
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B31:N55",
+        "nonempty_cells": 47,
+        "formula_cells": 0,
+        "merge_count": 24,
+        "freeze_panes": "",
+        "max_row": 98,
+        "max_column": 14,
+        "average_row_height": 19.74
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "operating_drivers"
+      ],
+      "support_sheet_dependencies": [
+        "History_Q",
+        "Quarter_Notes",
+        "Slides_Segments",
+        "operating_drivers_raw"
+      ],
+      "ticker_specific_differences": [
+        "GPRE has separate sector overlays that are excluded from standard blocks"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "od_driver_actuals_values",
+      "sheet": "Operating_Drivers",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B56:N125",
+        "nonempty_cells": 279,
+        "formula_cells": 0,
+        "merge_count": 10,
+        "freeze_panes": "",
+        "max_row": 115,
+        "max_column": 14,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B56:N125",
+        "nonempty_cells": 214,
+        "formula_cells": 0,
+        "merge_count": 4,
+        "freeze_panes": "",
+        "max_row": 77,
+        "max_column": 14,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Operating_Drivers",
+        "range": "B56:N125",
+        "nonempty_cells": 122,
+        "formula_cells": 0,
+        "merge_count": 21,
+        "freeze_panes": "",
+        "max_row": 98,
+        "max_column": 14,
+        "average_row_height": 20.27
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "operating_drivers"
+      ],
+      "support_sheet_dependencies": [
+        "History_Q",
+        "Quarter_Notes",
+        "Slides_Segments",
+        "operating_drivers_raw"
+      ],
+      "ticker_specific_differences": [
+        "ANF: source sheet shorter than block range",
+        "PBI: source sheet shorter than block range",
+        "GPRE: source sheet shorter than block range",
+        "GPRE has separate sector overlays that are excluded from standard blocks"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "ic_snapshot_values",
+      "sheet": "{ticker}_Investment_Case",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "ANF_Investment_Case",
+        "range": "B5:K30",
+        "nonempty_cells": 110,
+        "formula_cells": 75,
+        "merge_count": 25,
+        "freeze_panes": "A4",
+        "max_row": 233,
+        "max_column": 11,
+        "average_row_height": 21.81
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "PBI_Investment_Case",
+        "range": "B5:K30",
+        "nonempty_cells": 110,
+        "formula_cells": 73,
+        "merge_count": 25,
+        "freeze_panes": "A4",
+        "max_row": 180,
+        "max_column": 10,
+        "average_row_height": 21.58
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "GPRE_Investment_Case",
+        "range": "B5:K30",
+        "nonempty_cells": 110,
+        "formula_cells": 77,
+        "merge_count": 25,
+        "freeze_panes": "A4",
+        "max_row": 188,
+        "max_column": 10,
+        "average_row_height": 21.58
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "investment_case"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "History_Q",
+        "Promise_Progress",
+        "Quarter_Notes",
+        "Scenario_Bridge_Tax_Treatment",
+        "Scenario_Driver_Assumptions",
+        "Slides_Guidance",
+        "Slides_Segments",
+        "{ticker}_Investment_Case_Data"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "ic_key_debate_values",
+      "sheet": "{ticker}_Investment_Case",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "ANF_Investment_Case",
+        "range": "B31:K80",
+        "nonempty_cells": 146,
+        "formula_cells": 67,
+        "merge_count": 66,
+        "freeze_panes": "A4",
+        "max_row": 233,
+        "max_column": 11,
+        "average_row_height": 22.4
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "PBI_Investment_Case",
+        "range": "B31:K80",
+        "nonempty_cells": 144,
+        "formula_cells": 70,
+        "merge_count": 64,
+        "freeze_panes": "A4",
+        "max_row": 180,
+        "max_column": 10,
+        "average_row_height": 21.43
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "GPRE_Investment_Case",
+        "range": "B31:K80",
+        "nonempty_cells": 130,
+        "formula_cells": 58,
+        "merge_count": 69,
+        "freeze_panes": "A4",
+        "max_row": 188,
+        "max_column": 10,
+        "average_row_height": 21.73
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "investment_case"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "History_Q",
+        "Promise_Progress",
+        "Quarter_Notes",
+        "Scenario_Bridge_Tax_Treatment",
+        "Scenario_Driver_Assumptions",
+        "Slides_Guidance",
+        "Slides_Segments",
+        "{ticker}_Investment_Case_Data"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "ic_manual_input_values",
+      "sheet": "{ticker}_Investment_Case",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "ANF_Investment_Case",
+        "range": "B81:K130",
+        "nonempty_cells": 104,
+        "formula_cells": 21,
+        "merge_count": 79,
+        "freeze_panes": "A4",
+        "max_row": 233,
+        "max_column": 11,
+        "average_row_height": 21.79
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "PBI_Investment_Case",
+        "range": "B81:K130",
+        "nonempty_cells": 80,
+        "formula_cells": 0,
+        "merge_count": 82,
+        "freeze_panes": "A4",
+        "max_row": 180,
+        "max_column": 10,
+        "average_row_height": 20.52
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "GPRE_Investment_Case",
+        "range": "B81:K130",
+        "nonempty_cells": 78,
+        "formula_cells": 0,
+        "merge_count": 84,
+        "freeze_panes": "A4",
+        "max_row": 188,
+        "max_column": 10,
+        "average_row_height": 20.4
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "investment_case"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "History_Q",
+        "Promise_Progress",
+        "Quarter_Notes",
+        "Scenario_Bridge_Tax_Treatment",
+        "Scenario_Driver_Assumptions",
+        "Slides_Guidance",
+        "Slides_Segments",
+        "{ticker}_Investment_Case_Data"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "ic_scenario_bridge_values",
+      "sheet": "{ticker}_Investment_Case",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "ANF_Investment_Case",
+        "range": "B131:K190",
+        "nonempty_cells": 165,
+        "formula_cells": 36,
+        "merge_count": 62,
+        "freeze_panes": "A4",
+        "max_row": 233,
+        "max_column": 11,
+        "average_row_height": 21.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "PBI_Investment_Case",
+        "range": "B131:K190",
+        "nonempty_cells": 94,
+        "formula_cells": 36,
+        "merge_count": 53,
+        "freeze_panes": "A4",
+        "max_row": 180,
+        "max_column": 10,
+        "average_row_height": 20.04
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "GPRE_Investment_Case",
+        "range": "B131:K190",
+        "nonempty_cells": 106,
+        "formula_cells": 36,
+        "merge_count": 66,
+        "freeze_panes": "A4",
+        "max_row": 188,
+        "max_column": 10,
+        "average_row_height": 20.07
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "segments"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "History_Q",
+        "Promise_Progress",
+        "Quarter_Notes",
+        "Scenario_Bridge_Tax_Treatment",
+        "Scenario_Driver_Assumptions",
+        "Slides_Guidance",
+        "Slides_Segments",
+        "{ticker}_Investment_Case_Data"
+      ],
+      "ticker_specific_differences": [
+        "PBI: source sheet shorter than block range",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "ic_lower_comp_history_labels",
+      "sheet": "{ticker}_Investment_Case",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "ANF_Investment_Case",
+        "range": "A185:K191",
+        "nonempty_cells": 63,
+        "formula_cells": 0,
+        "merge_count": 7,
+        "freeze_panes": "A4",
+        "max_row": 233,
+        "max_column": 11,
+        "average_row_height": 21.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "PBI_Investment_Case",
+        "range": "A185:K191",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A4",
+        "max_row": 180,
+        "max_column": 10,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "GPRE_Investment_Case",
+        "range": "A185:K191",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 8,
+        "freeze_panes": "A4",
+        "max_row": 188,
+        "max_column": 10,
+        "average_row_height": 21.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "operating_drivers"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "History_Q",
+        "Promise_Progress",
+        "Quarter_Notes",
+        "Scenario_Bridge_Tax_Treatment",
+        "Scenario_Driver_Assumptions",
+        "Slides_Guidance",
+        "Slides_Segments",
+        "{ticker}_Investment_Case_Data"
+      ],
+      "ticker_specific_differences": [
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "ic_lower_brand_health_values",
+      "sheet": "{ticker}_Investment_Case",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "ANF_Investment_Case",
+        "range": "B194:K199",
+        "nonempty_cells": 11,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A4",
+        "max_row": 233,
+        "max_column": 11,
+        "average_row_height": 21.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "PBI_Investment_Case",
+        "range": "B194:K199",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A4",
+        "max_row": 180,
+        "max_column": 10,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "GPRE_Investment_Case",
+        "range": "B194:K199",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A4",
+        "max_row": 188,
+        "max_column": 10,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "operating_drivers"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "History_Q",
+        "Promise_Progress",
+        "Quarter_Notes",
+        "Scenario_Bridge_Tax_Treatment",
+        "Scenario_Driver_Assumptions",
+        "Slides_Guidance",
+        "Slides_Segments",
+        "{ticker}_Investment_Case_Data"
+      ],
+      "ticker_specific_differences": [
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "ic_lower_inventory_values",
+      "sheet": "{ticker}_Investment_Case",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "ANF_Investment_Case",
+        "range": "B202:K209",
+        "nonempty_cells": 9,
+        "formula_cells": 0,
+        "merge_count": 8,
+        "freeze_panes": "A4",
+        "max_row": 233,
+        "max_column": 11,
+        "average_row_height": 21.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "PBI_Investment_Case",
+        "range": "B202:K209",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A4",
+        "max_row": 180,
+        "max_column": 10,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "GPRE_Investment_Case",
+        "range": "B202:K209",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A4",
+        "max_row": 188,
+        "max_column": 10,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "operating_drivers"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "History_Q",
+        "Promise_Progress",
+        "Quarter_Notes",
+        "Scenario_Bridge_Tax_Treatment",
+        "Scenario_Driver_Assumptions",
+        "Slides_Guidance",
+        "Slides_Segments",
+        "{ticker}_Investment_Case_Data"
+      ],
+      "ticker_specific_differences": [
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "ic_lower_store_productivity_values",
+      "sheet": "{ticker}_Investment_Case",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "ANF_Investment_Case",
+        "range": "B212:K225",
+        "nonempty_cells": 28,
+        "formula_cells": 0,
+        "merge_count": 28,
+        "freeze_panes": "A4",
+        "max_row": 233,
+        "max_column": 11,
+        "average_row_height": 21.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "PBI_Investment_Case",
+        "range": "B212:K225",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A4",
+        "max_row": 180,
+        "max_column": 10,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "GPRE_Investment_Case",
+        "range": "B212:K225",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A4",
+        "max_row": 188,
+        "max_column": 10,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "operating_drivers"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "History_Q",
+        "Promise_Progress",
+        "Quarter_Notes",
+        "Scenario_Bridge_Tax_Treatment",
+        "Scenario_Driver_Assumptions",
+        "Slides_Guidance",
+        "Slides_Segments",
+        "{ticker}_Investment_Case_Data"
+      ],
+      "ticker_specific_differences": [
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "ic_lower_guidance_setup_values",
+      "sheet": "{ticker}_Investment_Case",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "ANF_Investment_Case",
+        "range": "B228:K233",
+        "nonempty_cells": 18,
+        "formula_cells": 0,
+        "merge_count": 18,
+        "freeze_panes": "A4",
+        "max_row": 233,
+        "max_column": 11,
+        "average_row_height": 21.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "PBI_Investment_Case",
+        "range": "B228:K233",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A4",
+        "max_row": 180,
+        "max_column": 10,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "GPRE_Investment_Case",
+        "range": "B228:K233",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A4",
+        "max_row": 188,
+        "max_column": 10,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "History_Q",
+        "Promise_Progress",
+        "Quarter_Notes",
+        "Scenario_Bridge_Tax_Treatment",
+        "Scenario_Driver_Assumptions",
+        "Slides_Guidance",
+        "Slides_Segments",
+        "{ticker}_Investment_Case_Data"
+      ],
+      "ticker_specific_differences": [
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "qn_quarter_summary_values",
+      "sheet": "Quarter_Notes_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Quarter_Notes_UI",
+        "range": "B3:O6",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 4,
+        "freeze_panes": "A2",
+        "max_row": 353,
+        "max_column": 15,
+        "average_row_height": 37.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Quarter_Notes_UI",
+        "range": "B3:O6",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 4,
+        "freeze_panes": "A2",
+        "max_row": 304,
+        "max_column": 15,
+        "average_row_height": 40.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Quarter_Notes_UI",
+        "range": "B3:O6",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 4,
+        "freeze_panes": "A2",
+        "max_row": 354,
+        "max_column": 15,
+        "average_row_height": 44.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "quarter_notes"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Quarter_Narrative_Data",
+        "Quarter_Notes",
+        "Quarter_Notes_Evidence"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "qn_quarter_block_values",
+      "sheet": "Quarter_Notes_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Quarter_Notes_UI",
+        "range": "B8:O360",
+        "nonempty_cells": 744,
+        "formula_cells": 0,
+        "merge_count": 1000,
+        "freeze_panes": "A2",
+        "max_row": 353,
+        "max_column": 15,
+        "average_row_height": 34.62
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Quarter_Notes_UI",
+        "range": "B8:O360",
+        "nonempty_cells": 564,
+        "formula_cells": 0,
+        "merge_count": 771,
+        "freeze_panes": "A2",
+        "max_row": 304,
+        "max_column": 15,
+        "average_row_height": 34.83
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Quarter_Notes_UI",
+        "range": "B8:O360",
+        "nonempty_cells": 747,
+        "formula_cells": 0,
+        "merge_count": 1004,
+        "freeze_panes": "A2",
+        "max_row": 354,
+        "max_column": 15,
+        "average_row_height": 34.54
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "quarter_notes"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Quarter_Narrative_Data",
+        "Quarter_Notes",
+        "Quarter_Notes_Evidence"
+      ],
+      "ticker_specific_differences": [
+        "ANF: source sheet shorter than block range",
+        "PBI: source sheet shorter than block range",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_scorecard_values",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B5:O11",
+        "nonempty_cells": 15,
+        "formula_cells": 0,
+        "merge_count": 11,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 22.86
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B5:O11",
+        "nonempty_cells": 15,
+        "formula_cells": 0,
+        "merge_count": 11,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 22.86
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B5:O11",
+        "nonempty_cells": 15,
+        "formula_cells": 0,
+        "merge_count": 11,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 22.86
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_annual_guidance_values",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B13:O22",
+        "nonempty_cells": 62,
+        "formula_cells": 0,
+        "merge_count": 9,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 23.2
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B13:O22",
+        "nonempty_cells": 54,
+        "formula_cells": 0,
+        "merge_count": 10,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 23.2
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B13:O22",
+        "nonempty_cells": 35,
+        "formula_cells": 0,
+        "merge_count": 9,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 23.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_annual_guidance_values_block_2",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B24:O28",
+        "nonempty_cells": 17,
+        "formula_cells": 0,
+        "merge_count": 4,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 22.4
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B24:O28",
+        "nonempty_cells": 24,
+        "formula_cells": 0,
+        "merge_count": 5,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 24.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B24:O28",
+        "nonempty_cells": 21,
+        "formula_cells": 0,
+        "merge_count": 3,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 21.6
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_annual_guidance_values_block_3",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B30:O33",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 3,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 22.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B30:O33",
+        "nonempty_cells": 21,
+        "formula_cells": 0,
+        "merge_count": 3,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 22.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B30:O33",
+        "nonempty_cells": 19,
+        "formula_cells": 0,
+        "merge_count": 2,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 21.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_annual_guidance_values_block_4",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B35:O35",
+        "nonempty_cells": 7,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 24.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B35:O35",
+        "nonempty_cells": 11,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 24.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B35:O35",
+        "nonempty_cells": 10,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 24.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_open_guidance_values",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B39:O59",
+        "nonempty_cells": 68,
+        "formula_cells": 0,
+        "merge_count": 19,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 23.24
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B39:O59",
+        "nonempty_cells": 162,
+        "formula_cells": 0,
+        "merge_count": 6,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 22.57
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B39:O59",
+        "nonempty_cells": 100,
+        "formula_cells": 0,
+        "merge_count": 6,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 23.08
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_guidance_timeline_values",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B61:O69",
+        "nonempty_cells": 56,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 23.11
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B61:O69",
+        "nonempty_cells": 75,
+        "formula_cells": 0,
+        "merge_count": 3,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 22.67
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B61:O69",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "different",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_guidance_timeline_values_block_2",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B71:O76",
+        "nonempty_cells": 44,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 22.67
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B71:O76",
+        "nonempty_cells": 42,
+        "formula_cells": 0,
+        "merge_count": 2,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 22.33
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B71:O76",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_guidance_timeline_values_block_3",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B78:O84",
+        "nonempty_cells": 66,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 23.71
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B78:O84",
+        "nonempty_cells": 20,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 23.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B78:O84",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_guidance_timeline_values_block_4",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B86:O90",
+        "nonempty_cells": 33,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 22.4
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B86:O90",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B86:O90",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_guidance_timeline_values_block_5",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B92:O97",
+        "nonempty_cells": 44,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 22.67
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B92:O97",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B92:O97",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "pp_guidance_timeline_values_block_6",
+      "sheet": "Promise_Progress_UI",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B99:O115",
+        "nonempty_cells": 44,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 102,
+        "max_column": 15,
+        "average_row_height": 24.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B99:O115",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 79,
+        "max_column": 15,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Promise_Progress_UI",
+        "range": "B99:O115",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 15,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "Guidance_Raw",
+        "Promise_Evidence",
+        "Promise_Progress",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "ANF: source sheet shorter than block range",
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "qa_log_rows",
+      "sheet": "QA_Log",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "QA_Log",
+        "range": "A2:Z5000",
+        "nonempty_cells": 11309,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 1256,
+        "max_column": 11,
+        "average_row_height": 15.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "QA_Log",
+        "range": "A2:Z5000",
+        "nonempty_cells": 11445,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 1267,
+        "max_column": 18,
+        "average_row_height": 15.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "QA_Log",
+        "range": "A2:Z5000",
+        "nonempty_cells": 11498,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 1265,
+        "max_column": 18,
+        "average_row_height": 15.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "manual_review_flags"
+      ],
+      "support_sheet_dependencies": [
+        "Info_Log",
+        "OCR_Text_Log",
+        "Promise_Evidence",
+        "Quarter_Notes_Evidence",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [
+        "ANF: source sheet shorter than block range",
+        "PBI: source sheet shorter than block range",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "needs_review_rows",
+      "sheet": "Needs_Review",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Needs_Review",
+        "range": "A2:Z5000",
+        "nonempty_cells": 564,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 51,
+        "max_column": 13,
+        "average_row_height": 15.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Needs_Review",
+        "range": "A2:Z5000",
+        "nonempty_cells": 64,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 6,
+        "max_column": 13,
+        "average_row_height": 15.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Needs_Review",
+        "range": "A2:Z5000",
+        "nonempty_cells": 25,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 3,
+        "max_column": 13,
+        "average_row_height": 15.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "manual_review_flags"
+      ],
+      "support_sheet_dependencies": [
+        "QA_Log"
+      ],
+      "ticker_specific_differences": [
+        "ANF: source sheet shorter than block range",
+        "PBI: source sheet shorter than block range",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "qa_checks_rows",
+      "sheet": "QA_Checks",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "QA_Checks",
+        "range": "A2:Z5000",
+        "nonempty_cells": 8133,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 776,
+        "max_column": 24,
+        "average_row_height": 15.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "QA_Checks",
+        "range": "A2:Z5000",
+        "nonempty_cells": 7005,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 592,
+        "max_column": 24,
+        "average_row_height": 15.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "QA_Checks",
+        "range": "A2:Z5000",
+        "nonempty_cells": 6116,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 537,
+        "max_column": 24,
+        "average_row_height": 15.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "mapping_gaps"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Guidance_Raw",
+        "QA_Log",
+        "SEC_Audit_Log",
+        "operating_drivers_raw"
+      ],
+      "ticker_specific_differences": [
+        "ANF: source sheet shorter than block range",
+        "PBI: source sheet shorter than block range",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    }
+  ],
+  "excluded_sector_overlays": [
+    {
+      "sheet": "Economics_Overlay",
+      "exists_in": [
+        "GPRE"
+      ],
+      "standardization_status": "sector_specific",
+      "include_in_standard_template": false,
+      "exclusion_reason": "GPRE-specific sector overlay; not part of standard visible template family."
+    },
+    {
+      "sheet": "Basis_Proxy_Sandbox",
+      "exists_in": [
+        "GPRE"
+      ],
+      "standardization_status": "sector_specific",
+      "include_in_standard_template": false,
+      "exclusion_reason": "GPRE-specific sector overlay; not part of standard visible template family."
+    }
+  ]
+}

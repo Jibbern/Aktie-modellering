@@ -1,0 +1,125 @@
+flowchart TB
+  classDef source fill:#e8f3ff,stroke:#2f6fab,color:#111111
+  classDef transform fill:#eef8ed,stroke:#4f8b45,color:#111111
+  classDef writer fill:#fff4db,stroke:#b57915,color:#111111
+  classDef workbook fill:#f2ecff,stroke:#7655b5,color:#111111
+  classDef validate fill:#f6f6f6,stroke:#626262,color:#111111
+  classDef risk fill:#ffe7e0,stroke:#c04f35,color:#111111
+  classDef future fill:#e8fff7,stroke:#27876a,color:#111111
+
+  subgraph Current["1. Current System Architecture"]
+    SourceFiles["Source files and caches<br/>StockModelData/sec_cache/{ticker}<br/>StockModelData/tickers/{ticker}<br/>market_cache / writer_cache"]:::source
+    SourceDocs["IR files, transcripts, presentations<br/>financial schedules and release artifacts"]:::source
+    ManualProfile["Manually configured profile data<br/>company_profiles.py<br/>summary_overview.py"]:::source
+
+    SecParsers["SEC / XBRL extraction<br/>sec_xbrl.py<br/>sec_ingest.py<br/>pipeline.py"]:::transform
+    DocParsers["IR / transcript parsing<br/>doc_intel.py<br/>quarter_notes.py<br/>operating_drivers_runtime.py"]:::transform
+    DerivedFacts["Derived and selected facts<br/>valuation.py<br/>valuation_precompute_runtime.py<br/>segment and guidance helpers"]:::transform
+
+    WorkbookOrchestrator["Workbook orchestration<br/>excel_writer.py<br/>excel_writer_core.py<br/>write_excel_from_inputs()"]:::writer
+    WriterFamilies["Production writer families<br/>summary, valuation, segments, drivers,<br/>investment case, UI, QA, raw/support"]:::writer
+    SupportSheets["Support sheets<br/>History_Q, DATA_Facts_Long, SEC_Audit_Log,<br/>Guidance_Raw, Guidance_Normalized,<br/>Quarter_Notes, Promise_Progress"]:::workbook
+    VisibleWorkbook["Visible Excel sheets<br/>SUMMARY, Valuation, BS_Segments,<br/>Operating_Drivers, Investment_Case,<br/>Quarter_Notes_UI, Promise_Progress_UI,<br/>QA_Log, Needs_Review, QA_Checks"]:::workbook
+    CurrentValidation["Workbook validation / QA<br/>workbook_validation_runner.py<br/>workbook_quality_guardrails.py<br/>writer_qa_policy.py"]:::validate
+  end
+
+  SourceFiles --> SecParsers
+  SourceDocs --> DocParsers
+  ManualProfile --> DerivedFacts
+  SecParsers --> DerivedFacts
+  DocParsers --> DerivedFacts
+  DerivedFacts --> WorkbookOrchestrator
+  ManualProfile --> WorkbookOrchestrator
+  WorkbookOrchestrator --> WriterFamilies
+  WriterFamilies --> SupportSheets
+  SupportSheets --> VisibleWorkbook
+  WriterFamilies --> VisibleWorkbook
+  VisibleWorkbook --> CurrentValidation
+  SupportSheets --> CurrentValidation
+
+  subgraph SheetOwners["3. Sheet Ownership Map"]
+    SummarySheet["SUMMARY"]:::workbook
+    ValuationSheet["Valuation"]:::workbook
+    SegmentSheet["BS_Segments"]:::workbook
+    DriverSheet["Operating_Drivers"]:::workbook
+    CaseSheet["{ticker}_Investment_Case"]:::workbook
+    QuarterSheet["Quarter_Notes_UI"]:::workbook
+    PromiseSheet["Promise_Progress_UI"]:::workbook
+    QALogSheet["QA_Log"]:::workbook
+    NeedsReviewSheet["Needs_Review"]:::workbook
+    QAChecksSheet["QA_Checks"]:::workbook
+
+    SummaryOwner["Current owner<br/>excel_writer_summary_builder.py<br/>excel_writer_summary_sheet.py<br/>summary_overview.py"]:::writer
+    ValuationOwner["Current owner<br/>excel_writer_valuation_orchestrator.py<br/>excel_writer_valuation_*<br/>valuation.py"]:::writer
+    SegmentOwner["Current owner<br/>excel_writer_bs_segments.py<br/>excel_writer_segments.py<br/>excel_writer_segment_sources.py"]:::writer
+    DriverOwner["Current owner<br/>excel_writer_drivers.py<br/>operating_drivers_runtime.py"]:::writer
+    CaseOwner["Current owner<br/>excel_writer_sector_investment_case.py<br/>excel_writer_investment_case_support.py<br/>excel_writer_anf_investment_case.py"]:::writer
+    QuarterOwner["Current owner<br/>excel_writer_quarter_notes_ui_orchestrator.py<br/>quarter_notes.py<br/>quarter_notes_runtime.py"]:::writer
+    PromiseOwner["Current owner<br/>excel_writer_promise_progress.py<br/>doc_intel.py"]:::writer
+    QAOwner["Current owner<br/>excel_writer_core.write_qa_sheets()<br/>writer_qa_policy.py<br/>pipeline_qa.py"]:::writer
+
+    NormalizedPackage["Future value owner<br/>normalized_company_data package"]:::future
+    ShellBinding["Future presentation owner<br/>standard_stock_model_template.xlsx<br/>workbook_binding_map.json"]:::future
+    ValidationOwner["Future QA owner<br/>normalized_company_data_validation.py<br/>shell and workbook validators"]:::future
+  end
+
+  SummaryOwner --> SummarySheet --> NormalizedPackage
+  ValuationOwner --> ValuationSheet --> NormalizedPackage
+  SegmentOwner --> SegmentSheet --> NormalizedPackage
+  DriverOwner --> DriverSheet --> NormalizedPackage
+  CaseOwner --> CaseSheet --> NormalizedPackage
+  QuarterOwner --> QuarterSheet --> NormalizedPackage
+  PromiseOwner --> PromiseSheet --> NormalizedPackage
+  QAOwner --> QALogSheet --> ValidationOwner
+  QAOwner --> NeedsReviewSheet --> ValidationOwner
+  QAOwner --> QAChecksSheet --> ValidationOwner
+  NormalizedPackage --> ShellBinding
+  ShellBinding --> SummarySheet
+  ShellBinding --> ValuationSheet
+  ShellBinding --> SegmentSheet
+  ShellBinding --> DriverSheet
+  ShellBinding --> CaseSheet
+  ShellBinding --> QuarterSheet
+  ShellBinding --> PromiseSheet
+
+  subgraph Lifecycle["4. Data Lifecycle Map"]
+    RawSource["Raw source<br/>SEC/XBRL, IR, transcripts,<br/>presentations, manual profile"]:::source
+    ParsedEvidence["Parsed evidence<br/>facts, extracted snippets,<br/>source refs, confidence"]:::transform
+    NormalizedField["Normalized field<br/>value, status, source_ref,<br/>period, unit, parser state"]:::future
+    PreRenderValidation["Pre-render validation<br/>fail-fast structured issues"]:::validate
+    BindingRule["Binding rule<br/>binding_id, target, value_shape,<br/>source_policy, missing behavior"]:::future
+    WorkbookCell["Workbook cell/range<br/>writable shell zone only"]:::workbook
+    ManualReview["QA / manual review<br/>mapping gaps, Needs_Review,<br/>QA_Log, QA_Checks"]:::validate
+  end
+
+  RawSource --> ParsedEvidence --> NormalizedField --> PreRenderValidation
+  PreRenderValidation --> BindingRule --> WorkbookCell --> ManualReview
+  PreRenderValidation --> ManualReview
+
+  subgraph RiskMap["5. Risk Map From GTX Stress Evidence"]
+    GTXFailure["GTX dry-run failure mode<br/>template-clean workbook but sparse,<br/>generic, or wrong content"]:::risk
+    TickerBranches["Ticker-specific writer branches"]:::risk
+    PostRenderRepairs["Post-render scaffold / repair logic"]:::risk
+    ParserNoise["Parser-noise snippets in visible UI"]:::risk
+    GuidanceRisk["Guidance metric misclassification"]:::risk
+    LayoutMutation["Layout mutation after render"]:::risk
+    SilentBlanks["Missing-source blanks without reason"]:::risk
+
+    NormalizeFirst["Prevent by normalized package<br/>statuses and source refs required"]:::future
+    ValidateFirst["Prevent by pre-render validation<br/>block or flag before Excel render"]:::future
+    FrozenShell["Prevent by frozen shell<br/>layout owned outside runtime"]:::future
+    BindingOnly["Prevent by binding map<br/>value-only writable zones"]:::future
+  end
+
+  GTXFailure --> TickerBranches
+  GTXFailure --> PostRenderRepairs
+  GTXFailure --> ParserNoise
+  GTXFailure --> GuidanceRisk
+  GTXFailure --> LayoutMutation
+  GTXFailure --> SilentBlanks
+  TickerBranches -. avoided by .-> NormalizeFirst
+  ParserNoise -. blocked by .-> ValidateFirst
+  GuidanceRisk -. blocked by .-> ValidateFirst
+  PostRenderRepairs -. replaced by .-> FrozenShell
+  LayoutMutation -. blocked by .-> FrozenShell
+  SilentBlanks -. explained by .-> BindingOnly

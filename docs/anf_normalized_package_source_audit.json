@@ -1,0 +1,237 @@
+{
+  "version": "0.1.0",
+  "generated_at_utc": "2026-07-08T00:42:21+00:00",
+  "ticker": "ANF",
+  "data_root": "C:\\Users\\Jibbe\\Aktier\\StockModelData",
+  "legacy_workbook": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
+  "source_family_counts": {
+    "annual_reports": 5,
+    "earnings_release": 50,
+    "earnings_presentation": 50,
+    "earnings_transcripts": 32,
+    "press_release": 15,
+    "financial_statement": 25,
+    "conferences": 2
+  },
+  "sections": [
+    {
+      "section": "ticker_metadata",
+      "available_source_candidates": [
+        "SEC company_tickers",
+        "sec_cache/ANF/0001018840",
+        "ANF_model.xlsx!SUMMARY"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": true,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 5
+    },
+    {
+      "section": "company_profile",
+      "available_source_candidates": [
+        "ANF_model.xlsx!SUMMARY",
+        "company profile configuration",
+        "earnings release About section"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": true,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 7
+    },
+    {
+      "section": "quarterly_financials",
+      "available_source_candidates": [
+        "ANF_model.xlsx!History_Q",
+        "SEC/XBRL cache",
+        "earnings release financial schedules"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 105
+    },
+    {
+      "section": "annual_financials",
+      "available_source_candidates": [
+        "ANF_model.xlsx!History_Q aggregated by fiscal_year",
+        "annual reports",
+        "earnings release annual schedules"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 36
+    },
+    {
+      "section": "debt_liquidity",
+      "available_source_candidates": [
+        "ANF_model.xlsx!Leverage_Liquidity",
+        "ANF_model.xlsx!History_Q",
+        "ANF_model.xlsx!Slides_Debt_Profile"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 6
+    },
+    {
+      "section": "capital_returns",
+      "available_source_candidates": [
+        "ANF_model.xlsx!History_Q",
+        "earnings release capital allocation text"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 1
+    },
+    {
+      "section": "normalized_guidance",
+      "available_source_candidates": [
+        "ANF_model.xlsx!Guidance_Normalized",
+        "ANF_model.xlsx!Promise_Progress",
+        "earnings releases",
+        "transcripts"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 120
+    },
+    {
+      "section": "segments",
+      "available_source_candidates": [
+        "ANF_model.xlsx!Slides_Segments",
+        "earnings release segment tables",
+        "presentation tables"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 166
+    },
+    {
+      "section": "operating_drivers",
+      "available_source_candidates": [
+        "ANF_model.xlsx!operating_drivers_raw",
+        "transcripts",
+        "earnings presentations"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 145
+    },
+    {
+      "section": "quarter_notes",
+      "available_source_candidates": [
+        "ANF_model.xlsx!Quarter_Notes",
+        "ANF_model.xlsx!Quarter_Notes_Evidence"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 280
+    },
+    {
+      "section": "investment_case",
+      "available_source_candidates": [
+        "ANF_model.xlsx!SUMMARY",
+        "ANF_model.xlsx!ANF_Investment_Case_Data"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": true,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": true,
+      "populated_field_count": 3
+    },
+    {
+      "section": "source_coverage",
+      "available_source_candidates": [
+        "StockModelData/tickers/ANF",
+        "StockModelData/sec_cache/ANF"
+      ],
+      "source_backed_available": false,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": false,
+      "missing_source": true,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 0
+    },
+    {
+      "section": "mapping_gaps",
+      "available_source_candidates": [
+        "docs/workbook_binding_map.json",
+        "normalized package"
+      ],
+      "source_backed_available": false,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": false,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": true,
+      "populated_field_count": 0
+    },
+    {
+      "section": "manual_review_flags",
+      "available_source_candidates": [
+        "pre-render validation",
+        "mapping gap report"
+      ],
+      "source_backed_available": false,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": false,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": true,
+      "populated_field_count": 0
+    }
+  ]
+}

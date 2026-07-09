@@ -1,0 +1,433 @@
+{
+  "package_version": "0.1.0",
+  "generated_at_utc": "2026-07-07T00:00:00Z",
+  "stress_test": false,
+  "ticker_metadata": {
+    "ticker": {
+      "value": "TEST",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:ticker",
+      "core": true
+    },
+    "exchange": {
+      "value": "NYSE",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": false
+    },
+    "cik": {
+      "value": "0000000000",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": false
+    },
+    "fiscal_year_end": {
+      "value": "12-31",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": false
+    },
+    "reporting_currency": {
+      "value": "USD",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": false
+    }
+  },
+  "company_profile": {
+    "company_name": {
+      "value": "Test Systems Inc.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": true
+    },
+    "sector": {
+      "value": "Industrials",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": false
+    },
+    "industry": {
+      "value": "Industrial software",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": false
+    },
+    "business_description": {
+      "value": "Test Systems provides workflow software and recurring services for asset-heavy customers.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": true
+    },
+    "revenue_model": {
+      "value": "Revenue is generated from subscriptions, implementation services, and recurring support contracts.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": true
+    },
+    "key_advantages": {
+      "value": "Installed-base retention and domain-specific workflow depth support pricing durability.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": false
+    },
+    "key_risks": {
+      "value": "Customer budget deferrals and implementation delays can pressure growth.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": false
+    },
+    "allowed_sector_terms": []
+  },
+  "quarterly_financials": {
+    "rows": [
+      {
+        "period": "2026-Q1",
+        "fiscal_year": 2026,
+        "fiscal_quarter": 1,
+        "revenue": {
+          "value": 120.5,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1",
+          "core": true,
+          "unit": "$m",
+          "period": "2026-Q1"
+        },
+        "operating_income": {
+          "value": 18.2,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1",
+          "core": true,
+          "unit": "$m",
+          "period": "2026-Q1"
+        },
+        "adjusted_ebitda": {
+          "value": 26.4,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1",
+          "core": false,
+          "unit": "$m",
+          "period": "2026-Q1"
+        },
+        "free_cash_flow": {
+          "value": 14.1,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1",
+          "core": true,
+          "unit": "$m",
+          "period": "2026-Q1"
+        },
+        "diluted_shares": {
+          "value": 42.3,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1",
+          "core": true,
+          "unit": "m shares",
+          "period": "2026-Q1"
+        }
+      },
+      {
+        "period": "2025-Q4",
+        "fiscal_year": 2025,
+        "fiscal_quarter": 4,
+        "revenue": {
+          "value": 118.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4",
+          "core": true,
+          "unit": "$m",
+          "period": "2025-Q4"
+        },
+        "operating_income": {
+          "value": 17.5,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4",
+          "core": true,
+          "unit": "$m",
+          "period": "2025-Q4"
+        },
+        "adjusted_ebitda": {
+          "value": 25.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4",
+          "core": false,
+          "unit": "$m",
+          "period": "2025-Q4"
+        },
+        "free_cash_flow": {
+          "value": 12.8,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4",
+          "core": true,
+          "unit": "$m",
+          "period": "2025-Q4"
+        },
+        "diluted_shares": {
+          "value": 42.1,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4",
+          "core": true,
+          "unit": "m shares",
+          "period": "2025-Q4"
+        }
+      }
+    ]
+  },
+  "annual_financials": {
+    "rows": [
+      {
+        "period": "2025",
+        "fiscal_year": 2025,
+        "revenue": {
+          "value": 470.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:annual_financials:2025",
+          "core": false,
+          "unit": "$m",
+          "period": "2025"
+        },
+        "operating_income": {
+          "value": 68.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:annual_financials:2025",
+          "core": false,
+          "unit": "$m",
+          "period": "2025"
+        },
+        "adjusted_ebitda": {
+          "value": 96.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:annual_financials:2025",
+          "core": false,
+          "unit": "$m",
+          "period": "2025"
+        },
+        "net_income": {
+          "value": 44.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:annual_financials:2025",
+          "core": false,
+          "unit": "$m",
+          "period": "2025"
+        },
+        "free_cash_flow": {
+          "value": 51.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:annual_financials:2025",
+          "core": false,
+          "unit": "$m",
+          "period": "2025"
+        }
+      }
+    ]
+  },
+  "debt_liquidity": {
+    "cash": {
+      "value": 80.0,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true,
+      "unit": "$m"
+    },
+    "total_debt": {
+      "value": 150.0,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true,
+      "unit": "$m"
+    },
+    "net_debt": {
+      "value": 70.0,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true,
+      "unit": "$m"
+    },
+    "liquidity": {
+      "value": 180.0,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true,
+      "unit": "$m"
+    }
+  },
+  "capital_returns": {
+    "buybacks": {
+      "value": 3.5,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:capital_returns",
+      "core": false,
+      "unit": "$m"
+    },
+    "dividends": {
+      "value": 0.0,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:capital_returns",
+      "core": false,
+      "unit": "$m"
+    }
+  },
+  "normalized_guidance": {
+    "items": [
+      {
+        "metric": {
+          "value": "Revenue",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:guidance",
+          "core": true
+        },
+        "value": {
+          "value": "Revenue growth expected in the mid-single-digit range.",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:guidance",
+          "core": true
+        },
+        "horizon": {
+          "value": "FY2026",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:guidance",
+          "core": false
+        },
+        "source_excerpt": "Management expects revenue growth in the mid-single-digit range for FY2026.",
+        "source_date": "2026-07-07",
+        "stated_in_period": "2026-Q1",
+        "classification": "revenue"
+      }
+    ]
+  },
+  "segments": {
+    "items": [
+      {
+        "segment": {
+          "value": "Workflow software",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:segments",
+          "core": false
+        },
+        "revenue": {
+          "value": 92.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:segments",
+          "core": false,
+          "unit": "$m"
+        },
+        "annual_revenue": {
+          "value": 360.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:segments",
+          "core": false,
+          "unit": "$m"
+        }
+      }
+    ]
+  },
+  "operating_drivers": {
+    "items": [
+      {
+        "driver": {
+          "value": "Retention and implementation velocity",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:operating_drivers",
+          "core": true
+        },
+        "current_read": {
+          "value": "Renewal rates remain stable while implementation backlog is converting on schedule.",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:operating_drivers",
+          "core": true
+        },
+        "metric_value": {
+          "value": "Net retention above 100%",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:operating_drivers",
+          "core": false
+        }
+      }
+    ]
+  },
+  "quarter_notes": {
+    "items": [
+      {
+        "note": {
+          "value": "Revenue growth was supported by recurring software demand.",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarter_notes",
+          "core": true
+        },
+        "model_implication": {
+          "value": "Growth durability remains the main valuation sensitivity.",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarter_notes",
+          "core": false
+        }
+      }
+    ]
+  },
+  "investment_case": {
+    "summary": {
+      "value": "The test case depends on durable recurring revenue and disciplined capital allocation.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:investment_case",
+      "core": true
+    },
+    "key_debate": {
+      "value": "Whether retention and implementation speed can support sustained margin expansion.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:investment_case",
+      "core": true
+    },
+    "bull_case": {
+      "value": "Higher retention and operating leverage lift free cash flow.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:investment_case",
+      "core": false
+    },
+    "base_case": {
+      "value": "Recurring growth remains steady and margins improve modestly.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:investment_case",
+      "core": false
+    },
+    "bear_case": {
+      "value": "Implementation delays pressure growth and cash conversion.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:investment_case",
+      "core": false
+    },
+    "scenario_drivers": {
+      "value": "Retention, implementation velocity, and cost discipline drive the scenarios.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:investment_case",
+      "core": false
+    }
+  },
+  "source_coverage": {
+    "sources": [
+      {
+        "source_ref": "synthetic_fixture",
+        "source_type": "synthetic",
+        "coverage_status": "available"
+      }
+    ]
+  },
+  "mapping_gaps": [
+    {
+      "sheet": "Valuation",
+      "section": "Optional DCF module",
+      "target": "H219:L234",
+      "normalized_field": "valuation.optional_dcf",
+      "reason": "Synthetic fixture does not include optional DCF assumptions.",
+      "suggested_action": "Leave optional DCF module blank until normalized assumptions exist."
+    }
+  ],
+  "manual_review_flags": [
+    {
+      "severity": "P2",
+      "rule_id": "synthetic_manual_review",
+      "field": "operating_drivers.items.0.current_read",
+      "message": "Synthetic fixture row is for runtime wiring only.",
+      "source_ref": "synthetic_fixture:operating_drivers",
+      "suggested_action": "Replace with source-backed evidence for a real ticker."
+    }
+  ]
+}

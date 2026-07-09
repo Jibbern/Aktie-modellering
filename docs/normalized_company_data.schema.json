@@ -1,0 +1,563 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.stockmodel/normalized_company_data.schema.json",
+  "title": "Normalized company data package",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "ticker_metadata",
+    "company_profile",
+    "quarterly_financials",
+    "annual_financials",
+    "debt_liquidity",
+    "capital_returns",
+    "normalized_guidance",
+    "segments",
+    "operating_drivers",
+    "quarter_notes",
+    "investment_case",
+    "source_coverage",
+    "mapping_gaps",
+    "manual_review_flags"
+  ],
+  "x-normalized-fields": [
+    "ticker_metadata.ticker",
+    "ticker_metadata.exchange",
+    "ticker_metadata.cik",
+    "ticker_metadata.fiscal_year_end",
+    "ticker_metadata.reporting_currency",
+    "company_profile.company_name",
+    "company_profile.sector",
+    "company_profile.industry",
+    "company_profile.business_description",
+    "company_profile.revenue_model",
+    "company_profile.key_advantages",
+    "company_profile.key_risks",
+    "company_profile.allowed_sector_terms",
+    "quarterly_financials.rows.revenue",
+    "quarterly_financials.rows.gross_profit",
+    "quarterly_financials.rows.operating_income",
+    "quarterly_financials.rows.adjusted_ebitda",
+    "quarterly_financials.rows.net_income",
+    "quarterly_financials.rows.eps",
+    "quarterly_financials.rows.operating_cash_flow",
+    "quarterly_financials.rows.free_cash_flow",
+    "quarterly_financials.rows.diluted_shares",
+    "annual_financials.rows.revenue",
+    "annual_financials.rows.operating_income",
+    "annual_financials.rows.adjusted_ebitda",
+    "annual_financials.rows.net_income",
+    "annual_financials.rows.free_cash_flow",
+    "debt_liquidity.cash",
+    "debt_liquidity.total_debt",
+    "debt_liquidity.net_debt",
+    "debt_liquidity.revolver_availability",
+    "debt_liquidity.liquidity",
+    "debt_liquidity.lease_liabilities",
+    "debt_liquidity.interest_expense",
+    "capital_returns.buybacks",
+    "capital_returns.dividends",
+    "capital_returns.share_issuance",
+    "normalized_guidance.items.metric",
+    "normalized_guidance.items.value",
+    "normalized_guidance.items.horizon",
+    "normalized_guidance.items.source_excerpt",
+    "normalized_guidance.items.initial_guide",
+    "normalized_guidance.items.q1_update",
+    "normalized_guidance.items.q2_update",
+    "normalized_guidance.items.q3_update",
+    "normalized_guidance.items.q4_update",
+    "normalized_guidance.items.actual",
+    "normalized_guidance.items.progress_status",
+    "normalized_guidance.items.notes_source",
+    "segments.items.segment",
+    "segments.items.revenue",
+    "segments.items.annual_revenue",
+    "segments.items.operating_income",
+    "segments.items.margin",
+    "operating_drivers.items.topic",
+    "operating_drivers.items.driver",
+    "operating_drivers.items.current_read",
+    "operating_drivers.items.metric_value",
+    "operating_drivers.items.source",
+    "operating_drivers.items.why_it_matters",
+    "quarter_notes.items.theme",
+    "quarter_notes.items.quarter",
+    "quarter_notes.items.metric",
+    "quarter_notes.items.note",
+    "quarter_notes.items.commentary",
+    "quarter_notes.items.model_implication",
+    "quarter_notes.items.valuation_implication",
+    "quarter_notes.items.source",
+    "investment_case.summary",
+    "investment_case.key_debate",
+    "investment_case.bull_case",
+    "investment_case.base_case",
+    "investment_case.bear_case",
+    "investment_case.scenario_drivers",
+    "mapping_gaps",
+    "manual_review_flags"
+  ],
+  "properties": {
+    "package_version": {
+      "type": "string"
+    },
+    "generated_at_utc": {
+      "type": "string"
+    },
+    "stress_test": {
+      "type": "boolean"
+    },
+    "ticker_metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "ticker"
+      ],
+      "properties": {
+        "ticker": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "exchange": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "cik": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "fiscal_year_end": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "reporting_currency": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "package_version": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "generated_at_utc": {
+          "$ref": "#/$defs/normalizedField"
+        }
+      }
+    },
+    "company_profile": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "company_name": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "sector": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "industry": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "business_description": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "revenue_model": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "key_advantages": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "key_risks": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "allowed_sector_terms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "quarterly_financials": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "rows"
+      ],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/financialRow"
+          }
+        }
+      }
+    },
+    "annual_financials": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "rows"
+      ],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/financialRow"
+          }
+        }
+      }
+    },
+    "debt_liquidity": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "cash": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "total_debt": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "net_debt": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "revolver_availability": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "liquidity": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "lease_liabilities": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "interest_expense": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "maturity_schedule": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "capital_returns": {
+      "$ref": "#/$defs/section"
+    },
+    "normalized_guidance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/guidanceItem"
+          }
+        }
+      }
+    },
+    "segments": {
+      "$ref": "#/$defs/section"
+    },
+    "operating_drivers": {
+      "$ref": "#/$defs/section"
+    },
+    "quarter_notes": {
+      "$ref": "#/$defs/section"
+    },
+    "investment_case": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "key_debate": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "bull_case": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "base_case": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "bear_case": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "scenario_drivers": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "source_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "source_coverage": {
+      "$ref": "#/$defs/sourceCoverage"
+    },
+    "mapping_gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mappingGap"
+      }
+    },
+    "manual_review_flags": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/validationIssue"
+      }
+    }
+  },
+  "$defs": {
+    "fieldStatus": {
+      "type": "string",
+      "enum": [
+        "populated",
+        "missing_source",
+        "missing_mapping",
+        "not_applicable",
+        "manual_review_required",
+        "parser_conflict"
+      ]
+    },
+    "normalizedField": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "value",
+        "status",
+        "source_ref",
+        "core"
+      ],
+      "properties": {
+        "value": {},
+        "status": {
+          "$ref": "#/$defs/fieldStatus"
+        },
+        "source_ref": {
+          "type": "string"
+        },
+        "core": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "period": {
+          "type": "string"
+        }
+      }
+    },
+    "financialRow": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "period": {
+          "type": "string"
+        },
+        "fiscal_year": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "fiscal_quarter": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "revenue": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "gross_profit": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "operating_income": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "adjusted_ebitda": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "net_income": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "eps": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "operating_cash_flow": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "free_cash_flow": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "diluted_shares": {
+          "$ref": "#/$defs/normalizedField"
+        }
+      }
+    },
+    "guidanceItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "metric": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "value": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "horizon": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "initial_guide": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "q1_update": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "q2_update": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "q3_update": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "q4_update": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "actual": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "progress_status": {
+          "type": "string"
+        },
+        "notes_source": {
+          "type": "string"
+        },
+        "source_excerpt": {
+          "type": "string"
+        },
+        "source_date": {
+          "type": "string"
+        },
+        "stated_in_period": {
+          "type": "string"
+        },
+        "classification": {
+          "type": "string"
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/normalizedField"
+          },
+          {
+            "type": "array"
+          },
+          {
+            "type": "object"
+          },
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "sourceCoverage": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "mappingGap": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "sheet",
+        "section",
+        "target",
+        "normalized_field"
+      ],
+      "properties": {
+        "sheet": {
+          "type": "string"
+        },
+        "section": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "normalized_field": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "suggested_action": {
+          "type": "string"
+        }
+      }
+    },
+    "validationIssue": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "severity",
+        "rule_id",
+        "field",
+        "message",
+        "source_ref",
+        "suggested_action"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string"
+        },
+        "rule_id": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "source_ref": {
+          "type": "string"
+        },
+        "suggested_action": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

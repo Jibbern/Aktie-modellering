@@ -1,0 +1,59 @@
+flowchart TB
+  classDef source fill:#e8f3ff,stroke:#2f6fab,color:#111111
+  classDef package fill:#e8fff7,stroke:#27876a,color:#111111
+  classDef validate fill:#f6f6f6,stroke:#626262,color:#111111
+  classDef shell fill:#f2ecff,stroke:#7655b5,color:#111111
+  classDef output fill:#fff4db,stroke:#b57915,color:#111111
+  classDef stop fill:#ffe7e0,stroke:#c04f35,color:#111111
+
+  subgraph Sources["Source / Cache Layer"]
+    SecCache["SEC / XBRL cache<br/>StockModelData/sec_cache/{ticker}"]:::source
+    IrDocs["IR documents<br/>presentations, releases, transcripts,<br/>financial schedules"]:::source
+    ProfileConfig["Company profile config<br/>company_profiles.py and profile overrides"]:::source
+    MarketCache["Market / writer cache<br/>market_cache, writer_cache"]:::source
+  end
+
+  subgraph Normalization["Normalize Before Excel"]
+    EvidenceBuilders["Evidence builders<br/>SEC facts, document snippets,<br/>guidance, segments, drivers, quarter notes"]:::package
+    NormalizedPackage["Normalized company data package<br/>ticker_metadata, company_profile,<br/>quarterly_financials, annual_financials,<br/>debt_liquidity, capital_returns,<br/>normalized_guidance, segments,<br/>operating_drivers, quarter_notes,<br/>investment_case, source_coverage,<br/>mapping_gaps, manual_review_flags"]:::package
+    FieldStatus["Every core field carries status<br/>populated, missing_source, missing_mapping,<br/>not_applicable, manual_review_required,<br/>parser_conflict"]:::package
+  end
+
+  subgraph Gate["Pre-render Validation Gate"]
+    ContentValidator["normalized_company_data_validation.py<br/>structured issues with severity,<br/>rule_id, field, message, source_ref,<br/>suggested_action"]:::validate
+    StopPromotion["Fail or flag before workbook render<br/>no workbook promotion when blocking issues remain"]:::stop
+    MappingReports["Mapping gaps and manual review reports<br/>JSON plus QA rows for future workbook"]:::validate
+  end
+
+  subgraph TemplateContract["Frozen Shell And Binding Contract"]
+    FrozenShell["templates/standard_stock_model_template.xlsx<br/>owns layout, labels, formulas, merges,<br/>styles, dimensions, freeze panes"]:::shell
+    ShellManifest["docs/standard_template_shell_manifest.json<br/>visible sheet order, writable zones,<br/>non-writable zones, anchors, token rule"]:::shell
+    BindingMap["docs/workbook_binding_map.json<br/>binding_id, sheet, section, target,<br/>shell_zone, value_shape, missing behavior,<br/>validation rule"]:::shell
+  end
+
+  subgraph FutureRuntime["Future Value-Only Filler Runtime"]
+    Filler["Value-only filler<br/>not implemented in this pass<br/>writes mapped values only"]:::output
+    RuntimeGuards["Runtime guardrails<br/>no parsing, no layout mutation,<br/>no post-render scaffold,<br/>no ticker-specific visible UI layout code"]:::validate
+    OutputWorkbook["Output workbook<br/>{ticker}_model.xlsx when promotion is allowed"]:::output
+    WorkbookValidation["Shell/workbook validation reports<br/>visible sheet order, anchors,<br/>binding coverage, QA checks"]:::validate
+  end
+
+  SecCache --> EvidenceBuilders
+  IrDocs --> EvidenceBuilders
+  ProfileConfig --> EvidenceBuilders
+  MarketCache --> EvidenceBuilders
+  EvidenceBuilders --> NormalizedPackage
+  NormalizedPackage --> FieldStatus
+  FieldStatus --> ContentValidator
+  ContentValidator --> StopPromotion
+  ContentValidator --> MappingReports
+  ContentValidator --> Filler
+  FrozenShell --> Filler
+  ShellManifest --> Filler
+  BindingMap --> Filler
+  Filler --> RuntimeGuards
+  RuntimeGuards --> OutputWorkbook
+  OutputWorkbook --> WorkbookValidation
+  MappingReports --> WorkbookValidation
+
+  StopPromotion -. prevents .-> OutputWorkbook
