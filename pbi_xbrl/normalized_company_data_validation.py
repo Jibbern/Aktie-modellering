@@ -5,8 +5,10 @@ the normalized data package before any Excel shell/fill step can run.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 
@@ -56,11 +58,6 @@ _SECTOR_TERMS = (
     "RVO",
     "crush margin",
     "ethanol",
-    "Abercrombie",
-    "Hollister",
-    "Presort",
-    "SendTech",
-    "Pitney Bowes",
 )
 TEXT_QUALITY_CLASSES = {
     "clean_visible_ui",
@@ -116,6 +113,56 @@ _VISIBLE_TEXT_FIELD_SPECS = (
     ("normalized_guidance.items", ("source_excerpt", "notes_source"), True),
     ("investment_case.source_evidence", ("source_ref", "section"), False),
 )
+_QUARTERLY_PERIOD_RE = re.compile(r"^\d{4}-Q[1-4]$")
+_ANNUAL_PERIOD_RE = re.compile(r"^\d{4}-FY$")
+_ALLOWED_UNITS = {
+    "$",
+    "$m",
+    "$bn",
+    "USD",
+    "USDm",
+    "USDbn",
+    "%",
+    "bps",
+    "pp",
+    "x",
+    "$/share",
+    "m shares",
+    "shares",
+    "count",
+    "days",
+    "quarters",
+    "pts",
+    "ratio",
+    "stores",
+    "visits",
+    "m visits",
+    "units",
+}
+_SUPPORTED_SEGMENT_DIMENSIONS = {
+    "business_line",
+    "reported_segment",
+    "operating_segment",
+    "geography",
+    "brand",
+    "product",
+    "category",
+    "total_company",
+}
+_NUMERIC_FINANCIAL_FIELDS = {
+    "revenue",
+    "gross_profit",
+    "operating_income",
+    "adjusted_ebitda",
+    "net_income",
+    "eps",
+    "operating_cash_flow",
+    "free_cash_flow",
+    "diluted_shares",
+    "capital_expenditures",
+}
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_NORMALIZED_SCHEMA = ROOT / "docs" / "normalized_company_data.schema.json"
 
 
 @dataclass(frozen=True)
@@ -138,25 +185,353 @@ class NormalizedDataIssue:
         }
 
 
+def validate_normalized_company_data_schema(
+    package: Mapping[str, Any],
+    *,
+    schema_path: Path | str = DEFAULT_NORMALIZED_SCHEMA,
+) -> List[NormalizedDataIssue]:
+    """Validate package shape against the checked-in JSON Schema contract.
+
+    The project deliberately keeps this small evaluator dependency-free.  It
+    evaluates the Draft 2020-12 keywords used by the local contract and raises a
+    P1 issue if the contract starts using a keyword it cannot safely evaluate.
+    """
+
+    path = Path(schema_path)
+    try:
+        schema = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return [
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="normalized_schema_unavailable",
+                field="$",
+                message=f"Could not load normalized data schema: {exc}",
+                suggested_action="Restore docs/normalized_company_data.schema.json before planning or rendering.",
+            )
+        ]
+
+    failures: list[tuple[str, str, str]] = []
+    _validate_schema_node(package, schema, schema, "$", failures)
+    return [
+        NormalizedDataIssue(
+            severity="P1",
+            rule_id=f"normalized_schema_{keyword}",
+            field=field,
+            message=message,
+            suggested_action="Correct the normalized package to satisfy docs/normalized_company_data.schema.json.",
+        )
+        for field, keyword, message in failures
+    ]
+
+
+def _validate_schema_node(
+    value: Any,
+    schema: Mapping[str, Any],
+    root_schema: Mapping[str, Any],
+    path: str,
+    failures: list[tuple[str, str, str]],
+) -> None:
+    ref = schema.get("$ref")
+    if isinstance(ref, str):
+        resolved = _resolve_schema_ref(root_schema, ref)
+        if resolved is None:
+            failures.append((path, "ref", f"Unsupported schema reference {ref!r}."))
+            return
+        _validate_schema_node(value, resolved, root_schema, path, failures)
+        return
+
+    any_of = schema.get("anyOf")
+    if isinstance(any_of, list):
+        for candidate in any_of:
+            candidate_failures: list[tuple[str, str, str]] = []
+            if isinstance(candidate, Mapping):
+                _validate_schema_node(value, candidate, root_schema, path, candidate_failures)
+            if not candidate_failures:
+                break
+        else:
+            failures.append((path, "anyOf", "Value does not match any allowed schema variant."))
+            return
+
+    expected_type = schema.get("type")
+    if expected_type is not None and not _schema_type_matches(value, expected_type):
+        failures.append((path, "type", f"Expected {_schema_type_label(expected_type)}, got {type(value).__name__}."))
+        return
+
+    enum = schema.get("enum")
+    if isinstance(enum, list) and value not in enum:
+        failures.append((path, "enum", f"Value {value!r} is not an allowed enum member."))
+
+    pattern = schema.get("pattern")
+    if isinstance(pattern, str) and isinstance(value, str) and re.search(pattern, value) is None:
+        failures.append((path, "pattern", "String does not match the required pattern."))
+
+    min_items = schema.get("minItems")
+    if isinstance(min_items, int) and isinstance(value, list) and len(value) < min_items:
+        failures.append((path, "minItems", f"Expected at least {min_items} item(s), got {len(value)}."))
+
+    min_length = schema.get("minLength")
+    if isinstance(min_length, int) and isinstance(value, str) and len(value) < min_length:
+        failures.append((path, "minLength", f"Expected at least {min_length} character(s)."))
+
+    if isinstance(value, Mapping):
+        properties = schema.get("properties") if isinstance(schema.get("properties"), Mapping) else {}
+        required = schema.get("required") if isinstance(schema.get("required"), list) else []
+        for key in required:
+            if key not in value:
+                failures.append((path, "required", f"Required property {key!r} is missing."))
+        for key, child_schema in properties.items():
+            if key in value and isinstance(child_schema, Mapping):
+                _validate_schema_node(value[key], child_schema, root_schema, f"{path}.{key}", failures)
+        additional = schema.get("additionalProperties", True)
+        if additional is False:
+            for key in value:
+                if key not in properties:
+                    failures.append((f"{path}.{key}", "additionalProperties", "Property is not allowed by the schema."))
+        elif isinstance(additional, Mapping):
+            for key, child_value in value.items():
+                if key not in properties:
+                    _validate_schema_node(child_value, additional, root_schema, f"{path}.{key}", failures)
+
+    if isinstance(value, list) and isinstance(schema.get("items"), Mapping):
+        for idx, item in enumerate(value):
+            _validate_schema_node(item, schema["items"], root_schema, f"{path}.{idx}", failures)
+
+
+def _resolve_schema_ref(root_schema: Mapping[str, Any], ref: str) -> Mapping[str, Any] | None:
+    if not ref.startswith("#/"):
+        return None
+    current: Any = root_schema
+    for part in ref[2:].split("/"):
+        if not isinstance(current, Mapping) or part not in current:
+            return None
+        current = current[part]
+    return current if isinstance(current, Mapping) else None
+
+
+def _schema_type_matches(value: Any, expected: Any) -> bool:
+    expected_values = expected if isinstance(expected, list) else [expected]
+    return any(
+        (
+            kind == "object" and isinstance(value, Mapping)
+            or kind == "array" and isinstance(value, list)
+            or kind == "string" and isinstance(value, str)
+            or kind == "boolean" and isinstance(value, bool)
+            or kind == "integer" and isinstance(value, int) and not isinstance(value, bool)
+            or kind == "number" and isinstance(value, (int, float)) and not isinstance(value, bool)
+            or kind == "null" and value is None
+        )
+        for kind in expected_values
+    )
+
+
+def _schema_type_label(expected: Any) -> str:
+    return "/".join(str(item) for item in expected) if isinstance(expected, list) else str(expected)
+
+
 def validate_normalized_company_data(
     package: Mapping[str, Any],
     *,
     binding_map: Optional[Sequence[Mapping[str, Any]]] = None,
     promotion_requested: bool = False,
+    validate_schema: bool = True,
 ) -> List[NormalizedDataIssue]:
     """Return structured pre-render validation issues for a normalized package."""
 
+    bindings = list(binding_map or ())
     issues: List[NormalizedDataIssue] = []
+    # Shape must be established before semantic rules inspect individual fields.
+    if validate_schema:
+        issues.extend(validate_normalized_company_data_schema(package))
     issues.extend(_validate_field_statuses_and_core_fields(package))
+    issues.extend(_validate_financial_row_domains(package))
+    issues.extend(_validate_collection_business_keys(package))
+    issues.extend(_validate_source_backed_core_field_lineage(package, bindings))
     issues.extend(_validate_guidance(package))
     issues.extend(_validate_parser_noise(package))
     issues.extend(_validate_visible_text_quality(package))
     issues.extend(_validate_share_count_outliers(package))
-    issues.extend(_validate_binding_map_gaps(package, binding_map or ()))
+    issues.extend(_validate_binding_map_gaps(package, bindings))
     if promotion_requested:
         issues.extend(_validate_investment_case_for_promotion(package))
     issues.extend(_validate_sector_leakage(package))
     return _dedupe_issues(issues)
+
+
+def _validate_financial_row_domains(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    issues: List[NormalizedDataIssue] = []
+    for section in ("quarterly_financials", "annual_financials"):
+        rows = _path_get(package, f"{section}.rows")
+        if not isinstance(rows, list):
+            continue
+        for idx, row in enumerate(rows):
+            if not isinstance(row, Mapping):
+                continue
+            period = str(row.get("period") or "")
+            period_re = _QUARTERLY_PERIOD_RE if section == "quarterly_financials" else _ANNUAL_PERIOD_RE
+            if not period or not period_re.fullmatch(period):
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="invalid_period",
+                        field=f"{section}.rows.{idx}.period",
+                        message=f"{section} period must use {'YYYY-Qn' if section == 'quarterly_financials' else 'YYYY-FY'}.",
+                        suggested_action="Normalize the reporting period before planning bindings.",
+                    )
+                )
+            fiscal_year = row.get("fiscal_year")
+            expected_year = int(period[:4]) if len(period) >= 4 and period[:4].isdigit() else None
+            if not isinstance(fiscal_year, int) or expected_year is None or fiscal_year != expected_year:
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="invalid_fiscal_year",
+                        field=f"{section}.rows.{idx}.fiscal_year",
+                        message="fiscal_year must be an integer matching the normalized period.",
+                        suggested_action="Normalize fiscal period keys before planning bindings.",
+                    )
+                )
+            if section == "quarterly_financials":
+                fiscal_quarter = row.get("fiscal_quarter")
+                expected_quarter = int(period[-1]) if _QUARTERLY_PERIOD_RE.fullmatch(period) else None
+                if not isinstance(fiscal_quarter, int) or fiscal_quarter != expected_quarter:
+                    issues.append(
+                        NormalizedDataIssue(
+                            severity="P1",
+                            rule_id="invalid_fiscal_quarter",
+                            field=f"{section}.rows.{idx}.fiscal_quarter",
+                            message="fiscal_quarter must be 1-4 and match the normalized period.",
+                            suggested_action="Normalize quarterly business keys before planning bindings.",
+                        )
+                    )
+            for field_name in _NUMERIC_FINANCIAL_FIELDS:
+                node = row.get(field_name)
+                if not isinstance(node, Mapping) or str(node.get("status") or "") != "populated":
+                    continue
+                value = node.get("value")
+                source_ref = str(node.get("source_ref") or "")
+                field_path = f"{section}.rows.{idx}.{field_name}"
+                if not isinstance(value, (int, float)) or isinstance(value, bool):
+                    issues.append(
+                        NormalizedDataIssue(
+                            severity="P1",
+                            rule_id="invalid_numeric_value_type",
+                            field=field_path,
+                            message="A populated financial metric must contain a numeric value.",
+                            source_ref=source_ref,
+                            suggested_action="Keep source text in evidence and normalize the numeric value separately.",
+                        )
+                    )
+                    continue
+                unit = str(node.get("unit") or "")
+                if unit not in _ALLOWED_UNITS:
+                    issues.append(
+                        NormalizedDataIssue(
+                            severity="P1",
+                            rule_id="invalid_unit",
+                            field=field_path,
+                            message="A populated numeric financial metric requires a valid unit.",
+                            source_ref=source_ref,
+                            suggested_action="Use a normalized unit such as $m, %, x, $/share, or m shares.",
+                        )
+                    )
+    segments = _path_get(package, "segments.items")
+    if isinstance(segments, list):
+        for idx, item in enumerate(segments):
+            if not isinstance(item, Mapping):
+                continue
+            has_dimension = "dimension" in item
+            has_member = "member" in item
+            dimension = str(item.get("dimension") or "").strip()
+            if has_dimension != has_member or (has_dimension and (not dimension or not str(item.get("member") or "").strip())) or (dimension and dimension not in _SUPPORTED_SEGMENT_DIMENSIONS):
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="invalid_dimension",
+                        field=f"segments.items.{idx}",
+                        message="Segment rows require a supported dimension and a non-empty member.",
+                        suggested_action="Normalize segment taxonomy before a dimension/member binding is planned.",
+                    )
+                )
+    return issues
+
+
+def _validate_collection_business_keys(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    specs = (
+        ("quarterly_financials.rows", ("period",)),
+        ("annual_financials.rows", ("period",)),
+        ("normalized_guidance.items", ("metric", "horizon", "source_date", "evidence_key")),
+        ("segments.items", ("dimension", "member", "period", "metric")),
+        ("operating_drivers.items", ("topic", "period", "driver_type", "driver", "evidence_key")),
+        ("quarter_notes.items", ("quarter", "theme", "metric", "evidence_key")),
+        ("valuation_outputs.items", ("metric", "as_of")),
+    )
+    issues: List[NormalizedDataIssue] = []
+    for collection_path, key_fields in specs:
+        rows = _path_get(package, collection_path)
+        if not isinstance(rows, list):
+            continue
+        seen: set[tuple[str, ...]] = set()
+        for idx, row in enumerate(rows):
+            if not isinstance(row, Mapping):
+                continue
+            values = tuple(str(_normalized_value(_path_get(row, field)) or "").strip() for field in key_fields)
+            if any(not value for value in values):
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="invalid_business_row_key",
+                        field=f"{collection_path}.{idx}",
+                        message="Business row key is missing: " + ", ".join(key_fields[position] for position, value in enumerate(values) if not value) + ".",
+                        suggested_action="Populate every business key before planner selection.",
+                    )
+                )
+                continue
+            if values in seen:
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="duplicate_business_row_key",
+                        field=f"{collection_path}.{idx}",
+                        message=f"Duplicate business row key {'|'.join(values)!r}.",
+                        suggested_action="Reconcile duplicate evidence before constructing the normalized package.",
+                    )
+                )
+                continue
+            seen.add(values)
+    return issues
+
+
+def _normalized_value(value: Any) -> Any:
+    if isinstance(value, Mapping) and "status" in value:
+        return value.get("value") if str(value.get("status") or "") == "populated" else None
+    return value
+
+
+def _validate_source_backed_core_field_lineage(
+    package: Mapping[str, Any],
+    bindings: Sequence[Mapping[str, Any]],
+) -> List[NormalizedDataIssue]:
+    issues: List[NormalizedDataIssue] = []
+    for path, node in _iter_field_nodes(package):
+        if not bool(node.get("core")) or str(node.get("status") or "") != "populated":
+            continue
+        if str(node.get("source_ref") or "").strip():
+            continue
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="missing_source_ref",
+                field=path,
+                message="A populated source-backed core field is missing source_ref lineage.",
+                suggested_action="Attach the selected evidence source before planning or rendering.",
+            )
+        )
+    return issues
+
+
+def _canonical_collection_path(path: str) -> str:
+    return re.sub(r"\.\d+(?=\.|$)", ".0", path)
 
 
 def classify_normalized_text_quality(
@@ -245,6 +620,11 @@ def build_mapping_gap_report(
 
     gaps: List[Dict[str, Any]] = []
     for entry in binding_map:
+        # Collection cardinality, row selection, and overflow are owned by the
+        # binding planner. Looking only at `.items.0` creates false-green or
+        # false-red coverage reports for typed row contracts.
+        if entry.get("row_selector") is not None or str(entry.get("planning_mode") or "") == "formula_owned":
+            continue
         normalized_field = str(entry.get("normalized_field") or "").strip()
         if not normalized_field:
             continue
@@ -437,6 +817,11 @@ def _validate_binding_map_gaps(
 ) -> List[NormalizedDataIssue]:
     issues: List[NormalizedDataIssue] = []
     for entry in binding_map:
+        # A row contract cannot be evaluated by probing `.items.0` or a raw
+        # period label. The JSON-only planner owns row selection, cardinality,
+        # source lineage, and overflow for these bindings.
+        if entry.get("row_selector") is not None or str(entry.get("planning_mode") or "") == "formula_owned":
+            continue
         if not bool(entry.get("required")):
             continue
         if str(entry.get("sheet") or "") != "Valuation":

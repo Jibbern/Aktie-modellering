@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at_utc": "2026-07-08T00:42:21+00:00",
+  "generated_at_utc": "2026-07-10T21:48:09+00:00",
   "ticker": "ANF",
   "data_root": "C:\\Users\\Jibbe\\Aktier\\StockModelData",
   "legacy_workbook": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -60,7 +60,7 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 105
+      "populated_field_count": 129
     },
     {
       "section": "annual_financials",
@@ -76,7 +76,7 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 36
+      "populated_field_count": 54
     },
     {
       "section": "debt_liquidity",
@@ -124,7 +124,7 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 120
+      "populated_field_count": 90
     },
     {
       "section": "segments",
@@ -140,7 +140,7 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 166
+      "populated_field_count": 178
     },
     {
       "section": "operating_drivers",
@@ -156,7 +156,7 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 145
+      "populated_field_count": 155
     },
     {
       "section": "quarter_notes",
@@ -171,7 +171,7 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 280
+      "populated_field_count": 42
     },
     {
       "section": "investment_case",
@@ -187,6 +187,20 @@
       "parser_conflict": false,
       "manual_review_required": true,
       "populated_field_count": 3
+    },
+    {
+      "section": "valuation_outputs",
+      "available_source_candidates": [
+        "explicit normalized valuation output builder (not available in the ANF legacy adapter fixture)"
+      ],
+      "source_backed_available": false,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": false,
+      "missing_source": true,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 0
     },
     {
       "section": "source_coverage",

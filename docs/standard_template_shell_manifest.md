@@ -61,7 +61,8 @@ writable zones.
 ## Writable vs Non-Writable Zones
 
 Writable zones are value-only destinations. They may receive scalars, text
-blocks, series, table rows, or validation rows according to the binding map.
+blocks, series, table rows, pivot-matrix values, or validation rows according
+to the binding map.
 Writable zones and non-writable zones must be disjoint by A1 range on the same
 sheet. This lets a future filler reject unsafe writes before opening the
 workbook.
@@ -133,6 +134,19 @@ full standard workbook column contract on every block without allowing a future
 filler to overwrite headers.
 
 ## Valuation And Operating Driver Sidecars
+
+The lower Valuation input block declares `D194:D216` as the
+`valuation_input_values` shell zone. Each active input has its own exact planner
+cell contract and semantic target role; adjacent labels, date/period headers,
+formula outputs, and interpretation cells remain protected. The current
+guidance sidecar similarly separates guidance-value cells from status cells and
+keeps helper/formula columns non-writable.
+
+Segment matrix contracts authorize only exact pivot cells selected by
+dimension, member, metric, and period. Operating Drivers and Quarter Notes use
+their exact visible columns and start rows; row 9 on `Quarter_Notes_UI` remains
+header-only. Declaring a broad visual shell zone never authorizes sequential
+row dumping.
 
 The Valuation right-side guidance/driver sidecar also uses repeated protected
 header rows. Lower guidance, operating-driver, thesis-bridge, and output headers
@@ -206,6 +220,17 @@ the normalized company data package and future runtime outputs, not from hidden
 worksheets preserved in the template shell.
 
 ## Runtime Rule
+
+Before any workbook is opened, the JSON-only planner resolves each active
+binding through `planner_cell_contracts`. Each contract declares the exact
+writable cell family, semantic target role, allowed value type, and owning
+binding. `planner_merge_families` additionally declares the only writable merge
+anchor for repeated merged rows. A non-anchor target, protected target, role
+mismatch, or type mismatch is P1.
+
+Intentional spacer rows are not writable by implication. Bindings use explicit
+`target_rows` when a visual table is non-contiguous; for example, Valuation
+outputs use rows 64-70 and 72-75 while row 71 remains shell-owned.
 
 Future filler writes values only. It must not create ticker-specific visible UI,
 run post-render scaffold/repair, create `.xlsm`, or overwrite static shell

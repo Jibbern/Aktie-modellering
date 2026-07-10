@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+from openpyxl import load_workbook
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,8 +43,20 @@ VALUE_SHAPES = {
     "quarterly_series",
     "annual_series",
     "table_rows",
+    "pivot_matrix",
     "text_block",
     "validation_rows",
+}
+
+PLANNER_ROW_CONTRACT_KEYS = {
+    "row_selector",
+    "row_key",
+    "sort_order",
+    "capacity",
+    "overflow_behavior",
+    "required_columns",
+    "target_columns",
+    "source_ref_required",
 }
 
 REQUIRED_ROW_SCHEMA_COLUMNS_BY_BINDING = {
@@ -125,7 +139,7 @@ def _canonical_field(path: str) -> str:
     return ".".join(part for part in path.split(".") if not part.isdigit())
 
 
-_A1_RE = re.compile(r"^([A-Z]+)(\d+):([A-Z]+)(\d+)$")
+_A1_RE = re.compile(r"^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$")
 
 
 def _col_to_int(col: str) -> int:
@@ -139,6 +153,8 @@ def _parse_range(target: str) -> tuple[int, int, int, int]:
     match = _A1_RE.match(target)
     assert match, f"Invalid A1 range: {target!r}"
     c1, r1, c2, r2 = match.groups()
+    c2 = c2 or c1
+    r2 = r2 or r1
     left = _col_to_int(c1)
     top = int(r1)
     right = _col_to_int(c2)
@@ -229,12 +245,16 @@ def test_writable_bindings_target_manifest_writable_zones() -> None:
 
 def test_required_shell_anchors_have_bindings() -> None:
     manifest = _manifest()
-    bindings_by_zone = {entry["shell_zone"] for entry in _payload()["bindings"] if entry["required"]}
+    bindings_by_zone = {
+        entry["shell_zone"]
+        for entry in _payload()["bindings"]
+        if entry["writable"] and entry.get("planning_state", "active") == "active"
+    }
 
     missing = [
         anchor["zone_id"]
         for anchor in manifest["required_anchors"]
-        if anchor["zone_id"] not in bindings_by_zone
+        if anchor["binding_required"] and anchor["zone_id"] not in bindings_by_zone
     ]
 
     assert missing == []
@@ -302,5 +322,157 @@ def test_table_row_bindings_define_concrete_row_schema() -> None:
         for column in row_schema:
             assert column["column_id"]
             assert column["source_field"]
-            assert column["target_column"]
+            assert column.get("target_column") or column.get("target_role") in {"lineage_metadata", "business_key_metadata"}
             assert column["missing_behavior"]
+
+
+def test_active_collection_bindings_have_exact_typed_planner_contracts() -> None:
+    for entry in _payload()["bindings"]:
+        if entry.get("planning_state", "active") != "active":
+            continue
+        if entry["value_shape"] not in {"quarterly_series", "annual_series", "table_rows", "pivot_matrix", "validation_rows"}:
+            continue
+        assert PLANNER_ROW_CONTRACT_KEYS <= set(entry), entry["binding_id"]
+        assert entry["planner_target"]
+        assert _contains(_parse_range(entry["target"]), _parse_range(entry["planner_target"]))
+        assert isinstance(entry["row_selector"], dict)
+        assert entry["row_selector"].get("source_path")
+        assert entry["row_key"]
+        assert isinstance(entry["sort_order"], list)
+        assert isinstance(entry["capacity"], int) and entry["capacity"] > 0
+        assert entry["overflow_behavior"] in {"fail", "mapping_gap", "manual_review"}
+        assert isinstance(entry["source_ref_required"], bool)
+
+        if entry["value_shape"] not in {"table_rows", "validation_rows"}:
+            if entry["value_shape"] == "pivot_matrix":
+                assert entry["planning_mode"] == "pivot_rows"
+                assert entry["row_blocks"]
+                assert entry["period_target_columns"]
+                assert entry["value_field"] in entry["required_columns"]
+            continue
+        target_columns = entry["target_columns"]
+        target_names = [column["target_column"] for column in target_columns]
+        source_fields = {column["source_field"] for column in target_columns}
+        row_key_only = set(entry.get("row_key_only_columns", []))
+        assert len(target_names) == len(set(target_names)), entry["binding_id"]
+        assert set(entry["required_columns"]) <= source_fields | row_key_only, entry["binding_id"]
+        planner_range = _parse_range(entry["planner_target"])
+        for target_column in target_names:
+            column_index = _col_to_int(target_column)
+            assert planner_range[0] <= column_index <= planner_range[2], entry["binding_id"]
+        for column in target_columns:
+            if entry["source_policy"] != "validation-output":
+                assert column.get("target_type"), entry["binding_id"]
+
+
+def test_active_collection_bindings_use_selectors_not_items_zero_shortcuts() -> None:
+    active = [
+        entry
+        for entry in _payload()["bindings"]
+        if entry.get("planning_state", "active") == "active" and entry["value_shape"] in {"quarterly_series", "annual_series", "table_rows", "pivot_matrix"}
+    ]
+
+    assert active
+    assert all(".items.0." not in entry["normalized_field"] for entry in active)
+    assert all(entry["row_selector"].get("source_path") for entry in active)
+    assert {"bs_annual_period_headers", "bs_annual_revenue_series"} <= {entry["binding_id"] for entry in active}
+
+
+def test_manifest_has_exact_cell_roles_and_merge_ownership_contracts() -> None:
+    manifest = _manifest()
+    cell_contracts = manifest["planner_cell_contracts"]
+    merge_contracts = manifest["planner_merge_families"]
+
+    assert cell_contracts and merge_contracts
+    for contract in cell_contracts:
+        assert contract["contract_id"]
+        assert contract["sheet"]
+        _parse_range(contract["target"])
+        assert contract["writable"] is True
+        assert contract["target_role"]
+        assert contract["allowed_binding_ids"]
+        assert contract["allowed_target_types"]
+    for contract in merge_contracts:
+        assert contract["merge_id"]
+        assert contract["sheet"]
+        _parse_range(contract["target"])
+        assert contract["anchor_column"]
+        assert contract["allowed_binding_ids"]
+
+
+def test_manifest_merge_families_match_existing_frozen_shell_read_only() -> None:
+    workbook_path = ROOT / "templates" / "standard_stock_model_template.xlsx"
+    workbook = load_workbook(workbook_path, read_only=False, data_only=False)
+    try:
+        for contract in _manifest()["planner_merge_families"]:
+            sheet_name = contract["sheet"]
+            worksheet = workbook[sheet_name]
+            left, top, right, bottom = _parse_range(contract["target"])
+            actual = {str(item) for item in worksheet.merged_cells.ranges}
+            for row in range(top, bottom + 1):
+                expected = f"{_int_to_col(left)}{row}:{_int_to_col(right)}{row}"
+                assert expected in actual, f"Manifest merge family is not in shell: {sheet_name}!{expected}"
+    finally:
+        workbook.close()
+
+
+def _int_to_col(value: int) -> str:
+    result = ""
+    while value:
+        value, remainder = divmod(value - 1, 26)
+        result = chr(ord("A") + remainder) + result
+    return result
+
+
+def test_p0_period_value_and_qa_contracts_are_explicit() -> None:
+    entries = {entry["binding_id"]: entry for entry in _payload()["bindings"]}
+
+    as_of = entries["summary_quarterly_revenue"]
+    revenue = entries["summary_latest_revenue"]
+    net_income = entries["summary_latest_net_income"]
+    valuation_headers = entries["valuation_period_headers"]
+    valuation_outputs = entries["valuation_output_rows"]
+
+    assert as_of["planner_target"] == "B26:B26"
+    assert as_of["source_field"] == "period"
+    assert as_of["normalized_field"].endswith(".period")
+    assert revenue["planner_target"] == "B28:B28"
+    assert revenue["source_field"] == "revenue"
+    assert revenue["row_selector"]["pick"] == "latest"
+    assert net_income["planner_target"] == "B30:B30"
+    assert net_income["source_field"] == "net_income"
+    assert valuation_headers["planner_target"] == "B6:M6"
+    assert valuation_headers["source_field"] == "period"
+    assert valuation_outputs["normalized_field"].startswith("valuation_outputs")
+
+    for entry in entries.values():
+        if entry["normalized_field"].startswith(("mapping_gaps", "manual_review_flags")):
+            assert entry["sheet"] in {"QA_Log", "Needs_Review", "QA_Checks"}
+        if entry["sheet"] == "Valuation" and "output" in entry["section"].lower():
+            assert not entry["normalized_field"].startswith("mapping_gaps")
+
+
+def test_no_direct_range_dump_or_merged_value_concatenation_remains() -> None:
+    planner = (ROOT / "pbi_xbrl" / "new_ticker_binding_planner.py").read_text(encoding="utf-8")
+    filler = (ROOT / "pbi_xbrl" / "new_ticker_value_filler.py").read_text(encoding="utf-8")
+
+    assert "zip(" not in planner
+    assert "zip(" not in filler
+    assert '" | ".join' not in planner
+    assert '" | ".join' not in filler
+
+
+def test_generic_planner_contracts_contain_no_anf_company_labels() -> None:
+    generic_contract_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            ROOT / "docs" / "workbook_binding_map.json",
+            ROOT / "docs" / "standard_template_shell_manifest.json",
+            ROOT / "pbi_xbrl" / "new_ticker_binding_planner.py",
+            ROOT / "pbi_xbrl" / "new_ticker_evidence.py",
+        )
+    ).lower()
+
+    assert "a&f" not in generic_contract_text
+    assert "abercrombie" not in generic_contract_text
+    assert "hollister" not in generic_contract_text

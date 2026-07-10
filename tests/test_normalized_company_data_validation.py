@@ -6,10 +6,14 @@ from pbi_xbrl.normalized_company_data_validation import (
 )
 
 
-def _field(value, *, status: str = "populated", source_ref: str = "fixture", core: bool = False, reason: str = ""):
+def _field(value, *, status: str = "populated", source_ref: str = "fixture", core: bool = False, reason: str = "", unit: str = "", period: str = ""):
     out = {"value": value, "status": status, "source_ref": source_ref, "core": core}
     if reason:
         out["reason"] = reason
+    if unit:
+        out["unit"] = unit
+    if period:
+        out["period"] = period
     return out
 
 
@@ -25,24 +29,40 @@ def _base_package() -> dict:
             "rows": [
                 {
                     "period": "2026-Q1",
-                    "revenue": _field(100.0, core=True),
-                    "diluted_shares": _field(50.0, core=True),
+                    "fiscal_year": 2026,
+                    "fiscal_quarter": 1,
+                    "revenue": _field(100.0, core=True, unit="$m", period="2026-Q1"),
+                    "diluted_shares": _field(50.0, core=True, unit="m shares", period="2026-Q1"),
                 },
                 {
                     "period": "2026-Q2",
-                    "revenue": _field(110.0, core=True),
-                    "diluted_shares": _field(51.0, core=True),
+                    "fiscal_year": 2026,
+                    "fiscal_quarter": 2,
+                    "revenue": _field(110.0, core=True, unit="$m", period="2026-Q2"),
+                    "diluted_shares": _field(51.0, core=True, unit="m shares", period="2026-Q2"),
                 },
             ]
         },
-        "annual_financials": {"rows": []},
+        "annual_financials": {
+            "rows": [
+                {
+                    "period": "2025-FY",
+                    "fiscal_year": 2025,
+                    "revenue": _field(400.0, core=True, unit="$m", period="2025-FY"),
+                }
+            ]
+        },
         "debt_liquidity": {"net_debt": _field(10.0, core=True)},
         "capital_returns": {"buybacks": _field(0.0, core=False)},
         "normalized_guidance": {"items": []},
         "segments": {"items": []},
         "operating_drivers": {"items": []},
         "quarter_notes": {"items": []},
-        "investment_case": {"summary": _field("Source-backed differentiated case.", core=True)},
+        "investment_case": {
+            "summary": _field("Source-backed differentiated case.", core=True),
+            "key_debate": _field("Whether execution sustains durable cash generation.", core=True),
+        },
+        "valuation_outputs": {"items": []},
         "source_coverage": {"sources": []},
         "mapping_gaps": [],
         "manual_review_flags": [],

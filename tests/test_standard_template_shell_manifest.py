@@ -86,7 +86,8 @@ def test_standard_template_shell_manifest_required_anchors_are_bindable() -> Non
         assert anchor["sheet"]
         assert anchor["zone_id"] in writable_zone_ids
         assert anchor.get("anchor_label") or anchor.get("named_range")
-        assert anchor["binding_required"] is True
+        assert isinstance(anchor["binding_required"], bool)
+    assert any(anchor["binding_required"] for anchor in required_anchors)
 
 
 def test_standard_template_shell_manifest_ranges_are_valid_a1_ranges() -> None:

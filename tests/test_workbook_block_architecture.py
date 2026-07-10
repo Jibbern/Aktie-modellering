@@ -264,18 +264,21 @@ def test_blocks_classify_writable_and_company_specific_examples_separately() -> 
 
 
 def test_every_writable_binding_resolves_to_a_block() -> None:
-    writable_binding_ids = {
-        entry["binding_id"]
-        for entry in _binding_map()["bindings"]
-        if entry["writable"]
-    }
+    bindings = [entry for entry in _binding_map()["bindings"] if entry["writable"]]
+    writable_binding_ids = {entry["binding_id"] for entry in bindings}
+    architecture_blocks = {block["block_id"] for block in _architecture()["blocks"]}
     block_binding_ids = {
         binding["binding_id"]
         for block in _architecture()["blocks"]
         for binding in block.get("bindings", [])
     }
+    direct_block_ids = {
+        entry["binding_id"]
+        for entry in bindings
+        if entry.get("block_id") in architecture_blocks
+    }
 
-    assert writable_binding_ids <= block_binding_ids
+    assert writable_binding_ids <= block_binding_ids | direct_block_ids
 
 
 def test_guardrails_do_not_create_gtx_or_macro_outputs() -> None:

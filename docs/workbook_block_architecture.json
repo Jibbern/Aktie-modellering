@@ -15967,6 +15967,63 @@
         "Block is derived from manifest writable zone and current binding map.",
         "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
       ]
+    },
+    {
+      "block_id": "valuation_input_values",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "D194:D216",
+      "title_header_cells": [],
+      "template_label_cells": [],
+      "row_label_cells": [],
+      "static_label_cells": [],
+      "writable_value_cells": [
+        {"binding_id": "valuation_input_as_of", "target": "D195", "value_shape": "scalar"},
+        {"binding_id": "valuation_input_shares_outstanding", "target": "D196", "value_shape": "scalar"},
+        {"binding_id": "valuation_input_diluted_shares", "target": "D197", "value_shape": "scalar"},
+        {"binding_id": "valuation_input_net_debt", "target": "D198", "value_shape": "scalar"},
+        {"binding_id": "valuation_input_base_ebitda_ttm", "target": "D199", "value_shape": "scalar"},
+        {"binding_id": "valuation_input_adjusted_ebitda_ttm", "target": "D200", "value_shape": "scalar"},
+        {"binding_id": "valuation_input_fcf_ttm", "target": "D201", "value_shape": "scalar"},
+        {"binding_id": "valuation_input_revenue_ttm", "target": "D203", "value_shape": "scalar"},
+        {"binding_id": "valuation_input_capex_ttm", "target": "D211", "value_shape": "scalar"}
+      ],
+      "writable_example_cells": [],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "valuation_inputs.as_of_date",
+        "valuation_inputs.shares_outstanding",
+        "valuation_inputs.diluted_shares",
+        "valuation_inputs.net_debt",
+        "valuation_inputs.base_ebitda_ttm",
+        "valuation_inputs.adjusted_ebitda_ttm",
+        "valuation_inputs.free_cash_flow_ttm",
+        "valuation_inputs.revenue_ttm",
+        "valuation_inputs.capex_ttm"
+      ],
+      "support_sheets_used": ["History_Q", "Leverage_Liquidity"],
+      "current_code_owner": ["legacy workbook fixture only"],
+      "future_intended_owner": ["normalized package", "binding planner", "value-only filler"],
+      "required_fields": [
+        "valuation_inputs.as_of_date",
+        "valuation_inputs.shares_outstanding",
+        "valuation_inputs.diluted_shares",
+        "valuation_inputs.net_debt",
+        "valuation_inputs.base_ebitda_ttm",
+        "valuation_inputs.adjusted_ebitda_ttm",
+        "valuation_inputs.free_cash_flow_ttm",
+        "valuation_inputs.revenue_ttm"
+      ],
+      "optional_fields": ["valuation_inputs.capex_ttm"],
+      "source_policy": "derived",
+      "missing_data_behavior": "leave the exact input cell blank and emit a structured mapping gap",
+      "validation_rules": ["valuation_core_mapping_gap", "share_count_outlier"],
+      "standardization_status": "standard",
+      "bindings": [],
+      "notes": ["The frozen shell owns labels and formulas; only D-column input values are writable."]
     }
   ]
 }

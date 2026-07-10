@@ -1,7 +1,7 @@
 {
   "$schema": "https://local.stockmodel/workbook_binding_map.schema.json",
-  "version": "0.2.0",
-  "description": "Concrete visible-shell bindings for the future value-only stock-model workbook filler.",
+  "version": "0.3.0",
+  "description": "Typed exact-cell bindings for the generic new-ticker runtime. The broad target is a shell envelope; planner_target is the only executable range.",
   "bindings": [
     {
       "binding_id": "summary_company_description",
@@ -18,7 +18,12 @@
       "missing_source_behavior": "leave shell label intact; emit mapping gap and Needs_Review row",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "A3",
+      "source_path": "company_profile.business_description",
+      "target_type": "text",
+      "planning_state": "active"
     },
     {
       "binding_id": "summary_key_advantage",
@@ -35,7 +40,12 @@
       "missing_source_behavior": "leave shell text blank; emit profile/source gap if promotion asks for full profile",
       "promotion_requirement": "manual_review",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "A7",
+      "source_path": "company_profile.key_advantages",
+      "target_type": "text",
+      "planning_state": "active"
     },
     {
       "binding_id": "summary_strategic_context",
@@ -52,7 +62,12 @@
       "missing_source_behavior": "leave shell text blank; emit profile/source gap if promotion asks for full profile",
       "promotion_requirement": "manual_review",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "A5",
+      "source_path": "company_profile.business_description",
+      "target_type": "text",
+      "planning_state": "active"
     },
     {
       "binding_id": "summary_revenue_model",
@@ -69,7 +84,12 @@
       "missing_source_behavior": "leave shell text blank; emit profile/source gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B9",
+      "source_path": "company_profile.revenue_model",
+      "target_type": "text",
+      "planning_state": "active"
     },
     {
       "binding_id": "summary_segment_model",
@@ -86,7 +106,40 @@
       "missing_source_behavior": "blank segment rows until source-backed segment labels and values exist",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A13:F15",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "segments.items"
+      },
+      "row_key": [
+        "period",
+        "dimension",
+        "member",
+        "metric"
+      ],
+      "sort_order": [
+        "period:asc",
+        "dimension:asc",
+        "member:asc",
+        "metric:asc"
+      ],
+      "capacity": 3,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "revenue"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "revenue",
+          "target_column": "A"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Segment summary requires a typed summary collection, not a revenue scalar from the first segment item."
     },
     {
       "binding_id": "summary_key_risks",
@@ -103,7 +156,32 @@
       "missing_source_behavior": "optional blank with manual_review flag only if promotion asks for full thesis",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A17:F21",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "company_profile.key_risks"
+      },
+      "row_key": [
+        "normalized_field"
+      ],
+      "sort_order": [],
+      "capacity": 5,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "A"
+        }
+      ],
+      "source_ref_required": false,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Key risks must be a typed list before it can consume a row family."
     },
     {
       "binding_id": "summary_wrong_if",
@@ -120,7 +198,32 @@
       "missing_source_behavior": "optional blank with manual_review flag only if promotion asks for full thesis",
       "promotion_requirement": "manual_review",
       "validation_rule": "placeholder_investment_case",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A23:F24",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "investment_case.key_debate"
+      },
+      "row_key": [
+        "normalized_field"
+      ],
+      "sort_order": [],
+      "capacity": 2,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "A"
+        }
+      ],
+      "source_ref_required": false,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "What-would-make-me-wrong requires typed debate items, not one key_debate text field."
     },
     {
       "binding_id": "summary_quarterly_revenue",
@@ -130,31 +233,79 @@
       "shell_zone": "summary_key_financials_values",
       "anchor_label": "Key Financials",
       "row_family": "summary_key_financials_quarterly_series",
-      "normalized_field": "quarterly_financials.rows.0.revenue",
+      "normalized_field": "quarterly_financials.rows.0.period",
       "value_shape": "quarterly_series",
       "required": true,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank values; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B26:B26",
+      "target_axis": "columns",
+      "target_type": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "pick": "latest"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 1,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "period"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "period",
+      "planning_state": "active",
+      "source_ref_field": "revenue"
     },
     {
-      "binding_id": "summary_quarterly_operating_income",
+      "binding_id": "summary_latest_net_income",
       "sheet": "SUMMARY",
       "section": "Key Financials",
       "target": "B30:B39",
       "shell_zone": "summary_key_financials_values",
-      "anchor_label": "Operating income",
+      "block_id": "summary_key_financials_values",
+      "anchor_label": "Net income (latest quarter)",
       "row_family": "summary_key_financials_quarterly_series",
-      "normalized_field": "quarterly_financials.rows.0.operating_income",
+      "normalized_field": "quarterly_financials.rows.0.net_income",
       "value_shape": "quarterly_series",
       "required": true,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank values; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B30:B30",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "pick": "latest"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 1,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "net_income"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "net_income",
+      "planning_state": "active"
     },
     {
       "binding_id": "summary_net_debt",
@@ -171,13 +322,19 @@
       "missing_source_behavior": "blank values; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "B41",
+      "source_path": "debt_liquidity.net_debt",
+      "target_type": "value",
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "SUMMARY row 41 is Net leverage, not net debt. Net debt belongs in the explicit Valuation input contract."
     },
     {
       "binding_id": "summary_liquidity",
       "sheet": "SUMMARY",
       "section": "Leverage/Liquidity",
-      "target": "B43:B45",
+      "target": "B45:B45",
       "shell_zone": "summary_leverage_liquidity_values",
       "anchor_label": "Liquidity",
       "row_family": "summary_leverage_liquidity_rows",
@@ -188,7 +345,12 @@
       "missing_source_behavior": "blank values; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "B45",
+      "source_path": "debt_liquidity.liquidity",
+      "target_type": "value",
+      "planning_state": "active"
     },
     {
       "binding_id": "valuation_revenue_series",
@@ -205,7 +367,29 @@
       "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "valuation_core_mapping_gap",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B9:M9",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "revenue"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "revenue",
+      "planning_state": "active"
     },
     {
       "binding_id": "valuation_guidance_rows",
@@ -215,14 +399,75 @@
       "shell_zone": "valuation_guidance_values",
       "anchor_label": "Guidance",
       "row_family": "valuation_guidance_rows",
-      "normalized_field": "normalized_guidance.items.0.value",
+      "normalized_field": "normalized_guidance.items.value",
       "value_shape": "table_rows",
       "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance",
       "promotion_requirement": "manual_review",
       "validation_rule": "guidance_metric_misclassification",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "O9:T15",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items",
+        "filters": [
+          {
+            "field": "display_role",
+            "equals": "current_primary"
+          }
+        ]
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "publication_date",
+        "evidence_key"
+      ],
+      "sort_order": [
+        "display_priority:asc",
+        "metric:asc",
+        "publication_date:desc",
+        "evidence_key:asc"
+      ],
+      "capacity": 7,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "metric",
+        "horizon",
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "O",
+          "target_type": "text"
+        },
+        {
+          "column_id": "stated_in",
+          "source_field": "stated_in_period",
+          "target_column": "Q",
+          "target_type": "period"
+        },
+        {
+          "column_id": "horizon",
+          "source_field": "horizon",
+          "target_column": "R",
+          "target_type": "horizon"
+        },
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "S",
+          "target_type": "text"
+        }
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "value",
+      "planning_state": "active",
+      "rowset_id": "current_primary_guidance"
     },
     {
       "binding_id": "valuation_guidance_rows_lower",
@@ -239,7 +484,38 @@
       "missing_source_behavior": "blank lower guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance",
       "promotion_requirement": "manual_review",
       "validation_rule": "guidance_metric_misclassification",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "O29:T36",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "O"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Lower guidance block needs an explicit period/revision selector before it can consume source rows."
     },
     {
       "binding_id": "valuation_operating_driver_sidecar_rows",
@@ -256,7 +532,62 @@
       "missing_source_behavior": "blank operating-driver sidecar rows until source-backed driver evidence exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "O39:AA47",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "operating_drivers.items",
+        "filters": [
+          {
+            "field": "display_role",
+            "equals": "current_watchlist"
+          }
+        ]
+      },
+      "row_key": [
+        "topic",
+        "period",
+        "driver"
+      ],
+      "sort_order": [
+        "display_priority:asc",
+        "period:desc",
+        "driver:asc"
+      ],
+      "capacity": 9,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "topic",
+        "driver",
+        "current_read"
+      ],
+      "target_columns": [
+        {
+          "column_id": "topic",
+          "source_field": "topic",
+          "target_column": "O"
+        },
+        {
+          "column_id": "driver",
+          "source_field": "driver",
+          "target_column": "R"
+        },
+        {
+          "column_id": "why",
+          "source_field": "why_it_matters",
+          "target_column": "U"
+        },
+        {
+          "column_id": "source",
+          "source_field": "source",
+          "target_column": "AA"
+        }
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "current_read",
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "The sidecar needs a declared independent target for current_read before it can write a complete operating-driver row."
     },
     {
       "binding_id": "valuation_thesis_bridge_rows",
@@ -273,7 +604,32 @@
       "missing_source_behavior": "blank thesis bridge rows until investment-case evidence is populated",
       "promotion_requirement": "manual_review",
       "validation_rule": "placeholder_investment_case_promotion",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "O51:AA62",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "investment_case.key_debate"
+      },
+      "row_key": [
+        "normalized_field"
+      ],
+      "sort_order": [],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "O"
+        }
+      ],
+      "source_ref_required": false,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "A scalar key_debate field is not a typed thesis_bridge_items table."
     },
     {
       "binding_id": "valuation_output_rows",
@@ -283,31 +639,134 @@
       "shell_zone": "valuation_output_values",
       "anchor_label": "Output",
       "row_family": "valuation_output_rows",
-      "normalized_field": "mapping_gaps",
+      "normalized_field": "valuation_outputs.items.value",
       "value_shape": "table_rows",
       "required": false,
       "source_policy": "derived",
       "missing_source_behavior": "blank output rows until required valuation inputs are mapped and validated",
       "promotion_requirement": "manual_review",
-      "validation_rule": "valuation_core_mapping_gap",
-      "writable": true
+      "validation_rule": "valuation_output_contract",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "O64:X75",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "valuation_outputs.items"
+      },
+      "row_key": [
+        "metric",
+        "as_of"
+      ],
+      "sort_order": [
+        "metric:asc",
+        "as_of:asc"
+      ],
+      "capacity": 11,
+      "target_rows": [
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        72,
+        73,
+        74,
+        75
+      ],
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "metric",
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "O",
+          "target_type": "text"
+        },
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "U",
+          "target_type": "number"
+        },
+        {
+          "column_id": "interpretation",
+          "source_field": "interpretation",
+          "target_column": "X",
+          "target_type": "text"
+        }
+      ],
+      "source_ref_required": false,
+      "source_ref_field": "value",
+      "planning_state": "active"
     },
     {
       "binding_id": "valuation_guidance_status_rows",
       "sheet": "Valuation",
       "section": "Guidance",
-      "target": "X9:AA27",
+      "target": "AA9:AA27",
       "shell_zone": "valuation_guidance_status_values",
       "anchor_label": "Guidance realized/status",
       "row_family": "valuation_guidance_status_rows",
-      "normalized_field": "normalized_guidance.items.0.horizon",
+      "normalized_field": "normalized_guidance.items.progress_status",
       "value_shape": "table_rows",
       "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank guidance status rows until realized/status evidence exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "boilerplate_guidance",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "AA9:AA15",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items",
+        "filters": [
+          {
+            "field": "display_role",
+            "equals": "current_primary"
+          }
+        ]
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "publication_date",
+        "evidence_key"
+      ],
+      "sort_order": [
+        "display_priority:asc",
+        "metric:asc",
+        "publication_date:desc",
+        "evidence_key:asc"
+      ],
+      "capacity": 7,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "metric",
+        "horizon",
+        "progress_status"
+      ],
+      "row_key_only_columns": [
+        "metric",
+        "horizon"
+      ],
+      "target_columns": [
+        {
+          "column_id": "status",
+          "source_field": "progress_status",
+          "target_column": "AA",
+          "target_type": "status"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "active",
+      "source_ref_field": "value",
+      "rowset_id": "current_primary_guidance"
     },
     {
       "binding_id": "valuation_guidance_status_rows_lower",
@@ -324,7 +783,38 @@
       "missing_source_behavior": "blank lower guidance status rows until realized/status evidence exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "boilerplate_guidance",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "X29:AA36",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "horizon"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "horizon",
+          "target_column": "X"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Lower guidance status block needs an explicit period/revision selector before it can consume source rows."
     },
     {
       "binding_id": "valuation_operating_income_series",
@@ -336,20 +826,43 @@
       "row_family": "valuation_actuals_quarterly_rows",
       "normalized_field": "quarterly_financials.rows.0.operating_income",
       "value_shape": "quarterly_series",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank values; emit valuation mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "valuation_core_mapping_gap",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B29:M29",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "operating_income"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "operating_income",
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "No generic Valuation row is contractually equivalent to operating_income; do not write a value into an EBIT/TTM row."
     },
     {
       "binding_id": "valuation_ebitda_series",
       "sheet": "Valuation",
       "section": "Actuals and operating metrics",
-      "target": "B37:M44",
+      "target": "B24:M24",
       "shell_zone": "valuation_actuals_quarterly_values",
-      "anchor_label": "EBITDA",
+      "anchor_label": "Adj EBITDA",
       "row_family": "valuation_actuals_quarterly_rows",
       "normalized_field": "quarterly_financials.rows.0.adjusted_ebitda",
       "value_shape": "quarterly_series",
@@ -358,7 +871,29 @@
       "missing_source_behavior": "optional blank with missing_source reason; do not proxy without review",
       "promotion_requirement": "manual_review",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B24:M24",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "adjusted_ebitda"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "adjusted_ebitda",
+      "planning_state": "active"
     },
     {
       "binding_id": "valuation_fcf_series",
@@ -370,12 +905,35 @@
       "row_family": "valuation_cash_flow_quarterly_rows",
       "normalized_field": "quarterly_financials.rows.0.free_cash_flow",
       "value_shape": "quarterly_series",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank values; emit valuation mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "valuation_core_mapping_gap",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B45:M45",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "free_cash_flow"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "free_cash_flow",
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "The declared range begins at Capex % of revenue, not a free-cash-flow row; a generic FCF target is not yet defined."
     },
     {
       "binding_id": "valuation_diluted_shares_series",
@@ -387,12 +945,35 @@
       "row_family": "valuation_share_count_quarterly_rows",
       "normalized_field": "quarterly_financials.rows.0.diluted_shares",
       "value_shape": "quarterly_series",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank values; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "share_count_outlier",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B81:M81",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "diluted_shares"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "diluted_shares",
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "The declared range is a leverage/coverage block, not a share-count row family."
     },
     {
       "binding_id": "valuation_total_debt_series",
@@ -404,12 +985,33 @@
       "row_family": "valuation_debt_liquidity_quarterly_rows",
       "normalized_field": "debt_liquidity.total_debt",
       "value_shape": "quarterly_series",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank values; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "valuation_core_mapping_gap",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B124:M124",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "debt_liquidity.total_debt"
+      },
+      "row_key": [
+        "normalized_field"
+      ],
+      "sort_order": [],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "value",
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "A scalar debt field cannot be dumped into a quarterly series without period-keyed debt history."
     },
     {
       "binding_id": "valuation_cash_series",
@@ -421,12 +1023,33 @@
       "row_family": "valuation_debt_liquidity_quarterly_rows",
       "normalized_field": "debt_liquidity.cash",
       "value_shape": "quarterly_series",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank values; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "valuation_core_mapping_gap",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B133:M133",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "debt_liquidity.cash"
+      },
+      "row_key": [
+        "normalized_field"
+      ],
+      "sort_order": [],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "value",
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "A scalar cash field cannot be dumped into a quarterly series without period-keyed cash history."
     },
     {
       "binding_id": "valuation_buybacks_series",
@@ -443,7 +1066,28 @@
       "missing_source_behavior": "optional blank with not_applicable or missing_source reason",
       "promotion_requirement": "optional",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B152:M152",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "capital_returns.buybacks"
+      },
+      "row_key": [
+        "normalized_field"
+      ],
+      "sort_order": [],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "value",
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "A scalar capital-return field cannot be dumped into a quarterly series without period-keyed returns history."
     },
     {
       "binding_id": "bs_cash_series",
@@ -455,12 +1099,33 @@
       "row_family": "bs_liquidity_quarterly_rows",
       "normalized_field": "debt_liquidity.cash",
       "value_shape": "quarterly_series",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank values; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B7:I7",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "debt_liquidity.cash"
+      },
+      "row_key": [
+        "normalized_field"
+      ],
+      "sort_order": [],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "value",
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "A scalar cash field cannot be dumped into a balance-sheet quarterly grid without period-keyed history."
     },
     {
       "binding_id": "bs_debt_series",
@@ -472,90 +1137,289 @@
       "row_family": "bs_liquidity_quarterly_rows",
       "normalized_field": "debt_liquidity.total_debt",
       "value_shape": "quarterly_series",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank values; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unexplained_empty_core_field",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B19:I19",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "debt_liquidity.total_debt"
+      },
+      "row_key": [
+        "normalized_field"
+      ],
+      "sort_order": [],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "value",
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "A scalar debt field cannot be dumped into a balance-sheet quarterly grid without period-keyed history."
     },
     {
       "binding_id": "bs_segment_quarterly_rows",
       "sheet": "BS_Segments",
       "section": "Quarterly segments",
-      "target": "B50:I90",
+      "target": "A61:I67",
       "shell_zone": "bs_segment_quarterly_values",
       "anchor_label": "Quarterly segments",
       "row_family": "bs_segment_quarterly_row_family",
-      "normalized_field": "segments.items.0.revenue",
-      "value_shape": "table_rows",
+      "normalized_field": "segments.items.revenue",
+      "value_shape": "pivot_matrix",
       "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "show no segment row until taxonomy/value exists; emit mapping gap",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "pivot_rows",
+      "planner_target": "A61:I67",
+      "target_type": "pivot_matrix",
+      "row_selector": {
+        "source_path": "segments.items",
+        "filters": [
+          {
+            "field": "period_type",
+            "equals": "quarterly"
+          },
+          {
+            "field": "revenue",
+            "present": true
+          },
+          {
+            "field": "metric",
+            "equals": "revenue"
+          }
+        ]
+      },
+      "row_key": [
+        "period",
+        "dimension",
+        "member",
+        "metric"
+      ],
+      "sort_order": [
+        "period:asc",
+        "dimension:asc",
+        "member:asc",
+        "metric:asc"
+      ],
+      "capacity": 7,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "dimension",
+        "member",
+        "period",
+        "metric",
+        "revenue"
+      ],
+      "target_columns": [],
+      "dimension_field": "dimension",
+      "member_field": "member",
+      "period_field": "period",
+      "value_field": "revenue",
+      "label_target_column": "A",
+      "period_target_columns": ["B", "C", "D", "E", "F", "G", "H", "I"],
+      "period_alignment": "right",
+      "value_target_type": "number",
+      "row_blocks": {
+        "geography": [61, 62, 63],
+        "total_company": [65],
+        "brand": [66, 67],
+        "reported_segment": [66, 67],
+        "business_line": [66, 67]
+      },
+      "source_ref_required": true,
+      "source_ref_field": "revenue",
+      "planning_state": "active"
     },
     {
       "binding_id": "bs_segment_annual_rows",
       "sheet": "BS_Segments",
       "section": "Annual segments",
-      "target": "B91:I120",
+      "target": "A72:I74",
       "shell_zone": "bs_segment_annual_values",
       "anchor_label": "Annual segments",
       "row_family": "bs_segment_annual_row_family",
-      "normalized_field": "segments.items.0.annual_revenue",
-      "value_shape": "table_rows",
+      "normalized_field": "segments.items.annual_revenue",
+      "value_shape": "pivot_matrix",
       "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "show no annual segment row until source-backed",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "pivot_rows",
+      "planner_target": "A72:I74",
+      "target_type": "pivot_matrix",
+      "row_selector": {
+        "source_path": "segments.items",
+        "filters": [
+          {
+            "field": "period_type",
+            "equals": "annual"
+          },
+          {
+            "field": "annual_revenue",
+            "present": true
+          },
+          {
+            "field": "metric",
+            "equals": "revenue"
+          },
+          {
+            "field": "dimension",
+            "equals": "geography"
+          }
+        ]
+      },
+      "row_key": [
+        "period",
+        "dimension",
+        "member",
+        "metric"
+      ],
+      "sort_order": [
+        "period:asc",
+        "dimension:asc",
+        "member:asc",
+        "metric:asc"
+      ],
+      "capacity": 3,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "dimension",
+        "member",
+        "period",
+        "metric",
+        "annual_revenue"
+      ],
+      "target_columns": [],
+      "dimension_field": "dimension",
+      "member_field": "member",
+      "period_field": "period",
+      "value_field": "annual_revenue",
+      "label_target_column": "A",
+      "period_target_columns": ["B", "C", "D", "E", "F", "G", "H", "I"],
+      "period_alignment": "left",
+      "value_target_type": "number",
+      "row_blocks": {
+        "geography": [72, 73, 74]
+      },
+      "source_ref_required": true,
+      "source_ref_field": "annual_revenue",
+      "planning_state": "active"
     },
     {
       "binding_id": "od_watchlist_rows",
       "sheet": "Operating_Drivers",
       "section": "Current watchlist",
-      "target": "B6:N11",
+      "target": "A6:N9",
       "shell_zone": "od_watchlist_values",
       "anchor_label": "Current watchlist",
       "row_family": "operating_driver_watchlist_rows",
-      "normalized_field": "operating_drivers.items.0.current_read",
+      "normalized_field": "operating_drivers.items.current_read",
       "value_shape": "table_rows",
       "row_source": "operating_drivers.items",
       "row_schema": [
         {
           "column_id": "topic",
           "source_field": "topic",
-          "target_column": "B",
+          "target_column": "A",
           "missing_behavior": "leave blank and emit manual review if required"
         },
         {
           "column_id": "current_read",
           "source_field": "current_read",
-          "target_column": "C",
+          "target_column": "B",
           "missing_behavior": "leave blank and emit manual review if required"
         },
         {
           "column_id": "source",
           "source_field": "source",
-          "target_column": "H",
+          "target_column": "",
+          "target_role": "lineage_metadata",
           "missing_behavior": "leave blank and preserve row for review"
         },
         {
           "column_id": "why_it_matters",
           "source_field": "why_it_matters",
-          "target_column": "I",
+          "target_column": "H",
           "missing_behavior": "leave blank and preserve row for review"
         }
       ],
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "do not use sector fallback; emit manual review flag",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A6:N9",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "operating_drivers.items",
+        "filters": [
+          {
+            "field": "display_role",
+            "equals": "current_watchlist"
+          }
+        ]
+      },
+      "row_key": [
+        "topic",
+        "period",
+        "driver_type",
+        "driver",
+        "evidence_key"
+      ],
+      "sort_order": [
+        "display_priority:asc",
+        "period:desc",
+        "driver_type:asc",
+        "driver:asc",
+        "evidence_key:asc"
+      ],
+      "capacity": 4,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "topic",
+        "current_read",
+        "why_it_matters"
+      ],
+      "target_columns": [
+        {
+          "column_id": "topic",
+          "source_field": "topic",
+          "target_column": "A",
+          "target_type": "text"
+        },
+        {
+          "column_id": "current_read",
+          "source_field": "current_read",
+          "target_column": "B",
+          "target_type": "text"
+        },
+        {
+          "column_id": "why_it_matters",
+          "source_field": "why_it_matters",
+          "target_column": "H",
+          "target_type": "text"
+        }
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "current_read",
+      "planning_state": "active",
+      "rowset_id": "current_operating_driver_watchlist"
     },
     {
       "binding_id": "od_topic_current_read_rows",
@@ -567,12 +1431,43 @@
       "row_family": "operating_driver_topic_current_read_rows",
       "normalized_field": "operating_drivers.items.0.current_read",
       "value_shape": "table_rows",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "do not use sector fallback; emit manual review flag",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B13:N18",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "operating_drivers.items"
+      },
+      "row_key": [
+        "topic",
+        "period",
+        "driver"
+      ],
+      "sort_order": [
+        "period:asc",
+        "topic:asc",
+        "driver:asc"
+      ],
+      "capacity": 6,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "current_read"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "current_read",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Current sub-block lacks declared independent generic table slots."
     },
     {
       "binding_id": "od_horizon_commentary_rows",
@@ -584,12 +1479,43 @@
       "row_family": "operating_driver_horizon_commentary_rows",
       "normalized_field": "operating_drivers.items.0.driver",
       "value_shape": "table_rows",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank visible row family; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "parser_noise_snippet",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B20:N30",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "operating_drivers.items"
+      },
+      "row_key": [
+        "topic",
+        "period",
+        "driver"
+      ],
+      "sort_order": [
+        "period:asc",
+        "topic:asc",
+        "driver:asc"
+      ],
+      "capacity": 11,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "driver"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "driver",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Current sub-block lacks declared independent generic table slots."
     },
     {
       "binding_id": "od_current_outlook_rows",
@@ -601,12 +1527,43 @@
       "row_family": "operating_driver_outlook_rows",
       "normalized_field": "operating_drivers.items.0.driver",
       "value_shape": "table_rows",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank visible row family; emit mapping gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "parser_noise_snippet",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B31:N55",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "operating_drivers.items"
+      },
+      "row_key": [
+        "topic",
+        "period",
+        "driver"
+      ],
+      "sort_order": [
+        "period:asc",
+        "topic:asc",
+        "driver:asc"
+      ],
+      "capacity": 25,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "driver"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "driver",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Current sub-block lacks declared independent generic table slots."
     },
     {
       "binding_id": "od_driver_actuals_rows",
@@ -623,7 +1580,38 @@
       "missing_source_behavior": "optional blank until driver/value pair is source-backed",
       "promotion_requirement": "manual_review",
       "validation_rule": "parser_noise_snippet",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B56:N125",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "operating_drivers.items"
+      },
+      "row_key": [
+        "topic",
+        "period",
+        "driver"
+      ],
+      "sort_order": [
+        "period:asc",
+        "topic:asc",
+        "driver:asc"
+      ],
+      "capacity": 70,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "metric_value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "metric_value",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Current sub-block lacks declared independent generic table slots."
     },
     {
       "binding_id": "ic_investment_summary",
@@ -640,14 +1628,19 @@
       "missing_source_behavior": "block promotion; emit manual review flag",
       "promotion_requirement": "required",
       "validation_rule": "placeholder_investment_case",
-      "writable": true
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B5",
+      "source_path": "investment_case.summary",
+      "target_type": "text",
+      "planning_state": "active"
     },
     {
       "binding_id": "ic_key_debate",
       "sheet": "{ticker}_Investment_Case",
       "section": "Key Debate",
-      "target": "B31:K80",
-      "shell_zone": "ic_key_debate_values",
+      "target": "B7:J7",
+      "shell_zone": "ic_snapshot_values",
       "anchor_label": "Key Debate",
       "row_family": "investment_case_debate_text_rows",
       "normalized_field": "investment_case.key_debate",
@@ -657,7 +1650,12 @@
       "missing_source_behavior": "block promotion; emit manual review flag",
       "promotion_requirement": "required",
       "validation_rule": "placeholder_investment_case",
-      "writable": true
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B7",
+      "source_path": "investment_case.key_debate",
+      "target_type": "text",
+      "planning_state": "active"
     },
     {
       "binding_id": "ic_bull_base_bear_rows",
@@ -674,7 +1672,32 @@
       "missing_source_behavior": "keep manual shell inputs blank; emit review flag if promotion requires scenario detail",
       "promotion_requirement": "manual_review",
       "validation_rule": "placeholder_investment_case",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B81:K130",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "investment_case.scenario_drivers"
+      },
+      "row_key": [
+        "normalized_field"
+      ],
+      "sort_order": [],
+      "capacity": 50,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": false,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Scenario rows need a typed investment_case.scenario_items collection."
     },
     {
       "binding_id": "ic_scenario_bridge_rows",
@@ -691,7 +1714,40 @@
       "missing_source_behavior": "do not fabricate segment bridge rows; emit mapping gap only if promotion requires it",
       "promotion_requirement": "manual_review",
       "validation_rule": "valuation_core_mapping_gap",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B131:K190",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "segments.items"
+      },
+      "row_key": [
+        "period",
+        "dimension",
+        "member",
+        "metric"
+      ],
+      "sort_order": [
+        "period:asc",
+        "dimension:asc",
+        "member:asc",
+        "metric:asc"
+      ],
+      "capacity": 60,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "revenue"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "revenue",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": false,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Scenario bridge rows need a typed valuation/investment-case bridge collection."
     },
     {
       "binding_id": "ic_lower_comp_history_labels",
@@ -708,7 +1764,38 @@
       "missing_source_behavior": "blank lower comparison period labels until source-backed history exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A185:K191",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "operating_drivers.items"
+      },
+      "row_key": [
+        "topic",
+        "period",
+        "driver"
+      ],
+      "sort_order": [
+        "period:asc",
+        "topic:asc",
+        "driver:asc"
+      ],
+      "capacity": 7,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "driver"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "driver",
+          "target_column": "A"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output."
     },
     {
       "binding_id": "ic_lower_brand_health_rows",
@@ -725,7 +1812,38 @@
       "missing_source_behavior": "blank optional lower block until source-backed brand/driver data exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B194:K199",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "operating_drivers.items"
+      },
+      "row_key": [
+        "topic",
+        "period",
+        "driver"
+      ],
+      "sort_order": [
+        "period:asc",
+        "topic:asc",
+        "driver:asc"
+      ],
+      "capacity": 6,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "current_read"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "current_read",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output."
     },
     {
       "binding_id": "ic_lower_inventory_rows",
@@ -742,7 +1860,38 @@
       "missing_source_behavior": "blank optional lower block until source-backed inventory/driver data exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B202:K209",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "operating_drivers.items"
+      },
+      "row_key": [
+        "topic",
+        "period",
+        "driver"
+      ],
+      "sort_order": [
+        "period:asc",
+        "topic:asc",
+        "driver:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "metric_value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "metric_value",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output."
     },
     {
       "binding_id": "ic_lower_store_productivity_rows",
@@ -759,7 +1908,38 @@
       "missing_source_behavior": "blank optional lower block until source-backed store/driver data exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B212:K225",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "operating_drivers.items"
+      },
+      "row_key": [
+        "topic",
+        "period",
+        "driver"
+      ],
+      "sort_order": [
+        "period:asc",
+        "topic:asc",
+        "driver:asc"
+      ],
+      "capacity": 14,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "metric_value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "metric_value",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output."
     },
     {
       "binding_id": "ic_lower_guidance_setup_rows",
@@ -776,42 +1956,75 @@
       "missing_source_behavior": "blank optional guidance setup until source-backed guidance exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "guidance_metric_misclassification",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B228:K233",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 6,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Guidance setup needs a typed scenario collection and explicit selector."
     },
     {
       "binding_id": "qn_quarter_note_rows",
       "sheet": "Quarter_Notes_UI",
       "section": "Quarter blocks",
-      "target": "B8:O360",
+      "target": "A10:O15",
       "shell_zone": "qn_quarter_block_values",
       "anchor_label": "Quarter read",
       "row_family": "quarter_notes_repeating_quarter_blocks",
-      "normalized_field": "quarter_notes.items.0.note",
+      "normalized_field": "quarter_notes.items.commentary",
       "value_shape": "table_rows",
       "row_source": "quarter_notes.items",
       "row_schema": [
         {
           "column_id": "theme",
           "source_field": "theme",
-          "target_column": "B",
+          "target_column": "A",
           "missing_behavior": "leave blank and emit manual review if required"
         },
         {
           "column_id": "quarter",
           "source_field": "quarter",
-          "target_column": "C",
+          "target_column": "",
+          "target_role": "business_key_metadata",
           "missing_behavior": "leave blank and emit manual review if required"
         },
         {
           "column_id": "metric",
           "source_field": "metric",
-          "target_column": "D",
+          "target_column": "",
+          "target_role": "business_key_metadata",
           "missing_behavior": "leave blank when no clean metric exists"
         },
         {
           "column_id": "commentary",
           "source_field": "commentary",
-          "target_column": "E",
+          "target_column": "C",
           "missing_behavior": "leave blank and emit manual review if required"
         },
         {
@@ -827,12 +2040,74 @@
           "missing_behavior": "leave blank and preserve row for review"
         }
       ],
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "omit quarter block content; emit manual review flag",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "parser_noise_snippet",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A10:M15",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "quarter_notes.items",
+        "filters": [
+          {
+            "field": "display_role",
+            "equals": "current_note"
+          }
+        ]
+      },
+      "row_key": [
+        "quarter",
+        "theme",
+        "metric",
+        "evidence_key"
+      ],
+      "sort_order": [
+        "display_priority:asc",
+        "quarter:desc",
+        "metric:asc",
+        "evidence_key:asc"
+      ],
+      "capacity": 6,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "theme",
+        "commentary",
+        "model_implication",
+        "source"
+      ],
+      "target_columns": [
+        {
+          "column_id": "theme",
+          "source_field": "theme",
+          "target_column": "A",
+          "target_type": "text"
+        },
+        {
+          "column_id": "commentary",
+          "source_field": "commentary",
+          "target_column": "C",
+          "target_type": "text"
+        },
+        {
+          "column_id": "model_implication",
+          "source_field": "model_implication",
+          "target_column": "H",
+          "target_type": "text"
+        },
+        {
+          "column_id": "source",
+          "source_field": "source",
+          "target_column": "M",
+          "target_type": "source_ref"
+        }
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "commentary",
+      "planning_state": "active",
+      "rowset_id": "latest_valid_quarter_notes"
     },
     {
       "binding_id": "qn_quarter_summary_rows",
@@ -842,14 +2117,50 @@
       "shell_zone": "qn_quarter_summary_values",
       "anchor_label": "Quarter read",
       "row_family": "quarter_notes_summary_rows",
-      "normalized_field": "quarter_notes.items.0.note",
-      "value_shape": "text_block",
+      "normalized_field": "quarter_notes.items.commentary",
+      "value_shape": "quarterly_series",
       "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank summary rows until source-backed quarter narrative exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "parser_noise_snippet",
-      "writable": true
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B3",
+      "target_axis": "columns",
+      "target_type": "text",
+      "row_selector": {
+        "source_path": "quarter_notes.items",
+        "pick": "first",
+        "filters": [
+          {
+            "field": "display_role",
+            "equals": "current_note"
+          }
+        ]
+      },
+      "row_key": [
+        "quarter",
+        "theme",
+        "metric",
+        "evidence_key"
+      ],
+      "sort_order": [
+        "display_priority:asc",
+        "quarter:desc",
+        "metric:asc",
+        "evidence_key:asc"
+      ],
+      "capacity": 1,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "commentary"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "commentary",
+      "source_ref_field": "commentary",
+      "planning_state": "active"
     },
     {
       "binding_id": "qn_quarter_model_implication_rows",
@@ -860,13 +2171,46 @@
       "anchor_label": "Model implication",
       "row_family": "quarter_notes_repeating_quarter_blocks",
       "normalized_field": "quarter_notes.items.0.model_implication",
-      "value_shape": "table_rows",
+      "value_shape": "pivot_matrix",
       "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "optional blank with missing_source/manual_review reason",
       "promotion_requirement": "manual_review",
       "validation_rule": "parser_noise_snippet",
-      "writable": true
+      "writable": false,
+      "planning_mode": "table_rows",
+      "planner_target": "B8:O360",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "quarter_notes.items"
+      },
+      "row_key": [
+        "quarter",
+        "theme",
+        "metric",
+        "evidence_key"
+      ],
+      "sort_order": [
+        "quarter:asc",
+        "theme:asc",
+        "metric:asc",
+        "evidence_key:asc"
+      ],
+      "capacity": 353,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "model_implication"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "model_implication",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Quarter Notes shell slot ownership is not declared; merged slots must be resolved before separate fields can render."
     },
     {
       "binding_id": "pp_scorecard_rows",
@@ -883,7 +2227,38 @@
       "missing_source_behavior": "no visible scorecard row until metric/value/source are clean",
       "promotion_requirement": "manual_review",
       "validation_rule": "guidance_metric_misclassification",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B5:O11",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 7,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "metric"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "metric",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Promise scorecard needs explicit metric-to-static-row selector mapping."
     },
     {
       "binding_id": "pp_annual_guidance_rows",
@@ -952,12 +2327,83 @@
           "missing_behavior": "leave blank until note/source is normalized"
         }
       ],
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "guidance_metric_misclassification",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B13:O22",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 10,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "metric"
+      ],
+      "target_columns": [
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "B"
+        },
+        {
+          "column_id": "initial_guide",
+          "source_field": "initial_guide",
+          "target_column": "C"
+        },
+        {
+          "column_id": "q1_update",
+          "source_field": "q1_update",
+          "target_column": "D"
+        },
+        {
+          "column_id": "q2_update",
+          "source_field": "q2_update",
+          "target_column": "E"
+        },
+        {
+          "column_id": "q3_update",
+          "source_field": "q3_update",
+          "target_column": "F"
+        },
+        {
+          "column_id": "q4_update",
+          "source_field": "q4_update",
+          "target_column": "G"
+        },
+        {
+          "column_id": "actual",
+          "source_field": "actual",
+          "target_column": "H"
+        },
+        {
+          "column_id": "status",
+          "source_field": "progress_status",
+          "target_column": "I"
+        },
+        {
+          "column_id": "notes_source",
+          "source_field": "notes_source",
+          "target_column": "J"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Promise progression needs declared independent cell slots for all revision columns."
     },
     {
       "binding_id": "pp_annual_guidance_rows_block_2",
@@ -969,12 +2415,43 @@
       "row_family": "promise_annual_guidance_rows_block_2",
       "normalized_field": "normalized_guidance.items.0.value",
       "value_shape": "table_rows",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "guidance_metric_misclassification",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B24:O28",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 5,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Promise progression needs an explicit annual-period selector."
     },
     {
       "binding_id": "pp_annual_guidance_rows_block_3",
@@ -986,12 +2463,43 @@
       "row_family": "promise_annual_guidance_rows_block_3",
       "normalized_field": "normalized_guidance.items.0.value",
       "value_shape": "table_rows",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "guidance_metric_misclassification",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B30:O33",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 4,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Promise progression needs an explicit annual-period selector."
     },
     {
       "binding_id": "pp_annual_guidance_rows_block_4",
@@ -1003,12 +2511,43 @@
       "row_family": "promise_annual_guidance_rows_block_4",
       "normalized_field": "normalized_guidance.items.0.value",
       "value_shape": "table_rows",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "guidance_metric_misclassification",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B35:O35",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 1,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "value"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Promise progression needs an explicit annual-period selector."
     },
     {
       "binding_id": "pp_open_guidance_rows",
@@ -1077,29 +2616,201 @@
           "missing_behavior": "leave blank until note/source is normalized"
         }
       ],
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "no visible guidance row; emit parser_conflict/manual review flag",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "guidance_metric_misclassification",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B39:O59",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 21,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "metric"
+      ],
+      "target_columns": [
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "B"
+        },
+        {
+          "column_id": "initial_guide",
+          "source_field": "initial_guide",
+          "target_column": "C"
+        },
+        {
+          "column_id": "q1_update",
+          "source_field": "q1_update",
+          "target_column": "D"
+        },
+        {
+          "column_id": "q2_update",
+          "source_field": "q2_update",
+          "target_column": "E"
+        },
+        {
+          "column_id": "q3_update",
+          "source_field": "q3_update",
+          "target_column": "F"
+        },
+        {
+          "column_id": "q4_update",
+          "source_field": "q4_update",
+          "target_column": "G"
+        },
+        {
+          "column_id": "actual",
+          "source_field": "actual",
+          "target_column": "H"
+        },
+        {
+          "column_id": "status",
+          "source_field": "progress_status",
+          "target_column": "I"
+        },
+        {
+          "column_id": "notes_source",
+          "source_field": "notes_source",
+          "target_column": "J"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Promise open-guidance block needs declared independent cell slots and horizon selector."
     },
     {
       "binding_id": "pp_guidance_timeline_rows",
       "sheet": "Promise_Progress_UI",
       "section": "Guidance timeline block 1",
-      "target": "B61:O69",
-      "shell_zone": "pp_guidance_timeline_values",
+      "target": "A61:K67",
+      "shell_zone": "pp_guidance_revision_primary_values",
       "anchor_label": "Guidance timeline block 1",
       "row_family": "promise_guidance_timeline_rows_block_1",
-      "normalized_field": "normalized_guidance.items.0.horizon",
+      "normalized_field": "normalized_guidance.items",
       "value_shape": "table_rows",
       "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "optional blank until source-backed guidance timeline exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "boilerplate_guidance",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A61:K67",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items",
+        "filters": [
+          {
+            "field": "display_role",
+            "equals": "current_primary"
+          }
+        ]
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "publication_date",
+        "evidence_key"
+      ],
+      "sort_order": [
+        "display_priority:asc",
+        "metric:asc",
+        "publication_date:desc",
+        "evidence_key:asc"
+      ],
+      "capacity": 7,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "metric",
+        "value",
+        "progress_status",
+        "horizon",
+        "stated_in_period",
+        "publication_date",
+        "notes_source"
+      ],
+      "target_columns": [
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "A",
+          "target_type": "text"
+        },
+        {
+          "column_id": "initial_guide",
+          "source_field": "initial_guide",
+          "target_column": "B",
+          "target_type": "text"
+        },
+        {
+          "column_id": "current_guide",
+          "source_field": "value",
+          "target_column": "C",
+          "target_type": "text"
+        },
+        {
+          "column_id": "change_type",
+          "source_field": "update_stage",
+          "target_column": "D",
+          "target_type": "text"
+        },
+        {
+          "column_id": "actual",
+          "source_field": "actual",
+          "target_column": "E",
+          "target_type": "value"
+        },
+        {
+          "column_id": "progress_status",
+          "source_field": "progress_status",
+          "target_column": "G",
+          "target_type": "status"
+        },
+        {
+          "column_id": "horizon",
+          "source_field": "horizon",
+          "target_column": "H",
+          "target_type": "horizon"
+        },
+        {
+          "column_id": "stated_in_period",
+          "source_field": "stated_in_period",
+          "target_column": "I",
+          "target_type": "period"
+        },
+        {
+          "column_id": "source_date",
+          "source_field": "publication_date",
+          "target_column": "J",
+          "target_type": "date"
+        },
+        {
+          "column_id": "notes_source",
+          "source_field": "notes_source",
+          "target_column": "K",
+          "target_type": "text"
+        }
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "value",
+      "planning_state": "active",
+      "rowset_id": "current_primary_guidance"
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_2",
@@ -1116,7 +2827,38 @@
       "missing_source_behavior": "optional blank until source-backed guidance timeline exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "boilerplate_guidance",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B71:O76",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 6,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "horizon"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "horizon",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping."
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_3",
@@ -1133,7 +2875,38 @@
       "missing_source_behavior": "optional blank until source-backed guidance timeline exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "boilerplate_guidance",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B78:O84",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 7,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "horizon"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "horizon",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping."
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_4",
@@ -1150,7 +2923,38 @@
       "missing_source_behavior": "optional blank until source-backed guidance timeline exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "boilerplate_guidance",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B86:O90",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 5,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "horizon"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "horizon",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping."
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_5",
@@ -1167,7 +2971,38 @@
       "missing_source_behavior": "optional blank until source-backed guidance timeline exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "boilerplate_guidance",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B92:O97",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 6,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "horizon"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "horizon",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping."
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_6",
@@ -1184,7 +3019,38 @@
       "missing_source_behavior": "optional blank until source-backed guidance timeline exists",
       "promotion_requirement": "manual_review",
       "validation_rule": "boilerplate_guidance",
-      "writable": true
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "B99:O115",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items"
+      },
+      "row_key": [
+        "metric",
+        "horizon",
+        "source_date"
+      ],
+      "sort_order": [
+        "horizon:asc",
+        "metric:asc",
+        "source_date:asc"
+      ],
+      "capacity": 17,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "horizon"
+      ],
+      "target_columns": [
+        {
+          "column_id": "value",
+          "source_field": "horizon",
+          "target_column": "B"
+        }
+      ],
+      "source_ref_required": true,
+      "planning_state": "inactive_legacy_contract",
+      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping."
     },
     {
       "binding_id": "qa_log_validation_rows",
@@ -1240,7 +3106,73 @@
       "missing_source_behavior": "write an empty-pass QA row only after validator returns no issues",
       "promotion_requirement": "required",
       "validation_rule": "normalized_data_issue_shape",
-      "writable": true
+      "writable": true,
+      "planning_mode": "validation_rows",
+      "planner_target": "A2:Z5000",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "manual_review_flags"
+      },
+      "row_key": [
+        "binding_id",
+        "rule_id",
+        "field",
+        "message",
+        "normalized_path",
+        "row_key"
+      ],
+      "row_key_only_columns": [
+        "binding_id",
+        "normalized_path",
+        "row_key"
+      ],
+      "sort_order": [
+        "severity:asc",
+        "rule_id:asc"
+      ],
+      "capacity": 4999,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "severity",
+        "rule_id",
+        "field",
+        "message"
+      ],
+      "target_columns": [
+        {
+          "column_id": "severity",
+          "source_field": "severity",
+          "target_column": "A"
+        },
+        {
+          "column_id": "rule_id",
+          "source_field": "rule_id",
+          "target_column": "B"
+        },
+        {
+          "column_id": "field",
+          "source_field": "field",
+          "target_column": "C"
+        },
+        {
+          "column_id": "message",
+          "source_field": "message",
+          "target_column": "D"
+        },
+        {
+          "column_id": "source_ref",
+          "source_field": "source_ref",
+          "target_column": "E"
+        },
+        {
+          "column_id": "suggested_action",
+          "source_field": "suggested_action",
+          "target_column": "F"
+        }
+      ],
+      "source_ref_required": false,
+      "allow_empty": true,
+      "planning_state": "active"
     },
     {
       "binding_id": "needs_review_validation_rows",
@@ -1296,7 +3228,73 @@
       "missing_source_behavior": "write validation issue rows; do not hide missing fields",
       "promotion_requirement": "required",
       "validation_rule": "normalized_data_issue_shape",
-      "writable": true
+      "writable": true,
+      "planning_mode": "validation_rows",
+      "planner_target": "A2:Z5000",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "manual_review_flags"
+      },
+      "row_key": [
+        "binding_id",
+        "rule_id",
+        "field",
+        "message",
+        "normalized_path",
+        "row_key"
+      ],
+      "row_key_only_columns": [
+        "binding_id",
+        "normalized_path",
+        "row_key"
+      ],
+      "sort_order": [
+        "severity:asc",
+        "rule_id:asc"
+      ],
+      "capacity": 4999,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "severity",
+        "rule_id",
+        "field",
+        "message"
+      ],
+      "target_columns": [
+        {
+          "column_id": "severity",
+          "source_field": "severity",
+          "target_column": "A"
+        },
+        {
+          "column_id": "rule_id",
+          "source_field": "rule_id",
+          "target_column": "B"
+        },
+        {
+          "column_id": "field",
+          "source_field": "field",
+          "target_column": "C"
+        },
+        {
+          "column_id": "message",
+          "source_field": "message",
+          "target_column": "D"
+        },
+        {
+          "column_id": "source_ref",
+          "source_field": "source_ref",
+          "target_column": "E"
+        },
+        {
+          "column_id": "suggested_action",
+          "source_field": "suggested_action",
+          "target_column": "F"
+        }
+      ],
+      "source_ref_required": false,
+      "allow_empty": true,
+      "planning_state": "active"
     },
     {
       "binding_id": "qa_checks_mapping_gap_rows",
@@ -1324,13 +3322,13 @@
         },
         {
           "column_id": "field",
-          "source_field": "normalized_field",
+          "source_field": "field",
           "target_column": "C",
           "missing_behavior": "leave blank only if binding has no normalized field"
         },
         {
           "column_id": "message",
-          "source_field": "reason",
+          "source_field": "message",
           "target_column": "D",
           "missing_behavior": "fall back to missing_source_behavior"
         },
@@ -1352,7 +3350,547 @@
       "missing_source_behavior": "write one check row per binding gap",
       "promotion_requirement": "required",
       "validation_rule": "valuation_core_mapping_gap",
-      "writable": true
+      "writable": true,
+      "planning_mode": "validation_rows",
+      "planner_target": "A2:Z5000",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "mapping_gaps"
+      },
+      "row_key": [
+        "binding_id",
+        "normalized_path",
+        "row_key",
+        "reason"
+      ],
+      "row_key_only_columns": [
+        "binding_id",
+        "normalized_path",
+        "row_key",
+        "reason"
+      ],
+      "sort_order": [
+        "severity:asc",
+        "rule_id:asc"
+      ],
+      "capacity": 4999,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "severity",
+        "rule_id",
+        "field",
+        "message"
+      ],
+      "target_columns": [
+        {
+          "column_id": "severity",
+          "source_field": "severity",
+          "target_column": "A"
+        },
+        {
+          "column_id": "rule_id",
+          "source_field": "rule_id",
+          "target_column": "B"
+        },
+        {
+          "column_id": "field",
+          "source_field": "field",
+          "target_column": "C"
+        },
+        {
+          "column_id": "message",
+          "source_field": "message",
+          "target_column": "D"
+        },
+        {
+          "column_id": "source_ref",
+          "source_field": "source_ref",
+          "target_column": "E"
+        },
+        {
+          "column_id": "suggested_action",
+          "source_field": "suggested_action",
+          "target_column": "F"
+        }
+      ],
+      "source_ref_required": false,
+      "allow_empty": true,
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "summary_latest_revenue",
+      "sheet": "SUMMARY",
+      "section": "Key Financials",
+      "target": "B26:B39",
+      "shell_zone": "summary_key_financials_values",
+      "block_id": "summary_key_financials_values",
+      "anchor_label": "Revenue (latest quarter)",
+      "row_family": "summary_key_financials_quarterly_series",
+      "normalized_field": "quarterly_financials.rows.0.revenue",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "blank values; emit mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B28:B28",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "pick": "latest"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 1,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "revenue"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "revenue",
+      "planning_state": "active",
+      "source_ref_field": "revenue"
+    },
+    {
+      "binding_id": "valuation_period_headers",
+      "sheet": "Valuation",
+      "section": "Actuals and operating metrics",
+      "target": "B6:M28",
+      "shell_zone": "valuation_actuals_quarterly_values",
+      "block_id": "valuation_actuals_quarterly_values",
+      "anchor_label": "Quarter",
+      "row_family": "valuation_actuals_quarterly_rows",
+      "normalized_field": "quarterly_financials.rows.0.period",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "valuation_core_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B6:M6",
+      "target_axis": "columns",
+      "target_type": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "period"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "period",
+      "planning_state": "active",
+      "source_ref_field": "revenue"
+    },
+    {
+      "binding_id": "valuation_net_income_series",
+      "sheet": "Valuation",
+      "section": "Actuals and operating metrics",
+      "target": "B36:M36",
+      "shell_zone": "valuation_actuals_quarterly_values",
+      "block_id": "valuation_actuals_quarterly_values",
+      "anchor_label": "Net income attributable to common shareholders",
+      "row_family": "valuation_actuals_quarterly_rows",
+      "normalized_field": "quarterly_financials.rows.0.net_income",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "valuation_core_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B36:M36",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "net_income"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "net_income",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_operating_cash_flow_series",
+      "sheet": "Valuation",
+      "section": "Actuals and operating metrics",
+      "target": "B43:M43",
+      "shell_zone": "valuation_actuals_quarterly_values",
+      "block_id": "valuation_actuals_quarterly_values",
+      "anchor_label": "CFO",
+      "row_family": "valuation_actuals_quarterly_rows",
+      "normalized_field": "quarterly_financials.rows.0.operating_cash_flow",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "valuation_core_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B43:M43",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "operating_cash_flow"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "operating_cash_flow",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_period_headers",
+      "sheet": "BS_Segments",
+      "section": "Annual financials",
+      "target": "B70:I70",
+      "shell_zone": "bs_annual_period_values",
+      "block_id": "bs_segment_annual_values",
+      "anchor_label": "Year",
+      "row_family": "bs_annual_financial_series",
+      "normalized_field": "annual_financials.rows.period",
+      "value_shape": "annual_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave annual period headers blank and emit a P1 mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B70:I70",
+      "target_axis": "columns",
+      "target_type": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "minimum_rows": 1,
+      "overflow_behavior": "fail",
+      "required_columns": [
+        "period"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "period",
+      "source_ref_field": "revenue",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_revenue_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financials",
+      "target": "B71:I71",
+      "shell_zone": "bs_annual_period_values",
+      "block_id": "bs_segment_annual_values",
+      "anchor_label": "Revenue",
+      "row_family": "bs_annual_financial_series",
+      "normalized_field": "annual_financials.rows.revenue",
+      "value_shape": "annual_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave annual revenue values blank and emit a P1 mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B71:I71",
+      "target_axis": "columns",
+      "target_type": "number",
+      "row_selector": {
+        "source_path": "annual_financials.rows"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "minimum_rows": 1,
+      "overflow_behavior": "fail",
+      "required_columns": [
+        "revenue"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "revenue",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_input_as_of",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D195",
+      "shell_zone": "valuation_input_values",
+      "block_id": "valuation_input_values",
+      "anchor_label": "As of",
+      "row_family": "valuation_input_rows",
+      "normalized_field": "valuation_inputs.as_of_date",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "valuation_core_mapping_gap",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D195",
+      "source_path": "valuation_inputs.as_of_date",
+      "target_type": "date",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_input_shares_outstanding",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D196",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "Shares outstanding (m)",
+      "row_family": "valuation_input_rows",
+      "normalized_field": "valuation_inputs.shares_outstanding",
+      "block_id": "valuation_input_values",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "share_count_outlier",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D196",
+      "source_path": "valuation_inputs.shares_outstanding",
+      "target_type": "number",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_input_diluted_shares",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D197",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "Shares diluted (m)",
+      "row_family": "valuation_input_rows",
+      "normalized_field": "valuation_inputs.diluted_shares",
+      "block_id": "valuation_input_values",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "share_count_outlier",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D197",
+      "source_path": "valuation_inputs.diluted_shares",
+      "target_type": "number",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_input_net_debt",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D198",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "Net debt (core, $m)",
+      "row_family": "valuation_input_rows",
+      "normalized_field": "valuation_inputs.net_debt",
+      "block_id": "valuation_input_values",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "derived",
+      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "valuation_core_mapping_gap",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D198",
+      "source_path": "valuation_inputs.net_debt",
+      "target_type": "number",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_input_base_ebitda_ttm",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D199",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "EBITDA TTM ($m)",
+      "row_family": "valuation_input_rows",
+      "normalized_field": "valuation_inputs.base_ebitda_ttm",
+      "block_id": "valuation_input_values",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "derived",
+      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "valuation_core_mapping_gap",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D199",
+      "source_path": "valuation_inputs.base_ebitda_ttm",
+      "target_type": "number",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_input_adjusted_ebitda_ttm",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D200",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "Adj EBITDA TTM ($m)",
+      "row_family": "valuation_input_rows",
+      "normalized_field": "valuation_inputs.adjusted_ebitda_ttm",
+      "block_id": "valuation_input_values",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "derived",
+      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "valuation_core_mapping_gap",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D200",
+      "source_path": "valuation_inputs.adjusted_ebitda_ttm",
+      "target_type": "number",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_input_fcf_ttm",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D201",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "FCF TTM ($m)",
+      "row_family": "valuation_input_rows",
+      "normalized_field": "valuation_inputs.free_cash_flow_ttm",
+      "block_id": "valuation_input_values",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "derived",
+      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "valuation_core_mapping_gap",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D201",
+      "source_path": "valuation_inputs.free_cash_flow_ttm",
+      "target_type": "number",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_input_revenue_ttm",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D203",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "Revenue TTM ($m)",
+      "row_family": "valuation_input_rows",
+      "normalized_field": "valuation_inputs.revenue_ttm",
+      "block_id": "valuation_input_values",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "derived",
+      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "valuation_core_mapping_gap",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D203",
+      "source_path": "valuation_inputs.revenue_ttm",
+      "target_type": "number",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_input_capex_ttm",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D211",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "Capex TTM ($m)",
+      "row_family": "valuation_input_rows",
+      "normalized_field": "valuation_inputs.capex_ttm",
+      "block_id": "valuation_input_values",
+      "value_shape": "scalar",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "leave blank and emit a mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "valuation_core_mapping_gap",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D211",
+      "source_path": "valuation_inputs.capex_ttm",
+      "target_type": "number",
+      "planning_state": "active"
     }
-  ]
+  ],
+  "binding_planner_contract_version": "1.2.0",
+  "binding_planner_policy": {
+    "planner_opens_workbooks": false,
+    "sequential_range_dumping": "forbidden",
+    "merged_cell_concatenation": "forbidden",
+    "overflow": "reported_as_mapping_gap_or_manual_review",
+    "row_contract_required_fields": [
+      "row_selector",
+      "row_key",
+      "sort_order",
+      "capacity",
+      "overflow_behavior",
+      "required_columns",
+      "target_columns",
+      "source_ref_required"
+    ],
+    "qa_destinations_only": [
+      "QA_Log",
+      "Needs_Review",
+      "QA_Checks"
+    ]
+  }
 }

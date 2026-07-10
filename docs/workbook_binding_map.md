@@ -29,6 +29,42 @@ Every entry in `docs/workbook_binding_map.json` includes:
 - `validation_rule`
 - `writable`
 
+Executable collection bindings also carry a typed planner contract:
+
+- `planning_mode`
+- `planner_target`
+- `row_selector`
+- `row_key`
+- `sort_order`
+- `capacity`
+- `overflow_behavior`
+- `required_columns`
+- `target_columns`
+- `source_ref_required`
+- optional `target_rows` when the shell contains intentional spacer rows
+
+`target` remains the declared shell envelope used for layout/block ownership.
+`planner_target` is the smaller exact range a planner may emit cells for. A
+row contract must map every required visible field to its own target column.
+Fields used only to identify/order a companion sidecar row must be declared in
+`row_key_only_columns`; otherwise the plan fails. No table may rely on
+sequential range dumping.
+
+Every active target also resolves through the manifest's
+`planner_cell_contracts` and, where applicable, `planner_merge_families`.
+Those contracts own the exact writable cell, semantic target role, allowed
+target type, binding owner, and merge anchor. A target inside a merge but not at
+its anchor is a P1 contract failure. `target_rows` is used for non-contiguous
+families such as Valuation outputs, where row 71 is a shell-owned spacer.
+
+`pbi_xbrl/new_ticker_binding_planner.py` is JSON-only: it validates the
+normalized JSON Schema before semantic validation, then emits an auditable
+planned-write report without opening an Excel workbook. It reports row keys,
+source references, capacity, overflow, skipped rows, mapping gaps, and manual
+review flags. The value-only executor may apply only those exact planned cells.
+Missing values for `required` or `blocked_if_missing` bindings are P1 and fail
+the plan; they are never demoted to ordinary P2 coverage gaps.
+
 `shell_zone` must match a writable zone in
 `docs/standard_template_shell_manifest.json`. The binding map owns writable
 fields, not layout. The shell owns the layout and static labels.
@@ -39,6 +75,7 @@ Value shapes:
 - `quarterly_series`
 - `annual_series`
 - `table_rows`
+- `pivot_matrix`
 - `text_block`
 - `validation_rows`
 
@@ -52,11 +89,57 @@ rows without guessing column semantics. A row schema column includes:
 - `target_column`: sheet column where the value may be written.
 - `missing_behavior`: what to do when that row value is absent.
 
-The current ANF shadow audit uses row schemas for the main table surfaces:
+The ANF migration fixture exercises row schemas for the main table surfaces:
 `Promise_Progress_UI` guidance rows, `Quarter_Notes_UI` quarter-note rows,
 `Operating_Drivers` watchlist rows, and QA/manual-review rows. This does not
 authorize workbook rendering by itself; it only makes the next value-only filler
 pass unambiguous.
+
+`pivot_matrix` is used where business keys determine both row and column. The
+standard segment bindings pivot `dimension + member + metric` onto a row and
+`period` onto an exact period column. Geography, brand, reported segment, and
+total-company rows remain distinct block types. Source order never determines
+their Excel row.
+
+## Deterministic Shared Rowsets
+
+Bindings that present the same economic rowset declare a shared `rowset_id` and
+the same selector/sort contract:
+
+- current guidance selects `display_role=current_primary`, ordered by explicit
+  priority and publication date; historical guidance stays audit/history-only;
+- Promise Progress consumes the same current-primary guidance business keys as
+  the Valuation guidance sidecar, with separate exact cells for guidance and
+  status;
+- Operating Drivers selects `display_role=current_watchlist`, one latest clean
+  row per investor-relevant theme, with a visible capacity of four;
+- Quarter Notes selects `display_role=current_note`, the latest valid quarter,
+  and one clean row per theme.
+
+Every selector exclusion, capacity overflow, missing selected value, or
+inactive legacy contract produces a structured planner record. No `zip`,
+`break`, slice, source order, or implicit first-item policy may silently remove
+a selected business row.
+
+## Corrected Exact Targets
+
+The planner contracts encode business meaning, not merely writable space:
+
+- `SUMMARY!B45` receives the liquidity value; the shell's Net leverage row is
+  not used as a net-debt surrogate;
+- Quarter Notes data starts on row 10, leaving row 9 header-only;
+- Operating Drivers maps topic to column A, current read to B, source to its
+  declared source column, and why/use to H;
+- segment values use member-by-period pivot cells rather than sequential rows;
+- Valuation input cells `D195:D211` receive typed price/date, shares, net debt,
+  TTM financials, and explicit assumptions according to their individual
+  bindings;
+- Valuation output rows remain formula-owned or require explicit typed
+  `valuation_outputs`; QA and `mapping_gaps` are restricted to QA sheets.
+
+Bindings marked `inactive_legacy_contract` document historical broad regions
+but are outside the executable planner surface and are not counted as coverage.
+They must be replaced by exact typed contracts before activation.
 
 Source policy values:
 
@@ -181,15 +264,14 @@ Future binding maintenance must keep these relationships true:
 
 The future runtime should:
 
-1. Load the frozen `.xlsx` shell.
-2. Validate the normalized package.
-3. Validate required bindings.
+1. Validate the normalized JSON Schema and semantic package rules.
+2. Build a JSON-only binding plan from exact `planner_target` cells.
+3. Reject P0/P1 package, row-contract, target-collision, source-lineage, or
+   capacity failures before a shell is copied or opened.
 4. Confirm required shell anchors have bindings.
-5. Fill only the declared writable zones/targets.
-6. For table bindings, expand normalized rows through `row_schema`; do not
-   collapse a whole table to `items.0.value`.
-7. Write QA/Needs Review rows from `mapping_gaps` and `manual_review_flags`.
-8. Refuse promotion when P1 content validation issues remain.
+5. Apply only the exact planned cells inside declared writable zones.
+6. Write planner-owned QA/Needs Review rows only to QA sheets.
+7. Refuse promotion when P1 content validation issues remain.
 
 Post-render scaffold/repair is not allowed as runtime. If normalized data does
 not satisfy a binding, the runtime reports the gap; it does not insert rows,

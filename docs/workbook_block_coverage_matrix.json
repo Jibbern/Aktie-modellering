@@ -3339,6 +3339,24 @@
       "include_in_standard_template": true,
       "exclusion_reason": ""
     }
+    ,
+    {
+      "block_id": "valuation_input_values",
+      "sheet": "Valuation",
+      "ANF": {"block_exists": true, "resolved_sheet": "Valuation", "range": "D194:D216", "nonempty_cells": 15, "formula_cells": 0, "merge_count": 0, "freeze_panes": "B7", "max_row": 261, "max_column": 35, "average_row_height": 19.5},
+      "PBI": {"block_exists": true, "resolved_sheet": "Valuation", "range": "D194:D216", "nonempty_cells": 0, "formula_cells": 0, "merge_count": 0, "freeze_panes": "B7", "max_row": 261, "max_column": 35, "average_row_height": 19.5},
+      "GPRE": {"block_exists": true, "resolved_sheet": "Valuation", "range": "D194:D216", "nonempty_cells": 0, "formula_cells": 0, "merge_count": 0, "freeze_panes": "B7", "max_row": 261, "max_column": 35, "average_row_height": 19.5},
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": ["valuation_inputs"],
+      "support_sheet_dependencies": ["History_Q", "Leverage_Liquidity"],
+      "ticker_specific_differences": ["Legacy values differ; the standard shell keeps these cells blank."],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    }
   ],
   "excluded_sector_overlays": [
     {

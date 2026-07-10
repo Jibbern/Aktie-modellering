@@ -101,7 +101,31 @@
           "unit": "$m",
           "period": "2026-Q1"
         },
+        "net_income": {
+          "value": 13.1,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1",
+          "core": true,
+          "unit": "$m",
+          "period": "2026-Q1"
+        },
+        "operating_cash_flow": {
+          "value": 20.7,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1",
+          "core": true,
+          "unit": "$m",
+          "period": "2026-Q1"
+        },
         "adjusted_ebitda": {
+          "value": 26.4,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1",
+          "core": false,
+          "unit": "$m",
+          "period": "2026-Q1"
+        },
+        "base_ebitda": {
           "value": 26.4,
           "status": "populated",
           "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1",
@@ -146,7 +170,31 @@
           "unit": "$m",
           "period": "2025-Q4"
         },
+        "net_income": {
+          "value": 12.2,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4",
+          "core": true,
+          "unit": "$m",
+          "period": "2025-Q4"
+        },
+        "operating_cash_flow": {
+          "value": 19.4,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4",
+          "core": true,
+          "unit": "$m",
+          "period": "2025-Q4"
+        },
         "adjusted_ebitda": {
+          "value": 25.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4",
+          "core": false,
+          "unit": "$m",
+          "period": "2025-Q4"
+        },
+        "base_ebitda": {
           "value": 25.0,
           "status": "populated",
           "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4",
@@ -176,7 +224,7 @@
   "annual_financials": {
     "rows": [
       {
-        "period": "2025",
+        "period": "2025-FY",
         "fiscal_year": 2025,
         "revenue": {
           "value": 470.0,
@@ -184,7 +232,7 @@
           "source_ref": "synthetic_fixture:annual_financials:2025",
           "core": false,
           "unit": "$m",
-          "period": "2025"
+          "period": "2025-FY"
         },
         "operating_income": {
           "value": 68.0,
@@ -192,7 +240,7 @@
           "source_ref": "synthetic_fixture:annual_financials:2025",
           "core": false,
           "unit": "$m",
-          "period": "2025"
+          "period": "2025-FY"
         },
         "adjusted_ebitda": {
           "value": 96.0,
@@ -200,7 +248,15 @@
           "source_ref": "synthetic_fixture:annual_financials:2025",
           "core": false,
           "unit": "$m",
-          "period": "2025"
+          "period": "2025-FY"
+        },
+        "base_ebitda": {
+          "value": 98.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:annual_financials:2025",
+          "core": false,
+          "unit": "$m",
+          "period": "2025-FY"
         },
         "net_income": {
           "value": 44.0,
@@ -208,7 +264,15 @@
           "source_ref": "synthetic_fixture:annual_financials:2025",
           "core": false,
           "unit": "$m",
-          "period": "2025"
+          "period": "2025-FY"
+        },
+        "operating_cash_flow": {
+          "value": 75.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:annual_financials:2025",
+          "core": false,
+          "unit": "$m",
+          "period": "2025-FY"
         },
         "free_cash_flow": {
           "value": 51.0,
@@ -216,7 +280,7 @@
           "source_ref": "synthetic_fixture:annual_financials:2025",
           "core": false,
           "unit": "$m",
-          "period": "2025"
+          "period": "2025-FY"
         }
       }
     ]
@@ -290,14 +354,63 @@
         },
         "source_excerpt": "Management expects revenue growth in the mid-single-digit range for FY2026.",
         "source_date": "2026-07-07",
+        "publication_date": "2026-07-07",
         "stated_in_period": "2026-Q1",
-        "classification": "revenue"
+        "classification": "revenue",
+        "evidence_key": "test-guidance-2026q1",
+        "display_role": "current_primary",
+        "display_priority": 1,
+        "update_stage": "initial",
+        "initial_guide": {
+          "value": null,
+          "status": "missing_source",
+          "source_ref": "synthetic_fixture:guidance",
+          "core": false,
+          "reason": "No prior guide exists in the synthetic fixture."
+        },
+        "q1_update": {
+          "value": null,
+          "status": "missing_source",
+          "source_ref": "synthetic_fixture:guidance",
+          "core": false
+        },
+        "q2_update": {
+          "value": null,
+          "status": "missing_source",
+          "source_ref": "synthetic_fixture:guidance",
+          "core": false
+        },
+        "q3_update": {
+          "value": null,
+          "status": "missing_source",
+          "source_ref": "synthetic_fixture:guidance",
+          "core": false
+        },
+        "q4_update": {
+          "value": null,
+          "status": "missing_source",
+          "source_ref": "synthetic_fixture:guidance",
+          "core": false
+        },
+        "actual": {
+          "value": null,
+          "status": "missing_source",
+          "source_ref": "synthetic_fixture:guidance",
+          "core": false
+        },
+        "progress_status": "open",
+        "notes_source": "Management guidance from the synthetic fixture."
       }
     ]
   },
   "segments": {
     "items": [
       {
+        "dimension": "business_line",
+        "member": "Workflow software",
+        "metric": "revenue",
+        "period": "2026-Q1",
+        "period_type": "quarterly",
         "segment": {
           "value": "Workflow software",
           "status": "populated",
@@ -312,9 +425,36 @@
           "unit": "$m"
         },
         "annual_revenue": {
+          "value": null,
+          "status": "not_applicable",
+          "source_ref": "synthetic_fixture:segments",
+          "core": false,
+          "reason": "Quarterly row."
+        }
+      },
+      {
+        "dimension": "geography",
+        "member": "Region 1",
+        "metric": "revenue",
+        "period": "2025-FY",
+        "period_type": "annual",
+        "segment": {
+          "value": "Region 1",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:segments:annual",
+          "core": false
+        },
+        "revenue": {
           "value": 360.0,
           "status": "populated",
-          "source_ref": "synthetic_fixture:segments",
+          "source_ref": "synthetic_fixture:segments:annual",
+          "core": false,
+          "unit": "$m"
+        },
+        "annual_revenue": {
+          "value": 360.0,
+          "status": "populated",
+          "source_ref": "synthetic_fixture:segments:annual",
           "core": false,
           "unit": "$m"
         }
@@ -324,6 +464,17 @@
   "operating_drivers": {
     "items": [
       {
+        "topic": {
+          "value": "Demand",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:operating_drivers",
+          "core": true
+        },
+        "period": "2026-Q1",
+        "driver_type": "operational",
+        "evidence_key": "test-driver-2026q1",
+        "display_role": "current_watchlist",
+        "display_priority": 1,
         "driver": {
           "value": "Retention and implementation velocity",
           "status": "populated",
@@ -341,6 +492,13 @@
           "status": "populated",
           "source_ref": "synthetic_fixture:operating_drivers",
           "core": false
+        },
+        "source": "synthetic_fixture:operating_drivers",
+        "why_it_matters": {
+          "value": "Retention and implementation conversion determine recurring growth and operating leverage.",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:operating_drivers",
+          "core": false
         }
       }
     ]
@@ -348,6 +506,27 @@
   "quarter_notes": {
     "items": [
       {
+        "evidence_key": "test-quarter-note-2026q1",
+        "display_role": "current_note",
+        "display_priority": 1,
+        "theme": {
+          "value": "Demand",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarter_notes",
+          "core": false
+        },
+        "quarter": {
+          "value": "2026-Q1",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarter_notes",
+          "core": false
+        },
+        "metric": {
+          "value": "Revenue",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarter_notes",
+          "core": false
+        },
         "note": {
           "value": "Revenue growth was supported by recurring software demand.",
           "status": "populated",
@@ -359,7 +538,14 @@
           "status": "populated",
           "source_ref": "synthetic_fixture:quarter_notes",
           "core": false
-        }
+        },
+        "commentary": {
+          "value": "Recurring software demand supported revenue growth during the quarter.",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarter_notes",
+          "core": false
+        },
+        "source": "synthetic_fixture:quarter_notes"
       }
     ]
   },
@@ -400,6 +586,29 @@
       "source_ref": "synthetic_fixture:investment_case",
       "core": false
     }
+  },
+  "valuation_inputs": {
+    "price": {
+      "value": null,
+      "status": "missing_source",
+      "source_ref": "synthetic_fixture:valuation_inputs",
+      "core": false,
+      "reason": "No market price is required for planner wiring."
+    },
+    "as_of_date": {"value": "2026-03-31", "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true},
+    "shares_outstanding": {"value": 42.0, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "m shares"},
+    "diluted_shares": {"value": 42.3, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "m shares"},
+    "net_debt": {"value": 70.0, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$m"},
+    "base_ebitda_ttm": {"value": 103.0, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$m"},
+    "adjusted_ebitda_ttm": {"value": 101.4, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$m"},
+    "revenue_ttm": {"value": 470.8, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$m"},
+    "net_income_ttm": {"value": 45.1, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$m"},
+    "operating_cash_flow_ttm": {"value": 76.2, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$m"},
+    "free_cash_flow_ttm": {"value": 53.0, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$m"},
+    "capex_ttm": {"value": 23.2, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": false, "unit": "$m"}
+  },
+  "valuation_outputs": {
+    "items": []
   },
   "source_coverage": {
     "sources": [

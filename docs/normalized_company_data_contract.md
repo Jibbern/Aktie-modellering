@@ -16,6 +16,30 @@ Architecture ownership:
 - The validator blocks bad content before render so the future filler can write
   values only.
 
+## Source-Native Boundary And Legacy Fixtures
+
+The generic new-ticker path starts from source-native evidence candidates,
+normalizes selected evidence into this package, validates it, and only then
+plans workbook writes. It must not obtain its values from a legacy workbook.
+
+scripts/build_anf_shadow_normalized_package.py is explicitly a
+**legacy-workbook adapter fixture**. It may read the saved ANF workbook and its
+support artifacts for migration/shadow comparison, but it is not a generic
+onboarding builder and must never become the source-native path for a new
+ticker. ANF remains a read-only oracle, not a schema, sector pack, or
+implementation dependency.
+
+Before any Excel file is copied or opened, the package must pass:
+
+1. JSON Schema validation against docs/normalized_company_data.schema.json.
+2. Semantic/content validation, including source lineage for populated
+   source-backed core fields.
+3. Typed binding planning against the shell manifest and binding map.
+
+The planner emits exact planned cells, capacity use, overflow, skipped rows,
+mapping gaps, and manual-review flags. It never parses sources or opens a
+workbook.
+
 ## Field Status Contract
 
 Every core field is represented as an object with at least:
@@ -35,6 +59,10 @@ Statuses mean:
 - `not_applicable`: field is intentionally not applicable for this company.
 - `manual_review_required`: value may exist but needs human review.
 - `parser_conflict`: extracted candidates disagree or look noisy/misclassified.
+
+A populated core field always requires a non-empty `source_ref`, independent of
+whether a workbook binding currently consumes it. Numeric units use the schema
+taxonomy; arbitrary labels such as parser text are invalid units.
 
 ## Required Sections
 
@@ -73,6 +101,7 @@ Normalized quarterly rows with period labels and units:
 - revenue
 - gross profit
 - operating income
+- reported/base EBITDA where source-backed
 - adjusted EBITDA/EBIT where source-backed
 - net income
 - EPS
@@ -80,13 +109,35 @@ Normalized quarterly rows with period labels and units:
 - free cash flow
 - diluted shares
 
-Rows should use `quarterly_financials.rows[*].<field>` in the package; binding
-metadata may use `.rows.0.<field>` as the representative path for a row family.
+Rows use `quarterly_financials.rows[*].<field>` and `YYYY-Qn` period keys.
+Executable bindings select rows with `row_selector` and business keys; they do
+not use `.rows.0` or `.items.0` shortcuts.
 
 ### annual_financials
 
-Annual rows using the same field semantics as quarterly financials. Annual rows
-must identify fiscal/calendar basis explicitly.
+Annual rows use the same field semantics as quarterly financials and `YYYY-FY`
+period keys. `fiscal_year` must agree with the period. Reported/base EBITDA and
+adjusted EBITDA are distinct fields and may not be substituted for each other.
+Annual CFO and capex remain separate source-backed fields so FCF can be traced
+without treating a workbook formula as source evidence.
+
+### valuation_inputs
+
+Explicit, typed source inputs for the formula-owned Valuation model:
+
+- price and price as-of date
+- shares outstanding
+- net debt or net cash
+- revenue TTM
+- reported/base EBITDA TTM
+- adjusted EBITDA TTM
+- net income TTM
+- CFO and FCF TTM
+- reviewed valuation assumptions where applicable
+
+These values are inputs only. Valuation outputs stay formula-owned or must come
+from a separate explicit `valuation_outputs` contract. Mapping gaps, QA rows,
+and review flags can never supply valuation output cells.
 
 ### debt_liquidity
 
@@ -121,6 +172,18 @@ guidance rows and go to manual review flags.
 Guidance fields mapped into `Promise_Progress_UI` must be source-backed and pass
 metric classification before render.
 
+Publication date and guidance horizon are separate concepts. `publication_date`
+orders updates, while `horizon` identifies the period management is guiding.
+`display_role` routes rows deterministically: `current_primary` feeds current
+visible guidance blocks and historical rows remain available to history/audit
+surfaces. `display_priority` provides a stable order inside each role.
+
+Every guidance row carries a stable, source-derived `evidence_key`. The primary
+Promise Progress binding follows the frozen shell headers: metric, previous or
+initial guide, current guide, actual, status, horizon, stated-in period, source
+date, and notes/source. Revision fields without a distinct shell cell remain in
+the normalized package and are not concatenated into another cell.
+
 Table-row guidance surfaces may also carry row-shaped fields for progression
 columns:
 
@@ -150,6 +213,11 @@ Segment taxonomy and values:
 - source reference
 - whether the segment feeds scenario bridges
 
+Rows require a supported `dimension`, `member`, `metric`, `period`, and
+`period_type`. Supported dimensions are generic taxonomy values such as
+`reported_segment`, `business_line`, `geography`, `brand`, `product`,
+`category`, and `total_company`; ticker labels are members, not schema logic.
+
 ### operating_drivers
 
 Driver rows for visible current outlook/watchlist/actuals:
@@ -163,6 +231,11 @@ Driver rows for visible current outlook/watchlist/actuals:
 - source reference
 - driver group
 - why it matters / use
+- stable source-derived `evidence_key`
+
+Visible watchlist rows use `display_role=current_watchlist` and an explicit
+priority. Definition, policy, parser-fragment, and historical evidence remains
+in the package or audit trail rather than entering the visible watchlist.
 
 ### quarter_notes
 
@@ -180,6 +253,12 @@ Quarter narrative notes:
 - amount/unit
 - source reference
 - confidence
+- stable source-derived `evidence_key`
+
+Visible quarter-note rows use `display_role=current_note`. The selector chooses
+the latest valid source-backed quarter and one curated note per theme; later,
+invalid, duplicate, or audit-only snippets are retained as structured review
+evidence rather than silently discarded.
 
 ### investment_case
 
@@ -208,6 +287,11 @@ Inventory of available and missing sources:
 - financial schedules
 - market data
 - profile/manual references
+
+Legacy adapter fixtures must expose any row limits, exact-evidence
+deduplication, or unit normalization under `source_coverage` and corresponding
+manual-review flags. Such policies are migration evidence only and must not be
+copied into a source-native ticker builder.
 
 ### mapping_gaps
 
