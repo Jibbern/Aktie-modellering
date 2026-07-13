@@ -11,6 +11,7 @@ import argparse
 import json
 import re
 import shutil
+import sys
 from copy import copy
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -23,8 +24,20 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import absolute_coordinate, get_column_letter, quote_sheetname, range_boundaries
 from openpyxl.workbook.defined_name import DefinedName
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-ROOT = Path(__file__).resolve().parents[1]
+from pbi_xbrl.standard_template_shell_identity import (
+    SHELL_SEMANTIC_CONTRACT_VERSION,
+    compute_shell_identity,
+    normalize_xlsx_package,
+)
+from pbi_xbrl.json_schema_validation import load_json_strict
+from pbi_xbrl.standard_template_audit_freshness import write_audit_freshness
+
+
+ROOT = REPO_ROOT
 DEFAULT_OUTPUT = ROOT / "templates" / "standard_stock_model_template.xlsx"
 DEFAULT_LAB_SOURCE = ROOT / "templates" / "lab" / "ANF_template_lab.xlsx"
 
@@ -93,19 +106,51 @@ VALUATION_RUNTIME_VALUE_CONSTANT_RANGES = (
     "E253:E256",
     "L248:S250",
 )
-QA_HEADERS = [
-    "severity",
-    "rule_id",
-    "field",
-    "message",
-    "source_ref",
-    "suggested_action",
-    "sheet",
-    "section",
-    "binding_id",
-    "target",
-    "status",
-]
+QA_SHEET_HEADERS = {
+    "QA_Log": [
+        "issue_id",
+        "severity",
+        "rule_id",
+        "issue_type",
+        "section",
+        "root_cause",
+        "message",
+        "suggested_action",
+        "occurrence_count",
+        "visibility_disposition",
+        "promotion_blocking",
+        "detail_ref",
+    ],
+    "Needs_Review": [
+        "issue_id",
+        "severity",
+        "rule_id",
+        "section",
+        "normalized_path",
+        "business_row_key",
+        "message",
+        "suggested_action",
+        "occurrence_count",
+        "promotion_blocking",
+        "detail_ref",
+    ],
+    "QA_Checks": [
+        "rule_id",
+        "status",
+        "unique_issue_count",
+        "occurrence_count",
+        "blocking_count",
+        "actionable_count",
+        "affected_sections",
+        "interpretation",
+        "detail_ref",
+    ],
+}
+QA_COLUMN_WIDTHS = {
+    "QA_Log": [24, 9, 30, 24, 20, 32, 56, 42, 16, 22, 16, 34],
+    "Needs_Review": [24, 9, 30, 20, 32, 24, 56, 42, 16, 16, 34],
+    "QA_Checks": [34, 12, 18, 18, 16, 16, 34, 60, 34],
+}
 SUPPORT_SHEET_HEADERS = {
     "Hidden_Value_Flags": [
         "field",
@@ -212,6 +257,151 @@ OPERATING_DRIVER_SHEET_HEADERS = {
 }
 ALLOWED_HIDDEN_SHELL_SHEETS = set(SUPPORT_SHEET_HEADERS)
 SHEET_REF_RE = re.compile(r"'([^']+)'!|(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_ ]{0,60})!")
+COMPANY_SPECIFIC_DEFINED_NAMES = {"ThesisBaseAdjEBITDA_FY"}
+STALE_UNREFERENCED_DEFINED_NAMES = {
+    "FCF_Yield",
+    "summary_net_debt",
+    "summary_quarterly_revenue",
+    "summary_revenue_model",
+}
+NEUTRAL_STATIC_LABELS = {
+    "SUMMARY": {
+        "A8": "Business model / revenue streams (% of total revenue)",
+    },
+    "Valuation": {
+        "A36": "Net income attributable to common shareholders",
+        "A37": "Net income attributable to common shareholders margin %",
+        "A38": "Net income attributable to common shareholders YoY %",
+        "A39": "Net income attributable to common shareholders (TTM)",
+        "A40": "Net income attributable to common shareholders margin (TTM)",
+    },
+    "Operating_Drivers": {
+        "A13": "[Current actual period]",
+        "A14": "[Current guidance period]",
+        "A21": "[Operating evidence period slot 1]",
+        "A22": "[Operating evidence period slot 2]",
+        "A23": "[Operating evidence period slot 3]",
+        "A25": "[Operating evidence period slot 4]",
+        "A26": "[Operating evidence period slot 5]",
+        "A27": "[Operating evidence period slot 6]",
+        "A28": "[Operating evidence period slot 7]",
+        "A29": "[Operating evidence period slot 8]",
+        "A30": "[Operating evidence period slot 9]",
+        "A32": "[Operating evidence period slot 10]",
+        "A33": "[Operating evidence period slot 11]",
+        "A34": "[Operating evidence period slot 12]",
+        "A35": "[Operating evidence period slot 13]",
+        "A36": "[Operating evidence period slot 14]",
+        "A37": "[Operating evidence period slot 15]",
+        "A38": "[Operating evidence period slot 16]",
+        "A41": "Segment support - latest 12 periods",
+        "A48": "[Operating scope slot 48]",
+        "A52": "Actuals - latest 12 periods",
+        "A64": "Dimension view",
+        "A70": "[Optional sector metric slot 70]",
+        "A71": "[Optional sector metric slot 71]",
+        "A73": "[Optional sector metric slot 73]",
+        "A74": "[Optional sector metric slot 74]",
+        "A76": "[Optional sector metric slot 76]",
+        "A92": "Outlook bridge",
+        "A110": "[Optional sector operating driver slot 110]",
+        "A111": "[Optional sector block slot 111]",
+        "A112": "[Optional sector metric slot 112]",
+    },
+    "{ticker}_Investment_Case": {
+        "A39": "Dimension view 1 - summed only when selected",
+        "A42": "Dimension view 2 - summed only when selected",
+        "A73": "[Key debate slot 1]",
+        "A79": "[Key debate slot 2]",
+        "A92": "[Quality of earnings item 1]",
+        "A93": "[Quality of earnings item 2]",
+        "A96": "[Quality of earnings item 5]",
+        "A100": "[Scenario condition slot 1]",
+        "A101": "[Scenario condition slot 2]",
+        "A102": "[Scenario condition slot 3]",
+        "A103": "[Scenario condition slot 4]",
+        "A104": "[Scenario condition slot 5]",
+        "A108": "[Margin baseline slot]",
+        "A109": "[Margin guidance slot]",
+        "A110": "[Margin delta slot]",
+        "A114": "[Margin / cost driver slot 1]",
+        "A115": "[Margin / realization driver slot]",
+        "A116": "[Margin / cost driver slot 2]",
+        "A126": "Guided EPS",
+        "A132": "Buybacks",
+        "A138": "Guidance to implied earnings",
+        "A140": "Revenue baseline",
+        "A141": "Revenue growth guide",
+        "A142": "Implied revenue",
+        "A153": "[Operating margin sensitivity slot]",
+        "A154": "[Gross margin sensitivity slot]",
+        "A155": "[Revenue growth sensitivity slot]",
+        "A156": "[Capital return sensitivity slot]",
+        "A157": "[EPS sensitivity slot]",
+        "A184": "[Comparison period slot]",
+        "A193": "Business Health",
+        "A195": "Sales",
+        "A196": "Sales growth",
+        "A197": "Current-period sales growth",
+        "A198": "[Current-period operating metric slot]",
+        "A201": "Inventory / Working-Capital Risk",
+        "A211": "Asset Productivity / Capacity Returns",
+        "A215": "[Asset scope slot]",
+        "A223": "[Asset growth slot]",
+        "A224": "Revenue growth vs asset growth",
+        "A225": "[Channel mix slot]",
+    },
+    "Promise_Progress_UI": {
+        "A11": "Guidance progression - period block 1",
+        "A22": "Guidance progression - period block 2",
+        "A28": "Guidance progression - period block 3",
+        "A33": "Guidance progression - period block 4",
+        "A37": "Current open guidance",
+    },
+}
+VISIBLE_SOURCE_TEXT_PATTERNS = tuple(
+    re.compile(pattern, re.I)
+    for pattern in (
+        r"\bsource-backed\b",
+        r"\bearnings release\b",
+        r"\bguidance profile\b",
+        r"\bmodel_metric\b",
+        r"\bpre-release update\b",
+        r"StockModelData[\\/]tickers[\\/]",
+        r"\b20\d{2}(?:-Q[1-4]|-\d{2}-\d{2})?\b",
+        r"\$\s*-?\d",
+        r"\b\d+(?:\.\d+)?\s*(?:%|bps|million|billion)\b",
+        r"\brevolver(?:_|\s+)capacity(?:_|\s+)change",
+        r"\bbrand_family_momentum\b",
+        r"\bAUR\b",
+    )
+)
+QUARTER_NOTES_STATIC_TEXT = {
+    "quarter read",
+    "model read",
+    "what changed",
+    "watch next",
+    "key caveat",
+    "key developments",
+    "theme",
+    "what happened",
+    "why it matters",
+    "model / valuation implication",
+    "source / confidence",
+    "guidance / promise interpretation",
+    "promise / guidance item",
+    "read",
+    "actual / progress interpretation",
+    "status / caveat",
+    "source",
+    "model mapping / double-count guardrails",
+    "driver",
+    "model treatment",
+    "double-count guardrail",
+    "linked sheet / metric",
+}
+QUARTER_NOTES_BLOCK_TITLE_RE = re.compile(r"^20\d{2}-Q[1-4]\s+-\s+Quarter Notes$", re.I)
+NEUTRAL_SLOT_RE = re.compile(r"^\[(?:Quarter note theme|Dimension member) slot?\s*\d+\]$", re.I)
 
 
 @dataclass(frozen=True)
@@ -222,7 +412,10 @@ class SourceSheetContract:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = load_json_strict(path)
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON contract must be an object: {path}")
+    return payload
 
 
 def _default_data_root() -> Path:
@@ -536,6 +729,55 @@ def _clear_writable_zones(wb: Workbook, manifest: dict[str, Any]) -> None:
         ws = wb[sheet_name]
         for zone in sheet_def["writable_zones"]:
             _clear_range_values(ws, str(zone["target"]))
+
+
+def _clear_visible_source_values_and_notes(wb: Workbook, manifest: dict[str, Any]) -> None:
+    """Remove source-backed payload while retaining labels, formulas, and styles."""
+
+    for sheet_name in manifest["visible_sheet_order"]:
+        if sheet_name not in wb.sheetnames:
+            continue
+        ws = wb[sheet_name]
+        for row in ws.iter_rows():
+            for cell in row:
+                if isinstance(cell, MergedCell):
+                    continue
+                value = cell.value
+                if isinstance(value, (int, float, date, datetime)) and not isinstance(value, bool):
+                    cell.value = None
+                    continue
+                if isinstance(value, str) and not value.startswith("=") and any(pattern.search(value) for pattern in VISIBLE_SOURCE_TEXT_PATTERNS):
+                    cell.value = None
+
+
+def _neutralize_quarter_notes_history(wb: Workbook) -> None:
+    """Keep reusable history-block headers while removing inherited evidence."""
+
+    sheet_name = "Quarter_Notes_UI"
+    if sheet_name not in wb.sheetnames:
+        return
+    ws = wb[sheet_name]
+    block_index = 0
+    for row in ws.iter_rows(min_row=16):
+        for cell in row:
+            if isinstance(cell, MergedCell):
+                continue
+            value = cell.value
+            if value in (None, "") or (isinstance(value, str) and value.startswith("=")):
+                continue
+            text = str(value).strip()
+            if cell.column == 1 and QUARTER_NOTES_BLOCK_TITLE_RE.fullmatch(text):
+                block_index += 1
+                cell.value = f"[Historical quarter block {block_index}]"
+                continue
+            if text.casefold() in QUARTER_NOTES_STATIC_TEXT:
+                continue
+            if cell.column == 1 and NEUTRAL_SLOT_RE.fullmatch(text):
+                continue
+            if cell.column == 1:
+                cell.value = f"[Quarter note theme slot {cell.row}]"
+                continue
+            cell.value = None
 
 
 def _clear_source_specific_visible_text(wb: Workbook, manifest: dict[str, Any]) -> None:
@@ -1023,11 +1265,18 @@ def _ensure_sheet_titles(wb: Workbook, manifest: dict[str, Any]) -> None:
 
 
 def _ensure_binding_anchor_labels(wb: Workbook, manifest: dict[str, Any], bindings: list[dict[str, Any]]) -> None:
+    current_binding_ids = {str(entry["binding_id"]) for entry in bindings}
+    current_anchor_ids = {str(anchor["anchor_id"]) for anchor in manifest.get("required_anchors", [])}
+    for name in list(wb.defined_names):
+        if str(name) in current_binding_ids | current_anchor_ids:
+            del wb.defined_names[name]
     for entry in bindings:
+        if str(entry.get("planning_state") or "active") != "active":
+            continue
         sheet_name = str(entry["sheet"])
         if sheet_name not in wb.sheetnames:
             continue
-        target = str(entry["target"])
+        target = str(entry.get("planner_target") or entry["target"])
         min_col, min_row, _max_col, _max_row = range_boundaries(target)
         coord = absolute_coordinate(wb[sheet_name].cell(min_row, min_col).coordinate)
         wb.defined_names.add(DefinedName(str(entry["binding_id"]), attr_text=f"{quote_sheetname(sheet_name)}!{coord}"))
@@ -1036,9 +1285,14 @@ def _ensure_binding_anchor_labels(wb: Workbook, manifest: dict[str, Any], bindin
         sheet_name = str(anchor["sheet"])
         if sheet_name not in wb.sheetnames:
             continue
-        sheet_def = next(sheet for sheet in manifest["sheets"] if sheet["sheet"] == sheet_name)
-        row_idx = 1 if sheet_name in {"QA_Log", "Needs_Review", "QA_Checks"} else _anchor_row_from_zone(sheet_def, anchor["zone_id"])
-        cell = wb[sheet_name].cell(row_idx, 1)
+        explicit_target = str(anchor.get("target") or "")
+        if explicit_target:
+            min_col, min_row, _max_col, _max_row = range_boundaries(explicit_target)
+            cell = wb[sheet_name].cell(min_row, min_col)
+        else:
+            sheet_def = next(sheet for sheet in manifest["sheets"] if sheet["sheet"] == sheet_name)
+            row_idx = 1 if sheet_name in {"QA_Log", "Needs_Review", "QA_Checks"} else _anchor_row_from_zone(sheet_def, anchor["zone_id"])
+            cell = wb[sheet_name].cell(row_idx, 1)
         coord = absolute_coordinate(cell.coordinate)
         wb.defined_names.add(DefinedName(str(anchor["anchor_id"]), attr_text=f"{quote_sheetname(sheet_name)}!{coord}"))
 
@@ -1050,14 +1304,62 @@ def _neutralize_dynamic_headers(wb: Workbook) -> None:
             ws["O7"] = "Guidance"
 
 
+def _remove_fixed_dimension_validation(wb: Workbook) -> None:
+    """Remove the ANF-authored dimension picker from the generic shell."""
+
+    sheet_name = "{ticker}_Investment_Case"
+    if sheet_name not in wb.sheetnames:
+        return
+    ws = wb[sheet_name]
+    retained = []
+    for validation in ws.data_validations.dataValidation:
+        formula = str(validation.formula1 or "")
+        ranges = {str(cell_range) for cell_range in validation.ranges.ranges}
+        if "B38" in ranges and formula == '"None,Brand,Geography"':
+            continue
+        retained.append(validation)
+    ws.data_validations.dataValidation = retained
+
+
 def _ensure_qa_headers(wb: Workbook) -> None:
-    for sheet_name in ("QA_Log", "Needs_Review", "QA_Checks"):
+    for sheet_name, headers in QA_SHEET_HEADERS.items():
         if sheet_name not in wb.sheetnames:
             continue
         ws = wb[sheet_name]
-        ws["A1"] = _sheet_title(sheet_name)
-        for col_idx, header in enumerate(QA_HEADERS, start=2):
-            ws.cell(1, col_idx, header)
+        style_source = ws["B1"] if ws["B1"].has_style else ws["A1"]
+        for row in ws.iter_rows(min_row=1, max_row=1, min_col=1, max_col=26):
+            for cell in row:
+                if not isinstance(cell, MergedCell):
+                    cell.value = None
+        for col_idx, header in enumerate(headers, start=1):
+            cell = ws.cell(1, col_idx, header)
+            cell.font = copy(style_source.font)
+            cell.fill = copy(style_source.fill)
+            cell.border = copy(style_source.border)
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.number_format = copy(style_source.number_format)
+            ws.column_dimensions[get_column_letter(col_idx)].width = QA_COLUMN_WIDTHS[sheet_name][col_idx - 1]
+        ws.row_dimensions[1].height = 30
+        ws.freeze_panes = "A2"
+
+
+def _apply_neutral_static_labels(wb: Workbook) -> None:
+    for sheet_name, replacements in NEUTRAL_STATIC_LABELS.items():
+        if sheet_name not in wb.sheetnames:
+            continue
+        ws = wb[sheet_name]
+        for coordinate, label in replacements.items():
+            cell = ws[coordinate]
+            if not isinstance(cell, MergedCell):
+                cell.value = label
+
+
+def _remove_company_specific_defined_names(wb: Workbook) -> None:
+    for name in list(wb.defined_names):
+        defined_name = wb.defined_names[name]
+        attr_text = str(getattr(defined_name, "attr_text", "") or "")
+        if str(name) in COMPANY_SPECIFIC_DEFINED_NAMES | STALE_UNREFERENCED_DEFINED_NAMES or re.search(r"(?i)\b(?:ANF|A&F|Abercrombie|Hollister)\b", f"{name} {attr_text}"):
+            del wb.defined_names[name]
 
 
 def _remove_qa_excel_tables(wb: Workbook) -> None:
@@ -1152,6 +1454,14 @@ def _configure_calculation(wb: Workbook) -> None:
         pass
 
 
+def _configure_deterministic_properties(wb: Workbook) -> None:
+    fixed = datetime(2000, 1, 1, 0, 0, 0)
+    wb.properties.creator = "Standard Stock Model Template"
+    wb.properties.lastModifiedBy = "Standard Stock Model Template"
+    wb.properties.created = fixed
+    wb.properties.modified = fixed
+
+
 def _materialize_rich_shell(
     *,
     source_path: Path,
@@ -1167,6 +1477,8 @@ def _materialize_rich_shell(
     _clear_source_specific_visible_text(wb, manifest)
     _genericize_sector_specific_visible_text(wb, manifest)
     _clear_writable_zones(wb, manifest)
+    _neutralize_quarter_notes_history(wb)
+    _clear_visible_source_values_and_notes(wb, manifest)
     _clear_valuation_numeric_constants(wb)
     _clear_valuation_runtime_value_constants(wb)
     _guard_valuation_scenario_formulas_until_input(wb)
@@ -1179,18 +1491,23 @@ def _materialize_rich_shell(
     _ensure_valuation_guidance_sidecar_headers(wb)
     _ensure_operating_driver_sheet_headers(wb)
     _neutralize_remaining_visible_row_labels(wb)
+    _apply_neutral_static_labels(wb)
     _ensure_sheet_titles(wb, manifest)
     _move_operating_drivers_title_to_row1(wb)
     _neutralize_dynamic_headers(wb)
+    _remove_fixed_dimension_validation(wb)
     _ensure_binding_anchor_labels(wb, manifest, bindings)
+    _remove_company_specific_defined_names(wb)
     _ensure_qa_headers(wb)
     _remove_qa_excel_tables(wb)
     _clear_workbook_comments(wb)
     _neutralize_hidden_support_sheets(wb, manifest)
     _ensure_freeze_panes(wb, manifest)
     _configure_calculation(wb)
+    _configure_deterministic_properties(wb)
     wb.save(output_path)
     wb.close()
+    normalize_xlsx_package(output_path)
     return output_path
 
 
@@ -1200,6 +1517,7 @@ def materialize_shell(
     output_path: Path,
     manifest_path: Path,
     binding_map_path: Path,
+    update_identity: bool = False,
 ) -> Path:
     manifest = _load_json(manifest_path)
     binding_payload = _load_json(binding_map_path)
@@ -1207,12 +1525,15 @@ def materialize_shell(
 
     rich_source = _rich_template_source(data_root)
     if rich_source is not None:
-        return _materialize_rich_shell(
+        result = _materialize_rich_shell(
             source_path=rich_source,
             output_path=output_path,
             manifest=manifest,
             bindings=bindings,
         )
+        if update_identity:
+            _update_manifest_identity(result, manifest_path=manifest_path, binding_map_path=binding_map_path)
+        return result
 
     contracts = _load_source_contracts(data_root, manifest)
 
@@ -1228,9 +1549,33 @@ def materialize_shell(
         _write_static_structure(wb, ws, sheet_def, sheet_bindings, contracts.get(sheet_name, SourceSheetContract(None, {}, {})))
 
     _configure_calculation(wb)
+    _configure_deterministic_properties(wb)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
+    wb.close()
+    normalize_xlsx_package(output_path)
+    if update_identity:
+        _update_manifest_identity(output_path, manifest_path=manifest_path, binding_map_path=binding_map_path)
     return output_path
+
+
+def _update_manifest_identity(output_path: Path, *, manifest_path: Path, binding_map_path: Path) -> None:
+    manifest = _load_json(manifest_path)
+    bindings = _load_json(binding_map_path)
+    manifest["semantic_contract_version"] = SHELL_SEMANTIC_CONTRACT_VERSION
+    manifest["shell_identity"] = compute_shell_identity(
+        output_path,
+        manifest=manifest,
+        binding_payload=bindings,
+        semantic_contract_version=SHELL_SEMANTIC_CONTRACT_VERSION,
+    )
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_audit_freshness(
+        shell_path=output_path,
+        manifest=manifest,
+        binding_payload=bindings,
+        root=ROOT,
+    )
 
 
 def main() -> int:
@@ -1239,6 +1584,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--manifest", type=Path, default=ROOT / "docs" / "standard_template_shell_manifest.json")
     parser.add_argument("--binding-map", type=Path, default=ROOT / "docs" / "workbook_binding_map.json")
+    parser.add_argument("--update-identity", action="store_true", help="Update manifest shell_identity after deterministic materialization.")
     args = parser.parse_args()
 
     path = materialize_shell(
@@ -1246,6 +1592,7 @@ def main() -> int:
         output_path=args.output.expanduser().resolve(),
         manifest_path=args.manifest.expanduser().resolve(),
         binding_map_path=args.binding_map.expanduser().resolve(),
+        update_identity=args.update_identity,
     )
     print(f"standard template shell: {path}")
     return 0

@@ -260,3 +260,54 @@ The binding map owns:
 The future filler must fail if it attempts to write outside writable zones, into
 non-writable zones, over formulas/static labels, or into a sheet not represented
 by the manifest.
+
+## Identity And QA Boundary
+
+The frozen shell is accepted only when its deterministic SHA-256, complete
+manifest-contract signature, and semantic signatures match
+`standard_template_shell_manifest.json`. The manifest signs
+sheet visibility/order, normalized stable sheet-view settings, merges, defined
+names, exact writable targets, and
+formula/static zones. The same identity signs the complete executable binding
+contract, so changing a source field, selector, row key, sort, period axis,
+capacity, overflow policy, or target-column role requires reviewed identity
+regeneration. Intentional shell authoring regenerates both artifact and identity;
+ordinary planning never updates the expected identity.
+
+Generated shell audits are tied to that identity through
+`standard_template_audit_freshness.json` and per-artifact receipts under
+`docs/audit_receipts/`. A receipt records the artifact digest, exact authoritative
+input digests, generator implementation and contract version, declared local
+dependency digests, output version, and deterministic generation ID. Freshness is
+derived only by rerunning the declared deterministic generator in isolated
+temporary storage and comparing canonical output with the checked-in artifact.
+Receipts are diagnostic generation metadata, not proof. Callers cannot mark
+paths current, and the update CLI has no `--all-current` escape hatch. Audits
+whose replay is unavailable remain explicitly stale.
+
+A filled workbook uses a separate structural identity mode derived from that
+verified source shell. It relaxes only exact approved writable-cell values; it
+independently reproduces the PASS plan from the package and contracts and rejects
+unplanned, cached-plan, or mismatched values. It does not relax semantic version, binding ownership, protected cells/formulas,
+merges, defined names, layout, sheet order, tables, data validation, or
+formatting contracts.
+
+Stable sheet-view settings use one shared payload for shell identity and
+post-fill validation. Zoom, gridlines, headers, zeros, view mode, workbook-view
+ID, freeze/split panes, and other declared visual settings are shell-owned.
+Active-cell, selection-range, scroll-position, and active-tab session state are
+explicitly ignored to avoid false failures after ordinary Excel interaction.
+
+QA presentation is downstream of the canonical issue ledger. JSON retains every
+evidence occurrence, while `QA_Log`, `Needs_Review`, and `QA_Checks` receive
+deduplicated summaries, actionable exceptions, and rule-level checks
+respectively. The shell owns only their headers, styles, and blank writable rows.
+Business planning finishes before one final ledger is built. QA rows are then
+planned from that immutable snapshot; any QA capacity or type problem invalidates
+the snapshot and blocks rendering rather than leaving stale QA rows behind.
+
+The ANF visual authoring source does not authorize copied evidence. Historical
+Quarter Notes content is therefore reduced to neutral structural headers and
+slots; its unbound value area remains protected until exact history bindings are
+designed. Fixed fiscal years, source dates, values, statuses, company topics,
+and retail-only driver labels are not template UI.

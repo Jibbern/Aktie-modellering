@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-07T20:17:40+00:00",
+  "generated_at": "2026-07-13T17:37:37+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "visible_sheets": [
     "SUMMARY",
@@ -26,10 +26,10 @@
   ],
   "classification_counts": {
     "formula_static": 73,
-    "generic_block_label": 385,
-    "placeholder_slot": 204,
-    "row_label_generic": 750,
-    "universal_template_label": 86
+    "generic_block_label": 512,
+    "placeholder_slot": 329,
+    "row_label_generic": 593,
+    "universal_template_label": 75
   },
   "post_neutrality_summary": {
     "company_specific_value_count": 0,
@@ -86,7 +86,7 @@
     {
       "sheet": "SUMMARY",
       "cell": "A8",
-      "value": "Business model / revenue streams (% of total revenue) (FY end 2026-01-31)",
+      "value": "Business model / revenue streams (% of total revenue)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -822,7 +822,7 @@
     {
       "sheet": "Valuation",
       "cell": "A36",
-      "value": "Net income attrib. to A&F",
+      "value": "Net income attributable to common shareholders",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -830,7 +830,7 @@
     {
       "sheet": "Valuation",
       "cell": "A37",
-      "value": "Net income attrib. to A&F margin %",
+      "value": "Net income attributable to common shareholders margin %",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -846,7 +846,7 @@
     {
       "sheet": "Valuation",
       "cell": "A38",
-      "value": "Net income attrib. to A&F YoY %",
+      "value": "Net income attributable to common shareholders YoY %",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -886,7 +886,7 @@
     {
       "sheet": "Valuation",
       "cell": "A39",
-      "value": "Net income attrib. to A&F (TTM)",
+      "value": "Net income attributable to common shareholders (TTM)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -894,7 +894,7 @@
     {
       "sheet": "Valuation",
       "cell": "A40",
-      "value": "Net income attrib. to A&F margin (TTM)",
+      "value": "Net income attributable to common shareholders margin (TTM)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -4709,38 +4709,6 @@
     },
     {
       "sheet": "BS_Segments",
-      "cell": "A61",
-      "value": "[Dimension member 1]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "BS_Segments",
-      "cell": "A62",
-      "value": "[Dimension member 2]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "BS_Segments",
-      "cell": "A63",
-      "value": "[Dimension member 3]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "BS_Segments",
-      "cell": "A65",
-      "value": "Total Company",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "BS_Segments",
       "cell": "A69",
       "value": "Annual segments",
       "classification": "row_label_generic",
@@ -4761,30 +4729,6 @@
       "value": "Revenues",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "BS_Segments",
-      "cell": "A72",
-      "value": "[Dimension member 1]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "BS_Segments",
-      "cell": "A73",
-      "value": "[Dimension member 2]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "BS_Segments",
-      "cell": "A74",
-      "value": "[Dimension member 3]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -4829,38 +4773,6 @@
     },
     {
       "sheet": "Operating_Drivers",
-      "cell": "A6",
-      "value": "[Operating driver slot 6]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Operating_Drivers",
-      "cell": "A7",
-      "value": "Margin durability",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Operating_Drivers",
-      "cell": "A8",
-      "value": "Inventory quality",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Operating_Drivers",
-      "cell": "A9",
-      "value": "Capital returns",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Operating_Drivers",
       "cell": "A11",
       "value": "Current/latest outlook",
       "classification": "row_label_generic",
@@ -4894,17 +4806,17 @@
     {
       "sheet": "Operating_Drivers",
       "cell": "A13",
-      "value": "Q4 actuals",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Current actual period]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A14",
-      "value": "2026 guide",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Current guidance period]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -4966,25 +4878,25 @@
     {
       "sheet": "Operating_Drivers",
       "cell": "A21",
-      "value": "2026-Q1",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 1]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A22",
-      "value": "2026 / current",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 2]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A23",
-      "value": "2026-Q1 / forward",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 3]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -4998,55 +4910,47 @@
     {
       "sheet": "Operating_Drivers",
       "cell": "A25",
-      "value": "2025-Q1",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 4]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A26",
-      "value": "2025-Q1",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 5]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A27",
-      "value": "2025-Q2",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 6]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A28",
-      "value": "2025-Q2",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 7]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A29",
-      "value": "2025-Q3",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 8]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A30",
-      "value": "2025-Q3",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Operating_Drivers",
-      "cell": "A31",
-      "value": "[Operating driver slot 31]",
+      "value": "[Operating evidence period slot 9]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -5054,57 +4958,57 @@
     {
       "sheet": "Operating_Drivers",
       "cell": "A32",
-      "value": "2025-Q4",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 10]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A33",
-      "value": "2024-Q2",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 11]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A34",
-      "value": "2024-Q2",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 12]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A35",
-      "value": "2024-Q3",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 13]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A36",
-      "value": "2024-Q3",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 14]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A37",
-      "value": "2024-Q4",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 15]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A38",
-      "value": "2024-Q4",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating evidence period slot 16]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -5118,7 +5022,7 @@
     {
       "sheet": "Operating_Drivers",
       "cell": "A41",
-      "value": "Segment support — latest 12 quarters",
+      "value": "Segment support - latest 12 periods",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -5166,15 +5070,15 @@
     {
       "sheet": "Operating_Drivers",
       "cell": "A48",
-      "value": "Total Company",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating scope slot 48]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A52",
-      "value": "Actuals — latest 12 quarters",
+      "value": "Actuals - latest 12 periods",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -5270,7 +5174,7 @@
     {
       "sheet": "Operating_Drivers",
       "cell": "A64",
-      "value": "Brand family",
+      "value": "Dimension view",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -5286,41 +5190,41 @@
     {
       "sheet": "Operating_Drivers",
       "cell": "A70",
-      "value": "Comps",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Optional sector metric slot 70]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A71",
-      "value": "[Dimension member 3] comp",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Optional sector metric slot 71]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A73",
-      "value": "[Dimension member 1] comp",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Optional sector metric slot 73]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A74",
-      "value": "[Dimension member 2] comp",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Optional sector metric slot 74]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A76",
-      "value": "Total comp",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Optional sector metric slot 76]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -5446,7 +5350,7 @@
     {
       "sheet": "Operating_Drivers",
       "cell": "A92",
-      "value": "2026 outlook bridge",
+      "value": "Outlook bridge",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -5590,25 +5494,25 @@
     {
       "sheet": "Operating_Drivers",
       "cell": "A110",
-      "value": "Total stores incl franchise",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Optional sector operating driver slot 110]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A111",
-      "value": "Digital / omnichannel",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Optional sector block slot 111]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
       "cell": "A112",
-      "value": "Digital sales mix",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Optional sector metric slot 112]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -5910,7 +5814,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A39",
-      "value": "Brand view — summed only when Brand selected",
+      "value": "Dimension view 1 - summed only when selected",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -5918,7 +5822,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A42",
-      "value": "Geography view — summed only when Geography selected",
+      "value": "Dimension view 2 - summed only when selected",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6126,9 +6030,9 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A73",
-      "value": "Margin durability after turnaround | Current read: Constructive but margin-sensitive.",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Key debate slot 1]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -6166,9 +6070,9 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A79",
-      "value": "Buybacks vs FCF | Current read: Positive EPS support, but a watch item.",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Key debate slot 2]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -6254,17 +6158,17 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A92",
-      "value": "Buybacks vs FCF",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quality of earnings item 1]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A93",
-      "value": "Inventory",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quality of earnings item 2]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -6286,9 +6190,9 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A96",
-      "value": "Marketing",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quality of earnings item 5]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -6310,41 +6214,41 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A100",
-      "value": "Sales guide must hold",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Scenario condition slot 1]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A101",
-      "value": "Margins must stabilize",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Scenario condition slot 2]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A102",
-      "value": "Inventory must stay clean",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Scenario condition slot 3]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A103",
-      "value": "Buybacks must support EPS",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Scenario condition slot 4]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A104",
-      "value": "Market must believe durability",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Scenario condition slot 5]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -6366,25 +6270,25 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A108",
-      "value": "2025 op margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Margin baseline slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A109",
-      "value": "2026 op margin guide",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Margin guidance slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A110",
-      "value": "Implied decline",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Margin delta slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -6414,25 +6318,25 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A114",
-      "value": "Marketing",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Margin / cost driver slot 1]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A115",
-      "value": "AUR / pricing",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Margin / realization driver slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A116",
-      "value": "Sourcing / supplier mitigation",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Margin / cost driver slot 2]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -6502,7 +6406,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A126",
-      "value": "2026 guided EPS",
+      "value": "Guided EPS",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6542,7 +6446,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A132",
-      "value": "2025 buybacks",
+      "value": "Buybacks",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6582,7 +6486,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A138",
-      "value": "2026 Guide → Implied Earnings",
+      "value": "Guidance to implied earnings",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6598,7 +6502,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A140",
-      "value": "2025 revenue",
+      "value": "Revenue baseline",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6606,7 +6510,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A141",
-      "value": "2026 revenue growth guide",
+      "value": "Revenue growth guide",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6614,7 +6518,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A142",
-      "value": "Implied 2026 revenue",
+      "value": "Implied revenue",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6694,41 +6598,41 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A153",
-      "value": "+100 bps operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Operating margin sensitivity slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A154",
-      "value": "+100 bps gross margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Gross margin sensitivity slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A155",
-      "value": "+1% sales growth",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Revenue growth sensitivity slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A156",
-      "value": "$100m buybacks",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Capital return sensitivity slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A157",
-      "value": "Roughly +$1 EPS equals",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[EPS sensitivity slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -6902,15 +6806,15 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A184",
-      "value": "2024-Q1",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Comparison period slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A193",
-      "value": "Brand Health",
+      "value": "Business Health",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6926,7 +6830,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A195",
-      "value": "2025 sales",
+      "value": "Sales",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6934,7 +6838,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A196",
-      "value": "2025 sales growth",
+      "value": "Sales growth",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6942,7 +6846,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A197",
-      "value": "Q4 sales growth",
+      "value": "Current-period sales growth",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -6950,9 +6854,9 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A198",
-      "value": "Q4 comp",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Current-period operating metric slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -6966,7 +6870,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A201",
-      "value": "Inventory / Markdown Risk",
+      "value": "Inventory / Working-Capital Risk",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -7038,7 +6942,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A211",
-      "value": "Store Productivity / Real Estate ROI",
+      "value": "Asset Productivity / Capacity Returns",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -7070,9 +6974,9 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A215",
-      "value": "Total incl franchise",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Asset scope slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7134,15 +7038,15 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A223",
-      "value": "Store growth",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Asset growth slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A224",
-      "value": "Revenue growth vs store growth",
+      "value": "Revenue growth vs asset growth",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -7150,9 +7054,9 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A225",
-      "value": "Digital mix",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Channel mix slot]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7277,50 +7181,34 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
-      "cell": "A10",
-      "value": "Total Company",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "cell": "C9",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
-      "cell": "A11",
-      "value": "[Quarter note theme slot 11]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
+      "cell": "F9",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
-      "cell": "A12",
-      "value": "Sales guide",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "cell": "H9",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
-      "cell": "A13",
-      "value": "Revolver capacity changed",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Quarter_Notes_UI",
-      "cell": "A14",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Quarter_Notes_UI",
-      "cell": "A15",
-      "value": "[Quarter note theme slot 15]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
+      "cell": "M9",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
@@ -7341,10 +7229,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C18",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F18",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I18",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M18",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A19",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 19]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7381,10 +7301,34 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C24",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G24",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M24",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A25",
-      "value": "Total Company",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 25]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7398,25 +7342,25 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A27",
-      "value": "Sales guide",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 27]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A28",
-      "value": "revolver_capacity_change",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 28]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A29",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 29]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7430,9 +7374,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A32",
-      "value": "2025-Q4 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 1]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7493,50 +7437,82 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C40",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F40",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H40",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M40",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A41",
-      "value": "Sales growth and brand/geography reads",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 41]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A42",
-      "value": "Revolver capacity changed",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 42]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A43",
-      "value": "Quarter driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 43]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A44",
-      "value": "Pre-release update",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 44]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A45",
-      "value": "Operating margin normalization",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 45]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A46",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 46]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7557,34 +7533,66 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C49",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F49",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I49",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M49",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A50",
-      "value": "Sales growth / Segment Scenario Inputs",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 50]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A51",
-      "value": "2025-Q4 pre-release update",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 51]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A52",
-      "value": "Operating margin / Margin bridge vs baseline",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 52]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A53",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 53]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7613,58 +7621,82 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C57",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G57",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M57",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A58",
-      "value": "Sales growth / Segment Scenario Inputs",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 58]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A59",
-      "value": "revolver_capacity_change",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 59]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A60",
-      "value": "brand_family_momentum",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 60]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A61",
-      "value": "2025-Q4 pre-release update",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 61]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A62",
-      "value": "Operating margin / Margin bridge vs baseline",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 62]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A63",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 63]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A65",
-      "value": "2025-Q3 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 2]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7725,6 +7757,38 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C73",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F73",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H73",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M73",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A74",
       "value": "[Quarter note theme slot 74]",
       "classification": "placeholder_slot",
@@ -7734,9 +7798,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A75",
-      "value": "Quarter driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 75]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7750,15 +7814,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A77",
-      "value": "Margin bridge",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 77]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A78",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 78]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -7766,7 +7830,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A79",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 79]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -7785,6 +7849,38 @@
       "value": "Promise / guidance item",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "C82",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F82",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I82",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M82",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7829,6 +7925,30 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C88",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G88",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M88",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A89",
       "value": "[Quarter note theme slot 89]",
       "classification": "placeholder_slot",
@@ -7838,9 +7958,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A90",
-      "value": "buybacks",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 90]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7854,15 +7974,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A92",
-      "value": "guidance_margin_bridge",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 92]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A93",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 93]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -7870,7 +7990,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A94",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 94]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -7878,9 +7998,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A96",
-      "value": "2025-Q2 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 3]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7941,18 +8061,50 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C104",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F104",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H104",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M104",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A105",
-      "value": "Quarter driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 105]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A106",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 106]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7966,9 +8118,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A108",
-      "value": "Margin bridge",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 108]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -7982,7 +8134,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A110",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 110]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8005,10 +8157,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C113",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F113",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I113",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M113",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A114",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 114]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8045,18 +8229,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C119",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G119",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M119",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A120",
-      "value": "brand_family_momentum",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 120]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A121",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 121]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8070,23 +8278,23 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A123",
-      "value": "guidance_margin_bridge",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 123]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A124",
-      "value": "fcf_ttm_delta_yoy",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 124]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A125",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 125]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8094,9 +8302,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A127",
-      "value": "2025-Q1 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 4]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8157,18 +8365,50 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C135",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F135",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H135",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M135",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A136",
-      "value": "Quarter driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 136]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A137",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 137]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8182,9 +8422,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A139",
-      "value": "Margin bridge",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 139]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8198,7 +8438,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A141",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 141]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8221,10 +8461,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C144",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F144",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I144",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M144",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A145",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 145]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8261,18 +8533,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C150",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G150",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M150",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A151",
-      "value": "brand_family_momentum",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 151]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A152",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 152]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8286,23 +8582,23 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A154",
-      "value": "guidance_margin_bridge",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 154]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A155",
-      "value": "fcf_ttm_delta_yoy",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 155]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A156",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 156]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8310,9 +8606,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A158",
-      "value": "2024-Q4 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 5]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8373,18 +8669,50 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C166",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F166",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H166",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M166",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A167",
-      "value": "Quarter driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 167]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A168",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 168]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8398,7 +8726,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A170",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 170]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8406,15 +8734,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A171",
-      "value": "Capex",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 171]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A172",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 172]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8437,10 +8765,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C175",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F175",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I175",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M175",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A176",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 176]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8454,9 +8814,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A178",
-      "value": "Capex",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 178]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8477,18 +8837,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C181",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G181",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M181",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A182",
-      "value": "buybacks",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 182]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A183",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 183]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8502,7 +8886,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A185",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 185]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8510,15 +8894,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A186",
-      "value": "Capex",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 186]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A187",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 187]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8526,9 +8910,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A189",
-      "value": "2024-Q3 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 6]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8589,24 +8973,56 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C197",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F197",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H197",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M197",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A198",
-      "value": "Quarter driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 198]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A199",
-      "value": "FCF TTM accelerated",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 199]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A200",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 200]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8614,15 +9030,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A201",
-      "value": "EBITDA margin expanded",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 201]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A202",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 202]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8630,7 +9046,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A203",
-      "value": "[Dimension member 3]",
+      "value": "[Quarter note theme slot 203]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8653,10 +9069,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C206",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F206",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I206",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M206",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A207",
-      "value": "No information",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 207]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8677,24 +9125,48 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C210",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G210",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M210",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A211",
-      "value": "buybacks",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 211]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A212",
-      "value": "fcf_ttm_delta_yoy",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 212]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A213",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 213]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8702,15 +9174,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A214",
-      "value": "ebitda_margin_ttm_yoy_bps",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 214]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A215",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 215]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8718,7 +9190,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A216",
-      "value": "[Dimension member 3]",
+      "value": "[Quarter note theme slot 216]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8726,9 +9198,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A218",
-      "value": "2024-Q2 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 7]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8789,10 +9261,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C226",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F226",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H226",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M226",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A227",
-      "value": "Quarter driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 227]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8806,23 +9310,23 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A229",
-      "value": "Margin bridge",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 229]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A230",
-      "value": "FCF TTM accelerated",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 230]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A231",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 231]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8830,7 +9334,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A232",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 232]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8853,10 +9357,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C235",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F235",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I235",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M235",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A236",
-      "value": "No information",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 236]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8877,40 +9413,64 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C239",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G239",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M239",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A240",
-      "value": "buybacks",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 240]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A241",
-      "value": "net_debt_yoy_delta",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 241]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A242",
-      "value": "guidance_margin_bridge",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 242]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A243",
-      "value": "fcf_ttm_delta_yoy",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 243]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A244",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 244]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8918,7 +9478,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A245",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 245]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -8926,9 +9486,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A247",
-      "value": "2024-Q1 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 8]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -8989,24 +9549,56 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C255",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F255",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H255",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M255",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A256",
-      "value": "Net debt declined",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 256]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A257",
-      "value": "FCF TTM weakened",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 257]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A258",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 258]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9014,7 +9606,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A259",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 259]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9022,7 +9614,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A260",
-      "value": "[Dimension member 3]",
+      "value": "[Quarter note theme slot 260]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9045,10 +9637,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C263",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F263",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I263",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M263",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A264",
-      "value": "No information",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 264]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -9069,24 +9693,48 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C267",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G267",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M267",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A268",
-      "value": "net_debt_yoy_delta",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 268]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A269",
-      "value": "fcf_ttm_delta_yoy",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 269]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A270",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 270]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9094,7 +9742,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A271",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 271]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9102,7 +9750,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A272",
-      "value": "[Dimension member 3]",
+      "value": "[Quarter note theme slot 272]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9110,9 +9758,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A274",
-      "value": "2023-Q4 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 9]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -9173,16 +9821,48 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C282",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F282",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H282",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M282",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A283",
-      "value": "Net debt declined",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 283]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A284",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 284]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9190,15 +9870,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A285",
-      "value": "EBITDA margin expanded",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 285]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A286",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 286]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9206,7 +9886,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A287",
-      "value": "[Dimension member 3]",
+      "value": "[Quarter note theme slot 287]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9229,10 +9909,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C290",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F290",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I290",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M290",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A291",
-      "value": "No information",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 291]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -9253,16 +9965,40 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C294",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G294",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M294",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A295",
-      "value": "net_debt_yoy_delta",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 295]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A296",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 296]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9270,15 +10006,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A297",
-      "value": "ebitda_margin_ttm_yoy_bps",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 297]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A298",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 298]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9286,7 +10022,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A299",
-      "value": "[Dimension member 3]",
+      "value": "[Quarter note theme slot 299]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9294,9 +10030,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A301",
-      "value": "2023-Q3 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 10]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -9357,16 +10093,48 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C309",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F309",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H309",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M309",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A310",
-      "value": "Net debt declined",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 310]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A311",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 311]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9374,15 +10142,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A312",
-      "value": "EBITDA margin expanded",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 312]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A313",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 313]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9390,7 +10158,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A314",
-      "value": "[Dimension member 3]",
+      "value": "[Quarter note theme slot 314]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9413,10 +10181,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C317",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F317",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I317",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M317",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A318",
-      "value": "No information",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 318]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -9437,16 +10237,40 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C321",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G321",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M321",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A322",
-      "value": "net_debt_yoy_delta",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 322]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A323",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 323]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9454,15 +10278,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A324",
-      "value": "ebitda_margin_ttm_yoy_bps",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 324]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A325",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 325]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9470,7 +10294,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A326",
-      "value": "[Dimension member 3]",
+      "value": "[Quarter note theme slot 326]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9478,9 +10302,9 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A328",
-      "value": "2023-Q2 - Quarter Notes",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Historical quarter block 11]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -9541,16 +10365,48 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C336",
+      "value": "What happened",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F336",
+      "value": "Why it matters",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "H336",
+      "value": "Model / valuation implication",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M336",
+      "value": "Source / confidence",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A337",
-      "value": "Net debt declined",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 337]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A338",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 338]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9558,15 +10414,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A339",
-      "value": "EBITDA margin expanded",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 339]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A340",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 340]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9574,7 +10430,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A341",
-      "value": "[Dimension member 3]",
+      "value": "[Quarter note theme slot 341]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9597,10 +10453,42 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C344",
+      "value": "Read",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "F344",
+      "value": "Actual / progress interpretation",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "I344",
+      "value": "Status / caveat",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M344",
+      "value": "Source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A345",
-      "value": "No information",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 345]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -9621,16 +10509,40 @@
     },
     {
       "sheet": "Quarter_Notes_UI",
+      "cell": "C348",
+      "value": "Model treatment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "G348",
+      "value": "Double-count guardrail",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
+      "cell": "M348",
+      "value": "Linked sheet / metric",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Quarter_Notes_UI",
       "cell": "A349",
-      "value": "net_debt_yoy_delta",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 349]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A350",
-      "value": "[Dimension member 2]",
+      "value": "[Quarter note theme slot 350]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9638,15 +10550,15 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A351",
-      "value": "ebitda_margin_ttm_yoy_bps",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "value": "[Quarter note theme slot 351]",
+      "classification": "placeholder_slot",
+      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A352",
-      "value": "[Dimension member 1]",
+      "value": "[Quarter note theme slot 352]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9654,7 +10566,7 @@
     {
       "sheet": "Quarter_Notes_UI",
       "cell": "A353",
-      "value": "[Dimension member 3]",
+      "value": "[Quarter note theme slot 353]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -9750,7 +10662,7 @@
     {
       "sheet": "Promise_Progress_UI",
       "cell": "A11",
-      "value": "2025 guidance progression",
+      "value": "Guidance progression - period block 1",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -9894,7 +10806,7 @@
     {
       "sheet": "Promise_Progress_UI",
       "cell": "A22",
-      "value": "2024 guidance progression",
+      "value": "Guidance progression - period block 2",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -9998,7 +10910,7 @@
     {
       "sheet": "Promise_Progress_UI",
       "cell": "A28",
-      "value": "2023 guidance progression",
+      "value": "Guidance progression - period block 3",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10094,7 +11006,7 @@
     {
       "sheet": "Promise_Progress_UI",
       "cell": "A33",
-      "value": "2022 guidance progression",
+      "value": "Guidance progression - period block 4",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10182,7 +11094,7 @@
     {
       "sheet": "Promise_Progress_UI",
       "cell": "A37",
-      "value": "2026 open guidance",
+      "value": "Current open guidance",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10373,14 +11285,6 @@
     },
     {
       "sheet": "Promise_Progress_UI",
-      "cell": "A59",
-      "value": "[Guidance metric slot 59]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
       "cell": "A60",
       "value": "Metric",
       "classification": "row_label_generic",
@@ -10465,70 +11369,6 @@
       "value": "Source / note",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A61",
-      "value": "[Guidance metric slot 61]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A62",
-      "value": "[Guidance metric slot 62]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A63",
-      "value": "[Guidance metric slot 63]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A64",
-      "value": "[Guidance metric slot 64]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A65",
-      "value": "[Guidance metric slot 65]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A66",
-      "value": "[Guidance metric slot 66]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A67",
-      "value": "[Guidance metric slot 67]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A69",
-      "value": "[Guidance metric slot 69]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
     },
     {
@@ -10647,14 +11487,6 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A74",
       "value": "[Guidance metric slot 74]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A76",
-      "value": "[Guidance metric slot 76]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -10797,14 +11629,6 @@
     },
     {
       "sheet": "Promise_Progress_UI",
-      "cell": "A84",
-      "value": "[Guidance metric slot 84]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
       "cell": "A85",
       "value": "Metric",
       "classification": "row_label_generic",
@@ -10911,14 +11735,6 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A88",
       "value": "[Guidance metric slot 88]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A90",
-      "value": "[Guidance metric slot 90]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -11039,14 +11855,6 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A95",
       "value": "[Guidance metric slot 95]",
-      "classification": "placeholder_slot",
-      "reason": "Generic writable/template slot.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Promise_Progress_UI",
-      "cell": "A97",
-      "value": "[Guidance metric slot 97]",
       "classification": "placeholder_slot",
       "reason": "Generic writable/template slot.",
       "hidden_state": "visible"
@@ -11646,7 +12454,7 @@
     {
       "sheet": "QA_Log",
       "cell": "A1",
-      "value": "QA Log",
+      "value": "issue_id",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11670,46 +12478,14 @@
     {
       "sheet": "QA_Log",
       "cell": "D1",
-      "value": "field",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
+      "value": "issue_type",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "QA_Log",
       "cell": "E1",
-      "value": "message",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Log",
-      "cell": "F1",
-      "value": "source_ref",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Log",
-      "cell": "G1",
-      "value": "suggested_action",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Log",
-      "cell": "H1",
-      "value": "sheet",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Log",
-      "cell": "I1",
       "value": "section",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
@@ -11717,32 +12493,64 @@
     },
     {
       "sheet": "QA_Log",
-      "cell": "J1",
-      "value": "binding_id",
+      "cell": "F1",
+      "value": "root_cause",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "QA_Log",
+      "cell": "G1",
+      "value": "message",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "QA_Log",
+      "cell": "H1",
+      "value": "suggested_action",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "QA_Log",
+      "cell": "I1",
+      "value": "occurrence_count",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "QA_Log",
+      "cell": "J1",
+      "value": "visibility_disposition",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "QA_Log",
       "cell": "K1",
-      "value": "target",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
+      "value": "promotion_blocking",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "QA_Log",
       "cell": "L1",
-      "value": "status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
+      "value": "detail_ref",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Needs_Review",
       "cell": "A1",
-      "value": "Needs Review",
+      "value": "issue_id",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11766,46 +12574,6 @@
     {
       "sheet": "Needs_Review",
       "cell": "D1",
-      "value": "field",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Needs_Review",
-      "cell": "E1",
-      "value": "message",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Needs_Review",
-      "cell": "F1",
-      "value": "source_ref",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Needs_Review",
-      "cell": "G1",
-      "value": "suggested_action",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Needs_Review",
-      "cell": "H1",
-      "value": "sheet",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Needs_Review",
-      "cell": "I1",
       "value": "section",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
@@ -11813,32 +12581,56 @@
     },
     {
       "sheet": "Needs_Review",
-      "cell": "J1",
-      "value": "binding_id",
+      "cell": "E1",
+      "value": "normalized_path",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Needs_Review",
+      "cell": "F1",
+      "value": "business_row_key",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Needs_Review",
+      "cell": "G1",
+      "value": "message",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Needs_Review",
+      "cell": "H1",
+      "value": "suggested_action",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Needs_Review",
+      "cell": "I1",
+      "value": "occurrence_count",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Needs_Review",
+      "cell": "J1",
+      "value": "promotion_blocking",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Needs_Review",
       "cell": "K1",
-      "value": "target",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Needs_Review",
-      "cell": "L1",
-      "value": "status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Needs_Review",
-      "cell": "M1",
-      "value": "review_status",
+      "value": "detail_ref",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
@@ -11846,22 +12638,6 @@
     {
       "sheet": "QA_Checks",
       "cell": "A1",
-      "value": "QA Checks",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "B1",
-      "value": "severity",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "C1",
       "value": "rule_id",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
@@ -11869,71 +12645,7 @@
     },
     {
       "sheet": "QA_Checks",
-      "cell": "D1",
-      "value": "field",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "E1",
-      "value": "message",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "F1",
-      "value": "source_ref",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "G1",
-      "value": "suggested_action",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "H1",
-      "value": "sheet",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "I1",
-      "value": "section",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "J1",
-      "value": "binding_id",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "K1",
-      "value": "target",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "L1",
+      "cell": "B1",
       "value": "status",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
@@ -11941,96 +12653,56 @@
     },
     {
       "sheet": "QA_Checks",
-      "cell": "M1",
-      "value": "cfo",
+      "cell": "C1",
+      "value": "unique_issue_count",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "QA_Checks",
-      "cell": "N1",
-      "value": "capex",
+      "cell": "D1",
+      "value": "occurrence_count",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "QA_Checks",
-      "cell": "O1",
-      "value": "delta_debt",
+      "cell": "E1",
+      "value": "blocking_count",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "QA_Checks",
-      "cell": "P1",
-      "value": "residual",
+      "cell": "F1",
+      "value": "actionable_count",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "QA_Checks",
-      "cell": "Q1",
-      "value": "value",
+      "cell": "G1",
+      "value": "affected_sections",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "QA_Checks",
-      "cell": "R1",
-      "value": "note_id",
+      "cell": "H1",
+      "value": "interpretation",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "QA_Checks",
-      "cell": "S1",
-      "value": "promise_id",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "T1",
-      "value": "severity",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "U1",
-      "value": "source",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "V1",
-      "value": "raw_metric",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "W1",
-      "value": "is_expected_legacy",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "QA_Checks",
-      "cell": "X1",
-      "value": "review_status",
+      "cell": "I1",
+      "value": "detail_ref",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"

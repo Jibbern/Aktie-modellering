@@ -1,0 +1,312 @@
+{
+  "version": "3.0.0",
+  "status": "stale",
+  "source_identity": {
+    "shell_sha256": "e21e55e86cc310301fa5c4fb698e7a801c9ca671064fd53953b5a2d4d531b7e0",
+    "manifest_contract_signature": "832db01c660db98dff65c4c1b2fdc6c43cd7d6458926351a9269b93d00c43e82",
+    "binding_contract_signature": "ec6ebd29151827c12cf9e9b138531fe285835a803c167ab1d71337cf7e3e718e",
+    "receipt_schema_sha256": "48d476a3feeda195940413bd8c133647ddcc5c93401cbf7262e1870085fa7f78",
+    "receipt_engine_sha256": "d8dcde2700b5d5b2a8bbb4040b5341995408745ac09ff0559b3dd979593c5be0",
+    "generator_contract_signature": "64f6f0db28f9b8a8361f81882e55f297adf185eb7812d1fe89ef9d1ed43bd13f",
+    "receipt_set_signature": "dae57d5ecbcdf8d66b43ca1a9a9d57cb02111053cd1052cac1818a29335ee690",
+    "freshness_basis": "isolated_deterministic_replay-v1"
+  },
+  "artifacts": [
+    {
+      "path": "docs/standard_template_defined_name_audit.json",
+      "generator": "scripts/build_standard_template_defined_name_audit.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/standard_template_defined_name_audit.json.receipt.json",
+      "receipt_sha256": "838dc6eead4fbb1a2d5c37a24884e3199e2da6acc0b107b8c44507d7a64e2df1",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/standard_template_defined_name_audit.json",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "7805cfab5b37676fa037cae576de5ef3ec32006c9b713094f319a0268c6595ba",
+        "replayed_canonical_content_sha256": "7805cfab5b37676fa037cae576de5ef3ec32006c9b713094f319a0268c6595ba"
+      }
+    },
+    {
+      "path": "docs/standard_template_defined_name_audit.md",
+      "generator": "scripts/build_standard_template_defined_name_audit.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/standard_template_defined_name_audit.md.receipt.json",
+      "receipt_sha256": "23dae8ef2b9c0438cb0fb834423722adfbd5da9c614b9b1444726d4a5b0a45dc",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/standard_template_defined_name_audit.md",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "f76b35ab5b225650d427afec880c8525bd4cc4ed03c0d05bd986ff94d7922e27",
+        "replayed_canonical_content_sha256": "f76b35ab5b225650d427afec880c8525bd4cc4ed03c0d05bd986ff94d7922e27"
+      }
+    },
+    {
+      "path": "docs/standard_template_sheet_inventory.json",
+      "generator": "scripts/build_standard_template_sheet_inventory.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/standard_template_sheet_inventory.json.receipt.json",
+      "receipt_sha256": "52e3be6a69b1b4bdbe292aa6e0ce238367e3dafa4aa65df3f5e99821ee6c32dd",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/standard_template_sheet_inventory.json",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "a4b5a01bcf7cfc3a6c381ca104dad232705e8101587382328af478643a745c24",
+        "replayed_canonical_content_sha256": "a4b5a01bcf7cfc3a6c381ca104dad232705e8101587382328af478643a745c24"
+      }
+    },
+    {
+      "path": "docs/standard_template_sheet_inventory.md",
+      "generator": "scripts/build_standard_template_sheet_inventory.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/standard_template_sheet_inventory.md.receipt.json",
+      "receipt_sha256": "80b28ac3cbfc7ab5667f4ee95b3e9e2caa5eed8ac18a3ee71f4c87afa66e5ade",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/standard_template_sheet_inventory.md",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "3e82b15e96fe96daa98dd3adcf6f53f2f5ddcb6228b7442b3c03340563157ffa",
+        "replayed_canonical_content_sha256": "3e82b15e96fe96daa98dd3adcf6f53f2f5ddcb6228b7442b3c03340563157ffa"
+      }
+    },
+    {
+      "path": "docs/support_sheet_lifecycle_contract.json",
+      "generator": "scripts/build_standard_template_sheet_inventory.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/support_sheet_lifecycle_contract.json.receipt.json",
+      "receipt_sha256": "795d3a3669744debb59edfd020b55a76f543dcd55c61429e8611e4c030c48cb7",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/support_sheet_lifecycle_contract.json",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "bf8838e2e7084c85532bc65c78a1231fae83fe5fb277c3baba7b19be56078b8a",
+        "replayed_canonical_content_sha256": "bf8838e2e7084c85532bc65c78a1231fae83fe5fb277c3baba7b19be56078b8a"
+      }
+    },
+    {
+      "path": "docs/support_sheet_lifecycle_contract.md",
+      "generator": "scripts/build_standard_template_sheet_inventory.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/support_sheet_lifecycle_contract.md.receipt.json",
+      "receipt_sha256": "1cc69b0ae95b6fc0f18d61e73b68a50d4794aa187727038e1a99ad0a6ccfff92",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/support_sheet_lifecycle_contract.md",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "902538e65d2dda660f7045115ddd9afc1e0091c94d4e6429fcad40fb31667266",
+        "replayed_canonical_content_sha256": "902538e65d2dda660f7045115ddd9afc1e0091c94d4e6429fcad40fb31667266"
+      }
+    },
+    {
+      "path": "docs/standard_template_shell_neutrality_audit.json",
+      "generator": "scripts/build_standard_template_shell_neutrality_audit.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/standard_template_shell_neutrality_audit.json.receipt.json",
+      "receipt_sha256": "fc3464b26551256bdcd7c527e5231f26af81e1879bb41d055375590c7f5ed604",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/standard_template_shell_neutrality_audit.json",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "f3c29acba876cdc04dc783276c12539c5f3deb0a24fe7cd957f0582f679313b3",
+        "replayed_canonical_content_sha256": "f3c29acba876cdc04dc783276c12539c5f3deb0a24fe7cd957f0582f679313b3"
+      }
+    },
+    {
+      "path": "docs/standard_template_shell_neutrality_audit.md",
+      "generator": "scripts/build_standard_template_shell_neutrality_audit.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/standard_template_shell_neutrality_audit.md.receipt.json",
+      "receipt_sha256": "9d03eb080389a173675cb5fad2899ed1098536a4e994f2b963bd0f00dfd17b34",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/standard_template_shell_neutrality_audit.md",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "63f9db947e346d47348091d9d024551e5c7bff79d390d1d0c2a144bc10f4c876",
+        "replayed_canonical_content_sha256": "63f9db947e346d47348091d9d024551e5c7bff79d390d1d0c2a144bc10f4c876"
+      }
+    },
+    {
+      "path": "docs/workbook_block_architecture.json",
+      "generator": "scripts/build_workbook_block_architecture.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/workbook_block_architecture.json.receipt.json",
+      "receipt_sha256": "e5e18e51e72d36cb71a8ce0a5c03471dd7b0bd3d47fc6570634c23a39f372430",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/workbook_block_architecture.json",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "6b8107eb05c5d2f9417cea4edf94d125b49fc6e4342949de5eb5d8e7f4767e25",
+        "replayed_canonical_content_sha256": "6b8107eb05c5d2f9417cea4edf94d125b49fc6e4342949de5eb5d8e7f4767e25"
+      }
+    },
+    {
+      "path": "docs/workbook_block_architecture.md",
+      "generator": "scripts/build_workbook_block_architecture.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/workbook_block_architecture.md.receipt.json",
+      "receipt_sha256": "44c7f481d9a4eccc0430eeb9b3020f6417c350bce9e1952f604848a9f33e5d8b",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/workbook_block_architecture.md",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "776dfbed5f013ddcd9306dd36f8e43de7d1fcf7d57db5d31046f9c6a91f59bb5",
+        "replayed_canonical_content_sha256": "776dfbed5f013ddcd9306dd36f8e43de7d1fcf7d57db5d31046f9c6a91f59bb5"
+      }
+    },
+    {
+      "path": "docs/workbook_block_coverage_matrix.json",
+      "generator": "scripts/build_workbook_block_architecture.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/workbook_block_coverage_matrix.json.receipt.json",
+      "receipt_sha256": "c00582abbf0864bcbba22479a3fca39ba46f2c4ffd5d2e4e6ebc616362880d4a",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/workbook_block_coverage_matrix.json",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "5c4307d19fabe50d86cb60d3da2fea35bc69660c4976940cdeba75784a8400f7",
+        "replayed_canonical_content_sha256": "5c4307d19fabe50d86cb60d3da2fea35bc69660c4976940cdeba75784a8400f7"
+      }
+    },
+    {
+      "path": "docs/workbook_block_coverage_matrix.md",
+      "generator": "scripts/build_workbook_block_architecture.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/workbook_block_coverage_matrix.md.receipt.json",
+      "receipt_sha256": "a5cc903c160da6d18b240707fcb82a0994b95e4471321acdcc2903fb2a27cf9f",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/workbook_block_coverage_matrix.md",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "e9ef5c275964c2b97b0c5feaf5e26fdfb6cfe32218bfd2579ff022d33a2eff3f",
+        "replayed_canonical_content_sha256": "e9ef5c275964c2b97b0c5feaf5e26fdfb6cfe32218bfd2579ff022d33a2eff3f"
+      }
+    },
+    {
+      "path": "docs/standard_template_hidden_support_audit.json",
+      "generator": "scripts/build_standard_template_hidden_support_audit.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/standard_template_hidden_support_audit.json.receipt.json",
+      "receipt_sha256": "d97fb73da1f832424a4dd8b59fdc7ab59ab8c49ab3e0b952a98ac5a2122d7c27",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/standard_template_hidden_support_audit.json",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "c1bb6a3a53c495b0cfa2b4c59e870aad49bbaf754f7c8daf0198488c4ae9770c",
+        "replayed_canonical_content_sha256": "c1bb6a3a53c495b0cfa2b4c59e870aad49bbaf754f7c8daf0198488c4ae9770c"
+      }
+    },
+    {
+      "path": "docs/standard_template_hidden_support_audit.md",
+      "generator": "scripts/build_standard_template_hidden_support_audit.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/standard_template_hidden_support_audit.md.receipt.json",
+      "receipt_sha256": "a612ab79b02dfd9a07a1c1d6381a07dae6c8c0062299cdfadf7b4bbad3e658fc",
+      "status": "current",
+      "reason": "",
+      "receipt_issues": [],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "PASS",
+      "replay_artifact": {
+        "path": "docs/standard_template_hidden_support_audit.md",
+        "current_exists": true,
+        "canonical_content_matches": true,
+        "current_canonical_content_sha256": "bb6cf55b801d4f753098a1775b5e6f880abe8588fbcbd98984edfe373e01daee",
+        "replayed_canonical_content_sha256": "bb6cf55b801d4f753098a1775b5e6f880abe8588fbcbd98984edfe373e01daee"
+      }
+    },
+    {
+      "path": "docs/standard_template_shell_visual_gap_audit.json",
+      "generator": "scripts/build_standard_template_shell_visual_gap_audit.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/standard_template_shell_visual_gap_audit.json.receipt.json",
+      "receipt_sha256": "639a3de0c89183fb750512f54e7fbe6b21a36ce4a6cff6c3541ae33b1669d40e",
+      "status": "stale",
+      "reason": "Replay policy is 'manual_visual'; deterministic replay was not performed.",
+      "receipt_issues": [
+        "receipt authoritative input declaration or digest drifted"
+      ],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "SKIPPED",
+      "replay_artifact": null
+    },
+    {
+      "path": "docs/standard_template_shell_visual_gap_audit.md",
+      "generator": "scripts/build_standard_template_shell_visual_gap_audit.py",
+      "generator_contract_version": "1.0.0",
+      "receipt_path": "docs/audit_receipts/standard_template_shell_visual_gap_audit.md.receipt.json",
+      "receipt_sha256": "3acba55c70d0966a339f6fb31bd98655b6c709c9851bc02b144cefe88ec50e2d",
+      "status": "stale",
+      "reason": "Replay policy is 'manual_visual'; deterministic replay was not performed.",
+      "receipt_issues": [
+        "receipt authoritative input declaration or digest drifted"
+      ],
+      "freshness_basis": "deterministic_replay",
+      "replay_status": "SKIPPED",
+      "replay_artifact": null
+    }
+  ]
+}

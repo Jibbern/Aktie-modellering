@@ -53,3 +53,13 @@ The normalized company data package is the source of values. Support/audit sheet
 | `Valuation_Summary` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
 | `economics_market_raw` | `optional_sector_pack` | `optional_sector_output` | False | hidden_or_visible_by_pack_contract | only when an explicit sector pack is selected |
 | `operating_drivers_raw` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
+
+## Visible QA Surfaces
+
+Full issue occurrences remain in JSON. Visible QA sheets are bounded presentation projections only.
+
+| Sheet | Data owner | Source | Writable zone | Policy |
+| --- | --- | --- | --- | --- |
+| `QA_Log` | `value_only_runtime` | canonical issue-ledger summaries | A2:L5000 | one row per stable issue_id; full occurrences remain JSON-authoritative; explicit overflow only |
+| `Needs_Review` | `value_only_runtime` | canonical issues with visibility_disposition=needs_review | A2:K5000 | audit-only evidence excluded; promotion blockers retained; explicit overflow only |
+| `QA_Checks` | `value_only_runtime` | canonical issue-ledger rule aggregates | A2:I5000 | rule-level aggregation; blocking counts reconcile to ledger; explicit overflow only |

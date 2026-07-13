@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date, datetime
 import importlib.util
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -286,6 +288,7 @@ def test_standard_template_shell_validation_passes() -> None:
 
     assert report["status"] == "PASS", report
     assert report["issue_count"] == 0
+    json.dumps(report)
 
 
 def test_standard_template_shell_is_rich_visual_shell_not_wireframe() -> None:
@@ -403,6 +406,56 @@ def test_standard_template_shell_has_no_valuation_numeric_or_date_constants() ->
         ]
 
         assert offenders == []
+    finally:
+        wb.close()
+
+
+def test_standard_template_shell_clears_history_evidence_and_fixed_period_labels() -> None:
+    wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
+    try:
+        quarter_notes = wb["Quarter_Notes_UI"]
+        allowed_history_text = {
+            "quarter read",
+            "model read",
+            "what changed",
+            "watch next",
+            "key caveat",
+            "key developments",
+            "theme",
+            "what happened",
+            "why it matters",
+            "model / valuation implication",
+            "source / confidence",
+            "guidance / promise interpretation",
+            "promise / guidance item",
+            "read",
+            "actual / progress interpretation",
+            "status / caveat",
+            "source",
+            "model mapping / double-count guardrails",
+            "driver",
+            "model treatment",
+            "double-count guardrail",
+            "linked sheet / metric",
+        }
+        offenders: list[str] = []
+        for row in quarter_notes.iter_rows(min_row=16):
+            for cell in row:
+                value = cell.value
+                if value in (None, "") or (isinstance(value, str) and value.startswith("=")):
+                    continue
+                text = str(value).strip()
+                if text.casefold() in allowed_history_text:
+                    continue
+                if cell.column == 1 and re.fullmatch(r"\[(?:Historical quarter block|Quarter note theme|Dimension member)(?: slot)? \d+\]", text, re.I):
+                    continue
+                offenders.append(f"Quarter_Notes_UI!{cell.coordinate}: {text}")
+
+        assert offenders == []
+        assert quarter_notes["C42"].value is None
+        assert wb["Operating_Drivers"]["A14"].value == "[Current guidance period]"
+        assert wb["Promise_Progress_UI"]["A11"].value == "Guidance progression - period block 1"
+        assert wb["{ticker}_Investment_Case"]["A156"].value == "[Capital return sensitivity slot]"
     finally:
         wb.close()
 

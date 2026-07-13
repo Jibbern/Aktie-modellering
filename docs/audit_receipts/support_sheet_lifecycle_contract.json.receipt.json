@@ -1,0 +1,84 @@
+{
+  "receipt_version": "3.0.0",
+  "status": "generated",
+  "reason": "",
+  "artifact": {
+    "path": "docs/support_sheet_lifecycle_contract.json",
+    "sha256": "37e25a9a81df72ac1b3a91363c64a981eca54935aba1c178d7027afe3cca66d8",
+    "output_schema": "json",
+    "output_version": "0.1.0"
+  },
+  "authoritative_inputs": [
+    {
+      "path": "templates/standard_stock_model_template.xlsx",
+      "sha256": "e21e55e86cc310301fa5c4fb698e7a801c9ca671064fd53953b5a2d4d531b7e0"
+    },
+    {
+      "path": "docs/standard_template_shell_manifest.json",
+      "sha256": "7ef93889a75ce37648ed88eed09eac01821cff3f07403cbc3c897d1921d2e5d7"
+    },
+    {
+      "path": "docs/workbook_binding_map.json",
+      "sha256": "372e15e4421d491254542cc1d331950d422aa46bb750ee6b0899e60253b601b7"
+    },
+    {
+      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\PBI_model.xlsx",
+      "sha256": "cf87600fbeeea285cf192f30520b1819bc4280ddbccd94c343828712d2020646"
+    },
+    {
+      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\GPRE_model.xlsm",
+      "sha256": "f7c23c9c0d9e3a52c708553e5fc6f964aa3fc58c8b4805d235f7ccfce5bde41b"
+    },
+    {
+      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
+      "sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd"
+    }
+  ],
+  "generator": {
+    "contract_version": "1.0.0",
+    "dependencies": [],
+    "execution_contract_sha256": "7bc6f9723c94e47130713f97837a1d61ab46195ff3483f0a3f342e111bceface",
+    "implementation_sha256": "3df61af36c772e6168e551f2ea5bc5d912f889a689b493ddf7ba6a84254cc444",
+    "path": "scripts/build_standard_template_sheet_inventory.py",
+    "receipt_engine_sha256": "d8dcde2700b5d5b2a8bbb4040b5341995408745ac09ff0559b3dd979593c5be0",
+    "runner_implementation_sha256": "a2d09fd4edefa35cbadb27ffbf3dd569c1bd3d0b306eaa12bd95555511b46291"
+  },
+  "verification": {
+    "mode": "controlled_isolated_generator_run",
+    "runner_contract_version": "2.0.0",
+    "successful_completion": true,
+    "run_generation_id": "fef94054b10325795d8de82823504778c713cfc7f382d0c0a219f0879dd1955c",
+    "generated_outputs": [
+      {
+        "canonical_content_sha256": "a4b5a01bcf7cfc3a6c381ca104dad232705e8101587382328af478643a745c24",
+        "output_schema": "json",
+        "output_version": "0.1.0",
+        "path": "docs/standard_template_sheet_inventory.json",
+        "sha256": "01191871ee86d92259964abf4286b1f8f657e133d4f01d1c1e93815a400049bd"
+      },
+      {
+        "canonical_content_sha256": "3e82b15e96fe96daa98dd3adcf6f53f2f5ddcb6228b7442b3c03340563157ffa",
+        "output_schema": "text/markdown",
+        "output_version": "markdown-v1",
+        "path": "docs/standard_template_sheet_inventory.md",
+        "sha256": "14e0afac52e08a0a748c1bada9c8465830dc286f2f1cc6689297e5afd531d26a"
+      },
+      {
+        "canonical_content_sha256": "bf8838e2e7084c85532bc65c78a1231fae83fe5fb277c3baba7b19be56078b8a",
+        "output_schema": "json",
+        "output_version": "0.1.0",
+        "path": "docs/support_sheet_lifecycle_contract.json",
+        "sha256": "37e25a9a81df72ac1b3a91363c64a981eca54935aba1c178d7027afe3cca66d8"
+      },
+      {
+        "canonical_content_sha256": "902538e65d2dda660f7045115ddd9afc1e0091c94d4e6429fcad40fb31667266",
+        "output_schema": "text/markdown",
+        "output_version": "markdown-v1",
+        "path": "docs/support_sheet_lifecycle_contract.md",
+        "sha256": "0e11d1e8a98bbecc410c3f748cfed423166f3191e31178ff635fc3bc9ec33746"
+      }
+    ]
+  },
+  "generated_at_utc": "2026-07-13T17:37:29+00:00",
+  "generation_id": "c9d55d1747a5f34ed6bb3599aa6bdb82c5ef3c3bc35d3691e927d70b4e7cdb40"
+}

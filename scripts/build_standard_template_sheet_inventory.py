@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,11 @@ from openpyxl import load_workbook
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from pbi_xbrl.standard_template_audit_runner import run_audit_generator
+
 DEFAULT_TEMPLATE = ROOT / "templates" / "standard_stock_model_template.xlsx"
 DEFAULT_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
 DEFAULT_BINDING_MAP = ROOT / "docs" / "workbook_binding_map.json"
@@ -23,6 +30,48 @@ DEFAULT_INVENTORY_JSON = ROOT / "docs" / "standard_template_sheet_inventory.json
 DEFAULT_INVENTORY_MD = ROOT / "docs" / "standard_template_sheet_inventory.md"
 DEFAULT_LIFECYCLE_JSON = ROOT / "docs" / "support_sheet_lifecycle_contract.json"
 DEFAULT_LIFECYCLE_MD = ROOT / "docs" / "support_sheet_lifecycle_contract.md"
+
+VISIBLE_QA_SURFACE_CONTRACTS = [
+    {
+        "sheet_name": "QA_Log",
+        "owner": "frozen_shell",
+        "data_owner": "value_only_runtime",
+        "lifecycle": "audit_output",
+        "neutral_shell_required": True,
+        "headers_required": ["issue_id", "severity", "rule_id", "issue_type", "section", "root_cause", "message", "suggested_action", "occurrence_count", "visibility_disposition", "promotion_blocking", "detail_ref"],
+        "allowed_writable_zones": ["A2:L5000"],
+        "source_of_data": "canonical issue-ledger summaries",
+        "created_when": "planned before render and filled only by the value-only runtime",
+        "visibility": "visible",
+        "validation_rules": ["one row per stable issue_id", "full occurrences remain JSON-authoritative", "explicit overflow only"],
+    },
+    {
+        "sheet_name": "Needs_Review",
+        "owner": "frozen_shell",
+        "data_owner": "value_only_runtime",
+        "lifecycle": "audit_output",
+        "neutral_shell_required": True,
+        "headers_required": ["issue_id", "severity", "rule_id", "section", "normalized_path", "business_row_key", "message", "suggested_action", "occurrence_count", "promotion_blocking", "detail_ref"],
+        "allowed_writable_zones": ["A2:K5000"],
+        "source_of_data": "canonical issues with visibility_disposition=needs_review",
+        "created_when": "planned before render and filled only when unresolved actionable issues exist",
+        "visibility": "visible",
+        "validation_rules": ["audit-only evidence excluded", "promotion blockers retained", "explicit overflow only"],
+    },
+    {
+        "sheet_name": "QA_Checks",
+        "owner": "frozen_shell",
+        "data_owner": "value_only_runtime",
+        "lifecycle": "audit_output",
+        "neutral_shell_required": True,
+        "headers_required": ["rule_id", "status", "unique_issue_count", "occurrence_count", "blocking_count", "actionable_count", "affected_sections", "interpretation", "detail_ref"],
+        "allowed_writable_zones": ["A2:I5000"],
+        "source_of_data": "canonical issue-ledger rule aggregates",
+        "created_when": "planned before render with one row per rule_id",
+        "visibility": "visible",
+        "validation_rules": ["rule-level aggregation", "blocking counts reconcile to ledger", "explicit overflow only"],
+    },
+]
 SOURCE_TICKERS = ("PBI", "GPRE", "ANF")
 
 REQUIRED_SUPPORT_SHELL_SHEETS = {
@@ -124,7 +173,12 @@ def _default_data_root() -> Path:
 
 def _source_workbook_paths(data_root: Path) -> dict[str, Path]:
     output_dir = data_root / "outputs" / "Excel stock models"
-    return {ticker: output_dir / f"{ticker}_model.xlsx" for ticker in SOURCE_TICKERS}
+    paths: dict[str, Path] = {}
+    for ticker in SOURCE_TICKERS:
+        xlsx = output_dir / f"{ticker}_model.xlsx"
+        xlsm = output_dir / f"{ticker}_model.xlsm"
+        paths[ticker] = xlsx if xlsx.exists() or not xlsm.exists() else xlsm
+    return paths
 
 
 def _sheet_states(path: Path) -> dict[str, str]:
@@ -260,6 +314,7 @@ def build_inventory(
     binding_sheets = {str(binding["sheet"]) for binding in bindings}
 
     all_sheet_names = set(shell_states)
+    all_sheet_names.update(OPTIONAL_SECTOR_PACK_SHEETS)
     for states in source_states.values():
         all_sheet_names.update(states)
     all_sheet_names.update(RESERVED_RUNTIME_SHEETS)
@@ -308,6 +363,7 @@ def build_inventory(
         "generated_at": inventory["generated_at"],
         "template_path": str(template_path),
         "support_sheets": sorted(lifecycle_rows, key=lambda row: row["sheet_name"]),
+        "visible_qa_surfaces": VISIBLE_QA_SURFACE_CONTRACTS,
     }
     return inventory, lifecycle
 
@@ -341,6 +397,21 @@ def _write_lifecycle_md(path: Path, payload: dict[str, Any]) -> None:
         lines.append(
             f"| `{row['sheet_name']}` | `{row['owner']}` | `{row['lifecycle']}` | {row['neutral_shell_required']} | {row['visibility']} | {row['created_when']} |"
         )
+    lines.extend(
+        [
+            "",
+            "## Visible QA Surfaces",
+            "",
+            "Full issue occurrences remain in JSON. Visible QA sheets are bounded presentation projections only.",
+            "",
+            "| Sheet | Data owner | Source | Writable zone | Policy |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in payload["visible_qa_surfaces"]:
+        lines.append(
+            f"| `{row['sheet_name']}` | `{row['data_owner']}` | {row['source_of_data']} | {', '.join(row['allowed_writable_zones'])} | {'; '.join(row['validation_rules'])} |"
+        )
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
@@ -372,16 +443,35 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--lifecycle-json", type=Path, default=DEFAULT_LIFECYCLE_JSON)
     parser.add_argument("--lifecycle-md", type=Path, default=DEFAULT_LIFECYCLE_MD)
     args = parser.parse_args(argv)
-    inventory, lifecycle = write_reports(
-        template_path=args.template,
-        manifest_path=args.manifest,
-        binding_map_path=args.binding_map,
-        data_root=args.data_root,
-        inventory_json=args.inventory_json,
-        inventory_md=args.inventory_md,
-        lifecycle_json=args.lifecycle_json,
-        lifecycle_md=args.lifecycle_md,
+    default_data_root = _default_data_root()
+    selected_data_root = args.data_root.resolve() if args.data_root else default_data_root.resolve()
+    is_default_run = selected_data_root == default_data_root.resolve() and all(
+        actual.resolve() == expected.resolve()
+        for actual, expected in (
+            (args.template, DEFAULT_TEMPLATE),
+            (args.manifest, DEFAULT_MANIFEST),
+            (args.binding_map, DEFAULT_BINDING_MAP),
+            (args.inventory_json, DEFAULT_INVENTORY_JSON),
+            (args.inventory_md, DEFAULT_INVENTORY_MD),
+            (args.lifecycle_json, DEFAULT_LIFECYCLE_JSON),
+            (args.lifecycle_md, DEFAULT_LIFECYCLE_MD),
+        )
     )
+    if is_default_run and os.environ.get("STANDARD_TEMPLATE_AUDIT_ISOLATED_RUN") != "1":
+        run_audit_generator(Path(__file__), root=ROOT, data_root=selected_data_root)
+        inventory = json.loads(DEFAULT_INVENTORY_JSON.read_text(encoding="utf-8"))
+        lifecycle = json.loads(DEFAULT_LIFECYCLE_JSON.read_text(encoding="utf-8"))
+    else:
+        inventory, lifecycle = write_reports(
+            template_path=args.template,
+            manifest_path=args.manifest,
+            binding_map_path=args.binding_map,
+            data_root=args.data_root,
+            inventory_json=args.inventory_json,
+            inventory_md=args.inventory_md,
+            lifecycle_json=args.lifecycle_json,
+            lifecycle_md=args.lifecycle_md,
+        )
     print(
         "Wrote sheet inventory and lifecycle contract: "
         f"{len(inventory['sheets'])} inventory rows, {len(lifecycle['support_sheets'])} lifecycle rows"

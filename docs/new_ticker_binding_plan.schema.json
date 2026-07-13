@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.stockmodel/new_ticker_binding_plan.schema.json",
+  "title": "New-Ticker Binding Plan",
+  "type": "object",
+  "required": ["plan_version", "ticker", "status", "planned_write_count", "planned_writes", "bindings", "issue_ledger", "shell_identity"],
+  "properties": {
+    "plan_version": {"type": "string", "const": "1.0.0"},
+    "ticker": {"type": "string", "pattern": "^[A-Z0-9.-]+$"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "planned_write_count": {"type": "integer", "minimum": 0},
+    "structured_skip_count": {"type": "integer", "minimum": 0},
+    "overflow_count": {"type": "integer", "minimum": 0},
+    "planned_writes": {"type": "array", "items": {"$ref": "#/$defs/write"}},
+    "bindings": {"type": "array", "items": {"type": "object"}},
+    "schema_issues": {"type": "array", "items": {"type": "object"}},
+    "semantic_issues": {"type": "array", "items": {"type": "object"}},
+    "planner_issues": {"type": "array", "items": {"type": "object"}},
+    "mapping_gaps": {"type": "array", "items": {"type": "object"}},
+    "manual_review_flags": {"type": "array", "items": {"type": "object"}},
+    "issue_ledger": {"type": "object"},
+    "period_axes": {"type": "object"},
+    "shell_identity": {"type": "object"},
+    "qa_snapshot_status": {"type": "string"}
+  },
+  "$defs": {
+    "write": {
+      "type": "object",
+      "required": ["binding_id", "normalized_path", "row_key", "target_sheet", "target_cell", "target_type", "target_role", "value_type", "source_ref", "capacity_used"],
+      "properties": {
+        "binding_id": {"type": "string", "minLength": 1},
+        "normalized_path": {"type": "string", "minLength": 1},
+        "row_key": {"type": "string", "minLength": 1},
+        "target_sheet": {"type": "string", "minLength": 1},
+        "target_cell": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*$"},
+        "target_type": {"type": "string"},
+        "target_role": {"type": "string"},
+        "value": {},
+        "value_type": {"type": "string", "minLength": 1},
+        "source_ref": {"type": "string"},
+        "capacity_used": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

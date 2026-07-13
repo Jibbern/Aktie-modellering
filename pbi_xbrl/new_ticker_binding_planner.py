@@ -6,22 +6,42 @@ contracts into an auditable plan that a future value-only filler may execute.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 from pbi_xbrl.normalized_company_data_validation import (
     NormalizedDataIssue,
     validate_normalized_company_data,
     validate_normalized_company_data_schema,
+)
+from pbi_xbrl.new_ticker_issue_ledger import build_canonical_issue_ledger
+from pbi_xbrl.new_ticker_guidance_scope import (
+    CURRENT_GUIDANCE_ROLES,
+    current_guidance_indexes,
+    guidance_scope_label,
+)
+from pbi_xbrl.standard_template_shell_identity import (
+    VerifiedShellIdentity,
+    compute_binding_contract_signature,
+    compute_manifest_contract_signature,
+    is_verified_shell_identity,
+    validate_verified_shell_token,
 )
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BINDING_MAP = ROOT / "docs" / "workbook_binding_map.json"
 DEFAULT_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
+DEFAULT_SHELL = ROOT / "templates" / "standard_stock_model_template.xlsx"
+ISSUE_LEDGER_SCHEMA = ROOT / "docs" / "new_ticker_issue_ledger.schema.json"
+BINDING_PLAN_SCHEMA = ROOT / "docs" / "new_ticker_binding_plan.schema.json"
+BINDING_PLAN_VERSION = "1.0.0"
+BINDING_PLAN_SNAPSHOT_VERSION = "1.0.0"
 _RANGE_RE = re.compile(r"^([A-Z]+)([1-9]\d*)(?::([A-Z]+)([1-9]\d*))?$")
 _BLOCKING_SEVERITIES = {"P0", "P1"}
 _TABLE_MODES = {"table_rows", "validation_rows"}
@@ -42,6 +62,14 @@ _QA_SHEETS = {"QA_Log", "Needs_Review", "QA_Checks"}
 
 class BindingPlanningError(RuntimeError):
     """Raised only for an invalid planner invocation, never for workbook IO."""
+
+
+class BindingPlanReproductionError(BindingPlanningError):
+    """Raised when authoritative plan reproduction or comparison fails."""
+
+    def __init__(self, message: str, *, plan: "BindingPlan | None" = None) -> None:
+        self.plan = plan
+        super().__init__(message)
 
 
 @dataclass(frozen=True)
@@ -84,6 +112,11 @@ class BindingPlan:
     planner_issues: list[NormalizedDataIssue] = field(default_factory=list)
     mapping_gaps: list[dict[str, Any]] = field(default_factory=list)
     manual_review_flags: list[dict[str, Any]] = field(default_factory=list)
+    issue_ledger: dict[str, Any] = field(default_factory=dict)
+    period_axes: dict[str, dict[str, Any]] = field(default_factory=dict)
+    shell_identity_report: dict[str, Any] = field(default_factory=dict)
+    qa_snapshot_status: str = "not_planned"
+    planning_completed: bool = False
 
     @property
     def issues(self) -> list[NormalizedDataIssue]:
@@ -91,12 +124,51 @@ class BindingPlan:
 
     @property
     def status(self) -> str:
-        return "FAIL" if any(issue.severity.upper() in _BLOCKING_SEVERITIES for issue in self.issues) else "PASS"
+        return "FAIL" if self.has_blockers else "PASS"
+
+    @property
+    def has_blockers(self) -> bool:
+        if any(issue.severity.upper() in _BLOCKING_SEVERITIES for issue in self.issues):
+            return True
+        return any(
+            str(issue.get("severity") or "").upper() in _BLOCKING_SEVERITIES
+            or bool(issue.get("promotion_blocking"))
+            or bool(issue.get("render_blocking"))
+            for issue in self.issue_ledger.get("issues") or []
+            if isinstance(issue, Mapping)
+        )
+
+    def blocking_issues(self) -> list[NormalizedDataIssue]:
+        result = [issue for issue in self.issues if issue.severity.upper() in _BLOCKING_SEVERITIES]
+        represented = {(issue.rule_id, issue.field, issue.message) for issue in result}
+        for issue in self.issue_ledger.get("issues") or []:
+            if not isinstance(issue, Mapping):
+                continue
+            if not (
+                str(issue.get("severity") or "").upper() in _BLOCKING_SEVERITIES
+                or bool(issue.get("promotion_blocking"))
+                or bool(issue.get("render_blocking"))
+            ):
+                continue
+            normalized = NormalizedDataIssue(
+                severity=str(issue.get("severity") or "P1").upper(),
+                rule_id=str(issue.get("rule_id") or "canonical_render_blocker"),
+                field=str(issue.get("normalized_path") or issue.get("binding_id") or "issue_ledger"),
+                message=str(issue.get("message") or "Canonical issue blocks rendering."),
+                source_ref=str((issue.get("source_refs") or [""])[0] if issue.get("source_refs") else ""),
+                suggested_action=str(issue.get("suggested_action") or "Resolve the canonical issue before rendering."),
+            )
+            key = (normalized.rule_id, normalized.field, normalized.message)
+            if key not in represented:
+                represented.add(key)
+                result.append(normalized)
+        return result
 
     def to_dict(self) -> dict[str, Any]:
         structured_skip_count = sum(len(report.get("skipped_rows") or []) for report in self.binding_reports)
         overflow_count = sum(len(report.get("overflow_rows") or []) for report in self.binding_reports)
         return {
+            "plan_version": BINDING_PLAN_VERSION,
             "ticker": self.ticker,
             "status": self.status,
             "planned_write_count": len(self.planned_writes),
@@ -109,7 +181,37 @@ class BindingPlan:
             "planner_issues": [issue.to_dict() for issue in self.planner_issues],
             "mapping_gaps": self.mapping_gaps,
             "manual_review_flags": self.manual_review_flags,
+            "issue_ledger": self.issue_ledger,
+            "period_axes": self.period_axes,
+            "shell_identity": self.shell_identity_report,
+            "qa_snapshot_status": self.qa_snapshot_status,
         }
+
+
+@dataclass(frozen=True)
+class BindingPlanSnapshot:
+    """Immutable cache of a reproduced plan, never proof of authorization.
+
+    Every trust boundary must independently reproduce the plan from the package,
+    approved shell, manifest, and binding map.  The consistency payload is useful
+    for diagnostics only; a caller can recompute it.
+    """
+
+    _plan_payload_json: str = field(repr=False)
+    _consistency_json: str = field(repr=False)
+
+    @property
+    def plan_payload(self) -> dict[str, Any]:
+        return json.loads(self._plan_payload_json)
+
+    @property
+    def consistency(self) -> dict[str, Any]:
+        return json.loads(self._consistency_json)
+
+def is_binding_plan_snapshot(value: Any) -> bool:
+    """Return whether *value* is a typed snapshot, not whether it is trusted."""
+
+    return isinstance(value, BindingPlanSnapshot)
 
 
 def plan_standard_template_writes(
@@ -119,6 +221,7 @@ def plan_standard_template_writes(
     manifest: Mapping[str, Any],
     ticker_override: str | None = None,
     promotion_requested: bool = False,
+    shell_identity_report: VerifiedShellIdentity | None = None,
 ) -> BindingPlan:
     """Plan exact cell writes without opening a workbook.
 
@@ -130,6 +233,10 @@ def plan_standard_template_writes(
     bindings = _bindings_from_payload(binding_payload)
     ticker = _ticker(package, ticker_override)
     plan = BindingPlan(ticker=ticker)
+    if is_verified_shell_identity(shell_identity_report):
+        plan.shell_identity_report = shell_identity_report.to_dict()
+    plan.mapping_gaps.extend(_normalize_mapping_gaps(_path_get(package, "mapping_gaps")))
+    plan.manual_review_flags.extend(_normalize_manual_review_flags(_path_get(package, "manual_review_flags")))
     plan.schema_issues.extend(validate_normalized_company_data_schema(package))
     plan.semantic_issues.extend(
         validate_normalized_company_data(
@@ -140,30 +247,48 @@ def plan_standard_template_writes(
         )
     )
     plan.planner_issues.extend(_validate_manifest_and_binding_contracts(manifest, bindings))
+    plan.planner_issues.extend(
+        _validate_shell_identity_contract(
+            manifest,
+            shell_identity_report,
+            binding_payload=binding_payload,
+        )
+    )
+    _refresh_issue_ledger(plan)
 
-    if any(issue.severity.upper() in _BLOCKING_SEVERITIES for issue in plan.issues):
+    if plan.has_blockers:
         _add_blocking_reports(plan, bindings)
-        _append_manual_review_flags(plan)
         return plan
 
-    plan.mapping_gaps.extend(_normalize_mapping_gaps(_path_get(package, "mapping_gaps")))
-    plan.manual_review_flags.extend(_normalize_manual_review_flags(_path_get(package, "manual_review_flags")))
-    for binding in bindings:
-        if not bool(binding.get("writable")):
-            continue
-        if str(binding.get("source_policy") or "") == "validation-output":
-            continue
-        report, writes, gaps, issues = _plan_binding(package, binding, ticker=ticker)
+    business_bindings = [
+        binding
+        for binding in bindings
+        if bool(binding.get("writable")) and str(binding.get("source_policy") or "") != "validation-output"
+    ]
+    ordered_bindings = [
+        *[binding for binding in business_bindings if str(binding.get("period_axis_role") or "") == "header"],
+        *[binding for binding in business_bindings if str(binding.get("period_axis_role") or "") != "header"],
+    ]
+    for binding in ordered_bindings:
+        report, writes, gaps, issues = _plan_binding(
+            package,
+            binding,
+            ticker=ticker,
+            period_axes=plan.period_axes,
+        )
         plan.binding_reports.append(report)
         plan.planned_writes.extend(writes)
         plan.mapping_gaps.extend(gaps)
         plan.planner_issues.extend(issues)
+        if str(binding.get("period_axis_role") or "") == "header" and not issues:
+            axis_issues = _register_period_axis(plan, binding, writes)
+            plan.planner_issues.extend(axis_issues)
 
-    _dedupe_plan(plan)
-    _append_manual_review_flags(plan)
-    _plan_validation_outputs(plan, bindings, ticker=ticker)
+    plan.planning_completed = True
     _dedupe_plan(plan)
     _validate_planned_write_types(plan, bindings)
+    _refresh_issue_ledger(plan)
+    _finalize_validation_outputs(plan, bindings, ticker=ticker)
     return plan
 
 
@@ -172,6 +297,7 @@ def plan_standard_template_writes_from_paths(
     *,
     binding_map_path: Path | str = DEFAULT_BINDING_MAP,
     manifest_path: Path | str = DEFAULT_MANIFEST,
+    shell_path: Path | str = DEFAULT_SHELL,
     ticker_override: str | None = None,
     promotion_requested: bool = False,
 ) -> BindingPlan:
@@ -180,22 +306,325 @@ def plan_standard_template_writes_from_paths(
     package = _load_json(Path(package_path))
     binding_payload = _load_json(Path(binding_map_path))
     manifest = _load_json(Path(manifest_path))
+    from pbi_xbrl.standard_template_shell_identity import verify_shell_identity
+
+    shell_identity_report = verify_shell_identity(
+        Path(shell_path),
+        manifest=manifest,
+        binding_payload=binding_payload,
+    )
     return plan_standard_template_writes(
         package,
         binding_payload=binding_payload,
         manifest=manifest,
         ticker_override=ticker_override,
         promotion_requested=promotion_requested,
+        shell_identity_report=shell_identity_report,
     )
+
+
+def reproduce_binding_plan(
+    package: Mapping[str, Any],
+    *,
+    binding_payload: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+    manifest: Mapping[str, Any],
+    shell_path: Path | str = DEFAULT_SHELL,
+    ticker_override: str | None = None,
+    promotion_requested: bool = False,
+    expected_plan: Mapping[str, Any] | BindingPlan | BindingPlanSnapshot | None = None,
+) -> BindingPlan:
+    """Independently reproduce an exact PASS plan from authoritative inputs.
+
+    Serialized plans and typed snapshots are cache/audit outputs only.  When one
+    is supplied it must match the independently reproduced plan exactly.
+    """
+
+    from pbi_xbrl.standard_template_shell_identity import verify_shell_identity
+
+    shell_identity_report = verify_shell_identity(
+        Path(shell_path),
+        manifest=manifest,
+        binding_payload=binding_payload,
+    )
+
+    plan = plan_standard_template_writes(
+        package,
+        binding_payload=binding_payload,
+        manifest=manifest,
+        ticker_override=ticker_override,
+        promotion_requested=promotion_requested,
+        shell_identity_report=shell_identity_report,
+    )
+    plan_payload = plan.to_dict()
+    if expected_plan is not None:
+        if isinstance(expected_plan, BindingPlan):
+            expected_payload: Any = expected_plan.to_dict()
+        elif isinstance(expected_plan, BindingPlanSnapshot):
+            expected_payload = expected_plan.plan_payload
+        else:
+            expected_payload = expected_plan
+        if not isinstance(expected_payload, Mapping):
+            raise BindingPlanReproductionError("Expected binding plan must be a mapping or BindingPlan.", plan=plan)
+        if _canonical_json(expected_payload) != _canonical_json(plan_payload):
+            raise BindingPlanReproductionError(
+                "Serialized binding plan differs from the independently reproduced authoritative plan.",
+                plan=plan,
+            )
+    if plan.status != "PASS" or plan.has_blockers:
+        raise BindingPlanReproductionError("Only a completed PASS plan without final-ledger blockers can be executed.", plan=plan)
+    return plan
+
+
+def reproduce_binding_plan_snapshot(
+    package: Mapping[str, Any],
+    *,
+    binding_payload: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+    manifest: Mapping[str, Any],
+    shell_path: Path | str = DEFAULT_SHELL,
+    shell_identity_report: VerifiedShellIdentity | None = None,
+    ticker_override: str | None = None,
+    promotion_requested: bool = False,
+    expected_plan: Mapping[str, Any] | BindingPlan | BindingPlanSnapshot | None = None,
+) -> tuple[BindingPlan, BindingPlanSnapshot]:
+    """Reproduce a plan and return an optional diagnostic cache snapshot."""
+
+    plan = reproduce_binding_plan(
+        package,
+        binding_payload=binding_payload,
+        manifest=manifest,
+        shell_path=shell_path,
+        ticker_override=ticker_override,
+        promotion_requested=promotion_requested,
+        expected_plan=expected_plan,
+    )
+    from pbi_xbrl.standard_template_shell_identity import verify_shell_identity
+
+    actual_shell_identity = verify_shell_identity(
+        Path(shell_path),
+        manifest=manifest,
+        binding_payload=binding_payload,
+    )
+    if shell_identity_report is not None and shell_identity_report.to_dict() != actual_shell_identity.to_dict():
+        raise BindingPlanReproductionError(
+            "Caller-supplied shell identity differs from independent shell verification.",
+            plan=plan,
+        )
+    snapshot = _build_binding_plan_snapshot(
+        plan.to_dict(),
+        normalized_package=package,
+        manifest=manifest,
+        binding_payload=binding_payload,
+        shell_identity_report=actual_shell_identity,
+    )
+    return plan, snapshot
+
+
+def compare_binding_plan_snapshot(
+    snapshot: BindingPlanSnapshot | None,
+    *,
+    normalized_package: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+    binding_payload: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+    shell_path: Path | str = DEFAULT_SHELL,
+    shell_identity_report: VerifiedShellIdentity | None = None,
+) -> list[dict[str, str]]:
+    """Compare a cached snapshot with an independently reproduced plan."""
+
+    if not is_binding_plan_snapshot(snapshot):
+        return [{"rule_id": "binding_plan_snapshot_required", "message": "A BindingPlanSnapshot is required for comparison."}]
+    assert snapshot is not None
+    try:
+        reproduce_binding_plan(
+            normalized_package,
+            binding_payload=binding_payload,
+            manifest=manifest,
+            shell_path=shell_path,
+            expected_plan=snapshot,
+        )
+    except Exception as exc:
+        return [{"rule_id": "binding_plan_reproduction_mismatch", "message": str(exc)}]
+    if shell_identity_report is not None:
+        from pbi_xbrl.standard_template_shell_identity import verify_shell_identity
+
+        actual = verify_shell_identity(Path(shell_path), manifest=manifest, binding_payload=binding_payload)
+        if shell_identity_report.to_dict() != actual.to_dict():
+            return [{"rule_id": "binding_plan_shell_snapshot_mismatch", "message": "Cached shell identity differs from independent verification."}]
+    return []
+
+
+def _build_binding_plan_snapshot(
+    plan_payload: Mapping[str, Any],
+    *,
+    normalized_package: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+    binding_payload: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+    shell_identity_report: VerifiedShellIdentity,
+) -> BindingPlanSnapshot:
+    consistency = _binding_plan_consistency_payload(
+        plan_payload,
+        normalized_package=normalized_package,
+        manifest=manifest,
+        binding_payload=binding_payload,
+        shell_identity_report=shell_identity_report,
+    )
+    consistency["consistency_digest"] = _payload_digest(consistency)
+    return BindingPlanSnapshot(
+        _plan_payload_json=_canonical_json(plan_payload),
+        _consistency_json=_canonical_json(consistency),
+    )
+
+
+def _binding_plan_consistency_payload(
+    plan_payload: Mapping[str, Any],
+    *,
+    normalized_package: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+    binding_payload: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+    shell_identity_report: VerifiedShellIdentity,
+) -> dict[str, Any]:
+    exclusions = [
+        {
+            "binding_id": str(report.get("binding_id") or ""),
+            "skipped_rows": report.get("skipped_rows") or [],
+            "overflow_rows": report.get("overflow_rows") or [],
+        }
+        for report in plan_payload.get("bindings") or []
+        if isinstance(report, Mapping)
+    ]
+    binding_version = (
+        str(binding_payload.get("binding_planner_contract_version") or "")
+        if isinstance(binding_payload, Mapping)
+        else "legacy-sequence-contract"
+    )
+    shell_contract = {
+        "status": shell_identity_report.status,
+        "expected": shell_identity_report.expected,
+        "actual": shell_identity_report.actual,
+    }
+    return {
+        "snapshot_version": BINDING_PLAN_SNAPSHOT_VERSION,
+        "normalized_package_digest": _payload_digest(normalized_package),
+        "manifest_contract_digest": compute_manifest_contract_signature(manifest),
+        "shell_identity_digest": _payload_digest(shell_contract),
+        "binding_contract_digest": compute_binding_contract_signature(binding_payload),
+        "binding_planner_contract_version": binding_version,
+        "plan_version": str(plan_payload.get("plan_version") or ""),
+        "plan_status": str(plan_payload.get("status") or ""),
+        "has_blockers": _plan_payload_has_blockers(plan_payload),
+        "plan_digest": _payload_digest(plan_payload),
+        "planned_writes_digest": _payload_digest(plan_payload.get("planned_writes") or []),
+        "exclusions_digest": _payload_digest(exclusions),
+        "final_ledger_digest": _payload_digest(plan_payload.get("issue_ledger") or {}),
+    }
+
+
+def _plan_payload_has_blockers(plan_payload: Mapping[str, Any]) -> bool:
+    ledger = plan_payload.get("issue_ledger") if isinstance(plan_payload.get("issue_ledger"), Mapping) else {}
+    return any(
+        str(issue.get("severity") or "").upper() in _BLOCKING_SEVERITIES
+        or bool(issue.get("promotion_blocking"))
+        or bool(issue.get("render_blocking"))
+        for issue in ledger.get("issues") or []
+        if isinstance(issue, Mapping)
+    )
+
+
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str)
+
+
+def _payload_digest(value: Any) -> str:
+    return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def _validate_shell_identity_contract(
+    manifest: Mapping[str, Any],
+    report: VerifiedShellIdentity | None,
+    *,
+    binding_payload: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+) -> list[NormalizedDataIssue]:
+    if not isinstance(manifest.get("shell_identity"), Mapping):
+        return [
+            _planner_issue(
+                "P1",
+                "shell_identity_missing",
+                "shell_identity",
+                "Planning requires a manifest with an approved shell_identity contract.",
+            )
+        ]
+    if not is_verified_shell_identity(report):
+        return [
+            _planner_issue(
+                "P1",
+                "shell_identity_not_verified",
+                "shell_identity",
+                "Planning requires verification against the exact frozen shell artifact.",
+            )
+        ]
+    token_issues = validate_verified_shell_token(
+        report,
+        manifest=manifest,
+        binding_payload=binding_payload,
+    )
+    issues = [
+        _planner_issue(
+            "P1",
+            str(issue.get("rule_id") or "shell_identity_failure"),
+            "shell_identity",
+            str(issue.get("message") or "Shell identity verification failed."),
+        )
+        for issue in token_issues
+    ]
+    return issues
 
 
 def write_binding_plan_report(plan: BindingPlan, output_path: Path | str) -> Path:
     """Persist only a JSON report; this helper never creates an Excel file."""
 
+    payload = plan.to_dict()
+    failures = validate_json_schema(payload, load_json_strict(BINDING_PLAN_SCHEMA))
+    if failures:
+        sample = "; ".join(f"{field} {keyword}: {message}" for field, keyword, message in failures[:8])
+        raise BindingPlanningError(f"Binding plan does not satisfy its JSON Schema: {sample}")
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(plan.to_dict(), indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
     return path
+
+
+def _register_period_axis(
+    plan: BindingPlan,
+    binding: Mapping[str, Any],
+    writes: Sequence[PlannedWrite],
+) -> list[NormalizedDataIssue]:
+    axis_id = str(binding.get("period_axis_id") or "")
+    if not axis_id:
+        return [_planner_issue("P1", "binding_period_axis_id_missing", str(binding.get("binding_id") or ""), "Period-axis header binding has no period_axis_id.")]
+    if axis_id in plan.period_axes:
+        return [_planner_issue("P1", "binding_period_axis_duplicate", axis_id, "More than one header binding resolved the same period axis.")]
+    if not writes:
+        return [_planner_issue("P1", "binding_period_axis_empty", axis_id, "Period-axis header binding produced no visible periods.")]
+    period_to_column: dict[str, str] = {}
+    period_to_cell: dict[str, str] = {}
+    for write in writes:
+        period = str(write.value or "")
+        match = _RANGE_RE.fullmatch(write.target_cell)
+        if not period or match is None:
+            return [_planner_issue("P1", "binding_period_axis_invalid_write", axis_id, "Period-axis header writes must contain a period and one exact target cell.")]
+        column = match.group(1)
+        if period in period_to_column:
+            return [_planner_issue("P1", "binding_period_axis_duplicate_period", axis_id, f"Period {period!r} appears more than once in the visible axis.")]
+        period_to_column[period] = column
+        period_to_cell[period] = write.target_cell
+    plan.period_axes[axis_id] = {
+        "period_axis_id": axis_id,
+        "header_binding_id": str(binding.get("binding_id") or ""),
+        "sheet": str(binding.get("sheet") or ""),
+        "periods": list(period_to_column),
+        "period_to_column": period_to_column,
+        "period_to_cell": period_to_cell,
+    }
+    return []
 
 
 def _plan_binding(
@@ -203,6 +632,7 @@ def _plan_binding(
     binding: Mapping[str, Any],
     *,
     ticker: str,
+    period_axes: Mapping[str, Mapping[str, Any]],
 ) -> tuple[dict[str, Any], list[PlannedWrite], list[dict[str, Any]], list[NormalizedDataIssue]]:
     binding_id = str(binding.get("binding_id") or "")
     mode = _planning_mode(binding)
@@ -217,6 +647,7 @@ def _plan_binding(
         "overflow_rows": [],
         "skipped_rows": [],
         "planned_write_count": 0,
+        "period_axis_id": str(binding.get("period_axis_id") or ""),
     }
     planning_state = str(binding.get("planning_state") or "active")
     if planning_state in {"inactive_legacy_contract", "optional_sector_pack", "retired_contract"}:
@@ -237,9 +668,21 @@ def _plan_binding(
     if mode in _TABLE_MODES:
         return _plan_table_binding(package, binding, ticker=ticker, report=report)
     if mode in _PIVOT_MODES:
-        return _plan_pivot_binding(package, binding, ticker=ticker, report=report)
+        return _plan_pivot_binding(
+            package,
+            binding,
+            ticker=ticker,
+            report=report,
+            period_axes=period_axes,
+        )
     if mode == "series":
-        return _plan_series_binding(package, binding, ticker=ticker, report=report)
+        return _plan_series_binding(
+            package,
+            binding,
+            ticker=ticker,
+            report=report,
+            period_axes=period_axes,
+        )
     if mode in {"scalar", "text_block"}:
         return _plan_scalar_binding(package, binding, ticker=ticker, report=report)
     issue = _planner_issue("P1", "unsupported_binding_planning_mode", binding_id, f"Unsupported planning mode {mode!r}.")
@@ -260,17 +703,51 @@ def _plan_scalar_binding(
     if not populated:
         severity = _missing_binding_severity(binding)
         reason = "Scalar/text value is not populated."
+        event_key = _planner_event_key(binding, normalized_path=source_path, row_key="scalar", event_type="missing_value")
         report["skipped_rows"].append(
-            _structured_skip(binding, normalized_path=source_path, row_key="scalar", reason=reason, severity=severity, expected_target=target)
+            _structured_skip(
+                binding,
+                normalized_path=source_path,
+                row_key="scalar",
+                reason=reason,
+                severity=severity,
+                source_ref=source_ref,
+                expected_target=target,
+            )
         )
-        issue = _planner_issue(severity, "required_binding_missing" if severity == "P1" else "binding_value_missing", f"{binding_id}:{source_path}", reason)
-        return report, [], [_gap(binding, reason=reason, severity=severity, normalized_path=source_path, row_key="scalar", expected_target=target)], [issue]
+        issue = _planner_issue(
+            severity,
+            "required_binding_missing" if severity == "P1" else "binding_value_missing",
+            f"{binding_id}:{source_path}",
+            reason,
+            normalized_path=source_path,
+            business_row_key="scalar",
+            binding_id=binding_id,
+            source_ref=source_ref,
+            root_cause="missing_value",
+            issue_type="planner_mapping_gap",
+            canonical_issue_key=event_key,
+        )
+        return report, [], [_gap(binding, reason=reason, severity=severity, normalized_path=source_path, row_key="scalar", source_ref=source_ref, expected_target=target, canonical_issue_key=event_key, root_cause="missing_value")], [issue]
     if _requires_source_ref(binding) and not source_ref:
-        issue = _planner_issue("P1", "missing_source_ref", source_path, "Source-backed scalar/text value has no source_ref.")
+        reason = "Source-backed scalar/text value has no source_ref."
+        event_key = _planner_event_key(binding, normalized_path=source_path, row_key="scalar", event_type="missing_source_ref")
+        issue = _planner_issue(
+            "P1",
+            "missing_source_ref",
+            source_path,
+            reason,
+            normalized_path=source_path,
+            business_row_key="scalar",
+            binding_id=binding_id,
+            root_cause="missing_source_ref",
+            issue_type="planner_mapping_gap",
+            canonical_issue_key=event_key,
+        )
         report["skipped_rows"].append(
             _structured_skip(binding, normalized_path=source_path, row_key="scalar", reason=issue.message, severity="P1", expected_target=target)
         )
-        return report, [], [_gap(binding, reason=issue.message, severity="P1", normalized_path=source_path, row_key="scalar", expected_target=target)], [issue]
+        return report, [], [_gap(binding, reason=issue.message, severity="P1", normalized_path=source_path, row_key="scalar", expected_target=target, canonical_issue_key=event_key, root_cause="missing_source_ref")], [issue]
     write = _planned_write(
         binding,
         ticker=ticker,
@@ -294,6 +771,7 @@ def _plan_series_binding(
     *,
     ticker: str,
     report: dict[str, Any],
+    period_axes: Mapping[str, Mapping[str, Any]],
 ) -> tuple[dict[str, Any], list[PlannedWrite], list[dict[str, Any]], list[NormalizedDataIssue]]:
     rows, skipped, selection_issues = _selected_rows(package, binding)
     report["skipped_rows"].extend(skipped)
@@ -318,12 +796,50 @@ def _plan_series_binding(
     gaps: list[dict[str, Any]] = []
     issues: list[NormalizedDataIssue] = []
     source_field = str(binding.get("source_field") or "")
+    period_axis_id = str(binding.get("period_axis_id") or "")
+    period_axis_role = str(binding.get("period_axis_role") or "")
+    dependent_axis = period_axes.get(period_axis_id) if period_axis_id and period_axis_role == "dependent" else None
+    if period_axis_role == "dependent" and not isinstance(dependent_axis, Mapping):
+        issue = _planner_issue(
+            "P1",
+            "binding_period_axis_unresolved",
+            str(binding["binding_id"]),
+            f"Dependent series requires resolved period axis {period_axis_id!r}.",
+        )
+        return report, [], [_gap(binding, reason=issue.message, severity="P1")], [issue]
     planned_index = 0
     for source_position, row in enumerate(rows):
         row_key = _row_key(row, binding)
         normalized_path = _row_normalized_path(binding, row, source_position, source_field)
         row_source_ref = _row_source_ref(row, binding)
-        if planned_index >= capacity:
+        target_cell = coordinates[planned_index] if planned_index < capacity else ""
+        if dependent_axis is not None:
+            period_field = str(binding.get("period_field") or "period")
+            period = str(_read_row_field(row, period_field)[0] or "")
+            axis_columns = dependent_axis.get("period_to_column") if isinstance(dependent_axis, Mapping) else {}
+            column = str(axis_columns.get(period) or "") if isinstance(axis_columns, Mapping) else ""
+            if not column:
+                reason = f"period {period!r} has no column in period axis {period_axis_id!r}"
+                record = _structured_skip(
+                    binding,
+                    normalized_path=normalized_path,
+                    row_key=row_key,
+                    reason="period_axis_period_missing",
+                    severity="P1",
+                    source_ref=row_source_ref,
+                )
+                report["overflow_rows"].append(record)
+                gaps.append(_gap(binding, reason=reason, severity="P1", normalized_path=normalized_path, row_key=row_key, source_ref=row_source_ref))
+                issues.append(_planner_issue("P1", "binding_period_axis_period_missing", f"{binding['binding_id']}:{row_key}", reason))
+                continue
+            min_col, min_row, max_col, max_row = _parse_range(_planner_target(binding))
+            if min_row != max_row or not (min_col <= _column_index(column) <= max_col):
+                reason = f"Axis column {column!r} is outside dependent target {_planner_target(binding)!r}."
+                issues.append(_planner_issue("P1", "binding_period_axis_target_mismatch", str(binding["binding_id"]), reason))
+                gaps.append(_gap(binding, reason=reason, severity="P1", normalized_path=normalized_path, row_key=row_key, source_ref=row_source_ref))
+                continue
+            target_cell = f"{column}{min_row}"
+        elif planned_index >= capacity:
             severity = _overflow_severity(binding)
             reason = "capacity_exceeded"
             overflow = _structured_skip(
@@ -350,6 +866,7 @@ def _plan_series_binding(
         if not populated:
             severity = "P1" if source_field in set(binding.get("required_columns") or []) else _missing_binding_severity(binding)
             reason = f"{source_field} not populated"
+            event_key = _planner_event_key(binding, normalized_path=normalized_path, row_key=row_key, event_type="missing_value")
             report["skipped_rows"].append(
                 _structured_skip(
                     binding,
@@ -358,7 +875,7 @@ def _plan_series_binding(
                     reason=reason,
                     severity=severity,
                     source_ref=row_source_ref,
-                    expected_target=coordinates[planned_index],
+                    expected_target=target_cell,
                 )
             )
             gaps.append(
@@ -369,14 +886,31 @@ def _plan_series_binding(
                     normalized_path=normalized_path,
                     row_key=row_key,
                     source_ref=row_source_ref,
-                    expected_target=coordinates[planned_index],
+                    expected_target=target_cell,
+                    canonical_issue_key=event_key,
+                    root_cause="missing_value",
                 )
             )
-            issues.append(_planner_issue(severity, "required_row_value_missing", f"{binding['binding_id']}:{row_key}:{source_field}", reason))
+            issues.append(
+                _planner_issue(
+                    severity,
+                    "required_row_value_missing",
+                    f"{binding['binding_id']}:{row_key}:{source_field}",
+                    reason,
+                    normalized_path=normalized_path,
+                    business_row_key=row_key,
+                    binding_id=str(binding["binding_id"]),
+                    source_ref=row_source_ref,
+                    root_cause="missing_value",
+                    issue_type="planner_mapping_gap",
+                    canonical_issue_key=event_key,
+                )
+            )
             planned_index += 1
             continue
         if _requires_source_ref(binding) and not source_ref:
             reason = "Source-backed series value has no source_ref."
+            event_key = _planner_event_key(binding, normalized_path=normalized_path, row_key=row_key, event_type="missing_source_ref")
             report["skipped_rows"].append(
                 _structured_skip(
                     binding,
@@ -384,18 +918,31 @@ def _plan_series_binding(
                     row_key=row_key,
                     reason=reason,
                     severity="P1",
-                    expected_target=coordinates[planned_index],
+                    expected_target=target_cell,
                 )
             )
-            gaps.append(_gap(binding, reason=reason, severity="P1", normalized_path=normalized_path, row_key=row_key, expected_target=coordinates[planned_index]))
-            issues.append(_planner_issue("P1", "missing_source_ref", f"{binding['binding_id']}:{row_key}", reason))
+            gaps.append(_gap(binding, reason=reason, severity="P1", normalized_path=normalized_path, row_key=row_key, expected_target=target_cell, canonical_issue_key=event_key, root_cause="missing_source_ref"))
+            issues.append(
+                _planner_issue(
+                    "P1",
+                    "missing_source_ref",
+                    f"{binding['binding_id']}:{row_key}",
+                    reason,
+                    normalized_path=normalized_path,
+                    business_row_key=row_key,
+                    binding_id=str(binding["binding_id"]),
+                    root_cause="missing_source_ref",
+                    issue_type="planner_mapping_gap",
+                    canonical_issue_key=event_key,
+                )
+            )
             planned_index += 1
             continue
         writes.append(
             _planned_write(
                 binding,
                 ticker=ticker,
-                target_cell=coordinates[planned_index],
+                target_cell=target_cell,
                 normalized_path=normalized_path,
                 row_key=row_key,
                 value=value,
@@ -438,6 +985,7 @@ def _plan_pivot_binding(
     *,
     ticker: str,
     report: dict[str, Any],
+    period_axes: Mapping[str, Mapping[str, Any]],
 ) -> tuple[dict[str, Any], list[PlannedWrite], list[dict[str, Any]], list[NormalizedDataIssue]]:
     """Plan a member-by-period matrix without interpreting workbook content."""
 
@@ -451,21 +999,22 @@ def _plan_pivot_binding(
     member_field = str(binding.get("member_field") or "member")
     value_field = str(binding.get("value_field") or "")
     label_column = str(binding.get("label_target_column") or "A").upper()
-    period_columns = [str(column).upper() for column in binding.get("period_target_columns") or []]
     row_blocks = binding.get("row_blocks") if isinstance(binding.get("row_blocks"), Mapping) else {}
-    alignment = str(binding.get("period_alignment") or "left")
-    if not value_field or not period_columns or not row_blocks:
-        issue = _planner_issue("P1", "binding_pivot_contract_invalid", str(binding.get("binding_id") or ""), "Pivot binding requires value_field, period_target_columns, and row_blocks.")
+    period_axis_id = str(binding.get("period_axis_id") or "")
+    period_axis = period_axes.get(period_axis_id)
+    if not value_field or not row_blocks or not period_axis_id:
+        issue = _planner_issue("P1", "binding_pivot_contract_invalid", str(binding.get("binding_id") or ""), "Pivot binding requires value_field, row_blocks, and period_axis_id.")
         return report, [], [_gap(binding, reason=issue.message, severity="P1")], [issue]
-
-    periods = sorted({str(_read_row_field(row, period_field)[0]) for row in rows if _read_row_field(row, period_field)[2]})
-    visible_periods = periods[-len(period_columns) :]
-    excluded_periods = set(periods) - set(visible_periods)
-    if alignment == "right":
-        visible_columns = period_columns[len(period_columns) - len(visible_periods) :]
-    else:
-        visible_columns = period_columns[: len(visible_periods)]
-    period_to_column = {period: visible_columns[index] for index, period in enumerate(visible_periods)}
+    if not isinstance(period_axis, Mapping):
+        issue = _planner_issue(
+            "P1",
+            "binding_period_axis_unresolved",
+            str(binding.get("binding_id") or ""),
+            f"Pivot binding requires resolved period axis {period_axis_id!r}.",
+        )
+        return report, [], [_gap(binding, reason=issue.message, severity="P1")], [issue]
+    period_to_column = period_axis.get("period_to_column") if isinstance(period_axis.get("period_to_column"), Mapping) else {}
+    report["resolved_period_to_column"] = dict(period_to_column)
 
     writes: list[PlannedWrite] = []
     gaps: list[dict[str, Any]] = []
@@ -501,12 +1050,12 @@ def _plan_pivot_binding(
         member = str(_read_row_field(row, member_field)[0] or "")
         period = str(_read_row_field(row, period_field)[0] or "")
         reason = ""
-        if period in excluded_periods:
-            reason = "pivot_period_outside_visible_window"
+        if period not in period_to_column:
+            reason = "period_axis_period_missing"
         elif (dimension, member) not in member_rows:
             reason = "pivot_member_has_no_declared_block_capacity"
         if reason:
-            severity = _overflow_severity(binding)
+            severity = "P1"
             record = _structured_skip(binding, normalized_path=normalized_path, row_key=row_key, reason=reason, severity=severity, source_ref=source_ref)
             report["overflow_rows"].append(record)
             gaps.append(_gap(binding, reason=reason, severity=severity, normalized_path=normalized_path, row_key=row_key, source_ref=source_ref))
@@ -531,7 +1080,7 @@ def _plan_pivot_binding(
         written_cells.add(target_cell)
 
     if report["overflow_rows"]:
-        severity = _overflow_severity(binding)
+        severity = "P1"
         issues.append(_planner_issue(severity, "binding_overflow", str(binding["binding_id"]), f"{len(report['overflow_rows'])} pivot row(s) could not enter the declared visible matrix."))
     report["capacity_used"] = len(member_rows)
     report["planned_write_count"] = len(writes)
@@ -585,6 +1134,7 @@ def _plan_table_rows(
         if missing_required:
             reason = "required_columns_not_populated: " + ", ".join(missing_required)
             expected_target = f"row {target_row}"
+            event_key = _planner_event_key(binding, normalized_path=base_path.rstrip("."), row_key=row_key, event_type="missing_required_columns")
             report["skipped_rows"].append(
                 _structured_skip(
                     binding,
@@ -605,9 +1155,25 @@ def _plan_table_rows(
                     row_key=row_key,
                     source_ref=row_source_ref,
                     expected_target=expected_target,
+                    canonical_issue_key=event_key,
+                    root_cause="missing_required_columns",
                 )
             )
-            issues.append(_planner_issue("P1", "required_row_schema_column_missing", f"{binding['binding_id']}:{row_key}", reason))
+            issues.append(
+                _planner_issue(
+                    "P1",
+                    "required_row_schema_column_missing",
+                    f"{binding['binding_id']}:{row_key}",
+                    reason,
+                    normalized_path=base_path.rstrip("."),
+                    business_row_key=row_key,
+                    binding_id=str(binding["binding_id"]),
+                    source_ref=row_source_ref,
+                    root_cause="missing_required_columns",
+                    issue_type="planner_mapping_gap",
+                    canonical_issue_key=event_key,
+                )
+            )
             planned_row_count += 1
             continue
         for column in target_columns:
@@ -619,6 +1185,7 @@ def _plan_table_rows(
                 reason = "Source-backed table value has no source_ref."
                 normalized_path = _row_normalized_path(binding, row, source_position, source_field)
                 expected_target = f"{str(column['target_column']).upper()}{target_row}"
+                event_key = _planner_event_key(binding, normalized_path=normalized_path, row_key=row_key, event_type="missing_source_ref")
                 report["skipped_rows"].append(
                     _structured_skip(
                         binding,
@@ -629,8 +1196,21 @@ def _plan_table_rows(
                         expected_target=expected_target,
                     )
                 )
-                gaps.append(_gap(binding, reason=reason, severity="P1", normalized_path=normalized_path, row_key=row_key, expected_target=expected_target))
-                issues.append(_planner_issue("P1", "missing_source_ref", f"{binding['binding_id']}:{row_key}:{source_field}", reason))
+                gaps.append(_gap(binding, reason=reason, severity="P1", normalized_path=normalized_path, row_key=row_key, expected_target=expected_target, canonical_issue_key=event_key, root_cause="missing_source_ref"))
+                issues.append(
+                    _planner_issue(
+                        "P1",
+                        "missing_source_ref",
+                        f"{binding['binding_id']}:{row_key}:{source_field}",
+                        reason,
+                        normalized_path=normalized_path,
+                        business_row_key=row_key,
+                        binding_id=str(binding["binding_id"]),
+                        root_cause="missing_source_ref",
+                        issue_type="planner_mapping_gap",
+                        canonical_issue_key=event_key,
+                    )
+                )
                 continue
             target_cell = f"{str(column['target_column']).upper()}{target_row}"
             writes.append(
@@ -674,6 +1254,11 @@ def _selected_rows(
     skipped: list[dict[str, Any]] = []
     rows: list[Mapping[str, Any]] = []
     issues: list[NormalizedDataIssue] = []
+    approved_current_guidance = (
+        current_guidance_indexes([row if isinstance(row, Mapping) else {} for row in raw_rows])
+        if source_path == "normalized_guidance.items"
+        else None
+    )
     for source_index, raw in enumerate(raw_rows):
         if not isinstance(raw, Mapping):
             normalized_path = f"{source_path}.{source_index}"
@@ -681,6 +1266,32 @@ def _selected_rows(
                 _structured_skip(binding, normalized_path=normalized_path, row_key=f"source_index:{source_index}", reason="row_not_object", severity="P1")
             )
             issues.append(_planner_issue("P1", "binding_row_not_object", f"{binding.get('binding_id')}:{source_index}", "A selected collection entry is not an object."))
+            continue
+        if (
+            approved_current_guidance is not None
+            and str(raw.get("display_role") or "") in CURRENT_GUIDANCE_ROLES
+            and source_index not in approved_current_guidance
+        ):
+            normalized_path = f"{source_path}.{source_index}"
+            reason = f"stale_or_superseded_current_guidance:{guidance_scope_label(raw)}"
+            skipped.append(
+                _structured_skip(
+                    binding,
+                    normalized_path=normalized_path,
+                    row_key=_row_key(raw, binding) or f"source_index:{source_index}",
+                    reason=reason,
+                    severity="P1",
+                    source_ref=_row_source_ref(raw, binding),
+                )
+            )
+            issues.append(
+                _planner_issue(
+                    "P1",
+                    "stale_guidance_selected_for_current_block",
+                    normalized_path,
+                    "A guidance row marked current is not the latest valid row in its canonical metric/horizon scope.",
+                )
+            )
             continue
         exclusion_reason = _selector_exclusion_reason(raw, selector)
         if exclusion_reason:
@@ -714,11 +1325,51 @@ def _selected_rows(
         issues.append(_planner_issue("P1", "binding_sort_key_missing", f"{binding.get('binding_id')}:{source_index}", reason))
     rows = valid_sort_rows
     rows = _sort_rows(rows, binding.get("sort_order") or [])
+    window = str(selector.get("window") or "all")
+    if window == "latest_capacity" and rows:
+        capacity = int(binding.get("capacity") or 0)
+        if capacity > 0 and len(rows) > capacity:
+            excluded = rows[:-capacity]
+            for row in excluded:
+                source_index = int(row.get("__planner_source_index") or 0)
+                skipped.append(
+                    _structured_skip(
+                        binding,
+                        normalized_path=f"{source_path}.{source_index}",
+                        row_key=_row_key(row, binding) or f"source_index:{source_index}",
+                        reason="period_axis_outside_visible_window",
+                        severity="P2",
+                        source_ref=_row_source_ref(row, binding),
+                    )
+                )
+            rows = rows[-capacity:]
     pick = str(selector.get("pick") or "all")
-    if pick == "latest" and rows:
-        rows = [rows[-1]]
-    elif pick == "first" and rows:
-        rows = [rows[0]]
+    if pick in {"latest", "first"} and rows:
+        eligible_rows = list(rows)
+        selected_row = eligible_rows[-1] if pick == "latest" else eligible_rows[0]
+        selected_key = _row_key(selected_row, binding) or f"source_index:{selected_row.get('__planner_source_index', 0)}"
+        disposition = str(selector.get("pick_exclusion_disposition") or "possible_ambiguity")
+        for excluded_row in eligible_rows:
+            if excluded_row is selected_row:
+                continue
+            source_index = int(excluded_row.get("__planner_source_index") or 0)
+            excluded_key = _row_key(excluded_row, binding) or f"source_index:{source_index}"
+            skipped.append(
+                _structured_skip(
+                    binding,
+                    normalized_path=f"{source_path}.{source_index}",
+                    row_key=excluded_key,
+                    reason=f"row_selector_pick_excluded:{disposition}",
+                    severity="P2",
+                    source_ref=_row_source_ref(excluded_row, binding),
+                    selector_rule=f"pick={pick}",
+                    selected_row_key=selected_key,
+                    excluded_row_key=excluded_key,
+                    period=_first_populated_row_scalar(excluded_row, ("period", "quarter", "horizon")),
+                    exclusion_disposition=disposition,
+                )
+            )
+        rows = [selected_row]
     keys: set[str] = set()
     unique_rows: list[Mapping[str, Any]] = []
     for row in rows:
@@ -742,6 +1393,35 @@ def _selected_rows(
     return unique_rows, skipped, issues
 
 
+def inspect_binding_eligibility(
+    package: Mapping[str, Any],
+    binding: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Expose the planner's actual selector result for read-only coverage audits."""
+
+    if str(binding.get("planning_state") or "active") != "active":
+        return {
+            "selected_rows": [],
+            "structured_exclusions": [],
+            "issues": [],
+            "planning_state": str(binding.get("planning_state") or "inactive"),
+        }
+    if not isinstance(binding.get("row_selector"), Mapping):
+        return {
+            "selected_rows": [],
+            "structured_exclusions": [],
+            "issues": [],
+            "planning_state": "active_scalar_or_nonrow",
+        }
+    rows, exclusions, issues = _selected_rows(package, binding)
+    return {
+        "selected_rows": [dict(row) for row in rows],
+        "structured_exclusions": exclusions,
+        "issues": [issue.to_dict() for issue in issues],
+        "planning_state": "active",
+    }
+
+
 def _validate_manifest_and_binding_contracts(
     manifest: Mapping[str, Any],
     bindings: Sequence[Mapping[str, Any]],
@@ -750,6 +1430,17 @@ def _validate_manifest_and_binding_contracts(
     sheets = {str(sheet.get("sheet") or ""): sheet for sheet in manifest.get("sheets", []) if isinstance(sheet, Mapping)}
     cell_contracts, merge_families, manifest_contract_issues = _prepare_manifest_planner_contracts(manifest)
     issues.extend(manifest_contract_issues)
+    active_axis_headers: dict[str, list[str]] = {}
+    for binding in bindings:
+        if str(binding.get("planning_state") or "active") != "active" or not bool(binding.get("writable")):
+            continue
+        if str(binding.get("period_axis_role") or "") == "header":
+            active_axis_headers.setdefault(str(binding.get("period_axis_id") or ""), []).append(str(binding.get("binding_id") or ""))
+    for axis_id, binding_ids in active_axis_headers.items():
+        if not axis_id:
+            issues.append(_planner_issue("P1", "binding_period_axis_id_missing", ",".join(binding_ids), "Period-axis header requires a non-empty period_axis_id."))
+        elif len(binding_ids) != 1:
+            issues.append(_planner_issue("P1", "binding_period_axis_duplicate", axis_id, "A period axis must have exactly one active header binding."))
     for binding in bindings:
         binding_id = str(binding.get("binding_id") or "")
         if not binding_id:
@@ -809,6 +1500,19 @@ def _validate_manifest_and_binding_contracts(
             selector = binding.get("row_selector")
             if isinstance(selector, Mapping) and str(selector.get("pick") or "all") not in {"all", "first", "latest"}:
                 issues.append(_planner_issue("P1", "binding_row_pick_invalid", binding_id, "row_selector.pick must be all, first, or latest."))
+            if isinstance(selector, Mapping) and str(selector.get("pick") or "all") in {"first", "latest"}:
+                disposition = str(selector.get("pick_exclusion_disposition") or "")
+                if disposition not in {"expected_supersession", "expected_priority_selection", "possible_ambiguity"}:
+                    issues.append(
+                        _planner_issue(
+                            "P1",
+                            "binding_pick_exclusion_disposition_missing",
+                            binding_id,
+                            "first/latest selectors require an explicit pick_exclusion_disposition.",
+                        )
+                    )
+            if isinstance(selector, Mapping) and str(selector.get("window") or "all") not in {"all", "latest_capacity"}:
+                issues.append(_planner_issue("P1", "binding_row_window_invalid", binding_id, "row_selector.window must be all or latest_capacity."))
             if not isinstance(binding.get("capacity"), int) or int(binding.get("capacity") or 0) < 1:
                 issues.append(_planner_issue("P1", "binding_capacity_invalid", binding_id, "capacity must be a positive integer."))
             if "minimum_rows" in binding:
@@ -840,6 +1544,44 @@ def _validate_manifest_and_binding_contracts(
         elif active and bool(binding.get("writable")):
             if not str(binding.get("target_type") or ""):
                 issues.append(_planner_issue("P1", "binding_target_type_missing", binding_id, "Scalar/text binding requires an explicit target_type."))
+        period_axis_role = str(binding.get("period_axis_role") or "")
+        period_axis_id = str(binding.get("period_axis_id") or "")
+        if period_axis_role and period_axis_role not in {"header", "dependent"}:
+            issues.append(_planner_issue("P1", "binding_period_axis_role_invalid", binding_id, "period_axis_role must be header or dependent."))
+        if mode in _PIVOT_MODES and active:
+            if period_axis_role != "dependent" or not period_axis_id:
+                issues.append(_planner_issue("P1", "binding_period_axis_contract_missing", binding_id, "Every active pivot binding must depend on a declared period_axis_id."))
+            if "period_alignment" in binding or "period_target_columns" in binding:
+                issues.append(_planner_issue("P1", "binding_independent_period_alignment_forbidden", binding_id, "Pivot bindings may not independently align periods or declare their own period columns."))
+            row_blocks = binding.get("row_blocks")
+            if isinstance(row_blocks, Mapping):
+                row_owners: dict[int, str] = {}
+                for dimension, raw_rows in row_blocks.items():
+                    if not isinstance(raw_rows, list) or not raw_rows:
+                        issues.append(_planner_issue("P1", "binding_pivot_row_block_invalid", binding_id, f"Pivot dimension {dimension!r} requires at least one target row."))
+                        continue
+                    for raw_row in raw_rows:
+                        if not isinstance(raw_row, int):
+                            issues.append(_planner_issue("P1", "binding_pivot_row_block_invalid", binding_id, f"Pivot dimension {dimension!r} contains a non-integer target row."))
+                            continue
+                        prior = row_owners.get(raw_row)
+                        if prior is not None and prior != str(dimension):
+                            issues.append(
+                                _planner_issue(
+                                    "P1",
+                                    "binding_pivot_row_block_overlap",
+                                    binding_id,
+                                    f"Pivot row {raw_row} is shared by dimensions {prior!r} and {dimension!r}; dimension blocks must be disjoint.",
+                                )
+                            )
+                        row_owners[raw_row] = str(dimension)
+        if period_axis_role == "header":
+            if mode != "series" or str(binding.get("source_field") or "") != str(binding.get("period_field") or "period"):
+                issues.append(_planner_issue("P1", "binding_period_axis_header_invalid", binding_id, "Period-axis header must be a series whose source_field is its period_field."))
+        if period_axis_role == "dependent" and period_axis_id not in active_axis_headers:
+            issues.append(_planner_issue("P1", "binding_period_axis_header_missing", binding_id, f"No active header binding declares period axis {period_axis_id!r}."))
+        if period_axis_role == "dependent" and not str(binding.get("period_field") or ""):
+            issues.append(_planner_issue("P1", "binding_period_axis_period_field_missing", binding_id, "A period-axis dependent binding requires period_field."))
         normalized_field = str(binding.get("normalized_field") or "")
         if str(binding.get("sheet") or "") == "Valuation" and "output" in str(binding.get("section") or "").lower() and normalized_field.startswith("mapping_gaps"):
             issues.append(_planner_issue("P1", "valuation_output_mapping_gap_forbidden", binding_id, "Valuation output rows must consume explicit valuation_outputs or be formula-owned; they must never consume mapping_gaps."))
@@ -998,7 +1740,12 @@ def _declared_target_specs(binding: Mapping[str, Any]) -> list[tuple[str, str, s
     if mode in _PIVOT_MODES:
         rows = sorted({int(row) for block_rows in (binding.get("row_blocks") or {}).values() for row in block_rows})
         label_column = str(binding.get("label_target_column") or "A").upper()
-        period_columns = [str(column).upper() for column in binding.get("period_target_columns") or []]
+        min_col, _min_row, max_col, _max_row = _parse_range(target)
+        period_columns = [
+            _column_label(column)
+            for column in range(min_col, max_col + 1)
+            if _column_label(column) != label_column
+        ]
         return [
             *((f"{label_column}{row}", "text", f"{binding['binding_id']}.member") for row in rows),
             *((f"{column}{row}", str(binding.get("value_target_type") or "number"), f"{binding['binding_id']}.value") for row in rows for column in period_columns),
@@ -1064,44 +1811,151 @@ def _add_blocking_reports(plan: BindingPlan, bindings: Sequence[Mapping[str, Any
         )
 
 
-def _append_manual_review_flags(plan: BindingPlan) -> None:
-    seen: set[tuple[str, str, str, str, str, str]] = {
-        (
-            str(flag.get("binding_id") or ""),
-            str(flag.get("rule_id") or ""),
-            str(flag.get("field") or ""),
-            str(flag.get("message") or ""),
-            str(flag.get("normalized_path") or ""),
-            str(flag.get("row_key") or ""),
+def _refresh_issue_ledger(plan: BindingPlan) -> None:
+    trusted_keys = sorted(
+        {
+            issue.canonical_issue_key
+            for issue in plan.planner_issues
+            if issue.canonical_issue_key
+        }
+    )
+    plan.issue_ledger = build_canonical_issue_ledger(
+        manual_review_flags=plan.manual_review_flags,
+        mapping_gaps=plan.mapping_gaps,
+        validation_issues=plan.issues,
+        check_results=_planner_check_results(plan),
+        trusted_canonical_issue_keys=trusted_keys,
+    )
+    failures = validate_json_schema(plan.issue_ledger, load_json_strict(ISSUE_LEDGER_SCHEMA))
+    existing = {(issue.rule_id, issue.field, issue.message) for issue in plan.planner_issues}
+    added = False
+    for field, keyword, message in failures:
+        issue = _planner_issue(
+            "P1",
+            f"issue_ledger_schema_{keyword}",
+            field,
+            message,
+            issue_type="validation_failure",
+            root_cause="issue_ledger_schema_violation",
         )
-        for flag in plan.manual_review_flags
+        key = (issue.rule_id, issue.field, issue.message)
+        if key not in existing:
+            existing.add(key)
+            plan.planner_issues.append(issue)
+            added = True
+    if added:
+        plan.issue_ledger = build_canonical_issue_ledger(
+            manual_review_flags=plan.manual_review_flags,
+            mapping_gaps=plan.mapping_gaps,
+            validation_issues=plan.issues,
+            check_results=_planner_check_results(plan),
+            trusted_canonical_issue_keys=trusted_keys,
+        )
+
+
+def _finalize_validation_outputs(plan: BindingPlan, bindings: Sequence[Mapping[str, Any]], *, ticker: str) -> None:
+    """Plan QA from one final snapshot, or fail without retaining stale QA writes."""
+
+    scratch = BindingPlan(ticker=ticker)
+    scratch.issue_ledger = plan.issue_ledger
+    scratch.planning_completed = True
+    _plan_validation_outputs(scratch, bindings, ticker=ticker)
+    _dedupe_plan(scratch)
+    _validate_planned_write_types(scratch, bindings)
+    if scratch.planner_issues or scratch.mapping_gaps:
+        plan.binding_reports.extend(scratch.binding_reports)
+        plan.planner_issues.extend(scratch.planner_issues)
+        plan.mapping_gaps.extend(scratch.mapping_gaps)
+        plan.planner_issues.append(
+            _planner_issue(
+                "P1",
+                "qa_presentation_snapshot_unstable",
+                "issue_ledger.qa_presentation",
+                "QA presentation could not be planned losslessly from the final canonical ledger; no QA writes were retained.",
+            )
+        )
+        _dedupe_plan(plan)
+        _refresh_issue_ledger(plan)
+        plan.qa_snapshot_status = "failed"
+        return
+    plan.binding_reports.extend(scratch.binding_reports)
+    plan.planned_writes.extend(scratch.planned_writes)
+    plan.qa_snapshot_status = "stable"
+
+
+def _planner_check_results(plan: BindingPlan) -> list[dict[str, Any]]:
+    shell_issues = [issue for issue in plan.planner_issues if issue.rule_id.startswith("shell_")]
+    type_issues = [issue for issue in plan.planner_issues if issue.rule_id == "target_value_type_mismatch"]
+    contract_issues = [issue for issue in plan.planner_issues if issue not in shell_issues and issue not in type_issues]
+    return [
+        _stage_check("normalized_json_schema_validation", plan.schema_issues, "binding_plan.schema_issues"),
+        _stage_check("normalized_semantic_validation", plan.semantic_issues, "binding_plan.semantic_issues"),
+        _stage_check("shell_identity_validation", shell_issues, "binding_plan.planner_issues[shell_identity]"),
+        _stage_check(
+            "manifest_binding_contract_validation",
+            contract_issues,
+            "binding_plan.planner_issues[binding_contract]",
+        ),
+        _stage_check(
+            "binding_mapping_and_capacity_validation",
+            plan.mapping_gaps,
+            "binding_plan.mapping_gaps",
+            executed=plan.planning_completed,
+        ),
+        _stage_check(
+            "planned_write_type_validation",
+            type_issues,
+            "binding_plan.planner_issues[target_value_type]",
+            executed=plan.planning_completed,
+        ),
+    ]
+
+
+def _stage_check(
+    rule_id: str,
+    rows: Sequence[Any],
+    detail_ref: str,
+    *,
+    executed: bool = True,
+) -> dict[str, Any]:
+    normalized_rows = [
+        row.to_dict() if hasattr(row, "to_dict") else dict(row)
+        for row in rows
+        if hasattr(row, "to_dict") or isinstance(row, Mapping)
+    ]
+    severities = [str(row.get("severity") or "P2").upper() for row in normalized_rows]
+    blocking_count = sum(1 for severity in severities if severity in _BLOCKING_SEVERITIES)
+    actionable_count = sum(1 for severity in severities if severity not in {"P3"})
+    if not executed:
+        status = "INFO"
+        interpretation = "Not executed because an earlier blocking validation stage failed."
+    elif blocking_count:
+        status = "FAIL"
+        interpretation = f"{blocking_count} blocking issue(s) found across {len(normalized_rows)} result(s)."
+    elif normalized_rows:
+        status = "REVIEW"
+        interpretation = f"{len(normalized_rows)} non-blocking result(s) require review."
+    else:
+        status = "PASS"
+        interpretation = "Completed with no issues."
+    sections = sorted(
+        {
+            str(row.get("section") or row.get("field") or row.get("normalized_path") or "").lstrip("$.").split(".", 1)[0]
+            for row in normalized_rows
+            if row.get("section") or row.get("field") or row.get("normalized_path")
+        }
+    )
+    return {
+        "rule_id": rule_id,
+        "status": status,
+        "unique_issue_count": len(normalized_rows),
+        "occurrence_count": len(normalized_rows),
+        "blocking_count": blocking_count,
+        "actionable_count": actionable_count,
+        "affected_sections": ", ".join(sections) or "none",
+        "interpretation": interpretation,
+        "detail_ref": detail_ref,
     }
-    for gap in plan.mapping_gaps:
-        key = (
-            str(gap.get("binding_id") or ""),
-            "binding_plan_manual_review",
-            str(gap.get("normalized_field") or ""),
-            str(gap.get("reason") or ""),
-            str(gap.get("normalized_path") or ""),
-            str(gap.get("row_key") or ""),
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        plan.manual_review_flags.append(
-            {
-                "severity": str(gap.get("severity") or "P2"),
-                "rule_id": "binding_plan_manual_review",
-                "field": str(gap.get("normalized_field") or ""),
-                "message": str(gap.get("reason") or "Binding plan requires review."),
-                "source_ref": str(gap.get("source_ref") or ""),
-                "suggested_action": str(gap.get("suggested_action") or "Resolve the source, row contract, or shell slot before rendering."),
-                "binding_id": str(gap.get("binding_id") or ""),
-                "row_key": str(gap.get("row_key") or f"gap:{gap.get('binding_id') or 'unknown'}:{gap.get('normalized_path') or gap.get('normalized_field') or 'field'}"),
-                "normalized_path": str(gap.get("normalized_path") or gap.get("normalized_field") or ""),
-                "expected_target": str(gap.get("expected_target") or gap.get("target") or ""),
-            }
-        )
 
 
 def _plan_validation_outputs(plan: BindingPlan, bindings: Sequence[Mapping[str, Any]], *, ticker: str) -> None:
@@ -1113,10 +1967,11 @@ def _plan_validation_outputs(plan: BindingPlan, bindings: Sequence[Mapping[str, 
     and use the same typed row contract as business tables.
     """
 
+    presentation = plan.issue_ledger.get("qa_presentation") or {}
     rows_by_binding = {
-        "qa_log_validation_rows": plan.manual_review_flags,
-        "needs_review_validation_rows": plan.manual_review_flags,
-        "qa_checks_mapping_gap_rows": plan.mapping_gaps,
+        "qa_log_validation_rows": list(presentation.get("qa_log_rows") or []),
+        "needs_review_validation_rows": list(presentation.get("needs_review_rows") or []),
+        "qa_checks_mapping_gap_rows": list(presentation.get("qa_check_rows") or []),
     }
     for binding in bindings:
         if not bool(binding.get("writable")) or str(binding.get("source_policy") or "") != "validation-output":
@@ -1209,7 +2064,8 @@ def _normalize_mapping_gaps(value: Any) -> list[dict[str, Any]]:
             continue
         field = str(raw.get("field") or raw.get("normalized_field") or "")
         message = str(raw.get("message") or raw.get("reason") or "Mapped field is not populated.")
-        normalized.append(
+        row = dict(raw)
+        row.update(
             {
                 "severity": str(raw.get("severity") or "P2"),
                 "rule_id": str(raw.get("rule_id") or "mapping_gap"),
@@ -1228,6 +2084,7 @@ def _normalize_mapping_gaps(value: Any) -> list[dict[str, Any]]:
                 "reason": message,
             }
         )
+        normalized.append(row)
     return normalized
 
 
@@ -1238,7 +2095,8 @@ def _normalize_manual_review_flags(value: Any) -> list[dict[str, Any]]:
     for idx, raw in enumerate(value):
         if not isinstance(raw, Mapping):
             continue
-        normalized.append(
+        row = dict(raw)
+        row.update(
             {
                 "severity": str(raw.get("severity") or "P2"),
                 "rule_id": str(raw.get("rule_id") or "manual_review_required"),
@@ -1251,6 +2109,7 @@ def _normalize_manual_review_flags(value: Any) -> list[dict[str, Any]]:
                 "row_key": str(raw.get("row_key") or f"package_manual_review:{idx}"),
             }
         )
+        normalized.append(row)
     return normalized
 
 
@@ -1268,20 +2127,6 @@ def _dedupe_plan(plan: BindingPlan) -> None:
         unique_writes.append(write)
     plan.planned_writes = unique_writes
     plan.planner_issues.extend(collisions)
-    seen_gaps: set[tuple[str, str, str, str, str]] = set()
-    deduped_gaps: list[dict[str, Any]] = []
-    for gap in plan.mapping_gaps:
-        key = (
-            str(gap.get("binding_id") or ""),
-            str(gap.get("normalized_path") or gap.get("normalized_field") or ""),
-            str(gap.get("row_key") or ""),
-            str(gap.get("source_ref") or ""),
-            str(gap.get("reason") or ""),
-        )
-        if key not in seen_gaps:
-            seen_gaps.add(key)
-            deduped_gaps.append(gap)
-    plan.mapping_gaps = deduped_gaps
 
 
 def _validate_planned_write_types(plan: BindingPlan, bindings: Sequence[Mapping[str, Any]]) -> None:
@@ -1422,6 +2267,16 @@ def _read_row_field(row: Mapping[str, Any], path: str) -> tuple[Any, str, bool]:
     return _unwrap_field(value)
 
 
+def _first_populated_row_scalar(row: Mapping[str, Any], paths: Sequence[str]) -> str:
+    """Return the first normalized scalar without serializing its field wrapper."""
+
+    for path in paths:
+        value, _source_ref, populated = _read_row_field(row, path)
+        if populated:
+            return str(value)
+    return ""
+
+
 def _read_bound_row_field(
     row: Mapping[str, Any],
     binding: Mapping[str, Any],
@@ -1506,6 +2361,8 @@ def _gap(
     row_key: str = "",
     source_ref: str = "",
     expected_target: str = "",
+    canonical_issue_key: str = "",
+    root_cause: str = "",
 ) -> dict[str, Any]:
     normalized_field = str(binding.get("normalized_field") or "")
     return {
@@ -1524,6 +2381,8 @@ def _gap(
         "reason": reason,
         "message": reason,
         "suggested_action": str(binding.get("missing_source_behavior") or "Resolve the normalized source or planner contract."),
+        "canonical_issue_key": canonical_issue_key,
+        "root_cause": root_cause,
     }
 
 
@@ -1536,6 +2395,11 @@ def _structured_skip(
     severity: str,
     source_ref: str = "",
     expected_target: str = "",
+    selector_rule: str = "",
+    selected_row_key: str = "",
+    excluded_row_key: str = "",
+    period: str = "",
+    exclusion_disposition: str = "",
 ) -> dict[str, Any]:
     return {
         "binding_id": str(binding.get("binding_id") or ""),
@@ -1545,6 +2409,11 @@ def _structured_skip(
         "expected_target": expected_target or _planner_target(binding),
         "reason": reason,
         "severity": severity,
+        "selector_rule": selector_rule,
+        "selected_row_key": selected_row_key,
+        "excluded_row_key": excluded_row_key,
+        "period": period,
+        "exclusion_disposition": exclusion_disposition,
     }
 
 
@@ -1576,13 +2445,55 @@ def _column_target_type(binding: Mapping[str, Any], column: Mapping[str, Any]) -
     return "text" if source_field in {"severity", "rule_id", "field", "message", "source_ref", "suggested_action"} else ""
 
 
-def _planner_issue(severity: str, rule_id: str, field: str, message: str) -> NormalizedDataIssue:
+def _planner_issue(
+    severity: str,
+    rule_id: str,
+    field: str,
+    message: str,
+    *,
+    normalized_path: str = "",
+    business_row_key: str = "",
+    binding_id: str = "",
+    source_ref: str = "",
+    root_cause: str = "",
+    issue_type: str = "",
+    canonical_issue_key: str = "",
+    affected_period: str = "",
+) -> NormalizedDataIssue:
     return NormalizedDataIssue(
         severity=severity,
         rule_id=rule_id,
         field=field,
         message=message,
+        source_ref=source_ref,
         suggested_action="Correct the normalized data or binding planner contract before any workbook render.",
+        normalized_path=normalized_path,
+        business_row_key=business_row_key,
+        binding_id=binding_id,
+        root_cause=root_cause,
+        issue_type=issue_type,
+        canonical_issue_key=canonical_issue_key,
+        affected_period=affected_period,
+    )
+
+
+def _planner_event_key(
+    binding: Mapping[str, Any],
+    *,
+    normalized_path: str,
+    row_key: str,
+    event_type: str,
+) -> str:
+    """Correlate multiple records emitted for one planner event."""
+
+    return "|".join(
+        (
+            "planner_event",
+            str(binding.get("binding_id") or ""),
+            event_type,
+            normalized_path,
+            row_key,
+        )
     )
 
 
@@ -1617,7 +2528,10 @@ def _bindings_from_payload(payload: Mapping[str, Any] | Sequence[Mapping[str, An
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = load_json_strict(path)
+    if not isinstance(payload, dict):
+        raise BindingPlanningError(f"JSON contract must be an object: {path}")
+    return payload
 
 
 def _ticker(package: Mapping[str, Any], override: str | None) -> str:

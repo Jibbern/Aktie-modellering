@@ -4,6 +4,7 @@ from pbi_xbrl.normalized_company_data_validation import (
     build_normalized_text_quality_audit,
     validate_normalized_company_data,
 )
+from pbi_xbrl.new_ticker_guidance_scope import normalize_guidance_scope
 
 
 def _field(value, *, status: str = "populated", source_ref: str = "fixture", core: bool = False, reason: str = "", unit: str = "", period: str = ""):
@@ -193,6 +194,284 @@ def test_validation_catches_unexplained_empty_core_fields() -> None:
     package["company_profile"]["company_name"] = _field("", status="populated", core=True)
 
     assert "unexplained_empty_core_field" in _rule_ids(package)
+
+
+def test_validation_requires_distinct_strategic_context_and_numeric_revenue_mix() -> None:
+    package = _base_package()
+    package["company_profile"]["business_description"] = _field("Same narrative", core=True)
+    package["company_profile"]["strategic_context"] = _field("Same narrative", core=True)
+    package["company_profile"]["revenue_streams"] = [
+        {
+            "member": _field("Primary stream", core=True),
+            "mix": _field("Narrative revenue model", core=True),
+            "unit": "%",
+            "period": "2025-FY",
+            "source_ref": "fixture",
+            "display_order": 1,
+        }
+    ]
+
+    rules = _rule_ids(package)
+
+    assert "strategic_context_not_distinct" in rules
+    assert "revenue_stream_mix_not_numeric" in rules
+
+
+def test_validation_rejects_cash_only_or_unreconciled_total_liquidity() -> None:
+    package = _base_package()
+    package["debt_liquidity"] = {
+        "cash": _field(80.0, core=True, unit="$m", period="2026-03-31"),
+        "total_debt": _field(None, status="missing_source", core=True, reason="Missing debt evidence."),
+        "net_debt": _field(70.0, core=True, unit="$m", period="2026-03-31"),
+        "revolver_availability": _field(None, status="missing_source", core=True, reason="Missing revolver evidence."),
+        "liquidity_cash": _field(80.0, core=True, unit="$m", period="2026-03-31"),
+        "other_available_liquidity": _field(None, status="not_applicable", reason="No other component."),
+        "total_liquidity": _field(180.0, core=True, unit="$m", period="2026-03-31"),
+        "liquidity_definition": _field("Cash plus revolver availability.", core=True),
+        "as_of_date": _field("2026-03-31", core=True),
+    }
+
+    rules = _rule_ids(package)
+
+    assert "cash_only_total_liquidity" in rules
+    assert "total_liquidity_not_reconciled" in rules
+
+
+def test_liquidity_freshness_contract_covers_current_stale_mixed_and_incomplete() -> None:
+    package = _base_package()
+    package["debt_liquidity"] = {
+        "cash": _field(90.0, core=True, unit="$m", period="2026-05-02"),
+        "total_debt": _field(20.0, core=True, unit="$m", period="2026-05-02"),
+        "net_debt": _field(-70.0, core=True, unit="$m", period="2026-05-02"),
+        "revolver_availability": _field(100.0, core=True, unit="$m", period="2026-03-31"),
+        "liquidity_cash": _field(80.0, core=True, unit="$m", period="2026-03-31"),
+        "other_available_liquidity": _field(None, status="not_applicable", reason="No other component."),
+        "total_liquidity": _field(180.0, core=True, unit="$m", period="2026-03-31"),
+        "liquidity_definition": _field("Cash plus undrawn revolver availability.", core=True),
+        "as_of_date": _field("2026-03-31", core=True),
+        "summary_as_of_date": _field("2026-05-02", core=True),
+        "summary_liquidity_display": _field("180.000 as of 2026-03-31", core=True, period="2026-03-31"),
+        "liquidity_freshness": {
+            "disposition": "stale_but_displayable_with_date",
+            "summary_as_of": "2026-05-02",
+            "liquidity_as_of": "2026-03-31",
+            "component_as_of": {"cash": "2026-03-31", "revolver": "2026-03-31"},
+            "mixed_date_components": False,
+            "reason": "Older than SUMMARY but visibly dated.",
+            "source_ref": "fixture",
+        },
+    }
+
+    stale_rules = _rule_ids(package)
+    assert "stale_liquidity_date_not_visible" not in stale_rules
+    assert "liquidity_current_freshness_mismatch" not in stale_rules
+
+    package["debt_liquidity"]["summary_liquidity_display"]["value"] = "180.000"
+    assert "stale_liquidity_date_not_visible" in _rule_ids(package)
+
+    package["debt_liquidity"]["summary_liquidity_display"]["value"] = "180.000 as of 2026-03-31"
+    package["debt_liquidity"]["liquidity_freshness"]["mixed_date_components"] = True
+    assert "liquidity_mixed_date_components" in _rule_ids(package)
+
+    package["debt_liquidity"]["total_liquidity"] = _field(
+        None,
+        status="missing_source",
+        core=True,
+        reason="Same-date components unavailable.",
+    )
+    package["debt_liquidity"]["summary_liquidity_display"] = _field(
+        None,
+        status="missing_source",
+        core=True,
+        reason="No displayable total.",
+    )
+    package["debt_liquidity"]["liquidity_freshness"].update(
+        disposition="incomplete_components",
+        mixed_date_components=False,
+    )
+    incomplete_rules = _rule_ids(package)
+    assert "incomplete_liquidity_is_populated" not in incomplete_rules
+    assert "non_displayable_liquidity_has_visible_value" not in incomplete_rules
+
+
+def test_liquidity_freshness_cross_field_dates_fail_closed() -> None:
+    def package_for(
+        *,
+        summary_as_of: str = "2026-05-02",
+        liquidity_as_of: str = "2026-03-31",
+        disposition: str = "stale_but_displayable_with_date",
+        visible_date: str | None = None,
+        cash_as_of: str | None = None,
+        revolver_as_of: str | None = None,
+    ) -> dict:
+        package = _base_package()
+        cash_date = cash_as_of or liquidity_as_of
+        revolver_date = revolver_as_of or liquidity_as_of
+        display_date = visible_date or liquidity_as_of
+        package["debt_liquidity"] = {
+            "cash": _field(90.0, core=True, unit="$m", period=summary_as_of),
+            "total_debt": _field(20.0, core=True, unit="$m", period=summary_as_of),
+            "net_debt": _field(-70.0, core=True, unit="$m", period=summary_as_of),
+            "revolver_availability": _field(100.0, core=True, unit="$m", period=revolver_date),
+            "liquidity_cash": _field(80.0, core=True, unit="$m", period=cash_date),
+            "other_available_liquidity": _field(None, status="not_applicable", reason="No other component."),
+            "total_liquidity": _field(180.0, core=True, unit="$m", period=liquidity_as_of),
+            "liquidity_definition": _field("Cash plus undrawn revolver availability.", core=True),
+            "as_of_date": _field(liquidity_as_of, core=True),
+            "summary_as_of_date": _field(summary_as_of, core=True),
+            "summary_liquidity_display": _field(
+                f"180.000 as of {display_date}", core=True, period=liquidity_as_of
+            ),
+            "liquidity_freshness": {
+                "disposition": disposition,
+                "summary_as_of": summary_as_of,
+                "liquidity_as_of": liquidity_as_of,
+                "component_as_of": {"cash": cash_date, "revolver": revolver_date},
+                "mixed_date_components": cash_date != revolver_date,
+                "reason": "Fixture freshness contract.",
+                "source_ref": "fixture",
+            },
+        }
+        return package
+
+    valid_current = package_for(
+        summary_as_of="2026-05-02",
+        liquidity_as_of="2026-05-02",
+        disposition="current",
+    )
+    assert not {
+        "liquidity_current_freshness_mismatch",
+        "liquidity_future_date_invalid",
+        "liquidity_visible_date_mismatch",
+    } & _rule_ids(valid_current)
+
+    current_without_visible_date = package_for(
+        summary_as_of="2026-05-02",
+        liquidity_as_of="2026-05-02",
+        disposition="current",
+    )
+    current_without_visible_date["debt_liquidity"]["summary_liquidity_display"] = _field(
+        None,
+        status="missing_source",
+        core=True,
+        reason="Visible display unavailable.",
+    )
+    assert "current_liquidity_date_not_visible" in _rule_ids(current_without_visible_date)
+
+    valid_stale = package_for()
+    assert not {
+        "liquidity_current_freshness_mismatch",
+        "liquidity_future_date_invalid",
+        "liquidity_visible_date_mismatch",
+        "stale_liquidity_date_not_visible",
+    } & _rule_ids(valid_stale)
+
+    future_stale = package_for(liquidity_as_of="2026-06-01")
+    assert "liquidity_future_date_invalid" in _rule_ids(future_stale)
+
+    stale_marked_current = package_for(disposition="current")
+    assert "liquidity_current_freshness_mismatch" in _rule_ids(stale_marked_current)
+
+    wrong_visible_date = package_for(visible_date="2026-02-28")
+    assert "liquidity_visible_date_mismatch" in _rule_ids(wrong_visible_date)
+
+    mixed_dates = package_for(cash_as_of="2026-03-31", revolver_as_of="2026-02-28")
+    assert "liquidity_mixed_date_components" in _rule_ids(mixed_dates)
+
+    conflicting_authoritative_date = package_for()
+    conflicting_authoritative_date["debt_liquidity"]["liquidity_freshness"]["liquidity_as_of"] = "2026-02-28"
+    assert "liquidity_as_of_conflict" in _rule_ids(conflicting_authoritative_date)
+
+
+def test_validation_rejects_latest_current_horizon_guidance_marked_history() -> None:
+    package = _base_package()
+    package["normalized_guidance"]["items"] = [
+        {
+            "metric": _field("Capex", core=True),
+            "value": _field("$100 million", core=True),
+            "horizon": _field("2026 year", core=True),
+            "source_excerpt": "Capital expenditures are expected to be approximately $100 million.",
+            "source_date": "2026-01-31",
+            "publication_date": "2026-03-04",
+            "stated_in_period": "2025-Q4",
+            "classification": "normalized_outlook",
+            "evidence_key": "fixture-guidance-capex",
+            "display_role": "history",
+            "display_priority": 999,
+            "update_stage": "initial",
+        }
+    ]
+
+    assert "current_guidance_visibility_misclassified" in _rule_ids(package)
+
+
+def test_validation_rejects_superseded_old_guidance_marked_current() -> None:
+    package = _base_package()
+    package["normalized_guidance"]["items"] = [
+        {
+            "metric": _field("Revenue", core=True),
+            "value": _field("Up low-single digits", core=True),
+            "horizon": _field("FY2025", core=True),
+            "source_excerpt": "Revenue was expected to increase in fiscal 2025.",
+            "source_date": "2024-12-31",
+            "publication_date": "2025-02-20",
+            "stated_in_period": "2024-Q4",
+            "classification": "normalized_outlook",
+            "evidence_key": "fixture-guidance-fy2025",
+            "display_role": "current_primary",
+            "display_priority": 1,
+            "update_stage": "initial",
+        },
+        {
+            "metric": _field("Revenue", core=True),
+            "value": _field("Up mid-single digits", core=True),
+            "horizon": _field("FY2026", core=True),
+            "source_excerpt": "Revenue is expected to increase in fiscal 2026.",
+            "source_date": "2025-12-31",
+            "publication_date": "2026-03-04",
+            "stated_in_period": "2025-Q4",
+            "classification": "normalized_outlook",
+            "evidence_key": "fixture-guidance-fy2026",
+            "display_role": "current_primary",
+            "display_priority": 1,
+            "update_stage": "initial",
+        },
+    ]
+
+    assert "stale_guidance_visibility_misclassified" in _rule_ids(package)
+
+
+def test_guidance_alias_horizons_share_one_scope_and_old_row_cannot_remain_current() -> None:
+    package = _base_package()
+    older = {
+        "metric": _field("Revenue", core=True),
+        "value": _field("Up low-single digits", core=True),
+        "horizon": _field("2026 year", core=True),
+        "source_excerpt": "Revenue was expected to increase in fiscal 2026.",
+        "source_date": "2025-09-30",
+        "publication_date": "2025-11-20",
+        "stated_in_period": "2025-Q3",
+        "classification": "normalized_outlook",
+        "evidence_key": "fixture-guidance-old-2026",
+        "display_role": "current_primary",
+        "display_priority": 1,
+        "update_stage": "initial",
+    }
+    newer = {
+        **older,
+        "value": _field("Up mid-single digits", core=True),
+        "horizon": _field("FY2026", core=True),
+        "source_date": "2025-12-31",
+        "publication_date": "2026-03-04",
+        "stated_in_period": "2025-Q4",
+        "evidence_key": "fixture-guidance-new-2026",
+        "update_stage": "update",
+    }
+    package["normalized_guidance"]["items"] = [older, newer]
+
+    assert normalize_guidance_scope(older).scope_key == normalize_guidance_scope(newer).scope_key
+    assert normalize_guidance_scope(older).horizon == "FY2026"
+    assert "stale_guidance_visibility_misclassified" in _rule_ids(package)
 
 
 def test_validation_catches_share_count_outliers() -> None:

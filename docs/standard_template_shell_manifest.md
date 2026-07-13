@@ -235,3 +235,66 @@ outputs use rows 64-70 and 72-75 while row 71 remains shell-owned.
 Future filler writes values only. It must not create ticker-specific visible UI,
 run post-render scaffold/repair, create `.xlsm`, or overwrite static shell
 labels/formulas. It must fail if a binding target overlaps a non-writable zone.
+
+## Cryptographic Shell Identity
+
+The manifest carries `semantic_contract_version` and a `shell_identity` bound
+to the exact frozen `.xlsx` and complete manifest semantics. Identity covers
+raw workbook SHA-256, a manifest-contract signature, sheet
+order/visibility, merges, defined names, exact writable targets, and protected
+formula/static content. The `sheet_view_signature` additionally signs the same
+normalized worksheet-view payload used by strict post-fill validation. It also
+signs the complete executable binding objects,
+including normalized/source paths, selectors, row keys, sorting, period axes,
+capacity/overflow policy, row schemas, target types, visibility, and block
+ownership. Shell validation and planner path entrypoints fail before writes when
+any signed component drifts.
+
+Only the verifier-produced identity result is accepted by planning. The token
+is bound to every recorded identity field and cannot be reused with another
+manifest version, shell hash, signature set, or binding map. A caller mapping
+that merely says `status=PASS`, or a manifest semantic version other than the
+version supported by code, is not proof of shell identity.
+
+Intentional changes use `scripts/materialize_standard_template_shell.py
+--update-identity`. The materializer fixes workbook core timestamps and ZIP
+metadata before hashing, so two unchanged regenerations produce identical bytes.
+For a populated output, raw SHA-256 necessarily changes. Filled-value validation
+therefore first verifies the exact approved source shell, then compares a
+post-fill structural signature that ignores values only in exact active binding
+cells authorized by the verified PASS binding plan. Changed cells absent from
+that plan, or values that disagree with it, fail validation. Protected
+values/formulas, styles, merges, defined names, data validation,
+conditional formatting, tables, layout, and sheet order/visibility must remain
+identical. The workbook, manifest identity, neutrality audit, and tests are
+reviewed as one change.
+
+### Sheet-view identity policy
+
+The frozen shell owns stable, visible worksheet-view behavior: gridlines, row and
+column headers, zeros, formula display, right-to-left mode, tab selection,
+outline/ruler/whitespace behavior, view mode, workbook-view ID, grid-color mode,
+all four zoom settings, zoom-to-fit, freeze panes, and complete pane split/freeze
+geometry. Missing OOXML booleans are normalized to their documented semantic
+defaults; an omitted normal view and zoom are normalized to `normal` and `100`.
+
+Selection and navigation state are intentionally not identity-bearing. Active
+cell, selected range, selection pane, worksheet scroll position, and workbook
+active tab may be rewritten by Excel as session state. They are ignored while
+pane geometry and per-sheet `tabSelected` remain signed. This policy is declared
+in `sheet_view_identity_contract`; changing the policy changes the manifest
+contract signature and requires reviewed identity regeneration.
+
+The standard shell contains only generic labels. ANF-specific net-income labels,
+source notes, numeric segment payloads, and constant defined names are removed.
+Retail concepts are represented by generic business-health, pricing/margin, and
+asset-productivity slots; ticker or sector packs populate those concepts later.
+The generic Investment Case shell does not retain the ANF-authored
+`None,Brand,Geography` validation. Dimension choices belong to normalized data
+and a future configurable sector/dimension contract.
+
+Quarter-note history blocks retain only reusable headers, styles, and generic
+period/theme slots. Their inherited evidence, dates, amounts, statuses, and
+source notes are cleared. `B16:O360` is explicitly non-writable until a future
+reviewed history binding contract owns exact cells; runtime may not use it as a
+broad sequential output range.

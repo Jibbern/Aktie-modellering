@@ -5,17 +5,27 @@ from copy import deepcopy
 import json
 from pathlib import Path
 
-from pbi_xbrl.new_ticker_binding_planner import BindingPlan, plan_standard_template_writes
+import pytest
+
+from pbi_xbrl.new_ticker_binding_planner import (
+    BindingPlan,
+    BindingPlanReproductionError,
+    plan_standard_template_writes,
+    reproduce_binding_plan_snapshot,
+    compare_binding_plan_snapshot,
+)
 from pbi_xbrl.normalized_company_data_validation import (
     validate_normalized_company_data,
     validate_normalized_company_data_schema,
 )
+from pbi_xbrl.standard_template_shell_identity import compute_shell_identity, verify_shell_identity
 
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_PATH = ROOT / "tests" / "fixtures" / "normalized_packages" / "TEST_minimal_valid.json"
 BINDING_MAP_PATH = ROOT / "docs" / "workbook_binding_map.json"
 MANIFEST_PATH = ROOT / "docs" / "standard_template_shell_manifest.json"
+SHELL_PATH = ROOT / "templates" / "standard_stock_model_template.xlsx"
 
 
 def _load(path: Path) -> dict:
@@ -35,11 +45,161 @@ def _manifest() -> dict:
 
 
 def _plan(package: dict | None = None, *, bindings: dict | None = None, manifest: dict | None = None) -> BindingPlan:
+    effective_bindings = bindings or _bindings()
+    effective_manifest = manifest or _manifest()
+    if bindings is not None or manifest is not None:
+        effective_manifest = deepcopy(effective_manifest)
+        effective_manifest["shell_identity"] = compute_shell_identity(
+            SHELL_PATH,
+            manifest=effective_manifest,
+            binding_payload=effective_bindings,
+        )
+    identity_report = verify_shell_identity(
+        SHELL_PATH,
+        manifest=effective_manifest,
+        binding_payload=effective_bindings,
+    )
     return plan_standard_template_writes(
         package or _package(),
-        binding_payload=bindings or _bindings(),
-        manifest=manifest or _manifest(),
+        binding_payload=effective_bindings,
+        manifest=effective_manifest,
+        shell_identity_report=identity_report,
     )
+
+
+def test_real_manifest_requires_shell_identity_verification() -> None:
+    plan = plan_standard_template_writes(
+        _package(),
+        binding_payload=_bindings(),
+        manifest=_manifest(),
+    )
+
+    assert plan.status == "FAIL"
+    assert "shell_identity_not_verified" in _rule_ids(plan)
+
+
+def test_manifest_without_shell_identity_cannot_bypass_verification() -> None:
+    manifest = _manifest()
+    manifest.pop("shell_identity")
+
+    plan = plan_standard_template_writes(
+        _package(),
+        binding_payload=_bindings(),
+        manifest=manifest,
+    )
+
+    assert plan.status == "FAIL"
+    assert not plan.planned_writes
+    assert "shell_identity_missing" in _rule_ids(plan)
+
+
+def test_verified_token_cannot_be_reused_with_mutated_manifest_or_binding_contract() -> None:
+    manifest = _manifest()
+    bindings = _bindings()
+    token = verify_shell_identity(SHELL_PATH, manifest=manifest, binding_payload=bindings)
+
+    drifted_manifest = deepcopy(manifest)
+    drifted_manifest["semantic_contract_version"] = "9.9.9"
+    manifest_plan = plan_standard_template_writes(
+        _package(),
+        binding_payload=bindings,
+        manifest=drifted_manifest,
+        shell_identity_report=token,
+    )
+
+    drifted_bindings = deepcopy(bindings)
+    _binding(drifted_bindings, "summary_latest_revenue")["source_field"] = "net_income"
+    binding_plan = plan_standard_template_writes(
+        _package(),
+        binding_payload=drifted_bindings,
+        manifest=manifest,
+        shell_identity_report=token,
+    )
+
+    version_bindings = deepcopy(bindings)
+    version_bindings["binding_planner_contract_version"] = "9.9.9"
+    version_plan = plan_standard_template_writes(
+        _package(),
+        binding_payload=version_bindings,
+        manifest=manifest,
+        shell_identity_report=token,
+    )
+
+    for plan in (manifest_plan, binding_plan, version_plan):
+        assert plan.status == "FAIL"
+        assert not plan.planned_writes
+    assert "shell_identity_token_manifest_mismatch" in _rule_ids(manifest_plan)
+    assert "shell_binding_contract_token_mismatch" in _rule_ids(binding_plan)
+    assert "shell_binding_contract_token_mismatch" in _rule_ids(version_plan)
+
+
+def test_binding_plan_snapshot_is_comparison_only_and_reproduced_exactly() -> None:
+    package = _package()
+    manifest = _manifest()
+    bindings = _bindings()
+    shell_token = verify_shell_identity(SHELL_PATH, manifest=manifest, binding_payload=bindings)
+
+    plan, verified = reproduce_binding_plan_snapshot(
+        package,
+        binding_payload=bindings,
+        manifest=manifest,
+        shell_path=SHELL_PATH,
+        shell_identity_report=shell_token,
+    )
+    assert plan.status == "PASS"
+    assert not compare_binding_plan_snapshot(
+        verified,
+        normalized_package=package,
+        manifest=manifest,
+        binding_payload=bindings,
+        shell_path=SHELL_PATH,
+        shell_identity_report=shell_token,
+    )
+
+    fabricated = deepcopy(plan.to_dict())
+    fabricated["planned_writes"][0]["value"] = "FORGED"
+    with pytest.raises(BindingPlanReproductionError):
+        reproduce_binding_plan_snapshot(
+            package,
+            binding_payload=bindings,
+            manifest=manifest,
+            shell_path=SHELL_PATH,
+            shell_identity_report=shell_token,
+            expected_plan=fabricated,
+        )
+
+    changed_package = deepcopy(package)
+    changed_package["company_profile"]["business_description"]["value"] = "Changed after authorization"
+    assert {
+        issue["rule_id"]
+        for issue in compare_binding_plan_snapshot(
+            verified,
+            normalized_package=changed_package,
+            manifest=manifest,
+            binding_payload=bindings,
+            shell_path=SHELL_PATH,
+            shell_identity_report=shell_token,
+        )
+    } == {"binding_plan_reproduction_mismatch"}
+
+
+def test_stale_alias_horizon_guidance_is_blocked_before_visible_planning() -> None:
+    package = _package()
+    newer = package["normalized_guidance"]["items"][0]
+    older = deepcopy(newer)
+    older["horizon"]["value"] = "2026 year"
+    older["publication_date"] = "2026-05-01"
+    older["source_date"] = "2026-04-30"
+    older["stated_in_period"] = "2025-Q4"
+    older["evidence_key"] = "test-guidance-old-2026"
+    older["value"]["value"] = "Revenue growth expected in the low-single-digit range."
+    package["normalized_guidance"]["items"] = [older, newer]
+
+    plan = _plan(package)
+
+    assert plan.status == "FAIL"
+    assert "stale_guidance_visibility_misclassified" in _rule_ids(plan)
+    assert not plan.planned_writes
 
 
 def _writes(plan: BindingPlan) -> dict[tuple[str, str], object]:
@@ -78,6 +238,13 @@ def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
     assert plan.status == "PASS", [issue.to_dict() for issue in plan.issues]
     writes = _writes(plan)
 
+    assert writes[("SUMMARY", "A3")].value.startswith("Test Systems provides")
+    assert writes[("SUMMARY", "A5")].value.startswith("The current setup depends")
+    assert writes[("SUMMARY", "A9")].value == "Subscriptions"
+    assert writes[("SUMMARY", "B9")].value == 70.0
+    assert writes[("SUMMARY", "A11")].value == "Support contracts"
+    assert writes[("SUMMARY", "B11")].value == 10.0
+
     # Quarterly financials: period headers and metrics are distinct contracts.
     assert writes[("SUMMARY", "B26")].value == "2026-Q1"
     assert writes[("SUMMARY", "B28")].value == 120.5
@@ -85,11 +252,15 @@ def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
     assert writes[("Valuation", "B6")].value == "2025-Q4"
     assert writes[("Valuation", "B9")].value == 118.0
     assert writes[("Valuation", "B9")].row_key == "2025-Q4"
+    assert writes[("Valuation", "C6")].value == "2026-Q1"
+    assert writes[("Valuation", "C9")].value == 120.5
 
     # Annual financials use their own period and value rows.
     assert writes[("BS_Segments", "B70")].value == "2025-FY"
     assert writes[("BS_Segments", "B71")].value == 470.0
     assert writes[("BS_Segments", "B71")].row_key == "2025-FY"
+    assert writes[("BS_Segments", "B7")].value == "2025-Q4"
+    assert writes[("BS_Segments", "C7")].value == "2026-Q1"
 
     # Guidance uses merge anchors only and a separate status cell.
     guidance_key = "Revenue|FY2026|2026-07-07|test-guidance-2026q1"
@@ -103,9 +274,13 @@ def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
 
     # Segment rows are a member-by-period pivot, not a sequential row dump.
     assert writes[("BS_Segments", "A66")].value == "Workflow software"
-    assert writes[("BS_Segments", "I66")].value == 92.0
+    assert writes[("BS_Segments", "C66")].value == 92.0
     assert writes[("BS_Segments", "B72")].value == 360.0
-    assert writes[("BS_Segments", "I66")].row_key == "2026-Q1|business_line|Workflow software|revenue"
+    assert writes[("BS_Segments", "C66")].row_key == "2026-Q1|brand|Workflow software|revenue"
+    assert plan.period_axes["bs_quarterly_periods"]["period_to_column"] == {
+        "2025-Q4": "B",
+        "2026-Q1": "C",
+    }
 
     # Operating driver fields stay in the declared A/B/H cells.
     driver_key = "Demand|2026-Q1|operational|Retention and implementation velocity|test-driver-2026q1"
@@ -139,8 +314,10 @@ def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
     assert writes[("TEST_Investment_Case", "B7")].value.startswith("Whether retention")
 
     # Liquidity and valuation inputs have exact business semantics.
-    assert ("SUMMARY", "B41") not in writes
-    assert writes[("SUMMARY", "B45")].value == 180.0
+    assert writes[("SUMMARY", "B41")].value == 0.7
+    assert writes[("SUMMARY", "B41")].normalized_path == "debt_liquidity.net_leverage"
+    assert writes[("SUMMARY", "B45")].value == "180.000 as of 2026-03-31"
+    assert writes[("SUMMARY", "B45")].normalized_path == "debt_liquidity.summary_liquidity_display"
     assert writes[("Valuation", "D195")].value == "2026-03-31"
     assert writes[("Valuation", "D196")].value == 42.0
     assert writes[("Valuation", "D197")].value == 42.3
@@ -184,7 +361,7 @@ def test_manifest_rejects_guidance_write_to_merge_non_anchor_t9() -> None:
     assert plan.planned_writes == []
 
 
-def test_required_annual_overflow_is_explicit_and_fails() -> None:
+def test_annual_axis_window_exclusion_is_explicit_and_shared() -> None:
     package = _package()
     seed = package["annual_financials"]["rows"][0]
     rows = []
@@ -200,16 +377,19 @@ def test_required_annual_overflow_is_explicit_and_fails() -> None:
     package["annual_financials"]["rows"] = rows
 
     plan = _plan(package)
-    report = next(item for item in plan.binding_reports if item["binding_id"] == "bs_annual_revenue_series")
+    header_report = next(item for item in plan.binding_reports if item["binding_id"] == "bs_annual_period_headers")
+    value_report = next(item for item in plan.binding_reports if item["binding_id"] == "bs_annual_revenue_series")
 
-    assert plan.status == "FAIL"
-    assert "binding_overflow" in _rule_ids(plan)
-    assert len(report["overflow_rows"]) == 1
-    overflow = report["overflow_rows"][0]
-    assert {"binding_id", "row_key", "normalized_path", "source_ref", "reason", "severity"} <= set(overflow)
-    assert overflow["row_key"] == "2025-FY"
-    assert overflow["severity"] == "P1"
-    assert any(gap["row_key"] == "2025-FY" for gap in plan.mapping_gaps)
+    assert plan.status == "PASS", [issue.to_dict() for issue in plan.issues]
+    for report in (header_report, value_report):
+        excluded = next(item for item in report["skipped_rows"] if item["row_key"] == "2017-FY")
+        assert excluded["reason"] == "period_axis_outside_visible_window"
+        assert excluded["severity"] == "P2"
+        assert not report["overflow_rows"]
+    writes = _writes(plan)
+    assert writes[("BS_Segments", "B70")].value == "2018-FY"
+    assert writes[("BS_Segments", "I70")].value == "2025-FY"
+    assert writes[("BS_Segments", "I71")].value == 470.0
 
 
 def test_selected_row_with_missing_required_value_is_not_silently_skipped() -> None:
@@ -227,6 +407,39 @@ def test_selected_row_with_missing_required_value_is_not_silently_skipped() -> N
     assert skip["normalized_path"].endswith(".revenue")
     assert skip["expected_target"] == "B71"
     assert any(gap["row_key"] == "2025-FY" and gap["severity"] == "P1" for gap in plan.mapping_gaps)
+    ledger_issues = [
+        issue
+        for issue in plan.issue_ledger["issues"]
+        if issue.get("binding_id") == "bs_annual_revenue_series"
+        and issue.get("business_row_key") == "2025-FY"
+        and issue.get("root_cause") == "missing_value"
+    ]
+    assert len(ledger_issues) == 1
+    assert ledger_issues[0]["occurrence_count"] == 2
+    occurrence_ids = set(ledger_issues[0]["occurrence_ids"])
+    assert len(occurrence_ids) == 2
+    assert sum(issue["occurrence_count"] for issue in plan.issue_ledger["issues"]) == len(plan.issue_ledger["occurrences"])
+
+
+def test_duplicate_package_mapping_gaps_remain_as_distinct_occurrences() -> None:
+    package = _package()
+    gap = {
+        "severity": "P2",
+        "rule_id": "duplicate_fixture_gap",
+        "field": "capital_returns.dividends",
+        "normalized_path": "capital_returns.dividends",
+        "message": "The same source gap was reported twice.",
+        "source_ref": "synthetic_fixture:duplicate_gap",
+        "visibility_disposition": "json_audit_only",
+    }
+    package["mapping_gaps"].extend([gap, deepcopy(gap)])
+
+    plan = _plan(package)
+
+    matching = [issue for issue in plan.issue_ledger["issues"] if issue["rule_id"] == "duplicate_fixture_gap"]
+    assert len(matching) == 1
+    assert matching[0]["occurrence_count"] == 2
+    assert sum(issue["occurrence_count"] for issue in plan.issue_ledger["issues"]) == len(plan.issue_ledger["occurrences"])
 
 
 def test_schema_and_semantics_reject_units_dimensions_and_core_lineage() -> None:
@@ -307,6 +520,60 @@ def test_current_guidance_rowset_excludes_history_with_an_explicit_reason() -> N
     assert all(any(skip["row_key"].endswith("test-guidance-history") and skip["reason"].startswith("row_selector_excluded") for skip in report["skipped_rows"]) for report in reports)
 
 
+def test_pick_selector_reconciles_eligible_selected_and_structured_exclusions() -> None:
+    package = _package()
+    second_note = deepcopy(package["quarter_notes"]["items"][0])
+    second_note["theme"]["value"] = "Margin"
+    second_note["metric"]["value"] = "Gross margin"
+    second_note["evidence_key"] = "test-quarter-note-2026q1-secondary"
+    second_note["display_priority"] = 2
+    package["quarter_notes"]["items"].append(second_note)
+
+    plan = _plan(package)
+
+    assert plan.status == "PASS", [issue.to_dict() for issue in plan.issues]
+    expected_eligible = {
+        "summary_as_of_quarter": 2,
+        "summary_latest_net_income": 2,
+        "summary_latest_revenue": 2,
+        "qn_quarter_summary_rows": 2,
+    }
+    for binding_id, eligible_count in expected_eligible.items():
+        report = next(row for row in plan.binding_reports if row["binding_id"] == binding_id)
+        pick_exclusions = [
+            row
+            for row in report["skipped_rows"]
+            if str(row.get("reason") or "").startswith("row_selector_pick_excluded:")
+        ]
+        assert eligible_count == report["capacity_used"] + len(pick_exclusions)
+        assert all(row["selected_row_key"] and row["excluded_row_key"] for row in pick_exclusions)
+        assert all(row["selector_rule"] in {"pick=first", "pick=latest"} for row in pick_exclusions)
+        assert all(isinstance(row["period"], str) and not row["period"].startswith("{") for row in pick_exclusions)
+        if binding_id == "qn_quarter_summary_rows":
+            assert {row["period"] for row in pick_exclusions} == {"2026-Q1"}
+            assert all(row["source_ref"] for row in pick_exclusions)
+            assert all(row["row_key"] == row["excluded_row_key"] for row in pick_exclusions)
+        assert report["overflow_rows"] == []
+
+
+def test_stale_guidance_marked_current_fails_before_visible_planning() -> None:
+    package = _package()
+    stale = deepcopy(package["normalized_guidance"]["items"][0])
+    stale["publication_date"] = "2025-02-20"
+    stale["source_date"] = "2024-12-31"
+    stale["stated_in_period"] = "2024-Q4"
+    stale["horizon"]["value"] = "FY2025"
+    stale["evidence_key"] = "test-guidance-stale-current"
+    stale["display_role"] = "current_primary"
+    package["normalized_guidance"]["items"].append(stale)
+
+    plan = _plan(package)
+
+    assert plan.status == "FAIL"
+    assert "stale_guidance_visibility_misclassified" in _rule_ids(plan)
+    assert plan.planned_writes == []
+
+
 def test_future_quarter_note_is_audit_only_and_never_planned_visible() -> None:
     package = _package()
     future = deepcopy(package["quarter_notes"]["items"][0])
@@ -322,3 +589,115 @@ def test_future_quarter_note_is_audit_only_and_never_planned_visible() -> None:
     assert not any(write.row_key.endswith("test-quarter-note-future") for write in plan.planned_writes)
     report = next(item for item in plan.binding_reports if item["binding_id"] == "qn_quarter_note_rows")
     assert any(skip["row_key"].endswith("test-quarter-note-future") and skip["reason"].startswith("row_selector_excluded") for skip in report["skipped_rows"])
+
+
+def test_qa_capacity_overflow_is_explicit_and_does_not_drop_json_detail() -> None:
+    package = _package()
+    package["manual_review_flags"].append(
+        {
+            "severity": "P2",
+            "rule_id": "second_actionable_review",
+            "field": "company_profile.industry",
+            "message": "Second distinct actionable review.",
+            "source_ref": "synthetic_fixture:second_review",
+            "suggested_action": "Review the second synthetic issue.",
+        }
+    )
+    bindings = _bindings()
+    qa_binding = _binding(bindings, "qa_log_validation_rows")
+    qa_binding["planner_target"] = "A2:L2"
+    qa_binding["target"] = "A2:L2"
+    qa_binding["capacity"] = 1
+
+    plan = _plan(package, bindings=bindings)
+    report = next(item for item in plan.binding_reports if item["binding_id"] == "qa_log_validation_rows")
+
+    assert plan.status == "FAIL"
+    assert plan.qa_snapshot_status == "failed"
+    assert "qa_presentation_snapshot_unstable" in _rule_ids(plan)
+    assert report["overflow_rows"]
+    assert any(gap["binding_id"] == "qa_log_validation_rows" and gap["reason"] == "capacity_exceeded" for gap in plan.mapping_gaps)
+    assert plan.issue_ledger["summary"]["detailed_occurrence_count"] >= len(package["manual_review_flags"])
+    assert len(plan.issue_ledger["occurrences"]) == plan.issue_ledger["summary"]["detailed_occurrence_count"]
+    assert not any(write.target_sheet in {"QA_Log", "Needs_Review", "QA_Checks"} for write in plan.planned_writes)
+
+
+def test_final_canonical_ledger_is_the_only_blocking_gate() -> None:
+    blocking_gap = _package()
+    blocking_gap["mapping_gaps"].append(
+        {
+            "severity": "P1",
+            "rule_id": "blocking_package_gap",
+            "field": "debt_liquidity.total_debt",
+            "message": "Required source is unresolved.",
+            "source_ref": "synthetic_fixture:blocking_gap",
+        }
+    )
+    gap_plan = _plan(blocking_gap)
+    assert gap_plan.status == "FAIL"
+    assert gap_plan.planned_writes == []
+    assert any(issue["rule_id"] == "blocking_package_gap" for issue in gap_plan.issue_ledger["issues"])
+
+    blocking_review = _package()
+    blocking_review["manual_review_flags"].append(
+        {
+            "severity": "P2",
+            "rule_id": "explicit_render_blocker",
+            "field": "normalized_guidance.items",
+            "message": "A P2 issue explicitly blocks rendering.",
+            "source_ref": "synthetic_fixture:blocking_review",
+            "render_blocking": True,
+        }
+    )
+    review_plan = _plan(blocking_review)
+    assert review_plan.status == "FAIL"
+    assert review_plan.planned_writes == []
+
+    audit_only = _package()
+    audit_only["manual_review_flags"].append(
+        {
+            "severity": "P2",
+            "rule_id": "nonblocking_audit_note",
+            "field": "source_coverage",
+            "message": "Audit-only lineage note.",
+                "source_ref": "synthetic_fixture:audit",
+                "suggested_action": "Retain in JSON audit only.",
+                "visibility_disposition": "json_audit_only",
+            "promotion_blocking": False,
+            "render_blocking": False,
+        }
+    )
+    audit_plan = _plan(audit_only)
+    assert audit_plan.status == "PASS", [issue.to_dict() for issue in audit_plan.issues]
+
+
+def test_caller_mapping_cannot_forge_shell_identity() -> None:
+    plan = plan_standard_template_writes(
+        _package(),
+        binding_payload=_bindings(),
+        manifest=_manifest(),
+        shell_identity_report={"status": "PASS", "issues": []},  # type: ignore[arg-type]
+    )
+
+    assert plan.status == "FAIL"
+    assert "shell_identity_not_verified" in _rule_ids(plan)
+    assert plan.planned_writes == []
+
+
+def test_verified_identity_token_cannot_be_reused_for_drifted_binding_semantics() -> None:
+    manifest = _manifest()
+    approved_bindings = _bindings()
+    identity = verify_shell_identity(SHELL_PATH, manifest=manifest, binding_payload=approved_bindings)
+    drifted_bindings = deepcopy(approved_bindings)
+    _binding(drifted_bindings, "summary_latest_revenue")["source_field"] = "net_income"
+
+    plan = plan_standard_template_writes(
+        _package(),
+        binding_payload=drifted_bindings,
+        manifest=manifest,
+        shell_identity_report=identity,
+    )
+
+    assert plan.status == "FAIL"
+    assert "shell_binding_contract_token_mismatch" in _rule_ids(plan)
+    assert plan.planned_writes == []

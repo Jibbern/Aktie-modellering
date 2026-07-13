@@ -55,7 +55,7 @@
       "shell_zone": "summary_strategic_context_value",
       "anchor_label": "Current strategic context",
       "row_family": "summary_overview_text_rows",
-      "normalized_field": "company_profile.business_description",
+      "normalized_field": "company_profile.strategic_context",
       "value_shape": "text_block",
       "required": false,
       "source_policy": "profile-backed",
@@ -65,30 +65,63 @@
       "writable": true,
       "planning_mode": "text_block",
       "planner_target": "A5",
-      "source_path": "company_profile.business_description",
+      "source_path": "company_profile.strategic_context",
       "target_type": "text",
       "planning_state": "active"
     },
     {
-      "binding_id": "summary_revenue_model",
+      "binding_id": "summary_revenue_stream_rows",
       "sheet": "SUMMARY",
       "section": "Business model / revenue streams",
       "target": "A9:F11",
       "shell_zone": "summary_revenue_model_values",
       "anchor_label": "Business model / revenue streams",
-      "row_family": "summary_overview_text_rows",
-      "normalized_field": "company_profile.revenue_model",
-      "value_shape": "text_block",
+      "row_family": "summary_revenue_stream_rows",
+      "normalized_field": "company_profile.revenue_streams",
+      "value_shape": "table_rows",
       "required": true,
       "source_policy": "profile-backed",
       "missing_source_behavior": "leave shell text blank; emit profile/source gap",
       "promotion_requirement": "blocked_if_missing",
       "validation_rule": "unexplained_empty_core_field",
       "writable": true,
-      "planning_mode": "text_block",
-      "planner_target": "B9",
-      "source_path": "company_profile.revenue_model",
-      "target_type": "text",
+      "planning_mode": "table_rows",
+      "planner_target": "A9:B11",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "company_profile.revenue_streams"
+      },
+      "row_key": [
+        "member"
+      ],
+      "sort_order": [
+        "display_order:asc",
+        "member:asc"
+      ],
+      "capacity": 3,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "member",
+        "mix"
+      ],
+      "target_columns": [
+        {
+          "column_id": "member",
+          "source_field": "member",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "summary_revenue_stream_rows.member"
+        },
+        {
+          "column_id": "mix",
+          "source_field": "mix",
+          "target_column": "B",
+          "target_type": "number",
+          "target_role": "summary_revenue_stream_rows.mix"
+        }
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "mix",
       "planning_state": "active"
     },
     {
@@ -226,7 +259,7 @@
       "planning_block_reason": "What-would-make-me-wrong requires typed debate items, not one key_debate text field."
     },
     {
-      "binding_id": "summary_quarterly_revenue",
+      "binding_id": "summary_as_of_quarter",
       "sheet": "SUMMARY",
       "section": "Key Financials",
       "target": "B26:B29",
@@ -247,7 +280,8 @@
       "target_type": "period",
       "row_selector": {
         "source_path": "quarterly_financials.rows",
-        "pick": "latest"
+        "pick": "latest",
+        "pick_exclusion_disposition": "expected_supersession"
       },
       "row_key": [
         "period"
@@ -289,7 +323,8 @@
       "target_type": "number",
       "row_selector": {
         "source_path": "quarterly_financials.rows",
-        "pick": "latest"
+        "pick": "latest",
+        "pick_exclusion_disposition": "expected_supersession"
       },
       "row_key": [
         "period"
@@ -308,27 +343,26 @@
       "planning_state": "active"
     },
     {
-      "binding_id": "summary_net_debt",
+      "binding_id": "summary_net_leverage",
       "sheet": "SUMMARY",
       "section": "Leverage/Liquidity",
-      "target": "B41:B42",
+      "target": "B41:B41",
       "shell_zone": "summary_leverage_liquidity_values",
       "anchor_label": "Leverage / Liquidity",
       "row_family": "summary_leverage_liquidity_rows",
-      "normalized_field": "debt_liquidity.net_debt",
+      "normalized_field": "debt_liquidity.net_leverage",
       "value_shape": "scalar",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank values; emit mapping gap",
-      "promotion_requirement": "blocked_if_missing",
+      "promotion_requirement": "manual_review",
       "validation_rule": "unexplained_empty_core_field",
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "B41",
-      "source_path": "debt_liquidity.net_debt",
-      "target_type": "value",
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "SUMMARY row 41 is Net leverage, not net debt. Net debt belongs in the explicit Valuation input contract."
+      "source_path": "debt_liquidity.net_leverage",
+      "target_type": "number",
+      "planning_state": "active"
     },
     {
       "binding_id": "summary_liquidity",
@@ -338,7 +372,7 @@
       "shell_zone": "summary_leverage_liquidity_values",
       "anchor_label": "Liquidity",
       "row_family": "summary_leverage_liquidity_rows",
-      "normalized_field": "debt_liquidity.liquidity",
+      "normalized_field": "debt_liquidity.summary_liquidity_display",
       "value_shape": "scalar",
       "required": true,
       "source_policy": "source-backed",
@@ -348,8 +382,9 @@
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "B45",
-      "source_path": "debt_liquidity.liquidity",
+      "source_path": "debt_liquidity.summary_liquidity_display",
       "target_type": "value",
+      "freshness_contract": "debt_liquidity.liquidity_freshness",
       "planning_state": "active"
     },
     {
@@ -372,8 +407,12 @@
       "planner_target": "B9:M9",
       "target_axis": "columns",
       "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
       "row_selector": {
-        "source_path": "quarterly_financials.rows"
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
       },
       "row_key": [
         "period"
@@ -876,8 +915,12 @@
       "planner_target": "B24:M24",
       "target_axis": "columns",
       "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
       "row_selector": {
-        "source_path": "quarterly_financials.rows"
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
       },
       "row_key": [
         "period"
@@ -1182,6 +1225,8 @@
       "validation_rule": "unsupported_sector_specific_leakage",
       "writable": true,
       "planning_mode": "pivot_rows",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
       "planner_target": "A61:I67",
       "target_type": "pivot_matrix",
       "row_selector": {
@@ -1210,6 +1255,7 @@
       "sort_order": [
         "period:asc",
         "dimension:asc",
+        "display_order:asc",
         "member:asc",
         "metric:asc"
       ],
@@ -1218,6 +1264,7 @@
       "required_columns": [
         "dimension",
         "member",
+        "display_order",
         "period",
         "metric",
         "revenue"
@@ -1228,15 +1275,20 @@
       "period_field": "period",
       "value_field": "revenue",
       "label_target_column": "A",
-      "period_target_columns": ["B", "C", "D", "E", "F", "G", "H", "I"],
-      "period_alignment": "right",
       "value_target_type": "number",
       "row_blocks": {
-        "geography": [61, 62, 63],
-        "total_company": [65],
-        "brand": [66, 67],
-        "reported_segment": [66, 67],
-        "business_line": [66, 67]
+        "geography": [
+          61,
+          62,
+          63
+        ],
+        "total_company": [
+          65
+        ],
+        "brand": [
+          66,
+          67
+        ]
       },
       "source_ref_required": true,
       "source_ref_field": "revenue",
@@ -1259,6 +1311,8 @@
       "validation_rule": "unsupported_sector_specific_leakage",
       "writable": true,
       "planning_mode": "pivot_rows",
+      "period_axis_id": "bs_annual_periods",
+      "period_axis_role": "dependent",
       "planner_target": "A72:I74",
       "target_type": "pivot_matrix",
       "row_selector": {
@@ -1291,6 +1345,7 @@
       "sort_order": [
         "period:asc",
         "dimension:asc",
+        "display_order:asc",
         "member:asc",
         "metric:asc"
       ],
@@ -1299,6 +1354,7 @@
       "required_columns": [
         "dimension",
         "member",
+        "display_order",
         "period",
         "metric",
         "annual_revenue"
@@ -1309,11 +1365,13 @@
       "period_field": "period",
       "value_field": "annual_revenue",
       "label_target_column": "A",
-      "period_target_columns": ["B", "C", "D", "E", "F", "G", "H", "I"],
-      "period_alignment": "left",
       "value_target_type": "number",
       "row_blocks": {
-        "geography": [72, 73, 74]
+        "geography": [
+          72,
+          73,
+          74
+        ]
       },
       "source_ref_required": true,
       "source_ref_field": "annual_revenue",
@@ -1798,12 +1856,12 @@
       "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output."
     },
     {
-      "binding_id": "ic_lower_brand_health_rows",
+      "binding_id": "ic_lower_business_health_rows",
       "sheet": "{ticker}_Investment_Case",
-      "section": "Brand Health",
+      "section": "Business Health",
       "target": "B194:K199",
-      "shell_zone": "ic_lower_brand_health_values",
-      "anchor_label": "Brand Health",
+      "shell_zone": "ic_lower_business_health_values",
+      "anchor_label": "Business Health",
       "row_family": "investment_case_lower_optional_rows",
       "normalized_field": "operating_drivers.items.0.current_read",
       "value_shape": "table_rows",
@@ -1843,7 +1901,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output."
+      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output.",
+      "block_id": "ic_lower_business_health_values"
     },
     {
       "binding_id": "ic_lower_inventory_rows",
@@ -1894,12 +1953,12 @@
       "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output."
     },
     {
-      "binding_id": "ic_lower_store_productivity_rows",
+      "binding_id": "ic_lower_asset_productivity_rows",
       "sheet": "{ticker}_Investment_Case",
-      "section": "Store Productivity / Real Estate ROI",
+      "section": "Asset Productivity / Capacity Returns",
       "target": "B212:K225",
-      "shell_zone": "ic_lower_store_productivity_values",
-      "anchor_label": "Store Productivity / Real Estate ROI",
+      "shell_zone": "ic_lower_asset_productivity_values",
+      "anchor_label": "Asset Productivity / Capacity Returns",
       "row_family": "investment_case_lower_optional_rows",
       "normalized_field": "operating_drivers.items.0.metric_value",
       "value_shape": "table_rows",
@@ -1939,7 +1998,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output."
+      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output.",
+      "block_id": "ic_lower_asset_productivity_values"
     },
     {
       "binding_id": "ic_lower_guidance_setup_rows",
@@ -2132,6 +2192,7 @@
       "row_selector": {
         "source_path": "quarter_notes.items",
         "pick": "first",
+        "pick_exclusion_disposition": "expected_priority_selection",
         "filters": [
           {
             "field": "display_role",
@@ -3055,367 +3116,653 @@
     {
       "binding_id": "qa_log_validation_rows",
       "sheet": "QA_Log",
-      "section": "Validation results",
-      "target": "A2:Z5000",
+      "section": "Canonical issue summaries",
+      "target": "A2:L5000",
       "shell_zone": "qa_log_rows",
       "anchor_label": "QA Log",
       "row_family": "qa_log_validation_rows",
-      "normalized_field": "manual_review_flags",
+      "normalized_field": "issue_ledger.qa_presentation.qa_log_rows",
       "value_shape": "validation_rows",
-      "row_source": "manual_review_flags",
+      "row_source": "issue_ledger.qa_presentation.qa_log_rows",
       "row_schema": [
+        {
+          "column_id": "issue_id",
+          "source_field": "issue_id",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.issue_id",
+          "missing_behavior": "required canonical QA presentation field"
+        },
         {
           "column_id": "severity",
           "source_field": "severity",
-          "target_column": "A",
-          "missing_behavior": "write blank only for empty-pass validation row"
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.severity",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
           "column_id": "rule_id",
           "source_field": "rule_id",
-          "target_column": "B",
-          "missing_behavior": "write blank only for empty-pass validation row"
+          "target_column": "C",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.rule_id",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
-          "column_id": "field",
-          "source_field": "field",
-          "target_column": "C",
-          "missing_behavior": "write blank only for empty-pass validation row"
+          "column_id": "issue_type",
+          "source_field": "issue_type",
+          "target_column": "D",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.issue_type",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "section",
+          "source_field": "section",
+          "target_column": "E",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.section",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "root_cause",
+          "source_field": "root_cause",
+          "target_column": "F",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.root_cause",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
           "column_id": "message",
           "source_field": "message",
-          "target_column": "D",
-          "missing_behavior": "write blank only for empty-pass validation row"
-        },
-        {
-          "column_id": "source_ref",
-          "source_field": "source_ref",
-          "target_column": "E",
-          "missing_behavior": "leave blank when issue has no source ref"
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.message",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
           "column_id": "suggested_action",
           "source_field": "suggested_action",
-          "target_column": "F",
-          "missing_behavior": "leave blank when no action is available"
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.suggested_action",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "occurrence_count",
+          "source_field": "occurrence_count",
+          "target_column": "I",
+          "target_type": "integer",
+          "target_role": "qa_log_validation_rows.occurrence_count",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "visibility_disposition",
+          "source_field": "visibility_disposition",
+          "target_column": "J",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.visibility_disposition",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "promotion_blocking",
+          "source_field": "promotion_blocking",
+          "target_column": "K",
+          "target_type": "boolean",
+          "target_role": "qa_log_validation_rows.promotion_blocking",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "detail_ref",
+          "source_field": "detail_ref",
+          "target_column": "L",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.detail_ref",
+          "missing_behavior": "required canonical QA presentation field"
         }
       ],
       "required": true,
       "source_policy": "validation-output",
-      "missing_source_behavior": "write an empty-pass QA row only after validator returns no issues",
+      "missing_source_behavior": "write no rows only when the canonical issue ledger is empty",
       "promotion_requirement": "required",
-      "validation_rule": "normalized_data_issue_shape",
+      "validation_rule": "canonical_issue_ledger_summary_shape",
       "writable": true,
       "planning_mode": "validation_rows",
-      "planner_target": "A2:Z5000",
+      "planner_target": "A2:L5000",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "manual_review_flags"
+        "source_path": "issue_ledger.qa_presentation.qa_log_rows"
       },
       "row_key": [
-        "binding_id",
-        "rule_id",
-        "field",
-        "message",
-        "normalized_path",
-        "row_key"
+        "issue_id"
       ],
-      "row_key_only_columns": [
-        "binding_id",
-        "normalized_path",
-        "row_key"
-      ],
+      "row_key_only_columns": [],
       "sort_order": [
         "severity:asc",
-        "rule_id:asc"
+        "rule_id:asc",
+        "issue_id:asc"
       ],
       "capacity": 4999,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
+        "issue_id",
         "severity",
         "rule_id",
-        "field",
-        "message"
+        "issue_type",
+        "section",
+        "root_cause",
+        "message",
+        "suggested_action",
+        "occurrence_count",
+        "visibility_disposition",
+        "promotion_blocking",
+        "detail_ref"
       ],
       "target_columns": [
         {
+          "column_id": "issue_id",
+          "source_field": "issue_id",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.issue_id"
+        },
+        {
           "column_id": "severity",
           "source_field": "severity",
-          "target_column": "A"
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.severity"
         },
         {
           "column_id": "rule_id",
           "source_field": "rule_id",
-          "target_column": "B"
+          "target_column": "C",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.rule_id"
         },
         {
-          "column_id": "field",
-          "source_field": "field",
-          "target_column": "C"
+          "column_id": "issue_type",
+          "source_field": "issue_type",
+          "target_column": "D",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.issue_type"
+        },
+        {
+          "column_id": "section",
+          "source_field": "section",
+          "target_column": "E",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.section"
+        },
+        {
+          "column_id": "root_cause",
+          "source_field": "root_cause",
+          "target_column": "F",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.root_cause"
         },
         {
           "column_id": "message",
           "source_field": "message",
-          "target_column": "D"
-        },
-        {
-          "column_id": "source_ref",
-          "source_field": "source_ref",
-          "target_column": "E"
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.message"
         },
         {
           "column_id": "suggested_action",
           "source_field": "suggested_action",
-          "target_column": "F"
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.suggested_action"
+        },
+        {
+          "column_id": "occurrence_count",
+          "source_field": "occurrence_count",
+          "target_column": "I",
+          "target_type": "integer",
+          "target_role": "qa_log_validation_rows.occurrence_count"
+        },
+        {
+          "column_id": "visibility_disposition",
+          "source_field": "visibility_disposition",
+          "target_column": "J",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.visibility_disposition"
+        },
+        {
+          "column_id": "promotion_blocking",
+          "source_field": "promotion_blocking",
+          "target_column": "K",
+          "target_type": "boolean",
+          "target_role": "qa_log_validation_rows.promotion_blocking"
+        },
+        {
+          "column_id": "detail_ref",
+          "source_field": "detail_ref",
+          "target_column": "L",
+          "target_type": "text",
+          "target_role": "qa_log_validation_rows.detail_ref"
         }
       ],
       "source_ref_required": false,
       "allow_empty": true,
-      "planning_state": "active"
+      "planning_state": "active",
+      "aggregation_policy": "one row per stable issue_id; full occurrences remain in issue_ledger.occurrences",
+      "visibility_filter": "all canonical issues",
+      "full_detail_path": "issue_ledger.occurrences"
     },
     {
       "binding_id": "needs_review_validation_rows",
       "sheet": "Needs_Review",
-      "section": "Manual review",
-      "target": "A2:Z5000",
+      "section": "Actionable unresolved review",
+      "target": "A2:K5000",
       "shell_zone": "needs_review_rows",
       "anchor_label": "Needs Review",
       "row_family": "needs_review_issue_rows",
-      "normalized_field": "manual_review_flags",
+      "normalized_field": "issue_ledger.qa_presentation.needs_review_rows",
       "value_shape": "validation_rows",
-      "row_source": "manual_review_flags",
+      "row_source": "issue_ledger.qa_presentation.needs_review_rows",
       "row_schema": [
+        {
+          "column_id": "issue_id",
+          "source_field": "issue_id",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.issue_id",
+          "missing_behavior": "required canonical QA presentation field"
+        },
         {
           "column_id": "severity",
           "source_field": "severity",
-          "target_column": "A",
-          "missing_behavior": "write blank only for empty-pass validation row"
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.severity",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
           "column_id": "rule_id",
           "source_field": "rule_id",
-          "target_column": "B",
-          "missing_behavior": "write blank only for empty-pass validation row"
+          "target_column": "C",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.rule_id",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
-          "column_id": "field",
-          "source_field": "field",
-          "target_column": "C",
-          "missing_behavior": "write blank only for empty-pass validation row"
+          "column_id": "section",
+          "source_field": "section",
+          "target_column": "D",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.section",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "normalized_path",
+          "source_field": "normalized_path",
+          "target_column": "E",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.normalized_path",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "business_row_key",
+          "source_field": "business_row_key",
+          "target_column": "F",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.business_row_key",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
           "column_id": "message",
           "source_field": "message",
-          "target_column": "D",
-          "missing_behavior": "write blank only for empty-pass validation row"
-        },
-        {
-          "column_id": "source_ref",
-          "source_field": "source_ref",
-          "target_column": "E",
-          "missing_behavior": "leave blank when issue has no source ref"
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.message",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
           "column_id": "suggested_action",
           "source_field": "suggested_action",
-          "target_column": "F",
-          "missing_behavior": "leave blank when no action is available"
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.suggested_action",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "occurrence_count",
+          "source_field": "occurrence_count",
+          "target_column": "I",
+          "target_type": "integer",
+          "target_role": "needs_review_validation_rows.occurrence_count",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "promotion_blocking",
+          "source_field": "promotion_blocking",
+          "target_column": "J",
+          "target_type": "boolean",
+          "target_role": "needs_review_validation_rows.promotion_blocking",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "detail_ref",
+          "source_field": "detail_ref",
+          "target_column": "K",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.detail_ref",
+          "missing_behavior": "required canonical QA presentation field"
         }
       ],
       "required": true,
       "source_policy": "validation-output",
-      "missing_source_behavior": "write validation issue rows; do not hide missing fields",
+      "missing_source_behavior": "write no rows when no unresolved actionable issue exists",
       "promotion_requirement": "required",
-      "validation_rule": "normalized_data_issue_shape",
+      "validation_rule": "canonical_issue_ledger_actionable_filter",
       "writable": true,
       "planning_mode": "validation_rows",
-      "planner_target": "A2:Z5000",
+      "planner_target": "A2:K5000",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "manual_review_flags"
+        "source_path": "issue_ledger.qa_presentation.needs_review_rows"
       },
       "row_key": [
-        "binding_id",
-        "rule_id",
-        "field",
-        "message",
-        "normalized_path",
-        "row_key"
+        "issue_id"
       ],
-      "row_key_only_columns": [
-        "binding_id",
-        "normalized_path",
-        "row_key"
-      ],
+      "row_key_only_columns": [],
       "sort_order": [
         "severity:asc",
-        "rule_id:asc"
+        "rule_id:asc",
+        "issue_id:asc"
       ],
       "capacity": 4999,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
+        "issue_id",
         "severity",
         "rule_id",
-        "field",
-        "message"
+        "section",
+        "normalized_path",
+        "message",
+        "suggested_action",
+        "occurrence_count",
+        "promotion_blocking",
+        "detail_ref"
       ],
       "target_columns": [
         {
+          "column_id": "issue_id",
+          "source_field": "issue_id",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.issue_id"
+        },
+        {
           "column_id": "severity",
           "source_field": "severity",
-          "target_column": "A"
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.severity"
         },
         {
           "column_id": "rule_id",
           "source_field": "rule_id",
-          "target_column": "B"
+          "target_column": "C",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.rule_id"
         },
         {
-          "column_id": "field",
-          "source_field": "field",
-          "target_column": "C"
+          "column_id": "section",
+          "source_field": "section",
+          "target_column": "D",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.section"
+        },
+        {
+          "column_id": "normalized_path",
+          "source_field": "normalized_path",
+          "target_column": "E",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.normalized_path"
+        },
+        {
+          "column_id": "business_row_key",
+          "source_field": "business_row_key",
+          "target_column": "F",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.business_row_key"
         },
         {
           "column_id": "message",
           "source_field": "message",
-          "target_column": "D"
-        },
-        {
-          "column_id": "source_ref",
-          "source_field": "source_ref",
-          "target_column": "E"
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.message"
         },
         {
           "column_id": "suggested_action",
           "source_field": "suggested_action",
-          "target_column": "F"
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.suggested_action"
+        },
+        {
+          "column_id": "occurrence_count",
+          "source_field": "occurrence_count",
+          "target_column": "I",
+          "target_type": "integer",
+          "target_role": "needs_review_validation_rows.occurrence_count"
+        },
+        {
+          "column_id": "promotion_blocking",
+          "source_field": "promotion_blocking",
+          "target_column": "J",
+          "target_type": "boolean",
+          "target_role": "needs_review_validation_rows.promotion_blocking"
+        },
+        {
+          "column_id": "detail_ref",
+          "source_field": "detail_ref",
+          "target_column": "K",
+          "target_type": "text",
+          "target_role": "needs_review_validation_rows.detail_ref"
         }
       ],
       "source_ref_required": false,
       "allow_empty": true,
-      "planning_state": "active"
+      "planning_state": "active",
+      "aggregation_policy": "one row per actionable stable issue_id; never duplicate audit-only evidence",
+      "visibility_filter": "visibility_disposition equals needs_review",
+      "full_detail_path": "issue_ledger.occurrences"
     },
     {
       "binding_id": "qa_checks_mapping_gap_rows",
       "sheet": "QA_Checks",
-      "section": "Binding checks",
-      "target": "A2:Z5000",
+      "section": "Rule-level QA checks",
+      "target": "A2:I5000",
       "shell_zone": "qa_checks_rows",
       "anchor_label": "QA Checks",
       "row_family": "qa_checks_mapping_gap_rows",
-      "normalized_field": "mapping_gaps",
+      "normalized_field": "issue_ledger.qa_presentation.qa_check_rows",
       "value_shape": "validation_rows",
-      "row_source": "mapping_gaps",
+      "row_source": "issue_ledger.qa_presentation.qa_check_rows",
       "row_schema": [
-        {
-          "column_id": "severity",
-          "source_field": "severity",
-          "target_column": "A",
-          "missing_behavior": "default to P2 for mapping-gap rows"
-        },
         {
           "column_id": "rule_id",
           "source_field": "rule_id",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "qa_checks_mapping_gap_rows.rule_id",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "status",
+          "source_field": "status",
           "target_column": "B",
-          "missing_behavior": "default to mapping_gap"
+          "target_type": "text",
+          "target_role": "qa_checks_mapping_gap_rows.status",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
-          "column_id": "field",
-          "source_field": "field",
+          "column_id": "unique_issue_count",
+          "source_field": "unique_issue_count",
           "target_column": "C",
-          "missing_behavior": "leave blank only if binding has no normalized field"
+          "target_type": "integer",
+          "target_role": "qa_checks_mapping_gap_rows.unique_issue_count",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
-          "column_id": "message",
-          "source_field": "message",
+          "column_id": "occurrence_count",
+          "source_field": "occurrence_count",
           "target_column": "D",
-          "missing_behavior": "fall back to missing_source_behavior"
+          "target_type": "integer",
+          "target_role": "qa_checks_mapping_gap_rows.occurrence_count",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
-          "column_id": "source_ref",
-          "source_field": "source_ref",
+          "column_id": "blocking_count",
+          "source_field": "blocking_count",
           "target_column": "E",
-          "missing_behavior": "leave blank when gap has no source ref"
+          "target_type": "integer",
+          "target_role": "qa_checks_mapping_gap_rows.blocking_count",
+          "missing_behavior": "required canonical QA presentation field"
         },
         {
-          "column_id": "suggested_action",
-          "source_field": "suggested_action",
+          "column_id": "actionable_count",
+          "source_field": "actionable_count",
           "target_column": "F",
-          "missing_behavior": "fall back to promotion requirement"
+          "target_type": "integer",
+          "target_role": "qa_checks_mapping_gap_rows.actionable_count",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "affected_sections",
+          "source_field": "affected_sections",
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "qa_checks_mapping_gap_rows.affected_sections",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "interpretation",
+          "source_field": "interpretation",
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "qa_checks_mapping_gap_rows.interpretation",
+          "missing_behavior": "required canonical QA presentation field"
+        },
+        {
+          "column_id": "detail_ref",
+          "source_field": "detail_ref",
+          "target_column": "I",
+          "target_type": "text",
+          "target_role": "qa_checks_mapping_gap_rows.detail_ref",
+          "missing_behavior": "required canonical QA presentation field"
         }
       ],
       "required": true,
       "source_policy": "validation-output",
-      "missing_source_behavior": "write one check row per binding gap",
+      "missing_source_behavior": "write no rows only when the canonical issue ledger has no checks",
       "promotion_requirement": "required",
-      "validation_rule": "valuation_core_mapping_gap",
+      "validation_rule": "canonical_issue_ledger_rule_check_shape",
       "writable": true,
       "planning_mode": "validation_rows",
-      "planner_target": "A2:Z5000",
+      "planner_target": "A2:I5000",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "mapping_gaps"
+        "source_path": "issue_ledger.qa_presentation.qa_check_rows"
       },
       "row_key": [
-        "binding_id",
-        "normalized_path",
-        "row_key",
-        "reason"
+        "rule_id"
       ],
-      "row_key_only_columns": [
-        "binding_id",
-        "normalized_path",
-        "row_key",
-        "reason"
-      ],
+      "row_key_only_columns": [],
       "sort_order": [
-        "severity:asc",
+        "status:asc",
         "rule_id:asc"
       ],
       "capacity": 4999,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "severity",
         "rule_id",
-        "field",
-        "message"
+        "status",
+        "unique_issue_count",
+        "occurrence_count",
+        "blocking_count",
+        "actionable_count",
+        "affected_sections",
+        "interpretation",
+        "detail_ref"
       ],
       "target_columns": [
         {
-          "column_id": "severity",
-          "source_field": "severity",
-          "target_column": "A"
-        },
-        {
           "column_id": "rule_id",
           "source_field": "rule_id",
-          "target_column": "B"
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "qa_checks_mapping_gap_rows.rule_id"
         },
         {
-          "column_id": "field",
-          "source_field": "field",
-          "target_column": "C"
+          "column_id": "status",
+          "source_field": "status",
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "qa_checks_mapping_gap_rows.status"
         },
         {
-          "column_id": "message",
-          "source_field": "message",
-          "target_column": "D"
+          "column_id": "unique_issue_count",
+          "source_field": "unique_issue_count",
+          "target_column": "C",
+          "target_type": "integer",
+          "target_role": "qa_checks_mapping_gap_rows.unique_issue_count"
         },
         {
-          "column_id": "source_ref",
-          "source_field": "source_ref",
-          "target_column": "E"
+          "column_id": "occurrence_count",
+          "source_field": "occurrence_count",
+          "target_column": "D",
+          "target_type": "integer",
+          "target_role": "qa_checks_mapping_gap_rows.occurrence_count"
         },
         {
-          "column_id": "suggested_action",
-          "source_field": "suggested_action",
-          "target_column": "F"
+          "column_id": "blocking_count",
+          "source_field": "blocking_count",
+          "target_column": "E",
+          "target_type": "integer",
+          "target_role": "qa_checks_mapping_gap_rows.blocking_count"
+        },
+        {
+          "column_id": "actionable_count",
+          "source_field": "actionable_count",
+          "target_column": "F",
+          "target_type": "integer",
+          "target_role": "qa_checks_mapping_gap_rows.actionable_count"
+        },
+        {
+          "column_id": "affected_sections",
+          "source_field": "affected_sections",
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "qa_checks_mapping_gap_rows.affected_sections"
+        },
+        {
+          "column_id": "interpretation",
+          "source_field": "interpretation",
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "qa_checks_mapping_gap_rows.interpretation"
+        },
+        {
+          "column_id": "detail_ref",
+          "source_field": "detail_ref",
+          "target_column": "I",
+          "target_type": "text",
+          "target_role": "qa_checks_mapping_gap_rows.detail_ref"
         }
       ],
       "source_ref_required": false,
       "allow_empty": true,
-      "planning_state": "active"
+      "planning_state": "active",
+      "aggregation_policy": "one row per rule_id with unique, occurrence, blocking and actionable counts",
+      "visibility_filter": "all rule-level checks",
+      "full_detail_path": "issue_ledger.occurrences"
     },
     {
       "binding_id": "summary_latest_revenue",
@@ -3440,7 +3787,8 @@
       "target_type": "number",
       "row_selector": {
         "source_path": "quarterly_financials.rows",
-        "pick": "latest"
+        "pick": "latest",
+        "pick_exclusion_disposition": "expected_supersession"
       },
       "row_key": [
         "period"
@@ -3480,8 +3828,12 @@
       "planner_target": "B6:M6",
       "target_axis": "columns",
       "target_type": "period",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "header",
+      "period_field": "period",
       "row_selector": {
-        "source_path": "quarterly_financials.rows"
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
       },
       "row_key": [
         "period"
@@ -3521,8 +3873,12 @@
       "planner_target": "B36:M36",
       "target_axis": "columns",
       "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
       "row_selector": {
-        "source_path": "quarterly_financials.rows"
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
       },
       "row_key": [
         "period"
@@ -3561,8 +3917,12 @@
       "planner_target": "B43:M43",
       "target_axis": "columns",
       "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
       "row_selector": {
-        "source_path": "quarterly_financials.rows"
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
       },
       "row_key": [
         "period"
@@ -3578,6 +3938,52 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "operating_cash_flow",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_quarterly_period_headers",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financials",
+      "target": "B7:I7",
+      "shell_zone": "bs_liquidity_values",
+      "block_id": "bs_liquidity_values",
+      "anchor_label": "Quarter",
+      "row_family": "bs_quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.period",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave quarterly period headers blank and emit a P1 mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B7:I7",
+      "target_axis": "columns",
+      "target_type": "period",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "header",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "minimum_rows": 1,
+      "overflow_behavior": "fail",
+      "required_columns": [
+        "period"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "period",
+      "source_ref_field": "revenue",
       "planning_state": "active"
     },
     {
@@ -3601,8 +4007,12 @@
       "planner_target": "B70:I70",
       "target_axis": "columns",
       "target_type": "period",
+      "period_axis_id": "bs_annual_periods",
+      "period_axis_role": "header",
+      "period_field": "period",
       "row_selector": {
-        "source_path": "annual_financials.rows"
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
       },
       "row_key": [
         "period"
@@ -3643,8 +4053,12 @@
       "planner_target": "B71:I71",
       "target_axis": "columns",
       "target_type": "number",
+      "period_axis_id": "bs_annual_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
       "row_selector": {
-        "source_path": "annual_financials.rows"
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
       },
       "row_key": [
         "period"

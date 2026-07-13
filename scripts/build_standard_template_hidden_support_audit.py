@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,11 @@ from openpyxl import load_workbook
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from pbi_xbrl.standard_template_audit_runner import run_audit_generator
+
 DEFAULT_TEMPLATE = ROOT / "templates" / "standard_stock_model_template.xlsx"
 DEFAULT_LAB_SOURCE = ROOT / "templates" / "lab" / "ANF_template_lab.xlsx"
 DEFAULT_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
@@ -449,13 +456,27 @@ def main() -> int:
     parser.add_argument("--audit-md", type=Path, default=DEFAULT_AUDIT_MD)
     args = parser.parse_args()
 
-    payload = build_audit(
-        template_path=args.template.resolve(),
-        lab_path=args.lab.resolve(),
-        manifest_path=args.manifest.resolve(),
-        audit_json_path=args.audit_json.resolve(),
-        audit_md_path=args.audit_md.resolve(),
+    is_default_run = all(
+        actual.resolve() == expected.resolve()
+        for actual, expected in (
+            (args.template, DEFAULT_TEMPLATE),
+            (args.lab, DEFAULT_LAB_SOURCE),
+            (args.manifest, DEFAULT_MANIFEST),
+            (args.audit_json, DEFAULT_AUDIT_JSON),
+            (args.audit_md, DEFAULT_AUDIT_MD),
+        )
     )
+    if is_default_run and os.environ.get("STANDARD_TEMPLATE_AUDIT_ISOLATED_RUN") != "1":
+        run_audit_generator(Path(__file__), root=ROOT)
+        payload = json.loads(DEFAULT_AUDIT_JSON.read_text(encoding="utf-8"))
+    else:
+        payload = build_audit(
+            template_path=args.template.resolve(),
+            lab_path=args.lab.resolve(),
+            manifest_path=args.manifest.resolve(),
+            audit_json_path=args.audit_json.resolve(),
+            audit_md_path=args.audit_md.resolve(),
+        )
     print(f"hidden support audit: {args.audit_json.resolve()}")
     print(f"hidden support audit md: {args.audit_md.resolve()}")
     print(

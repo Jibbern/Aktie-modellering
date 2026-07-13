@@ -1,7 +1,12 @@
 {
-  "version": "0.1.0",
-  "generated_at_utc": "2026-07-10T21:48:09+00:00",
+  "version": "0.3.0",
+  "generator_version": "anf_legacy_adapter_audits/0.3.0",
+  "source_package_content_sha256": "111d5d9844c12c663f14ceded986265e67371ab564c159da46a02eeb0da4b41f",
+  "binding_contract_content_sha256": "ec6ebd29151827c12cf9e9b138531fe285835a803c167ab1d71337cf7e3e718e",
+  "generated_at_utc": "2026-07-12T22:11:12+00:00",
   "ticker": "ANF",
+  "planner_status": "PASS",
+  "planner_total_write_count": 3908,
   "bindings": [
     {
       "binding_id": "summary_company_description",
@@ -15,13 +20,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 6,
       "source_ref_coverage": [
         "ANF_model.xlsx!SUMMARY"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "summary_key_advantage",
@@ -35,53 +50,81 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 6,
       "source_ref_coverage": [
         "ANF_model.xlsx!SUMMARY"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "summary_strategic_context",
       "sheet": "SUMMARY",
       "section": "Company Overview",
       "target": "A5:F5",
-      "normalized_field": "company_profile.business_description",
+      "normalized_field": "company_profile.strategic_context",
       "value_shape": "text_block",
       "required": false,
       "row_schema_columns": [],
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 6,
       "source_ref_coverage": [
-        "ANF_model.xlsx!SUMMARY"
+        "ANF_model.xlsx!SUMMARY!A5"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
-      "binding_id": "summary_revenue_model",
+      "binding_id": "summary_revenue_stream_rows",
       "sheet": "SUMMARY",
       "section": "Business model / revenue streams",
       "target": "A9:F11",
-      "normalized_field": "company_profile.revenue_model",
-      "value_shape": "text_block",
+      "normalized_field": "company_profile.revenue_streams",
+      "value_shape": "table_rows",
       "required": true,
       "row_schema_columns": [],
       "has_populated_data": true,
-      "number_of_values_available": 1,
-      "number_of_rows_available": 1,
+      "number_of_values_available": 3,
+      "number_of_rows_available": 3,
+      "number_of_rows_planner_eligible": 3,
+      "number_of_values_planner_eligible": 6,
+      "planner_planned_write_count": 6,
+      "planner_capacity_used": 3,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 3,
       "number_of_cells_expected": 18,
-      "source_ref_coverage": [
-        "ANF_model.xlsx!SUMMARY"
-      ],
+      "source_ref_coverage": [],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "summary_segment_model",
@@ -95,14 +138,24 @@
       "has_populated_data": true,
       "number_of_values_available": 14,
       "number_of_rows_available": 14,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 3,
       "number_of_cells_expected": 18,
       "source_ref_coverage": [
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-11-26_earnings_release.htm",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "summary_key_risks",
@@ -116,13 +169,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 5,
       "number_of_cells_expected": 30,
       "source_ref_coverage": [
         "ANF_model.xlsx!SUMMARY"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "summary_wrong_if",
@@ -136,16 +199,26 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 2,
       "number_of_cells_expected": 12,
       "source_ref_coverage": [
         "ANF_model.xlsx!ANF_Investment_Case"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
-      "binding_id": "summary_quarterly_revenue",
+      "binding_id": "summary_as_of_quarter",
       "sheet": "SUMMARY",
       "section": "Key Financials",
       "target": "B26:B29",
@@ -156,11 +229,23 @@
       "has_populated_data": false,
       "number_of_values_available": 0,
       "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 11,
       "number_of_rows_expected": 4,
       "number_of_cells_expected": 4,
       "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "normalized field is absent or not populated"
+      "would_write_useful_output": true,
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 11,
+      "structured_exclusion_reasons": [
+        "row_selector_pick_excluded:expected_supersession"
+      ],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "summary_latest_net_income",
@@ -174,6 +259,12 @@
       "has_populated_data": true,
       "number_of_values_available": 12,
       "number_of_rows_available": 12,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 11,
       "number_of_rows_expected": 10,
       "number_of_cells_expected": 10,
       "source_ref_coverage": [
@@ -191,47 +282,71 @@
         "ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 11,
+      "structured_exclusion_reasons": [
+        "row_selector_pick_excluded:expected_supersession"
+      ],
+      "selection_issue_count": 0
     },
     {
-      "binding_id": "summary_net_debt",
+      "binding_id": "summary_net_leverage",
       "sheet": "SUMMARY",
       "section": "Leverage/Liquidity",
-      "target": "B41:B42",
-      "normalized_field": "debt_liquidity.net_debt",
+      "target": "B41:B41",
+      "normalized_field": "debt_liquidity.net_leverage",
       "value_shape": "scalar",
-      "required": true,
+      "required": false,
       "row_schema_columns": [],
-      "has_populated_data": true,
-      "number_of_values_available": 1,
-      "number_of_rows_available": 1,
-      "number_of_rows_expected": 2,
-      "number_of_cells_expected": 2,
-      "source_ref_coverage": [
-        "ANF_model.xlsx!Leverage_Liquidity!row:47"
-      ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "has_populated_data": false,
+      "number_of_values_available": 0,
+      "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
+      "number_of_rows_expected": 1,
+      "number_of_cells_expected": 1,
+      "source_ref_coverage": [],
+      "would_write_useful_output": false,
+      "blank_reason": "normalized field is absent or not populated",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "summary_liquidity",
       "sheet": "SUMMARY",
       "section": "Leverage/Liquidity",
       "target": "B45:B45",
-      "normalized_field": "debt_liquidity.liquidity",
+      "normalized_field": "debt_liquidity.summary_liquidity_display",
       "value_shape": "scalar",
       "required": true,
       "row_schema_columns": [],
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 1,
       "source_ref_coverage": [
-        "ANF_model.xlsx!Leverage_Liquidity!row:47"
+        "ANF_model.xlsx!History_Q!row:49 + ANF_model.xlsx!Revolver_History!row:20"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_revenue_series",
@@ -245,6 +360,12 @@
       "has_populated_data": true,
       "number_of_values_available": 12,
       "number_of_rows_available": 12,
+      "number_of_rows_planner_eligible": 12,
+      "number_of_values_planner_eligible": 12,
+      "planner_planned_write_count": 12,
+      "planner_capacity_used": 12,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 23,
       "number_of_cells_expected": 276,
       "source_ref_coverage": [
@@ -262,7 +383,11 @@
         "ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_guidance_rows",
@@ -276,11 +401,23 @@
       "has_populated_data": false,
       "number_of_values_available": 0,
       "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 7,
+      "number_of_values_planner_eligible": 28,
+      "planner_planned_write_count": 28,
+      "planner_capacity_used": 7,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 23,
       "number_of_rows_expected": 19,
       "number_of_cells_expected": 114,
       "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "normalized field is absent or not populated"
+      "would_write_useful_output": true,
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 23,
+      "structured_exclusion_reasons": [
+        "row_selector_excluded:display_role:not_equal"
+      ],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_guidance_rows_lower",
@@ -294,6 +431,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 8,
       "number_of_cells_expected": 48,
       "source_ref_coverage": [
@@ -302,8 +445,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_operating_driver_sidecar_rows",
@@ -317,6 +464,12 @@
       "has_populated_data": true,
       "number_of_values_available": 34,
       "number_of_rows_available": 34,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 9,
       "number_of_cells_expected": 117,
       "source_ref_coverage": [
@@ -329,8 +482,12 @@
         "quarter_note",
         "transcript"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_thesis_bridge_rows",
@@ -344,13 +501,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 12,
       "number_of_cells_expected": 156,
       "source_ref_coverage": [
         "ANF_model.xlsx!ANF_Investment_Case"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_output_rows",
@@ -364,11 +531,21 @@
       "has_populated_data": false,
       "number_of_values_available": 0,
       "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 107,
       "number_of_cells_expected": 1391,
       "source_ref_coverage": [],
       "would_write_useful_output": false,
-      "blank_reason": "normalized field is absent or not populated"
+      "blank_reason": "normalized field is absent or not populated",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_guidance_status_rows",
@@ -382,11 +559,23 @@
       "has_populated_data": false,
       "number_of_values_available": 0,
       "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 7,
+      "number_of_values_planner_eligible": 7,
+      "planner_planned_write_count": 7,
+      "planner_capacity_used": 7,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 23,
       "number_of_rows_expected": 19,
       "number_of_cells_expected": 19,
       "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "normalized field is absent or not populated"
+      "would_write_useful_output": true,
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 23,
+      "structured_exclusion_reasons": [
+        "row_selector_excluded:display_role:not_equal"
+      ],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_guidance_status_rows_lower",
@@ -400,6 +589,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 8,
       "number_of_cells_expected": 32,
       "source_ref_coverage": [
@@ -408,8 +603,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_operating_income_series",
@@ -423,6 +622,12 @@
       "has_populated_data": true,
       "number_of_values_available": 12,
       "number_of_rows_available": 12,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 8,
       "number_of_cells_expected": 96,
       "source_ref_coverage": [
@@ -439,8 +644,12 @@
         "ANF_model.xlsx!History_Q!row:49",
         "ANF_model.xlsx!History_Q!row:50"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_ebitda_series",
@@ -454,13 +663,23 @@
       "has_populated_data": true,
       "number_of_values_available": 12,
       "number_of_rows_available": 12,
+      "number_of_rows_planner_eligible": 12,
+      "number_of_values_planner_eligible": 12,
+      "planner_planned_write_count": 12,
+      "planner_capacity_used": 12,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 12,
       "source_ref_coverage": [
         "ANF_model.xlsx!Valuation!row:24"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_fcf_series",
@@ -474,6 +693,12 @@
       "has_populated_data": true,
       "number_of_values_available": 12,
       "number_of_rows_available": 12,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 10,
       "number_of_cells_expected": 120,
       "source_ref_coverage": [
@@ -490,8 +715,12 @@
         "ANF_model.xlsx!History_Q!row:49",
         "ANF_model.xlsx!History_Q!row:50"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_diluted_shares_series",
@@ -505,6 +734,12 @@
       "has_populated_data": true,
       "number_of_values_available": 12,
       "number_of_rows_available": 12,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 10,
       "number_of_cells_expected": 120,
       "source_ref_coverage": [
@@ -521,8 +756,12 @@
         "ANF_model.xlsx!History_Q!row:49",
         "ANF_model.xlsx!History_Q!row:50"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_total_debt_series",
@@ -533,16 +772,24 @@
       "value_shape": "quarterly_series",
       "required": false,
       "row_schema_columns": [],
-      "has_populated_data": true,
-      "number_of_values_available": 1,
-      "number_of_rows_available": 1,
+      "has_populated_data": false,
+      "number_of_values_available": 0,
+      "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 9,
       "number_of_cells_expected": 108,
-      "source_ref_coverage": [
-        "ANF_model.xlsx!History_Q!row:50"
-      ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "source_ref_coverage": [],
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_cash_series",
@@ -556,13 +803,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 5,
       "number_of_cells_expected": 60,
       "source_ref_coverage": [
         "ANF_model.xlsx!Leverage_Liquidity!row:47"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_buybacks_series",
@@ -576,13 +833,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 5,
       "number_of_cells_expected": 60,
       "source_ref_coverage": [
         "ANF_model.xlsx!History_Q!latest_4_quarters"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "bs_cash_series",
@@ -596,13 +863,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 12,
       "number_of_cells_expected": 96,
       "source_ref_coverage": [
         "ANF_model.xlsx!Leverage_Liquidity!row:47"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "bs_debt_series",
@@ -613,16 +890,24 @@
       "value_shape": "quarterly_series",
       "required": false,
       "row_schema_columns": [],
-      "has_populated_data": true,
-      "number_of_values_available": 1,
-      "number_of_rows_available": 1,
+      "has_populated_data": false,
+      "number_of_values_available": 0,
+      "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 31,
       "number_of_cells_expected": 248,
-      "source_ref_coverage": [
-        "ANF_model.xlsx!History_Q!row:50"
-      ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "source_ref_coverage": [],
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "bs_segment_quarterly_rows",
@@ -633,14 +918,30 @@
       "value_shape": "pivot_matrix",
       "required": false,
       "row_schema_columns": [],
-      "has_populated_data": false,
-      "number_of_values_available": 0,
-      "number_of_rows_available": 0,
+      "has_populated_data": true,
+      "number_of_values_available": 14,
+      "number_of_rows_available": 14,
+      "number_of_rows_planner_eligible": 8,
+      "number_of_values_planner_eligible": 8,
+      "planner_planned_write_count": 14,
+      "planner_capacity_used": 6,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 72,
       "number_of_rows_expected": 7,
       "number_of_cells_expected": 63,
-      "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "normalized field is absent or not populated"
+      "source_ref_coverage": [
+        "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-11-26_earnings_release.htm",
+        "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm"
+      ],
+      "would_write_useful_output": true,
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 72,
+      "structured_exclusion_reasons": [
+        "row_selector_excluded:period_type:not_equal",
+        "row_selector_excluded:revenue:not_populated"
+      ],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "bs_segment_annual_rows",
@@ -651,14 +952,30 @@
       "value_shape": "pivot_matrix",
       "required": false,
       "row_schema_columns": [],
-      "has_populated_data": false,
-      "number_of_values_available": 0,
-      "number_of_rows_available": 0,
+      "has_populated_data": true,
+      "number_of_values_available": 6,
+      "number_of_rows_available": 6,
+      "number_of_rows_planner_eligible": 3,
+      "number_of_values_planner_eligible": 3,
+      "planner_planned_write_count": 6,
+      "planner_capacity_used": 3,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 77,
       "number_of_rows_expected": 3,
       "number_of_cells_expected": 27,
-      "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "normalized field is absent or not populated"
+      "source_ref_coverage": [
+        "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm"
+      ],
+      "would_write_useful_output": true,
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 77,
+      "structured_exclusion_reasons": [
+        "row_selector_excluded:annual_revenue:not_populated",
+        "row_selector_excluded:dimension:not_equal",
+        "row_selector_excluded:period_type:not_equal"
+      ],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "od_watchlist_rows",
@@ -677,6 +994,12 @@
       "has_populated_data": true,
       "number_of_values_available": 136,
       "number_of_rows_available": 34,
+      "number_of_rows_planner_eligible": 4,
+      "number_of_values_planner_eligible": 12,
+      "planner_planned_write_count": 12,
+      "planner_capacity_used": 4,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 30,
       "number_of_rows_expected": 4,
       "number_of_cells_expected": 56,
       "source_ref_coverage": [
@@ -690,7 +1013,13 @@
         "transcript"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 30,
+      "structured_exclusion_reasons": [
+        "row_selector_excluded:display_role:not_equal"
+      ],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "od_topic_current_read_rows",
@@ -704,6 +1033,12 @@
       "has_populated_data": true,
       "number_of_values_available": 34,
       "number_of_rows_available": 34,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 6,
       "number_of_cells_expected": 78,
       "source_ref_coverage": [
@@ -716,8 +1051,12 @@
         "quarter_note",
         "transcript"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "od_horizon_commentary_rows",
@@ -731,6 +1070,12 @@
       "has_populated_data": true,
       "number_of_values_available": 34,
       "number_of_rows_available": 34,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 11,
       "number_of_cells_expected": 143,
       "source_ref_coverage": [
@@ -743,8 +1088,12 @@
         "quarter_note",
         "transcript"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "od_current_outlook_rows",
@@ -758,6 +1107,12 @@
       "has_populated_data": true,
       "number_of_values_available": 34,
       "number_of_rows_available": 34,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 25,
       "number_of_cells_expected": 325,
       "source_ref_coverage": [
@@ -770,8 +1125,12 @@
         "quarter_note",
         "transcript"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "od_driver_actuals_rows",
@@ -785,13 +1144,23 @@
       "has_populated_data": true,
       "number_of_values_available": 19,
       "number_of_rows_available": 19,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 70,
       "number_of_cells_expected": 910,
       "source_ref_coverage": [
         "earnings_release"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "ic_investment_summary",
@@ -805,13 +1174,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 26,
       "number_of_cells_expected": 260,
       "source_ref_coverage": [
         "ANF_model.xlsx!ANF_Investment_Case"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "ic_key_debate",
@@ -825,13 +1204,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 9,
       "source_ref_coverage": [
         "ANF_model.xlsx!ANF_Investment_Case"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "ic_bull_base_bear_rows",
@@ -845,13 +1234,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 50,
       "number_of_cells_expected": 500,
       "source_ref_coverage": [
         "ANF_model.xlsx!ANF_Investment_Case"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "ic_scenario_bridge_rows",
@@ -865,14 +1264,24 @@
       "has_populated_data": true,
       "number_of_values_available": 14,
       "number_of_rows_available": 14,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 60,
       "number_of_cells_expected": 600,
       "source_ref_coverage": [
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-11-26_earnings_release.htm",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "ic_lower_comp_history_labels",
@@ -886,6 +1295,12 @@
       "has_populated_data": true,
       "number_of_values_available": 34,
       "number_of_rows_available": 34,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 7,
       "number_of_cells_expected": 77,
       "source_ref_coverage": [
@@ -898,13 +1313,17 @@
         "quarter_note",
         "transcript"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
-      "binding_id": "ic_lower_brand_health_rows",
+      "binding_id": "ic_lower_business_health_rows",
       "sheet": "{ticker}_Investment_Case",
-      "section": "Brand Health",
+      "section": "Business Health",
       "target": "B194:K199",
       "normalized_field": "operating_drivers.items.0.current_read",
       "value_shape": "table_rows",
@@ -913,6 +1332,12 @@
       "has_populated_data": true,
       "number_of_values_available": 34,
       "number_of_rows_available": 34,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 6,
       "number_of_cells_expected": 60,
       "source_ref_coverage": [
@@ -925,8 +1350,12 @@
         "quarter_note",
         "transcript"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "ic_lower_inventory_rows",
@@ -940,18 +1369,28 @@
       "has_populated_data": true,
       "number_of_values_available": 19,
       "number_of_rows_available": 19,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 8,
       "number_of_cells_expected": 80,
       "source_ref_coverage": [
         "earnings_release"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
-      "binding_id": "ic_lower_store_productivity_rows",
+      "binding_id": "ic_lower_asset_productivity_rows",
       "sheet": "{ticker}_Investment_Case",
-      "section": "Store Productivity / Real Estate ROI",
+      "section": "Asset Productivity / Capacity Returns",
       "target": "B212:K225",
       "normalized_field": "operating_drivers.items.0.metric_value",
       "value_shape": "table_rows",
@@ -960,13 +1399,23 @@
       "has_populated_data": true,
       "number_of_values_available": 19,
       "number_of_rows_available": 19,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 14,
       "number_of_cells_expected": 140,
       "source_ref_coverage": [
         "earnings_release"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "ic_lower_guidance_setup_rows",
@@ -980,6 +1429,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 6,
       "number_of_cells_expected": 60,
       "source_ref_coverage": [
@@ -988,8 +1443,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "qn_quarter_note_rows",
@@ -1010,6 +1469,12 @@
       "has_populated_data": true,
       "number_of_values_available": 36,
       "number_of_rows_available": 6,
+      "number_of_rows_planner_eligible": 6,
+      "number_of_values_planner_eligible": 24,
+      "planner_planned_write_count": 24,
+      "planner_capacity_used": 6,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 6,
       "number_of_cells_expected": 90,
       "source_ref_coverage": [
@@ -1021,7 +1486,11 @@
         "ANF_model.xlsx!Quarter_Notes_UI!row:15"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "qn_quarter_summary_rows",
@@ -1035,11 +1504,23 @@
       "has_populated_data": false,
       "number_of_values_available": 0,
       "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 5,
       "number_of_rows_expected": 4,
       "number_of_cells_expected": 56,
       "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "normalized field is absent or not populated"
+      "would_write_useful_output": true,
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 5,
+      "structured_exclusion_reasons": [
+        "row_selector_pick_excluded:expected_priority_selection"
+      ],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "qn_quarter_model_implication_rows",
@@ -1053,6 +1534,12 @@
       "has_populated_data": true,
       "number_of_values_available": 6,
       "number_of_rows_available": 6,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 353,
       "number_of_cells_expected": 4942,
       "source_ref_coverage": [
@@ -1063,8 +1550,12 @@
         "ANF_model.xlsx!Quarter_Notes_UI!row:14",
         "ANF_model.xlsx!Quarter_Notes_UI!row:15"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_scorecard_rows",
@@ -1078,6 +1569,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 7,
       "number_of_cells_expected": 98,
       "source_ref_coverage": [
@@ -1086,8 +1583,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_annual_guidance_rows",
@@ -1111,6 +1612,12 @@
       "has_populated_data": true,
       "number_of_values_available": 90,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 10,
       "number_of_cells_expected": 140,
       "source_ref_coverage": [
@@ -1119,8 +1626,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_annual_guidance_rows_block_2",
@@ -1134,6 +1645,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 5,
       "number_of_cells_expected": 70,
       "source_ref_coverage": [
@@ -1142,8 +1659,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_annual_guidance_rows_block_3",
@@ -1157,6 +1678,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 4,
       "number_of_cells_expected": 56,
       "source_ref_coverage": [
@@ -1165,8 +1692,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_annual_guidance_rows_block_4",
@@ -1180,6 +1711,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 14,
       "source_ref_coverage": [
@@ -1188,8 +1725,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_open_guidance_rows",
@@ -1213,6 +1754,12 @@
       "has_populated_data": true,
       "number_of_values_available": 90,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 21,
       "number_of_cells_expected": 294,
       "source_ref_coverage": [
@@ -1221,8 +1768,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_guidance_timeline_rows",
@@ -1236,11 +1787,23 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 7,
+      "number_of_values_planner_eligible": 56,
+      "planner_planned_write_count": 56,
+      "planner_capacity_used": 7,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 23,
       "number_of_rows_expected": 7,
       "number_of_cells_expected": 77,
       "source_ref_coverage": [],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 23,
+      "structured_exclusion_reasons": [
+        "row_selector_excluded:display_role:not_equal"
+      ],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_2",
@@ -1254,6 +1817,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 6,
       "number_of_cells_expected": 84,
       "source_ref_coverage": [
@@ -1262,8 +1831,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_3",
@@ -1277,6 +1850,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 7,
       "number_of_cells_expected": 98,
       "source_ref_coverage": [
@@ -1285,8 +1864,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_4",
@@ -1300,6 +1883,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 5,
       "number_of_cells_expected": 70,
       "source_ref_coverage": [
@@ -1308,8 +1897,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_5",
@@ -1323,6 +1916,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 6,
       "number_of_cells_expected": 84,
       "source_ref_coverage": [
@@ -1331,8 +1930,12 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_6",
@@ -1346,6 +1949,12 @@
       "has_populated_data": true,
       "number_of_values_available": 30,
       "number_of_rows_available": 30,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 1,
       "number_of_rows_expected": 17,
       "number_of_cells_expected": 238,
       "source_ref_coverage": [
@@ -1354,83 +1963,131 @@
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf",
         "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf"
       ],
-      "would_write_useful_output": true,
-      "blank_reason": ""
+      "would_write_useful_output": false,
+      "blank_reason": "binding planning_state is inactive_legacy_contract",
+      "planning_state": "inactive_legacy_contract",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "qa_log_validation_rows",
       "sheet": "QA_Log",
-      "section": "Validation results",
-      "target": "A2:Z5000",
-      "normalized_field": "manual_review_flags",
+      "section": "Canonical issue summaries",
+      "target": "A2:L5000",
+      "normalized_field": "issue_ledger.qa_presentation.qa_log_rows",
       "value_shape": "validation_rows",
       "required": true,
       "row_schema_columns": [
+        "issue_id",
         "severity",
         "rule_id",
-        "field",
+        "issue_type",
+        "section",
+        "root_cause",
         "message",
-        "source_ref",
-        "suggested_action"
-      ],
-      "has_populated_data": true,
-      "number_of_values_available": 9420,
-      "number_of_rows_available": 1570,
-      "number_of_rows_expected": 4999,
-      "number_of_cells_expected": 129974,
-      "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "validation output binding"
-    },
-    {
-      "binding_id": "needs_review_validation_rows",
-      "sheet": "Needs_Review",
-      "section": "Manual review",
-      "target": "A2:Z5000",
-      "normalized_field": "manual_review_flags",
-      "value_shape": "validation_rows",
-      "required": true,
-      "row_schema_columns": [
-        "severity",
-        "rule_id",
-        "field",
-        "message",
-        "source_ref",
-        "suggested_action"
-      ],
-      "has_populated_data": true,
-      "number_of_values_available": 9420,
-      "number_of_rows_available": 1570,
-      "number_of_rows_expected": 4999,
-      "number_of_cells_expected": 129974,
-      "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "validation output binding"
-    },
-    {
-      "binding_id": "qa_checks_mapping_gap_rows",
-      "sheet": "QA_Checks",
-      "section": "Binding checks",
-      "target": "A2:Z5000",
-      "normalized_field": "mapping_gaps",
-      "value_shape": "validation_rows",
-      "required": true,
-      "row_schema_columns": [
-        "severity",
-        "rule_id",
-        "field",
-        "message",
-        "source_ref",
-        "suggested_action"
+        "suggested_action",
+        "occurrence_count",
+        "visibility_disposition",
+        "promotion_blocking",
+        "detail_ref"
       ],
       "has_populated_data": false,
       "number_of_values_available": 0,
       "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 3396,
+      "planner_capacity_used": 283,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 4999,
-      "number_of_cells_expected": 129974,
+      "number_of_cells_expected": 59988,
       "source_ref_coverage": [],
       "would_write_useful_output": false,
-      "blank_reason": "validation output binding"
+      "blank_reason": "validation output binding",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 1
+    },
+    {
+      "binding_id": "needs_review_validation_rows",
+      "sheet": "Needs_Review",
+      "section": "Actionable unresolved review",
+      "target": "A2:K5000",
+      "normalized_field": "issue_ledger.qa_presentation.needs_review_rows",
+      "value_shape": "validation_rows",
+      "required": true,
+      "row_schema_columns": [
+        "issue_id",
+        "severity",
+        "rule_id",
+        "section",
+        "normalized_path",
+        "business_row_key",
+        "message",
+        "suggested_action",
+        "occurrence_count",
+        "promotion_blocking",
+        "detail_ref"
+      ],
+      "has_populated_data": false,
+      "number_of_values_available": 0,
+      "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 125,
+      "planner_capacity_used": 12,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
+      "number_of_rows_expected": 4999,
+      "number_of_cells_expected": 54989,
+      "source_ref_coverage": [],
+      "would_write_useful_output": false,
+      "blank_reason": "validation output binding",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 1
+    },
+    {
+      "binding_id": "qa_checks_mapping_gap_rows",
+      "sheet": "QA_Checks",
+      "section": "Rule-level QA checks",
+      "target": "A2:I5000",
+      "normalized_field": "issue_ledger.qa_presentation.qa_check_rows",
+      "value_shape": "validation_rows",
+      "required": true,
+      "row_schema_columns": [
+        "rule_id",
+        "status",
+        "unique_issue_count",
+        "occurrence_count",
+        "blocking_count",
+        "actionable_count",
+        "affected_sections",
+        "interpretation",
+        "detail_ref"
+      ],
+      "has_populated_data": false,
+      "number_of_values_available": 0,
+      "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 135,
+      "planner_capacity_used": 15,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
+      "number_of_rows_expected": 4999,
+      "number_of_cells_expected": 44991,
+      "source_ref_coverage": [],
+      "would_write_useful_output": false,
+      "blank_reason": "validation output binding",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 1
     },
     {
       "binding_id": "summary_latest_revenue",
@@ -1444,6 +2101,12 @@
       "has_populated_data": true,
       "number_of_values_available": 12,
       "number_of_rows_available": 12,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 11,
       "number_of_rows_expected": 14,
       "number_of_cells_expected": 14,
       "source_ref_coverage": [
@@ -1461,7 +2124,13 @@
         "ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 11,
+      "structured_exclusion_reasons": [
+        "row_selector_pick_excluded:expected_supersession"
+      ],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_period_headers",
@@ -1475,11 +2144,21 @@
       "has_populated_data": false,
       "number_of_values_available": 0,
       "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 12,
+      "number_of_values_planner_eligible": 12,
+      "planner_planned_write_count": 12,
+      "planner_capacity_used": 12,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 23,
       "number_of_cells_expected": 276,
       "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "normalized field is absent or not populated"
+      "would_write_useful_output": true,
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_net_income_series",
@@ -1493,6 +2172,12 @@
       "has_populated_data": true,
       "number_of_values_available": 12,
       "number_of_rows_available": 12,
+      "number_of_rows_planner_eligible": 12,
+      "number_of_values_planner_eligible": 12,
+      "planner_planned_write_count": 12,
+      "planner_capacity_used": 12,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 12,
       "source_ref_coverage": [
@@ -1510,7 +2195,11 @@
         "ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_operating_cash_flow_series",
@@ -1524,6 +2213,12 @@
       "has_populated_data": true,
       "number_of_values_available": 12,
       "number_of_rows_available": 12,
+      "number_of_rows_planner_eligible": 12,
+      "number_of_values_planner_eligible": 12,
+      "planner_planned_write_count": 12,
+      "planner_capacity_used": 12,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 12,
       "source_ref_coverage": [
@@ -1541,7 +2236,41 @@
         "ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
+    },
+    {
+      "binding_id": "bs_quarterly_period_headers",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financials",
+      "target": "B7:I7",
+      "normalized_field": "quarterly_financials.rows.period",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "row_schema_columns": [],
+      "has_populated_data": false,
+      "number_of_values_available": 0,
+      "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 8,
+      "number_of_values_planner_eligible": 8,
+      "planner_planned_write_count": 8,
+      "planner_capacity_used": 8,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 4,
+      "number_of_rows_expected": 1,
+      "number_of_cells_expected": 8,
+      "source_ref_coverage": [],
+      "would_write_useful_output": true,
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 4,
+      "structured_exclusion_reasons": [
+        "period_axis_outside_visible_window"
+      ],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "bs_annual_period_headers",
@@ -1555,11 +2284,21 @@
       "has_populated_data": false,
       "number_of_values_available": 0,
       "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 6,
+      "number_of_values_planner_eligible": 6,
+      "planner_planned_write_count": 6,
+      "planner_capacity_used": 6,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 8,
       "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "normalized field is absent or not populated"
+      "would_write_useful_output": true,
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "bs_annual_revenue_series",
@@ -1573,11 +2312,21 @@
       "has_populated_data": false,
       "number_of_values_available": 0,
       "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 6,
+      "number_of_values_planner_eligible": 6,
+      "planner_planned_write_count": 6,
+      "planner_capacity_used": 6,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 8,
       "source_ref_coverage": [],
-      "would_write_useful_output": false,
-      "blank_reason": "normalized field is absent or not populated"
+      "would_write_useful_output": true,
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_input_as_of",
@@ -1591,13 +2340,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 1,
       "source_ref_coverage": [
         "ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_input_shares_outstanding",
@@ -1611,13 +2370,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 1,
       "source_ref_coverage": [
         "ANF_model.xlsx!Valuation!D196"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_input_diluted_shares",
@@ -1631,13 +2400,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 1,
       "source_ref_coverage": [
         "ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_input_net_debt",
@@ -1651,13 +2430,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 1,
       "source_ref_coverage": [
-        "ANF_model.xlsx!Leverage_Liquidity!row:47"
+        "ANF_model.xlsx!Valuation!D198"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_input_base_ebitda_ttm",
@@ -1671,13 +2460,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 1,
       "source_ref_coverage": [
-        "ANF_model.xlsx!History_Q!latest_4_quarters"
+        "ANF_model.xlsx!History_Q!row:47 + ANF_model.xlsx!History_Q!row:48 + ANF_model.xlsx!History_Q!row:49 + ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_input_adjusted_ebitda_ttm",
@@ -1691,13 +2490,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 1,
       "source_ref_coverage": [
-        "ANF_model.xlsx!History_Q!latest_4_quarters"
+        "ANF_model.xlsx!Valuation!row:24"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_input_fcf_ttm",
@@ -1711,13 +2520,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 1,
       "source_ref_coverage": [
-        "ANF_model.xlsx!History_Q!latest_4_quarters"
+        "ANF_model.xlsx!History_Q!row:47 + ANF_model.xlsx!History_Q!row:48 + ANF_model.xlsx!History_Q!row:49 + ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_input_revenue_ttm",
@@ -1731,13 +2550,23 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 1,
       "source_ref_coverage": [
-        "ANF_model.xlsx!History_Q!latest_4_quarters"
+        "ANF_model.xlsx!History_Q!row:47 + ANF_model.xlsx!History_Q!row:48 + ANF_model.xlsx!History_Q!row:49 + ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     },
     {
       "binding_id": "valuation_input_capex_ttm",
@@ -1751,18 +2580,28 @@
       "has_populated_data": true,
       "number_of_values_available": 1,
       "number_of_rows_available": 1,
+      "number_of_rows_planner_eligible": 1,
+      "number_of_values_planner_eligible": 1,
+      "planner_planned_write_count": 1,
+      "planner_capacity_used": 1,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
       "number_of_rows_expected": 1,
       "number_of_cells_expected": 1,
       "source_ref_coverage": [
-        "ANF_model.xlsx!History_Q!latest_4_quarters"
+        "ANF_model.xlsx!History_Q!row:47 + ANF_model.xlsx!History_Q!row:48 + ANF_model.xlsx!History_Q!row:49 + ANF_model.xlsx!History_Q!row:50"
       ],
       "would_write_useful_output": true,
-      "blank_reason": ""
+      "blank_reason": "",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 0
     }
   ],
   "summary": {
-    "binding_count": 77,
-    "bindings_with_populated_data": 66,
-    "bindings_that_would_write_useful_output": 64
+    "binding_count": 78,
+    "bindings_with_populated_data": 63,
+    "bindings_that_would_write_useful_output": 35
   }
 }

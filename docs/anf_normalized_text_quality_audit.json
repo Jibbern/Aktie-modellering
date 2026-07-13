@@ -228,8 +228,8 @@
       "visible_ui": true,
       "classification": "clean_visible_ui",
       "is_clean_visible": true,
-      "text_length": 57,
-      "text_excerpt": "Tariff, ERP and marketing headwinds drive the EPS debate.",
+      "text_length": 130,
+      "text_excerpt": "Map to operating margin/EBIT/EBITDA drivers only when the definition is clean. Supports EBITDA/EPS bridge and multiple confidence.",
       "source_ref": "ANF_model.xlsx!Quarter_Notes_UI!row:14",
       "suggested_action": "No action required."
     },
@@ -239,8 +239,8 @@
       "visible_ui": true,
       "classification": "clean_visible_ui",
       "is_clean_visible": true,
-      "text_length": 57,
-      "text_excerpt": "Tariff, ERP and marketing headwinds drive the EPS debate.",
+      "text_length": 130,
+      "text_excerpt": "Map to operating margin/EBIT/EBITDA drivers only when the definition is clean. Supports EBITDA/EPS bridge and multiple confidence.",
       "source_ref": "ANF_model.xlsx!Quarter_Notes_UI!row:14",
       "suggested_action": "No action required."
     },
@@ -272,8 +272,8 @@
       "visible_ui": true,
       "classification": "clean_visible_ui",
       "is_clean_visible": true,
-      "text_length": 65,
-      "text_excerpt": "Demand and comps must hold against tougher comparable-sales laps.",
+      "text_length": 122,
+      "text_excerpt": "Use as revenue context; keep quarterly, YTD and annual horizons distinct. Revenue quality affects growth/multiple support.",
       "source_ref": "ANF_model.xlsx!Quarter_Notes_UI!row:15",
       "suggested_action": "No action required."
     },
@@ -283,8 +283,8 @@
       "visible_ui": true,
       "classification": "clean_visible_ui",
       "is_clean_visible": true,
-      "text_length": 65,
-      "text_excerpt": "Demand and comps must hold against tougher comparable-sales laps.",
+      "text_length": 122,
+      "text_excerpt": "Use as revenue context; keep quarterly, YTD and annual horizons distinct. Revenue quality affects growth/multiple support.",
       "source_ref": "ANF_model.xlsx!Quarter_Notes_UI!row:15",
       "suggested_action": "No action required."
     },
@@ -2248,7 +2248,9 @@
     }
   ],
   "ticker": "ANF",
-  "generated_at_utc": "2026-07-10T21:48:09+00:00",
+  "generator_version": "anf_legacy_adapter_audits/0.2.0",
+  "source_package_content_sha256": "111d5d9844c12c663f14ceded986265e67371ab564c159da46a02eeb0da4b41f",
+  "generated_at_utc": "2026-07-12T22:11:12+00:00",
   "demotion_summary": {
     "total_demoted": 1325,
     "by_section": {

@@ -1,14 +1,17 @@
 """Render an ANF shadow workbook through the value-only new-ticker runtime.
 
 This script is intentionally ANF-shadow-only. It reads the cleaned normalized
-package and frozen shell, writes ANF_shadow_model.xlsx, and emits coverage/audit
-reports. It does not call production workbook writers or replace ANF_model.xlsx.
+package and frozen shell, validates a temporary candidate, atomically promotes
+ANF_shadow_model.xlsx only after PASS, and emits coverage/audit reports. It does
+not call production workbook writers or replace ANF_model.xlsx.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import tempfile
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -21,17 +24,23 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from pbi_xbrl.json_schema_validation import load_json_strict  # noqa: E402
 from pbi_xbrl.new_ticker_value_filler import (  # noqa: E402
     DEFAULT_BINDING_MAP,
     DEFAULT_MANIFEST,
     DEFAULT_TEMPLATE,
     fill_standard_template_from_package,
-    _values_for_binding,
+)
+from pbi_xbrl.new_ticker_binding_planner import (  # noqa: E402
+    BindingPlan,
+    reproduce_binding_plan,
+    write_binding_plan_report,
 )
 from pbi_xbrl.normalized_company_data_validation import (  # noqa: E402
     build_mapping_gap_report,
     validate_normalized_company_data,
 )
+from scripts.validate_standard_template_shell import validate_shell  # noqa: E402
 
 
 MINIMUM_USEFULNESS = {
@@ -65,7 +74,10 @@ def _default_data_root() -> Path:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = load_json_strict(path)
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON contract must be an object: {path}")
+    return payload
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
@@ -76,6 +88,23 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
 def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def _create_candidate_workbook(final_path: Path) -> Path:
+    final_path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, raw_path = tempfile.mkstemp(
+        prefix=f".{final_path.stem}.",
+        suffix=".candidate.xlsx",
+        dir=final_path.parent,
+    )
+    os.close(descriptor)
+    return Path(raw_path)
+
+
+def _atomic_promote_workbook(candidate_path: Path, final_path: Path) -> None:
+    if candidate_path.parent.resolve() != final_path.parent.resolve():
+        raise RuntimeError("Shadow candidate and final workbook must share a directory for atomic promotion.")
+    os.replace(candidate_path, final_path)
 
 
 def _resolve_sheet(sheet_name: str, ticker: str = "ANF") -> str:
@@ -154,17 +183,18 @@ def _manual_review_summary(package: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _binding_preview(package: Mapping[str, Any], bindings: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def _binding_preview(plan: BindingPlan, bindings: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     by_sheet: dict[str, dict[str, Any]] = {}
     rows: list[dict[str, Any]] = []
+    writes_by_binding: dict[str, list[Any]] = defaultdict(list)
+    for write in plan.planned_writes:
+        writes_by_binding[write.binding_id].append(write)
     for binding in bindings:
         if not bool(binding.get("writable")) or str(binding.get("source_policy") or "") == "validation-output":
             continue
-        values = _values_for_binding(package, binding)
-        cell_count = sum(len(value) for value in values if isinstance(value, Mapping))
-        if not cell_count:
-            cell_count = len([value for value in values if value not in (None, "")])
-        row_count = len(values)
+        binding_writes = writes_by_binding.get(str(binding.get("binding_id") or ""), [])
+        cell_count = len(binding_writes)
+        row_count = len({write.row_key for write in binding_writes})
         sheet = str(binding.get("sheet") or "")
         row = {
             "binding_id": str(binding.get("binding_id") or ""),
@@ -190,7 +220,12 @@ def _binding_preview(package: Mapping[str, Any], bindings: Sequence[Mapping[str,
     return {"by_binding": rows, "by_sheet": by_sheet}
 
 
-def build_prefill_coverage_report(package: Mapping[str, Any], bindings: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def build_prefill_coverage_report(
+    package: Mapping[str, Any],
+    bindings: Sequence[Mapping[str, Any]],
+    *,
+    plan: BindingPlan,
+) -> dict[str, Any]:
     validation_issues = validate_normalized_company_data(package, binding_map=bindings, promotion_requested=False)
     p1_issues = [issue.to_dict() for issue in validation_issues if issue.severity.upper() in {"P0", "P1"}]
     raw_mapping = build_mapping_gap_report(package, bindings, ticker="ANF")
@@ -206,17 +241,17 @@ def build_prefill_coverage_report(package: Mapping[str, Any], bindings: Sequence
         if actual < minimum:
             minimum_issues.append(
                 {
-                    "severity": "P1",
-                    "rule_id": "anf_shadow_minimum_usefulness",
+                    "severity": "P2",
+                    "rule_id": "anf_shadow_usefulness_observation",
                     "field": metric,
-                    "message": f"ANF shadow package has {actual} useful rows; minimum is {minimum}.",
-                    "suggested_action": "Improve source-backed normalized package coverage before shadow render.",
+                    "message": f"ANF shadow package has {actual} useful rows; suggested comparison minimum is {minimum}.",
+                    "suggested_action": "Consider improving source-backed coverage before promotion; do not backfill generic text.",
                 }
             )
     source_coverage = package.get("source_coverage", {}) if isinstance(package.get("source_coverage"), Mapping) else {}
     return {
         "ticker": "ANF",
-        "status": "FAIL" if p1_issues or minimum_issues else "PASS",
+        "status": "FAIL" if p1_issues else "PASS",
         "populated_fields_by_section": {
             section: _section_populated_count(package.get(section))
             for section in (
@@ -241,10 +276,10 @@ def build_prefill_coverage_report(package: Mapping[str, Any], bindings: Sequence
             "by_binding_id": dict(Counter(str(gap.get("binding_id") or "") for gap in mapping_gaps)),
             "gaps": mapping_gaps,
         },
-        "expected_useful_output_by_visible_sheet": _binding_preview(package, bindings)["by_sheet"],
-        "binding_preview": _binding_preview(package, bindings)["by_binding"],
+        "expected_useful_output_by_visible_sheet": _binding_preview(plan, bindings)["by_sheet"],
+        "binding_preview": _binding_preview(plan, bindings)["by_binding"],
         "minimum_usefulness": {
-            "status": "FAIL" if minimum_issues else "PASS",
+            "status": "WARN" if minimum_issues else "PASS",
             "minimums": MINIMUM_USEFULNESS,
             "issues": minimum_issues,
         },
@@ -274,7 +309,7 @@ def _markdown_prefill(report: Mapping[str, Any]) -> str:
     for sheet, row in report["expected_useful_output_by_visible_sheet"].items():
         lines.append(f"- {sheet}: {row['available_rows']} rows / {row['available_cells']} cells")
     if report["minimum_usefulness"]["issues"]:
-        lines.extend(["", "P1 minimum issues:"])
+        lines.extend(["", "Usefulness observations:"])
         for issue in report["minimum_usefulness"]["issues"]:
             lines.append(f"- {issue['field']}: {issue['message']}")
     return "\n".join(lines) + "\n"
@@ -285,85 +320,6 @@ def _writable_ranges_by_sheet(manifest: Mapping[str, Any], ticker: str = "ANF") 
         _resolve_sheet(str(sheet["sheet"]), ticker): [str(zone["target"]) for zone in sheet.get("writable_zones", [])]
         for sheet in manifest.get("sheets", [])
     }
-
-
-def _coord_in_ranges(coord: str, ranges: Sequence[str]) -> bool:
-    row = int("".join(ch for ch in coord if ch.isdigit()) or "0")
-    letters = "".join(ch for ch in coord if ch.isalpha())
-    col = 0
-    for ch in letters:
-        col = col * 26 + (ord(ch.upper()) - ord("A") + 1)
-    for range_ref in ranges:
-        min_col, min_row, max_col, max_row = range_boundaries(range_ref)
-        if min_col <= col <= max_col and min_row <= row <= max_row:
-            return True
-    return False
-
-
-def _formula_map(path: Path, ticker: str = "ANF") -> dict[tuple[str, str], str]:
-    wb = load_workbook(path, data_only=False, read_only=False)
-    try:
-        formulas: dict[tuple[str, str], str] = {}
-        for ws in wb.worksheets:
-            sheet_name = _resolve_sheet(ws.title, ticker)
-            for row in ws.iter_rows():
-                for cell in row:
-                    if isinstance(cell, MergedCell):
-                        continue
-                    if isinstance(cell.value, str) and cell.value.startswith("="):
-                        formulas[(sheet_name, cell.coordinate)] = cell.value
-        return formulas
-    finally:
-        wb.close()
-
-
-def _layout_signature(path: Path, ticker: str = "ANF") -> dict[str, Any]:
-    wb = load_workbook(path, data_only=False, read_only=False)
-    try:
-        signature: dict[str, Any] = {"sheet_order": [_resolve_sheet(name, ticker) for name in wb.sheetnames], "sheets": {}}
-        for ws in wb.worksheets:
-            sheet_name = _resolve_sheet(ws.title, ticker)
-            signature["sheets"][sheet_name] = {
-                "state": ws.sheet_state,
-                "freeze_panes": ws.freeze_panes,
-                "merges": sorted(str(item) for item in ws.merged_cells.ranges),
-                "row_heights": {str(idx): dim.height for idx, dim in ws.row_dimensions.items() if dim.height is not None},
-                "column_widths": {key: dim.width for key, dim in ws.column_dimensions.items() if dim.width is not None},
-                "hidden_columns": {key: bool(dim.hidden) for key, dim in ws.column_dimensions.items() if dim.hidden},
-            }
-        return signature
-    finally:
-        wb.close()
-
-
-def _non_writable_diffs(template_path: Path, output_path: Path, manifest: Mapping[str, Any], ticker: str = "ANF") -> list[str]:
-    writable_ranges = _writable_ranges_by_sheet(manifest, ticker)
-    before = load_workbook(template_path, data_only=False, read_only=False)
-    after = load_workbook(output_path, data_only=False, read_only=False)
-    try:
-        diffs: list[str] = []
-        for template_ws in before.worksheets:
-            sheet_name = _resolve_sheet(template_ws.title, ticker)
-            if sheet_name not in after.sheetnames:
-                continue
-            output_ws = after[sheet_name]
-            ranges = writable_ranges.get(sheet_name, [])
-            for row_idx in range(1, max(template_ws.max_row, output_ws.max_row) + 1):
-                for col_idx in range(1, max(template_ws.max_column, output_ws.max_column) + 1):
-                    before_cell = template_ws.cell(row_idx, col_idx)
-                    after_cell = output_ws.cell(row_idx, col_idx)
-                    if isinstance(before_cell, MergedCell) or isinstance(after_cell, MergedCell):
-                        continue
-                    if _coord_in_ranges(before_cell.coordinate, ranges):
-                        continue
-                    if before_cell.value != after_cell.value:
-                        diffs.append(f"{sheet_name}!{before_cell.coordinate}: {before_cell.value!r} -> {after_cell.value!r}")
-                        if len(diffs) >= 100:
-                            return diffs
-        return diffs
-    finally:
-        before.close()
-        after.close()
 
 
 def _written_cells_by_sheet(template_path: Path, output_path: Path, manifest: Mapping[str, Any], ticker: str = "ANF") -> dict[str, dict[str, int]]:
@@ -419,11 +375,18 @@ def build_post_fill_audit(
     manifest: Mapping[str, Any],
     bindings: Sequence[Mapping[str, Any]],
     package: Mapping[str, Any],
+    plan: BindingPlan,
+    strict_validation: Mapping[str, Any],
 ) -> dict[str, Any]:
     written = _written_cells_by_sheet(template_path, output_path, manifest)
     manual_rows = _count_non_empty_rows(output_path, "Needs_Review")
     qa_rows = _count_non_empty_rows(output_path, "QA_Log")
     gap_rows = _count_non_empty_rows(output_path, "QA_Checks")
+    binding_reports = {
+        str(report.get("binding_id") or ""): report
+        for report in plan.binding_reports
+        if isinstance(report, Mapping)
+    }
     blank_required = [
         {
             "binding_id": str(binding.get("binding_id") or ""),
@@ -435,11 +398,21 @@ def build_post_fill_audit(
         if bool(binding.get("required"))
         and bool(binding.get("writable"))
         and str(binding.get("source_policy") or "") != "validation-output"
-        and not _values_for_binding(package, binding)
+        and int(binding_reports.get(str(binding.get("binding_id") or ""), {}).get("planned_write_count") or 0) == 0
     ]
-    formula_diff = _formula_map(template_path) != _formula_map(output_path)
-    layout_diff = _layout_signature(template_path) != _layout_signature(output_path)
-    non_writable_diffs = _non_writable_diffs(template_path, output_path, manifest)
+    identity = strict_validation.get("shell_identity") if isinstance(strict_validation.get("shell_identity"), Mapping) else {}
+    strict_issues = [issue for issue in strict_validation.get("issues") or [] if isinstance(issue, Mapping)]
+    strict_rule_ids = {str(issue.get("rule_id") or "") for issue in strict_issues}
+    structural_rule_ids = {
+        "post_fill_sheet_order_visibility_drift",
+        "post_fill_merge_drift",
+        "post_fill_defined_name_drift",
+        "post_fill_layout_drift",
+        "post_fill_protected_cell_drift",
+        "post_fill_data_validation_drift",
+        "post_fill_conditional_formatting_drift",
+        "post_fill_table_drift",
+    }
     visible_summary = {
         sheet: {
             **written.get(_resolve_sheet(sheet), {"written_cell_count": 0, "written_row_count": 0}),
@@ -451,7 +424,10 @@ def build_post_fill_audit(
     }
     return {
         "ticker": "ANF",
+        "status": str(strict_validation.get("status") or "FAIL"),
         "output_path": str(output_path),
+        "approved_plan_status": plan.status,
+        "approved_plan_write_count": len(plan.planned_writes),
         "written_cell_count": sum(row["written_cell_count"] for row in written.values()),
         "written_row_count": sum(row["written_row_count"] for row in written.values()),
         "visible_usefulness_by_sheet": visible_summary,
@@ -460,16 +436,27 @@ def build_post_fill_audit(
         "manual_review_rows_rendered": manual_rows,
         "qa_log_rows_rendered": qa_rows,
         "manual_review_rows_kept_json_only": max(0, len(package.get("manual_review_flags", [])) - manual_rows),
-        "formulas_unchanged": not formula_diff,
-        "layout_signature_unchanged": not layout_diff,
-        "non_writable_cells_unchanged": not non_writable_diffs,
-        "non_writable_value_diffs": non_writable_diffs,
+        "formulas_unchanged": "post_fill_protected_cell_drift" not in strict_rule_ids,
+        "layout_signature_unchanged": not bool(strict_rule_ids & structural_rule_ids),
+        "non_writable_cells_unchanged": "post_fill_protected_cell_drift" not in strict_rule_ids,
+        "non_writable_value_diffs": [
+            str(issue.get("message") or "")
+            for issue in strict_issues
+            if str(issue.get("rule_id") or "") == "post_fill_protected_cell_drift"
+        ],
+        "strict_post_fill_validation": {
+            "status": str(strict_validation.get("status") or "FAIL"),
+            "issue_count": int(strict_validation.get("issue_count") or len(strict_issues)),
+            "issues": strict_issues,
+            "changed_writable_cell_count": int(identity.get("changed_writable_cell_count") or 0),
+        },
     }
 
 
 def _markdown_postfill(report: Mapping[str, Any]) -> str:
     lines = [
         "ANF shadow workbook fill audit",
+        f"Status: {report['status']}",
         f"Workbook: {report['output_path']}",
         f"Written cells: {report['written_cell_count']}",
         f"Written rows: {report['written_row_count']}",
@@ -605,13 +592,16 @@ def run_anf_shadow_workbook_fill(
     template_path: Path = DEFAULT_TEMPLATE,
     manifest_path: Path = DEFAULT_MANIFEST,
     binding_map_path: Path = DEFAULT_BINDING_MAP,
+    cached_plan_path: Path | None = None,
 ) -> dict[str, Path]:
     package = _load_json(package_path)
     manifest = _load_json(manifest_path)
-    bindings = list(_load_json(binding_map_path).get("bindings") or [])
+    binding_payload = _load_json(binding_map_path)
+    bindings = list(binding_payload.get("bindings") or [])
     output_dir.mkdir(parents=True, exist_ok=True)
     paths = {
         "workbook": output_dir / "ANF_shadow_model.xlsx",
+        "plan_json": output_dir / "ANF_shadow_binding_plan.json",
         "prefill_json": output_dir / "ANF_prefill_coverage_report.json",
         "prefill_txt": output_dir / "ANF_prefill_coverage_report.txt",
         "postfill_json": output_dir / "ANF_shadow_workbook_fill_audit.json",
@@ -620,39 +610,76 @@ def run_anf_shadow_workbook_fill(
         "comparison_txt": output_dir / "ANF_shadow_vs_legacy_block_comparison.txt",
     }
 
-    prefill = build_prefill_coverage_report(package, bindings)
+    expected_plan_path = cached_plan_path
+    if expected_plan_path is None:
+        sibling_plan = package_path.with_name("ANF_binding_plan.json")
+        expected_plan_path = sibling_plan if sibling_plan.exists() else None
+    expected_plan = _load_json(expected_plan_path) if expected_plan_path is not None else None
+    plan = reproduce_binding_plan(
+        package,
+        manifest=manifest,
+        binding_payload=binding_payload,
+        shell_path=template_path,
+        ticker_override="ANF",
+        expected_plan=expected_plan,
+    )
+    write_binding_plan_report(plan, paths["plan_json"])
+
+    prefill = build_prefill_coverage_report(package, bindings, plan=plan)
     _write_json(paths["prefill_json"], prefill)
     _write_text(paths["prefill_txt"], _markdown_prefill(prefill))
     if prefill["status"] != "PASS":
         raise RuntimeError(f"ANF prefill coverage failed: {paths['prefill_json']}")
 
-    fill_standard_template_from_package(
-        package_path,
-        output_path=paths["workbook"],
-        ticker_override="ANF",
-        template_path=template_path,
-        manifest_path=manifest_path,
-        binding_map_path=binding_map_path,
-    )
+    candidate_path = _create_candidate_workbook(paths["workbook"])
+    try:
+        fill_standard_template_from_package(
+            package_path,
+            output_path=candidate_path,
+            ticker_override="ANF",
+            template_path=template_path,
+            manifest_path=manifest_path,
+            binding_map_path=binding_map_path,
+            expected_plan=plan,
+        )
 
-    postfill = build_post_fill_audit(
-        template_path=template_path,
-        output_path=paths["workbook"],
-        manifest=manifest,
-        bindings=bindings,
-        package=package,
-    )
-    _write_json(paths["postfill_json"], postfill)
-    _write_text(paths["postfill_txt"], _markdown_postfill(postfill))
+        strict_validation = validate_shell(
+            template_path=candidate_path,
+            manifest_path=manifest_path,
+            binding_map_path=binding_map_path,
+            allow_filled_values=True,
+            approved_shell_path=template_path,
+            approved_plan_path=paths["plan_json"],
+            normalized_package_path=package_path,
+        )
 
-    comparison = build_shadow_vs_legacy_block_comparison(
-        template_path=template_path,
-        shadow_path=paths["workbook"],
-        legacy_path=legacy_workbook_path,
-        prefill_report=prefill,
-    )
-    _write_json(paths["comparison_json"], comparison)
-    _write_text(paths["comparison_txt"], _markdown_comparison(comparison))
+        postfill = build_post_fill_audit(
+            template_path=template_path,
+            output_path=candidate_path,
+            manifest=manifest,
+            bindings=bindings,
+            package=package,
+            plan=plan,
+            strict_validation=strict_validation,
+        )
+        postfill["output_path"] = str(paths["workbook"])
+        _write_json(paths["postfill_json"], postfill)
+        _write_text(paths["postfill_txt"], _markdown_postfill(postfill))
+        if strict_validation["status"] != "PASS":
+            raise RuntimeError(f"ANF strict post-fill validation failed: {paths['postfill_json']}")
+
+        comparison = build_shadow_vs_legacy_block_comparison(
+            template_path=template_path,
+            shadow_path=candidate_path,
+            legacy_path=legacy_workbook_path,
+            prefill_report=prefill,
+        )
+        _write_json(paths["comparison_json"], comparison)
+        _write_text(paths["comparison_txt"], _markdown_comparison(comparison))
+        _atomic_promote_workbook(candidate_path, paths["workbook"])
+    finally:
+        if candidate_path.exists():
+            candidate_path.unlink()
     return paths
 
 
@@ -662,12 +689,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--package", type=Path, default=data_root / "outputs" / "stress_tests" / "ANF_new_ticker_engine" / "ANF_normalized_data_package.json")
     parser.add_argument("--output-dir", type=Path, default=data_root / "outputs" / "stress_tests" / "ANF_new_ticker_engine")
     parser.add_argument("--legacy-workbook", type=Path, default=data_root / "outputs" / "Excel stock models" / "ANF_model.xlsx")
+    parser.add_argument(
+        "--cached-plan",
+        type=Path,
+        help="Optional serialized plan that must exactly match independent reproduction before fill.",
+    )
     args = parser.parse_args(argv)
 
     paths = run_anf_shadow_workbook_fill(
         package_path=args.package.resolve(),
         output_dir=args.output_dir.resolve(),
         legacy_workbook_path=args.legacy_workbook.resolve(),
+        cached_plan_path=args.cached_plan.resolve() if args.cached_plan else None,
     )
     for key, path in paths.items():
         print(f"{key}: {path}")

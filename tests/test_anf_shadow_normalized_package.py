@@ -1,14 +1,32 @@
 from __future__ import annotations
 
+import copy
 import json
 import re
 from pathlib import Path
 
+import pytest
+
+from pbi_xbrl.new_ticker_binding_planner import (
+    BindingPlan,
+    BindingPlanReproductionError,
+    reproduce_binding_plan_snapshot,
+)
 from pbi_xbrl.normalized_company_data_validation import (
     build_normalized_text_quality_audit,
     validate_normalized_company_data,
 )
-from scripts.build_anf_shadow_normalized_package import build_anf_shadow_outputs
+from pbi_xbrl.standard_template_shell_identity import verify_shell_identity
+from scripts.build_anf_shadow_normalized_package import (
+    _annual_component_field,
+    _annual_incomplete_candidate_reviews,
+    _build_annual_financial_rows,
+    _payload_sha256,
+    _ttm_component_field,
+    build_binding_coverage_audit,
+    build_anf_normalized_package,
+    build_anf_shadow_outputs,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +36,7 @@ DATA_ROOT = next(
     if (ancestor / "StockModelData").exists()
 )
 ANF_WORKBOOK = DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
+ANF_STRESS_DIR = DATA_ROOT / "outputs" / "stress_tests" / "ANF_new_ticker_engine"
 
 
 def test_anf_shadow_package_reports_are_built_from_read_only_legacy_artifacts(tmp_path: Path) -> None:
@@ -47,17 +66,36 @@ def test_anf_shadow_package_reports_are_built_from_read_only_legacy_artifacts(tm
     coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
     text_quality = json.loads(text_quality_path.read_text(encoding="utf-8"))
 
+    expected_digest = _payload_sha256(package)
+    assert source_audit["source_package_content_sha256"] == expected_digest
+    assert coverage["source_package_content_sha256"] == expected_digest
+    assert text_quality["source_package_content_sha256"] == expected_digest
+
     assert package["ticker_metadata"]["ticker"]["value"] == "ANF"
     assert package["company_profile"]["company_name"]["value"] == "Abercrombie & Fitch Co."
     assert len(package["quarterly_financials"]["rows"]) >= 8
     assert package["quarterly_financials"]["rows"][-1]["revenue"]["status"] == "populated"
     assert len(package["annual_financials"]["rows"]) >= 3
     assert package["debt_liquidity"]["cash"]["status"] == "populated"
+    assert package["debt_liquidity"]["total_debt"]["status"] == "missing_source"
+    assert package["debt_liquidity"]["total_debt"]["value"] is None
+    assert package["debt_liquidity"]["net_leverage"]["status"] == "missing_source"
+    assert package["debt_liquidity"]["total_liquidity"]["value"] == 1209.086
+    assert package["debt_liquidity"]["as_of_date"]["value"] == "2026-01-31"
     assert len(package["normalized_guidance"]["items"]) >= 8
     assert len(package["segments"]["items"]) >= 6
     assert len(package["operating_drivers"]["items"]) >= 4
-    assert len(package["quarter_notes"]["items"]) >= 8
+    assert len(package["quarter_notes"]["items"]) == 6
     assert package["source_coverage"]["sources"]
+    latest_guidance = [
+        item
+        for item in package["normalized_guidance"]["items"]
+        if item["publication_date"] == "2026-03-04"
+    ]
+    assert latest_guidance
+    assert all(item["source_date"] == "2026-01-31" for item in latest_guidance)
+    assert all(item["stated_in_period"] == "2025-Q4" for item in latest_guidance)
+    assert all(item["display_role"] in {"current_primary", "current_secondary"} for item in latest_guidance)
 
     assert mapping["ticker"] == "ANF"
     assert isinstance(mapping["gaps"], list)
@@ -94,6 +132,19 @@ def test_anf_shadow_package_reports_are_built_from_read_only_legacy_artifacts(tm
     assert not (output_dir / "ANF_model.xlsx").exists()
 
 
+def test_checked_in_anf_audits_match_current_authoritative_package_digest() -> None:
+    package = json.loads((ANF_STRESS_DIR / "ANF_normalized_data_package.json").read_text(encoding="utf-8"))
+    expected = _payload_sha256(package)
+
+    for name in (
+        "anf_normalized_package_source_audit.json",
+        "anf_binding_coverage_audit.json",
+        "anf_normalized_text_quality_audit.json",
+    ):
+        audit = json.loads((ROOT / "docs" / name).read_text(encoding="utf-8"))
+        assert audit["source_package_content_sha256"] == expected, name
+
+
 def test_anf_binding_coverage_reports_row_schema_capacity(tmp_path: Path) -> None:
     paths = build_anf_shadow_outputs(
         data_root=DATA_ROOT,
@@ -109,6 +160,8 @@ def test_anf_binding_coverage_reports_row_schema_capacity(tmp_path: Path) -> Non
     quarter_notes = rows["qn_quarter_note_rows"]
     operating_drivers = rows["od_watchlist_rows"]
     qa_rows = rows["qa_checks_mapping_gap_rows"]
+    quarterly_segments = rows["bs_segment_quarterly_rows"]
+    annual_segments = rows["bs_segment_annual_rows"]
 
     assert set(guidance["row_schema_columns"]) >= {
         "metric",
@@ -132,13 +185,129 @@ def test_anf_binding_coverage_reports_row_schema_capacity(tmp_path: Path) -> Non
     }
     assert set(operating_drivers["row_schema_columns"]) >= {"topic", "current_read", "source", "why_it_matters"}
     assert set(qa_rows["row_schema_columns"]) >= {
-        "severity",
         "rule_id",
-        "field",
-        "message",
-        "source_ref",
-        "suggested_action",
+        "status",
+        "unique_issue_count",
+        "occurrence_count",
+        "blocking_count",
+        "actionable_count",
+        "affected_sections",
+        "interpretation",
+        "detail_ref",
     }
+    latest_revenue = rows["summary_latest_revenue"]
+    assert latest_revenue["planning_state"] == "active"
+    assert latest_revenue["number_of_rows_planner_eligible"] == 1
+    assert latest_revenue["structured_exclusion_count"] >= 1
+    assert any(reason.startswith("row_selector_pick_excluded:") for reason in latest_revenue["structured_exclusion_reasons"])
+    assert quarterly_segments["number_of_values_planner_eligible"] > 0
+    assert quarterly_segments["planner_planned_write_count"] == 14
+    assert quarterly_segments["would_write_useful_output"] is True
+    assert annual_segments["number_of_values_planner_eligible"] > 0
+    assert annual_segments["planner_planned_write_count"] == 6
+    assert annual_segments["would_write_useful_output"] is True
+    assert coverage["planner_status"] == "PASS"
+
+    inactive = next(row for row in coverage["bindings"] if row["planning_state"] != "active")
+    assert inactive["would_write_useful_output"] is False
+    assert "planning_state" in inactive["blank_reason"]
+    assert coverage["binding_contract_content_sha256"]
+
+
+def test_binding_coverage_independently_reproduces_and_rejects_cached_plan_tampering() -> None:
+    package = json.loads(
+        (ANF_STRESS_DIR / "ANF_normalized_data_package.json").read_text(encoding="utf-8")
+    )
+    bindings = json.loads((ROOT / "docs" / "workbook_binding_map.json").read_text(encoding="utf-8"))
+    manifest = json.loads((ROOT / "docs" / "standard_template_shell_manifest.json").read_text(encoding="utf-8"))
+    shell_identity = verify_shell_identity(
+        ROOT / "templates" / "standard_stock_model_template.xlsx",
+        manifest=manifest,
+        binding_payload=bindings,
+    )
+    _plan, verified_plan = reproduce_binding_plan_snapshot(
+        package,
+        binding_payload=bindings,
+        manifest=manifest,
+        shell_path=ROOT / "templates" / "standard_stock_model_template.xlsx",
+        shell_identity_report=shell_identity,
+    )
+
+    with pytest.raises(BindingPlanReproductionError, match="differs"):
+        build_binding_coverage_audit(
+            package,
+            bindings,
+            cached_plan={
+                "status": "PASS",
+                "planning_completed": True,
+                "planned_writes": [{"binding_id": "fabricated", "target_sheet": "SUMMARY", "target_cell": "A3"}],
+            },
+            manifest=manifest,
+            shell_path=ROOT / "templates" / "standard_stock_model_template.xlsx",
+        )
+
+    fabricated_plan = BindingPlan(ticker="ANF")
+    fabricated_plan.planning_completed = True
+    fabricated_plan.shell_identity_report = {"status": "PASS"}
+    with pytest.raises(BindingPlanReproductionError, match="differs"):
+        build_binding_coverage_audit(
+            package,
+            bindings,
+            cached_plan=fabricated_plan,
+            manifest=manifest,
+            shell_path=ROOT / "templates" / "standard_stock_model_template.xlsx",
+        )
+
+    tampered_payload = verified_plan.plan_payload
+    tampered_payload["planned_writes"][0]["target_sheet"] = "SUMMARY"
+    tampered_payload["planned_writes"][0]["target_cell"] = "A3"
+    tampered_payload["planned_writes"][0]["normalized_path"] = "fabricated.write"
+    tampered_payload["planned_writes"][0]["value"] = "fabricated"
+    tampered_payload["planned_writes"][0]["source_ref"] = "fabricated"
+    tampered_token = copy.copy(verified_plan)
+    object.__setattr__(
+        tampered_token,
+        "_plan_payload_json",
+        json.dumps(tampered_payload, sort_keys=True, separators=(",", ":")),
+    )
+    object.__setattr__(
+        tampered_token,
+        "_consistency_json",
+        json.dumps({"caller_recomputed_digest": _payload_sha256(tampered_payload)}, sort_keys=True),
+    )
+    with pytest.raises(BindingPlanReproductionError, match="differs"):
+        build_binding_coverage_audit(
+            package,
+            bindings,
+            cached_plan=tampered_token,
+            manifest=manifest,
+            shell_path=ROOT / "templates" / "standard_stock_model_template.xlsx",
+        )
+
+    changed_package = copy.deepcopy(package)
+    changed_package["company_profile"]["business_description"]["value"] = "Changed after verification"
+    with pytest.raises(BindingPlanReproductionError, match="differs"):
+        build_binding_coverage_audit(
+            changed_package,
+            bindings,
+            cached_plan=verified_plan,
+            manifest=manifest,
+            shell_path=ROOT / "templates" / "standard_stock_model_template.xlsx",
+        )
+
+    coverage = build_binding_coverage_audit(
+        package,
+        bindings,
+        cached_plan=verified_plan,
+        manifest=manifest,
+        shell_path=ROOT / "templates" / "standard_stock_model_template.xlsx",
+    )
+    assert coverage["planner_status"] == "PASS"
+    assert coverage["planner_total_write_count"] == len(verified_plan.plan_payload["planned_writes"])
+    assert not any(
+        write["normalized_path"] == "fabricated.write"
+        for write in verified_plan.plan_payload["planned_writes"]
+    )
 
 
 def test_anf_shadow_package_demotes_noisy_visible_text(tmp_path: Path) -> None:
@@ -164,6 +333,299 @@ def test_anf_shadow_package_demotes_noisy_visible_text(tmp_path: Path) -> None:
     assert any(flag["rule_id"] == "text_quality_demoted" for flag in package["manual_review_flags"])
     assert text_quality["demotion_summary"]["total_demoted"] == len(demotions)
     assert build_normalized_text_quality_audit(package)["non_clean_visible_count"] == 0
+    markdown = paths["text_quality_md"].read_text(encoding="utf-8")
+    omitted = max(0, len(demotions) - 120)
+    assert (f"{omitted} additional demotions omitted" in markdown) == bool(omitted)
+
+
+def test_annual_aggregation_never_converts_missing_components_to_zero_or_partial_sum() -> None:
+    missing = _annual_component_field(
+        [("2025-Q1", 10.0), ("2025-Q2", None), ("2025-Q3", 30.0), ("2025-Q4", 40.0)],
+        metric="adjusted_ebitda",
+        period="2025-FY",
+        source_ref="fixture:annual-components",
+    )
+
+    assert missing["value"] is None
+    assert missing["status"] == "missing_source"
+    assert missing["missing_inputs"] == ["2025-Q2"]
+
+    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    annuals = {row["period"]: row for row in package["annual_financials"]["rows"]}
+    for period in ("2020-FY", "2021-FY", "2022-FY"):
+        field = annuals[period]["adjusted_ebitda"]
+        assert field["value"] is None
+        assert field["status"] == "missing_source"
+        assert len(field["missing_inputs"]) == 4
+        assert not any(value in (0, 0.0) for value in (field["value"],))
+    reviews = [
+        row
+        for row in package["manual_review_flags"]
+        if row.get("rule_id") == "legacy_adapter_annual_component_missing"
+    ]
+    assert {row["affected_period"] for row in reviews} >= {"2020-FY", "2021-FY", "2022-FY"}
+
+
+def test_ttm_requires_exact_four_consecutive_source_backed_quarters() -> None:
+    def rows(periods: list[str], *, units: dict[str, str] | None = None) -> list[dict]:
+        return [
+            {
+                "period": period,
+                "revenue": {
+                    "value": float(index + 1),
+                    "status": "populated",
+                    "unit": (units or {}).get(period, "$m"),
+                    "source_ref": f"fixture:{period}:{index}",
+                },
+            }
+            for index, period in enumerate(periods)
+        ]
+
+    for periods in (["2025-Q4"], ["2025-Q3", "2025-Q4"], ["2025-Q2", "2025-Q3", "2025-Q4"]):
+        result = _ttm_component_field(rows(list(periods)), metric="revenue", source_ref="fixture")
+        assert result["status"] == "missing_source"
+        assert result["value"] is None
+        assert any(issue["reason"] == "quarter_count_not_four" for issue in result["component_issues"])
+
+    non_consecutive = _ttm_component_field(
+        rows(["2025-Q1", "2025-Q2", "2025-Q4", "2026-Q1"]),
+        metric="revenue",
+        source_ref="fixture",
+    )
+    assert non_consecutive["status"] == "manual_review_required"
+    assert any(issue["reason"] == "quarters_not_consecutive" for issue in non_consecutive["component_issues"])
+
+    duplicate = _ttm_component_field(
+        rows(["2025-Q1", "2025-Q1", "2025-Q2", "2025-Q3"]),
+        metric="revenue",
+        source_ref="fixture",
+        expected_end_period="2025-Q4",
+    )
+    assert duplicate["status"] == "manual_review_required"
+    assert duplicate["duplicate_quarters"] == ["2025-Q1"]
+    assert "2025-Q4" in duplicate["missing_quarters"]
+
+    mismatched_unit = _ttm_component_field(
+        rows(
+            ["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"],
+            units={"2025-Q3": "%"},
+        ),
+        metric="revenue",
+        source_ref="fixture",
+    )
+    assert mismatched_unit["status"] == "manual_review_required"
+    assert any(issue["reason"] == "incompatible_unit" for issue in mismatched_unit["component_issues"])
+
+    missing_unit_rows = rows(["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"])
+    missing_unit_rows[3]["revenue"].pop("unit")
+    missing_unit = _ttm_component_field(
+        missing_unit_rows,
+        metric="revenue",
+        source_ref="fixture",
+    )
+    assert missing_unit["status"] == "manual_review_required"
+    assert missing_unit["value"] is None
+    assert any(issue["reason"] == "incompatible_unit" for issue in missing_unit["component_issues"])
+
+    for invalid_unit in ("   ", "bananas"):
+        invalid_rows = rows(
+            ["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"],
+            units={"2025-Q4": invalid_unit},
+        )
+        invalid_result = _ttm_component_field(
+            invalid_rows,
+            metric="revenue",
+            source_ref="fixture",
+        )
+        assert invalid_result["status"] == "manual_review_required"
+        assert invalid_result["value"] is None
+        assert any(issue["reason"] == "incompatible_unit" for issue in invalid_result["component_issues"])
+
+    mismatched_dimensions = rows(["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"])
+    mismatched_dimensions[0]["revenue"]["dimension"] = "geography"
+    mismatched_dimensions[0]["revenue"]["member"] = "Region A"
+    dimension_result = _ttm_component_field(
+        mismatched_dimensions,
+        metric="revenue",
+        source_ref="fixture",
+    )
+    assert dimension_result["status"] == "manual_review_required"
+    assert any(issue["reason"] == "incompatible_dimensions" for issue in dimension_result["component_issues"])
+
+    valid_fiscal_year = _ttm_component_field(
+        rows(["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"]),
+        metric="revenue",
+        source_ref="fixture",
+    )
+    assert valid_fiscal_year["status"] == "populated"
+    assert valid_fiscal_year["value"] == 10.0
+    assert not any(
+        issue["reason"] == "incompatible_unit"
+        for issue in valid_fiscal_year.get("component_issues", [])
+    )
+
+    valid_rolling = _ttm_component_field(
+        rows(["2025-Q2", "2025-Q3", "2025-Q4", "2026-Q1"]),
+        metric="revenue",
+        source_ref="fixture",
+    )
+    assert valid_rolling["status"] == "populated"
+    assert valid_rolling["value"] == 10.0
+
+
+def test_annual_aggregation_requires_exact_compatible_q1_q4_coverage() -> None:
+    source = "fixture:annual-components"
+
+    duplicate_q1 = _annual_component_field(
+        [("2025-Q1", 1.0), ("2025-Q1", 2.0), ("2025-Q2", 3.0), ("2025-Q3", 4.0)],
+        metric="revenue",
+        period="2025-FY",
+        source_ref=source,
+    )
+    assert duplicate_q1["status"] == "manual_review_required"
+    assert any(row["reason"] == "duplicate_quarter" for row in duplicate_q1["component_issues"])
+    assert "2025-Q4" in duplicate_q1["missing_inputs"]
+
+    wrong_year = _annual_component_field(
+        [
+            {"label": "2025-Q1", "fiscal_year": 2024, "fiscal_quarter": 1, "value": 1.0, "unit": "$m", "status": "populated", "source_ref": source},
+            *[
+                {"label": f"2025-Q{quarter}", "fiscal_year": 2025, "fiscal_quarter": quarter, "value": float(quarter), "unit": "$m", "status": "populated", "source_ref": source}
+                for quarter in (2, 3, 4)
+            ],
+        ],
+        metric="revenue",
+        period="2025-FY",
+        source_ref=source,
+    )
+    assert any(row["reason"] == "mismatched_fiscal_year" for row in wrong_year["component_issues"])
+
+    wrong_unit = _annual_component_field(
+        [
+            {"label": f"2025-Q{quarter}", "fiscal_year": 2025, "fiscal_quarter": quarter, "value": float(quarter), "unit": "%" if quarter == 3 else "$m", "status": "populated", "source_ref": source}
+            for quarter in (1, 2, 3, 4)
+        ],
+        metric="revenue",
+        period="2025-FY",
+        source_ref=source,
+    )
+    assert any(row["reason"] == "mismatched_unit" for row in wrong_unit["component_issues"])
+
+    valid = _annual_component_field(
+        [(f"2025-Q{quarter}", float(quarter)) for quarter in (1, 2, 3, 4)],
+        metric="revenue",
+        period="2025-FY",
+        source_ref=source,
+    )
+    assert valid["status"] == "populated"
+    assert valid["value"] == 10.0
+
+
+def test_missing_revenue_quarter_remains_an_explicit_annual_gap(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "scripts.build_anf_shadow_normalized_package._read_legacy_valuation_series",
+        lambda _path, _row: {},
+    )
+    rows = [
+        {
+            "fiscal_year": 2025,
+            "fiscal_quarter": quarter,
+            "fiscal_label": f"2025-Q{quarter}",
+            "quarter": f"2025-0{quarter}-28",
+            "revenue": None if quarter == 2 else 1_000_000.0 * quarter,
+            "gross_profit": 500_000.0,
+            "op_income": 200_000.0,
+            "ebitda": 250_000.0,
+            "net_income": 100_000.0,
+            "cfo": 150_000.0,
+            "capex": 50_000.0,
+        }
+        for quarter in (1, 2, 3, 4)
+    ]
+
+    incomplete_candidates: list[dict] = []
+    annuals = _build_annual_financial_rows(
+        rows,
+        Path("legacy_fixture.xlsx"),
+        incomplete_candidates=incomplete_candidates,
+    )
+
+    assert len(annuals) == 1
+    assert annuals[0]["period"] == "2025-FY"
+    assert annuals[0]["revenue"]["status"] == "missing_source"
+    assert annuals[0]["revenue"]["value"] is None
+    assert annuals[0]["operating_income"]["status"] == "populated"
+    assert incomplete_candidates == []
+
+
+def test_year_without_q4_becomes_an_explicit_incomplete_candidate(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "scripts.build_anf_shadow_normalized_package._read_legacy_valuation_series",
+        lambda _path, _row: {},
+    )
+    rows = [
+        {
+            "fiscal_year": 2024,
+            "fiscal_quarter": quarter,
+            "fiscal_label": f"2024-Q{quarter}",
+            "quarter": f"2024-0{quarter}-28",
+            "revenue": 1_000_000.0 * quarter,
+        }
+        for quarter in (1, 2, 3)
+    ]
+    incomplete_candidates: list[dict] = []
+
+    annuals = _build_annual_financial_rows(
+        rows,
+        Path("legacy_fixture.xlsx"),
+        incomplete_candidates=incomplete_candidates,
+    )
+    reviews = _annual_incomplete_candidate_reviews(incomplete_candidates)
+
+    assert annuals == []
+    assert incomplete_candidates == [
+        {
+            "period": "2024-FY",
+            "status": "missing_source",
+            "present_quarters": ["Q1", "Q2", "Q3"],
+                "missing_quarters": ["Q4"],
+                "source_refs": [
+                    "legacy_fixture.xlsx!History_Q",
+            ],
+            "reason": "Annual aggregation requires exactly one source-backed Q1-Q4 component; missing Q4.",
+        }
+    ]
+    assert reviews[0]["rule_id"] == "legacy_adapter_annual_fiscal_year_incomplete"
+    assert reviews[0]["adapter_metadata"]["missing_quarters"] == ["Q4"]
+
+
+def test_q4_only_year_remains_visible_as_missing_annual_row(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "scripts.build_anf_shadow_normalized_package._read_legacy_valuation_series",
+        lambda _path, _row: {},
+    )
+    rows = [
+        {
+            "fiscal_year": 2024,
+            "fiscal_quarter": 4,
+            "fiscal_label": "2024-Q4",
+            "quarter": "2025-01-31",
+            "revenue": 4_000_000.0,
+        }
+    ]
+    incomplete_candidates: list[dict] = []
+
+    annuals = _build_annual_financial_rows(
+        rows,
+        Path("legacy_fixture.xlsx"),
+        incomplete_candidates=incomplete_candidates,
+    )
+
+    assert len(annuals) == 1
+    assert annuals[0]["period"] == "2024-FY"
+    assert annuals[0]["revenue"]["status"] == "missing_source"
+    assert annuals[0]["revenue"]["missing_inputs"] == ["2024-Q1", "2024-Q2", "2024-Q3"]
+    assert incomplete_candidates == []
 
 
 def _visible_text_values(package: dict) -> list[str]:

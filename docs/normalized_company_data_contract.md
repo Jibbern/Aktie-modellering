@@ -15,6 +15,9 @@ Architecture ownership:
   gaps, and manual review flags.
 - The validator blocks bad content before render so the future filler can write
   values only.
+- The canonical issue ledger owns deduplicated issue identity and lossless
+  source-level occurrences; workbook QA sheets are presentation projections of
+  that ledger, not independent issue stores.
 
 ## Source-Native Boundary And Legacy Fixtures
 
@@ -35,6 +38,12 @@ Before any Excel file is copied or opened, the package must pass:
 2. Semantic/content validation, including source lineage for populated
    source-backed core fields.
 3. Typed binding planning against the shell manifest and binding map.
+
+The schema gate is fail-closed and also governs the canonical issue ledger,
+shell manifest, binding map, and serialized binding plan. Current contracts
+enforce composition, constants/enums, numeric bounds, string/array cardinality,
+uniqueness, patterns, formats, required properties, and additional-property
+rules before planning or report serialization.
 
 The planner emits exact planned cells, capacity use, overflow, skipped rows,
 mapping gaps, and manual-review flags. It never parses sources or opens a
@@ -86,7 +95,10 @@ Source/profile-backed company context:
 - `sector`
 - `industry`
 - `business_description`
+- `strategic_context`
 - `revenue_model`
+- `revenue_streams[]`: source-backed `member`, numeric `mix`, `unit`,
+  `period`, `source_ref`, and deterministic `display_order`
 - `key_advantages`
 - `key_risks`
 - `allowed_sector_terms`
@@ -121,6 +133,12 @@ adjusted EBITDA are distinct fields and may not be substituted for each other.
 Annual CFO and capex remain separate source-backed fields so FCF can be traced
 without treating a workbook formula as source evidence.
 
+Every fiscal year represented in quarterly evidence is reconciled against an
+explicit Q1-Q4 set. Complete years enter `annual_financials.rows`; years that
+cannot be aggregated enter `annual_financials.incomplete_candidates` with the
+present quarters, missing quarters, source references, and reason. A historical
+year may never disappear merely because Q4 is absent.
+
 ### valuation_inputs
 
 Explicit, typed source inputs for the formula-owned Valuation model:
@@ -146,11 +164,28 @@ Debt and liquidity fields:
 - cash
 - total debt
 - net debt
+- net leverage, only when its numerator, denominator, scope, and period are source-backed
 - revolver availability
-- liquidity
+- cash used in the liquidity total
+- other available liquidity
+- total liquidity
+- liquidity definition/scope
+- total-liquidity as-of date
+- latest SUMMARY point-in-time as-of date
+- `liquidity_freshness` disposition: `current`,
+  `stale_but_displayable_with_date`, `blocked_from_current_summary`, or
+  `incomplete_components`
+- source-backed `summary_liquidity_display`; stale values include their exact
+  as-of date in the visible value
+- deprecated `liquidity` alias, which must agree with `total_liquidity`
 - lease liabilities
 - interest expense
 - maturity schedule references
+
+Liquidity components must share one as-of date. A newer cash observation may
+not be combined with older revolver evidence. If the latest complete total is
+older than SUMMARY, it is either visibly dated or excluded from the current
+SUMMARY with an actionable review issue.
 
 ### capital_returns
 
@@ -164,8 +199,10 @@ Capital return fields:
 
 ### normalized_guidance
 
-Guidance rows must be normalized into metric, value/range, horizon, stated-in
-period, source date, source excerpt, status, and classification. Boilerplate,
+Guidance rows must keep `publication_date`, source/reporting `source_date` and
+`stated_in_period`, guidance `horizon`, `update_stage`, and current/history
+visibility as distinct fields. Guidance rows also contain metric, value/range,
+source excerpt, status, and classification. Boilerplate,
 safe-harbor text, parser snippets, and metric conflicts must stay out of mapped
 guidance rows and go to manual review flags.
 

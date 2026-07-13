@@ -26,6 +26,8 @@ SOURCE_WORKBOOKS = {
     "GPRE": DATA_ROOT / "outputs" / "Excel stock models" / "GPRE_model.xlsx",
     "ANF": DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx",
 }
+if not SOURCE_WORKBOOKS["GPRE"].exists():
+    SOURCE_WORKBOOKS["GPRE"] = DATA_ROOT / "outputs" / "Excel stock models" / "GPRE_model.xlsm"
 ALLOWED_CLASSIFICATIONS = {
     "standard_visible_shell_sheet",
     "required_support_shell_sheet",
@@ -68,6 +70,8 @@ LIFECYCLE_FIELDS = {
 def _source_sheet_names() -> set[str]:
     names: set[str] = set()
     for path in SOURCE_WORKBOOKS.values():
+        if not path.exists():
+            continue
         wb = load_workbook(path, read_only=True, data_only=False)
         try:
             names.update(wb.sheetnames)
@@ -148,3 +152,14 @@ def test_gpre_sector_pack_sheets_are_optional_not_standard() -> None:
     for sheet_name in ("Economics_Overlay", "Basis_Proxy_Sandbox", "economics_market_raw"):
         assert rows[sheet_name]["classification"] == "optional_sector_pack_sheet"
         assert rows[sheet_name]["present_in_standard_shell"] is False
+
+
+def test_visible_qa_surface_lifecycle_uses_canonical_issue_ledger_views() -> None:
+    payload = json.loads(LIFECYCLE_JSON.read_text(encoding="utf-8"))
+    surfaces = {row["sheet_name"]: row for row in payload["visible_qa_surfaces"]}
+
+    assert set(surfaces) == {"QA_Log", "Needs_Review", "QA_Checks"}
+    assert surfaces["QA_Log"]["source_of_data"] == "canonical issue-ledger summaries"
+    assert "visibility_disposition=needs_review" in surfaces["Needs_Review"]["source_of_data"]
+    assert surfaces["QA_Checks"]["source_of_data"] == "canonical issue-ledger rule aggregates"
+    assert all("explicit overflow only" in row["validation_rules"] for row in surfaces.values())

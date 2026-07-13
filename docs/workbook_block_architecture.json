@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-07T19:39:11+00:00",
+  "generated_at": "2026-07-13T17:38:03+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -13,8 +13,8 @@
       "exists": true
     },
     "GPRE": {
-      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\GPRE_model.xlsx",
-      "sha256": "31493242bd4a10e7c33ba2579e2d7a8ad699128bc748d12ba1012fdba7e03afb",
+      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\GPRE_model.xlsm",
+      "sha256": "f7c23c9c0d9e3a52c708553e5fc6f964aa3fc58c8b4805d235f7ccfce5bde41b",
       "exists": true
     }
   },
@@ -268,7 +268,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "company_profile.business_description"
+        "company_profile.strategic_context"
       ],
       "support_sheets_used": [
         "Debt_Tranches_Q",
@@ -288,7 +288,7 @@
       ],
       "required_fields": [],
       "optional_fields": [
-        "company_profile.business_description"
+        "company_profile.strategic_context"
       ],
       "source_policy": "profile-backed",
       "missing_data_behavior": "leave shell text blank; emit profile/source gap if promotion asks for full profile",
@@ -300,7 +300,7 @@
         {
           "binding_id": "summary_strategic_context",
           "target": "A5:F5",
-          "normalized_field": "company_profile.business_description",
+          "normalized_field": "company_profile.strategic_context",
           "required": false,
           "value_shape": "text_block",
           "source_policy": "profile-backed",
@@ -437,16 +437,16 @@
       ],
       "writable_value_cells": [
         {
-          "binding_id": "summary_revenue_model",
+          "binding_id": "summary_revenue_stream_rows",
           "target": "A9:F11",
-          "value_shape": "text_block"
+          "value_shape": "table_rows"
         }
       ],
       "writable_example_cells": [
         {
-          "binding_id": "summary_revenue_model",
+          "binding_id": "summary_revenue_stream_rows",
           "target": "A9:F11",
-          "value_shape": "text_block",
+          "value_shape": "table_rows",
           "nonempty_count": 6,
           "formula_count": 0,
           "numeric_count": 3,
@@ -484,7 +484,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "company_profile.revenue_model"
+        "company_profile.revenue_streams"
       ],
       "support_sheets_used": [
         "Debt_Tranches_Q",
@@ -503,7 +503,7 @@
         "future value-only filler"
       ],
       "required_fields": [
-        "company_profile.revenue_model"
+        "company_profile.revenue_streams"
       ],
       "optional_fields": [],
       "source_policy": "profile-backed",
@@ -514,11 +514,11 @@
       "standardization_status": "standard",
       "bindings": [
         {
-          "binding_id": "summary_revenue_model",
+          "binding_id": "summary_revenue_stream_rows",
           "target": "A9:F11",
-          "normalized_field": "company_profile.revenue_model",
+          "normalized_field": "company_profile.revenue_streams",
           "required": true,
-          "value_shape": "text_block",
+          "value_shape": "table_rows",
           "source_policy": "profile-backed",
           "missing_source_behavior": "leave shell text blank; emit profile/source gap",
           "validation_rule": "unexplained_empty_core_field"
@@ -1055,19 +1055,24 @@
       ],
       "writable_value_cells": [
         {
-          "binding_id": "summary_quarterly_revenue",
+          "binding_id": "summary_as_of_quarter",
           "target": "B26:B29",
           "value_shape": "quarterly_series"
         },
         {
-          "binding_id": "summary_quarterly_operating_income",
+          "binding_id": "summary_latest_net_income",
           "target": "B30:B39",
+          "value_shape": "quarterly_series"
+        },
+        {
+          "binding_id": "summary_latest_revenue",
+          "target": "B26:B39",
           "value_shape": "quarterly_series"
         }
       ],
       "writable_example_cells": [
         {
-          "binding_id": "summary_quarterly_revenue",
+          "binding_id": "summary_as_of_quarter",
           "target": "B26:B29",
           "value_shape": "quarterly_series",
           "nonempty_count": 4,
@@ -1094,7 +1099,7 @@
           ]
         },
         {
-          "binding_id": "summary_quarterly_operating_income",
+          "binding_id": "summary_latest_net_income",
           "target": "B30:B39",
           "value_shape": "quarterly_series",
           "nonempty_count": 10,
@@ -1135,6 +1140,49 @@
               "value": "0.688024979913812"
             }
           ]
+        },
+        {
+          "binding_id": "summary_latest_revenue",
+          "target": "B26:B39",
+          "value_shape": "quarterly_series",
+          "nonempty_count": 14,
+          "formula_count": 0,
+          "numeric_count": 9,
+          "text_count": 5,
+          "sample_cells": [
+            {
+              "cell": "B26",
+              "value": "2026-05-02 00:00:00"
+            },
+            {
+              "cell": "B27",
+              "value": "5282.802"
+            },
+            {
+              "cell": "B28",
+              "value": "1113.821"
+            },
+            {
+              "cell": "B29",
+              "value": "0.01504587122520416"
+            },
+            {
+              "cell": "B30",
+              "value": "67.134"
+            },
+            {
+              "cell": "B31",
+              "value": "-0.1651349906109709"
+            },
+            {
+              "cell": "B32",
+              "value": "1.469755018937321"
+            },
+            {
+              "cell": "B33",
+              "value": "-0.118367586426664"
+            }
+          ]
         }
       ],
       "company_specific_example_cells": [],
@@ -1142,7 +1190,8 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "quarterly_financials.rows.0.operating_income",
+        "quarterly_financials.rows.0.net_income",
+        "quarterly_financials.rows.0.period",
         "quarterly_financials.rows.0.revenue"
       ],
       "support_sheets_used": [
@@ -1162,7 +1211,8 @@
         "future value-only filler"
       ],
       "required_fields": [
-        "quarterly_financials.rows.0.operating_income",
+        "quarterly_financials.rows.0.net_income",
+        "quarterly_financials.rows.0.period",
         "quarterly_financials.rows.0.revenue"
       ],
       "optional_fields": [],
@@ -1174,9 +1224,9 @@
       "standardization_status": "standard",
       "bindings": [
         {
-          "binding_id": "summary_quarterly_revenue",
+          "binding_id": "summary_as_of_quarter",
           "target": "B26:B29",
-          "normalized_field": "quarterly_financials.rows.0.revenue",
+          "normalized_field": "quarterly_financials.rows.0.period",
           "required": true,
           "value_shape": "quarterly_series",
           "source_policy": "source-backed",
@@ -1184,9 +1234,19 @@
           "validation_rule": "unexplained_empty_core_field"
         },
         {
-          "binding_id": "summary_quarterly_operating_income",
+          "binding_id": "summary_latest_net_income",
           "target": "B30:B39",
-          "normalized_field": "quarterly_financials.rows.0.operating_income",
+          "normalized_field": "quarterly_financials.rows.0.net_income",
+          "required": true,
+          "value_shape": "quarterly_series",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "blank values; emit mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "summary_latest_revenue",
+          "target": "B26:B39",
+          "normalized_field": "quarterly_financials.rows.0.revenue",
           "required": true,
           "value_shape": "quarterly_series",
           "source_policy": "source-backed",
@@ -1326,53 +1386,41 @@
       ],
       "writable_value_cells": [
         {
-          "binding_id": "summary_net_debt",
-          "target": "B41:B42",
+          "binding_id": "summary_net_leverage",
+          "target": "B41:B41",
           "value_shape": "scalar"
         },
         {
           "binding_id": "summary_liquidity",
-          "target": "B43:B45",
+          "target": "B45:B45",
           "value_shape": "scalar"
         }
       ],
       "writable_example_cells": [
         {
-          "binding_id": "summary_net_debt",
-          "target": "B41:B42",
+          "binding_id": "summary_net_leverage",
+          "target": "B41:B41",
           "value_shape": "scalar",
-          "nonempty_count": 2,
+          "nonempty_count": 1,
           "formula_count": 0,
-          "numeric_count": 1,
+          "numeric_count": 0,
           "text_count": 1,
           "sample_cells": [
             {
               "cell": "B41",
               "value": "N/A"
-            },
-            {
-              "cell": "B42",
-              "value": "41.97864203049719"
             }
           ]
         },
         {
           "binding_id": "summary_liquidity",
-          "target": "B43:B45",
+          "target": "B45:B45",
           "value_shape": "scalar",
-          "nonempty_count": 3,
+          "nonempty_count": 1,
           "formula_count": 0,
           "numeric_count": 1,
-          "text_count": 2,
+          "text_count": 0,
           "sample_cells": [
-            {
-              "cell": "B43",
-              "value": "N/A"
-            },
-            {
-              "cell": "B44",
-              "value": "N/A"
-            },
             {
               "cell": "B45",
               "value": "594.08"
@@ -1385,8 +1433,8 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "debt_liquidity.liquidity",
-        "debt_liquidity.net_debt"
+        "debt_liquidity.net_leverage",
+        "debt_liquidity.summary_liquidity_display"
       ],
       "support_sheets_used": [
         "Debt_Tranches_Q",
@@ -1405,10 +1453,11 @@
         "future value-only filler"
       ],
       "required_fields": [
-        "debt_liquidity.liquidity",
-        "debt_liquidity.net_debt"
+        "debt_liquidity.summary_liquidity_display"
       ],
-      "optional_fields": [],
+      "optional_fields": [
+        "debt_liquidity.net_leverage"
+      ],
       "source_policy": "source-backed",
       "missing_data_behavior": "blank values; emit mapping gap",
       "validation_rules": [
@@ -1417,10 +1466,10 @@
       "standardization_status": "standard",
       "bindings": [
         {
-          "binding_id": "summary_net_debt",
-          "target": "B41:B42",
-          "normalized_field": "debt_liquidity.net_debt",
-          "required": true,
+          "binding_id": "summary_net_leverage",
+          "target": "B41:B41",
+          "normalized_field": "debt_liquidity.net_leverage",
+          "required": false,
           "value_shape": "scalar",
           "source_policy": "source-backed",
           "missing_source_behavior": "blank values; emit mapping gap",
@@ -1428,8 +1477,8 @@
         },
         {
           "binding_id": "summary_liquidity",
-          "target": "B43:B45",
-          "normalized_field": "debt_liquidity.liquidity",
+          "target": "B45:B45",
+          "normalized_field": "debt_liquidity.summary_liquidity_display",
           "required": true,
           "value_shape": "scalar",
           "source_policy": "source-backed",
@@ -1597,26 +1646,6 @@
           "value": "EBIT margin (TTM)"
         },
         {
-          "cell": "A36",
-          "value": "Net income attrib. to A&F"
-        },
-        {
-          "cell": "A37",
-          "value": "Net income attrib. to A&F margin %"
-        },
-        {
-          "cell": "A38",
-          "value": "Net income attrib. to A&F YoY %"
-        },
-        {
-          "cell": "A39",
-          "value": "Net income attrib. to A&F (TTM)"
-        },
-        {
-          "cell": "A40",
-          "value": "Net income attrib. to A&F margin (TTM)"
-        },
-        {
           "cell": "A41",
           "value": "Cash Flow"
         },
@@ -1635,6 +1664,26 @@
         {
           "cell": "A45",
           "value": "Capex % of revenue"
+        },
+        {
+          "cell": "A46",
+          "value": "Capex % of revenue (TTM)"
+        },
+        {
+          "cell": "A47",
+          "value": "FCF (CFO-Capex)"
+        },
+        {
+          "cell": "A48",
+          "value": "FCF YoY Δ ($m)"
+        },
+        {
+          "cell": "A49",
+          "value": "FCF (TTM)"
+        },
+        {
+          "cell": "A50",
+          "value": "FCF TTM YoY Δ ($m)"
         }
       ],
       "static_label_cells": [
@@ -1771,26 +1820,6 @@
           "value": "EBIT margin (TTM)"
         },
         {
-          "cell": "A36",
-          "value": "Net income attrib. to A&F"
-        },
-        {
-          "cell": "A37",
-          "value": "Net income attrib. to A&F margin %"
-        },
-        {
-          "cell": "A38",
-          "value": "Net income attrib. to A&F YoY %"
-        },
-        {
-          "cell": "A39",
-          "value": "Net income attrib. to A&F (TTM)"
-        },
-        {
-          "cell": "A40",
-          "value": "Net income attrib. to A&F margin (TTM)"
-        },
-        {
           "cell": "A41",
           "value": "Cash Flow"
         },
@@ -1809,6 +1838,26 @@
         {
           "cell": "A45",
           "value": "Capex % of revenue"
+        },
+        {
+          "cell": "A46",
+          "value": "Capex % of revenue (TTM)"
+        },
+        {
+          "cell": "A47",
+          "value": "FCF (CFO-Capex)"
+        },
+        {
+          "cell": "A48",
+          "value": "FCF YoY Δ ($m)"
+        },
+        {
+          "cell": "A49",
+          "value": "FCF (TTM)"
+        },
+        {
+          "cell": "A50",
+          "value": "FCF TTM YoY Δ ($m)"
         }
       ],
       "writable_value_cells": [
@@ -1824,12 +1873,27 @@
         },
         {
           "binding_id": "valuation_ebitda_series",
-          "target": "B37:M44",
+          "target": "B24:M24",
           "value_shape": "quarterly_series"
         },
         {
           "binding_id": "valuation_fcf_series",
           "target": "B45:M54",
+          "value_shape": "quarterly_series"
+        },
+        {
+          "binding_id": "valuation_period_headers",
+          "target": "B6:M28",
+          "value_shape": "quarterly_series"
+        },
+        {
+          "binding_id": "valuation_net_income_series",
+          "target": "B36:M36",
+          "value_shape": "quarterly_series"
+        },
+        {
+          "binding_id": "valuation_operating_cash_flow_series",
+          "target": "B43:M43",
           "value_shape": "quarterly_series"
         }
       ],
@@ -1922,44 +1986,44 @@
         },
         {
           "binding_id": "valuation_ebitda_series",
-          "target": "B37:M44",
+          "target": "B24:M24",
           "value_shape": "quarterly_series",
-          "nonempty_count": 72,
+          "nonempty_count": 12,
           "formula_count": 0,
-          "numeric_count": 72,
+          "numeric_count": 12,
           "text_count": 0,
           "sample_cells": [
             {
-              "cell": "B37",
-              "value": "0.06082675376465368"
+              "cell": "B24",
+              "value": "126.225"
             },
             {
-              "cell": "C37",
-              "value": "0.0910717311400366"
+              "cell": "C24",
+              "value": "171.156"
             },
             {
-              "cell": "D37",
-              "value": "0.1090551563176445"
+              "cell": "D24",
+              "value": "258.358"
             },
             {
-              "cell": "E37",
-              "value": "0.1115378209712657"
+              "cell": "E24",
+              "value": "167.538"
             },
             {
-              "cell": "F37",
-              "value": "0.117434791273874"
+              "cell": "F24",
+              "value": "214.98"
             },
             {
-              "cell": "G37",
-              "value": "0.1091668417474106"
+              "cell": "G24",
+              "value": "218.848"
             },
             {
-              "cell": "H37",
-              "value": "0.1181298452852736"
+              "cell": "H24",
+              "value": "293.227"
             },
             {
-              "cell": "I37",
-              "value": "0.07328186813036595"
+              "cell": "I24",
+              "value": "140.109"
             }
           ]
         },
@@ -2005,6 +2069,135 @@
               "value": "0.04626218091315953"
             }
           ]
+        },
+        {
+          "binding_id": "valuation_period_headers",
+          "target": "B6:M28",
+          "value_shape": "quarterly_series",
+          "nonempty_count": 204,
+          "formula_count": 0,
+          "numeric_count": 192,
+          "text_count": 12,
+          "sample_cells": [
+            {
+              "cell": "B6",
+              "value": "2023-Q2"
+            },
+            {
+              "cell": "C6",
+              "value": "2023-Q3"
+            },
+            {
+              "cell": "D6",
+              "value": "2023-Q4"
+            },
+            {
+              "cell": "E6",
+              "value": "2024-Q1"
+            },
+            {
+              "cell": "F6",
+              "value": "2024-Q2"
+            },
+            {
+              "cell": "G6",
+              "value": "2024-Q3"
+            },
+            {
+              "cell": "H6",
+              "value": "2024-Q4"
+            },
+            {
+              "cell": "I6",
+              "value": "2025-Q1"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_net_income_series",
+          "target": "B36:M36",
+          "value_shape": "quarterly_series",
+          "nonempty_count": 12,
+          "formula_count": 0,
+          "numeric_count": 12,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "B36",
+              "value": "56.894"
+            },
+            {
+              "cell": "C36",
+              "value": "96.211"
+            },
+            {
+              "cell": "D36",
+              "value": "158.447"
+            },
+            {
+              "cell": "E36",
+              "value": "113.85"
+            },
+            {
+              "cell": "F36",
+              "value": "133.168"
+            },
+            {
+              "cell": "G36",
+              "value": "131.979"
+            },
+            {
+              "cell": "H36",
+              "value": "187.226"
+            },
+            {
+              "cell": "I36",
+              "value": "80.413"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_operating_cash_flow_series",
+          "target": "B43:M43",
+          "value_shape": "quarterly_series",
+          "nonempty_count": 12,
+          "formula_count": 0,
+          "numeric_count": 12,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "B43",
+              "value": "-84.357"
+            },
+            {
+              "cell": "C43",
+              "value": "84.357"
+            },
+            {
+              "cell": "D43",
+              "value": "352.737"
+            },
+            {
+              "cell": "E43",
+              "value": "95.01"
+            },
+            {
+              "cell": "F43",
+              "value": "165.109"
+            },
+            {
+              "cell": "G43",
+              "value": "142.637"
+            },
+            {
+              "cell": "H43",
+              "value": "307.62"
+            },
+            {
+              "cell": "I43",
+              "value": "-4"
+            }
+          ]
         }
       ],
       "company_specific_example_cells": [],
@@ -2014,7 +2207,10 @@
       "normalized_fields": [
         "quarterly_financials.rows.0.adjusted_ebitda",
         "quarterly_financials.rows.0.free_cash_flow",
+        "quarterly_financials.rows.0.net_income",
+        "quarterly_financials.rows.0.operating_cash_flow",
         "quarterly_financials.rows.0.operating_income",
+        "quarterly_financials.rows.0.period",
         "quarterly_financials.rows.0.revenue"
       ],
       "support_sheets_used": [
@@ -2037,12 +2233,15 @@
         "future value-only filler"
       ],
       "required_fields": [
-        "quarterly_financials.rows.0.free_cash_flow",
-        "quarterly_financials.rows.0.operating_income",
+        "quarterly_financials.rows.0.net_income",
+        "quarterly_financials.rows.0.operating_cash_flow",
+        "quarterly_financials.rows.0.period",
         "quarterly_financials.rows.0.revenue"
       ],
       "optional_fields": [
-        "quarterly_financials.rows.0.adjusted_ebitda"
+        "quarterly_financials.rows.0.adjusted_ebitda",
+        "quarterly_financials.rows.0.free_cash_flow",
+        "quarterly_financials.rows.0.operating_income"
       ],
       "source_policy": "source-backed",
       "missing_data_behavior": "blank values; emit valuation mapping gap | do not infer from profile; emit valuation mapping gap | optional blank with missing_source reason; do not proxy without review",
@@ -2066,7 +2265,7 @@
           "binding_id": "valuation_operating_income_series",
           "target": "B29:M36",
           "normalized_field": "quarterly_financials.rows.0.operating_income",
-          "required": true,
+          "required": false,
           "value_shape": "quarterly_series",
           "source_policy": "source-backed",
           "missing_source_behavior": "blank values; emit valuation mapping gap",
@@ -2074,7 +2273,7 @@
         },
         {
           "binding_id": "valuation_ebitda_series",
-          "target": "B37:M44",
+          "target": "B24:M24",
           "normalized_field": "quarterly_financials.rows.0.adjusted_ebitda",
           "required": false,
           "value_shape": "quarterly_series",
@@ -2086,10 +2285,40 @@
           "binding_id": "valuation_fcf_series",
           "target": "B45:M54",
           "normalized_field": "quarterly_financials.rows.0.free_cash_flow",
-          "required": true,
+          "required": false,
           "value_shape": "quarterly_series",
           "source_policy": "source-backed",
           "missing_source_behavior": "blank values; emit valuation mapping gap",
+          "validation_rule": "valuation_core_mapping_gap"
+        },
+        {
+          "binding_id": "valuation_period_headers",
+          "target": "B6:M28",
+          "normalized_field": "quarterly_financials.rows.0.period",
+          "required": true,
+          "value_shape": "quarterly_series",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
+          "validation_rule": "valuation_core_mapping_gap"
+        },
+        {
+          "binding_id": "valuation_net_income_series",
+          "target": "B36:M36",
+          "normalized_field": "quarterly_financials.rows.0.net_income",
+          "required": true,
+          "value_shape": "quarterly_series",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
+          "validation_rule": "valuation_core_mapping_gap"
+        },
+        {
+          "binding_id": "valuation_operating_cash_flow_series",
+          "target": "B43:M43",
+          "normalized_field": "quarterly_financials.rows.0.operating_cash_flow",
+          "required": true,
+          "value_shape": "quarterly_series",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
           "validation_rule": "valuation_core_mapping_gap"
         }
       ],
@@ -2232,7 +2461,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "normalized_guidance.items.0.value"
+        "normalized_guidance.items.value"
       ],
       "support_sheets_used": [
         "Debt_Profile",
@@ -2255,7 +2484,7 @@
       ],
       "required_fields": [],
       "optional_fields": [
-        "normalized_guidance.items.0.value"
+        "normalized_guidance.items.value"
       ],
       "source_policy": "source-backed",
       "missing_data_behavior": "blank guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance",
@@ -2267,12 +2496,141 @@
         {
           "binding_id": "valuation_guidance_rows",
           "target": "O9:T27",
-          "normalized_field": "normalized_guidance.items.0.value",
+          "normalized_field": "normalized_guidance.items.value",
           "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
           "missing_source_behavior": "blank guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance",
           "validation_rule": "guidance_metric_misclassification"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "valuation_guidance_status_values",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "AA9:AA27",
+      "title_header_cells": [
+        {
+          "cell": "AA8",
+          "value": "Trend / realized"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "AA8",
+          "value": "Trend / realized"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "AA8",
+          "value": "Trend / realized"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "valuation_guidance_status_rows",
+          "target": "AA9:AA27",
+          "value_shape": "table_rows"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "valuation_guidance_status_rows",
+          "target": "AA9:AA27",
+          "value_shape": "table_rows",
+          "nonempty_count": 17,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 17,
+          "sample_cells": [
+            {
+              "cell": "AA9",
+              "value": "Open / not yet realized"
+            },
+            {
+              "cell": "AA10",
+              "value": "Open; 2025: 13.3% / 12.5% adj"
+            },
+            {
+              "cell": "AA11",
+              "value": "Open; 2025: $10.46 GAAP / $9.86 adj"
+            },
+            {
+              "cell": "AA12",
+              "value": "Open; 2025 actual ~$450m"
+            },
+            {
+              "cell": "AA13",
+              "value": "Open / not yet realized"
+            },
+            {
+              "cell": "AA14",
+              "value": "Open; 2025 actual $240.8m"
+            },
+            {
+              "cell": "AA15",
+              "value": "Open / not yet realized"
+            },
+            {
+              "cell": "AA16",
+              "value": "Open; bps bridge item"
+            }
+          ]
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "normalized_guidance.items.progress_status"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "normalized_guidance.items.progress_status"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "blank guidance status rows until realized/status evidence exists",
+      "validation_rules": [
+        "boilerplate_guidance"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "valuation_guidance_status_rows",
+          "target": "AA9:AA27",
+          "normalized_field": "normalized_guidance.items.progress_status",
+          "required": false,
+          "value_shape": "table_rows",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "blank guidance status rows until realized/status evidence exists",
+          "validation_rule": "boilerplate_guidance"
         }
       ],
       "notes": [
@@ -3041,7 +3399,7 @@
       ],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "mapping_gaps"
+        "valuation_outputs.items.value"
       ],
       "support_sheets_used": [
         "Debt_Profile",
@@ -3064,153 +3422,24 @@
       ],
       "required_fields": [],
       "optional_fields": [
-        "mapping_gaps"
+        "valuation_outputs.items.value"
       ],
       "source_policy": "derived",
       "missing_data_behavior": "blank output rows until required valuation inputs are mapped and validated",
       "validation_rules": [
-        "valuation_core_mapping_gap"
+        "valuation_output_contract"
       ],
       "standardization_status": "standard",
       "bindings": [
         {
           "binding_id": "valuation_output_rows",
           "target": "O64:AA170",
-          "normalized_field": "mapping_gaps",
+          "normalized_field": "valuation_outputs.items.value",
           "required": false,
           "value_shape": "table_rows",
           "source_policy": "derived",
           "missing_source_behavior": "blank output rows until required valuation inputs are mapped and validated",
-          "validation_rule": "valuation_core_mapping_gap"
-        }
-      ],
-      "notes": [
-        "Block is derived from manifest writable zone and current binding map.",
-        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
-      ]
-    },
-    {
-      "block_id": "valuation_guidance_status_values",
-      "sheet": "Valuation",
-      "resolved_lab_sheet": "Valuation",
-      "range": "X9:AA27",
-      "title_header_cells": [
-        {
-          "cell": "AA8",
-          "value": "Trend / realized"
-        }
-      ],
-      "template_label_cells": [
-        {
-          "cell": "AA8",
-          "value": "Trend / realized"
-        }
-      ],
-      "row_label_cells": [],
-      "static_label_cells": [
-        {
-          "cell": "AA8",
-          "value": "Trend / realized"
-        }
-      ],
-      "writable_value_cells": [
-        {
-          "binding_id": "valuation_guidance_status_rows",
-          "target": "X9:AA27",
-          "value_shape": "table_rows"
-        }
-      ],
-      "writable_example_cells": [
-        {
-          "binding_id": "valuation_guidance_status_rows",
-          "target": "X9:AA27",
-          "value_shape": "table_rows",
-          "nonempty_count": 17,
-          "formula_count": 0,
-          "numeric_count": 0,
-          "text_count": 17,
-          "sample_cells": [
-            {
-              "cell": "AA9",
-              "value": "Open / not yet realized"
-            },
-            {
-              "cell": "AA10",
-              "value": "Open; 2025: 13.3% / 12.5% adj"
-            },
-            {
-              "cell": "AA11",
-              "value": "Open; 2025: $10.46 GAAP / $9.86 adj"
-            },
-            {
-              "cell": "AA12",
-              "value": "Open; 2025 actual ~$450m"
-            },
-            {
-              "cell": "AA13",
-              "value": "Open / not yet realized"
-            },
-            {
-              "cell": "AA14",
-              "value": "Open; 2025 actual $240.8m"
-            },
-            {
-              "cell": "AA15",
-              "value": "Open / not yet realized"
-            },
-            {
-              "cell": "AA16",
-              "value": "Open; bps bridge item"
-            }
-          ]
-        }
-      ],
-      "company_specific_example_cells": [],
-      "source_specific_example_cells": [],
-      "formula_cells": [],
-      "hidden_helper_cells": [],
-      "normalized_fields": [
-        "normalized_guidance.items.0.horizon"
-      ],
-      "support_sheets_used": [
-        "Debt_Profile",
-        "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
-        "History_Q",
-        "Slides_Guidance"
-      ],
-      "current_code_owner": [
-        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
-        "pbi_xbrl/excel_writer_valuation_*",
-        "pbi_xbrl/valuation.py"
-      ],
-      "future_intended_owner": [
-        "frozen template shell",
-        "docs/workbook_binding_map.json",
-        "future value-only filler"
-      ],
-      "required_fields": [],
-      "optional_fields": [
-        "normalized_guidance.items.0.horizon"
-      ],
-      "source_policy": "source-backed",
-      "missing_data_behavior": "blank guidance status rows until realized/status evidence exists",
-      "validation_rules": [
-        "boilerplate_guidance"
-      ],
-      "standardization_status": "standard",
-      "bindings": [
-        {
-          "binding_id": "valuation_guidance_status_rows",
-          "target": "X9:AA27",
-          "normalized_field": "normalized_guidance.items.0.horizon",
-          "required": false,
-          "value_shape": "table_rows",
-          "source_policy": "source-backed",
-          "missing_source_behavior": "blank guidance status rows until realized/status evidence exists",
-          "validation_rule": "boilerplate_guidance"
+          "validation_rule": "valuation_output_contract"
         }
       ],
       "notes": [
@@ -3586,10 +3815,10 @@
         "docs/workbook_binding_map.json",
         "future value-only filler"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "quarterly_financials.rows.0.diluted_shares"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "blank values; emit mapping gap",
       "validation_rules": [
@@ -3601,7 +3830,7 @@
           "binding_id": "valuation_diluted_shares_series",
           "target": "B81:M90",
           "normalized_field": "quarterly_financials.rows.0.diluted_shares",
-          "required": true,
+          "required": false,
           "value_shape": "quarterly_series",
           "source_policy": "source-backed",
           "missing_source_behavior": "blank values; emit mapping gap",
@@ -3766,10 +3995,10 @@
         "docs/workbook_binding_map.json",
         "future value-only filler"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "debt_liquidity.total_debt"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "blank values; emit mapping gap",
       "validation_rules": [
@@ -3781,7 +4010,7 @@
           "binding_id": "valuation_total_debt_series",
           "target": "B124:M132",
           "normalized_field": "debt_liquidity.total_debt",
-          "required": true,
+          "required": false,
           "value_shape": "quarterly_series",
           "source_policy": "source-backed",
           "missing_source_behavior": "blank values; emit mapping gap",
@@ -3871,10 +4100,10 @@
         "docs/workbook_binding_map.json",
         "future value-only filler"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "debt_liquidity.cash"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "blank values; emit mapping gap",
       "validation_rules": [
@@ -3886,7 +4115,7 @@
           "binding_id": "valuation_cash_series",
           "target": "B133:M137",
           "normalized_field": "debt_liquidity.cash",
-          "required": true,
+          "required": false,
           "value_shape": "quarterly_series",
           "source_policy": "source-backed",
           "missing_source_behavior": "blank values; emit mapping gap",
@@ -4078,6 +4307,365 @@
           "source_policy": "source-backed",
           "missing_source_behavior": "optional blank with not_applicable or missing_source reason",
           "validation_rule": "unexplained_empty_core_field"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "valuation_input_values",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "D194:D216",
+      "title_header_cells": [
+        {
+          "cell": "D193",
+          "value": "Value"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "D193",
+          "value": "Value"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "D193",
+          "value": "Value"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "valuation_input_as_of",
+          "target": "D195",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_input_shares_outstanding",
+          "target": "D196",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_input_diluted_shares",
+          "target": "D197",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_input_net_debt",
+          "target": "D198",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_input_base_ebitda_ttm",
+          "target": "D199",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_input_adjusted_ebitda_ttm",
+          "target": "D200",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_input_fcf_ttm",
+          "target": "D201",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_input_revenue_ttm",
+          "target": "D203",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_input_capex_ttm",
+          "target": "D211",
+          "value_shape": "scalar"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "valuation_input_as_of",
+          "target": "D195",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 1,
+          "sample_cells": [
+            {
+              "cell": "D195",
+              "value": "2026-05-02 00:00:00"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_input_shares_outstanding",
+          "target": "D196",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 1,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "D196",
+              "value": "45.677"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_input_diluted_shares",
+          "target": "D197",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 1,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "D197",
+              "value": "45.677"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_input_net_debt",
+          "target": "D198",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 1,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "D198",
+              "value": "-594.08"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_input_base_ebitda_ttm",
+          "target": "D199",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 1,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "D199",
+              "value": "845.156"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_input_adjusted_ebitda_ttm",
+          "target": "D200",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 1,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "D200",
+              "value": "806.582"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_input_fcf_ttm",
+          "target": "D201",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 1,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "D201",
+              "value": "416.047"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_input_revenue_ttm",
+          "target": "D203",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 1,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "D203",
+              "value": "5282.802"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_input_capex_ttm",
+          "target": "D211",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 1,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "D211",
+              "value": "251.351"
+            }
+          ]
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "valuation_inputs.adjusted_ebitda_ttm",
+        "valuation_inputs.as_of_date",
+        "valuation_inputs.base_ebitda_ttm",
+        "valuation_inputs.capex_ttm",
+        "valuation_inputs.diluted_shares",
+        "valuation_inputs.free_cash_flow_ttm",
+        "valuation_inputs.net_debt",
+        "valuation_inputs.revenue_ttm",
+        "valuation_inputs.shares_outstanding"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [
+        "valuation_inputs.adjusted_ebitda_ttm",
+        "valuation_inputs.as_of_date",
+        "valuation_inputs.base_ebitda_ttm",
+        "valuation_inputs.diluted_shares",
+        "valuation_inputs.free_cash_flow_ttm",
+        "valuation_inputs.net_debt",
+        "valuation_inputs.revenue_ttm",
+        "valuation_inputs.shares_outstanding"
+      ],
+      "optional_fields": [
+        "valuation_inputs.capex_ttm"
+      ],
+      "source_policy": "mixed",
+      "missing_data_behavior": "leave blank and emit a P1 mapping gap | leave blank and emit a mapping gap",
+      "validation_rules": [
+        "share_count_outlier",
+        "valuation_core_mapping_gap"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "valuation_input_as_of",
+          "target": "D195",
+          "normalized_field": "valuation_inputs.as_of_date",
+          "required": true,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+          "validation_rule": "valuation_core_mapping_gap"
+        },
+        {
+          "binding_id": "valuation_input_shares_outstanding",
+          "target": "D196",
+          "normalized_field": "valuation_inputs.shares_outstanding",
+          "required": true,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+          "validation_rule": "share_count_outlier"
+        },
+        {
+          "binding_id": "valuation_input_diluted_shares",
+          "target": "D197",
+          "normalized_field": "valuation_inputs.diluted_shares",
+          "required": true,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+          "validation_rule": "share_count_outlier"
+        },
+        {
+          "binding_id": "valuation_input_net_debt",
+          "target": "D198",
+          "normalized_field": "valuation_inputs.net_debt",
+          "required": true,
+          "value_shape": "scalar",
+          "source_policy": "derived",
+          "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+          "validation_rule": "valuation_core_mapping_gap"
+        },
+        {
+          "binding_id": "valuation_input_base_ebitda_ttm",
+          "target": "D199",
+          "normalized_field": "valuation_inputs.base_ebitda_ttm",
+          "required": true,
+          "value_shape": "scalar",
+          "source_policy": "derived",
+          "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+          "validation_rule": "valuation_core_mapping_gap"
+        },
+        {
+          "binding_id": "valuation_input_adjusted_ebitda_ttm",
+          "target": "D200",
+          "normalized_field": "valuation_inputs.adjusted_ebitda_ttm",
+          "required": true,
+          "value_shape": "scalar",
+          "source_policy": "derived",
+          "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+          "validation_rule": "valuation_core_mapping_gap"
+        },
+        {
+          "binding_id": "valuation_input_fcf_ttm",
+          "target": "D201",
+          "normalized_field": "valuation_inputs.free_cash_flow_ttm",
+          "required": true,
+          "value_shape": "scalar",
+          "source_policy": "derived",
+          "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+          "validation_rule": "valuation_core_mapping_gap"
+        },
+        {
+          "binding_id": "valuation_input_revenue_ttm",
+          "target": "D203",
+          "normalized_field": "valuation_inputs.revenue_ttm",
+          "required": true,
+          "value_shape": "scalar",
+          "source_policy": "derived",
+          "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+          "validation_rule": "valuation_core_mapping_gap"
+        },
+        {
+          "binding_id": "valuation_input_capex_ttm",
+          "target": "D211",
+          "normalized_field": "valuation_inputs.capex_ttm",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "derived",
+          "missing_source_behavior": "leave blank and emit a mapping gap",
+          "validation_rule": "valuation_core_mapping_gap"
         }
       ],
       "notes": [
@@ -4476,6 +5064,11 @@
           "binding_id": "bs_debt_series",
           "target": "B19:I49",
           "value_shape": "quarterly_series"
+        },
+        {
+          "binding_id": "bs_quarterly_period_headers",
+          "target": "B7:I7",
+          "value_shape": "quarterly_series"
         }
       ],
       "writable_example_cells": [
@@ -4564,6 +5157,49 @@
               "value": "686.6"
             }
           ]
+        },
+        {
+          "binding_id": "bs_quarterly_period_headers",
+          "target": "B7:I7",
+          "value_shape": "quarterly_series",
+          "nonempty_count": 8,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 8,
+          "sample_cells": [
+            {
+              "cell": "B7",
+              "value": "2024-Q2"
+            },
+            {
+              "cell": "C7",
+              "value": "2024-Q3"
+            },
+            {
+              "cell": "D7",
+              "value": "2024-Q4"
+            },
+            {
+              "cell": "E7",
+              "value": "2025-Q1"
+            },
+            {
+              "cell": "F7",
+              "value": "2025-Q2"
+            },
+            {
+              "cell": "G7",
+              "value": "2025-Q3"
+            },
+            {
+              "cell": "H7",
+              "value": "2025-Q4"
+            },
+            {
+              "cell": "I7",
+              "value": "2026-Q1"
+            }
+          ]
         }
       ],
       "company_specific_example_cells": [],
@@ -4572,7 +5208,324 @@
       "hidden_helper_cells": [],
       "normalized_fields": [
         "debt_liquidity.cash",
-        "debt_liquidity.total_debt"
+        "debt_liquidity.total_debt",
+        "quarterly_financials.rows.period"
+      ],
+      "support_sheets_used": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_bs_segments.py",
+        "pbi_xbrl/excel_writer_segment_sources.py"
+      ],
+      "future_intended_owner": [
+        "future segments normalizer",
+        "docs/workbook_binding_map.json"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "debt_liquidity.cash",
+        "debt_liquidity.total_debt",
+        "quarterly_financials.rows.period"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "blank values; emit mapping gap | leave quarterly period headers blank and emit a P1 mapping gap",
+      "validation_rules": [
+        "unexplained_empty_core_field"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "bs_cash_series",
+          "target": "B7:I18",
+          "normalized_field": "debt_liquidity.cash",
+          "required": false,
+          "value_shape": "quarterly_series",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "blank values; emit mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "bs_debt_series",
+          "target": "B19:I49",
+          "normalized_field": "debt_liquidity.total_debt",
+          "required": false,
+          "value_shape": "quarterly_series",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "blank values; emit mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "bs_quarterly_period_headers",
+          "target": "B7:I7",
+          "normalized_field": "quarterly_financials.rows.period",
+          "required": false,
+          "value_shape": "quarterly_series",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave quarterly period headers blank and emit a P1 mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "bs_segment_quarterly_values",
+      "sheet": "BS_Segments",
+      "resolved_lab_sheet": "BS_Segments",
+      "range": "A61:I67",
+      "title_header_cells": [
+        {
+          "cell": "A60",
+          "value": "Revenue"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A60",
+          "value": "Revenue"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "A60",
+          "value": "Revenue"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "bs_segment_quarterly_rows",
+          "target": "A61:I67",
+          "value_shape": "pivot_matrix"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "bs_segment_quarterly_rows",
+          "target": "A61:I67",
+          "value_shape": "pivot_matrix",
+          "nonempty_count": 49,
+          "formula_count": 0,
+          "numeric_count": 43,
+          "text_count": 6,
+          "sample_cells": [
+            {
+              "cell": "A61",
+              "value": "Americas"
+            },
+            {
+              "cell": "B61",
+              "value": "901.2"
+            },
+            {
+              "cell": "C61",
+              "value": "986.4"
+            },
+            {
+              "cell": "D61",
+              "value": "1319.7"
+            },
+            {
+              "cell": "E61",
+              "value": "874.8"
+            },
+            {
+              "cell": "F61",
+              "value": "974.2"
+            },
+            {
+              "cell": "G61",
+              "value": "1057.4"
+            },
+            {
+              "cell": "H61",
+              "value": "1383.9"
+            }
+          ]
+        }
+      ],
+      "company_specific_example_cells": [
+        {
+          "cell": "A66",
+          "value": "Hollister"
+        },
+        {
+          "cell": "A67",
+          "value": "Abercrombie"
+        }
+      ],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "segments.items.revenue"
+      ],
+      "support_sheets_used": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_bs_segments.py",
+        "pbi_xbrl/excel_writer_segment_sources.py"
+      ],
+      "future_intended_owner": [
+        "future segments normalizer",
+        "docs/workbook_binding_map.json"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "segments.items.revenue"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "show no segment row until taxonomy/value exists; emit mapping gap",
+      "validation_rules": [
+        "unsupported_sector_specific_leakage"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "bs_segment_quarterly_rows",
+          "target": "A61:I67",
+          "normalized_field": "segments.items.revenue",
+          "required": false,
+          "value_shape": "pivot_matrix",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "show no segment row until taxonomy/value exists; emit mapping gap",
+          "validation_rule": "unsupported_sector_specific_leakage"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "bs_annual_period_values",
+      "sheet": "BS_Segments",
+      "resolved_lab_sheet": "BS_Segments",
+      "range": "B70:I71",
+      "title_header_cells": [
+        {
+          "cell": "A69",
+          "value": "Annual segments"
+        },
+        {
+          "cell": "A70",
+          "value": "Year"
+        },
+        {
+          "cell": "A71",
+          "value": "Revenues"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A69",
+          "value": "Annual segments"
+        },
+        {
+          "cell": "A70",
+          "value": "Year"
+        },
+        {
+          "cell": "A71",
+          "value": "Revenues"
+        }
+      ],
+      "row_label_cells": [
+        {
+          "cell": "A70",
+          "value": "Year"
+        },
+        {
+          "cell": "A71",
+          "value": "Revenues"
+        }
+      ],
+      "static_label_cells": [
+        {
+          "cell": "A69",
+          "value": "Annual segments"
+        },
+        {
+          "cell": "A70",
+          "value": "Year"
+        },
+        {
+          "cell": "A71",
+          "value": "Revenues"
+        },
+        {
+          "cell": "A70",
+          "value": "Year"
+        },
+        {
+          "cell": "A71",
+          "value": "Revenues"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "bs_annual_period_headers",
+          "target": "B70:I70",
+          "value_shape": "annual_series"
+        },
+        {
+          "binding_id": "bs_annual_revenue_series",
+          "target": "B71:I71",
+          "value_shape": "annual_series"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "bs_annual_period_headers",
+          "target": "B70:I70",
+          "value_shape": "annual_series",
+          "nonempty_count": 3,
+          "formula_count": 0,
+          "numeric_count": 3,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "B70",
+              "value": "2023"
+            },
+            {
+              "cell": "C70",
+              "value": "2024"
+            },
+            {
+              "cell": "D70",
+              "value": "2025"
+            }
+          ]
+        },
+        {
+          "binding_id": "bs_annual_revenue_series",
+          "target": "B71:I71",
+          "value_shape": "annual_series",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "annual_financials.rows.period",
+        "annual_financials.rows.revenue"
       ],
       "support_sheets_used": [
         "DATA_Facts_Long",
@@ -4589,349 +5542,36 @@
         "docs/workbook_binding_map.json"
       ],
       "required_fields": [
-        "debt_liquidity.cash",
-        "debt_liquidity.total_debt"
+        "annual_financials.rows.period",
+        "annual_financials.rows.revenue"
       ],
       "optional_fields": [],
       "source_policy": "source-backed",
-      "missing_data_behavior": "blank values; emit mapping gap",
+      "missing_data_behavior": "leave annual period headers blank and emit a P1 mapping gap | leave annual revenue values blank and emit a P1 mapping gap",
       "validation_rules": [
         "unexplained_empty_core_field"
       ],
       "standardization_status": "standard",
       "bindings": [
         {
-          "binding_id": "bs_cash_series",
-          "target": "B7:I18",
-          "normalized_field": "debt_liquidity.cash",
+          "binding_id": "bs_annual_period_headers",
+          "target": "B70:I70",
+          "normalized_field": "annual_financials.rows.period",
           "required": true,
-          "value_shape": "quarterly_series",
+          "value_shape": "annual_series",
           "source_policy": "source-backed",
-          "missing_source_behavior": "blank values; emit mapping gap",
+          "missing_source_behavior": "leave annual period headers blank and emit a P1 mapping gap",
           "validation_rule": "unexplained_empty_core_field"
         },
         {
-          "binding_id": "bs_debt_series",
-          "target": "B19:I49",
-          "normalized_field": "debt_liquidity.total_debt",
+          "binding_id": "bs_annual_revenue_series",
+          "target": "B71:I71",
+          "normalized_field": "annual_financials.rows.revenue",
           "required": true,
-          "value_shape": "quarterly_series",
+          "value_shape": "annual_series",
           "source_policy": "source-backed",
-          "missing_source_behavior": "blank values; emit mapping gap",
+          "missing_source_behavior": "leave annual revenue values blank and emit a P1 mapping gap",
           "validation_rule": "unexplained_empty_core_field"
-        }
-      ],
-      "notes": [
-        "Block is derived from manifest writable zone and current binding map.",
-        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
-      ]
-    },
-    {
-      "block_id": "bs_segment_quarterly_values",
-      "sheet": "BS_Segments",
-      "resolved_lab_sheet": "BS_Segments",
-      "range": "B50:I90",
-      "title_header_cells": [
-        {
-          "cell": "A48",
-          "value": "Shares outstanding (m)"
-        },
-        {
-          "cell": "A49",
-          "value": "Shares diluted (m)"
-        },
-        {
-          "cell": "A50",
-          "value": "ANF retail BS drivers"
-        },
-        {
-          "cell": "A51",
-          "value": "Inventory YoY"
-        },
-        {
-          "cell": "A52",
-          "value": "Sales YoY"
-        },
-        {
-          "cell": "A53",
-          "value": "Inventory less sales YoY"
-        }
-      ],
-      "template_label_cells": [
-        {
-          "cell": "A48",
-          "value": "Shares outstanding (m)"
-        },
-        {
-          "cell": "A49",
-          "value": "Shares diluted (m)"
-        },
-        {
-          "cell": "A50",
-          "value": "ANF retail BS drivers"
-        },
-        {
-          "cell": "A51",
-          "value": "Inventory YoY"
-        },
-        {
-          "cell": "A52",
-          "value": "Sales YoY"
-        },
-        {
-          "cell": "A53",
-          "value": "Inventory less sales YoY"
-        }
-      ],
-      "row_label_cells": [
-        {
-          "cell": "A50",
-          "value": "ANF retail BS drivers"
-        },
-        {
-          "cell": "A51",
-          "value": "Inventory YoY"
-        },
-        {
-          "cell": "A52",
-          "value": "Sales YoY"
-        },
-        {
-          "cell": "A53",
-          "value": "Inventory less sales YoY"
-        },
-        {
-          "cell": "A54",
-          "value": "Net cash"
-        },
-        {
-          "cell": "A55",
-          "value": "Total lease liabilities"
-        },
-        {
-          "cell": "A56",
-          "value": "Diluted shares YoY"
-        },
-        {
-          "cell": "A58",
-          "value": "Quarterly segments"
-        },
-        {
-          "cell": "A60",
-          "value": "Revenue"
-        },
-        {
-          "cell": "A61",
-          "value": "Americas"
-        },
-        {
-          "cell": "A62",
-          "value": "EMEA"
-        },
-        {
-          "cell": "A63",
-          "value": "APAC"
-        },
-        {
-          "cell": "A65",
-          "value": "Total Company"
-        },
-        {
-          "cell": "A69",
-          "value": "Annual segments"
-        },
-        {
-          "cell": "A70",
-          "value": "Year"
-        },
-        {
-          "cell": "A71",
-          "value": "Revenues"
-        }
-      ],
-      "static_label_cells": [
-        {
-          "cell": "A48",
-          "value": "Shares outstanding (m)"
-        },
-        {
-          "cell": "A49",
-          "value": "Shares diluted (m)"
-        },
-        {
-          "cell": "A50",
-          "value": "ANF retail BS drivers"
-        },
-        {
-          "cell": "A51",
-          "value": "Inventory YoY"
-        },
-        {
-          "cell": "A52",
-          "value": "Sales YoY"
-        },
-        {
-          "cell": "A53",
-          "value": "Inventory less sales YoY"
-        },
-        {
-          "cell": "A50",
-          "value": "ANF retail BS drivers"
-        },
-        {
-          "cell": "A51",
-          "value": "Inventory YoY"
-        },
-        {
-          "cell": "A52",
-          "value": "Sales YoY"
-        },
-        {
-          "cell": "A53",
-          "value": "Inventory less sales YoY"
-        },
-        {
-          "cell": "A54",
-          "value": "Net cash"
-        },
-        {
-          "cell": "A55",
-          "value": "Total lease liabilities"
-        },
-        {
-          "cell": "A56",
-          "value": "Diluted shares YoY"
-        },
-        {
-          "cell": "A58",
-          "value": "Quarterly segments"
-        },
-        {
-          "cell": "A60",
-          "value": "Revenue"
-        },
-        {
-          "cell": "A61",
-          "value": "Americas"
-        },
-        {
-          "cell": "A62",
-          "value": "EMEA"
-        },
-        {
-          "cell": "A63",
-          "value": "APAC"
-        },
-        {
-          "cell": "A65",
-          "value": "Total Company"
-        },
-        {
-          "cell": "A69",
-          "value": "Annual segments"
-        },
-        {
-          "cell": "A70",
-          "value": "Year"
-        },
-        {
-          "cell": "A71",
-          "value": "Revenues"
-        }
-      ],
-      "writable_value_cells": [
-        {
-          "binding_id": "bs_segment_quarterly_rows",
-          "target": "B50:I90",
-          "value_shape": "table_rows"
-        }
-      ],
-      "writable_example_cells": [
-        {
-          "binding_id": "bs_segment_quarterly_rows",
-          "target": "B50:I90",
-          "value_shape": "table_rows",
-          "nonempty_count": 102,
-          "formula_count": 0,
-          "numeric_count": 102,
-          "text_count": 0,
-          "sample_cells": [
-            {
-              "cell": "B51",
-              "value": "0.0938"
-            },
-            {
-              "cell": "C51",
-              "value": "0.1639"
-            },
-            {
-              "cell": "D51",
-              "value": "0.2248"
-            },
-            {
-              "cell": "E51",
-              "value": "0.2065"
-            },
-            {
-              "cell": "F51",
-              "value": "0.0986"
-            },
-            {
-              "cell": "G51",
-              "value": "0.0547"
-            },
-            {
-              "cell": "H51",
-              "value": "0.0456"
-            },
-            {
-              "cell": "I51",
-              "value": "-0.0173"
-            }
-          ]
-        }
-      ],
-      "company_specific_example_cells": [],
-      "source_specific_example_cells": [],
-      "formula_cells": [],
-      "hidden_helper_cells": [],
-      "normalized_fields": [
-        "segments.items.0.revenue"
-      ],
-      "support_sheets_used": [
-        "DATA_Facts_Long",
-        "Debt_Tranches_Q",
-        "History_Q",
-        "Slides_Segments"
-      ],
-      "current_code_owner": [
-        "pbi_xbrl/excel_writer_bs_segments.py",
-        "pbi_xbrl/excel_writer_segment_sources.py"
-      ],
-      "future_intended_owner": [
-        "future segments normalizer",
-        "docs/workbook_binding_map.json"
-      ],
-      "required_fields": [],
-      "optional_fields": [
-        "segments.items.0.revenue"
-      ],
-      "source_policy": "source-backed",
-      "missing_data_behavior": "show no segment row until taxonomy/value exists; emit mapping gap",
-      "validation_rules": [
-        "unsupported_sector_specific_leakage"
-      ],
-      "standardization_status": "standard",
-      "bindings": [
-        {
-          "binding_id": "bs_segment_quarterly_rows",
-          "target": "B50:I90",
-          "normalized_field": "segments.items.0.revenue",
-          "required": false,
-          "value_shape": "table_rows",
-          "source_policy": "source-backed",
-          "missing_source_behavior": "show no segment row until taxonomy/value exists; emit mapping gap",
-          "validation_rule": "unsupported_sector_specific_leakage"
         }
       ],
       "notes": [
@@ -4943,43 +5583,88 @@
       "block_id": "bs_segment_annual_values",
       "sheet": "BS_Segments",
       "resolved_lab_sheet": "BS_Segments",
-      "range": "B91:I120",
+      "range": "A72:I74",
       "title_header_cells": [
         {
-          "cell": "A91",
-          "value": "Annual segments"
+          "cell": "A70",
+          "value": "Year"
+        },
+        {
+          "cell": "A71",
+          "value": "Revenues"
         }
       ],
       "template_label_cells": [
         {
-          "cell": "A91",
-          "value": "Annual segments"
+          "cell": "A70",
+          "value": "Year"
+        },
+        {
+          "cell": "A71",
+          "value": "Revenues"
         }
       ],
       "row_label_cells": [],
       "static_label_cells": [
         {
-          "cell": "A91",
-          "value": "Annual segments"
+          "cell": "A70",
+          "value": "Year"
+        },
+        {
+          "cell": "A71",
+          "value": "Revenues"
         }
       ],
       "writable_value_cells": [
         {
           "binding_id": "bs_segment_annual_rows",
-          "target": "B91:I120",
-          "value_shape": "table_rows"
+          "target": "A72:I74",
+          "value_shape": "pivot_matrix"
         }
       ],
       "writable_example_cells": [
         {
           "binding_id": "bs_segment_annual_rows",
-          "target": "B91:I120",
-          "value_shape": "table_rows",
-          "nonempty_count": 0,
+          "target": "A72:I74",
+          "value_shape": "pivot_matrix",
+          "nonempty_count": 12,
           "formula_count": 0,
-          "numeric_count": 0,
-          "text_count": 0,
-          "sample_cells": []
+          "numeric_count": 9,
+          "text_count": 3,
+          "sample_cells": [
+            {
+              "cell": "A72",
+              "value": "Americas"
+            },
+            {
+              "cell": "B72",
+              "value": "3455.7"
+            },
+            {
+              "cell": "C72",
+              "value": "4027.5"
+            },
+            {
+              "cell": "D72",
+              "value": "4290.4"
+            },
+            {
+              "cell": "A73",
+              "value": "EMEA"
+            },
+            {
+              "cell": "B73",
+              "value": "687.1"
+            },
+            {
+              "cell": "C73",
+              "value": "770.5"
+            },
+            {
+              "cell": "D73",
+              "value": "818.1"
+            }
+          ]
         }
       ],
       "company_specific_example_cells": [],
@@ -4987,7 +5672,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "segments.items.0.annual_revenue"
+        "segments.items.annual_revenue"
       ],
       "support_sheets_used": [
         "DATA_Facts_Long",
@@ -5005,7 +5690,7 @@
       ],
       "required_fields": [],
       "optional_fields": [
-        "segments.items.0.annual_revenue"
+        "segments.items.annual_revenue"
       ],
       "source_policy": "source-backed",
       "missing_data_behavior": "show no annual segment row until source-backed",
@@ -5016,10 +5701,10 @@
       "bindings": [
         {
           "binding_id": "bs_segment_annual_rows",
-          "target": "B91:I120",
-          "normalized_field": "segments.items.0.annual_revenue",
+          "target": "A72:I74",
+          "normalized_field": "segments.items.annual_revenue",
           "required": false,
-          "value_shape": "table_rows",
+          "value_shape": "pivot_matrix",
           "source_policy": "source-backed",
           "missing_source_behavior": "show no annual segment row until source-backed",
           "validation_rule": "unsupported_sector_specific_leakage"
@@ -5034,7 +5719,7 @@
       "block_id": "od_watchlist_values",
       "sheet": "Operating_Drivers",
       "resolved_lab_sheet": "Operating_Drivers",
-      "range": "B6:N11",
+      "range": "A6:N9",
       "title_header_cells": [
         {
           "cell": "A4",
@@ -5051,18 +5736,6 @@
         {
           "cell": "H5",
           "value": "Why it matters"
-        },
-        {
-          "cell": "A6",
-          "value": "Sales guide"
-        },
-        {
-          "cell": "A7",
-          "value": "Margin durability"
-        },
-        {
-          "cell": "A8",
-          "value": "Inventory quality"
         }
       ],
       "template_label_cells": [
@@ -5081,42 +5754,9 @@
         {
           "cell": "H5",
           "value": "Why it matters"
-        },
-        {
-          "cell": "A6",
-          "value": "Sales guide"
-        },
-        {
-          "cell": "A7",
-          "value": "Margin durability"
-        },
-        {
-          "cell": "A8",
-          "value": "Inventory quality"
         }
       ],
-      "row_label_cells": [
-        {
-          "cell": "A6",
-          "value": "Sales guide"
-        },
-        {
-          "cell": "A7",
-          "value": "Margin durability"
-        },
-        {
-          "cell": "A8",
-          "value": "Inventory quality"
-        },
-        {
-          "cell": "A9",
-          "value": "Capital returns"
-        },
-        {
-          "cell": "A11",
-          "value": "Current/latest outlook"
-        }
-      ],
+      "row_label_cells": [],
       "static_label_cells": [
         {
           "cell": "A4",
@@ -5133,57 +5773,29 @@
         {
           "cell": "H5",
           "value": "Why it matters"
-        },
-        {
-          "cell": "A6",
-          "value": "Sales guide"
-        },
-        {
-          "cell": "A7",
-          "value": "Margin durability"
-        },
-        {
-          "cell": "A8",
-          "value": "Inventory quality"
-        },
-        {
-          "cell": "A6",
-          "value": "Sales guide"
-        },
-        {
-          "cell": "A7",
-          "value": "Margin durability"
-        },
-        {
-          "cell": "A8",
-          "value": "Inventory quality"
-        },
-        {
-          "cell": "A9",
-          "value": "Capital returns"
-        },
-        {
-          "cell": "A11",
-          "value": "Current/latest outlook"
         }
       ],
       "writable_value_cells": [
         {
           "binding_id": "od_watchlist_rows",
-          "target": "B6:N11",
+          "target": "A6:N9",
           "value_shape": "table_rows"
         }
       ],
       "writable_example_cells": [
         {
           "binding_id": "od_watchlist_rows",
-          "target": "B6:N11",
+          "target": "A6:N9",
           "value_shape": "table_rows",
-          "nonempty_count": 8,
+          "nonempty_count": 12,
           "formula_count": 0,
           "numeric_count": 0,
-          "text_count": 8,
+          "text_count": 12,
           "sample_cells": [
+            {
+              "cell": "A6",
+              "value": "Sales guide"
+            },
             {
               "cell": "B6",
               "value": "2026 sales guide +3-5%"
@@ -5191,6 +5803,10 @@
             {
               "cell": "H6",
               "value": "Demand and comps must hold against tougher comparable-sales laps."
+            },
+            {
+              "cell": "A7",
+              "value": "Margin durability"
             },
             {
               "cell": "B7",
@@ -5201,20 +5817,12 @@
               "value": "Tariff, ERP and marketing headwinds drive the EPS debate."
             },
             {
+              "cell": "A8",
+              "value": "Inventory quality"
+            },
+            {
               "cell": "B8",
               "value": "Inventory cost/units +5%; tariffs/ERP explain part"
-            },
-            {
-              "cell": "H8",
-              "value": "Watch markdown risk rather than treating all inventory growth as excess stock."
-            },
-            {
-              "cell": "B9",
-              "value": "2025 buybacks ~$450m vs FCF ~$378m"
-            },
-            {
-              "cell": "H9",
-              "value": "EPS support is meaningful, but cash returns exceeded FCF."
             }
           ]
         }
@@ -5224,7 +5832,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "operating_drivers.items.0.current_read"
+        "operating_drivers.items.current_read"
       ],
       "support_sheets_used": [
         "History_Q",
@@ -5241,10 +5849,10 @@
         "future operating_drivers normalizer",
         "normalized_company_data_validation.py"
       ],
-      "required_fields": [
-        "operating_drivers.items.0.current_read"
+      "required_fields": [],
+      "optional_fields": [
+        "operating_drivers.items.current_read"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "do not use sector fallback; emit manual review flag",
       "validation_rules": [
@@ -5254,9 +5862,9 @@
       "bindings": [
         {
           "binding_id": "od_watchlist_rows",
-          "target": "B6:N11",
-          "normalized_field": "operating_drivers.items.0.current_read",
-          "required": true,
+          "target": "A6:N9",
+          "normalized_field": "operating_drivers.items.current_read",
+          "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
           "missing_source_behavior": "do not use sector fallback; emit manual review flag",
@@ -5488,10 +6096,10 @@
         "future operating_drivers normalizer",
         "normalized_company_data_validation.py"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "operating_drivers.items.0.current_read"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "do not use sector fallback; emit manual review flag",
       "validation_rules": [
@@ -5503,7 +6111,7 @@
           "binding_id": "od_topic_current_read_rows",
           "target": "B13:N18",
           "normalized_field": "operating_drivers.items.0.current_read",
-          "required": true,
+          "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
           "missing_source_behavior": "do not use sector fallback; emit manual review flag",
@@ -5772,10 +6380,10 @@
         "future operating_drivers normalizer",
         "normalized_company_data_validation.py"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "operating_drivers.items.0.driver"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "blank visible row family; emit mapping gap",
       "validation_rules": [
@@ -5787,7 +6395,7 @@
           "binding_id": "od_horizon_commentary_rows",
           "target": "B20:N30",
           "normalized_field": "operating_drivers.items.0.driver",
-          "required": true,
+          "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
           "missing_source_behavior": "blank visible row family; emit mapping gap",
@@ -6067,10 +6675,10 @@
         "future operating_drivers normalizer",
         "normalized_company_data_validation.py"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "operating_drivers.items.0.driver"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "blank visible row family; emit mapping gap",
       "validation_rules": [
@@ -6082,7 +6690,7 @@
           "binding_id": "od_current_outlook_rows",
           "target": "B31:N55",
           "normalized_field": "operating_drivers.items.0.driver",
-          "required": true,
+          "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
           "missing_source_behavior": "blank visible row family; emit mapping gap",
@@ -6878,6 +7486,11 @@
           "binding_id": "ic_investment_summary",
           "target": "B5:K30",
           "value_shape": "text_block"
+        },
+        {
+          "binding_id": "ic_key_debate",
+          "target": "B7:J7",
+          "value_shape": "text_block"
         }
       ],
       "writable_example_cells": [
@@ -6921,6 +7534,21 @@
             {
               "cell": "B14",
               "value": "Model default (2025 year)"
+            }
+          ]
+        },
+        {
+          "binding_id": "ic_key_debate",
+          "target": "B7:J7",
+          "value_shape": "text_block",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 1,
+          "sample_cells": [
+            {
+              "cell": "B7",
+              "value": "Can ANF sustain high margins and EPS after the turnaround despite tougher comps, tariffs, ERP disruption and margin normalization?"
             }
           ]
         }
@@ -7157,6 +7785,7 @@
       ],
       "hidden_helper_cells": [],
       "normalized_fields": [
+        "investment_case.key_debate",
         "investment_case.summary"
       ],
       "support_sheets_used": [
@@ -7180,6 +7809,7 @@
         "docs/workbook_binding_map.json"
       ],
       "required_fields": [
+        "investment_case.key_debate",
         "investment_case.summary"
       ],
       "optional_fields": [],
@@ -7199,689 +7829,10 @@
           "source_policy": "manual",
           "missing_source_behavior": "block promotion; emit manual review flag",
           "validation_rule": "placeholder_investment_case"
-        }
-      ],
-      "notes": [
-        "Block is derived from manifest writable zone and current binding map.",
-        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
-      ]
-    },
-    {
-      "block_id": "ic_key_debate_values",
-      "sheet": "{ticker}_Investment_Case",
-      "resolved_lab_sheet": "ANF_Investment_Case",
-      "range": "B31:K80",
-      "title_header_cells": [
-        {
-          "cell": "A29",
-          "value": "Buyback-adjusted shares"
         },
-        {
-          "cell": "A30",
-          "value": "Tariff impact (bps)"
-        },
-        {
-          "cell": "A31",
-          "value": "Freight tailwind (bps)"
-        },
-        {
-          "cell": "A32",
-          "value": "ERP disruption (bps)"
-        },
-        {
-          "cell": "A33",
-          "value": "Marketing headwind (bps)"
-        },
-        {
-          "cell": "A34",
-          "value": "Scenario tax rate"
-        }
-      ],
-      "template_label_cells": [
-        {
-          "cell": "A29",
-          "value": "Buyback-adjusted shares"
-        },
-        {
-          "cell": "A30",
-          "value": "Tariff impact (bps)"
-        },
-        {
-          "cell": "A31",
-          "value": "Freight tailwind (bps)"
-        },
-        {
-          "cell": "A32",
-          "value": "ERP disruption (bps)"
-        },
-        {
-          "cell": "A33",
-          "value": "Marketing headwind (bps)"
-        },
-        {
-          "cell": "A34",
-          "value": "Scenario tax rate"
-        }
-      ],
-      "row_label_cells": [
-        {
-          "cell": "A31",
-          "value": "Freight tailwind (bps)"
-        },
-        {
-          "cell": "A32",
-          "value": "ERP disruption (bps)"
-        },
-        {
-          "cell": "A33",
-          "value": "Marketing headwind (bps)"
-        },
-        {
-          "cell": "A34",
-          "value": "Scenario tax rate"
-        },
-        {
-          "cell": "A36",
-          "value": "Segment Scenario Inputs"
-        },
-        {
-          "cell": "A37",
-          "value": "Segment / category"
-        },
-        {
-          "cell": "A38",
-          "value": "Active basis"
-        },
-        {
-          "cell": "A39",
-          "value": "Brand view — summed only when Brand selected"
-        },
-        {
-          "cell": "A42",
-          "value": "Geography view — summed only when Geography selected"
-        },
-        {
-          "cell": "A43",
-          "value": "Americas (geography / stores)"
-        },
-        {
-          "cell": "A44",
-          "value": "EMEA (geography / stores)"
-        },
-        {
-          "cell": "A45",
-          "value": "APAC (geography / stores)"
-        },
-        {
-          "cell": "A47",
-          "value": "Scenario Driver Bridge"
-        },
-        {
-          "cell": "A49",
-          "value": "Bridge item"
-        },
-        {
-          "cell": "A50",
-          "value": "Margin bridge vs baseline"
-        },
-        {
-          "cell": "A51",
-          "value": "Buyback/share-count effect"
-        },
-        {
-          "cell": "A52",
-          "value": "Selected segment revenue/margin impact"
-        },
-        {
-          "cell": "A53",
-          "value": "Capex change vs baseline"
-        },
-        {
-          "cell": "A55",
-          "value": "Metric"
-        },
-        {
-          "cell": "A56",
-          "value": "Bridge EPS ($/sh)"
-        },
-        {
-          "cell": "A57",
-          "value": "Bridge Adj EBITDA ($m)"
-        },
-        {
-          "cell": "A58",
-          "value": "Bridge FCF ($m)"
-        },
-        {
-          "cell": "A60",
-          "value": "What Market Is Pricing"
-        },
-        {
-          "cell": "A62",
-          "value": "Market price input"
-        },
-        {
-          "cell": "A63",
-          "value": "Implied market cap"
-        },
-        {
-          "cell": "A64",
-          "value": "Implied EV"
-        },
-        {
-          "cell": "A65",
-          "value": "Implied P/E"
-        },
-        {
-          "cell": "A66",
-          "value": "Implied EV/Adj EBITDA"
-        },
-        {
-          "cell": "A67",
-          "value": "Implied FCF yield"
-        },
-        {
-          "cell": "A69",
-          "value": "Key Debate"
-        },
-        {
-          "cell": "A70",
-          "value": "Debate"
-        },
-        {
-          "cell": "A72",
-          "value": "Key Debates"
-        },
-        {
-          "cell": "A73",
-          "value": "Margin durability after turnaround | Current read: Constructive but margin-sensitive."
-        },
-        {
-          "cell": "A74",
-          "value": "Bull evidence"
-        },
-        {
-          "cell": "A75",
-          "value": "Next proof point"
-        },
-        {
-          "cell": "A79",
-          "value": "Buybacks vs FCF | Current read: Positive EPS support, but a watch item."
-        }
-      ],
-      "static_label_cells": [
-        {
-          "cell": "A29",
-          "value": "Buyback-adjusted shares"
-        },
-        {
-          "cell": "A30",
-          "value": "Tariff impact (bps)"
-        },
-        {
-          "cell": "A31",
-          "value": "Freight tailwind (bps)"
-        },
-        {
-          "cell": "A32",
-          "value": "ERP disruption (bps)"
-        },
-        {
-          "cell": "A33",
-          "value": "Marketing headwind (bps)"
-        },
-        {
-          "cell": "A34",
-          "value": "Scenario tax rate"
-        },
-        {
-          "cell": "A31",
-          "value": "Freight tailwind (bps)"
-        },
-        {
-          "cell": "A32",
-          "value": "ERP disruption (bps)"
-        },
-        {
-          "cell": "A33",
-          "value": "Marketing headwind (bps)"
-        },
-        {
-          "cell": "A34",
-          "value": "Scenario tax rate"
-        },
-        {
-          "cell": "A36",
-          "value": "Segment Scenario Inputs"
-        },
-        {
-          "cell": "A37",
-          "value": "Segment / category"
-        },
-        {
-          "cell": "A38",
-          "value": "Active basis"
-        },
-        {
-          "cell": "A39",
-          "value": "Brand view — summed only when Brand selected"
-        },
-        {
-          "cell": "A42",
-          "value": "Geography view — summed only when Geography selected"
-        },
-        {
-          "cell": "A43",
-          "value": "Americas (geography / stores)"
-        },
-        {
-          "cell": "A44",
-          "value": "EMEA (geography / stores)"
-        },
-        {
-          "cell": "A45",
-          "value": "APAC (geography / stores)"
-        },
-        {
-          "cell": "A47",
-          "value": "Scenario Driver Bridge"
-        },
-        {
-          "cell": "A49",
-          "value": "Bridge item"
-        },
-        {
-          "cell": "A50",
-          "value": "Margin bridge vs baseline"
-        },
-        {
-          "cell": "A51",
-          "value": "Buyback/share-count effect"
-        },
-        {
-          "cell": "A52",
-          "value": "Selected segment revenue/margin impact"
-        },
-        {
-          "cell": "A53",
-          "value": "Capex change vs baseline"
-        },
-        {
-          "cell": "A55",
-          "value": "Metric"
-        },
-        {
-          "cell": "A56",
-          "value": "Bridge EPS ($/sh)"
-        },
-        {
-          "cell": "A57",
-          "value": "Bridge Adj EBITDA ($m)"
-        },
-        {
-          "cell": "A58",
-          "value": "Bridge FCF ($m)"
-        },
-        {
-          "cell": "A60",
-          "value": "What Market Is Pricing"
-        },
-        {
-          "cell": "A62",
-          "value": "Market price input"
-        },
-        {
-          "cell": "A63",
-          "value": "Implied market cap"
-        },
-        {
-          "cell": "A64",
-          "value": "Implied EV"
-        },
-        {
-          "cell": "A65",
-          "value": "Implied P/E"
-        },
-        {
-          "cell": "A66",
-          "value": "Implied EV/Adj EBITDA"
-        },
-        {
-          "cell": "A67",
-          "value": "Implied FCF yield"
-        },
-        {
-          "cell": "A69",
-          "value": "Key Debate"
-        },
-        {
-          "cell": "A70",
-          "value": "Debate"
-        },
-        {
-          "cell": "A72",
-          "value": "Key Debates"
-        },
-        {
-          "cell": "A73",
-          "value": "Margin durability after turnaround | Current read: Constructive but margin-sensitive."
-        },
-        {
-          "cell": "A74",
-          "value": "Bull evidence"
-        },
-        {
-          "cell": "A75",
-          "value": "Next proof point"
-        },
-        {
-          "cell": "A79",
-          "value": "Buybacks vs FCF | Current read: Positive EPS support, but a watch item."
-        }
-      ],
-      "writable_value_cells": [
         {
           "binding_id": "ic_key_debate",
-          "target": "B31:K80",
-          "value_shape": "text_block"
-        }
-      ],
-      "writable_example_cells": [
-        {
-          "binding_id": "ic_key_debate",
-          "target": "B31:K80",
-          "value_shape": "text_block",
-          "nonempty_count": 146,
-          "formula_count": 67,
-          "numeric_count": 17,
-          "text_count": 62,
-          "sample_cells": [
-            {
-              "cell": "E31",
-              "value": "160"
-            },
-            {
-              "cell": "H31",
-              "value": "Q1 freight tailwind."
-            },
-            {
-              "cell": "E32",
-              "value": "-100"
-            },
-            {
-              "cell": "H32",
-              "value": "Q1 ERP headwind."
-            },
-            {
-              "cell": "E33",
-              "value": "-50"
-            },
-            {
-              "cell": "H33",
-              "value": "Q1 marketing headwind."
-            },
-            {
-              "cell": "C34",
-              "value": "0.285"
-            },
-            {
-              "cell": "H34",
-              "value": "Clean model tax rate; 25% default scenario tax rate if unavailable."
-            }
-          ]
-        }
-      ],
-      "company_specific_example_cells": [
-        {
-          "cell": "B77",
-          "value": "Hollister growth and brand/digital scale remain visible drivers."
-        },
-        {
-          "cell": "G77",
-          "value": "Abercrombie slowdown or lapping risk can pressure sales growth."
-        }
-      ],
-      "source_specific_example_cells": [],
-      "formula_cells": [
-        {
-          "cell": "B31",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "C31",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "D31",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G31",
-          "formula": "=IF(F31<>\"\",F31,IF(C31<>\"\",C31,IF(B31<>\"\",B31,IF(D31<>\"\",D31,E31))))"
-        },
-        {
-          "cell": "B32",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "C32",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "D32",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G32",
-          "formula": "=IF(F32<>\"\",F32,IF(C32<>\"\",C32,IF(B32<>\"\",B32,IF(D32<>\"\",D32,E32))))"
-        },
-        {
-          "cell": "B33",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "C33",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "D33",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G33",
-          "formula": "=IF(F33<>\"\",F33,IF(C33<>\"\",C33,IF(B33<>\"\",B33,IF(D33<>\"\",D33,E33))))"
-        },
-        {
-          "cell": "B34",
-          "formula": "=IFERROR(IF(AND(SUMIFS(INDEX(History_Q!$A:$ZZ,0,MATCH(\"pretax_income\",History_Q!$1:$1,0)),INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_year\",History_Q!$1:$1,0)),2025,INDEX(History_Q!$A:$ZZ,0,MATCH(\"fisca..."
-        },
-        {
-          "cell": "D34",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "E34",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G34",
-          "formula": "=IF(F34<>\"\",F34,IF(C34<>\"\",C34,IF(B34<>\"\",B34,IF(D34<>\"\",D34,IF(E34<>\"\",E34,0.25)))))"
-        },
-        {
-          "cell": "E40",
-          "formula": "=IFERROR(IF(D40=\"\",0,C40*D40),0)"
-        },
-        {
-          "cell": "F40",
-          "formula": "=IF($G$27=\"\",\"\",$G$27)"
-        },
-        {
-          "cell": "G40",
-          "formula": "=IFERROR(IF(OR(D40=\"\",F40=\"\"),0,E40*F40),0)"
-        },
-        {
-          "cell": "H40",
-          "formula": "=IF(AND($B$38=\"Brand\",C40<>\"\",D40<>\"\",F40<>\"\"),\"Yes\",\"No\")"
-        },
-        {
-          "cell": "E41",
-          "formula": "=IFERROR(IF(D41=\"\",0,C41*D41),0)"
-        },
-        {
-          "cell": "F41",
-          "formula": "=IF($G$27=\"\",\"\",$G$27)"
-        },
-        {
-          "cell": "G41",
-          "formula": "=IFERROR(IF(OR(D41=\"\",F41=\"\"),0,E41*F41),0)"
-        },
-        {
-          "cell": "H41",
-          "formula": "=IF(AND($B$38=\"Brand\",C41<>\"\",D41<>\"\",F41<>\"\"),\"Yes\",\"No\")"
-        },
-        {
-          "cell": "E43",
-          "formula": "=IFERROR(IF(D43=\"\",0,C43*D43),0)"
-        },
-        {
-          "cell": "F43",
-          "formula": "=IF($G$27=\"\",\"\",$G$27)"
-        },
-        {
-          "cell": "G43",
-          "formula": "=IFERROR(IF(OR(D43=\"\",F43=\"\"),0,E43*F43),0)"
-        },
-        {
-          "cell": "H43",
-          "formula": "=IF(AND($B$38=\"Geography\",C43<>\"\",D43<>\"\",F43<>\"\"),\"Yes\",\"No\")"
-        },
-        {
-          "cell": "E44",
-          "formula": "=IFERROR(IF(D44=\"\",0,C44*D44),0)"
-        },
-        {
-          "cell": "F44",
-          "formula": "=IF($G$27=\"\",\"\",$G$27)"
-        },
-        {
-          "cell": "G44",
-          "formula": "=IFERROR(IF(OR(D44=\"\",F44=\"\"),0,E44*F44),0)"
-        },
-        {
-          "cell": "H44",
-          "formula": "=IF(AND($B$38=\"Geography\",C44<>\"\",D44<>\"\",F44<>\"\"),\"Yes\",\"No\")"
-        },
-        {
-          "cell": "E45",
-          "formula": "=IFERROR(IF(D45=\"\",0,C45*D45),0)"
-        },
-        {
-          "cell": "F45",
-          "formula": "=IF($G$27=\"\",\"\",$G$27)"
-        },
-        {
-          "cell": "G45",
-          "formula": "=IFERROR(IF(OR(D45=\"\",F45=\"\"),0,E45*F45),0)"
-        },
-        {
-          "cell": "H45",
-          "formula": "=IF(AND($B$38=\"Geography\",C45<>\"\",D45<>\"\",F45<>\"\"),\"Yes\",\"No\")"
-        },
-        {
-          "cell": "C50",
-          "formula": "=IFERROR(IF($G$18=\"\",0,$G$18*SUM(IF($G$30=\"\",0,$G$30),IF($G$31=\"\",0,$G$31),IF($G$32=\"\",0,$G$32),IF($G$33=\"\",0,$G$33))/10000),0)"
-        },
-        {
-          "cell": "D50",
-          "formula": "=IFERROR(IF(C50=\"\",0,C50),0)"
-        },
-        {
-          "cell": "E50",
-          "formula": "=IFERROR(IF(OR($G$34=\"\",$G$34<0,$G$34>0.35,$G$16=\"\",$G$16=0,D50=\"\"),\"Manual-required\",D50*(1-$G$34)/$G$16),\"Manual-required\")"
-        },
-        {
-          "cell": "F50",
-          "formula": "=IFERROR(IF(OR(B50=\"Unknown\",D50=\"\"),0,D50),0)"
-        },
-        {
-          "cell": "B51",
-          "formula": "=IF($C$16=\"\",\"Unknown\",$C$16)"
-        },
-        {
-          "cell": "C51",
-          "formula": "=IF($G$29=\"\",\"\",$G$29)"
-        },
-        {
-          "cell": "D51",
-          "formula": "=IFERROR(IF(OR(B51=\"Unknown\",C51=\"\"),0,B51-C51),0)"
-        },
-        {
-          "cell": "E51",
-          "formula": "=IFERROR(IF(OR($G$19=\"\",B51=\"Unknown\",C51=\"\",C51=0),\"\",$G$19*(B51/C51)-$G$19),\"\")"
-        },
-        {
-          "cell": "C52",
-          "formula": "=IF($B$38=\"None\",0,SUMIF(H40:H45,\"Yes\",G40:G45))"
-        },
-        {
-          "cell": "D52",
-          "formula": "=IFERROR(IF(C52=\"\",0,C52),0)"
-        },
-        {
-          "cell": "E52",
-          "formula": "=IFERROR(IF(OR($G$34=\"\",$G$34<0,$G$34>0.35,$G$16=\"\",$G$16=0,D52=\"\"),\"Manual-required\",D52*(1-$G$34)/$G$16),\"Manual-required\")"
-        },
-        {
-          "cell": "F52",
-          "formula": "=IFERROR(IF(OR(B52=\"Unknown\",D52=\"\"),0,D52),0)"
-        },
-        {
-          "cell": "B53",
-          "formula": "=IF($C$22=\"\",\"Unknown\",$C$22)"
-        },
-        {
-          "cell": "C53",
-          "formula": "=IF($G$22=\"\",\"\",$G$22)"
-        }
-      ],
-      "hidden_helper_cells": [],
-      "normalized_fields": [
-        "investment_case.key_debate"
-      ],
-      "support_sheets_used": [
-        "Guidance_Normalized",
-        "History_Q",
-        "Promise_Progress",
-        "Quarter_Notes",
-        "Scenario_Bridge_Tax_Treatment",
-        "Scenario_Driver_Assumptions",
-        "Slides_Guidance",
-        "Slides_Segments",
-        "{ticker}_Investment_Case_Data"
-      ],
-      "current_code_owner": [
-        "pbi_xbrl/excel_writer_sector_investment_case.py",
-        "pbi_xbrl/excel_writer_investment_case_support.py",
-        "pbi_xbrl/excel_writer_anf_investment_case.py"
-      ],
-      "future_intended_owner": [
-        "future investment_case normalizer/review workflow",
-        "docs/workbook_binding_map.json"
-      ],
-      "required_fields": [
-        "investment_case.key_debate"
-      ],
-      "optional_fields": [],
-      "source_policy": "manual",
-      "missing_data_behavior": "block promotion; emit manual review flag",
-      "validation_rules": [
-        "placeholder_investment_case"
-      ],
-      "standardization_status": "standard",
-      "bindings": [
-        {
-          "binding_id": "ic_key_debate",
-          "target": "B31:K80",
+          "target": "B7:J7",
           "normalized_field": "investment_case.key_debate",
           "required": true,
           "value_shape": "text_block",
@@ -7910,6 +7861,18 @@
           "value": "Bull evidence"
         },
         {
+          "cell": "B80",
+          "value": "2025 buybacks were about $450m / 5.4m shares and net cash remains strong."
+        },
+        {
+          "cell": "F80",
+          "value": "Bear evidence"
+        },
+        {
+          "cell": "G80",
+          "value": "Buybacks exceeded FCF, so capital returns should stay disciplined."
+        },
+        {
           "cell": "A81",
           "value": "Next proof point"
         },
@@ -7930,6 +7893,18 @@
         {
           "cell": "A80",
           "value": "Bull evidence"
+        },
+        {
+          "cell": "B80",
+          "value": "2025 buybacks were about $450m / 5.4m shares and net cash remains strong."
+        },
+        {
+          "cell": "F80",
+          "value": "Bear evidence"
+        },
+        {
+          "cell": "G80",
+          "value": "Buybacks exceeded FCF, so capital returns should stay disciplined."
         },
         {
           "cell": "A81",
@@ -8114,6 +8089,18 @@
         {
           "cell": "A80",
           "value": "Bull evidence"
+        },
+        {
+          "cell": "B80",
+          "value": "2025 buybacks were about $450m / 5.4m shares and net cash remains strong."
+        },
+        {
+          "cell": "F80",
+          "value": "Bear evidence"
+        },
+        {
+          "cell": "G80",
+          "value": "Buybacks exceeded FCF, so capital returns should stay disciplined."
         },
         {
           "cell": "A81",
@@ -9309,7 +9296,7 @@
       ]
     },
     {
-      "block_id": "ic_lower_brand_health_values",
+      "block_id": "ic_lower_business_health_values",
       "sheet": "{ticker}_Investment_Case",
       "resolved_lab_sheet": "ANF_Investment_Case",
       "range": "B194:K199",
@@ -9431,14 +9418,14 @@
       ],
       "writable_value_cells": [
         {
-          "binding_id": "ic_lower_brand_health_rows",
+          "binding_id": "ic_lower_business_health_rows",
           "target": "B194:K199",
           "value_shape": "table_rows"
         }
       ],
       "writable_example_cells": [
         {
-          "binding_id": "ic_lower_brand_health_rows",
+          "binding_id": "ic_lower_business_health_rows",
           "target": "B194:K199",
           "value_shape": "table_rows",
           "nonempty_count": 11,
@@ -9533,7 +9520,7 @@
       "standardization_status": "standard",
       "bindings": [
         {
-          "binding_id": "ic_lower_brand_health_rows",
+          "binding_id": "ic_lower_business_health_rows",
           "target": "B194:K199",
           "normalized_field": "operating_drivers.items.0.current_read",
           "required": false,
@@ -9792,7 +9779,7 @@
       ]
     },
     {
-      "block_id": "ic_lower_store_productivity_values",
+      "block_id": "ic_lower_asset_productivity_values",
       "sheet": "{ticker}_Investment_Case",
       "resolved_lab_sheet": "ANF_Investment_Case",
       "range": "B212:K225",
@@ -9978,14 +9965,14 @@
       ],
       "writable_value_cells": [
         {
-          "binding_id": "ic_lower_store_productivity_rows",
+          "binding_id": "ic_lower_asset_productivity_rows",
           "target": "B212:K225",
           "value_shape": "table_rows"
         }
       ],
       "writable_example_cells": [
         {
-          "binding_id": "ic_lower_store_productivity_rows",
+          "binding_id": "ic_lower_asset_productivity_rows",
           "target": "B212:K225",
           "value_shape": "table_rows",
           "nonempty_count": 28,
@@ -10112,7 +10099,7 @@
       "standardization_status": "standard",
       "bindings": [
         {
-          "binding_id": "ic_lower_store_productivity_rows",
+          "binding_id": "ic_lower_asset_productivity_rows",
           "target": "B212:K225",
           "normalized_field": "operating_drivers.items.0.metric_value",
           "required": false,
@@ -10468,14 +10455,14 @@
         {
           "binding_id": "qn_quarter_summary_rows",
           "target": "B3:O6",
-          "value_shape": "text_block"
+          "value_shape": "quarterly_series"
         }
       ],
       "writable_example_cells": [
         {
           "binding_id": "qn_quarter_summary_rows",
           "target": "B3:O6",
-          "value_shape": "text_block",
+          "value_shape": "quarterly_series",
           "nonempty_count": 4,
           "formula_count": 0,
           "numeric_count": 0,
@@ -10518,7 +10505,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "quarter_notes.items.0.note"
+        "quarter_notes.items.commentary"
       ],
       "support_sheets_used": [
         "Guidance_Normalized",
@@ -10537,7 +10524,7 @@
       ],
       "required_fields": [],
       "optional_fields": [
-        "quarter_notes.items.0.note"
+        "quarter_notes.items.commentary"
       ],
       "source_policy": "source-backed",
       "missing_data_behavior": "blank summary rows until source-backed quarter narrative exists",
@@ -10549,9 +10536,9 @@
         {
           "binding_id": "qn_quarter_summary_rows",
           "target": "B3:O6",
-          "normalized_field": "quarter_notes.items.0.note",
+          "normalized_field": "quarter_notes.items.commentary",
           "required": false,
-          "value_shape": "text_block",
+          "value_shape": "quarterly_series",
           "source_policy": "source-backed",
           "missing_source_behavior": "blank summary rows until source-backed quarter narrative exists",
           "validation_rule": "parser_noise_snippet"
@@ -10566,12 +10553,8 @@
       "block_id": "qn_quarter_block_values",
       "sheet": "Quarter_Notes_UI",
       "resolved_lab_sheet": "Quarter_Notes_UI",
-      "range": "B8:O360",
+      "range": "A10:O15",
       "title_header_cells": [
-        {
-          "cell": "A6",
-          "value": "Key caveat"
-        },
         {
           "cell": "A8",
           "value": "Key developments"
@@ -10579,407 +10562,49 @@
         {
           "cell": "A9",
           "value": "Theme"
-        },
-        {
-          "cell": "A10",
-          "value": "Total Company"
         }
       ],
       "template_label_cells": [
         {
-          "cell": "A6",
-          "value": "Key caveat"
-        },
-        {
           "cell": "A8",
           "value": "Key developments"
         },
         {
           "cell": "A9",
           "value": "Theme"
-        },
-        {
-          "cell": "A10",
-          "value": "Total Company"
         }
       ],
-      "row_label_cells": [
-        {
-          "cell": "A8",
-          "value": "Key developments"
-        },
-        {
-          "cell": "A9",
-          "value": "Theme"
-        },
-        {
-          "cell": "A10",
-          "value": "Total Company"
-        },
-        {
-          "cell": "A11",
-          "value": "Tariff headwind"
-        },
-        {
-          "cell": "A12",
-          "value": "Sales guide"
-        },
-        {
-          "cell": "A13",
-          "value": "Revolver capacity changed"
-        },
-        {
-          "cell": "A14",
-          "value": "Operating margin"
-        },
-        {
-          "cell": "A15",
-          "value": "Net sales growth"
-        },
-        {
-          "cell": "A17",
-          "value": "Guidance / Promise interpretation"
-        },
-        {
-          "cell": "A18",
-          "value": "Promise / guidance item"
-        },
-        {
-          "cell": "A21",
-          "value": "Adjusted EPS"
-        },
-        {
-          "cell": "A23",
-          "value": "Model mapping / double-count guardrails"
-        },
-        {
-          "cell": "A24",
-          "value": "Driver"
-        },
-        {
-          "cell": "A26",
-          "value": "Tariff impact (bps)"
-        },
-        {
-          "cell": "A28",
-          "value": "revolver_capacity_change"
-        },
-        {
-          "cell": "A32",
-          "value": "2025-Q4 - Quarter Notes"
-        },
-        {
-          "cell": "A33",
-          "value": "Quarter read"
-        },
-        {
-          "cell": "A34",
-          "value": "Model read"
-        },
-        {
-          "cell": "A35",
-          "value": "What changed"
-        },
-        {
-          "cell": "A36",
-          "value": "Watch next"
-        },
-        {
-          "cell": "A37",
-          "value": "Key caveat"
-        },
-        {
-          "cell": "A41",
-          "value": "Sales growth and brand/geography reads"
-        },
-        {
-          "cell": "A43",
-          "value": "Quarter driver"
-        },
-        {
-          "cell": "A44",
-          "value": "Pre-release update"
-        },
-        {
-          "cell": "A45",
-          "value": "Operating margin normalization"
-        },
-        {
-          "cell": "A50",
-          "value": "Sales growth / Segment Scenario Inputs"
-        },
-        {
-          "cell": "A51",
-          "value": "2025-Q4 pre-release update"
-        },
-        {
-          "cell": "A52",
-          "value": "Operating margin / Margin bridge vs baseline"
-        },
-        {
-          "cell": "A60",
-          "value": "brand_family_momentum"
-        },
-        {
-          "cell": "A65",
-          "value": "2025-Q3 - Quarter Notes"
-        },
-        {
-          "cell": "A74",
-          "value": "Share repurchases"
-        },
-        {
-          "cell": "A77",
-          "value": "Margin bridge"
-        },
-        {
-          "cell": "A78",
-          "value": "EMEA"
-        },
-        {
-          "cell": "A79",
-          "value": "Americas"
-        },
-        {
-          "cell": "A90",
-          "value": "buybacks"
-        },
-        {
-          "cell": "A92",
-          "value": "guidance_margin_bridge"
-        },
-        {
-          "cell": "A96",
-          "value": "2025-Q2 - Quarter Notes"
-        },
-        {
-          "cell": "A109",
-          "value": "FCF TTM weakened"
-        },
-        {
-          "cell": "A124",
-          "value": "fcf_ttm_delta_yoy"
-        },
-        {
-          "cell": "A127",
-          "value": "2025-Q1 - Quarter Notes"
-        }
-      ],
+      "row_label_cells": [],
       "static_label_cells": [
         {
-          "cell": "A6",
-          "value": "Key caveat"
-        },
-        {
           "cell": "A8",
           "value": "Key developments"
         },
         {
           "cell": "A9",
           "value": "Theme"
-        },
-        {
-          "cell": "A10",
-          "value": "Total Company"
-        },
-        {
-          "cell": "A8",
-          "value": "Key developments"
-        },
-        {
-          "cell": "A9",
-          "value": "Theme"
-        },
-        {
-          "cell": "A10",
-          "value": "Total Company"
-        },
-        {
-          "cell": "A11",
-          "value": "Tariff headwind"
-        },
-        {
-          "cell": "A12",
-          "value": "Sales guide"
-        },
-        {
-          "cell": "A13",
-          "value": "Revolver capacity changed"
-        },
-        {
-          "cell": "A14",
-          "value": "Operating margin"
-        },
-        {
-          "cell": "A15",
-          "value": "Net sales growth"
-        },
-        {
-          "cell": "A17",
-          "value": "Guidance / Promise interpretation"
-        },
-        {
-          "cell": "A18",
-          "value": "Promise / guidance item"
-        },
-        {
-          "cell": "A21",
-          "value": "Adjusted EPS"
-        },
-        {
-          "cell": "A23",
-          "value": "Model mapping / double-count guardrails"
-        },
-        {
-          "cell": "A24",
-          "value": "Driver"
-        },
-        {
-          "cell": "A26",
-          "value": "Tariff impact (bps)"
-        },
-        {
-          "cell": "A28",
-          "value": "revolver_capacity_change"
-        },
-        {
-          "cell": "A32",
-          "value": "2025-Q4 - Quarter Notes"
-        },
-        {
-          "cell": "A33",
-          "value": "Quarter read"
-        },
-        {
-          "cell": "A34",
-          "value": "Model read"
-        },
-        {
-          "cell": "A35",
-          "value": "What changed"
-        },
-        {
-          "cell": "A36",
-          "value": "Watch next"
-        },
-        {
-          "cell": "A37",
-          "value": "Key caveat"
-        },
-        {
-          "cell": "A41",
-          "value": "Sales growth and brand/geography reads"
-        },
-        {
-          "cell": "A43",
-          "value": "Quarter driver"
-        },
-        {
-          "cell": "A44",
-          "value": "Pre-release update"
-        },
-        {
-          "cell": "A45",
-          "value": "Operating margin normalization"
-        },
-        {
-          "cell": "A50",
-          "value": "Sales growth / Segment Scenario Inputs"
-        },
-        {
-          "cell": "A51",
-          "value": "2025-Q4 pre-release update"
-        },
-        {
-          "cell": "A52",
-          "value": "Operating margin / Margin bridge vs baseline"
-        },
-        {
-          "cell": "A60",
-          "value": "brand_family_momentum"
-        },
-        {
-          "cell": "A65",
-          "value": "2025-Q3 - Quarter Notes"
-        },
-        {
-          "cell": "A74",
-          "value": "Share repurchases"
-        },
-        {
-          "cell": "A77",
-          "value": "Margin bridge"
-        },
-        {
-          "cell": "A78",
-          "value": "EMEA"
-        },
-        {
-          "cell": "A79",
-          "value": "Americas"
-        },
-        {
-          "cell": "A90",
-          "value": "buybacks"
-        },
-        {
-          "cell": "A92",
-          "value": "guidance_margin_bridge"
-        },
-        {
-          "cell": "A96",
-          "value": "2025-Q2 - Quarter Notes"
-        },
-        {
-          "cell": "A109",
-          "value": "FCF TTM weakened"
-        },
-        {
-          "cell": "A124",
-          "value": "fcf_ttm_delta_yoy"
-        },
-        {
-          "cell": "A127",
-          "value": "2025-Q1 - Quarter Notes"
         }
       ],
       "writable_value_cells": [
         {
           "binding_id": "qn_quarter_note_rows",
-          "target": "B8:O360",
-          "value_shape": "table_rows"
-        },
-        {
-          "binding_id": "qn_quarter_model_implication_rows",
-          "target": "B8:O360",
+          "target": "A10:O15",
           "value_shape": "table_rows"
         }
       ],
       "writable_example_cells": [
         {
           "binding_id": "qn_quarter_note_rows",
-          "target": "B8:O360",
+          "target": "A10:O15",
           "value_shape": "table_rows",
-          "nonempty_count": 744,
+          "nonempty_count": 30,
           "formula_count": 0,
           "numeric_count": 0,
-          "text_count": 744,
+          "text_count": 30,
           "sample_cells": [
             {
-              "cell": "C9",
-              "value": "What happened"
-            },
-            {
-              "cell": "F9",
-              "value": "Why it matters"
-            },
-            {
-              "cell": "H9",
-              "value": "Model / valuation implication"
-            },
-            {
-              "cell": "M9",
-              "value": "Source / confidence"
+              "cell": "A10",
+              "value": "Total Company"
             },
             {
               "cell": "C10",
@@ -10996,108 +10621,24 @@
             {
               "cell": "M10",
               "value": "Medium; Operating_Drivers; 2026-03-31"
-            }
-          ]
-        },
-        {
-          "binding_id": "qn_quarter_model_implication_rows",
-          "target": "B8:O360",
-          "value_shape": "table_rows",
-          "nonempty_count": 744,
-          "formula_count": 0,
-          "numeric_count": 0,
-          "text_count": 744,
-          "sample_cells": [
-            {
-              "cell": "C9",
-              "value": "What happened"
             },
             {
-              "cell": "F9",
-              "value": "Why it matters"
+              "cell": "A11",
+              "value": "Tariff headwind"
             },
             {
-              "cell": "H9",
-              "value": "Model / valuation implication"
+              "cell": "C11",
+              "value": "Tariffs were disclosed as a margin headwind that can be modeled in bps."
             },
             {
-              "cell": "M9",
-              "value": "Source / confidence"
-            },
-            {
-              "cell": "C10",
-              "value": "Operating_Drivers shows Total Company at 1,113.8 for 2026-Q1."
-            },
-            {
-              "cell": "F10",
-              "value": "Source-backed quarter item helps explain what moved and what needs follow-up."
-            },
-            {
-              "cell": "H10",
-              "value": "Use as context unless it maps to a clean Investment_Case or operating-driver input. Use for narrative support around the quarter's valuation drivers."
-            },
-            {
-              "cell": "M10",
-              "value": "Medium; Operating_Drivers; 2026-03-31"
+              "cell": "F11",
+              "value": "Bps margin effects can be translated into dollar earnings impact using active revenue."
             }
           ]
         }
       ],
-      "company_specific_example_cells": [
-        {
-          "cell": "B35",
-          "value": "2025 net sales growth, Abercrombie/Hollister brand reads and Americas/EMEA/APAC geography. Revolver capacity changed to $500.0m at 2026-01-31 from $400.0m."
-        },
-        {
-          "cell": "C41",
-          "value": "2025 net sales growth, Abercrombie/Hollister brand reads and Americas/EMEA/APAC geography reads remain central to the demand story."
-        },
-        {
-          "cell": "C43",
-          "value": "2025-Q4 brand momentum was explicit in source materials: both brands delivered record Q4 net sales, Abercrombie returned to growth and Hollister extended its..."
-        },
-        {
-          "cell": "C50",
-          "value": "Hollister momentum, Abercrombie stabilization and Americas/EMEA/APAC store reads frame the growth quality."
-        },
-        {
-          "cell": "F50",
-          "value": "2025 net sales growth, Abercrombie/Hollister brand reads and Americas/EMEA/APAC geography reads remain central to the demand story."
-        },
-        {
-          "cell": "B68",
-          "value": "Share repurchases: guide ~$450m; actual $100.0m; progress YTD: $351.2m; status On track. During the third quarter of 2025, the company repurchased 1.2 millio..."
-        },
-        {
-          "cell": "C75",
-          "value": "During the third quarter of 2025, the company repurchased 1.2 million shares for approximately $100 million. For the year-to-date"
-        },
-        {
-          "cell": "C105",
-          "value": "2025-Q4 brand momentum was explicit in source materials: both brands delivered record Q4 net sales, Abercrombie returned to growth and Hollister extended its..."
-        },
-        {
-          "cell": "C136",
-          "value": "2025-Q4 brand momentum was explicit in source materials: both brands delivered record Q4 net sales, Abercrombie returned to growth and Hollister extended its..."
-        },
-        {
-          "cell": "B161",
-          "value": "The company repurchased approximately 0.7 million shares during the fourth quarter and 1.6. Operating margin: actual 16.2%; status Completed."
-        },
-        {
-          "cell": "C167",
-          "value": "The company repurchased approximately 0.7 million shares during the fourth quarter and 1.6 million for the full year, returning"
-        },
-        {
-          "cell": "B192",
-          "value": "During the third quarter of 2024, the company repurchased 720,687 shares for approximately. FCF TTM at 2024-11-02: $594.3m, YoY 39.3%, delta $167.6m."
-        }
-      ],
+      "company_specific_example_cells": [],
       "source_specific_example_cells": [
-        {
-          "cell": "M9",
-          "value": "Source / confidence"
-        },
         {
           "cell": "F10",
           "value": "Source-backed quarter item helps explain what moved and what needs follow-up."
@@ -11121,33 +10662,12 @@
         {
           "cell": "H15",
           "value": "Use as revenue context; keep quarterly, YTD and annual horizons distinct. Revenue quality affects growth/multiple support."
-        },
-        {
-          "cell": "M18",
-          "value": "Source"
-        },
-        {
-          "cell": "I19",
-          "value": "Do not stack margin bridge bps on top of operating margin guidance unless incremental."
-        },
-        {
-          "cell": "I20",
-          "value": "Do not use TTM or annual values as quarter actuals."
-        },
-        {
-          "cell": "I21",
-          "value": "Do not turn commentary into numeric guidance unless the source gives a clean metric."
-        },
-        {
-          "cell": "G25",
-          "value": "Do not turn commentary into numeric guidance unless the source gives a clean metric."
         }
       ],
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "quarter_notes.items.0.model_implication",
-        "quarter_notes.items.0.note"
+        "quarter_notes.items.commentary"
       ],
       "support_sheets_used": [
         "Guidance_Normalized",
@@ -11164,14 +10684,12 @@
         "future quarter_notes normalizer",
         "normalized_company_data_validation.py"
       ],
-      "required_fields": [
-        "quarter_notes.items.0.note"
-      ],
+      "required_fields": [],
       "optional_fields": [
-        "quarter_notes.items.0.model_implication"
+        "quarter_notes.items.commentary"
       ],
       "source_policy": "source-backed",
-      "missing_data_behavior": "omit quarter block content; emit manual review flag | optional blank with missing_source/manual_review reason",
+      "missing_data_behavior": "omit quarter block content; emit manual review flag",
       "validation_rules": [
         "parser_noise_snippet"
       ],
@@ -11179,22 +10697,12 @@
       "bindings": [
         {
           "binding_id": "qn_quarter_note_rows",
-          "target": "B8:O360",
-          "normalized_field": "quarter_notes.items.0.note",
-          "required": true,
-          "value_shape": "table_rows",
-          "source_policy": "source-backed",
-          "missing_source_behavior": "omit quarter block content; emit manual review flag",
-          "validation_rule": "parser_noise_snippet"
-        },
-        {
-          "binding_id": "qn_quarter_model_implication_rows",
-          "target": "B8:O360",
-          "normalized_field": "quarter_notes.items.0.model_implication",
+          "target": "A10:O15",
+          "normalized_field": "quarter_notes.items.commentary",
           "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
-          "missing_source_behavior": "optional blank with missing_source/manual_review reason",
+          "missing_source_behavior": "omit quarter block content; emit manual review flag",
           "validation_rule": "parser_noise_snippet"
         }
       ],
@@ -11768,10 +11276,10 @@
         "future normalized_guidance builder",
         "normalized_company_data_validation.py"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "normalized_guidance.items.0.value"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
       "validation_rules": [
@@ -11783,7 +11291,7 @@
           "binding_id": "pp_annual_guidance_rows",
           "target": "B13:O22",
           "normalized_field": "normalized_guidance.items.0.value",
-          "required": true,
+          "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
           "missing_source_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
@@ -12065,10 +11573,10 @@
         "future normalized_guidance builder",
         "normalized_company_data_validation.py"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "normalized_guidance.items.0.value"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
       "validation_rules": [
@@ -12080,7 +11588,7 @@
           "binding_id": "pp_annual_guidance_rows_block_2",
           "target": "B24:O28",
           "normalized_field": "normalized_guidance.items.0.value",
-          "required": true,
+          "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
           "missing_source_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
@@ -12349,10 +11857,10 @@
         "future normalized_guidance builder",
         "normalized_company_data_validation.py"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "normalized_guidance.items.0.value"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
       "validation_rules": [
@@ -12364,7 +11872,7 @@
           "binding_id": "pp_annual_guidance_rows_block_3",
           "target": "B30:O33",
           "normalized_field": "normalized_guidance.items.0.value",
-          "required": true,
+          "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
           "missing_source_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
@@ -12613,10 +12121,10 @@
         "future normalized_guidance builder",
         "normalized_company_data_validation.py"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "normalized_guidance.items.0.value"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
       "validation_rules": [
@@ -12628,7 +12136,7 @@
           "binding_id": "pp_annual_guidance_rows_block_4",
           "target": "B35:O35",
           "normalized_field": "normalized_guidance.items.0.value",
-          "required": true,
+          "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
           "missing_source_behavior": "no visible annual guidance row; emit parser_conflict/manual review flag",
@@ -12994,10 +12502,10 @@
         "future normalized_guidance builder",
         "normalized_company_data_validation.py"
       ],
-      "required_fields": [
+      "required_fields": [],
+      "optional_fields": [
         "normalized_guidance.items.0.value"
       ],
-      "optional_fields": [],
       "source_policy": "source-backed",
       "missing_data_behavior": "no visible guidance row; emit parser_conflict/manual review flag",
       "validation_rules": [
@@ -13009,7 +12517,7 @@
           "binding_id": "pp_open_guidance_rows",
           "target": "B39:O59",
           "normalized_field": "normalized_guidance.items.0.value",
-          "required": true,
+          "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
           "missing_source_behavior": "no visible guidance row; emit parser_conflict/manual review flag",
@@ -13022,10 +12530,10 @@
       ]
     },
     {
-      "block_id": "pp_guidance_timeline_values",
+      "block_id": "pp_guidance_revision_primary_values",
       "sheet": "Promise_Progress_UI",
       "resolved_lab_sheet": "Promise_Progress_UI",
-      "range": "B61:O69",
+      "range": "A61:K67",
       "title_header_cells": [
         {
           "cell": "A59",
@@ -13126,40 +12634,7 @@
           "value": "Source / note"
         }
       ],
-      "row_label_cells": [
-        {
-          "cell": "A61",
-          "value": "Net sales growth"
-        },
-        {
-          "cell": "A62",
-          "value": "Q1 sales growth"
-        },
-        {
-          "cell": "A63",
-          "value": "Operating margin"
-        },
-        {
-          "cell": "A64",
-          "value": "Q1 operating margin"
-        },
-        {
-          "cell": "A65",
-          "value": "Adjusted EPS"
-        },
-        {
-          "cell": "A66",
-          "value": "Q1 adjusted EPS"
-        },
-        {
-          "cell": "A67",
-          "value": "Store plan"
-        },
-        {
-          "cell": "A69",
-          "value": "2025-Q4 pre-release update revisions"
-        }
-      ],
+      "row_label_cells": [],
       "static_label_cells": [
         {
           "cell": "A59",
@@ -13208,57 +12683,29 @@
         {
           "cell": "K60",
           "value": "Source / note"
-        },
-        {
-          "cell": "A61",
-          "value": "Net sales growth"
-        },
-        {
-          "cell": "A62",
-          "value": "Q1 sales growth"
-        },
-        {
-          "cell": "A63",
-          "value": "Operating margin"
-        },
-        {
-          "cell": "A64",
-          "value": "Q1 operating margin"
-        },
-        {
-          "cell": "A65",
-          "value": "Adjusted EPS"
-        },
-        {
-          "cell": "A66",
-          "value": "Q1 adjusted EPS"
-        },
-        {
-          "cell": "A67",
-          "value": "Store plan"
-        },
-        {
-          "cell": "A69",
-          "value": "2025-Q4 pre-release update revisions"
         }
       ],
       "writable_value_cells": [
         {
           "binding_id": "pp_guidance_timeline_rows",
-          "target": "B61:O69",
+          "target": "A61:K67",
           "value_shape": "table_rows"
         }
       ],
       "writable_example_cells": [
         {
           "binding_id": "pp_guidance_timeline_rows",
-          "target": "B61:O69",
+          "target": "A61:K67",
           "value_shape": "table_rows",
           "nonempty_count": 56,
           "formula_count": 0,
           "numeric_count": 0,
           "text_count": 56,
           "sample_cells": [
+            {
+              "cell": "A61",
+              "value": "Net sales growth"
+            },
             {
               "cell": "C61",
               "value": "+3-5%"
@@ -13286,62 +12733,16 @@
             {
               "cell": "K61",
               "value": "2026 year outlook."
-            },
-            {
-              "cell": "O61",
-              "value": "guidance:anf:net_sales_growth:2026_year:2026_q1:2026_03_04"
             }
           ]
         }
       ],
       "company_specific_example_cells": [],
-      "source_specific_example_cells": [
-        {
-          "cell": "O61",
-          "value": "guidance:anf:net_sales_growth:2026_year:2026_q1:2026_03_04"
-        },
-        {
-          "cell": "O62",
-          "value": "guidance:anf:q1_sales_growth:2026_q1:2026_q1:2026_03_04"
-        },
-        {
-          "cell": "O63",
-          "value": "guidance:anf:operating_margin:2026_year:2026_q1:2026_03_04"
-        },
-        {
-          "cell": "O64",
-          "value": "guidance:anf:q1_operating_margin:2026_q1:2026_q1:2026_03_04"
-        },
-        {
-          "cell": "O65",
-          "value": "guidance:anf:adjusted_eps:2026_year:2026_q1:2026_03_04"
-        },
-        {
-          "cell": "O66",
-          "value": "guidance:anf:q1_adjusted_eps:2026_q1:2026_q1:2026_03_04"
-        },
-        {
-          "cell": "O67",
-          "value": "guidance:anf:store_plan:2026_year:2026_q1:2026_03_04"
-        }
-      ],
+      "source_specific_example_cells": [],
       "formula_cells": [],
-      "hidden_helper_cells": [
-        {
-          "type": "hidden_column",
-          "target": "M"
-        },
-        {
-          "type": "hidden_column",
-          "target": "N"
-        },
-        {
-          "type": "hidden_column",
-          "target": "O"
-        }
-      ],
+      "hidden_helper_cells": [],
       "normalized_fields": [
-        "normalized_guidance.items.0.horizon"
+        "normalized_guidance.items"
       ],
       "support_sheets_used": [
         "Guidance_Normalized",
@@ -13361,7 +12762,7 @@
       ],
       "required_fields": [],
       "optional_fields": [
-        "normalized_guidance.items.0.horizon"
+        "normalized_guidance.items"
       ],
       "source_policy": "source-backed",
       "missing_data_behavior": "optional blank until source-backed guidance timeline exists",
@@ -13372,8 +12773,8 @@
       "bindings": [
         {
           "binding_id": "pp_guidance_timeline_rows",
-          "target": "B61:O69",
-          "normalized_field": "normalized_guidance.items.0.horizon",
+          "target": "A61:K67",
+          "normalized_field": "normalized_guidance.items",
           "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
@@ -15210,14 +14611,14 @@
       "writable_value_cells": [
         {
           "binding_id": "qa_log_validation_rows",
-          "target": "A2:Z5000",
+          "target": "A2:L5000",
           "value_shape": "validation_rows"
         }
       ],
       "writable_example_cells": [
         {
           "binding_id": "qa_log_validation_rows",
-          "target": "A2:Z5000",
+          "target": "A2:L5000",
           "value_shape": "validation_rows",
           "nonempty_count": 11309,
           "formula_count": 0,
@@ -15313,7 +14714,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "manual_review_flags"
+        "issue_ledger.qa_presentation.qa_log_rows"
       ],
       "support_sheets_used": [
         "Info_Log",
@@ -15331,25 +14732,25 @@
         "future filler QA writer"
       ],
       "required_fields": [
-        "manual_review_flags"
+        "issue_ledger.qa_presentation.qa_log_rows"
       ],
       "optional_fields": [],
       "source_policy": "validation-output",
-      "missing_data_behavior": "write an empty-pass QA row only after validator returns no issues",
+      "missing_data_behavior": "write no rows only when the canonical issue ledger is empty",
       "validation_rules": [
-        "normalized_data_issue_shape"
+        "canonical_issue_ledger_summary_shape"
       ],
       "standardization_status": "standard",
       "bindings": [
         {
           "binding_id": "qa_log_validation_rows",
-          "target": "A2:Z5000",
-          "normalized_field": "manual_review_flags",
+          "target": "A2:L5000",
+          "normalized_field": "issue_ledger.qa_presentation.qa_log_rows",
           "required": true,
           "value_shape": "validation_rows",
           "source_policy": "validation-output",
-          "missing_source_behavior": "write an empty-pass QA row only after validator returns no issues",
-          "validation_rule": "normalized_data_issue_shape"
+          "missing_source_behavior": "write no rows only when the canonical issue ledger is empty",
+          "validation_rule": "canonical_issue_ledger_summary_shape"
         }
       ],
       "notes": [
@@ -15516,19 +14917,19 @@
       "writable_value_cells": [
         {
           "binding_id": "needs_review_validation_rows",
-          "target": "A2:Z5000",
+          "target": "A2:K5000",
           "value_shape": "validation_rows"
         }
       ],
       "writable_example_cells": [
         {
           "binding_id": "needs_review_validation_rows",
-          "target": "A2:Z5000",
+          "target": "A2:K5000",
           "value_shape": "validation_rows",
-          "nonempty_count": 564,
+          "nonempty_count": 464,
           "formula_count": 0,
           "numeric_count": 50,
-          "text_count": 514,
+          "text_count": 414,
           "sample_cells": [
             {
               "cell": "A2",
@@ -15619,7 +15020,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "manual_review_flags"
+        "issue_ledger.qa_presentation.needs_review_rows"
       ],
       "support_sheets_used": [
         "QA_Log"
@@ -15634,25 +15035,25 @@
         "future filler QA writer"
       ],
       "required_fields": [
-        "manual_review_flags"
+        "issue_ledger.qa_presentation.needs_review_rows"
       ],
       "optional_fields": [],
       "source_policy": "validation-output",
-      "missing_data_behavior": "write validation issue rows; do not hide missing fields",
+      "missing_data_behavior": "write no rows when no unresolved actionable issue exists",
       "validation_rules": [
-        "normalized_data_issue_shape"
+        "canonical_issue_ledger_actionable_filter"
       ],
       "standardization_status": "standard",
       "bindings": [
         {
           "binding_id": "needs_review_validation_rows",
-          "target": "A2:Z5000",
-          "normalized_field": "manual_review_flags",
+          "target": "A2:K5000",
+          "normalized_field": "issue_ledger.qa_presentation.needs_review_rows",
           "required": true,
           "value_shape": "validation_rows",
           "source_policy": "validation-output",
-          "missing_source_behavior": "write validation issue rows; do not hide missing fields",
-          "validation_rule": "normalized_data_issue_shape"
+          "missing_source_behavior": "write no rows when no unresolved actionable issue exists",
+          "validation_rule": "canonical_issue_ledger_actionable_filter"
         }
       ],
       "notes": [
@@ -15819,19 +15220,19 @@
       "writable_value_cells": [
         {
           "binding_id": "qa_checks_mapping_gap_rows",
-          "target": "A2:Z5000",
+          "target": "A2:I5000",
           "value_shape": "validation_rows"
         }
       ],
       "writable_example_cells": [
         {
           "binding_id": "qa_checks_mapping_gap_rows",
-          "target": "A2:Z5000",
+          "target": "A2:I5000",
           "value_shape": "validation_rows",
-          "nonempty_count": 8133,
+          "nonempty_count": 4110,
           "formula_count": 0,
-          "numeric_count": 1186,
-          "text_count": 6947,
+          "numeric_count": 254,
+          "text_count": 3856,
           "sample_cells": [
             {
               "cell": "A2",
@@ -15850,20 +15251,20 @@
               "value": "Total debt (Q): workbook value missing for 2026-05-02"
             },
             {
-              "cell": "J2",
-              "value": "quarter_text_no_explicit_support"
+              "cell": "A3",
+              "value": "2026-05-02 00:00:00"
             },
             {
-              "cell": "K2",
-              "value": "review source coverage"
+              "cell": "B3",
+              "value": "Cash (Q)"
             },
             {
-              "cell": "T2",
-              "value": "warn"
+              "cell": "D3",
+              "value": "pass"
             },
             {
-              "cell": "U2",
-              "value": "selected release/presentation corpus"
+              "cell": "E3",
+              "value": "Cash (Q): PASS workbook=$594.1m vs extracted quarter text=$594.1m"
             }
           ]
         }
@@ -15871,58 +15272,58 @@
       "company_specific_example_cells": [],
       "source_specific_example_cells": [
         {
-          "cell": "J2",
-          "value": "quarter_text_no_explicit_support"
-        },
-        {
-          "cell": "K2",
-          "value": "review source coverage"
-        },
-        {
-          "cell": "U2",
-          "value": "selected release/presentation corpus"
-        },
-        {
-          "cell": "X2",
-          "value": "Source gap"
-        },
-        {
           "cell": "E3",
           "value": "Cash (Q): PASS workbook=$594.1m vs extracted quarter text=$594.1m"
-        },
-        {
-          "cell": "J3",
-          "value": "quarter_text_match"
         },
         {
           "cell": "E4",
           "value": "EBITDA (Q): PASS workbook=$131.1m vs extracted quarter text=$131.1m"
         },
         {
-          "cell": "J4",
-          "value": "quarter_text_match"
-        },
-        {
           "cell": "E5",
           "value": "FCF (Q): PASS workbook=$-17.1m vs extracted quarter text=$-17.1m"
-        },
-        {
-          "cell": "J5",
-          "value": "quarter_text_match"
         },
         {
           "cell": "E6",
           "value": "Net income (Q): workbook=$67.1m; no explicit quarter-level statement found in selected release/presentation corpus"
         },
         {
-          "cell": "J6",
-          "value": "quarter_text_no_explicit_support"
+          "cell": "E7",
+          "value": "Latest quarter buyback evidence for 2026-05-02: shares +1.200m | cash $105.0m | avg price $87.50/share"
+        },
+        {
+          "cell": "B9",
+          "value": "QA_Guidance"
+        },
+        {
+          "cell": "E9",
+          "value": "No explicit numeric guidance disclosure detected for 2026-05-02; range completeness checks skipped."
+        },
+        {
+          "cell": "B10",
+          "value": "QA_Sources"
+        },
+        {
+          "cell": "E14",
+          "value": "Revenue (Q): PASS workbook=$1,113.8m vs extracted quarter text=$1,113.8m"
+        },
+        {
+          "cell": "B24",
+          "value": "quarter_notes"
+        },
+        {
+          "cell": "C24",
+          "value": "quarter_note_missing_time_anchor"
+        },
+        {
+          "cell": "E24",
+          "value": "quarter note 5b1360a4407470c1 has no explicit time anchor."
         }
       ],
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "mapping_gaps"
+        "issue_ledger.qa_presentation.qa_check_rows"
       ],
       "support_sheets_used": [
         "DATA_Facts_Long",
@@ -15942,88 +15343,31 @@
         "future filler QA writer"
       ],
       "required_fields": [
-        "mapping_gaps"
+        "issue_ledger.qa_presentation.qa_check_rows"
       ],
       "optional_fields": [],
       "source_policy": "validation-output",
-      "missing_data_behavior": "write one check row per binding gap",
+      "missing_data_behavior": "write no rows only when the canonical issue ledger has no checks",
       "validation_rules": [
-        "valuation_core_mapping_gap"
+        "canonical_issue_ledger_rule_check_shape"
       ],
       "standardization_status": "standard",
       "bindings": [
         {
           "binding_id": "qa_checks_mapping_gap_rows",
-          "target": "A2:Z5000",
-          "normalized_field": "mapping_gaps",
+          "target": "A2:I5000",
+          "normalized_field": "issue_ledger.qa_presentation.qa_check_rows",
           "required": true,
           "value_shape": "validation_rows",
           "source_policy": "validation-output",
-          "missing_source_behavior": "write one check row per binding gap",
-          "validation_rule": "valuation_core_mapping_gap"
+          "missing_source_behavior": "write no rows only when the canonical issue ledger has no checks",
+          "validation_rule": "canonical_issue_ledger_rule_check_shape"
         }
       ],
       "notes": [
         "Block is derived from manifest writable zone and current binding map.",
         "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
       ]
-    },
-    {
-      "block_id": "valuation_input_values",
-      "sheet": "Valuation",
-      "resolved_lab_sheet": "Valuation",
-      "range": "D194:D216",
-      "title_header_cells": [],
-      "template_label_cells": [],
-      "row_label_cells": [],
-      "static_label_cells": [],
-      "writable_value_cells": [
-        {"binding_id": "valuation_input_as_of", "target": "D195", "value_shape": "scalar"},
-        {"binding_id": "valuation_input_shares_outstanding", "target": "D196", "value_shape": "scalar"},
-        {"binding_id": "valuation_input_diluted_shares", "target": "D197", "value_shape": "scalar"},
-        {"binding_id": "valuation_input_net_debt", "target": "D198", "value_shape": "scalar"},
-        {"binding_id": "valuation_input_base_ebitda_ttm", "target": "D199", "value_shape": "scalar"},
-        {"binding_id": "valuation_input_adjusted_ebitda_ttm", "target": "D200", "value_shape": "scalar"},
-        {"binding_id": "valuation_input_fcf_ttm", "target": "D201", "value_shape": "scalar"},
-        {"binding_id": "valuation_input_revenue_ttm", "target": "D203", "value_shape": "scalar"},
-        {"binding_id": "valuation_input_capex_ttm", "target": "D211", "value_shape": "scalar"}
-      ],
-      "writable_example_cells": [],
-      "company_specific_example_cells": [],
-      "source_specific_example_cells": [],
-      "formula_cells": [],
-      "hidden_helper_cells": [],
-      "normalized_fields": [
-        "valuation_inputs.as_of_date",
-        "valuation_inputs.shares_outstanding",
-        "valuation_inputs.diluted_shares",
-        "valuation_inputs.net_debt",
-        "valuation_inputs.base_ebitda_ttm",
-        "valuation_inputs.adjusted_ebitda_ttm",
-        "valuation_inputs.free_cash_flow_ttm",
-        "valuation_inputs.revenue_ttm",
-        "valuation_inputs.capex_ttm"
-      ],
-      "support_sheets_used": ["History_Q", "Leverage_Liquidity"],
-      "current_code_owner": ["legacy workbook fixture only"],
-      "future_intended_owner": ["normalized package", "binding planner", "value-only filler"],
-      "required_fields": [
-        "valuation_inputs.as_of_date",
-        "valuation_inputs.shares_outstanding",
-        "valuation_inputs.diluted_shares",
-        "valuation_inputs.net_debt",
-        "valuation_inputs.base_ebitda_ttm",
-        "valuation_inputs.adjusted_ebitda_ttm",
-        "valuation_inputs.free_cash_flow_ttm",
-        "valuation_inputs.revenue_ttm"
-      ],
-      "optional_fields": ["valuation_inputs.capex_ttm"],
-      "source_policy": "derived",
-      "missing_data_behavior": "leave the exact input cell blank and emit a structured mapping gap",
-      "validation_rules": ["valuation_core_mapping_gap", "share_count_outlier"],
-      "standardization_status": "standard",
-      "bindings": [],
-      "notes": ["The frozen shell owns labels and formulas; only D-column input values are writable."]
     }
   ]
 }

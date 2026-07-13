@@ -32,7 +32,13 @@
     "company_profile.sector",
     "company_profile.industry",
     "company_profile.business_description",
+    "company_profile.strategic_context",
     "company_profile.revenue_model",
+    "company_profile.revenue_streams",
+    "company_profile.revenue_streams.member",
+    "company_profile.revenue_streams.mix",
+    "company_profile.revenue_streams.period",
+    "company_profile.revenue_streams.source_ref",
     "company_profile.key_advantages",
     "company_profile.key_risks",
     "company_profile.allowed_sector_terms",
@@ -59,7 +65,16 @@
     "debt_liquidity.cash",
     "debt_liquidity.total_debt",
     "debt_liquidity.net_debt",
+    "debt_liquidity.net_leverage",
     "debt_liquidity.revolver_availability",
+    "debt_liquidity.liquidity_cash",
+    "debt_liquidity.other_available_liquidity",
+    "debt_liquidity.total_liquidity",
+    "debt_liquidity.liquidity_definition",
+    "debt_liquidity.as_of_date",
+    "debt_liquidity.summary_as_of_date",
+    "debt_liquidity.summary_liquidity_display",
+    "debt_liquidity.liquidity_freshness",
     "debt_liquidity.liquidity",
     "debt_liquidity.lease_liabilities",
     "debt_liquidity.interest_expense",
@@ -180,6 +195,12 @@
     "company_profile": {
       "type": "object",
       "additionalProperties": true,
+      "required": [
+        "company_name",
+        "business_description",
+        "strategic_context",
+        "revenue_streams"
+      ],
       "properties": {
         "company_name": {
           "$ref": "#/$defs/normalizedField"
@@ -193,8 +214,18 @@
         "business_description": {
           "$ref": "#/$defs/normalizedField"
         },
+        "strategic_context": {
+          "$ref": "#/$defs/normalizedField"
+        },
         "revenue_model": {
           "$ref": "#/$defs/normalizedField"
+        },
+        "revenue_streams": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/revenueStreamRow"
+          }
         },
         "key_advantages": {
           "$ref": "#/$defs/normalizedField"
@@ -239,12 +270,42 @@
           "items": {
             "$ref": "#/$defs/financialRow"
           }
+        },
+        "incomplete_candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["period", "status", "present_quarters", "missing_quarters", "source_refs", "reason"],
+            "properties": {
+              "period": {"type": "string", "pattern": "^[0-9]{4}-FY$"},
+              "status": {"const": "missing_source"},
+              "present_quarters": {"type": "array", "uniqueItems": true, "items": {"enum": ["Q1", "Q2", "Q3", "Q4"]}},
+              "missing_quarters": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["Q1", "Q2", "Q3", "Q4"]}},
+              "source_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+              "reason": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+          }
         }
       }
     },
     "debt_liquidity": {
       "type": "object",
       "additionalProperties": true,
+      "required": [
+        "cash",
+        "total_debt",
+        "net_debt",
+        "revolver_availability",
+        "liquidity_cash",
+        "other_available_liquidity",
+        "total_liquidity",
+        "liquidity_definition",
+        "as_of_date",
+        "summary_as_of_date",
+        "summary_liquidity_display",
+        "liquidity_freshness"
+      ],
       "properties": {
         "cash": {
           "$ref": "#/$defs/normalizedField"
@@ -255,8 +316,54 @@
         "net_debt": {
           "$ref": "#/$defs/normalizedField"
         },
+        "net_leverage": {
+          "$ref": "#/$defs/normalizedField"
+        },
         "revolver_availability": {
           "$ref": "#/$defs/normalizedField"
+        },
+        "liquidity_cash": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "other_available_liquidity": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "total_liquidity": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "liquidity_definition": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "as_of_date": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "summary_as_of_date": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "summary_liquidity_display": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "liquidity_freshness": {
+          "type": "object",
+          "required": ["disposition", "summary_as_of", "liquidity_as_of", "component_as_of", "mixed_date_components", "reason", "source_ref"],
+          "properties": {
+            "disposition": {"enum": ["current", "stale_but_displayable_with_date", "blocked_from_current_summary", "incomplete_components"]},
+            "summary_as_of": {"type": "string", "minLength": 1},
+            "liquidity_as_of": {"type": "string"},
+            "component_as_of": {
+              "type": "object",
+              "properties": {
+                "cash": {"type": "string"},
+                "revolver": {"type": "string"},
+                "other": {"type": "string"}
+              },
+              "additionalProperties": false
+            },
+            "mixed_date_components": {"type": "boolean"},
+            "reason": {"type": "string", "minLength": 1},
+            "source_ref": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
         },
         "liquidity": {
           "$ref": "#/$defs/normalizedField"
@@ -430,6 +537,41 @@
         }
       }
     },
+    "revenueStreamRow": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "member",
+        "mix",
+        "unit",
+        "period",
+        "source_ref",
+        "display_order"
+      ],
+      "properties": {
+        "member": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "mix": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "unit": {
+          "type": "string",
+          "enum": ["%", "ratio", "$m", "USDm"]
+        },
+        "period": {
+          "type": "string",
+          "minLength": 4
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "display_order": {
+          "type": "integer"
+        }
+      }
+    },
     "financialRow": {
       "type": "object",
       "additionalProperties": true,
@@ -504,7 +646,8 @@
         "classification",
         "evidence_key",
         "display_role",
-        "display_priority"
+        "display_priority",
+        "update_stage"
       ],
       "properties": {
         "metric": {
@@ -544,14 +687,18 @@
           "type": "string"
         },
         "source_date": {
-          "type": "string"
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "publication_date": {
           "type": "string",
-          "format": "date"
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         },
         "stated_in_period": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^\\d{4}-Q[1-4]$"
         },
         "classification": {
           "type": "string"
@@ -569,7 +716,17 @@
           "minimum": 1
         },
         "update_stage": {
-          "type": "string"
+          "type": "string",
+          "enum": ["initial", "update", "reaffirmed", "raised", "lowered", "withdrawn"]
+        },
+        "supersedes_evidence_keys": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 8},
+          "uniqueItems": true
+        },
+        "superseded_by_evidence_key": {
+          "type": "string",
+          "minLength": 8
         }
       }
     },
@@ -590,7 +747,8 @@
               "member",
               "metric",
               "period",
-              "period_type"
+              "period_type",
+              "display_order"
             ],
             "properties": {
               "dimension": {
@@ -624,6 +782,9 @@
                   "quarterly",
                   "annual"
                 ]
+              },
+              "display_order": {
+                "type": "integer"
               },
               "revenue": {
                 "$ref": "#/$defs/normalizedField"

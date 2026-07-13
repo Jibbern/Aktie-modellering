@@ -89,9 +89,10 @@ Current storage is split across disk cache and workbook support sheets:
   selects profile text, latest financials, source notes, and filing freshness.
   Ticker-specific behavior comes from profile fallbacks and sector terminology.
 - Workbook presentation: `summary_company_description`,
-  `summary_revenue_model`, `summary_key_risks`,
-  `summary_quarterly_revenue`, `summary_quarterly_operating_income`,
-  `summary_net_debt`, and `summary_liquidity` should fill only the writable
+  `summary_strategic_context`, `summary_revenue_stream_rows`,
+  `summary_key_advantage`, `summary_as_of_quarter`,
+  `summary_quarterly_operating_income`,
+  `summary_net_leverage`, and `summary_liquidity` should fill only the writable
   shell zones. Missing required values should show blanks plus mapping gaps or
   `Needs_Review`, not generic narrative.
 - Must never show: raw SEC tag names as prose, cache paths, parser snippets,

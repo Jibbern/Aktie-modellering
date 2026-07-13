@@ -1,0 +1,54 @@
+{
+  "receipt_version": "3.0.0",
+  "status": "generated",
+  "reason": "",
+  "artifact": {
+    "path": "docs/standard_template_shell_neutrality_audit.md",
+    "sha256": "96580b962bbc28d0187b726a0a3a7d1db6e65a3a7d6df59dc2644dcff854da9d",
+    "output_schema": "text/markdown",
+    "output_version": "markdown-v1"
+  },
+  "authoritative_inputs": [
+    {
+      "path": "templates/standard_stock_model_template.xlsx",
+      "sha256": "e21e55e86cc310301fa5c4fb698e7a801c9ca671064fd53953b5a2d4d531b7e0"
+    },
+    {
+      "path": "docs/standard_template_shell_manifest.json",
+      "sha256": "7ef93889a75ce37648ed88eed09eac01821cff3f07403cbc3c897d1921d2e5d7"
+    }
+  ],
+  "generator": {
+    "contract_version": "1.0.0",
+    "dependencies": [],
+    "execution_contract_sha256": "829d126b59fa9e4201ce4eec80d421fcd81950f964e50905df00a78f20d2babc",
+    "implementation_sha256": "757845959e6e08e8c921e3f6ffba0692ad60beea1e45fb8ad21ad5be2625d801",
+    "path": "scripts/build_standard_template_shell_neutrality_audit.py",
+    "receipt_engine_sha256": "d8dcde2700b5d5b2a8bbb4040b5341995408745ac09ff0559b3dd979593c5be0",
+    "runner_implementation_sha256": "a2d09fd4edefa35cbadb27ffbf3dd569c1bd3d0b306eaa12bd95555511b46291"
+  },
+  "verification": {
+    "mode": "controlled_isolated_generator_run",
+    "runner_contract_version": "2.0.0",
+    "successful_completion": true,
+    "run_generation_id": "f1c1a2494ad4b8610837bdbdaed42295cc79c484b8def6ceb6c8ad8ff3d662d3",
+    "generated_outputs": [
+      {
+        "canonical_content_sha256": "f3c29acba876cdc04dc783276c12539c5f3deb0a24fe7cd957f0582f679313b3",
+        "output_schema": "json",
+        "output_version": "0.1.0",
+        "path": "docs/standard_template_shell_neutrality_audit.json",
+        "sha256": "fae3e3e3877489f40bf228785e6a78c1be455f36c027b52e9f7e50d51e51ef55"
+      },
+      {
+        "canonical_content_sha256": "63f9db947e346d47348091d9d024551e5c7bff79d390d1d0c2a144bc10f4c876",
+        "output_schema": "text/markdown",
+        "output_version": "markdown-v1",
+        "path": "docs/standard_template_shell_neutrality_audit.md",
+        "sha256": "96580b962bbc28d0187b726a0a3a7d1db6e65a3a7d6df59dc2644dcff854da9d"
+      }
+    ]
+  },
+  "generated_at_utc": "2026-07-13T17:37:37+00:00",
+  "generation_id": "24fdd55d473298d0b4ffc8aa172263cf9b1aedf90f7eee1490e66b2a0b82a4ef"
+}

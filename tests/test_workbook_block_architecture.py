@@ -68,6 +68,7 @@ COMPANY_SPECIFIC_TERMS = (
     "45Z",
     "RIN",
     "crush margin",
+    "A&F",
 )
 
 SUMMARY_VALUE_CELLS_THAT_MUST_NOT_BE_STATIC = {"B9", "B10", "B11", "B30", "B32", "B36"}
@@ -103,7 +104,9 @@ def _coord_to_tuple(coord: str) -> tuple[int, int]:
 
 
 def _parse_range(target: str) -> tuple[int, int, int, int]:
-    start, end = target.split(":", 1)
+    start, separator, end = target.partition(":")
+    if not separator:
+        end = start
     left, top = _coord_to_tuple(start)
     right, bottom = _coord_to_tuple(end)
     return left, top, right, bottom

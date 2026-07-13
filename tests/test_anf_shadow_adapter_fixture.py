@@ -20,6 +20,18 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILDER = ROOT / "scripts" / "build_anf_shadow_normalized_package.py"
 
 
+def _resolve_package_path(package: object, path: str) -> object:
+    current = package
+    for token in path.split("."):
+        if isinstance(current, list):
+            current = current[int(token)]
+        elif isinstance(current, dict):
+            current = current[token]
+        else:
+            raise AssertionError(f"Cannot resolve {path!r} through {type(current).__name__}")
+    return current
+
+
 def test_anf_shadow_builder_is_marked_as_legacy_adapter_fixture() -> None:
     source = BUILDER.read_text(encoding="utf-8")
     module = ast.parse(source)
@@ -60,5 +72,47 @@ def test_anf_legacy_adapter_builds_schema_valid_package_without_writing() -> Non
     assert len(package["source_coverage"]["text_quality_demotions"]) < len(
         package["manual_review_flags"]
     )
+    detail_paths: list[str] = []
+    lineage_ids: list[str] = []
     for record in package["source_coverage"]["legacy_adapter_truncations"]:
         assert {"collection", "input_rows", "retained_rows", "dropped_rows", "reason", "source_ref"} <= set(record)
+        assert record["excluded_row_count"] == record["dropped_rows"] == len(record["excluded_rows"])
+        assert all(
+            {
+                "collection",
+                "section",
+                "detail_path",
+                "adapter_candidate_path",
+                "lineage_id",
+                "source_index",
+                "business_row_key",
+                "period",
+                "source_ref",
+                "source_refs",
+                "truncation_rule",
+                "reason",
+            }
+            <= set(row)
+            for row in record["excluded_rows"]
+        )
+        assert all(row["business_row_key"] and row["source_ref"] for row in record["excluded_rows"])
+        assert all("normalized_path" not in row for row in record["excluded_rows"])
+        for row in record["excluded_rows"]:
+            assert row["adapter_candidate_path"].startswith(
+                f"legacy_adapter_candidates.{row['collection']}."
+            )
+            resolved = _resolve_package_path(package, row["detail_path"])
+            assert resolved["lineage_id"] == row["lineage_id"]
+            assert resolved["source_ref"] == row["source_ref"]
+            detail_paths.append(row["detail_path"])
+            lineage_ids.append(row["lineage_id"])
+
+    truncations = package["source_coverage"]["legacy_adapter_truncations"]
+    assert sum(record["dropped_rows"] for record in truncations) == 823
+    assert sum(len(record["excluded_rows"]) for record in truncations) == 823
+    assert len(detail_paths) == len(set(detail_paths)) == 823
+    assert len(lineage_ids) == len(set(lineage_ids)) == 823
+    reviews = [row for row in package["manual_review_flags"] if row.get("rule_id") == "legacy_adapter_truncation"]
+    assert sum(int(row["adapter_metadata"]["dropped_rows"]) for row in reviews) == 823
+    assert all(str(row["adapter_metadata"]["detail_ref"]).endswith(".excluded_rows") for row in reviews)
+    assert all(isinstance(_resolve_package_path(package, row["adapter_metadata"]["detail_ref"]), list) for row in reviews)

@@ -18,13 +18,27 @@ from typing import Any, Iterable
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from pbi_xbrl.standard_template_shell_identity import (
+    verify_post_fill_structural_identity,
+    verify_shell_identity,
+)
+from pbi_xbrl.new_ticker_binding_planner import (
+    BindingPlanReproductionError,
+    reproduce_binding_plan,
+)
+from pbi_xbrl.json_schema_validation import load_json_strict
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_standard_template_hidden_support_audit import scan_hidden_support_package  # noqa: E402
 from build_standard_template_shell_neutrality_audit import scan_neutrality_workbook  # noqa: E402
 from build_standard_template_sheet_inventory import build_inventory  # noqa: E402
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = REPO_ROOT
 DEFAULT_TEMPLATE = ROOT / "templates" / "standard_stock_model_template.xlsx"
 DEFAULT_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
 DEFAULT_BINDING_MAP = ROOT / "docs" / "workbook_binding_map.json"
@@ -43,6 +57,7 @@ RICH_VISIBLE_SHEETS = (
 
 SOURCE_SPECIFIC_TERMS = (
     "ANF",
+    "A&F",
     "Pitney Bowes",
     "Green Plains",
     "Abercrombie",
@@ -112,6 +127,7 @@ PACKAGE_SOURCE_PATTERNS = tuple(
     re.compile(pattern, re.I)
     for pattern in (
         rb"\bANF\b",
+        rb"A&F",
         rb"\bGPRE\b",
         rb"\bGTX\b",
         rb"\bAbercrombie\b",
@@ -204,9 +220,9 @@ EXPECTED_STATIC_LABELS_BY_SHEET = {
         "Read",
         "guidance progression",
     ],
-    "QA_Log": ["QA Log", "severity", "rule_id", "field", "message", "source_ref", "status"],
-    "Needs_Review": ["Needs Review", "severity", "rule_id", "field", "message", "source_ref", "status"],
-    "QA_Checks": ["QA Checks", "severity", "rule_id", "field", "message", "source_ref", "status"],
+    "QA_Log": ["issue_id", "severity", "rule_id", "issue_type", "section", "occurrence_count", "detail_ref"],
+    "Needs_Review": ["issue_id", "severity", "rule_id", "normalized_path", "occurrence_count", "detail_ref"],
+    "QA_Checks": ["rule_id", "status", "unique_issue_count", "occurrence_count", "blocking_count", "detail_ref"],
 }
 
 MIN_STATIC_TEXT_COUNTS = {
@@ -219,7 +235,7 @@ MIN_STATIC_TEXT_COUNTS = {
     "Promise_Progress_UI": 40,
     "QA_Log": 10,
     "Needs_Review": 10,
-    "QA_Checks": 10,
+    "QA_Checks": 9,
 }
 
 
@@ -242,7 +258,10 @@ class ShellValidationIssue:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = load_json_strict(path)
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON contract must be an object: {path}")
+    return payload
 
 
 def _issue(rule_id: str, message: str, *, sheet: str = "", target: str = "", severity: str = "P1") -> ShellValidationIssue:
@@ -422,6 +441,9 @@ def validate_shell(
     manifest_path: Path = DEFAULT_MANIFEST,
     binding_map_path: Path = DEFAULT_BINDING_MAP,
     allow_filled_values: bool = False,
+    approved_shell_path: Path = DEFAULT_TEMPLATE,
+    approved_plan_path: Path | None = None,
+    normalized_package_path: Path | None = None,
 ) -> dict[str, Any]:
     issues: list[ShellValidationIssue] = []
     if not template_path.exists():
@@ -458,6 +480,61 @@ def validate_shell(
     manifest = _load_json(manifest_path)
     binding_payload = _load_json(binding_map_path)
     bindings = list(binding_payload.get("bindings") or [])
+    identity_report: dict[str, Any] = {}
+    if not allow_filled_values:
+        verified_identity = verify_shell_identity(
+            template_path,
+            manifest=manifest,
+            binding_payload=binding_payload,
+        )
+        identity_report = verified_identity.to_dict()
+        for identity_issue in identity_report.get("issues") or []:
+            issues.append(
+                _issue(
+                    str(identity_issue.get("rule_id") or "shell_identity_failure"),
+                    str(identity_issue.get("message") or "Shell identity verification failed."),
+                    target=str(template_path),
+                )
+            )
+    else:
+        approved_plan = _load_json(approved_plan_path) if approved_plan_path is not None else None
+        normalized_package = _load_json(normalized_package_path) if normalized_package_path is not None else None
+        reproduced_plan = None
+        if approved_plan is None or normalized_package is None:
+            issues.append(
+                _issue(
+                    "post_fill_reproduction_inputs_missing",
+                    "Filled-workbook validation requires both the normalized package and serialized audit plan.",
+                )
+            )
+        else:
+            try:
+                reproduced_plan = reproduce_binding_plan(
+                    normalized_package,
+                    binding_payload=binding_payload,
+                    manifest=manifest,
+                    shell_path=approved_shell_path,
+                    expected_plan=approved_plan,
+                )
+            except BindingPlanReproductionError as exc:
+                issues.append(_issue("post_fill_plan_reproduction_failed", str(exc)))
+        post_fill_identity = verify_post_fill_structural_identity(
+            template_path,
+            approved_shell_path=approved_shell_path,
+            manifest=manifest,
+            binding_payload=binding_payload,
+            approved_plan=reproduced_plan,
+            normalized_package=normalized_package,
+        )
+        identity_report = post_fill_identity
+        for identity_issue in post_fill_identity.get("issues") or []:
+            issues.append(
+                _issue(
+                    str(identity_issue.get("rule_id") or "post_fill_structural_identity_failure"),
+                    str(identity_issue.get("message") or "Filled workbook structural identity verification failed."),
+                    target=str(template_path),
+                )
+            )
     writable_zones, non_writable_zones = _manifest_zone_maps(manifest)
 
     for sheet in manifest["sheets"]:
@@ -847,7 +924,7 @@ def validate_shell(
         workbook_sheet_name = _workbook_sheet_name(wb, sheet_name, allow_filled_values=allow_filled_values)
         if workbook_sheet_name in wb.sheetnames:
             label = str(entry.get("anchor_label") or "").strip()
-            if label and not _sheet_has_label(wb[workbook_sheet_name], label) and not _target_row_has_label(wb[workbook_sheet_name], target):
+            if label and str(entry.get("binding_id") or "") not in wb.defined_names and not _sheet_has_label(wb[workbook_sheet_name], label) and not _target_row_has_label(wb[workbook_sheet_name], target):
                 issues.append(_issue("binding_anchor_label_missing", f"Binding anchor label {label!r} is missing.", sheet=sheet_name, target=target))
             nonblank = _blank_cell_count(wb[workbook_sheet_name], target)
             if nonblank and not allow_filled_values:
@@ -876,6 +953,7 @@ def validate_shell(
         "template_path": str(template_path),
         "issue_count": len(issues),
         "issues": [issue.to_dict() for issue in issues],
+        "shell_identity": identity_report,
     }
 
 
@@ -884,6 +962,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--binding-map", type=Path, default=DEFAULT_BINDING_MAP)
+    parser.add_argument("--approved-shell", type=Path, default=DEFAULT_TEMPLATE)
+    parser.add_argument("--binding-plan", type=Path, help="Exact PASS binding plan required when filled writable values differ from the shell.")
+    parser.add_argument("--normalized-package", type=Path, help="Normalized package used to reproduce and authenticate the binding plan.")
     parser.add_argument("--allow-filled-values", action="store_true", help="Validate a filled output workbook layout while allowing mapped values in writable zones.")
     parser.add_argument("--json", action="store_true", help="Print full JSON report.")
     args = parser.parse_args(argv)
@@ -893,6 +974,9 @@ def main(argv: list[str] | None = None) -> int:
         manifest_path=args.manifest.expanduser().resolve(),
         binding_map_path=args.binding_map.expanduser().resolve(),
         allow_filled_values=args.allow_filled_values,
+        approved_shell_path=args.approved_shell.expanduser().resolve(),
+        approved_plan_path=args.binding_plan.expanduser().resolve() if args.binding_plan else None,
+        normalized_package_path=args.normalized_package.expanduser().resolve() if args.normalized_package else None,
     )
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))

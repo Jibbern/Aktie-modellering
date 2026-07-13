@@ -5,11 +5,20 @@ the normalized data package before any Excel shell/fill step can run.
 """
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+
+from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
+from pbi_xbrl.new_ticker_guidance_scope import (
+    ACTIVE_UPDATE_STAGES,
+    CURRENT_GUIDANCE_ROLES,
+    guidance_scope_key,
+    latest_scope_publications,
+    normalize_guidance_scope,
+)
 
 
 FIELD_STATUSES = {
@@ -94,7 +103,7 @@ _ACCOUNTING_DEFINITION_RE = re.compile(
     r"\bcalculated as\b|"
     r"\bcomputed as\b|"
     r"\bdefined as\b|"
-    r"\bdefinition\b|"
+    r"\bdefinition of\b|"
     r"\bformula\b",
     re.I,
 )
@@ -173,9 +182,20 @@ class NormalizedDataIssue:
     message: str
     source_ref: str = ""
     suggested_action: str = ""
+    normalized_path: str = ""
+    business_row_key: str = ""
+    binding_id: str = ""
+    evidence_key: str = ""
+    root_cause: str = ""
+    issue_type: str = ""
+    canonical_issue_key: str = ""
+    affected_period: str = ""
+    visibility_disposition: str = ""
+    promotion_blocking: Optional[bool] = None
+    render_blocking: Optional[bool] = None
 
-    def to_dict(self) -> Dict[str, str]:
-        return {
+    def to_dict(self) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
             "severity": self.severity,
             "rule_id": self.rule_id,
             "field": self.field,
@@ -183,6 +203,23 @@ class NormalizedDataIssue:
             "source_ref": self.source_ref,
             "suggested_action": self.suggested_action,
         }
+        optional_values = {
+            "normalized_path": self.normalized_path,
+            "business_row_key": self.business_row_key,
+            "binding_id": self.binding_id,
+            "evidence_key": self.evidence_key,
+            "root_cause": self.root_cause,
+            "issue_type": self.issue_type,
+            "canonical_issue_key": self.canonical_issue_key,
+            "affected_period": self.affected_period,
+            "visibility_disposition": self.visibility_disposition,
+        }
+        payload.update({key: value for key, value in optional_values.items() if value not in (None, "")})
+        if self.promotion_blocking is not None:
+            payload["promotion_blocking"] = self.promotion_blocking
+        if self.render_blocking is not None:
+            payload["render_blocking"] = self.render_blocking
+        return payload
 
 
 def validate_normalized_company_data_schema(
@@ -192,14 +229,14 @@ def validate_normalized_company_data_schema(
 ) -> List[NormalizedDataIssue]:
     """Validate package shape against the checked-in JSON Schema contract.
 
-    The project deliberately keeps this small evaluator dependency-free.  It
-    evaluates the Draft 2020-12 keywords used by the local contract and raises a
-    P1 issue if the contract starts using a keyword it cannot safely evaluate.
+    The dependency-free evaluator implements every assertion keyword used by
+    the checked-in Draft 2020-12 contracts and fails closed on unknown schema
+    keywords. Duplicate JSON object keys are rejected while loading the schema.
     """
 
     path = Path(schema_path)
     try:
-        schema = json.loads(path.read_text(encoding="utf-8"))
+        schema = load_json_strict(path)
     except Exception as exc:
         return [
             NormalizedDataIssue(
@@ -211,8 +248,7 @@ def validate_normalized_company_data_schema(
             )
         ]
 
-    failures: list[tuple[str, str, str]] = []
-    _validate_schema_node(package, schema, schema, "$", failures)
+    failures = validate_json_schema(package, schema)
     return [
         NormalizedDataIssue(
             severity="P1",
@@ -223,111 +259,6 @@ def validate_normalized_company_data_schema(
         )
         for field, keyword, message in failures
     ]
-
-
-def _validate_schema_node(
-    value: Any,
-    schema: Mapping[str, Any],
-    root_schema: Mapping[str, Any],
-    path: str,
-    failures: list[tuple[str, str, str]],
-) -> None:
-    ref = schema.get("$ref")
-    if isinstance(ref, str):
-        resolved = _resolve_schema_ref(root_schema, ref)
-        if resolved is None:
-            failures.append((path, "ref", f"Unsupported schema reference {ref!r}."))
-            return
-        _validate_schema_node(value, resolved, root_schema, path, failures)
-        return
-
-    any_of = schema.get("anyOf")
-    if isinstance(any_of, list):
-        for candidate in any_of:
-            candidate_failures: list[tuple[str, str, str]] = []
-            if isinstance(candidate, Mapping):
-                _validate_schema_node(value, candidate, root_schema, path, candidate_failures)
-            if not candidate_failures:
-                break
-        else:
-            failures.append((path, "anyOf", "Value does not match any allowed schema variant."))
-            return
-
-    expected_type = schema.get("type")
-    if expected_type is not None and not _schema_type_matches(value, expected_type):
-        failures.append((path, "type", f"Expected {_schema_type_label(expected_type)}, got {type(value).__name__}."))
-        return
-
-    enum = schema.get("enum")
-    if isinstance(enum, list) and value not in enum:
-        failures.append((path, "enum", f"Value {value!r} is not an allowed enum member."))
-
-    pattern = schema.get("pattern")
-    if isinstance(pattern, str) and isinstance(value, str) and re.search(pattern, value) is None:
-        failures.append((path, "pattern", "String does not match the required pattern."))
-
-    min_items = schema.get("minItems")
-    if isinstance(min_items, int) and isinstance(value, list) and len(value) < min_items:
-        failures.append((path, "minItems", f"Expected at least {min_items} item(s), got {len(value)}."))
-
-    min_length = schema.get("minLength")
-    if isinstance(min_length, int) and isinstance(value, str) and len(value) < min_length:
-        failures.append((path, "minLength", f"Expected at least {min_length} character(s)."))
-
-    if isinstance(value, Mapping):
-        properties = schema.get("properties") if isinstance(schema.get("properties"), Mapping) else {}
-        required = schema.get("required") if isinstance(schema.get("required"), list) else []
-        for key in required:
-            if key not in value:
-                failures.append((path, "required", f"Required property {key!r} is missing."))
-        for key, child_schema in properties.items():
-            if key in value and isinstance(child_schema, Mapping):
-                _validate_schema_node(value[key], child_schema, root_schema, f"{path}.{key}", failures)
-        additional = schema.get("additionalProperties", True)
-        if additional is False:
-            for key in value:
-                if key not in properties:
-                    failures.append((f"{path}.{key}", "additionalProperties", "Property is not allowed by the schema."))
-        elif isinstance(additional, Mapping):
-            for key, child_value in value.items():
-                if key not in properties:
-                    _validate_schema_node(child_value, additional, root_schema, f"{path}.{key}", failures)
-
-    if isinstance(value, list) and isinstance(schema.get("items"), Mapping):
-        for idx, item in enumerate(value):
-            _validate_schema_node(item, schema["items"], root_schema, f"{path}.{idx}", failures)
-
-
-def _resolve_schema_ref(root_schema: Mapping[str, Any], ref: str) -> Mapping[str, Any] | None:
-    if not ref.startswith("#/"):
-        return None
-    current: Any = root_schema
-    for part in ref[2:].split("/"):
-        if not isinstance(current, Mapping) or part not in current:
-            return None
-        current = current[part]
-    return current if isinstance(current, Mapping) else None
-
-
-def _schema_type_matches(value: Any, expected: Any) -> bool:
-    expected_values = expected if isinstance(expected, list) else [expected]
-    return any(
-        (
-            kind == "object" and isinstance(value, Mapping)
-            or kind == "array" and isinstance(value, list)
-            or kind == "string" and isinstance(value, str)
-            or kind == "boolean" and isinstance(value, bool)
-            or kind == "integer" and isinstance(value, int) and not isinstance(value, bool)
-            or kind == "number" and isinstance(value, (int, float)) and not isinstance(value, bool)
-            or kind == "null" and value is None
-        )
-        for kind in expected_values
-    )
-
-
-def _schema_type_label(expected: Any) -> str:
-    return "/".join(str(item) for item in expected) if isinstance(expected, list) else str(expected)
-
 
 def validate_normalized_company_data(
     package: Mapping[str, Any],
@@ -346,6 +277,8 @@ def validate_normalized_company_data(
     issues.extend(_validate_field_statuses_and_core_fields(package))
     issues.extend(_validate_financial_row_domains(package))
     issues.extend(_validate_collection_business_keys(package))
+    issues.extend(_validate_company_profile_semantics(package))
+    issues.extend(_validate_debt_liquidity_semantics(package))
     issues.extend(_validate_source_backed_core_field_lineage(package, bindings))
     issues.extend(_validate_guidance(package))
     issues.extend(_validate_parser_noise(package))
@@ -458,6 +391,7 @@ def _validate_financial_row_domains(package: Mapping[str, Any]) -> List[Normaliz
 
 def _validate_collection_business_keys(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
     specs = (
+        ("company_profile.revenue_streams", ("member",)),
         ("quarterly_financials.rows", ("period",)),
         ("annual_financials.rows", ("period",)),
         ("normalized_guidance.items", ("metric", "horizon", "source_date", "evidence_key")),
@@ -499,6 +433,533 @@ def _validate_collection_business_keys(package: Mapping[str, Any]) -> List[Norma
                 )
                 continue
             seen.add(values)
+    return issues
+
+
+def _validate_company_profile_semantics(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    issues: List[NormalizedDataIssue] = []
+    description = str(_normalized_value(_path_get(package, "company_profile.business_description")) or "").strip()
+    strategic_context = str(_normalized_value(_path_get(package, "company_profile.strategic_context")) or "").strip()
+    if description and strategic_context and description.casefold() == strategic_context.casefold():
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="strategic_context_not_distinct",
+                field="company_profile.strategic_context",
+                message="Strategic context duplicates the company description instead of describing the current investor setup.",
+                suggested_action="Normalize a distinct source-backed strategic context before planning SUMMARY.",
+            )
+        )
+
+    streams = _path_get(package, "company_profile.revenue_streams")
+    if not isinstance(streams, list):
+        return issues
+    percent_total = 0.0
+    percent_rows = 0
+    for idx, row in enumerate(streams):
+        if not isinstance(row, Mapping):
+            continue
+        path = f"company_profile.revenue_streams.{idx}"
+        mix = _normalized_value(row.get("mix"))
+        unit = str(row.get("unit") or "")
+        period = str(row.get("period") or "")
+        source_ref = str(row.get("source_ref") or _field_source_ref(row.get("mix")) or "")
+        if not isinstance(mix, (int, float)) or isinstance(mix, bool):
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="revenue_stream_mix_not_numeric",
+                    field=f"{path}.mix",
+                    message="Revenue-stream mix must be numeric; narrative revenue-model text cannot enter a mix cell.",
+                    source_ref=source_ref,
+                    suggested_action="Keep narrative business-model text separate and normalize member-level mix values.",
+                )
+            )
+        elif unit == "%":
+            percent_total += float(mix)
+            percent_rows += 1
+        if not re.fullmatch(r"\d{4}-(?:Q[1-4]|FY)|\d{4}-\d{2}-\d{2}", period):
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="revenue_stream_period_invalid",
+                    field=f"{path}.period",
+                    message="Revenue-stream period must be YYYY-Qn, YYYY-FY, or an ISO as-of date.",
+                    source_ref=source_ref,
+                    suggested_action="Attach the source period/as-of key to the normalized revenue-stream row.",
+                )
+            )
+        if not source_ref:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="missing_source_ref",
+                    field=f"{path}.source_ref",
+                    message="Revenue-stream row has no source_ref lineage.",
+                    suggested_action="Attach the exact profile/source evidence for the member mix.",
+                )
+            )
+    if percent_rows and not 99.0 <= percent_total <= 101.0:
+        issues.append(
+            NormalizedDataIssue(
+                severity="P2",
+                rule_id="revenue_stream_mix_not_reconciled",
+                field="company_profile.revenue_streams",
+                message=f"Percentage revenue-stream rows sum to {percent_total:.2f}% rather than approximately 100%.",
+                suggested_action="Reconcile scope, period, and omitted members before promotion.",
+            )
+        )
+    return issues
+
+
+def _parse_liquidity_date(
+    raw_value: Any,
+    *,
+    field: str,
+    source_ref: str,
+    required: bool,
+    issues: List[NormalizedDataIssue],
+) -> tuple[str, date | None]:
+    value = str(raw_value or "").strip()
+    if not value:
+        if required:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="liquidity_date_missing",
+                    field=field,
+                    message="Liquidity freshness requires an authoritative ISO date.",
+                    source_ref=source_ref,
+                    suggested_action="Populate the exact source-backed as-of date before using the liquidity value.",
+                )
+            )
+        return value, None
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        parsed = None
+    else:
+        try:
+            parsed = date.fromisoformat(value)
+        except ValueError:
+            parsed = None
+    if parsed is None:
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="liquidity_date_invalid",
+                field=field,
+                message=f"Liquidity date {value!r} is not a valid ISO calendar date.",
+                source_ref=source_ref,
+                suggested_action="Normalize the source date as YYYY-MM-DD and preserve its evidence reference.",
+            )
+        )
+    return value, parsed
+
+
+def _validate_liquidity_freshness_contract(section: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    issues: List[NormalizedDataIssue] = []
+    freshness = section.get("liquidity_freshness") if isinstance(section.get("liquidity_freshness"), Mapping) else {}
+    if not freshness:
+        return issues
+
+    total = section.get("total_liquidity") if isinstance(section.get("total_liquidity"), Mapping) else {}
+    display = section.get("summary_liquidity_display") if isinstance(section.get("summary_liquidity_display"), Mapping) else {}
+    as_of = section.get("as_of_date") if isinstance(section.get("as_of_date"), Mapping) else {}
+    summary_as_of_field = section.get("summary_as_of_date") if isinstance(section.get("summary_as_of_date"), Mapping) else {}
+    source_ref = str(freshness.get("source_ref") or total.get("source_ref") or "")
+    disposition = str(freshness.get("disposition") or "")
+    requires_liquidity_date = disposition in {"current", "stale_but_displayable_with_date"} or str(total.get("status") or "") == "populated"
+
+    authoritative_summary_text, authoritative_summary_date = _parse_liquidity_date(
+        _normalized_value(summary_as_of_field),
+        field="debt_liquidity.summary_as_of_date",
+        source_ref=source_ref,
+        required=True,
+        issues=issues,
+    )
+    freshness_summary_text, freshness_summary_date = _parse_liquidity_date(
+        freshness.get("summary_as_of"),
+        field="debt_liquidity.liquidity_freshness.summary_as_of",
+        source_ref=source_ref,
+        required=True,
+        issues=issues,
+    )
+    authoritative_liquidity_text, authoritative_liquidity_date = _parse_liquidity_date(
+        _normalized_value(as_of),
+        field="debt_liquidity.as_of_date",
+        source_ref=source_ref,
+        required=requires_liquidity_date,
+        issues=issues,
+    )
+    freshness_liquidity_text, freshness_liquidity_date = _parse_liquidity_date(
+        freshness.get("liquidity_as_of"),
+        field="debt_liquidity.liquidity_freshness.liquidity_as_of",
+        source_ref=source_ref,
+        required=requires_liquidity_date,
+        issues=issues,
+    )
+
+    if (
+        authoritative_summary_text
+        and freshness_summary_text
+        and authoritative_summary_text != freshness_summary_text
+    ):
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="liquidity_summary_as_of_conflict",
+                field="debt_liquidity.liquidity_freshness.summary_as_of",
+                message="Liquidity freshness summary_as_of conflicts with debt_liquidity.summary_as_of_date.",
+                source_ref=source_ref,
+                suggested_action="Use one authoritative SUMMARY as-of date across the normalized section.",
+            )
+        )
+    if (
+        authoritative_liquidity_text
+        and freshness_liquidity_text
+        and authoritative_liquidity_text != freshness_liquidity_text
+    ):
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="liquidity_as_of_conflict",
+                field="debt_liquidity.liquidity_freshness.liquidity_as_of",
+                message="Liquidity freshness liquidity_as_of conflicts with debt_liquidity.as_of_date.",
+                source_ref=source_ref,
+                suggested_action="Use one authoritative liquidity as-of date for the total, components, display and freshness contract.",
+            )
+        )
+
+    total_period = str(total.get("period") or "").strip()
+    if total_period and authoritative_liquidity_text and total_period != authoritative_liquidity_text:
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="liquidity_period_mismatch",
+                field="debt_liquidity.total_liquidity.period",
+                message="Total-liquidity period does not match the authoritative liquidity as-of date.",
+                source_ref=source_ref,
+                suggested_action="Bind the total and every component to the same source-backed date.",
+            )
+        )
+
+    component_contract = freshness.get("component_as_of") if isinstance(freshness.get("component_as_of"), Mapping) else {}
+    component_fields = {
+        "cash": "liquidity_cash",
+        "revolver": "revolver_availability",
+        "other": "other_available_liquidity",
+    }
+    populated_component_dates: dict[str, str] = {}
+    for component_key, section_field in component_fields.items():
+        component = section.get(section_field) if isinstance(section.get(section_field), Mapping) else {}
+        contract_value = str(component_contract.get(component_key) or "").strip()
+        if contract_value:
+            _parse_liquidity_date(
+                contract_value,
+                field=f"debt_liquidity.liquidity_freshness.component_as_of.{component_key}",
+                source_ref=str(component.get("source_ref") or source_ref),
+                required=False,
+                issues=issues,
+            )
+        if str(component.get("status") or "") != "populated":
+            continue
+        component_period = str(component.get("period") or "").strip()
+        _parse_liquidity_date(
+            component_period,
+            field=f"debt_liquidity.{section_field}.period",
+            source_ref=str(component.get("source_ref") or source_ref),
+            required=True,
+            issues=issues,
+        )
+        populated_component_dates[component_key] = component_period
+        if contract_value != component_period:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="liquidity_component_as_of_conflict",
+                    field=f"debt_liquidity.liquidity_freshness.component_as_of.{component_key}",
+                    message=f"The {component_key} component date conflicts with its normalized field period.",
+                    source_ref=str(component.get("source_ref") or source_ref),
+                    suggested_action="Carry the component's exact source date into both the field and freshness contract.",
+                )
+            )
+        if authoritative_liquidity_text and component_period != authoritative_liquidity_text:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="liquidity_component_period_mismatch",
+                    field=f"debt_liquidity.{section_field}.period",
+                    message="Liquidity component period does not match the authoritative total-liquidity date.",
+                    source_ref=str(component.get("source_ref") or source_ref),
+                    suggested_action="Do not combine liquidity components from different dates.",
+                )
+            )
+
+    computed_mixed = len({value for value in populated_component_dates.values() if value}) > 1
+    declared_mixed = bool(freshness.get("mixed_date_components"))
+    if computed_mixed != declared_mixed:
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="liquidity_mixed_date_flag_conflict",
+                field="debt_liquidity.liquidity_freshness.mixed_date_components",
+                message="The mixed-date flag does not agree with the populated component dates.",
+                source_ref=source_ref,
+                suggested_action="Derive mixed_date_components from the normalized component periods.",
+            )
+        )
+    if declared_mixed or computed_mixed:
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="liquidity_mixed_date_components",
+                field="debt_liquidity.liquidity_freshness",
+                message="SUMMARY liquidity cannot combine components from different dates.",
+                source_ref=source_ref,
+                suggested_action="Reconcile components to one as-of date or leave the current SUMMARY value blank.",
+            )
+        )
+
+    required_components_complete = all(
+        str((section.get(field) or {}).get("status") or "") == "populated"
+        for field in ("liquidity_cash", "revolver_availability")
+        if isinstance(section.get(field), Mapping)
+    ) and all(isinstance(section.get(field), Mapping) for field in ("liquidity_cash", "revolver_availability"))
+    if disposition == "current":
+        if authoritative_summary_date != authoritative_liquidity_date or freshness_summary_date != freshness_liquidity_date:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="liquidity_current_freshness_mismatch",
+                    field="debt_liquidity.liquidity_freshness.disposition",
+                    message="Liquidity marked current does not share the authoritative SUMMARY as-of date.",
+                    source_ref=source_ref,
+                    suggested_action="Use stale_but_displayable_with_date or block the value from current SUMMARY.",
+                )
+            )
+        if not required_components_complete or declared_mixed or computed_mixed:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="liquidity_current_components_invalid",
+                    field="debt_liquidity.liquidity_freshness.disposition",
+                    message="Incomplete or mixed-date components cannot be classified as current liquidity.",
+                    source_ref=source_ref,
+                    suggested_action="Require same-date cash and revolver evidence before using the current disposition.",
+                )
+            )
+    elif disposition == "stale_but_displayable_with_date":
+        if authoritative_summary_date and authoritative_liquidity_date:
+            if authoritative_liquidity_date > authoritative_summary_date:
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="liquidity_future_date_invalid",
+                        field="debt_liquidity.liquidity_freshness.disposition",
+                        message="A future liquidity date cannot be classified as stale relative to SUMMARY.",
+                        source_ref=source_ref,
+                        suggested_action="Correct the source dates or block the conflicting liquidity record.",
+                    )
+                )
+            elif authoritative_liquidity_date == authoritative_summary_date:
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="liquidity_stale_disposition_invalid",
+                        field="debt_liquidity.liquidity_freshness.disposition",
+                        message="Liquidity marked stale has the same date as SUMMARY.",
+                        source_ref=source_ref,
+                        suggested_action="Use the current freshness disposition.",
+                    )
+                )
+
+    if str(display.get("status") or "") == "populated":
+        display_period = str(display.get("period") or "").strip()
+        if authoritative_liquidity_text and display_period != authoritative_liquidity_text:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="liquidity_display_period_mismatch",
+                    field="debt_liquidity.summary_liquidity_display.period",
+                    message="Visible liquidity period conflicts with the authoritative liquidity as-of date.",
+                    source_ref=str(display.get("source_ref") or source_ref),
+                    suggested_action="Date the visible display with the same authoritative liquidity as-of value.",
+                )
+            )
+        visible_dates = re.findall(r"\b\d{4}-\d{2}-\d{2}\b", str(_normalized_value(display) or ""))
+        if authoritative_liquidity_text and visible_dates != [authoritative_liquidity_text]:
+            rule_id = "stale_liquidity_date_not_visible" if disposition == "stale_but_displayable_with_date" and not visible_dates else "liquidity_visible_date_mismatch"
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id=rule_id,
+                    field="debt_liquidity.summary_liquidity_display",
+                    message="Visible SUMMARY liquidity must show exactly the authoritative liquidity as-of date.",
+                    source_ref=str(display.get("source_ref") or source_ref),
+                    suggested_action="Render the authoritative liquidity date once in the normalized display text.",
+                )
+            )
+    elif disposition in {"current", "stale_but_displayable_with_date"}:
+        rule_id = (
+            "stale_liquidity_date_not_visible"
+            if disposition == "stale_but_displayable_with_date"
+            else "current_liquidity_date_not_visible"
+        )
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id=rule_id,
+                field="debt_liquidity.summary_liquidity_display",
+                message="Current or displayable liquidity must have a populated, visibly dated SUMMARY display value.",
+                source_ref=source_ref,
+                suggested_action="Include the authoritative liquidity as-of date in the visible display field.",
+            )
+        )
+    return issues
+
+
+def _validate_debt_liquidity_semantics(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    section = _path_get(package, "debt_liquidity")
+    if not isinstance(section, Mapping):
+        return []
+    issues: List[NormalizedDataIssue] = _validate_liquidity_freshness_contract(section)
+    total = section.get("total_liquidity") if isinstance(section.get("total_liquidity"), Mapping) else {}
+    if str(total.get("status") or "") != "populated":
+        freshness = section.get("liquidity_freshness") if isinstance(section.get("liquidity_freshness"), Mapping) else {}
+        display = section.get("summary_liquidity_display") if isinstance(section.get("summary_liquidity_display"), Mapping) else {}
+        disposition = str(freshness.get("disposition") or "")
+        if disposition in {"current", "stale_but_displayable_with_date"}:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="liquidity_display_without_total",
+                    field="debt_liquidity.liquidity_freshness.disposition",
+                    message="Current or displayable liquidity requires a populated same-date total.",
+                    source_ref=str(freshness.get("source_ref") or ""),
+                    suggested_action="Use incomplete_components or blocked_from_current_summary until the total is source-backed.",
+                )
+            )
+        if disposition in {"blocked_from_current_summary", "incomplete_components"} and str(display.get("status") or "") == "populated":
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="non_displayable_liquidity_has_visible_value",
+                    field="debt_liquidity.summary_liquidity_display",
+                    message="A blocked or incomplete liquidity record cannot have a populated SUMMARY display value.",
+                    source_ref=str(freshness.get("source_ref") or ""),
+                    suggested_action="Keep the display field missing and retain source detail in JSON/audit evidence.",
+                )
+            )
+        return issues
+    total_value = total.get("value")
+    total_source_ref = str(total.get("source_ref") or "")
+    total_period = str(total.get("period") or "")
+    definition = section.get("liquidity_definition") if isinstance(section.get("liquidity_definition"), Mapping) else {}
+    as_of = section.get("as_of_date") if isinstance(section.get("as_of_date"), Mapping) else {}
+    definition_value = str(_normalized_value(definition) or "").strip()
+    as_of_value = str(_normalized_value(as_of) or "").strip()
+    if not isinstance(total_value, (int, float)) or isinstance(total_value, bool):
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="total_liquidity_not_numeric",
+                field="debt_liquidity.total_liquidity",
+                message="Populated total liquidity must contain a numeric value.",
+                source_ref=total_source_ref,
+                suggested_action="Normalize liquidity components and their sum before binding SUMMARY.",
+            )
+        )
+    if not definition_value:
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="liquidity_definition_missing",
+                field="debt_liquidity.liquidity_definition",
+                message="Populated total liquidity has no definition/scope.",
+                source_ref=total_source_ref,
+                suggested_action="State which cash, revolver, and other components are included.",
+            )
+        )
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", as_of_value):
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="liquidity_as_of_invalid",
+                field="debt_liquidity.as_of_date",
+                message="Populated total liquidity requires an ISO as-of date.",
+                source_ref=total_source_ref,
+                suggested_action="Attach the common component as-of date.",
+            )
+        )
+    component_names = ("liquidity_cash", "revolver_availability", "other_available_liquidity")
+    component_values: list[float] = []
+    for component_name in component_names:
+        component = section.get(component_name) if isinstance(section.get(component_name), Mapping) else {}
+        status = str(component.get("status") or "")
+        if status == "populated":
+            value = component.get("value")
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="liquidity_component_not_numeric",
+                        field=f"debt_liquidity.{component_name}",
+                        message="A populated liquidity component must be numeric.",
+                        source_ref=str(component.get("source_ref") or total_source_ref),
+                        suggested_action="Normalize the component value or mark its missing status honestly.",
+                    )
+                )
+            else:
+                component_values.append(float(value))
+        elif component_name == "revolver_availability" and status in _MISSING_STATUSES:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="cash_only_total_liquidity",
+                    field="debt_liquidity.total_liquidity",
+                    message="Total liquidity is populated while revolver availability is missing.",
+                    source_ref=total_source_ref,
+                    suggested_action="Leave total liquidity missing until revolver availability is source-backed, or mark the revolver not applicable with evidence.",
+                )
+            )
+    if isinstance(total_value, (int, float)) and not isinstance(total_value, bool) and component_values:
+        if abs(float(total_value) - sum(component_values)) > 0.01:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="total_liquidity_not_reconciled",
+                    field="debt_liquidity.total_liquidity",
+                    message="Total liquidity does not reconcile to its populated components.",
+                    source_ref=total_source_ref,
+                    suggested_action="Reconcile cash, revolver, and other available-liquidity components.",
+                )
+            )
+    freshness = section.get("liquidity_freshness") if isinstance(section.get("liquidity_freshness"), Mapping) else {}
+    display = section.get("summary_liquidity_display") if isinstance(section.get("summary_liquidity_display"), Mapping) else {}
+    disposition = str(freshness.get("disposition") or "")
+    if disposition == "blocked_from_current_summary" and str(display.get("status") or "") == "populated":
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="blocked_liquidity_has_visible_value",
+                field="debt_liquidity.summary_liquidity_display",
+                message="Liquidity blocked from current SUMMARY still has a populated display value.",
+                source_ref=str(freshness.get("source_ref") or total_source_ref),
+                suggested_action="Clear the display field and retain the value in JSON/audit evidence only.",
+            )
+        )
+    elif disposition == "incomplete_components" and (
+        str(total.get("status") or "") == "populated" or str(display.get("status") or "") == "populated"
+    ):
+        issues.append(
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="incomplete_liquidity_is_populated",
+                field="debt_liquidity.total_liquidity",
+                message="Incomplete liquidity components cannot produce a populated total or SUMMARY display.",
+                source_ref=str(freshness.get("source_ref") or total_source_ref),
+                suggested_action="Keep the value missing until same-date components are source-backed.",
+            )
+        )
     return issues
 
 
@@ -694,6 +1155,25 @@ def _validate_guidance(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
     issues: List[NormalizedDataIssue] = []
     guidance = package.get("normalized_guidance") if isinstance(package, Mapping) else None
     items = guidance.get("items", []) if isinstance(guidance, Mapping) else []
+    latest_publication = max(
+        (
+            str(item.get("publication_date") or "")
+            for item in items
+            if isinstance(item, Mapping) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(item.get("publication_date") or ""))
+        ),
+        default="",
+    )
+    guidance_rows = [item for item in items if isinstance(item, Mapping)] if isinstance(items, list) else []
+    latest_rows = [item for item in guidance_rows if str(item.get("publication_date") or "") == latest_publication]
+    latest_reporting_period = max((str(item.get("stated_in_period") or "") for item in latest_rows), default="")
+    latest_horizon_year = max((_guidance_horizon_year(_field_text(item.get("horizon"))) for item in latest_rows), default=0)
+    scope_publications = latest_scope_publications(guidance_rows)
+    superseded_evidence_keys = {
+        str(key)
+        for item in guidance_rows
+        for key in (item.get("supersedes_evidence_keys") or [])
+        if isinstance(key, str) and key
+    }
     for idx, item in enumerate(items if isinstance(items, list) else []):
         if not isinstance(item, Mapping):
             continue
@@ -703,6 +1183,109 @@ def _validate_guidance(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
         blob = " ".join(part for part in (metric, value, excerpt) if part)
         source_ref = _field_source_ref(item.get("metric")) or _field_source_ref(item.get("value"))
         field_path = f"normalized_guidance.items.{idx}"
+        publication_date = str(item.get("publication_date") or "")
+        source_date = str(item.get("source_date") or "")
+        stated_in_period = str(item.get("stated_in_period") or "")
+        horizon = _field_text(item.get("horizon"))
+        display_role = str(item.get("display_role") or "")
+        update_stage = str(item.get("update_stage") or "")
+        evidence_key = str(item.get("evidence_key") or "")
+        normalized_scope = normalize_guidance_scope(item)
+        scope_latest_publication = scope_publications.get(guidance_scope_key(item), "")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", publication_date):
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="guidance_publication_date_invalid",
+                    field=f"{field_path}.publication_date",
+                    message="Guidance publication_date must be an ISO date independent of the reporting period.",
+                    source_ref=source_ref,
+                    suggested_action="Extract the actual document publication date.",
+                )
+            )
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", source_date):
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="guidance_source_date_invalid",
+                    field=f"{field_path}.source_date",
+                    message="Guidance source_date must be the source/reporting-period end date in ISO form.",
+                    source_ref=source_ref,
+                    suggested_action="Keep source period timing separate from publication_date.",
+                )
+            )
+        if not _QUARTERLY_PERIOD_RE.fullmatch(stated_in_period):
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="guidance_reporting_period_invalid",
+                    field=f"{field_path}.stated_in_period",
+                    message="Guidance stated_in_period must use YYYY-Qn and represent the source reporting period.",
+                    source_ref=source_ref,
+                    suggested_action="Normalize the reporting-period key independently from publication_date and horizon.",
+                )
+            )
+        if (
+            latest_publication
+            and publication_date == latest_publication
+            and scope_latest_publication == publication_date
+            and normalized_scope.fiscal_year
+            and normalized_scope.fiscal_year >= int(publication_date[:4])
+            and update_stage in ACTIVE_UPDATE_STAGES
+            and display_role == "history"
+        ):
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="current_guidance_visibility_misclassified",
+                    field=f"{field_path}.display_role",
+                    message="Latest-publication guidance for a current/future horizon is classified as history.",
+                    source_ref=source_ref,
+                    suggested_action="Classify it deterministically as current_primary or current_secondary.",
+                )
+            )
+        if display_role in CURRENT_GUIDANCE_ROLES:
+            horizon_year = _guidance_horizon_year(horizon)
+            same_scope_newer = bool(scope_latest_publication and scope_latest_publication > publication_date)
+            explicitly_superseded = bool(str(item.get("superseded_by_evidence_key") or "")) or evidence_key in superseded_evidence_keys
+            stale_horizon = bool(
+                latest_publication
+                and publication_date < latest_publication
+                and horizon_year
+                and latest_horizon_year
+                and horizon_year < latest_horizon_year
+            )
+            stale_reporting_context = bool(
+                latest_publication
+                and publication_date < latest_publication
+                and stated_in_period
+                and latest_reporting_period
+                and stated_in_period < latest_reporting_period
+                and horizon_year
+                and latest_horizon_year
+                and horizon_year < latest_horizon_year
+            )
+            withdrawn_current = update_stage not in ACTIVE_UPDATE_STAGES
+            if same_scope_newer or explicitly_superseded or stale_horizon or stale_reporting_context or withdrawn_current:
+                reasons = []
+                if same_scope_newer:
+                    reasons.append("a newer row exists for the same metric/horizon")
+                if explicitly_superseded:
+                    reasons.append("the evidence is explicitly superseded")
+                if stale_horizon or stale_reporting_context:
+                    reasons.append("the row belongs to an older reporting/horizon context")
+                if withdrawn_current:
+                    reasons.append("withdrawn guidance cannot remain current")
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="stale_guidance_visibility_misclassified",
+                        field=f"{field_path}.display_role",
+                        message="Guidance is marked current even though " + "; ".join(dict.fromkeys(reasons)) + ".",
+                        source_ref=source_ref,
+                    suggested_action="Move superseded guidance to history/audit or document an explicit active carry-forward relationship.",
+                )
+            )
         if _guidance_metric_misclassified(metric, blob):
             issues.append(
                 NormalizedDataIssue(
@@ -726,6 +1309,11 @@ def _validate_guidance(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
                 )
             )
     return issues
+
+
+def _guidance_horizon_year(horizon: str) -> int:
+    match = re.search(r"(?:FY)?(20\d{2})", horizon)
+    return int(match.group(1)) if match else 0
 
 
 def _validate_parser_noise(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:

@@ -30,6 +30,15 @@ from pbi_xbrl.normalized_company_data_validation import (  # noqa: E402
     classify_normalized_text_quality,
     validate_normalized_company_data,
 )
+from pbi_xbrl.json_schema_validation import load_json_strict  # noqa: E402
+from pbi_xbrl.new_ticker_binding_planner import (  # noqa: E402
+    DEFAULT_MANIFEST,
+    DEFAULT_SHELL,
+    BindingPlan,
+    BindingPlanSnapshot,
+    inspect_binding_eligibility,
+    reproduce_binding_plan,
+)
 
 
 REQUIRED_SECTIONS = [
@@ -89,7 +98,10 @@ def _default_output_dir(data_root: Path) -> Path:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = load_json_strict(path)
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON contract must be an object: {path}")
+    return payload
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
@@ -183,6 +195,54 @@ def _publication_date_from_source(source: Any, fallback: Any = None) -> str:
     return _to_iso(fallback)
 
 
+def _legacy_guidance_reporting_period(label: str, *, source_date: str, horizon: str) -> str:
+    normalized_label = _normalize_period(label, period_type="quarterly")
+    if re.fullmatch(r"\d{4}-Q[1-4]", normalized_label):
+        return normalized_label
+    horizon_year = re.search(r"(?:FY)?(20\d{2})", horizon)
+    source_match = re.fullmatch(r"(20\d{2})-(\d{2})-\d{2}", source_date)
+    if (
+        "pre-release" in label.casefold()
+        and horizon_year
+        and source_match
+        and int(horizon_year.group(1)) == int(source_match.group(1)) - 1
+        and int(source_match.group(2)) <= 2
+    ):
+        return f"{horizon_year.group(1)}-Q4"
+    return _normalize_period(source_date, period_type="quarterly")
+
+
+def _percentage_value(value: Any) -> float | None:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
+    text = str(value or "").strip().replace("\u00a0", " ").replace(",", ".")
+    match = re.search(r"[-+]?\d+(?:\.\d+)?", text)
+    return float(match.group(0)) if match else None
+
+
+def _build_revenue_stream_rows(workbook_path: Path, *, period: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for display_order, row_number in enumerate(range(9, 12), start=1):
+        member = str(_read_cell(workbook_path, "SUMMARY", f"A{row_number}") or "").strip().rstrip(":")
+        raw_mix = _read_cell(workbook_path, "SUMMARY", f"B{row_number}")
+        mix = _percentage_value(raw_mix)
+        if not member or mix is None:
+            continue
+        member_ref = f"{workbook_path.name}!SUMMARY!A{row_number}"
+        mix_ref = f"{workbook_path.name}!SUMMARY!B{row_number}"
+        rows.append(
+            {
+                "member": _field(member, source_ref=member_ref, core=True),
+                "mix": _field(mix, source_ref=mix_ref, core=True, unit="%", period=period),
+                "unit": "%",
+                "period": period,
+                "source_ref": mix_ref,
+                "display_order": display_order,
+            }
+        )
+    return rows
+
+
 def _read_legacy_valuation_series(workbook_path: Path, row_number: int) -> dict[str, float]:
     """Read an ANF legacy display row as migration evidence only."""
 
@@ -233,6 +293,106 @@ def _evidence_key(*parts: Any) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
+def _normalized_scalar(value: Any) -> Any:
+    if isinstance(value, Mapping) and "status" in value:
+        return value.get("value") if str(value.get("status") or "") == "populated" else None
+    return value
+
+
+def _collect_row_source_refs(value: Any) -> list[str]:
+    refs: set[str] = set()
+
+    def visit(node: Any) -> None:
+        if isinstance(node, Mapping):
+            direct = node.get("source_ref")
+            if isinstance(direct, str) and direct.strip():
+                refs.add(direct.strip())
+            source = node.get("source")
+            if isinstance(source, str) and source.strip():
+                refs.add(source.strip())
+            elif isinstance(source, Mapping):
+                for key in ("doc", "path", "file", "url", "source_ref"):
+                    candidate = source.get(key)
+                    if isinstance(candidate, str) and candidate.strip():
+                        refs.add(candidate.strip())
+            for child in node.values():
+                visit(child)
+        elif isinstance(node, list):
+            for child in node:
+                visit(child)
+
+    visit(value)
+    return sorted(refs)
+
+
+def _legacy_adapter_business_key(row: Mapping[str, Any], collection_path: str, source_index: int) -> str:
+    field_sets = {
+        "quarterly_financials.rows": ("period",),
+        "annual_financials.rows": ("period",),
+        "normalized_guidance.items": ("metric", "horizon", "publication_date", "evidence_key"),
+        "segments.items": ("period", "dimension", "member", "metric", "evidence_key"),
+        "operating_drivers.items": ("period", "topic", "driver_type", "evidence_key"),
+        "quarter_notes.items": ("period", "theme", "metric", "evidence_key"),
+    }
+    parts = [
+        str(value).strip()
+        for field in field_sets.get(collection_path, ("period", "evidence_key"))
+        if (value := _normalized_scalar(row.get(field))) not in (None, "")
+    ]
+    return "|".join(parts) or f"source_index:{source_index}"
+
+
+def _legacy_adapter_truncation_detail(
+    row: Mapping[str, Any],
+    *,
+    collection_path: str,
+    source_index: int,
+    truncation_index: int,
+    detail_index: int,
+    limit: int,
+    fallback_source_ref: str,
+) -> dict[str, Any]:
+    source_refs = _collect_row_source_refs(row)
+    period = next(
+        (
+            str(value)
+            for field in ("period", "quarter", "horizon", "stated_in_period", "publication_date")
+            if (value := _normalized_scalar(row.get(field))) not in (None, "")
+        ),
+        "",
+    )
+    evidence_key = str(_normalized_scalar(row.get("evidence_key")) or "")
+    business_row_key = _legacy_adapter_business_key(row, collection_path, source_index)
+    lineage_material = "|".join(
+        [
+            collection_path,
+            business_row_key,
+            period,
+            evidence_key,
+            *source_refs,
+            str(source_index),
+        ]
+    )
+    return {
+        "collection": collection_path,
+        "section": collection_path.split(".", 1)[0],
+        "detail_path": (
+            f"source_coverage.legacy_adapter_truncations.{truncation_index}."
+            f"excluded_rows.{detail_index}"
+        ),
+        "adapter_candidate_path": f"legacy_adapter_candidates.{collection_path}.{source_index}",
+        "lineage_id": f"TRUNC-{hashlib.sha256(lineage_material.encode('utf-8')).hexdigest()[:24]}",
+        "source_index": source_index,
+        "business_row_key": business_row_key,
+        "period": period,
+        "evidence_key": evidence_key,
+        "source_ref": source_refs[0] if source_refs else fallback_source_ref,
+        "source_refs": source_refs,
+        "truncation_rule": f"tail:{limit}",
+        "reason": "Row falls outside the explicit legacy-adapter tail limit and remains audit-only.",
+    }
+
+
 def _limit_legacy_adapter_rows(
     rows: Sequence[Mapping[str, Any]],
     *,
@@ -247,15 +407,32 @@ def _limit_legacy_adapter_rows(
         return materialized
     dropped = len(materialized) - limit
     source_ref = f"{workbook_path.name}!legacy_adapter_selection"
+    truncation_index = len(truncations)
+    excluded_rows = [
+        _legacy_adapter_truncation_detail(
+            row,
+            collection_path=collection_path,
+            source_index=detail_index,
+            truncation_index=truncation_index,
+            detail_index=detail_index,
+            limit=limit,
+            fallback_source_ref=source_ref,
+        )
+        for detail_index, row in enumerate(materialized[:-limit])
+    ]
     record = {
         "collection": collection_path,
         "selection": "tail",
         "input_rows": len(materialized),
         "retained_rows": limit,
         "dropped_rows": dropped,
+        "excluded_row_count": len(excluded_rows),
+        "excluded_rows": excluded_rows,
+        "truncation_rule": f"tail:{limit}",
         "reason": "Legacy migration fixture capacity limit; source-native builders must not copy this policy.",
         "source_ref": source_ref,
     }
+    detail_ref = f"source_coverage.legacy_adapter_truncations.{len(truncations)}.excluded_rows"
     truncations.append(record)
     review_flags.append(
         {
@@ -265,7 +442,14 @@ def _limit_legacy_adapter_rows(
             "message": f"Legacy adapter retained the latest {limit} of {len(materialized)} rows and explicitly recorded {dropped} dropped rows.",
             "source_ref": source_ref,
             "suggested_action": "Use source-native evidence selection and an explicit planner overflow policy before onboarding a new ticker.",
-            "adapter_metadata": record,
+            "adapter_metadata": {
+                "collection": collection_path,
+                "input_rows": len(materialized),
+                "retained_rows": limit,
+                "dropped_rows": dropped,
+                "truncation_rule": f"tail:{limit}",
+                "detail_ref": detail_ref,
+            },
         }
     )
     return materialized[-limit:]
@@ -504,10 +688,6 @@ def _build_legacy_visible_quarter_notes(workbook_path: Path, period: str) -> lis
             theme = _clean_text(ws.cell(row_number, 1).value, limit=120)
             commentary = _clean_text(ws.cell(row_number, 3).value, limit=300)
             implication = _clean_text(ws.cell(row_number, 8).value, limit=300)
-            if row_number == 14:
-                implication = _clean_text(wb["Operating_Drivers"].cell(7, 8).value, limit=300)
-            elif row_number == 15:
-                implication = _clean_text(wb["Operating_Drivers"].cell(6, 8).value, limit=300)
             visible_source = _clean_text(ws.cell(row_number, 13).value, limit=220)
             source_ref = f"{workbook_path.name}!Quarter_Notes_UI!row:{row_number}"
             if not theme or not commentary or not implication:
@@ -644,40 +824,285 @@ def _build_quarterly_financial_rows(history_rows: Sequence[Mapping[str, Any]], w
     return out
 
 
-def _build_annual_financial_rows(history_rows: Sequence[Mapping[str, Any]], workbook_path: Path) -> list[dict[str, Any]]:
+def _build_annual_financial_rows(
+    history_rows: Sequence[Mapping[str, Any]],
+    workbook_path: Path,
+    *,
+    incomplete_candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     by_year: dict[Any, list[Mapping[str, Any]]] = defaultdict(list)
     for row in history_rows:
         year = row.get("fiscal_year")
-        if _is_present(year) and _is_present(row.get("revenue")):
+        if _is_present(year):
             by_year[year].append(row)
     annuals: list[dict[str, Any]] = []
     adjusted_ebitda_by_period = _read_legacy_valuation_series(workbook_path, 24)
     for year, rows in by_year.items():
         rows = sorted(rows, key=lambda row: _to_iso(row.get("quarter")))
-        if len(rows) < 4:
+        if not any(_fiscal_quarter(row) == 4 for row in rows):
+            present_quarters = sorted({quarter for row in rows if (quarter := _fiscal_quarter(row)) is not None})
+            missing_quarters = [quarter for quarter in range(1, 5) if quarter not in present_quarters]
+            missing_labels = [f"Q{quarter}" for quarter in missing_quarters]
+            source_refs = sorted({_source_ref("History_Q", row, workbook_path=workbook_path) for row in rows})
+            incomplete_candidates.append(
+                {
+                    "period": f"{year}-FY",
+                    "status": "missing_source",
+                    "present_quarters": [f"Q{quarter}" for quarter in present_quarters],
+                    "missing_quarters": missing_labels,
+                    "source_refs": source_refs,
+                    "reason": (
+                        "Annual aggregation requires exactly one source-backed Q1-Q4 component; "
+                        f"missing {', '.join(missing_labels)}."
+                    ),
+                }
+            )
             continue
         source_ref = f"{workbook_path.name}!History_Q!fiscal_year:{year}"
         period = f"{year}-FY"
-        cfo = sum(float(row.get("cfo") or 0) for row in rows)
-        capex = sum(float(row.get("capex") or 0) for row in rows)
-        adjusted_ebitda = sum(adjusted_ebitda_by_period.get(str(row.get("fiscal_label") or ""), 0.0) for row in rows)
+        components = {
+            "revenue": [_annual_component(row, "revenue", unit="$", source_ref=source_ref) for row in rows],
+            "gross_profit": [_annual_component(row, "gross_profit", unit="$", source_ref=source_ref) for row in rows],
+            "operating_income": [_annual_component(row, "op_income", unit="$", source_ref=source_ref) for row in rows],
+            "base_ebitda": [_annual_component(row, "ebitda", unit="$", source_ref=source_ref) for row in rows],
+            "adjusted_ebitda": [
+                _annual_component(
+                    row,
+                    "adjusted_ebitda",
+                    value=adjusted_ebitda_by_period.get(str(row.get("fiscal_label") or "")),
+                    unit="$m",
+                    source_ref=f"{workbook_path.name}!Valuation!row:24",
+                )
+                for row in rows
+            ],
+            "net_income": [_annual_component(row, "net_income", unit="$", source_ref=source_ref) for row in rows],
+            "operating_cash_flow": [_annual_component(row, "cfo", unit="$", source_ref=source_ref) for row in rows],
+            "capital_expenditures": [_annual_component(row, "capex", unit="$", source_ref=source_ref) for row in rows],
+            "free_cash_flow": [
+                _annual_component(
+                    row,
+                    "free_cash_flow",
+                    value=(
+                        float(row["cfo"]) - float(row["capex"])
+                        if _is_present(row.get("cfo")) and _is_present(row.get("capex"))
+                        else None
+                    ),
+                    unit="$",
+                    source_ref=source_ref,
+                )
+                for row in rows
+            ],
+        }
+        adjusted_source_ref = f"{workbook_path.name}!Valuation!row:24"
         annuals.append(
             {
                 "period": period,
                 "fiscal_year": year,
-                "revenue": _field(round(sum(float(row.get("revenue") or 0) for row in rows) / 1_000_000, 3), source_ref=source_ref, core=True, unit="$m", period=period),
-                "gross_profit": _field(round(sum(float(row.get("gross_profit") or 0) for row in rows) / 1_000_000, 3), source_ref=source_ref, unit="$m", period=period),
-                "operating_income": _field(round(sum(float(row.get("op_income") or 0) for row in rows) / 1_000_000, 3), source_ref=source_ref, core=True, unit="$m", period=period),
-                "base_ebitda": _field(round(sum(float(row.get("ebitda") or 0) for row in rows) / 1_000_000, 3), source_ref=source_ref, unit="$m", period=period),
-                "adjusted_ebitda": _field(round(adjusted_ebitda, 3), source_ref=f"{workbook_path.name}!Valuation!row:24", unit="$m", period=period),
-                "net_income": _field(round(sum(float(row.get("net_income") or 0) for row in rows) / 1_000_000, 3), source_ref=source_ref, unit="$m", period=period),
-                "operating_cash_flow": _field(round(cfo / 1_000_000, 3), source_ref=source_ref, unit="$m", period=period),
-                "capital_expenditures": _field(round(capex / 1_000_000, 3), source_ref=source_ref, unit="$m", period=period),
-                "free_cash_flow": _field(round((cfo - capex) / 1_000_000, 3), source_ref=source_ref, core=True, unit="$m", period=period),
+                "revenue": _annual_component_field(components["revenue"], metric="revenue", period=period, source_ref=source_ref, divisor=1_000_000, core=True),
+                "gross_profit": _annual_component_field(components["gross_profit"], metric="gross_profit", period=period, source_ref=source_ref, divisor=1_000_000),
+                "operating_income": _annual_component_field(components["operating_income"], metric="operating_income", period=period, source_ref=source_ref, divisor=1_000_000, core=True),
+                "base_ebitda": _annual_component_field(components["base_ebitda"], metric="base_ebitda", period=period, source_ref=source_ref, divisor=1_000_000),
+                "adjusted_ebitda": _annual_component_field(components["adjusted_ebitda"], metric="adjusted_ebitda", period=period, source_ref=adjusted_source_ref),
+                "net_income": _annual_component_field(components["net_income"], metric="net_income", period=period, source_ref=source_ref, divisor=1_000_000),
+                "operating_cash_flow": _annual_component_field(components["operating_cash_flow"], metric="operating_cash_flow", period=period, source_ref=source_ref, divisor=1_000_000),
+                "capital_expenditures": _annual_component_field(components["capital_expenditures"], metric="capital_expenditures", period=period, source_ref=source_ref, divisor=1_000_000),
+                "free_cash_flow": _annual_component_field(components["free_cash_flow"], metric="free_cash_flow", period=period, source_ref=source_ref, divisor=1_000_000, core=True),
             }
         )
     annuals.sort(key=lambda row: str(row.get("fiscal_year")))
     return annuals
+
+
+def _annual_component_field(
+    components: Sequence[Mapping[str, Any] | tuple[str, Any]],
+    *,
+    metric: str,
+    period: str,
+    source_ref: str,
+    divisor: float = 1.0,
+    core: bool = False,
+) -> dict[str, Any]:
+    expected_year_match = re.fullmatch(r"(20\d{2})-FY", period)
+    expected_year = int(expected_year_match.group(1)) if expected_year_match else None
+    normalized = [_normalize_annual_component(component, default_source_ref=source_ref) for component in components]
+    component_issues: list[dict[str, Any]] = []
+    by_quarter: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for component in normalized:
+        quarter = component.get("fiscal_quarter")
+        component_year = component.get("fiscal_year")
+        if quarter not in {1, 2, 3, 4}:
+            component_issues.append({"reason": "invalid_quarter", "component": component})
+            continue
+        if expected_year is not None and component_year != expected_year:
+            component_issues.append(
+                {
+                    "reason": "mismatched_fiscal_year",
+                    "expected": expected_year,
+                    "actual": component_year,
+                    "quarter": quarter,
+                }
+            )
+        by_quarter[int(quarter)].append(component)
+    missing_inputs: list[str] = []
+    selected: list[dict[str, Any]] = []
+    expected_unit = "$m" if divisor == 1.0 else "$"
+    for quarter in range(1, 5):
+        quarter_rows = by_quarter.get(quarter, [])
+        if not quarter_rows:
+            missing_inputs.append(f"{expected_year or 'FY'}-Q{quarter}")
+            continue
+        if len(quarter_rows) != 1:
+            component_issues.append(
+                {
+                    "reason": "duplicate_quarter",
+                    "quarter": quarter,
+                    "values": [row.get("value") for row in quarter_rows],
+                    "source_refs": [row.get("source_ref") for row in quarter_rows],
+                }
+            )
+            continue
+        component = quarter_rows[0]
+        if component.get("unit") != expected_unit:
+            component_issues.append(
+                {
+                    "reason": "mismatched_unit",
+                    "quarter": quarter,
+                    "expected": expected_unit,
+                    "actual": component.get("unit"),
+                }
+            )
+        if not _is_present(component.get("value")) or component.get("status") != "populated" or not component.get("source_ref"):
+            missing_inputs.append(str(component.get("label") or f"{expected_year or 'FY'}-Q{quarter}"))
+        selected.append(component)
+    if missing_inputs or component_issues or len(selected) != 4:
+        detail_parts = []
+        if missing_inputs:
+            detail_parts.append("missing: " + ", ".join(missing_inputs))
+        if component_issues:
+            detail_parts.append("conflicts: " + ", ".join(str(item.get("reason") or "component_conflict") for item in component_issues))
+        reason = f"Annual {metric} requires exactly one compatible, source-backed Q1-Q4 component; " + "; ".join(detail_parts) + "."
+        field = _field(
+            None,
+            status="manual_review_required" if component_issues else "missing_source",
+            source_ref=source_ref,
+            core=core,
+            reason=reason,
+            unit="$m",
+            period=period,
+            confidence="",
+        )
+        field["missing_inputs"] = missing_inputs
+        field["component_issues"] = component_issues
+        field["component_source_refs"] = sorted({str(row.get("source_ref") or "") for row in normalized if row.get("source_ref")})
+        return field
+    total = sum(float(component["value"]) for component in selected)
+    return _field(round(total / divisor, 3), source_ref=source_ref, core=core, unit="$m", period=period)
+
+
+def _annual_component(
+    row: Mapping[str, Any],
+    value_field: str,
+    *,
+    value: Any = ...,
+    unit: str,
+    source_ref: str = "",
+) -> dict[str, Any]:
+    label = str(row.get("fiscal_label") or "")
+    actual_value = row.get(value_field) if value is ... else value
+    return {
+        "label": label,
+        "fiscal_year": int(row.get("fiscal_year")) if _is_present(row.get("fiscal_year")) else None,
+        "fiscal_quarter": _fiscal_quarter(row),
+        "value": actual_value,
+        "unit": unit,
+        "status": "populated" if _is_present(actual_value) else "missing_source",
+        "source_ref": source_ref or str(row.get("source_ref") or f"History_Q!{label}"),
+    }
+
+
+def _normalize_annual_component(
+    component: Mapping[str, Any] | tuple[str, Any],
+    *,
+    default_source_ref: str,
+) -> dict[str, Any]:
+    if isinstance(component, Mapping):
+        return dict(component)
+    label, value = component
+    match = re.fullmatch(r"(20\d{2})-Q([1-4])", str(label or ""))
+    return {
+        "label": str(label or ""),
+        "fiscal_year": int(match.group(1)) if match else None,
+        "fiscal_quarter": int(match.group(2)) if match else None,
+        "value": value,
+        "unit": "$m",
+        "status": "populated" if _is_present(value) else "missing_source",
+        "source_ref": default_source_ref,
+    }
+
+
+def _fiscal_quarter(row: Mapping[str, Any]) -> int | None:
+    explicit = row.get("fiscal_quarter")
+    if isinstance(explicit, int) and explicit in {1, 2, 3, 4}:
+        return explicit
+    match = re.search(r"-Q([1-4])$", str(row.get("fiscal_label") or ""))
+    return int(match.group(1)) if match else None
+
+
+def _annual_missing_component_reviews(annual_rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    reviews: list[dict[str, Any]] = []
+    for row in annual_rows:
+        period = str(row.get("period") or "")
+        for metric, value in row.items():
+            if (
+                not isinstance(value, Mapping)
+                or value.get("status") not in {"missing_source", "manual_review_required"}
+                or not (value.get("missing_inputs") or value.get("component_issues"))
+            ):
+                continue
+            reviews.append(
+                {
+                    "severity": "P2",
+                    "rule_id": "legacy_adapter_annual_component_missing",
+                    "issue_type": "actionable_exception",
+                    "section": "annual_financials",
+                    "field": f"annual_financials.rows.{period}.{metric}",
+                    "normalized_path": f"annual_financials.rows.{period}.{metric}",
+                    "row_key": period,
+                    "affected_period": period,
+                    "message": str(value.get("reason") or "Annual source components are incomplete."),
+                    "source_ref": str(value.get("source_ref") or ""),
+                    "missing_inputs": list(value.get("missing_inputs") or []),
+                    "component_issues": list(value.get("component_issues") or []),
+                    "suggested_action": "Provide every missing quarterly component before treating the annual metric as populated.",
+                }
+            )
+    return reviews
+
+
+def _annual_incomplete_candidate_reviews(
+    incomplete_candidates: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "severity": "P2",
+            "rule_id": "legacy_adapter_annual_fiscal_year_incomplete",
+            "field": f"annual_financials.incomplete_candidates.{index}",
+            "period": str(candidate.get("period") or ""),
+            "message": (
+                f"{candidate.get('period')}: annual source coverage is incomplete; "
+                f"missing {', '.join(str(value) for value in candidate.get('missing_quarters') or [])}."
+            ),
+            "source_ref": " + ".join(str(value) for value in candidate.get("source_refs") or []),
+            "suggested_action": "Resolve the missing fiscal-quarter evidence before deriving an annual total.",
+            "visibility_disposition": "needs_review",
+            "root_cause": "incomplete_annual_quarter_coverage",
+            "adapter_metadata": {
+                "present_quarters": list(candidate.get("present_quarters") or []),
+                "missing_quarters": list(candidate.get("missing_quarters") or []),
+            },
+        }
+        for index, candidate in enumerate(incomplete_candidates)
+    ]
 
 
 def _populated_number(value: Any, source_ref: str, unit: str, period: str, *, core: bool = False) -> dict[str, Any]:
@@ -700,23 +1125,120 @@ def _populated_share_count(value: Any, source_ref: str, period: str, *, core: bo
     return _field(converted, source_ref=source_ref, core=core, unit="m shares", period=period)
 
 
-def _build_debt_liquidity(history_rows: Sequence[Mapping[str, Any]], leverage_rows: Sequence[Mapping[str, Any]], workbook_path: Path) -> dict[str, Any]:
+def _build_debt_liquidity(
+    history_rows: Sequence[Mapping[str, Any]],
+    leverage_rows: Sequence[Mapping[str, Any]],
+    revolver_rows: Sequence[Mapping[str, Any]],
+    workbook_path: Path,
+    review_flags: list[dict[str, Any]],
+) -> dict[str, Any]:
     history = next((row for row in reversed(history_rows) if _is_present(row.get("cash"))), {})
     leverage = next((row for row in reversed(leverage_rows) if _is_present(row.get("cash")) or _is_present(row.get("liquidity"))), {})
     source_ref = _source_ref("Leverage_Liquidity", leverage, workbook_path=workbook_path) if leverage else _source_ref("History_Q", history, workbook_path=workbook_path)
     cash = _to_millions(leverage.get("cash") if leverage else history.get("cash"))
+    cash_period = _to_iso(leverage.get("quarter") if leverage else history.get("quarter"))
     total_debt = _to_millions(history.get("total_debt")) if history else None
+    debt_source_ref = _source_ref("History_Q", history, workbook_path=workbook_path)
     if total_debt is None:
-        total_debt = 0.0
-    net_debt = _to_millions(leverage.get("corporate_net_debt")) if leverage else None
-    if net_debt is None and cash is not None:
-        net_debt = round(total_debt - cash, 3)
+        review_flags.append(
+            {
+                "severity": "P2",
+                "rule_id": "legacy_adapter_total_debt_missing",
+                "field": "debt_liquidity.total_debt",
+                "message": "Latest ANF legacy history row has no source-backed total debt value; zero was not assumed.",
+                "source_ref": debt_source_ref,
+                "suggested_action": "Resolve total debt from source-native debt evidence before promotion.",
+                "visibility_disposition": "needs_review",
+            }
+        )
+
+    legacy_net_debt = _read_cell(workbook_path, "Valuation", "D198")
+    net_debt = float(legacy_net_debt) if isinstance(legacy_net_debt, (int, float)) and not isinstance(legacy_net_debt, bool) else None
+    net_debt_source_ref = f"{workbook_path.name}!Valuation!D198"
+
+    revolver = next((row for row in reversed(revolver_rows) if _is_present(row.get("revolver_availability"))), {})
+    revolver_period = _to_iso(revolver.get("quarter"))
+    revolver_source_ref = _source_ref("Revolver_History", revolver, workbook_path=workbook_path)
+    revolver_availability = _to_millions(revolver.get("revolver_availability")) if revolver else None
+    matching_cash_row = next(
+        (row for row in reversed(history_rows) if _to_iso(row.get("quarter")) == revolver_period and _is_present(row.get("cash"))),
+        {},
+    )
+    liquidity_cash = _to_millions(matching_cash_row.get("cash")) if matching_cash_row else None
+    total_liquidity = (
+        round(liquidity_cash + revolver_availability, 3)
+        if liquidity_cash is not None and revolver_availability is not None
+        else None
+    )
+    liquidity_source_ref = (
+        f"{_source_ref('History_Q', matching_cash_row, workbook_path=workbook_path)} + {revolver_source_ref}"
+        if matching_cash_row and revolver
+        else revolver_source_ref or source_ref
+    )
+    if total_liquidity is None:
+        freshness_disposition = "incomplete_components"
+        freshness_reason = "A same-date cash and revolver pair is unavailable."
+        summary_liquidity_display = _missing(
+            "SUMMARY liquidity requires a complete same-date liquidity total.",
+            source_ref=liquidity_source_ref,
+            core=True,
+        )
+    elif cash_period == revolver_period:
+        freshness_disposition = "current"
+        freshness_reason = "Liquidity and the latest SUMMARY point-in-time evidence share one as-of date."
+        summary_liquidity_display = _field(
+            f"{total_liquidity:,.3f} as of {revolver_period}",
+            source_ref=liquidity_source_ref,
+            core=True,
+            period=revolver_period,
+        )
+    else:
+        freshness_disposition = "stale_but_displayable_with_date"
+        freshness_reason = "Liquidity is older than the latest SUMMARY point-in-time evidence and must be visibly dated."
+        summary_liquidity_display = _field(
+            f"{total_liquidity:,.3f} as of {revolver_period}",
+            source_ref=liquidity_source_ref,
+            core=True,
+            period=revolver_period,
+        )
+    if total_liquidity is not None and cash_period and revolver_period and cash_period != revolver_period:
+        review_flags.append(
+            {
+                "severity": "P2",
+                "rule_id": "legacy_adapter_liquidity_as_of_lag",
+                "field": "debt_liquidity.total_liquidity",
+                "message": f"Total liquidity is source-backed as of {revolver_period}; newer cash evidence exists as of {cash_period} without matching revolver availability.",
+                "source_ref": liquidity_source_ref,
+                "suggested_action": "Refresh revolver availability before treating total liquidity as current.",
+                "visibility_disposition": "needs_review",
+            }
+        )
     return {
-        "cash": _field(cash, source_ref=source_ref, core=True, unit="$m") if cash is not None else _missing("Cash not found in History_Q or Leverage_Liquidity.", source_ref=source_ref, core=True),
-        "total_debt": _field(total_debt, source_ref=_source_ref("History_Q", history, workbook_path=workbook_path), core=True, unit="$m"),
-        "net_debt": _field(net_debt, source_ref=source_ref, core=True, unit="$m") if net_debt is not None else _missing("Net debt could not be derived.", source_ref=source_ref, core=True),
-        "revolver_availability": _populated_number(leverage.get("revolver_availability"), source_ref, "$m", "latest"),
-        "liquidity": _populated_number(leverage.get("liquidity"), source_ref, "$m", "latest", core=True),
+        "cash": _field(cash, source_ref=source_ref, core=True, unit="$m", period=cash_period) if cash is not None else _missing("Cash not found in History_Q or Leverage_Liquidity.", source_ref=source_ref, core=True),
+        "total_debt": _field(total_debt, source_ref=debt_source_ref, core=True, unit="$m", period=cash_period) if total_debt is not None else _missing("Latest total debt is not source-backed; zero was not assumed.", source_ref=debt_source_ref, core=True),
+        "net_debt": _field(net_debt, source_ref=net_debt_source_ref, core=True, unit="$m", period=cash_period) if net_debt is not None else _missing("Net debt is unavailable from source-backed legacy evidence.", source_ref=net_debt_source_ref, core=True),
+        "net_leverage": _missing("Net leverage cannot be source-backed while total debt is unavailable.", source_ref=debt_source_ref, core=False),
+        "revolver_availability": _field(revolver_availability, source_ref=revolver_source_ref, core=True, unit="$m", period=revolver_period) if revolver_availability is not None else _missing("Revolver availability is unavailable.", source_ref=revolver_source_ref, core=True),
+        "liquidity_cash": _field(liquidity_cash, source_ref=_source_ref("History_Q", matching_cash_row, workbook_path=workbook_path), core=True, unit="$m", period=revolver_period) if liquidity_cash is not None else _missing("Cash is unavailable for the total-liquidity as-of date.", source_ref=liquidity_source_ref, core=True),
+        "other_available_liquidity": _not_applicable("No other available-liquidity component was normalized by the ANF legacy adapter.", source_ref=liquidity_source_ref),
+        "total_liquidity": _field(total_liquidity, source_ref=liquidity_source_ref, core=True, unit="$m", period=revolver_period) if total_liquidity is not None else _missing("Total liquidity requires cash and revolver availability for the same as-of date.", source_ref=liquidity_source_ref, core=True),
+        "liquidity_definition": _field("Cash plus undrawn revolver availability; excludes unverified other liquidity sources.", source_ref=liquidity_source_ref, core=True),
+        "as_of_date": _field(revolver_period, source_ref=liquidity_source_ref, core=True) if revolver_period else _missing("Total-liquidity as-of date is unavailable.", source_ref=liquidity_source_ref, core=True),
+        "summary_as_of_date": _field(cash_period, source_ref=source_ref, core=True) if cash_period else _missing("SUMMARY point-in-time as-of date is unavailable.", source_ref=source_ref, core=True),
+        "summary_liquidity_display": summary_liquidity_display,
+        "liquidity_freshness": {
+            "disposition": freshness_disposition,
+            "summary_as_of": cash_period or "",
+            "liquidity_as_of": revolver_period or "",
+            "component_as_of": {
+                "cash": revolver_period or "",
+                "revolver": revolver_period or "",
+            },
+            "mixed_date_components": False,
+            "reason": freshness_reason,
+            "source_ref": liquidity_source_ref,
+        },
+        "liquidity": _field(total_liquidity, source_ref=liquidity_source_ref, unit="$m", period=revolver_period) if total_liquidity is not None else _missing("Deprecated liquidity alias remains missing because total liquidity is unavailable.", source_ref=liquidity_source_ref),
         "lease_liabilities": _populated_number(history.get("lease_liabilities"), _source_ref("History_Q", history, workbook_path=workbook_path), "$m", "latest"),
         "interest_expense": _populated_number(leverage.get("interest_expense_net_ttm"), source_ref, "$m", "ttm"),
         "maturity_schedule": [],
@@ -745,16 +1267,36 @@ def _build_valuation_inputs(
     quarterly_rows: Sequence[Mapping[str, Any]],
     debt_liquidity: Mapping[str, Any],
     workbook_path: Path,
+    review_flags: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     latest_four = list(quarterly_rows[-4:])
     source_ref = f"{workbook_path.name}!History_Q!latest_4_quarters"
 
     def total(field_name: str) -> dict[str, Any]:
-        values = [row.get(field_name, {}).get("value") for row in latest_four if isinstance(row.get(field_name), Mapping)]
-        numeric = [float(value) for value in values if isinstance(value, (int, float))]
-        if len(numeric) != len(latest_four):
-            return _missing(f"TTM {field_name} requires four source-backed quarterly values.", source_ref=source_ref, core=True)
-        return _field(round(sum(numeric), 3), source_ref=source_ref, core=True, unit="$m", period="TTM")
+        result = _ttm_component_field(latest_four, metric=field_name, source_ref=source_ref)
+        if str(result.get("status") or "") != "populated" and review_flags is not None:
+            review_flags.append(
+                {
+                    "severity": "P2",
+                    "rule_id": "legacy_adapter_ttm_coverage_incomplete",
+                    "issue_type": "actionable_exception",
+                    "section": "valuation_inputs",
+                    "field": f"valuation_inputs.{field_name}_ttm",
+                    "normalized_path": f"valuation_inputs.{field_name}_ttm",
+                    "row_key": field_name,
+                    "message": str(result.get("reason") or f"TTM {field_name} coverage is incomplete."),
+                    "source_ref": str(result.get("source_ref") or source_ref),
+                    "suggested_action": "Provide exactly four consecutive, compatible, source-backed quarterly components.",
+                    "adapter_metadata": {
+                        "available_quarters": list(result.get("available_quarters") or []),
+                        "expected_quarters": list(result.get("expected_quarters") or []),
+                        "missing_quarters": list(result.get("missing_quarters") or []),
+                        "duplicate_quarters": list(result.get("duplicate_quarters") or []),
+                        "component_issues": list(result.get("component_issues") or []),
+                    },
+                }
+            )
+        return result
 
     latest = latest_four[-1] if latest_four else {}
     latest_source = str(latest.get("revenue", {}).get("source_ref") or source_ref) if isinstance(latest.get("revenue"), Mapping) else source_ref
@@ -785,6 +1327,195 @@ def _build_valuation_inputs(
     }
 
 
+def _quarter_ordinal(period: str) -> int | None:
+    match = re.fullmatch(r"(20\d{2})-Q([1-4])", str(period or "").strip())
+    if not match:
+        return None
+    return int(match.group(1)) * 4 + int(match.group(2)) - 1
+
+
+def _quarter_from_ordinal(ordinal: int) -> str:
+    year, quarter_index = divmod(ordinal, 4)
+    return f"{year}-Q{quarter_index + 1}"
+
+
+def _ttm_component_field(
+    quarterly_rows: Sequence[Mapping[str, Any]],
+    *,
+    metric: str,
+    source_ref: str,
+    expected_end_period: str = "",
+) -> dict[str, Any]:
+    components: list[dict[str, Any]] = []
+    component_issues: list[dict[str, Any]] = []
+    by_period: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for source_index, row in enumerate(quarterly_rows):
+        period = str(_normalized_scalar(row.get("period")) or "").strip()
+        field = row.get(metric) if isinstance(row.get(metric), Mapping) else {}
+        component = {
+            "source_index": source_index,
+            "period": period,
+            "ordinal": _quarter_ordinal(period),
+            "value": field.get("value"),
+            "status": str(field.get("status") or ""),
+            "unit": str(field.get("unit") or ""),
+            "source_ref": str(field.get("source_ref") or ""),
+            "dimension": _normalized_scalar(field.get("dimension")) or _normalized_scalar(row.get("dimension")),
+            "member": _normalized_scalar(field.get("member")) or _normalized_scalar(row.get("member")),
+        }
+        components.append(component)
+        if component["ordinal"] is None:
+            component_issues.append({"reason": "invalid_quarter", "period": period, "source_index": source_index})
+        else:
+            by_period[period].append(component)
+
+    duplicate_quarters = sorted(period for period, rows in by_period.items() if len(rows) != 1)
+    for period in duplicate_quarters:
+        rows = by_period[period]
+        component_issues.append(
+            {
+                "reason": "duplicate_quarter",
+                "period": period,
+                "values": [row.get("value") for row in rows],
+                "source_refs": [row.get("source_ref") for row in rows],
+            }
+        )
+
+    ordinals = sorted({int(component["ordinal"]) for component in components if component.get("ordinal") is not None})
+    expected_end_ordinal = _quarter_ordinal(expected_end_period) if expected_end_period else (ordinals[-1] if ordinals else None)
+    if expected_end_period and expected_end_ordinal is None:
+        component_issues.append({"reason": "invalid_expected_end_period", "period": expected_end_period})
+    expected_ordinals = (
+        list(range(expected_end_ordinal - 3, expected_end_ordinal + 1))
+        if expected_end_ordinal is not None
+        else []
+    )
+    expected_quarters = [_quarter_from_ordinal(value) for value in expected_ordinals]
+    available_quarters = [str(component.get("period") or "") for component in components]
+    missing_quarters = [period for period in expected_quarters if period not in by_period]
+    if len(components) != 4:
+        component_issues.append(
+            {
+                "reason": "quarter_count_not_four",
+                "expected": 4,
+                "actual": len(components),
+            }
+        )
+    if len(ordinals) == 4 and ordinals != expected_ordinals:
+        component_issues.append(
+            {
+                "reason": "quarters_not_consecutive",
+                "actual": [_quarter_from_ordinal(value) for value in ordinals],
+                "expected": expected_quarters,
+            }
+        )
+    elif len(components) == 4 and len(ordinals) != 4:
+        component_issues.append(
+            {
+                "reason": "quarters_not_distinct",
+                "actual": available_quarters,
+            }
+        )
+
+    component_units = [str(component.get("unit") or "").strip() for component in components]
+    if len(component_units) == 4 and (
+        any(not unit for unit in component_units) or set(component_units) != {"$m"}
+    ):
+        component_issues.append(
+            {
+                "reason": "incompatible_unit",
+                "expected": "$m",
+                "actual": component_units,
+            }
+        )
+    dimensions = {
+        json.dumps(
+            {"dimension": component.get("dimension"), "member": component.get("member")},
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        for component in components
+    }
+    if len(dimensions) > 1:
+        component_issues.append({"reason": "incompatible_dimensions", "actual": sorted(dimensions)})
+
+    missing_value_periods: list[str] = []
+    for component in components:
+        value = component.get("value")
+        if (
+            component.get("status") != "populated"
+            or not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not str(component.get("source_ref") or "").strip()
+        ):
+            missing_value_periods.append(str(component.get("period") or f"source_index:{component['source_index']}"))
+    if missing_value_periods:
+        component_issues.append(
+            {
+                "reason": "component_not_source_backed_numeric",
+                "periods": missing_value_periods,
+            }
+        )
+
+    source_refs = sorted({str(component.get("source_ref") or "") for component in components if component.get("source_ref")})
+    valid = (
+        len(components) == 4
+        and len(ordinals) == 4
+        and ordinals == expected_ordinals
+        and not duplicate_quarters
+        and not missing_quarters
+        and not component_issues
+    )
+    if valid:
+        return _field(
+            round(sum(float(component["value"]) for component in components), 3),
+            source_ref=" + ".join(source_refs) or source_ref,
+            core=True,
+            unit="$m",
+            period="TTM",
+        )
+
+    conflict_reasons = {str(issue.get("reason") or "") for issue in component_issues}
+    conflict = bool(
+        conflict_reasons
+        & {
+            "invalid_quarter",
+            "invalid_expected_end_period",
+            "duplicate_quarter",
+            "quarters_not_consecutive",
+            "quarters_not_distinct",
+            "incompatible_unit",
+            "incompatible_dimensions",
+        }
+    )
+    reason = (
+        f"TTM {metric} requires exactly four distinct consecutive, compatible, source-backed quarterly values; "
+        + ", ".join(sorted(conflict_reasons or {"insufficient_quarter_coverage"}))
+        + "."
+    )
+    field = _field(
+        None,
+        status="manual_review_required" if conflict else "missing_source",
+        source_ref=" + ".join(source_refs) or source_ref,
+        core=True,
+        reason=reason,
+        unit="$m",
+        period="TTM",
+        confidence="",
+    )
+    field.update(
+        {
+            "available_quarters": available_quarters,
+            "expected_quarters": expected_quarters,
+            "missing_quarters": missing_quarters,
+            "duplicate_quarters": duplicate_quarters,
+            "component_issues": component_issues,
+            "component_source_refs": source_refs,
+        }
+    )
+    return field
+
+
 def _build_guidance_items(
     guidance_rows: Sequence[Mapping[str, Any]],
     promise_rows: Sequence[Mapping[str, Any]],
@@ -807,7 +1538,12 @@ def _build_guidance_items(
         publication_date = _publication_date_from_source(source_ref, row.get("source_date") or row.get("quarter"))
         value_text = str(row.get("numbers") or row.get("value") or "").strip()
         legacy_stated_in = str(row.get("stated_in_label") or "").strip()
-        stated_in_period = _normalize_period(publication_date, period_type="quarterly")
+        source_date = _to_iso(row.get("source_date") or row.get("quarter"))
+        stated_in_period = _legacy_guidance_reporting_period(
+            legacy_stated_in,
+            source_date=source_date,
+            horizon=horizon,
+        )
         source_line_raw = _clean_text(row.get("line"), limit=260)
         field_prefix = f"normalized_guidance.items.{len(items)}"
         source_line = _visible_text_or_blank(
@@ -831,7 +1567,7 @@ def _build_guidance_items(
                 "value": _field(value_text, source_ref=source_ref, core=True, unit=str(row.get("unit") or "")),
                 "horizon": _field(horizon, source_ref=source_ref, core=True),
                 "source_excerpt": source_line,
-                "source_date": publication_date,
+                "source_date": source_date,
                 "publication_date": publication_date,
                 "stated_in_period": stated_in_period,
                 "legacy_stated_in_label": legacy_stated_in,
@@ -862,11 +1598,26 @@ def _build_guidance_items(
             ("Adj EPS", f"{current_year}-Q1"): 6,
             ("Real estate activity", f"{current_year} year"): 7,
         }
-        candidates = [
+        current_items = [
             item
             for item in items
             if item["publication_date"] == latest_publication
-            and (str(item["metric"].get("value") or ""), str(item["horizon"].get("value") or "")) in pair_priority
+            and str(item["horizon"].get("value") or "").startswith(current_year)
+        ]
+        current_items.sort(
+            key=lambda item: (
+                str(item["metric"].get("value") or ""),
+                str(item["horizon"].get("value") or ""),
+                str(item["evidence_key"]),
+            )
+        )
+        for secondary_priority, item in enumerate(current_items, start=100):
+            item["display_role"] = "current_secondary"
+            item["display_priority"] = secondary_priority
+        candidates = [
+            item
+            for item in current_items
+            if (str(item["metric"].get("value") or ""), str(item["horizon"].get("value") or "")) in pair_priority
         ]
         candidates.sort(
             key=lambda item: (
@@ -879,7 +1630,6 @@ def _build_guidance_items(
         for item in candidates:
             key = (str(item["metric"].get("value") or ""), str(item["horizon"].get("value") or ""))
             if key in seen_keys or selected >= 7:
-                item["display_role"] = "current_secondary"
                 continue
             seen_keys.add(key)
             selected += 1
@@ -894,6 +1644,20 @@ def _build_segments(
     workbook_path: Path,
     demotions: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    display_orders: dict[tuple[str, str], int] = {}
+    wb = load_workbook(workbook_path, read_only=True, data_only=True)
+    try:
+        ws = wb["BS_Segments"]
+        for row_number in (61, 62, 63, 65, 66, 67, 72, 73, 74):
+            member = str(ws.cell(row_number, 1).value or "").strip()
+            if not member:
+                continue
+            dimension = _segment_dimension(member)
+            key = (dimension, member)
+            if key not in display_orders:
+                display_orders[key] = 1 + sum(1 for existing_dimension, _member in display_orders if existing_dimension == dimension)
+    finally:
+        wb.close()
     fiscal_periods = {
         _to_iso(row.get("quarter")): (str(row.get("fiscal_label") or ""), row.get("fiscal_year"))
         for row in history_rows
@@ -929,6 +1693,7 @@ def _build_segments(
         item = {
             "dimension": _segment_dimension(member),
             "member": member,
+            "display_order": display_orders.get((_segment_dimension(member), member), 999),
             "segment": _field(member, source_ref=source_ref, core=True),
             "metric": metric,
             "period": normalized_period,
@@ -1129,6 +1894,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
     """Build ANF shadow data from legacy workbook artifacts for comparison only."""
     history_rows = _read_sheet_rows(workbook_path, "History_Q")
     leverage_rows = _read_sheet_rows(workbook_path, "Leverage_Liquidity")
+    revolver_rows = _read_sheet_rows(workbook_path, "Revolver_History")
     guidance_rows = _read_sheet_rows(workbook_path, "Guidance_Normalized")
     promise_rows = _read_sheet_rows(workbook_path, "Promise_Progress")
     segment_rows = _read_sheet_rows(workbook_path, "Slides_Segments")
@@ -1148,16 +1914,34 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
         truncations=adapter_truncations,
         review_flags=adapter_review_flags,
     )
+    incomplete_annual_candidates: list[dict[str, Any]] = []
     annual_financials = _limit_legacy_adapter_rows(
-        _build_annual_financial_rows(history_rows, workbook_path),
+        _build_annual_financial_rows(
+            history_rows,
+            workbook_path,
+            incomplete_candidates=incomplete_annual_candidates,
+        ),
         limit=6,
         collection_path="annual_financials.rows",
         workbook_path=workbook_path,
         truncations=adapter_truncations,
         review_flags=adapter_review_flags,
     )
-    debt_liquidity = _build_debt_liquidity(history_rows, leverage_rows, workbook_path)
-    valuation_inputs = _build_valuation_inputs(quarterly_financials, debt_liquidity, workbook_path)
+    adapter_review_flags.extend(_annual_missing_component_reviews(annual_financials))
+    adapter_review_flags.extend(_annual_incomplete_candidate_reviews(incomplete_annual_candidates))
+    debt_liquidity = _build_debt_liquidity(
+        history_rows,
+        leverage_rows,
+        revolver_rows,
+        workbook_path,
+        adapter_review_flags,
+    )
+    valuation_inputs = _build_valuation_inputs(
+        quarterly_financials,
+        debt_liquidity,
+        workbook_path,
+        review_flags=adapter_review_flags,
+    )
     guidance_candidates = _dedupe_legacy_adapter_rows(
         _build_guidance_items(guidance_rows, promise_rows, workbook_path, text_quality_demotions),
         collection_path="normalized_guidance.items",
@@ -1224,6 +2008,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
     quarter_note_items.extend(_build_legacy_visible_quarter_notes(workbook_path, latest_source_period))
 
     source_ref = f"{workbook_path.name}!SUMMARY"
+    latest_annual_period = str(annual_financials[-1].get("period") or "") if annual_financials else ""
     package = {
         "package_version": "0.2.0-anf-shadow",
         "generated_at_utc": _now(),
@@ -1241,7 +2026,9 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
             "sector": _field("Consumer Discretionary", source_ref=source_ref, core=True),
             "industry": _field("Specialty apparel retail", source_ref=source_ref, core=True),
             "business_description": _field(_clean_text(_read_cell(workbook_path, "SUMMARY", "A3"), limit=600), source_ref=source_ref, core=True),
+            "strategic_context": _field(_clean_text(_read_cell(workbook_path, "SUMMARY", "A5"), limit=800), source_ref=f"{workbook_path.name}!SUMMARY!A5", core=True),
             "revenue_model": _field("Global omnichannel apparel sales through Abercrombie and Hollister brand families, stores, digital channels, and geographic regions.", source_ref=source_ref, core=True),
+            "revenue_streams": _build_revenue_stream_rows(workbook_path, period=latest_annual_period),
             "key_advantages": _field(_clean_text(_read_cell(workbook_path, "SUMMARY", "A7"), limit=500), source_ref=source_ref),
             "key_risks": _field("Fashion demand, merchandise execution, tariffs, inventory/markdown risk, ERP execution, and tougher comparable-sales laps.", source_ref=source_ref),
             "allowed_sector_terms": [
@@ -1253,7 +2040,10 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
             ],
         },
         "quarterly_financials": {"rows": quarterly_financials},
-        "annual_financials": {"rows": annual_financials},
+        "annual_financials": {
+            "rows": annual_financials,
+            "incomplete_candidates": incomplete_annual_candidates,
+        },
         "debt_liquidity": debt_liquidity,
         "capital_returns": _build_capital_returns(history_rows, workbook_path),
         "normalized_guidance": {"items": guidance_items},
@@ -1320,6 +2110,23 @@ def _count_values_for_binding(package: Mapping[str, Any], binding: Mapping[str, 
     populated = 0
     available_rows = 0
 
+    if str(binding.get("planning_mode") or "") == "pivot_rows":
+        selector = binding.get("row_selector") if isinstance(binding.get("row_selector"), Mapping) else {}
+        collection = _path_get(package, str(selector.get("source_path") or ""))
+        value_field = str(binding.get("value_field") or "")
+        if isinstance(collection, list) and value_field:
+            for item in collection:
+                if not isinstance(item, Mapping):
+                    continue
+                value = _path_get(item, value_field)
+                if _field_is_populated(value):
+                    populated += 1
+                    available_rows += 1
+                    ref = _field_source_ref(value)
+                    if ref:
+                        refs.add(ref)
+        return populated, available_rows, sorted(refs)
+
     if row_schema:
         collection_path = _collection_path_for_row_schema(binding)
         collection = _path_get(package, collection_path) if collection_path else None
@@ -1376,16 +2183,77 @@ def _target_capacity(binding: Mapping[str, Any]) -> tuple[int, int]:
     return max_row - min_row + 1, max_col - min_col + 1
 
 
-def build_binding_coverage_audit(package: Mapping[str, Any], binding_map: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def build_binding_coverage_audit(
+    package: Mapping[str, Any],
+    binding_payload: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+    *,
+    manifest: Mapping[str, Any],
+    shell_path: Path | str = DEFAULT_SHELL,
+    cached_plan: Mapping[str, Any] | BindingPlan | BindingPlanSnapshot | None = None,
+) -> dict[str, Any]:
+    """Calculate coverage from an independently reproduced authoritative plan.
+
+    ``cached_plan`` is comparison-only.  Its type or self-contained digest never
+    authorizes coverage and any difference from reproduction fails closed.
+    """
+
+    binding_map = (
+        list(binding_payload.get("bindings") or [])
+        if isinstance(binding_payload, Mapping)
+        else list(binding_payload)
+    )
+    reproduced_plan = reproduce_binding_plan(
+        package,
+        binding_payload=binding_payload,
+        manifest=manifest,
+        shell_path=shell_path,
+        expected_plan=cached_plan,
+    )
+    plan_payload = reproduced_plan.to_dict()
+    planner_reports = {
+        str(row.get("binding_id") or ""): row
+        for row in plan_payload.get("bindings") or []
+        if isinstance(row, Mapping)
+    }
+    planner_write_counts: dict[str, int] = defaultdict(int)
+    for write in plan_payload.get("planned_writes") or []:
+        if isinstance(write, Mapping):
+            planner_write_counts[str(write.get("binding_id") or "")] += 1
+
     rows: list[dict[str, Any]] = []
     for binding in binding_map:
         values_available, rows_available, source_refs = _count_values_for_binding(package, binding)
         expected_rows, expected_cols = _target_capacity(binding)
         row_schema = binding.get("row_schema") if isinstance(binding.get("row_schema"), list) else []
-        would_write = values_available > 0 and str(binding.get("source_policy") or "") != "validation-output"
+        eligibility = inspect_binding_eligibility(package, binding)
+        selected_rows = list(eligibility.get("selected_rows") or [])
+        exclusions = list(eligibility.get("structured_exclusions") or [])
+        planning_state = str(binding.get("planning_state") or "active")
+        is_validation_output = str(binding.get("source_policy") or "") == "validation-output"
+        if isinstance(binding.get("row_selector"), Mapping):
+            planner_eligible_rows = len(selected_rows)
+            planner_eligible_values = _count_selected_binding_values(selected_rows, binding)
+        else:
+            planner_eligible_rows = rows_available
+            planner_eligible_values = values_available
+        binding_id = str(binding.get("binding_id") or "")
+        planner_report = planner_reports.get(binding_id, {})
+        exact_planned_write_count = planner_write_counts.get(binding_id, 0)
+        would_write = (
+            planning_state == "active"
+            and not is_validation_output
+            and exact_planned_write_count > 0
+        )
         reason = ""
         if not would_write:
-            reason = "validation output binding" if str(binding.get("source_policy") or "") == "validation-output" else "normalized field is absent or not populated"
+            if planning_state != "active":
+                reason = f"binding planning_state is {planning_state}"
+            elif is_validation_output:
+                reason = "validation output binding"
+            elif values_available > 0 and planner_eligible_values == 0:
+                reason = "raw normalized data exists but selector/pick/window produced no writable value"
+            else:
+                reason = "normalized field is absent or not populated"
         rows.append(
             {
                 "binding_id": binding.get("binding_id", ""),
@@ -1399,17 +2267,33 @@ def build_binding_coverage_audit(package: Mapping[str, Any], binding_map: Sequen
                 "has_populated_data": values_available > 0,
                 "number_of_values_available": values_available,
                 "number_of_rows_available": rows_available,
+                "number_of_rows_planner_eligible": planner_eligible_rows,
+                "number_of_values_planner_eligible": planner_eligible_values,
+                "planner_planned_write_count": exact_planned_write_count,
+                "planner_capacity_used": int(planner_report.get("capacity_used") or 0),
+                "planner_overflow_count": len(planner_report.get("overflow_rows") or []),
+                "planner_structured_exclusion_count": len(planner_report.get("skipped_rows") or []),
                 "number_of_rows_expected": expected_rows,
                 "number_of_cells_expected": expected_rows * expected_cols,
                 "source_ref_coverage": source_refs,
                 "would_write_useful_output": would_write,
                 "blank_reason": reason,
+                "planning_state": planning_state,
+                "structured_exclusion_count": len(exclusions),
+                "structured_exclusion_reasons": sorted({str(row.get("reason") or "") for row in exclusions}),
+                "selection_issue_count": len(eligibility.get("issues") or []),
             }
         )
+    binding_document = binding_payload if isinstance(binding_payload, Mapping) else {"bindings": binding_map}
     return {
-        "version": "0.1.0",
+        "version": "0.3.0",
+        "generator_version": "anf_legacy_adapter_audits/0.3.0",
+        "source_package_content_sha256": _payload_sha256(package),
+        "binding_contract_content_sha256": _payload_sha256(binding_document),
         "generated_at_utc": _now(),
         "ticker": "ANF",
+        "planner_status": str(plan_payload.get("status") or "not_supplied"),
+        "planner_total_write_count": int(plan_payload.get("planned_write_count") or len(plan_payload.get("planned_writes") or [])),
         "bindings": rows,
         "summary": {
             "binding_count": len(rows),
@@ -1417,6 +2301,29 @@ def build_binding_coverage_audit(package: Mapping[str, Any], binding_map: Sequen
             "bindings_that_would_write_useful_output": sum(1 for row in rows if row["would_write_useful_output"]),
         },
     }
+
+
+def _count_selected_binding_values(
+    rows: Sequence[Mapping[str, Any]],
+    binding: Mapping[str, Any],
+) -> int:
+    if str(binding.get("planning_mode") or "") == "pivot_rows":
+        fields = [str(binding.get("value_field") or "")]
+    else:
+        fields = [
+        str(column.get("source_field") or "")
+        for column in binding.get("target_columns") or []
+        if isinstance(column, Mapping) and column.get("source_field")
+        ]
+    if not fields:
+        fields = [str(binding.get("source_field") or "")]
+    count = 0
+    for row in rows:
+        for field in fields:
+            value = _path_get(row, field)
+            if _field_is_populated(value) or (not isinstance(value, Mapping) and value not in (None, "")):
+                count += 1
+    return count
 
 
 def build_source_audit(package: Mapping[str, Any], *, data_root: Path, workbook_path: Path) -> dict[str, Any]:
@@ -1442,6 +2349,8 @@ def build_source_audit(package: Mapping[str, Any], *, data_root: Path, workbook_
     sections: list[dict[str, Any]] = []
     for section in REQUIRED_SECTIONS:
         populated_count = _section_populated_count(package.get(section))
+        status_counts = _section_status_counts(package.get(section))
+        review_count = _section_manual_review_count(package, section)
         sections.append(
             {
                 "section": section,
@@ -1449,15 +2358,19 @@ def build_source_audit(package: Mapping[str, Any], *, data_root: Path, workbook_
                 "source_backed_available": populated_count > 0 and section not in {"mapping_gaps", "manual_review_flags"},
                 "profile_backed_available": section in {"ticker_metadata", "company_profile", "investment_case"},
                 "legacy_workbook_derived_available": any("ANF_model.xlsx" in source for source in section_sources[section]),
-                "missing_source": populated_count == 0 and section not in {"mapping_gaps", "manual_review_flags"},
-                "missing_mapping": False,
-                "parser_conflict": False,
-                "manual_review_required": section in {"investment_case", "mapping_gaps", "manual_review_flags"},
+                "missing_source": bool(status_counts.get("missing_source")) or (populated_count == 0 and section not in {"mapping_gaps", "manual_review_flags"}),
+                "missing_mapping": bool(status_counts.get("missing_mapping")) or (section == "mapping_gaps" and bool(package.get("mapping_gaps"))),
+                "parser_conflict": bool(status_counts.get("parser_conflict")),
+                "manual_review_required": bool(review_count) or bool(status_counts.get("manual_review_required")),
                 "populated_field_count": populated_count,
+                "field_status_counts": status_counts,
+                "manual_review_record_count": review_count,
             }
         )
     return {
-        "version": "0.1.0",
+        "version": "0.2.0",
+        "generator_version": "anf_legacy_adapter_audits/0.2.0",
+        "source_package_content_sha256": _payload_sha256(package),
         "generated_at_utc": _now(),
         "ticker": "ANF",
         "data_root": str(data_root),
@@ -1499,6 +2412,8 @@ def build_anf_text_quality_audit(package: Mapping[str, Any]) -> dict[str, Any]:
     return {
         **audit,
         "ticker": "ANF",
+        "generator_version": "anf_legacy_adapter_audits/0.2.0",
+        "source_package_content_sha256": _payload_sha256(package),
         "generated_at_utc": _now(),
         "demotion_summary": demotion_summary,
         "before_after_summary": before_after,
@@ -1517,6 +2432,48 @@ def _section_populated_count(obj: Any) -> int:
         for value in obj:
             count += _section_populated_count(value)
     return count
+
+
+def _section_status_counts(obj: Any) -> dict[str, int]:
+    counts: dict[str, int] = defaultdict(int)
+
+    def walk(value: Any) -> None:
+        if isinstance(value, Mapping):
+            status = str(value.get("status") or "")
+            if status:
+                counts[status] += 1
+                return
+            for child in value.values():
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+
+    walk(obj)
+    return dict(sorted(counts.items()))
+
+
+def _section_manual_review_count(package: Mapping[str, Any], section: str) -> int:
+    rows = package.get("manual_review_flags") if isinstance(package.get("manual_review_flags"), list) else []
+    if section == "manual_review_flags":
+        return len(rows)
+    if section == "mapping_gaps":
+        gaps = package.get("mapping_gaps") if isinstance(package.get("mapping_gaps"), list) else []
+        return len(gaps)
+    count = 0
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        row_section = str(row.get("section") or "")
+        field = str(row.get("normalized_path") or row.get("field") or "")
+        if row_section == section or field == section or field.startswith(section + "."):
+            count += 1
+    return count
+
+
+def _payload_sha256(payload: Mapping[str, Any]) -> str:
+    canonical = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _markdown_source_audit(audit: Mapping[str, Any]) -> str:
@@ -1620,13 +2577,15 @@ def _markdown_text_quality_audit(audit: Mapping[str, Any]) -> str:
             "| --- | --- | --- | --- | --- |",
         ]
     )
-    for row in audit["demotions"]:
+    displayed_demotions = list(audit["demotions"][:120])
+    for row in displayed_demotions:
         excerpt = str(row.get("original_excerpt") or "").replace("|", "\\|")
         lines.append(
             f"| `{row.get('field', '')}` | `{row.get('classification', '')}` | `{row.get('source_ref', '')}` | {row.get('suggested_action', '')} | {excerpt} |"
         )
-    if len(audit["demotions"]) > 120:
-        lines.append(f"| ... | ... | ... | ... | {len(audit['demotions']) - 120} additional demotions omitted from markdown; see JSON. |")
+    omitted_count = len(audit["demotions"]) - len(displayed_demotions)
+    if omitted_count:
+        lines.append(f"| ... | ... | ... | ... | {omitted_count} additional demotions omitted from markdown; see JSON. |")
     lines.extend(
         [
             "",
@@ -1650,7 +2609,8 @@ def build_anf_shadow_outputs(
     binding_map_path: Path | None = None,
 ) -> dict[str, Path]:
     binding_path = binding_map_path or (REPO_ROOT / "docs" / "workbook_binding_map.json")
-    binding_map = list(_load_json(binding_path).get("bindings") or [])
+    binding_payload = _load_json(binding_path)
+    binding_map = list(binding_payload.get("bindings") or [])
     package = build_anf_normalized_package(data_root=data_root, workbook_path=workbook_path)
     raw_mapping_report = build_mapping_gap_report(package, binding_map, ticker="ANF")
     mapping_gaps = [
@@ -1679,7 +2639,13 @@ def build_anf_shadow_outputs(
     package_out["mapping_gaps"] = mapping_report["gaps"]
     package_out["manual_review_flags"] = list(package.get("manual_review_flags", [])) + validation_report["issues"]
     source_audit = build_source_audit(package_out, data_root=data_root, workbook_path=workbook_path)
-    binding_coverage = build_binding_coverage_audit(package_out, binding_map)
+    manifest = _load_json(DEFAULT_MANIFEST)
+    binding_coverage = build_binding_coverage_audit(
+        package_out,
+        binding_payload,
+        manifest=manifest,
+        shell_path=DEFAULT_SHELL,
+    )
     text_quality_audit = build_anf_text_quality_audit(package_out)
 
     paths = {

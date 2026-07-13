@@ -1,0 +1,48 @@
+{
+  "receipt_version": "3.0.0",
+  "status": "stale",
+  "reason": "Visual/Excel fidelity replay intentionally not run in this non-rendering pass.",
+  "artifact": {
+    "path": "docs/standard_template_shell_visual_gap_audit.json",
+    "sha256": "3c884c16dd604b435e6f595e49b17a1639167b985d10b87105393809457398f1",
+    "output_schema": "json",
+    "output_version": "0.1.0"
+  },
+  "authoritative_inputs": [
+    {
+      "path": "templates/standard_stock_model_template.xlsx",
+      "sha256": "e21e55e86cc310301fa5c4fb698e7a801c9ca671064fd53953b5a2d4d531b7e0"
+    },
+    {
+      "path": "templates/lab/ANF_template_lab.xlsx",
+      "sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd"
+    },
+    {
+      "path": "docs/standard_template_shell_manifest.json",
+      "sha256": "4c8d92220ddb2fbc81f465fdcbe5a33a8bf6d6db3d3949bd23d449b599a1e218"
+    }
+  ],
+  "generator": {
+    "path": "scripts/build_standard_template_shell_visual_gap_audit.py",
+    "contract_version": "1.0.0",
+    "implementation_sha256": "40acaa66cae048b68baaffbc8f0902e5d2b6df46f3eb299d6e6a627de9cdd2ec",
+    "receipt_engine_sha256": "d8dcde2700b5d5b2a8bbb4040b5341995408745ac09ff0559b3dd979593c5be0",
+    "runner_implementation_sha256": "a2d09fd4edefa35cbadb27ffbf3dd569c1bd3d0b306eaa12bd95555511b46291",
+    "execution_contract_sha256": "594167b5a91a4a2ecc056f5436b85053482b0a09e6cb6e222662fcedede12a4f",
+    "dependencies": [
+      {
+        "path": "scripts/validate_standard_template_shell.py",
+        "sha256": "905c6f8466704a5e5a621266b83a90acc4cbeb1daed13e8b88982ca2f0d82a26"
+      }
+    ]
+  },
+  "verification": {
+    "mode": "unverified_stale",
+    "runner_contract_version": "2.0.0",
+    "successful_completion": false,
+    "run_generation_id": "23bd0bb872d4179ac2c7fe6f2bf19bcade11e615c43aadf4968376f0717cb000",
+    "generated_outputs": []
+  },
+  "generated_at_utc": "2026-07-13T09:55:29+00:00",
+  "generation_id": "9f0ca1b533817a37e4c1cb6762b39b89ede7e87f22d6e16bffa2fcf16b06eab6"
+}

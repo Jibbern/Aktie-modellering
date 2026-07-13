@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-07T19:38:57+00:00",
+  "generated_at": "2026-07-13T17:37:29+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "support_sheets": [
     {
@@ -1152,6 +1152,100 @@
       "validation_rules": [
         "documented runtime output",
         "no inheritance from ANF/PBI/GPRE lab sheets"
+      ]
+    }
+  ],
+  "visible_qa_surfaces": [
+    {
+      "sheet_name": "QA_Log",
+      "owner": "frozen_shell",
+      "data_owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "issue_id",
+        "severity",
+        "rule_id",
+        "issue_type",
+        "section",
+        "root_cause",
+        "message",
+        "suggested_action",
+        "occurrence_count",
+        "visibility_disposition",
+        "promotion_blocking",
+        "detail_ref"
+      ],
+      "allowed_writable_zones": [
+        "A2:L5000"
+      ],
+      "source_of_data": "canonical issue-ledger summaries",
+      "created_when": "planned before render and filled only by the value-only runtime",
+      "visibility": "visible",
+      "validation_rules": [
+        "one row per stable issue_id",
+        "full occurrences remain JSON-authoritative",
+        "explicit overflow only"
+      ]
+    },
+    {
+      "sheet_name": "Needs_Review",
+      "owner": "frozen_shell",
+      "data_owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "issue_id",
+        "severity",
+        "rule_id",
+        "section",
+        "normalized_path",
+        "business_row_key",
+        "message",
+        "suggested_action",
+        "occurrence_count",
+        "promotion_blocking",
+        "detail_ref"
+      ],
+      "allowed_writable_zones": [
+        "A2:K5000"
+      ],
+      "source_of_data": "canonical issues with visibility_disposition=needs_review",
+      "created_when": "planned before render and filled only when unresolved actionable issues exist",
+      "visibility": "visible",
+      "validation_rules": [
+        "audit-only evidence excluded",
+        "promotion blockers retained",
+        "explicit overflow only"
+      ]
+    },
+    {
+      "sheet_name": "QA_Checks",
+      "owner": "frozen_shell",
+      "data_owner": "value_only_runtime",
+      "lifecycle": "audit_output",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "rule_id",
+        "status",
+        "unique_issue_count",
+        "occurrence_count",
+        "blocking_count",
+        "actionable_count",
+        "affected_sections",
+        "interpretation",
+        "detail_ref"
+      ],
+      "allowed_writable_zones": [
+        "A2:I5000"
+      ],
+      "source_of_data": "canonical issue-ledger rule aggregates",
+      "created_when": "planned before render with one row per rule_id",
+      "visibility": "visible",
+      "validation_rules": [
+        "rule-level aggregation",
+        "blocking counts reconcile to ledger",
+        "explicit overflow only"
       ]
     }
   ]

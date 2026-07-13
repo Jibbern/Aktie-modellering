@@ -253,24 +253,24 @@
       "workbook_presentation": [
         {
           "visible_sheet_section": "Company Overview",
-          "binding_ids": ["summary_company_description", "summary_revenue_model", "summary_key_risks"],
-          "normalized_fields": ["company_profile.business_description", "company_profile.revenue_model", "company_profile.key_risks"],
+          "binding_ids": ["summary_company_description", "summary_strategic_context", "summary_revenue_stream_rows", "summary_key_advantage"],
+          "normalized_fields": ["company_profile.business_description", "company_profile.strategic_context", "company_profile.revenue_streams", "company_profile.key_advantages"],
           "target_or_anchor": "Company Overview / B4:F16",
           "missing_display": "blank mapped value plus Needs_Review or mapping gap",
           "must_never_show": ["raw cache paths", "unsupported sector terms", "generic copied text as source fact"]
         },
         {
           "visible_sheet_section": "Key Financials",
-          "binding_ids": ["summary_quarterly_revenue", "summary_quarterly_operating_income"],
-          "normalized_fields": ["quarterly_financials.rows.0.revenue", "quarterly_financials.rows.0.operating_income"],
+          "binding_ids": ["summary_as_of_quarter", "summary_quarterly_operating_income"],
+          "normalized_fields": ["quarterly_financials.rows.0.period", "quarterly_financials.rows.0.operating_income"],
           "target_or_anchor": "Key Financials / B30:F38",
           "missing_display": "blank values and mapping gap",
           "must_never_show": ["raw SEC tags as prose", "parser snippets"]
         },
         {
           "visible_sheet_section": "Leverage/Liquidity",
-          "binding_ids": ["summary_net_debt", "summary_liquidity"],
-          "normalized_fields": ["debt_liquidity.net_debt", "debt_liquidity.liquidity"],
+          "binding_ids": ["summary_net_leverage", "summary_liquidity"],
+          "normalized_fields": ["debt_liquidity.net_leverage", "debt_liquidity.total_liquidity"],
           "target_or_anchor": "Leverage / Liquidity / B40:F47",
           "missing_display": "blank values and mapping gap",
           "must_never_show": ["invented liquidity facts"]

@@ -38,114 +38,1494 @@
     ],
     "future_filler_rule": "Values only; no layout mutation."
   },
+  "sheet_view_identity_contract": {
+    "contract_version": "1.0.0",
+    "contract_owned": [
+      "windowProtection",
+      "showFormulas",
+      "showGridLines",
+      "showRowColHeaders",
+      "showZeros",
+      "rightToLeft",
+      "tabSelected",
+      "showRuler",
+      "showOutlineSymbols",
+      "defaultGridColor",
+      "showWhiteSpace",
+      "zoomToFit",
+      "view",
+      "workbookViewId",
+      "colorId",
+      "zoomScale",
+      "zoomScaleNormal",
+      "zoomScaleSheetLayoutView",
+      "zoomScalePageLayoutView",
+      "freezePanes",
+      "pane.xSplit",
+      "pane.ySplit",
+      "pane.topLeftCell",
+      "pane.activePane",
+      "pane.state"
+    ],
+    "normalized_defaults": {
+      "windowProtection": false,
+      "showFormulas": false,
+      "showGridLines": true,
+      "showRowColHeaders": true,
+      "showZeros": true,
+      "rightToLeft": false,
+      "tabSelected": false,
+      "showRuler": true,
+      "showOutlineSymbols": true,
+      "defaultGridColor": true,
+      "showWhiteSpace": true,
+      "zoomToFit": false,
+      "view": "normal",
+      "workbookViewId": 0,
+      "zoomScale": 100
+    },
+    "intentionally_ignored": {
+      "sheetView.topLeftCell": "Scroll position is application/session state and does not change the frozen layout.",
+      "selection.activeCell": "Active-cell state is volatile and may change when Excel opens or saves the workbook.",
+      "selection.activeCellId": "Selection bookkeeping is volatile application state.",
+      "selection.sqref": "Selected ranges are user/session state, not template layout.",
+      "selection.pane": "The active selection pane is user/session state; pane geometry remains signed.",
+      "workbook.activeTab": "The currently focused tab is session state; per-sheet tabSelected is normalized and signed."
+    }
+  },
   "planner_cell_contracts": [
-    {"contract_id": "summary_description", "sheet": "SUMMARY", "target": "A3", "writable": true, "target_role": "profile narrative", "allowed_binding_ids": ["summary_company_description"], "allowed_target_types": ["text"]},
-    {"contract_id": "summary_context", "sheet": "SUMMARY", "target": "A5", "writable": true, "target_role": "strategic context", "allowed_binding_ids": ["summary_strategic_context"], "allowed_target_types": ["text"]},
-    {"contract_id": "summary_advantage", "sheet": "SUMMARY", "target": "A7", "writable": true, "target_role": "competitive advantage", "allowed_binding_ids": ["summary_key_advantage"], "allowed_target_types": ["text"]},
-    {"contract_id": "summary_revenue_model", "sheet": "SUMMARY", "target": "B9", "writable": true, "target_role": "revenue model", "allowed_binding_ids": ["summary_revenue_model"], "allowed_target_types": ["text"]},
-    {"contract_id": "summary_latest_period", "sheet": "SUMMARY", "target": "B26", "writable": true, "target_role": "latest fiscal period", "allowed_binding_ids": ["summary_quarterly_revenue"], "allowed_target_types": ["period"]},
-    {"contract_id": "summary_latest_revenue", "sheet": "SUMMARY", "target": "B28", "writable": true, "target_role": "latest revenue", "allowed_binding_ids": ["summary_latest_revenue"], "allowed_target_types": ["number"]},
-    {"contract_id": "summary_latest_net_income", "sheet": "SUMMARY", "target": "B30", "writable": true, "target_role": "latest net income", "allowed_binding_ids": ["summary_latest_net_income"], "allowed_target_types": ["number"]},
-    {"contract_id": "summary_net_debt", "sheet": "SUMMARY", "target": "B41", "writable": true, "target_role": "net debt", "allowed_binding_ids": ["summary_net_debt"], "allowed_target_types": ["value", "number"]},
-    {"contract_id": "summary_liquidity", "sheet": "SUMMARY", "target": "B45", "writable": true, "target_role": "liquidity", "allowed_binding_ids": ["summary_liquidity"], "allowed_target_types": ["value", "number"]},
-
-    {"contract_id": "valuation_period_headers", "sheet": "Valuation", "target": "B6:M6", "writable": true, "target_role": "quarter header", "allowed_binding_ids": ["valuation_period_headers"], "allowed_target_types": ["period"]},
-    {"contract_id": "valuation_revenue", "sheet": "Valuation", "target": "B9:M9", "writable": true, "target_role": "quarterly revenue", "allowed_binding_ids": ["valuation_revenue_series"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_adjusted_ebitda", "sheet": "Valuation", "target": "B24:M24", "writable": true, "target_role": "quarterly adjusted EBITDA", "allowed_binding_ids": ["valuation_ebitda_series"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_net_income", "sheet": "Valuation", "target": "B36:M36", "writable": true, "target_role": "quarterly net income", "allowed_binding_ids": ["valuation_net_income_series"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_operating_cash_flow", "sheet": "Valuation", "target": "B43:M43", "writable": true, "target_role": "quarterly operating cash flow", "allowed_binding_ids": ["valuation_operating_cash_flow_series"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_guidance_metric", "sheet": "Valuation", "target": "O9:O25", "writable": true, "target_role": "guidance metric", "allowed_binding_ids": ["valuation_guidance_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "valuation_guidance_stated_in", "sheet": "Valuation", "target": "Q9:Q25", "writable": true, "target_role": "guidance stated period", "allowed_binding_ids": ["valuation_guidance_rows"], "allowed_target_types": ["period"]},
-    {"contract_id": "valuation_guidance_horizon", "sheet": "Valuation", "target": "R9:R25", "writable": true, "target_role": "guidance horizon", "allowed_binding_ids": ["valuation_guidance_rows"], "allowed_target_types": ["horizon"]},
-    {"contract_id": "valuation_guidance_value", "sheet": "Valuation", "target": "S9:S25", "writable": true, "target_role": "guidance value", "allowed_binding_ids": ["valuation_guidance_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "valuation_guidance_status", "sheet": "Valuation", "target": "AA9:AA25", "writable": true, "target_role": "guidance status", "allowed_binding_ids": ["valuation_guidance_status_rows"], "allowed_target_types": ["status"]},
-    {"contract_id": "valuation_input_as_of", "sheet": "Valuation", "target": "D195", "writable": true, "target_role": "valuation as-of date", "allowed_binding_ids": ["valuation_input_as_of"], "allowed_target_types": ["date"]},
-    {"contract_id": "valuation_input_shares_outstanding", "sheet": "Valuation", "target": "D196", "writable": true, "target_role": "valuation shares outstanding", "allowed_binding_ids": ["valuation_input_shares_outstanding"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_input_diluted_shares", "sheet": "Valuation", "target": "D197", "writable": true, "target_role": "valuation diluted shares", "allowed_binding_ids": ["valuation_input_diluted_shares"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_input_net_debt", "sheet": "Valuation", "target": "D198", "writable": true, "target_role": "valuation net debt", "allowed_binding_ids": ["valuation_input_net_debt"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_input_base_ebitda_ttm", "sheet": "Valuation", "target": "D199", "writable": true, "target_role": "valuation base EBITDA TTM", "allowed_binding_ids": ["valuation_input_base_ebitda_ttm"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_input_adjusted_ebitda_ttm", "sheet": "Valuation", "target": "D200", "writable": true, "target_role": "valuation adjusted EBITDA TTM", "allowed_binding_ids": ["valuation_input_adjusted_ebitda_ttm"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_input_fcf_ttm", "sheet": "Valuation", "target": "D201", "writable": true, "target_role": "valuation FCF TTM", "allowed_binding_ids": ["valuation_input_fcf_ttm"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_input_revenue_ttm", "sheet": "Valuation", "target": "D203", "writable": true, "target_role": "valuation revenue TTM", "allowed_binding_ids": ["valuation_input_revenue_ttm"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_input_capex_ttm", "sheet": "Valuation", "target": "D211", "writable": true, "target_role": "valuation capex TTM", "allowed_binding_ids": ["valuation_input_capex_ttm"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_output_metric_upper", "sheet": "Valuation", "target": "O64:O70", "writable": true, "target_role": "valuation output metric", "allowed_binding_ids": ["valuation_output_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "valuation_output_metric_lower", "sheet": "Valuation", "target": "O72:O75", "writable": true, "target_role": "valuation output metric", "allowed_binding_ids": ["valuation_output_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "valuation_output_value_upper", "sheet": "Valuation", "target": "U64:U70", "writable": true, "target_role": "valuation output value", "allowed_binding_ids": ["valuation_output_rows"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_output_value_lower", "sheet": "Valuation", "target": "U72:U75", "writable": true, "target_role": "valuation output value", "allowed_binding_ids": ["valuation_output_rows"], "allowed_target_types": ["number"]},
-    {"contract_id": "valuation_output_interpretation_upper", "sheet": "Valuation", "target": "X64:X70", "writable": true, "target_role": "valuation output interpretation", "allowed_binding_ids": ["valuation_output_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "valuation_output_interpretation_lower", "sheet": "Valuation", "target": "X72:X75", "writable": true, "target_role": "valuation output interpretation", "allowed_binding_ids": ["valuation_output_rows"], "allowed_target_types": ["text"]},
-
-    {"contract_id": "bs_quarter_segment_member", "sheet": "BS_Segments", "target": "A61:A67", "writable": true, "target_role": "segment member", "allowed_binding_ids": ["bs_segment_quarterly_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "bs_quarter_segment_values", "sheet": "BS_Segments", "target": "B61:I67", "writable": true, "target_role": "segment values by period", "allowed_binding_ids": ["bs_segment_quarterly_rows"], "allowed_target_types": ["number"]},
-    {"contract_id": "bs_annual_period_headers", "sheet": "BS_Segments", "target": "B70:I70", "writable": true, "target_role": "annual period header", "allowed_binding_ids": ["bs_annual_period_headers"], "allowed_target_types": ["period"]},
-    {"contract_id": "bs_annual_revenue", "sheet": "BS_Segments", "target": "B71:I71", "writable": true, "target_role": "annual revenue", "allowed_binding_ids": ["bs_annual_revenue_series"], "allowed_target_types": ["number"]},
-    {"contract_id": "bs_annual_segment_member", "sheet": "BS_Segments", "target": "A72:A74", "writable": true, "target_role": "annual segment member", "allowed_binding_ids": ["bs_segment_annual_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "bs_annual_segment_values", "sheet": "BS_Segments", "target": "B72:I74", "writable": true, "target_role": "annual segment values by period", "allowed_binding_ids": ["bs_segment_annual_rows"], "allowed_target_types": ["number"]},
-
-    {"contract_id": "operating_driver_topic", "sheet": "Operating_Drivers", "target": "A6:A9", "writable": true, "target_role": "operating driver topic", "allowed_binding_ids": ["od_watchlist_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "operating_driver_read", "sheet": "Operating_Drivers", "target": "B6:B9", "writable": true, "target_role": "operating driver current read", "allowed_binding_ids": ["od_watchlist_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "operating_driver_why", "sheet": "Operating_Drivers", "target": "H6:H9", "writable": true, "target_role": "operating driver why it matters", "allowed_binding_ids": ["od_watchlist_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "investment_summary", "sheet": "{ticker}_Investment_Case", "target": "B5", "writable": true, "target_role": "investment summary", "allowed_binding_ids": ["ic_investment_summary"], "allowed_target_types": ["text"]},
-    {"contract_id": "investment_key_debate", "sheet": "{ticker}_Investment_Case", "target": "B7", "writable": true, "target_role": "investment key debate", "allowed_binding_ids": ["ic_key_debate"], "allowed_target_types": ["text"]},
-    {"contract_id": "quarter_summary", "sheet": "Quarter_Notes_UI", "target": "B3", "writable": true, "target_role": "latest quarter summary", "allowed_binding_ids": ["qn_quarter_summary_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "quarter_note_theme", "sheet": "Quarter_Notes_UI", "target": "A10:A15", "writable": true, "target_role": "quarter note theme", "allowed_binding_ids": ["qn_quarter_note_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "quarter_note_commentary", "sheet": "Quarter_Notes_UI", "target": "C10:C15", "writable": true, "target_role": "quarter commentary", "allowed_binding_ids": ["qn_quarter_note_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "quarter_note_implication", "sheet": "Quarter_Notes_UI", "target": "H10:H15", "writable": true, "target_role": "quarter model implication", "allowed_binding_ids": ["qn_quarter_note_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "quarter_note_source", "sheet": "Quarter_Notes_UI", "target": "M10:M15", "writable": true, "target_role": "quarter source", "allowed_binding_ids": ["qn_quarter_note_rows"], "allowed_target_types": ["source_ref"]},
-
-    {"contract_id": "promise_metric", "sheet": "Promise_Progress_UI", "target": "A61:A67", "writable": true, "target_role": "guidance metric", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "promise_initial", "sheet": "Promise_Progress_UI", "target": "B61:B67", "writable": true, "target_role": "initial guide", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "promise_current", "sheet": "Promise_Progress_UI", "target": "C61:C67", "writable": true, "target_role": "new or current guide", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "promise_change_type", "sheet": "Promise_Progress_UI", "target": "D61:D67", "writable": true, "target_role": "change type", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "promise_actual", "sheet": "Promise_Progress_UI", "target": "E61:E67", "writable": true, "target_role": "actual", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["value"]},
-    {"contract_id": "promise_progress_read", "sheet": "Promise_Progress_UI", "target": "F61:F67", "writable": true, "target_role": "progress or run-rate", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["text", "value"]},
-    {"contract_id": "promise_status", "sheet": "Promise_Progress_UI", "target": "G61:G67", "writable": true, "target_role": "progress status", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["status"]},
-    {"contract_id": "promise_horizon", "sheet": "Promise_Progress_UI", "target": "H61:H67", "writable": true, "target_role": "guidance horizon", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["horizon"]},
-    {"contract_id": "promise_stated_in", "sheet": "Promise_Progress_UI", "target": "I61:I67", "writable": true, "target_role": "stated-in period", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["period"]},
-    {"contract_id": "promise_source_date", "sheet": "Promise_Progress_UI", "target": "J61:J67", "writable": true, "target_role": "source date", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["date"]},
-    {"contract_id": "promise_notes_source", "sheet": "Promise_Progress_UI", "target": "K61:K67", "writable": true, "target_role": "notes and source", "allowed_binding_ids": ["pp_guidance_timeline_rows"], "allowed_target_types": ["text"]},
-
-    {"contract_id": "qa_log_severity", "sheet": "QA_Log", "target": "A2:A5000", "writable": true, "target_role": "issue severity", "allowed_binding_ids": ["qa_log_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_log_rule", "sheet": "QA_Log", "target": "B2:B5000", "writable": true, "target_role": "issue rule", "allowed_binding_ids": ["qa_log_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_log_field", "sheet": "QA_Log", "target": "C2:C5000", "writable": true, "target_role": "issue field", "allowed_binding_ids": ["qa_log_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_log_message", "sheet": "QA_Log", "target": "D2:D5000", "writable": true, "target_role": "issue message", "allowed_binding_ids": ["qa_log_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_log_source", "sheet": "QA_Log", "target": "E2:E5000", "writable": true, "target_role": "issue source", "allowed_binding_ids": ["qa_log_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_log_action", "sheet": "QA_Log", "target": "F2:F5000", "writable": true, "target_role": "issue action", "allowed_binding_ids": ["qa_log_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "needs_review_severity", "sheet": "Needs_Review", "target": "A2:A5000", "writable": true, "target_role": "review severity", "allowed_binding_ids": ["needs_review_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "needs_review_rule", "sheet": "Needs_Review", "target": "B2:B5000", "writable": true, "target_role": "review rule", "allowed_binding_ids": ["needs_review_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "needs_review_field", "sheet": "Needs_Review", "target": "C2:C5000", "writable": true, "target_role": "review field", "allowed_binding_ids": ["needs_review_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "needs_review_message", "sheet": "Needs_Review", "target": "D2:D5000", "writable": true, "target_role": "review message", "allowed_binding_ids": ["needs_review_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "needs_review_source", "sheet": "Needs_Review", "target": "E2:E5000", "writable": true, "target_role": "review source", "allowed_binding_ids": ["needs_review_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "needs_review_action", "sheet": "Needs_Review", "target": "F2:F5000", "writable": true, "target_role": "review action", "allowed_binding_ids": ["needs_review_validation_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_checks_severity", "sheet": "QA_Checks", "target": "A2:A5000", "writable": true, "target_role": "gap severity", "allowed_binding_ids": ["qa_checks_mapping_gap_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_checks_rule", "sheet": "QA_Checks", "target": "B2:B5000", "writable": true, "target_role": "gap rule", "allowed_binding_ids": ["qa_checks_mapping_gap_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_checks_field", "sheet": "QA_Checks", "target": "C2:C5000", "writable": true, "target_role": "gap field", "allowed_binding_ids": ["qa_checks_mapping_gap_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_checks_message", "sheet": "QA_Checks", "target": "D2:D5000", "writable": true, "target_role": "gap message", "allowed_binding_ids": ["qa_checks_mapping_gap_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_checks_source", "sheet": "QA_Checks", "target": "E2:E5000", "writable": true, "target_role": "gap source", "allowed_binding_ids": ["qa_checks_mapping_gap_rows"], "allowed_target_types": ["text"]},
-    {"contract_id": "qa_checks_action", "sheet": "QA_Checks", "target": "F2:F5000", "writable": true, "target_role": "gap action", "allowed_binding_ids": ["qa_checks_mapping_gap_rows"], "allowed_target_types": ["text"]}
+    {
+      "contract_id": "summary_description",
+      "sheet": "SUMMARY",
+      "target": "A3",
+      "writable": true,
+      "target_role": "profile narrative",
+      "allowed_binding_ids": [
+        "summary_company_description"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "summary_context",
+      "sheet": "SUMMARY",
+      "target": "A5",
+      "writable": true,
+      "target_role": "strategic context",
+      "allowed_binding_ids": [
+        "summary_strategic_context"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "summary_advantage",
+      "sheet": "SUMMARY",
+      "target": "A7",
+      "writable": true,
+      "target_role": "competitive advantage",
+      "allowed_binding_ids": [
+        "summary_key_advantage"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "summary_revenue_stream_member",
+      "sheet": "SUMMARY",
+      "target": "A9:A11",
+      "writable": true,
+      "target_role": "revenue stream member",
+      "allowed_binding_ids": [
+        "summary_revenue_stream_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "summary_revenue_stream_mix",
+      "sheet": "SUMMARY",
+      "target": "B9:B11",
+      "writable": true,
+      "target_role": "revenue stream mix",
+      "allowed_binding_ids": [
+        "summary_revenue_stream_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "summary_latest_period",
+      "sheet": "SUMMARY",
+      "target": "B26",
+      "writable": true,
+      "target_role": "latest fiscal period",
+      "allowed_binding_ids": [
+        "summary_as_of_quarter"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "summary_latest_revenue",
+      "sheet": "SUMMARY",
+      "target": "B28",
+      "writable": true,
+      "target_role": "latest revenue",
+      "allowed_binding_ids": [
+        "summary_latest_revenue"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "summary_latest_net_income",
+      "sheet": "SUMMARY",
+      "target": "B30",
+      "writable": true,
+      "target_role": "latest net income",
+      "allowed_binding_ids": [
+        "summary_latest_net_income"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "summary_net_leverage",
+      "sheet": "SUMMARY",
+      "target": "B41",
+      "writable": true,
+      "target_role": "net leverage",
+      "allowed_binding_ids": [
+        "summary_net_leverage"
+      ],
+      "allowed_target_types": [
+        "value",
+        "number"
+      ]
+    },
+    {
+      "contract_id": "summary_liquidity",
+      "sheet": "SUMMARY",
+      "target": "B45",
+      "writable": true,
+      "target_role": "liquidity",
+      "allowed_binding_ids": [
+        "summary_liquidity"
+      ],
+      "allowed_target_types": [
+        "value",
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_period_headers",
+      "sheet": "Valuation",
+      "target": "B6:M6",
+      "writable": true,
+      "target_role": "quarter header",
+      "allowed_binding_ids": [
+        "valuation_period_headers"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "valuation_revenue",
+      "sheet": "Valuation",
+      "target": "B9:M9",
+      "writable": true,
+      "target_role": "quarterly revenue",
+      "allowed_binding_ids": [
+        "valuation_revenue_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_adjusted_ebitda",
+      "sheet": "Valuation",
+      "target": "B24:M24",
+      "writable": true,
+      "target_role": "quarterly adjusted EBITDA",
+      "allowed_binding_ids": [
+        "valuation_ebitda_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_net_income",
+      "sheet": "Valuation",
+      "target": "B36:M36",
+      "writable": true,
+      "target_role": "quarterly net income",
+      "allowed_binding_ids": [
+        "valuation_net_income_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_operating_cash_flow",
+      "sheet": "Valuation",
+      "target": "B43:M43",
+      "writable": true,
+      "target_role": "quarterly operating cash flow",
+      "allowed_binding_ids": [
+        "valuation_operating_cash_flow_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_metric",
+      "sheet": "Valuation",
+      "target": "O9:O25",
+      "writable": true,
+      "target_role": "guidance metric",
+      "allowed_binding_ids": [
+        "valuation_guidance_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_stated_in",
+      "sheet": "Valuation",
+      "target": "Q9:Q25",
+      "writable": true,
+      "target_role": "guidance stated period",
+      "allowed_binding_ids": [
+        "valuation_guidance_rows"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_horizon",
+      "sheet": "Valuation",
+      "target": "R9:R25",
+      "writable": true,
+      "target_role": "guidance horizon",
+      "allowed_binding_ids": [
+        "valuation_guidance_rows"
+      ],
+      "allowed_target_types": [
+        "horizon"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_value",
+      "sheet": "Valuation",
+      "target": "S9:S25",
+      "writable": true,
+      "target_role": "guidance value",
+      "allowed_binding_ids": [
+        "valuation_guidance_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_status",
+      "sheet": "Valuation",
+      "target": "AA9:AA25",
+      "writable": true,
+      "target_role": "guidance status",
+      "allowed_binding_ids": [
+        "valuation_guidance_status_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_as_of",
+      "sheet": "Valuation",
+      "target": "D195",
+      "writable": true,
+      "target_role": "valuation as-of date",
+      "allowed_binding_ids": [
+        "valuation_input_as_of"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_shares_outstanding",
+      "sheet": "Valuation",
+      "target": "D196",
+      "writable": true,
+      "target_role": "valuation shares outstanding",
+      "allowed_binding_ids": [
+        "valuation_input_shares_outstanding"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_diluted_shares",
+      "sheet": "Valuation",
+      "target": "D197",
+      "writable": true,
+      "target_role": "valuation diluted shares",
+      "allowed_binding_ids": [
+        "valuation_input_diluted_shares"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_net_debt",
+      "sheet": "Valuation",
+      "target": "D198",
+      "writable": true,
+      "target_role": "valuation net debt",
+      "allowed_binding_ids": [
+        "valuation_input_net_debt"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_base_ebitda_ttm",
+      "sheet": "Valuation",
+      "target": "D199",
+      "writable": true,
+      "target_role": "valuation base EBITDA TTM",
+      "allowed_binding_ids": [
+        "valuation_input_base_ebitda_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_adjusted_ebitda_ttm",
+      "sheet": "Valuation",
+      "target": "D200",
+      "writable": true,
+      "target_role": "valuation adjusted EBITDA TTM",
+      "allowed_binding_ids": [
+        "valuation_input_adjusted_ebitda_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_fcf_ttm",
+      "sheet": "Valuation",
+      "target": "D201",
+      "writable": true,
+      "target_role": "valuation FCF TTM",
+      "allowed_binding_ids": [
+        "valuation_input_fcf_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_revenue_ttm",
+      "sheet": "Valuation",
+      "target": "D203",
+      "writable": true,
+      "target_role": "valuation revenue TTM",
+      "allowed_binding_ids": [
+        "valuation_input_revenue_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_capex_ttm",
+      "sheet": "Valuation",
+      "target": "D211",
+      "writable": true,
+      "target_role": "valuation capex TTM",
+      "allowed_binding_ids": [
+        "valuation_input_capex_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_output_metric_upper",
+      "sheet": "Valuation",
+      "target": "O64:O70",
+      "writable": true,
+      "target_role": "valuation output metric",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_output_metric_lower",
+      "sheet": "Valuation",
+      "target": "O72:O75",
+      "writable": true,
+      "target_role": "valuation output metric",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_output_value_upper",
+      "sheet": "Valuation",
+      "target": "U64:U70",
+      "writable": true,
+      "target_role": "valuation output value",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_output_value_lower",
+      "sheet": "Valuation",
+      "target": "U72:U75",
+      "writable": true,
+      "target_role": "valuation output value",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_output_interpretation_upper",
+      "sheet": "Valuation",
+      "target": "X64:X70",
+      "writable": true,
+      "target_role": "valuation output interpretation",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_output_interpretation_lower",
+      "sheet": "Valuation",
+      "target": "X72:X75",
+      "writable": true,
+      "target_role": "valuation output interpretation",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "bs_quarterly_period_headers",
+      "sheet": "BS_Segments",
+      "target": "B7:I7",
+      "writable": true,
+      "target_role": "quarterly period header",
+      "allowed_binding_ids": [
+        "bs_quarterly_period_headers"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "bs_quarter_segment_member",
+      "sheet": "BS_Segments",
+      "target": "A61:A67",
+      "writable": true,
+      "target_role": "segment member",
+      "allowed_binding_ids": [
+        "bs_segment_quarterly_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "bs_quarter_segment_values",
+      "sheet": "BS_Segments",
+      "target": "B61:I67",
+      "writable": true,
+      "target_role": "segment values by period",
+      "allowed_binding_ids": [
+        "bs_segment_quarterly_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_period_headers",
+      "sheet": "BS_Segments",
+      "target": "B70:I70",
+      "writable": true,
+      "target_role": "annual period header",
+      "allowed_binding_ids": [
+        "bs_annual_period_headers"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_revenue",
+      "sheet": "BS_Segments",
+      "target": "B71:I71",
+      "writable": true,
+      "target_role": "annual revenue",
+      "allowed_binding_ids": [
+        "bs_annual_revenue_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_segment_member",
+      "sheet": "BS_Segments",
+      "target": "A72:A74",
+      "writable": true,
+      "target_role": "annual segment member",
+      "allowed_binding_ids": [
+        "bs_segment_annual_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_segment_values",
+      "sheet": "BS_Segments",
+      "target": "B72:I74",
+      "writable": true,
+      "target_role": "annual segment values by period",
+      "allowed_binding_ids": [
+        "bs_segment_annual_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "operating_driver_topic",
+      "sheet": "Operating_Drivers",
+      "target": "A6:A9",
+      "writable": true,
+      "target_role": "operating driver topic",
+      "allowed_binding_ids": [
+        "od_watchlist_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "operating_driver_read",
+      "sheet": "Operating_Drivers",
+      "target": "B6:B9",
+      "writable": true,
+      "target_role": "operating driver current read",
+      "allowed_binding_ids": [
+        "od_watchlist_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "operating_driver_why",
+      "sheet": "Operating_Drivers",
+      "target": "H6:H9",
+      "writable": true,
+      "target_role": "operating driver why it matters",
+      "allowed_binding_ids": [
+        "od_watchlist_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "investment_summary",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B5",
+      "writable": true,
+      "target_role": "investment summary",
+      "allowed_binding_ids": [
+        "ic_investment_summary"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "investment_key_debate",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B7",
+      "writable": true,
+      "target_role": "investment key debate",
+      "allowed_binding_ids": [
+        "ic_key_debate"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "quarter_summary",
+      "sheet": "Quarter_Notes_UI",
+      "target": "B3",
+      "writable": true,
+      "target_role": "latest quarter summary",
+      "allowed_binding_ids": [
+        "qn_quarter_summary_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "quarter_note_theme",
+      "sheet": "Quarter_Notes_UI",
+      "target": "A10:A15",
+      "writable": true,
+      "target_role": "quarter note theme",
+      "allowed_binding_ids": [
+        "qn_quarter_note_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "quarter_note_commentary",
+      "sheet": "Quarter_Notes_UI",
+      "target": "C10:C15",
+      "writable": true,
+      "target_role": "quarter commentary",
+      "allowed_binding_ids": [
+        "qn_quarter_note_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "quarter_note_implication",
+      "sheet": "Quarter_Notes_UI",
+      "target": "H10:H15",
+      "writable": true,
+      "target_role": "quarter model implication",
+      "allowed_binding_ids": [
+        "qn_quarter_note_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "quarter_note_source",
+      "sheet": "Quarter_Notes_UI",
+      "target": "M10:M15",
+      "writable": true,
+      "target_role": "quarter source",
+      "allowed_binding_ids": [
+        "qn_quarter_note_rows"
+      ],
+      "allowed_target_types": [
+        "source_ref"
+      ]
+    },
+    {
+      "contract_id": "promise_metric",
+      "sheet": "Promise_Progress_UI",
+      "target": "A61:A67",
+      "writable": true,
+      "target_role": "guidance metric",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_initial",
+      "sheet": "Promise_Progress_UI",
+      "target": "B61:B67",
+      "writable": true,
+      "target_role": "initial guide",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_current",
+      "sheet": "Promise_Progress_UI",
+      "target": "C61:C67",
+      "writable": true,
+      "target_role": "new or current guide",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_change_type",
+      "sheet": "Promise_Progress_UI",
+      "target": "D61:D67",
+      "writable": true,
+      "target_role": "change type",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_actual",
+      "sheet": "Promise_Progress_UI",
+      "target": "E61:E67",
+      "writable": true,
+      "target_role": "actual",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "value"
+      ]
+    },
+    {
+      "contract_id": "promise_progress_read",
+      "sheet": "Promise_Progress_UI",
+      "target": "F61:F67",
+      "writable": true,
+      "target_role": "progress or run-rate",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "text",
+        "value"
+      ]
+    },
+    {
+      "contract_id": "promise_status",
+      "sheet": "Promise_Progress_UI",
+      "target": "G61:G67",
+      "writable": true,
+      "target_role": "progress status",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "promise_horizon",
+      "sheet": "Promise_Progress_UI",
+      "target": "H61:H67",
+      "writable": true,
+      "target_role": "guidance horizon",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "horizon"
+      ]
+    },
+    {
+      "contract_id": "promise_stated_in",
+      "sheet": "Promise_Progress_UI",
+      "target": "I61:I67",
+      "writable": true,
+      "target_role": "stated-in period",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "promise_source_date",
+      "sheet": "Promise_Progress_UI",
+      "target": "J61:J67",
+      "writable": true,
+      "target_role": "source date",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "promise_notes_source",
+      "sheet": "Promise_Progress_UI",
+      "target": "K61:K67",
+      "writable": true,
+      "target_role": "notes and source",
+      "allowed_binding_ids": [
+        "pp_guidance_timeline_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.issue_id",
+      "sheet": "QA_Log",
+      "target": "A2:A5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.issue_id",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.severity",
+      "sheet": "QA_Log",
+      "target": "B2:B5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.severity",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.rule_id",
+      "sheet": "QA_Log",
+      "target": "C2:C5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.rule_id",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.issue_type",
+      "sheet": "QA_Log",
+      "target": "D2:D5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.issue_type",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.section",
+      "sheet": "QA_Log",
+      "target": "E2:E5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.section",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.root_cause",
+      "sheet": "QA_Log",
+      "target": "F2:F5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.root_cause",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.message",
+      "sheet": "QA_Log",
+      "target": "G2:G5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.message",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.suggested_action",
+      "sheet": "QA_Log",
+      "target": "H2:H5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.suggested_action",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.occurrence_count",
+      "sheet": "QA_Log",
+      "target": "I2:I5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.occurrence_count",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "integer"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.visibility_disposition",
+      "sheet": "QA_Log",
+      "target": "J2:J5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.visibility_disposition",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.promotion_blocking",
+      "sheet": "QA_Log",
+      "target": "K2:K5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.promotion_blocking",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "boolean"
+      ]
+    },
+    {
+      "contract_id": "qa_log_validation_rows.detail_ref",
+      "sheet": "QA_Log",
+      "target": "L2:L5000",
+      "writable": true,
+      "target_role": "qa_log_validation_rows.detail_ref",
+      "allowed_binding_ids": [
+        "qa_log_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.issue_id",
+      "sheet": "Needs_Review",
+      "target": "A2:A5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.issue_id",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.severity",
+      "sheet": "Needs_Review",
+      "target": "B2:B5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.severity",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.rule_id",
+      "sheet": "Needs_Review",
+      "target": "C2:C5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.rule_id",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.section",
+      "sheet": "Needs_Review",
+      "target": "D2:D5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.section",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.normalized_path",
+      "sheet": "Needs_Review",
+      "target": "E2:E5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.normalized_path",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.business_row_key",
+      "sheet": "Needs_Review",
+      "target": "F2:F5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.business_row_key",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.message",
+      "sheet": "Needs_Review",
+      "target": "G2:G5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.message",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.suggested_action",
+      "sheet": "Needs_Review",
+      "target": "H2:H5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.suggested_action",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.occurrence_count",
+      "sheet": "Needs_Review",
+      "target": "I2:I5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.occurrence_count",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "integer"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.promotion_blocking",
+      "sheet": "Needs_Review",
+      "target": "J2:J5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.promotion_blocking",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "boolean"
+      ]
+    },
+    {
+      "contract_id": "needs_review_validation_rows.detail_ref",
+      "sheet": "Needs_Review",
+      "target": "K2:K5000",
+      "writable": true,
+      "target_role": "needs_review_validation_rows.detail_ref",
+      "allowed_binding_ids": [
+        "needs_review_validation_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_checks_mapping_gap_rows.rule_id",
+      "sheet": "QA_Checks",
+      "target": "A2:A5000",
+      "writable": true,
+      "target_role": "qa_checks_mapping_gap_rows.rule_id",
+      "allowed_binding_ids": [
+        "qa_checks_mapping_gap_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_checks_mapping_gap_rows.status",
+      "sheet": "QA_Checks",
+      "target": "B2:B5000",
+      "writable": true,
+      "target_role": "qa_checks_mapping_gap_rows.status",
+      "allowed_binding_ids": [
+        "qa_checks_mapping_gap_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_checks_mapping_gap_rows.unique_issue_count",
+      "sheet": "QA_Checks",
+      "target": "C2:C5000",
+      "writable": true,
+      "target_role": "qa_checks_mapping_gap_rows.unique_issue_count",
+      "allowed_binding_ids": [
+        "qa_checks_mapping_gap_rows"
+      ],
+      "allowed_target_types": [
+        "integer"
+      ]
+    },
+    {
+      "contract_id": "qa_checks_mapping_gap_rows.occurrence_count",
+      "sheet": "QA_Checks",
+      "target": "D2:D5000",
+      "writable": true,
+      "target_role": "qa_checks_mapping_gap_rows.occurrence_count",
+      "allowed_binding_ids": [
+        "qa_checks_mapping_gap_rows"
+      ],
+      "allowed_target_types": [
+        "integer"
+      ]
+    },
+    {
+      "contract_id": "qa_checks_mapping_gap_rows.blocking_count",
+      "sheet": "QA_Checks",
+      "target": "E2:E5000",
+      "writable": true,
+      "target_role": "qa_checks_mapping_gap_rows.blocking_count",
+      "allowed_binding_ids": [
+        "qa_checks_mapping_gap_rows"
+      ],
+      "allowed_target_types": [
+        "integer"
+      ]
+    },
+    {
+      "contract_id": "qa_checks_mapping_gap_rows.actionable_count",
+      "sheet": "QA_Checks",
+      "target": "F2:F5000",
+      "writable": true,
+      "target_role": "qa_checks_mapping_gap_rows.actionable_count",
+      "allowed_binding_ids": [
+        "qa_checks_mapping_gap_rows"
+      ],
+      "allowed_target_types": [
+        "integer"
+      ]
+    },
+    {
+      "contract_id": "qa_checks_mapping_gap_rows.affected_sections",
+      "sheet": "QA_Checks",
+      "target": "G2:G5000",
+      "writable": true,
+      "target_role": "qa_checks_mapping_gap_rows.affected_sections",
+      "allowed_binding_ids": [
+        "qa_checks_mapping_gap_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_checks_mapping_gap_rows.interpretation",
+      "sheet": "QA_Checks",
+      "target": "H2:H5000",
+      "writable": true,
+      "target_role": "qa_checks_mapping_gap_rows.interpretation",
+      "allowed_binding_ids": [
+        "qa_checks_mapping_gap_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "qa_checks_mapping_gap_rows.detail_ref",
+      "sheet": "QA_Checks",
+      "target": "I2:I5000",
+      "writable": true,
+      "target_role": "qa_checks_mapping_gap_rows.detail_ref",
+      "allowed_binding_ids": [
+        "qa_checks_mapping_gap_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    }
   ],
   "planner_merge_families": [
-    {"merge_id": "summary_description_merge", "sheet": "SUMMARY", "target": "A3:F3", "anchor_column": "A", "allowed_binding_ids": ["summary_company_description"]},
-    {"merge_id": "summary_context_merge", "sheet": "SUMMARY", "target": "A5:F5", "anchor_column": "A", "allowed_binding_ids": ["summary_strategic_context"]},
-    {"merge_id": "summary_advantage_merge", "sheet": "SUMMARY", "target": "A7:F7", "anchor_column": "A", "allowed_binding_ids": ["summary_key_advantage"]},
-    {"merge_id": "summary_revenue_model_merge", "sheet": "SUMMARY", "target": "B9:F11", "anchor_column": "B", "allowed_binding_ids": ["summary_revenue_model"]},
-    {"merge_id": "valuation_guidance_metric_merges", "sheet": "Valuation", "target": "O9:P25", "anchor_column": "O", "allowed_binding_ids": ["valuation_guidance_rows"]},
-    {"merge_id": "valuation_guidance_value_merges", "sheet": "Valuation", "target": "S9:Z25", "anchor_column": "S", "allowed_binding_ids": ["valuation_guidance_rows"]},
-    {"merge_id": "valuation_guidance_status_merges", "sheet": "Valuation", "target": "AA9:AC25", "anchor_column": "AA", "allowed_binding_ids": ["valuation_guidance_status_rows"]},
-    {"merge_id": "valuation_output_metric_merges_upper", "sheet": "Valuation", "target": "O64:T70", "anchor_column": "O", "allowed_binding_ids": ["valuation_output_rows"]},
-    {"merge_id": "valuation_output_metric_merges_lower", "sheet": "Valuation", "target": "O72:T75", "anchor_column": "O", "allowed_binding_ids": ["valuation_output_rows"]},
-    {"merge_id": "valuation_output_value_merges_upper", "sheet": "Valuation", "target": "U64:W70", "anchor_column": "U", "allowed_binding_ids": ["valuation_output_rows"]},
-    {"merge_id": "valuation_output_value_merges_lower", "sheet": "Valuation", "target": "U72:W75", "anchor_column": "U", "allowed_binding_ids": ["valuation_output_rows"]},
-    {"merge_id": "valuation_output_interpretation_merges_upper", "sheet": "Valuation", "target": "X64:AC70", "anchor_column": "X", "allowed_binding_ids": ["valuation_output_rows"]},
-    {"merge_id": "valuation_output_interpretation_merges_lower", "sheet": "Valuation", "target": "X72:AC75", "anchor_column": "X", "allowed_binding_ids": ["valuation_output_rows"]},
-    {"merge_id": "operating_driver_current_read_merges", "sheet": "Operating_Drivers", "target": "B6:G9", "anchor_column": "B", "allowed_binding_ids": ["od_watchlist_rows"]},
-    {"merge_id": "operating_driver_why_merges", "sheet": "Operating_Drivers", "target": "H6:N9", "anchor_column": "H", "allowed_binding_ids": ["od_watchlist_rows"]},
-    {"merge_id": "investment_summary_merge", "sheet": "{ticker}_Investment_Case", "target": "B5:J5", "anchor_column": "B", "allowed_binding_ids": ["ic_investment_summary"]},
-    {"merge_id": "investment_debate_merge", "sheet": "{ticker}_Investment_Case", "target": "B7:J7", "anchor_column": "B", "allowed_binding_ids": ["ic_key_debate"]},
-    {"merge_id": "quarter_summary_merge", "sheet": "Quarter_Notes_UI", "target": "B3:O3", "anchor_column": "B", "allowed_binding_ids": ["qn_quarter_summary_rows"]},
-    {"merge_id": "quarter_commentary_merges", "sheet": "Quarter_Notes_UI", "target": "C10:E15", "anchor_column": "C", "allowed_binding_ids": ["qn_quarter_note_rows"]},
-    {"merge_id": "quarter_implication_merges", "sheet": "Quarter_Notes_UI", "target": "H10:L15", "anchor_column": "H", "allowed_binding_ids": ["qn_quarter_note_rows"]},
-    {"merge_id": "quarter_source_merges", "sheet": "Quarter_Notes_UI", "target": "M10:O15", "anchor_column": "M", "allowed_binding_ids": ["qn_quarter_note_rows"]}
+    {
+      "merge_id": "summary_description_merge",
+      "sheet": "SUMMARY",
+      "target": "A3:F3",
+      "anchor_column": "A",
+      "allowed_binding_ids": [
+        "summary_company_description"
+      ]
+    },
+    {
+      "merge_id": "summary_context_merge",
+      "sheet": "SUMMARY",
+      "target": "A5:F5",
+      "anchor_column": "A",
+      "allowed_binding_ids": [
+        "summary_strategic_context"
+      ]
+    },
+    {
+      "merge_id": "summary_advantage_merge",
+      "sheet": "SUMMARY",
+      "target": "A7:F7",
+      "anchor_column": "A",
+      "allowed_binding_ids": [
+        "summary_key_advantage"
+      ]
+    },
+    {
+      "merge_id": "summary_revenue_stream_mix_merges",
+      "sheet": "SUMMARY",
+      "target": "B9:F11",
+      "anchor_column": "B",
+      "allowed_binding_ids": [
+        "summary_revenue_stream_rows"
+      ],
+      "owner_roles": [
+        "summary_revenue_stream_rows.mix"
+      ]
+    },
+    {
+      "merge_id": "valuation_guidance_metric_merges",
+      "sheet": "Valuation",
+      "target": "O9:P25",
+      "anchor_column": "O",
+      "allowed_binding_ids": [
+        "valuation_guidance_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_guidance_value_merges",
+      "sheet": "Valuation",
+      "target": "S9:Z25",
+      "anchor_column": "S",
+      "allowed_binding_ids": [
+        "valuation_guidance_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_guidance_status_merges",
+      "sheet": "Valuation",
+      "target": "AA9:AC25",
+      "anchor_column": "AA",
+      "allowed_binding_ids": [
+        "valuation_guidance_status_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_output_metric_merges_upper",
+      "sheet": "Valuation",
+      "target": "O64:T70",
+      "anchor_column": "O",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_output_metric_merges_lower",
+      "sheet": "Valuation",
+      "target": "O72:T75",
+      "anchor_column": "O",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_output_value_merges_upper",
+      "sheet": "Valuation",
+      "target": "U64:W70",
+      "anchor_column": "U",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_output_value_merges_lower",
+      "sheet": "Valuation",
+      "target": "U72:W75",
+      "anchor_column": "U",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_output_interpretation_merges_upper",
+      "sheet": "Valuation",
+      "target": "X64:AC70",
+      "anchor_column": "X",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_output_interpretation_merges_lower",
+      "sheet": "Valuation",
+      "target": "X72:AC75",
+      "anchor_column": "X",
+      "allowed_binding_ids": [
+        "valuation_output_rows"
+      ]
+    },
+    {
+      "merge_id": "operating_driver_current_read_merges",
+      "sheet": "Operating_Drivers",
+      "target": "B6:G9",
+      "anchor_column": "B",
+      "allowed_binding_ids": [
+        "od_watchlist_rows"
+      ]
+    },
+    {
+      "merge_id": "operating_driver_why_merges",
+      "sheet": "Operating_Drivers",
+      "target": "H6:N9",
+      "anchor_column": "H",
+      "allowed_binding_ids": [
+        "od_watchlist_rows"
+      ]
+    },
+    {
+      "merge_id": "investment_summary_merge",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B5:J5",
+      "anchor_column": "B",
+      "allowed_binding_ids": [
+        "ic_investment_summary"
+      ]
+    },
+    {
+      "merge_id": "investment_debate_merge",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B7:J7",
+      "anchor_column": "B",
+      "allowed_binding_ids": [
+        "ic_key_debate"
+      ]
+    },
+    {
+      "merge_id": "quarter_summary_merge",
+      "sheet": "Quarter_Notes_UI",
+      "target": "B3:O3",
+      "anchor_column": "B",
+      "allowed_binding_ids": [
+        "qn_quarter_summary_rows"
+      ]
+    },
+    {
+      "merge_id": "quarter_commentary_merges",
+      "sheet": "Quarter_Notes_UI",
+      "target": "C10:E15",
+      "anchor_column": "C",
+      "allowed_binding_ids": [
+        "qn_quarter_note_rows"
+      ]
+    },
+    {
+      "merge_id": "quarter_implication_merges",
+      "sheet": "Quarter_Notes_UI",
+      "target": "H10:L15",
+      "anchor_column": "H",
+      "allowed_binding_ids": [
+        "qn_quarter_note_rows"
+      ]
+    },
+    {
+      "merge_id": "quarter_source_merges",
+      "sheet": "Quarter_Notes_UI",
+      "target": "M10:O15",
+      "anchor_column": "M",
+      "allowed_binding_ids": [
+        "qn_quarter_note_rows"
+      ]
+    }
   ],
   "required_anchors": [
     {
@@ -180,6 +1560,7 @@
       "anchor_id": "valuation_share_count_anchor",
       "sheet": "Valuation",
       "zone_id": "valuation_share_count_values",
+      "target": "A102",
       "anchor_label": "Diluted shares (m)",
       "binding_required": false
     },
@@ -215,6 +1596,7 @@
       "anchor_id": "investment_key_debate_anchor",
       "sheet": "{ticker}_Investment_Case",
       "zone_id": "ic_snapshot_values",
+      "target": "A7",
       "anchor_label": "Key Debate",
       "binding_required": true
     },
@@ -872,9 +2254,9 @@
           ]
         },
         {
-          "zone_id": "ic_lower_brand_health_values",
+          "zone_id": "ic_lower_business_health_values",
           "target": "B194:K199",
-          "anchor_label": "Brand Health",
+          "anchor_label": "Business Health",
           "value_shapes": [
             "table_rows",
             "text_block"
@@ -890,9 +2272,9 @@
           ]
         },
         {
-          "zone_id": "ic_lower_store_productivity_values",
+          "zone_id": "ic_lower_asset_productivity_values",
           "target": "B212:K225",
-          "anchor_label": "Store Productivity / Real Estate ROI",
+          "anchor_label": "Asset Productivity / Capacity Returns",
           "value_shapes": [
             "table_rows",
             "text_block"
@@ -974,7 +2356,12 @@
         {
           "zone_id": "qn_static_labels_after_primary_block",
           "target": "A16:A360",
-          "reason": "Static labels for later optional/history blocks."
+          "reason": "Neutral section headers and placeholder labels for later optional/history blocks."
+        },
+        {
+          "zone_id": "qn_unbound_history_structure",
+          "target": "B16:O360",
+          "reason": "Retained blank history-block layout has no approved binding contract yet and must remain non-writable."
         }
       ],
       "formulas_static_labels": [
@@ -1242,5 +2629,28 @@
     "Scenario_Driver_Assumptions",
     "SEC_Audit_Log",
     "Source_Coverage"
-  ]
+  ],
+  "semantic_contract_version": "1.1.0",
+  "shell_identity": {
+    "semantic_contract_version": "1.1.0",
+    "workbook_sha256": "e21e55e86cc310301fa5c4fb698e7a801c9ca671064fd53953b5a2d4d531b7e0",
+    "manifest_contract_signature": "832db01c660db98dff65c4c1b2fdc6c43cd7d6458926351a9269b93d00c43e82",
+    "sheet_order_visibility_signature": "bf321d478860f8ed7458e736c902f1517d543cb4186a490fd28f6fdfb74749d1",
+    "sheet_view_signature": "e2566d3cb6a924bc7ac96bea5c14895d8bfc6539aac73b095c1470ea5aa826b0",
+    "merge_signature": "54d443d005c71f7e43101da9b1069db63935058945044563273511cb32e94813",
+    "defined_name_signature": "e065e48cc2fd4855a21c97f0e6c8fbd68d072d1f891f3e83e4ca1bdbeb75658e",
+    "writable_target_signature": "be1c0879816c0e7db9acb4708a6925b18fd872c65a5ab75b8c16b1b541591b09",
+    "binding_contract_signature": "ec6ebd29151827c12cf9e9b138531fe285835a803c167ab1d71337cf7e3e718e",
+    "formula_static_zone_signature": "b73f0988fb56d27c0a82354318deb0cb06fc9a8c02f413d6795212b250d934b0",
+    "counts": {
+      "sheets": 18,
+      "sheet_views": 18,
+      "merges": 1882,
+      "defined_names": 107,
+      "writable_targets": 135,
+      "binding_contracts": 78,
+      "formula_cells": 73,
+      "static_cells": 1509
+    }
+  }
 }

@@ -1,6 +1,8 @@
 {
-  "version": "0.1.0",
-  "generated_at_utc": "2026-07-10T21:48:09+00:00",
+  "version": "0.2.0",
+  "generator_version": "anf_legacy_adapter_audits/0.2.0",
+  "source_package_content_sha256": "111d5d9844c12c663f14ceded986265e67371ab564c159da46a02eeb0da4b41f",
+  "generated_at_utc": "2026-07-12T22:11:09+00:00",
   "ticker": "ANF",
   "data_root": "C:\\Users\\Jibbe\\Aktier\\StockModelData",
   "legacy_workbook": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -28,7 +30,11 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 5
+      "populated_field_count": 5,
+      "field_status_counts": {
+        "populated": 5
+      },
+      "manual_review_record_count": 0
     },
     {
       "section": "company_profile",
@@ -44,7 +50,11 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 7
+      "populated_field_count": 14,
+      "field_status_counts": {
+        "populated": 14
+      },
+      "manual_review_record_count": 0
     },
     {
       "section": "quarterly_financials",
@@ -56,11 +66,16 @@
       "source_backed_available": true,
       "profile_backed_available": false,
       "legacy_workbook_derived_available": true,
-      "missing_source": false,
+      "missing_source": true,
       "missing_mapping": false,
       "parser_conflict": false,
-      "manual_review_required": false,
-      "populated_field_count": 129
+      "manual_review_required": true,
+      "populated_field_count": 129,
+      "field_status_counts": {
+        "missing_source": 3,
+        "populated": 129
+      },
+      "manual_review_record_count": 1
     },
     {
       "section": "annual_financials",
@@ -72,11 +87,16 @@
       "source_backed_available": true,
       "profile_backed_available": false,
       "legacy_workbook_derived_available": true,
-      "missing_source": false,
+      "missing_source": true,
       "missing_mapping": false,
       "parser_conflict": false,
-      "manual_review_required": false,
-      "populated_field_count": 54
+      "manual_review_required": true,
+      "populated_field_count": 50,
+      "field_status_counts": {
+        "missing_source": 5,
+        "populated": 50
+      },
+      "manual_review_record_count": 6
     },
     {
       "section": "debt_liquidity",
@@ -88,11 +108,17 @@
       "source_backed_available": true,
       "profile_backed_available": false,
       "legacy_workbook_derived_available": true,
-      "missing_source": false,
+      "missing_source": true,
       "missing_mapping": false,
       "parser_conflict": false,
-      "manual_review_required": false,
-      "populated_field_count": 6
+      "manual_review_required": true,
+      "populated_field_count": 12,
+      "field_status_counts": {
+        "missing_source": 2,
+        "not_applicable": 1,
+        "populated": 12
+      },
+      "manual_review_record_count": 2
     },
     {
       "section": "capital_returns",
@@ -107,7 +133,12 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 1
+      "populated_field_count": 1,
+      "field_status_counts": {
+        "not_applicable": 2,
+        "populated": 1
+      },
+      "manual_review_record_count": 0
     },
     {
       "section": "normalized_guidance",
@@ -120,11 +151,16 @@
       "source_backed_available": true,
       "profile_backed_available": false,
       "legacy_workbook_derived_available": true,
-      "missing_source": false,
+      "missing_source": true,
       "missing_mapping": false,
       "parser_conflict": false,
-      "manual_review_required": false,
-      "populated_field_count": 90
+      "manual_review_required": true,
+      "populated_field_count": 90,
+      "field_status_counts": {
+        "missing_source": 180,
+        "populated": 90
+      },
+      "manual_review_record_count": 1
     },
     {
       "section": "segments",
@@ -136,11 +172,16 @@
       "source_backed_available": true,
       "profile_backed_available": false,
       "legacy_workbook_derived_available": true,
-      "missing_source": false,
+      "missing_source": true,
       "missing_mapping": false,
       "parser_conflict": false,
-      "manual_review_required": false,
-      "populated_field_count": 178
+      "manual_review_required": true,
+      "populated_field_count": 178,
+      "field_status_counts": {
+        "missing_source": 68,
+        "populated": 178
+      },
+      "manual_review_record_count": 133
     },
     {
       "section": "operating_drivers",
@@ -152,11 +193,16 @@
       "source_backed_available": true,
       "profile_backed_available": false,
       "legacy_workbook_derived_available": true,
-      "missing_source": false,
+      "missing_source": true,
       "missing_mapping": false,
       "parser_conflict": false,
-      "manual_review_required": false,
-      "populated_field_count": 155
+      "manual_review_required": true,
+      "populated_field_count": 155,
+      "field_status_counts": {
+        "missing_source": 15,
+        "populated": 155
+      },
+      "manual_review_record_count": 751
     },
     {
       "section": "quarter_notes",
@@ -170,8 +216,12 @@
       "missing_source": false,
       "missing_mapping": false,
       "parser_conflict": false,
-      "manual_review_required": false,
-      "populated_field_count": 42
+      "manual_review_required": true,
+      "populated_field_count": 42,
+      "field_status_counts": {
+        "populated": 42
+      },
+      "manual_review_record_count": 679
     },
     {
       "section": "investment_case",
@@ -186,7 +236,12 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": true,
-      "populated_field_count": 3
+      "populated_field_count": 3,
+      "field_status_counts": {
+        "manual_review_required": 3,
+        "populated": 3
+      },
+      "manual_review_record_count": 0
     },
     {
       "section": "valuation_outputs",
@@ -200,7 +255,9 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 0
+      "populated_field_count": 0,
+      "field_status_counts": {},
+      "manual_review_record_count": 0
     },
     {
       "section": "source_coverage",
@@ -215,7 +272,11 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 0
+      "populated_field_count": 0,
+      "field_status_counts": {
+        "available": 3869
+      },
+      "manual_review_record_count": 0
     },
     {
       "section": "mapping_gaps",
@@ -229,8 +290,10 @@
       "missing_source": false,
       "missing_mapping": false,
       "parser_conflict": false,
-      "manual_review_required": true,
-      "populated_field_count": 0
+      "manual_review_required": false,
+      "populated_field_count": 0,
+      "field_status_counts": {},
+      "manual_review_record_count": 0
     },
     {
       "section": "manual_review_flags",
@@ -245,7 +308,9 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": true,
-      "populated_field_count": 0
+      "populated_field_count": 0,
+      "field_status_counts": {},
+      "manual_review_record_count": 1577
     }
   ]
 }

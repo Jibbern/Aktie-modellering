@@ -97,28 +97,42 @@ REQUIRED_ROW_SCHEMA_COLUMNS_BY_BINDING = {
         "why_it_matters",
     },
     "qa_log_validation_rows": {
+        "issue_id",
         "severity",
         "rule_id",
-        "field",
+        "issue_type",
+        "section",
+        "root_cause",
         "message",
-        "source_ref",
         "suggested_action",
+        "occurrence_count",
+        "visibility_disposition",
+        "promotion_blocking",
+        "detail_ref",
     },
     "needs_review_validation_rows": {
+        "issue_id",
         "severity",
         "rule_id",
-        "field",
+        "section",
+        "normalized_path",
+        "business_row_key",
         "message",
-        "source_ref",
         "suggested_action",
+        "occurrence_count",
+        "promotion_blocking",
+        "detail_ref",
     },
     "qa_checks_mapping_gap_rows": {
-        "severity",
         "rule_id",
-        "field",
-        "message",
-        "source_ref",
-        "suggested_action",
+        "status",
+        "unique_issue_count",
+        "occurrence_count",
+        "blocking_count",
+        "actionable_count",
+        "affected_sections",
+        "interpretation",
+        "detail_ref",
     },
 }
 
@@ -217,7 +231,9 @@ def test_required_binding_fields_are_represented_in_normalized_schema() -> None:
     missing = sorted(
         _canonical_field(entry["normalized_field"])
         for entry in _payload()["bindings"]
-        if entry["required"] and _canonical_field(entry["normalized_field"]) not in schema_fields
+        if entry["required"]
+        and entry["source_policy"] != "validation-output"
+        and _canonical_field(entry["normalized_field"]) not in schema_fields
     )
 
     assert missing == []
@@ -347,8 +363,12 @@ def test_active_collection_bindings_have_exact_typed_planner_contracts() -> None
             if entry["value_shape"] == "pivot_matrix":
                 assert entry["planning_mode"] == "pivot_rows"
                 assert entry["row_blocks"]
-                assert entry["period_target_columns"]
+                assert entry["period_axis_id"]
+                assert entry["period_axis_role"] == "dependent"
+                assert entry["period_field"]
                 assert entry["value_field"] in entry["required_columns"]
+                rows = [row for block_rows in entry["row_blocks"].values() for row in block_rows]
+                assert len(rows) == len(set(rows)), entry["binding_id"]
             continue
         target_columns = entry["target_columns"]
         target_names = [column["target_column"] for column in target_columns]
@@ -427,7 +447,7 @@ def _int_to_col(value: int) -> str:
 def test_p0_period_value_and_qa_contracts_are_explicit() -> None:
     entries = {entry["binding_id"]: entry for entry in _payload()["bindings"]}
 
-    as_of = entries["summary_quarterly_revenue"]
+    as_of = entries["summary_as_of_quarter"]
     revenue = entries["summary_latest_revenue"]
     net_income = entries["summary_latest_net_income"]
     valuation_headers = entries["valuation_period_headers"]
@@ -443,6 +463,16 @@ def test_p0_period_value_and_qa_contracts_are_explicit() -> None:
     assert net_income["source_field"] == "net_income"
     assert valuation_headers["planner_target"] == "B6:M6"
     assert valuation_headers["source_field"] == "period"
+    assert valuation_headers["period_axis_id"] == "valuation_quarterly_periods"
+    assert valuation_headers["period_axis_role"] == "header"
+    for binding_id in (
+        "valuation_revenue_series",
+        "valuation_ebitda_series",
+        "valuation_net_income_series",
+        "valuation_operating_cash_flow_series",
+    ):
+        assert entries[binding_id]["period_axis_id"] == "valuation_quarterly_periods"
+        assert entries[binding_id]["period_axis_role"] == "dependent"
     assert valuation_outputs["normalized_field"].startswith("valuation_outputs")
 
     for entry in entries.values():

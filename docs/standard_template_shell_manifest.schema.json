@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.stockmodel/standard_template_shell_manifest.schema.json",
+  "title": "Standard Template Shell Manifest",
+  "type": "object",
+  "required": [
+    "version",
+    "file_type",
+    "visible_sheet_order",
+    "sheet_view_identity_contract",
+    "planner_cell_contracts",
+    "planner_merge_families",
+    "required_anchors",
+    "sheets",
+    "semantic_contract_version",
+    "shell_identity"
+  ],
+  "properties": {
+    "$schema": {"type": "string", "format": "uri"},
+    "version": {"type": "string", "const": "0.2.0"},
+    "file_type": {"type": "string", "const": ".xlsx"},
+    "description": {"type": "string", "minLength": 1},
+    "visible_sheet_order": {"type": "array", "minItems": 10, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "ticker_sheet_token_rule": {"type": "object"},
+    "static_layout_ownership": {"type": "object"},
+    "sheet_view_identity_contract": {"$ref": "#/$defs/sheetViewIdentityContract"},
+    "planner_cell_contracts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/cellContract"}},
+    "planner_merge_families": {"type": "array", "items": {"type": "object"}},
+    "required_anchors": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/anchor"}},
+    "sheets": {"type": "array", "minItems": 10, "items": {"$ref": "#/$defs/sheet"}},
+    "optional_support_sheets": {"type": "array", "items": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "object"}]}},
+    "semantic_contract_version": {"type": "string", "const": "1.1.0"},
+    "shell_identity": {"$ref": "#/$defs/shellIdentity"}
+  },
+  "$defs": {
+    "zone": {
+      "type": "object",
+      "required": ["zone_id", "target"],
+      "properties": {
+        "zone_id": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*(?::[A-Z]+[1-9][0-9]*)?$"}
+      },
+      "additionalProperties": true
+    },
+    "sheet": {
+      "type": "object",
+      "required": ["sheet", "writable_zones", "non_writable_zones"],
+      "properties": {
+        "sheet": {"type": "string", "minLength": 1},
+        "writable_zones": {"type": "array", "items": {"$ref": "#/$defs/zone"}},
+        "non_writable_zones": {"type": "array", "items": {"$ref": "#/$defs/zone"}}
+      },
+      "additionalProperties": true
+    },
+    "cellContract": {
+      "type": "object",
+      "required": ["contract_id", "sheet", "target", "target_role", "writable"],
+      "properties": {
+        "contract_id": {"type": "string", "minLength": 1},
+        "sheet": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*(?::[A-Z]+[1-9][0-9]*)?$"},
+        "target_role": {"type": "string", "minLength": 1},
+        "writable": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "anchor": {
+      "type": "object",
+      "required": ["anchor_id", "sheet"],
+      "properties": {
+        "anchor_id": {"type": "string", "minLength": 1},
+        "sheet": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    },
+    "sheetViewIdentityContract": {
+      "type": "object",
+      "required": ["contract_version", "contract_owned", "normalized_defaults", "intentionally_ignored"],
+      "properties": {
+        "contract_version": {"type": "string", "const": "1.0.0"},
+        "contract_owned": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "normalized_defaults": {"type": "object", "minProperties": 1},
+        "intentionally_ignored": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": false
+    },
+    "shellIdentity": {
+      "type": "object",
+      "required": [
+        "semantic_contract_version",
+        "workbook_sha256",
+        "manifest_contract_signature",
+        "sheet_order_visibility_signature",
+        "sheet_view_signature",
+        "merge_signature",
+        "defined_name_signature",
+        "writable_target_signature",
+        "binding_contract_signature",
+        "formula_static_zone_signature"
+      ],
+      "properties": {
+        "semantic_contract_version": {"type": "string", "const": "1.1.0"},
+        "workbook_sha256": {"$ref": "#/$defs/sha256"},
+        "manifest_contract_signature": {"$ref": "#/$defs/sha256"},
+        "sheet_order_visibility_signature": {"$ref": "#/$defs/sha256"},
+        "sheet_view_signature": {"$ref": "#/$defs/sha256"},
+        "merge_signature": {"$ref": "#/$defs/sha256"},
+        "defined_name_signature": {"$ref": "#/$defs/sha256"},
+        "writable_target_signature": {"$ref": "#/$defs/sha256"},
+        "binding_contract_signature": {"$ref": "#/$defs/sha256"},
+        "formula_static_zone_signature": {"$ref": "#/$defs/sha256"},
+        "counts": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}

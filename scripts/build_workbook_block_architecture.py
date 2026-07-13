@@ -9,7 +9,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,8 +21,12 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import Cell
 from openpyxl.utils import get_column_letter, range_boundaries
 
-
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from pbi_xbrl.json_schema_validation import load_json_strict
+from pbi_xbrl.standard_template_audit_runner import run_audit_generator
 
 
 def _default_data_root() -> Path:
@@ -93,6 +99,7 @@ COMPANY_SPECIFIC_TERMS = (
     "45Z",
     "RIN",
     "crush margin",
+    "A&F",
 )
 
 
@@ -105,7 +112,10 @@ class Bounds:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = load_json_strict(path)
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON contract must be an object: {path}")
+    return payload
 
 
 def _sha256(path: Path) -> str:
@@ -482,13 +492,34 @@ def _owners_for(sheet: str, flow: dict[str, Any]) -> tuple[list[str], list[str]]
 
 
 def _source_paths(source_dir: Path) -> dict[str, Path]:
-    return {ticker: source_dir / f"{ticker}_model.xlsx" for ticker in SOURCE_TICKERS}
+    paths: dict[str, Path] = {}
+    for ticker in SOURCE_TICKERS:
+        macro_free = source_dir / f"{ticker}_model.xlsx"
+        macro_enabled = source_dir / f"{ticker}_model.xlsm"
+        paths[ticker] = macro_free if macro_free.exists() else macro_enabled
+    return paths
 
 
 def _copy_template_lab(source_dir: Path, lab_path: Path) -> dict[str, Any]:
     source_path = source_dir / "ANF_model.xlsx"
     lab_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source_path, lab_path)
+    source_hash = _sha256(source_path)
+    lab_hash = _sha256(lab_path)
+    return {
+        "purpose": "Read-only-derived ANF workbook lab copy for template analysis; not canonical output.",
+        "source_path": str(source_path),
+        "lab_path": str(lab_path),
+        "source_sha256": source_hash,
+        "lab_sha256": lab_hash,
+        "byte_identical": source_hash == lab_hash,
+    }
+
+
+def _existing_template_lab(source_dir: Path, lab_path: Path) -> dict[str, Any]:
+    source_path = source_dir / "ANF_model.xlsx"
+    if not lab_path.exists():
+        raise FileNotFoundError(f"Existing template lab is required in read-only mode: {lab_path}")
     source_hash = _sha256(source_path)
     lab_hash = _sha256(lab_path)
     return {
@@ -834,12 +865,21 @@ def _write_coverage_md(path: Path, payload: dict[str, Any]) -> None:
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
-def build(*, source_dir: Path, lab_path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+def build(
+    *,
+    source_dir: Path,
+    lab_path: Path,
+    reuse_existing_lab: bool = False,
+    architecture_json: Path = ARCHITECTURE_JSON,
+    architecture_md: Path = ARCHITECTURE_MD,
+    coverage_json: Path = COVERAGE_JSON,
+    coverage_md: Path = COVERAGE_MD,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     manifest = _load_json(ROOT / "docs" / "standard_template_shell_manifest.json")
     binding_payload = _load_json(ROOT / "docs" / "workbook_binding_map.json")
     flow = _load_json(ROOT / "docs" / "sheet_data_flow_map.json")
     source_paths = _source_paths(source_dir)
-    template_lab = _copy_template_lab(source_dir, lab_path)
+    template_lab = _existing_template_lab(source_dir, lab_path) if reuse_existing_lab else _copy_template_lab(source_dir, lab_path)
     workbooks = _load_workbooks(source_paths)
     try:
         grouped_bindings = _bindings_by_zone(binding_payload["bindings"])
@@ -885,10 +925,10 @@ def build(*, source_dir: Path, lab_path: Path) -> tuple[dict[str, Any], dict[str
     finally:
         _close_workbooks(workbooks)
 
-    _write_json(ARCHITECTURE_JSON, architecture)
-    _write_json(COVERAGE_JSON, coverage)
-    _write_architecture_md(ARCHITECTURE_MD, architecture)
-    _write_coverage_md(COVERAGE_MD, coverage)
+    _write_json(architecture_json, architecture)
+    _write_json(coverage_json, coverage)
+    _write_architecture_md(architecture_md, architecture)
+    _write_coverage_md(coverage_md, coverage)
     return architecture, coverage
 
 
@@ -896,12 +936,35 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-dir", type=Path, default=DEFAULT_SOURCE_DIR)
     parser.add_argument("--lab-path", type=Path, default=DEFAULT_LAB_PATH)
+    parser.add_argument("--reuse-existing-lab", action="store_true", help="Read the existing lab workbook without copying or modifying any xlsx file.")
+    parser.add_argument("--architecture-json", type=Path, default=ARCHITECTURE_JSON)
+    parser.add_argument("--architecture-md", type=Path, default=ARCHITECTURE_MD)
+    parser.add_argument("--coverage-json", type=Path, default=COVERAGE_JSON)
+    parser.add_argument("--coverage-md", type=Path, default=COVERAGE_MD)
     args = parser.parse_args(argv)
 
-    architecture, coverage = build(
-        source_dir=args.source_dir.expanduser().resolve(),
-        lab_path=args.lab_path.expanduser().resolve(),
+    is_default_run = (
+        args.source_dir.expanduser().resolve() == DEFAULT_SOURCE_DIR.resolve()
+        and args.lab_path.expanduser().resolve() == DEFAULT_LAB_PATH.resolve()
+        and args.architecture_json.expanduser().resolve() == ARCHITECTURE_JSON.resolve()
+        and args.architecture_md.expanduser().resolve() == ARCHITECTURE_MD.resolve()
+        and args.coverage_json.expanduser().resolve() == COVERAGE_JSON.resolve()
+        and args.coverage_md.expanduser().resolve() == COVERAGE_MD.resolve()
     )
+    if is_default_run and os.environ.get("STANDARD_TEMPLATE_AUDIT_ISOLATED_RUN") != "1":
+        run_audit_generator(Path(__file__), root=ROOT, data_root=DEFAULT_DATA_ROOT)
+        architecture = _load_json(ARCHITECTURE_JSON)
+        coverage = _load_json(COVERAGE_JSON)
+    else:
+        architecture, coverage = build(
+            source_dir=args.source_dir.expanduser().resolve(),
+            lab_path=args.lab_path.expanduser().resolve(),
+            reuse_existing_lab=args.reuse_existing_lab,
+            architecture_json=args.architecture_json.expanduser().resolve(),
+            architecture_md=args.architecture_md.expanduser().resolve(),
+            coverage_json=args.coverage_json.expanduser().resolve(),
+            coverage_md=args.coverage_md.expanduser().resolve(),
+        )
     print(f"template lab: {architecture['template_lab']['lab_path']}")
     print(f"blocks: {len(architecture['blocks'])}")
     print(f"coverage rows: {len(coverage['coverage_rows'])}")

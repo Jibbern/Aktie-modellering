@@ -59,12 +59,44 @@
       "source_ref": "synthetic_fixture:profile",
       "core": true
     },
+    "strategic_context": {
+      "value": "The current setup depends on recurring software retention, implementation conversion, and disciplined capital allocation.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": true
+    },
     "revenue_model": {
       "value": "Revenue is generated from subscriptions, implementation services, and recurring support contracts.",
       "status": "populated",
       "source_ref": "synthetic_fixture:profile",
       "core": true
     },
+    "revenue_streams": [
+      {
+        "member": {"value": "Subscriptions", "status": "populated", "source_ref": "synthetic_fixture:profile:subscriptions", "core": true},
+        "mix": {"value": 70.0, "status": "populated", "source_ref": "synthetic_fixture:profile:subscriptions", "core": true, "unit": "%", "period": "2025-FY"},
+        "unit": "%",
+        "period": "2025-FY",
+        "source_ref": "synthetic_fixture:profile:subscriptions",
+        "display_order": 1
+      },
+      {
+        "member": {"value": "Implementation services", "status": "populated", "source_ref": "synthetic_fixture:profile:implementation", "core": true},
+        "mix": {"value": 20.0, "status": "populated", "source_ref": "synthetic_fixture:profile:implementation", "core": true, "unit": "%", "period": "2025-FY"},
+        "unit": "%",
+        "period": "2025-FY",
+        "source_ref": "synthetic_fixture:profile:implementation",
+        "display_order": 2
+      },
+      {
+        "member": {"value": "Support contracts", "status": "populated", "source_ref": "synthetic_fixture:profile:support", "core": true},
+        "mix": {"value": 10.0, "status": "populated", "source_ref": "synthetic_fixture:profile:support", "core": true, "unit": "%", "period": "2025-FY"},
+        "unit": "%",
+        "period": "2025-FY",
+        "source_ref": "synthetic_fixture:profile:support",
+        "display_order": 3
+      }
+    ],
     "key_advantages": {
       "value": "Installed-base retention and domain-specific workflow depth support pricing durability.",
       "status": "populated",
@@ -307,6 +339,82 @@
       "core": true,
       "unit": "$m"
     },
+    "net_leverage": {
+      "value": 0.7,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": false,
+      "unit": "x",
+      "period": "2026-03-31"
+    },
+    "revolver_availability": {
+      "value": 100.0,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true,
+      "unit": "$m",
+      "period": "2026-03-31"
+    },
+    "liquidity_cash": {
+      "value": 80.0,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true,
+      "unit": "$m",
+      "period": "2026-03-31"
+    },
+    "other_available_liquidity": {
+      "value": null,
+      "status": "not_applicable",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": false,
+      "reason": "No other available-liquidity component applies."
+    },
+    "total_liquidity": {
+      "value": 180.0,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true,
+      "unit": "$m",
+      "period": "2026-03-31"
+    },
+    "liquidity_definition": {
+      "value": "Cash plus undrawn revolver availability.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true
+    },
+    "as_of_date": {
+      "value": "2026-03-31",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true
+    },
+    "summary_as_of_date": {
+      "value": "2026-03-31",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true
+    },
+    "summary_liquidity_display": {
+      "value": "180.000 as of 2026-03-31",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true,
+      "period": "2026-03-31"
+    },
+    "liquidity_freshness": {
+      "disposition": "current",
+      "summary_as_of": "2026-03-31",
+      "liquidity_as_of": "2026-03-31",
+      "component_as_of": {
+        "cash": "2026-03-31",
+        "revolver": "2026-03-31"
+      },
+      "mixed_date_components": false,
+      "reason": "Liquidity and SUMMARY share one as-of date.",
+      "source_ref": "synthetic_fixture:debt_liquidity"
+    },
     "liquidity": {
       "value": 180.0,
       "status": "populated",
@@ -406,8 +514,9 @@
   "segments": {
     "items": [
       {
-        "dimension": "business_line",
+        "dimension": "brand",
         "member": "Workflow software",
+        "display_order": 1,
         "metric": "revenue",
         "period": "2026-Q1",
         "period_type": "quarterly",
@@ -435,6 +544,7 @@
       {
         "dimension": "geography",
         "member": "Region 1",
+        "display_order": 1,
         "metric": "revenue",
         "period": "2025-FY",
         "period_type": "annual",

@@ -7,7 +7,6 @@ only exact planned writes after the plan has passed P0/P1 validation.
 """
 from __future__ import annotations
 
-import json
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,7 +16,12 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.utils import range_boundaries
 
-from pbi_xbrl.new_ticker_binding_planner import BindingPlan, plan_standard_template_writes
+from pbi_xbrl.json_schema_validation import load_json_strict
+from pbi_xbrl.new_ticker_binding_planner import (
+    BindingPlan,
+    BindingPlanReproductionError,
+    reproduce_binding_plan,
+)
 from pbi_xbrl.normalized_company_data_validation import NormalizedDataIssue
 
 
@@ -64,12 +68,14 @@ def fill_standard_template_from_package(
     manifest_path: Path | str = DEFAULT_MANIFEST,
     binding_map_path: Path | str = DEFAULT_BINDING_MAP,
     promotion_requested: bool = False,
+    expected_plan: Mapping[str, Any] | BindingPlan | None = None,
 ) -> FillResult:
     """Copy the frozen shell and apply an already-safe, exact-cell binding plan.
 
-    All interpretation belongs upstream of this function.  Planning and JSON
+    All interpretation belongs upstream of this function. Planning and JSON
     Schema validation finish before the template is copied or opened, so a P0/P1
-    package problem cannot produce a partial workbook.
+    package problem cannot produce a partial workbook. When ``expected_plan`` is
+    supplied, it is comparison-only and must exactly match independent reproduction.
     """
 
     package = _load_json(Path(package_path))
@@ -79,16 +85,20 @@ def fill_standard_template_from_package(
     ticker = _ticker(package, ticker_override)
 
     _validate_binding_contract(manifest, bindings)
-    plan = plan_standard_template_writes(
-        package,
-        binding_payload=binding_payload,
-        manifest=manifest,
-        ticker_override=ticker,
-        promotion_requested=promotion_requested,
-    )
-    blocking = [issue for issue in plan.issues if issue.severity.upper() in {"P0", "P1"}]
-    if blocking:
-        raise NormalizedDataValidationError(blocking)
+    try:
+        plan = reproduce_binding_plan(
+            package,
+            binding_payload=binding_payload,
+            manifest=manifest,
+            shell_path=Path(template_path),
+            ticker_override=ticker,
+            promotion_requested=promotion_requested,
+            expected_plan=expected_plan,
+        )
+    except BindingPlanReproductionError as exc:
+        if exc.plan is not None and exc.plan.has_blockers:
+            raise NormalizedDataValidationError(exc.plan.blocking_issues()) from exc
+        raise BindingContractError(str(exc)) from exc
 
     out_path = Path(output_path)
     if out_path.suffix.lower() != ".xlsx":
@@ -115,35 +125,47 @@ def fill_standard_template_from_package(
 
 
 def _execute_binding_plan(wb: Any, plan: BindingPlan) -> int:
-    """Apply only exact, non-formula, individually-addressable planned cells."""
+    """Apply an internally reproduced exact-cell plan.
 
+    This private executor performs no authorization.  The public filler always
+    calls :func:`reproduce_binding_plan` immediately before copying the shell.
+    """
+
+    if not isinstance(plan, BindingPlan) or plan.status != "PASS" or plan.has_blockers:
+        raise BindingContractError("Workbook execution requires an independently reproduced PASS BindingPlan.")
     seen: set[tuple[str, str]] = set()
     written = 0
-    for write in plan.planned_writes:
-        key = (write.target_sheet, write.target_cell)
+    for planned_write in plan.planned_writes:
+        write = planned_write.to_dict()
+        target_sheet = planned_write.target_sheet
+        target_cell = planned_write.target_cell
+        key = (target_sheet, target_cell)
         if key in seen:
-            raise BindingContractError(f"Binding plan writes {write.target_sheet}!{write.target_cell} more than once.")
+            raise BindingContractError(f"Binding plan writes {target_sheet}!{target_cell} more than once.")
         seen.add(key)
-        if write.target_sheet not in wb.sheetnames:
-            raise BindingContractError(f"Binding plan references missing sheet {write.target_sheet!r}.")
-        ws = wb[write.target_sheet]
-        cell = ws[write.target_cell]
+        if target_sheet not in wb.sheetnames:
+            raise BindingContractError(f"Binding plan references missing sheet {target_sheet!r}.")
+        ws = wb[target_sheet]
+        cell = ws[target_cell]
         if isinstance(cell, MergedCell):
             raise BindingContractError(
-                f"Binding plan target {write.target_sheet}!{write.target_cell} is a non-anchor merged cell. "
+                f"Binding plan target {target_sheet}!{target_cell} is a non-anchor merged cell. "
                 "Each row-schema column must own a distinct writable cell."
             )
         if isinstance(cell.value, str) and cell.value.startswith("="):
             raise BindingContractError(
-                f"Binding plan target {write.target_sheet}!{write.target_cell} contains a protected formula."
+                f"Binding plan target {target_sheet}!{target_cell} contains a protected formula."
             )
-        cell.value = write.value
+        cell.value = write.get("value")
         written += 1
     return written
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    payload = load_json_strict(path)
+    if not isinstance(payload, dict):
+        raise NewTickerValueFillerError(f"JSON contract must be an object: {path}")
+    return payload
 
 
 def _ticker(package: Mapping[str, Any], override: str | None = None) -> str:

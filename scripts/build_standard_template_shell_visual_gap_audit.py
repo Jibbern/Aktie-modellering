@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from datetime import UTC, datetime
@@ -33,6 +34,7 @@ from validate_standard_template_shell import (  # noqa: E402
     SOURCE_SPECIFIC_TERMS,
     validate_shell,
 )
+from pbi_xbrl.standard_template_audit_runner import run_audit_generator  # noqa: E402
 
 
 PREVIEW_MODE = "openpyxl_static_not_excel_com"
@@ -488,14 +490,29 @@ def main() -> int:
     parser.add_argument("--preview-dir", type=Path, default=DEFAULT_PREVIEW_DIR)
     args = parser.parse_args()
 
-    payload = build_audit(
-        template_path=args.template.resolve(),
-        lab_path=args.lab.resolve(),
-        manifest_path=args.manifest.resolve(),
-        audit_json_path=args.audit_json.resolve(),
-        audit_md_path=args.audit_md.resolve(),
-        preview_dir=args.preview_dir.resolve(),
+    is_default_run = all(
+        actual.resolve() == expected.resolve()
+        for actual, expected in (
+            (args.template, DEFAULT_TEMPLATE),
+            (args.lab, DEFAULT_LAB),
+            (args.manifest, DEFAULT_MANIFEST),
+            (args.audit_json, DEFAULT_AUDIT_JSON),
+            (args.audit_md, DEFAULT_AUDIT_MD),
+            (args.preview_dir, DEFAULT_PREVIEW_DIR),
+        )
     )
+    if is_default_run and os.environ.get("STANDARD_TEMPLATE_AUDIT_ISOLATED_RUN") != "1":
+        run_audit_generator(Path(__file__), root=ROOT)
+        payload = json.loads(DEFAULT_AUDIT_JSON.read_text(encoding="utf-8"))
+    else:
+        payload = build_audit(
+            template_path=args.template.resolve(),
+            lab_path=args.lab.resolve(),
+            manifest_path=args.manifest.resolve(),
+            audit_json_path=args.audit_json.resolve(),
+            audit_md_path=args.audit_md.resolve(),
+            preview_dir=args.preview_dir.resolve(),
+        )
     print(f"visual gap audit: {args.audit_json.resolve()}")
     print(f"visual gap audit md: {args.audit_md.resolve()}")
     print(f"preview mode: {payload['preview_mode']}")

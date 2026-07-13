@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
 
 import pytest
 from openpyxl import load_workbook
 
+from pbi_xbrl.new_ticker_binding_planner import plan_standard_template_writes
+from pbi_xbrl.standard_template_shell_identity import verify_shell_identity
 from scripts.build_anf_shadow_normalized_package import build_anf_normalized_package
 
 
@@ -24,6 +27,8 @@ DATA_ROOT = _data_root()
 ANF_WORKBOOK = DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
 ANF_PACKAGE = DATA_ROOT / "outputs" / "stress_tests" / "ANF_new_ticker_engine" / "ANF_normalized_data_package.json"
 BINDING_MAP = ROOT / "docs" / "workbook_binding_map.json"
+MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
+SHELL = ROOT / "templates" / "standard_stock_model_template.xlsx"
 
 
 def _bindings() -> dict[str, dict]:
@@ -38,7 +43,18 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
 
     assert ANF_WORKBOOK.exists()
     package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    binding_payload = json.loads(BINDING_MAP.read_text(encoding="utf-8"))
     bindings = _bindings()
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    identity = verify_shell_identity(SHELL, manifest=manifest, binding_payload=binding_payload)
+    plan = plan_standard_template_writes(
+        package,
+        binding_payload=binding_payload,
+        manifest=manifest,
+        shell_identity_report=identity,
+    )
+    assert plan.status == "PASS", [issue.to_dict() for issue in plan.issues]
+    writes = {(write.target_sheet, write.target_cell): write for write in plan.planned_writes}
 
     wb = load_workbook(ANF_WORKBOOK, read_only=True, data_only=False)
     try:
@@ -74,10 +90,14 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert annuals["2025-FY"]["net_income"]["value"] == 506.921
         assert annuals["2025-FY"]["free_cash_flow"]["value"] == 378.368
         assert annuals["2025-FY"]["operating_cash_flow"]["value"] == 619.142
-        assert bindings["summary_quarterly_revenue"]["source_field"] == "period"
+        assert bindings["summary_as_of_quarter"]["source_field"] == "period"
         assert bindings["summary_latest_revenue"]["source_field"] == "revenue"
         assert bindings["summary_latest_net_income"]["source_field"] == "net_income"
         assert bindings["valuation_period_headers"]["source_field"] == "period"
+        assert writes[("SUMMARY", "A3")].value == summary["A3"].value
+        assert writes[("SUMMARY", "A5")].value == summary["A5"].value
+        assert writes[("SUMMARY", "A9")].value == "Americas"
+        assert writes[("SUMMARY", "B9")].value == 81.5
 
         # 2. Guidance: the legacy UI supplies the column semantics. Lineage
         # remains on planned writes; T9 is a non-anchor inside S9:Z9.
@@ -94,6 +114,8 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         guidance = current_guidance[0]
         assert guidance["metric"]["source_ref"] == guidance["value"]["source_ref"]
         assert guidance["publication_date"] == "2026-03-04"
+        assert guidance["source_date"] == "2026-01-31"
+        assert guidance["stated_in_period"] == "2025-Q4"
         assert guidance["horizon"]["value"] in {"2026 year", "2026-Q1"}
         assert [(item["metric"]["value"], item["horizon"]["value"]) for item in current_guidance] == [
             ("Revenue", "2026 year"),
@@ -107,6 +129,23 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         guidance_sources = {column["source_field"] for column in bindings["valuation_guidance_rows"]["target_columns"]}
         assert {"metric", "stated_in_period", "horizon", "value"} == guidance_sources
         assert "T" not in {column["target_column"] for column in bindings["valuation_guidance_rows"]["target_columns"]}
+        assert writes[("Valuation", "O9")].value == "Revenue"
+        assert writes[("Valuation", "Q9")].value == "2025-Q4"
+        assert writes[("Valuation", "R9")].value == "2026 year"
+        assert writes[("Promise_Progress_UI", "I61")].value == "2025-Q4"
+        assert writes[("Promise_Progress_UI", "J61")].value == "2026-03-04"
+        current_secondary = {
+            (item["metric"]["value"], item["horizon"]["value"])
+            for item in package["normalized_guidance"]["items"]
+            if item.get("display_role") == "current_secondary"
+        }
+        assert {
+            ("Capex", "2026 year"),
+            ("Diluted shares", "2026 year"),
+            ("Diluted shares", "2026-Q1"),
+            ("Share repurchases", "2026 year"),
+            ("Share repurchases", "2026-Q1"),
+        } <= current_secondary
 
         # 3. Segment rows: the generic contract uses neutral dimension slots.
         assert segments["A7"].value == "Quarter"
@@ -120,6 +159,21 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert hollister["revenue"]["value"] == 863.3
         americas = next(item for item in package["segments"]["items"] if item["member"] == "Americas" and item["metric"] == "revenue" and item["period"] == "2025-FY")
         assert americas["annual_revenue"]["value"] == pytest.approx(4290.4, abs=0.01)
+        assert [writes[("BS_Segments", f"{column}7")].value for column in "BCDEFGHI"] == [
+            "2024-Q2",
+            "2024-Q3",
+            "2024-Q4",
+            "2025-Q1",
+            "2025-Q2",
+            "2025-Q3",
+            "2025-Q4",
+            "2026-Q1",
+        ]
+        assert writes[("BS_Segments", "H66")].value == pytest.approx(863.3)
+        assert writes[("BS_Segments", "H66")].row_key == "2025-Q4|brand|Hollister|revenue"
+        assert writes[("BS_Segments", "H61")].value == pytest.approx(1383.943)
+        assert writes[("BS_Segments", "G70")].value == "2025-FY"
+        assert writes[("BS_Segments", "G72")].value == pytest.approx(4290.395)
 
         # 4. Operating drivers use the two independently addressable merge anchors.
         assert drivers["A2"].value == "Operating Drivers"
@@ -134,6 +188,9 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
             assert item["topic"]["value"] == drivers.cell(row_number, 1).value
             assert item["current_read"]["value"] == drivers.cell(row_number, 2).value
             assert item["why_it_matters"]["value"] == drivers.cell(row_number, 8).value
+            assert writes[("Operating_Drivers", f"A{row_number}")].value == item["topic"]["value"]
+            assert writes[("Operating_Drivers", f"B{row_number}")].value == item["current_read"]["value"]
+            assert writes[("Operating_Drivers", f"H{row_number}")].value == item["why_it_matters"]["value"]
 
         # 5. Quarter notes: the six source-backed fields have distinct legacy UI
         # headers, so concatenating them into one merged cell is prohibited.
@@ -149,10 +206,9 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         for row_number, item in enumerate(current_notes, start=10):
             assert item["theme"]["value"] == notes.cell(row_number, 1).value
             assert item["commentary"]["value"] == notes.cell(row_number, 3).value
-            if row_number < 14:
-                assert item["model_implication"]["value"] == notes.cell(row_number, 8).value
-            else:
-                assert item["model_implication"]["source_ref"].startswith("ANF_model.xlsx!")
+            assert item["model_implication"]["value"] == notes.cell(row_number, 8).value
+            assert item["model_implication"]["source_ref"] == f"ANF_model.xlsx!Quarter_Notes_UI!row:{row_number}"
+            assert writes[("Quarter_Notes_UI", f"H{row_number}")].value == notes.cell(row_number, 8).value
 
         # 6. Investment case: the generic tokenized target is a scalar surface;
         # ANF's text remains read-only migration evidence, never template text.
@@ -163,6 +219,14 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert package["valuation_inputs"]["base_ebitda_ttm"]["value"] == valuation["D199"].value
         assert package["valuation_inputs"]["adjusted_ebitda_ttm"]["value"] == valuation["D200"].value
         assert package["valuation_inputs"]["revenue_ttm"]["value"] == valuation["D203"].value
+        assert package["debt_liquidity"]["total_debt"]["status"] == "missing_source"
+        assert package["debt_liquidity"]["total_debt"]["value"] is None
+        assert package["debt_liquidity"]["net_leverage"]["status"] == "missing_source"
+        assert package["debt_liquidity"]["total_liquidity"]["value"] == pytest.approx(1209.086)
+        assert package["debt_liquidity"]["as_of_date"]["value"] == "2026-01-31"
+        assert package["debt_liquidity"]["liquidity_freshness"]["disposition"] == "stale_but_displayable_with_date"
+        assert writes[("SUMMARY", "B45")].value == "1,209.086 as of 2026-01-31"
+        assert writes[("SUMMARY", "B45")].normalized_path == "debt_liquidity.summary_liquidity_display"
         assert bindings["ic_investment_summary"]["planner_target"] == "B5"
         assert package["investment_case"]["summary"]["source_ref"].startswith("ANF_model.xlsx!")
 
@@ -183,6 +247,68 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert bindings["pp_guidance_timeline_rows"]["planning_state"] == "active"
         assert bindings["pp_guidance_timeline_rows"]["planner_target"] == "A61:K67"
         assert bindings["summary_liquidity"]["planner_target"] == "B45"
-        assert bindings["summary_net_debt"]["planning_state"] == "inactive_legacy_contract"
+        assert bindings["summary_net_leverage"]["planner_target"] == "B41"
+        assert bindings["summary_net_leverage"]["normalized_field"] == "debt_liquidity.net_leverage"
+        assert ("SUMMARY", "B41") not in writes
+        leverage_gap = next(gap for gap in plan.mapping_gaps if gap.get("binding_id") == "summary_net_leverage")
+        leverage_issue = next(issue for issue in plan.planner_issues if issue.binding_id == "summary_net_leverage")
+        assert leverage_gap["source_ref"] == "ANF_model.xlsx!History_Q!row:50"
+        assert leverage_issue.source_ref == leverage_gap["source_ref"]
     finally:
         wb.close()
+
+
+def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapshot() -> None:
+    assert ANF_WORKBOOK.exists()
+    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    binding_payload = json.loads(BINDING_MAP.read_text(encoding="utf-8"))
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    identity = verify_shell_identity(SHELL, manifest=manifest, binding_payload=binding_payload)
+
+    plan = plan_standard_template_writes(
+        package,
+        binding_payload=binding_payload,
+        manifest=manifest,
+        shell_identity_report=identity,
+    )
+    business_writes = [write for write in plan.planned_writes if write.target_sheet not in {"QA_Log", "Needs_Review", "QA_Checks"}]
+    summary = plan.issue_ledger["summary"]
+    qa_writes = Counter(write.target_sheet for write in plan.planned_writes if write.target_sheet in {"QA_Log", "Needs_Review", "QA_Checks"})
+    qa_bindings = {
+        binding["sheet"]: binding
+        for binding in binding_payload["bindings"]
+        if binding.get("source_policy") == "validation-output" and binding.get("planning_state") == "active"
+    }
+
+    assert plan.status == "PASS", [issue.to_dict() for issue in plan.issues]
+    assert plan.qa_snapshot_status == "stable"
+    assert not plan.has_blockers
+    assert len({(write.target_sheet, write.target_cell) for write in business_writes}) == len(business_writes)
+    assert Counter(write.target_sheet for write in business_writes) == {
+        "SUMMARY": 13,
+        "Valuation": 104,
+        "BS_Segments": 40,
+        "Operating_Drivers": 12,
+        "ANF_Investment_Case": 2,
+        "Quarter_Notes_UI": 25,
+        "Promise_Progress_UI": 56,
+    }
+    assert summary["detailed_occurrence_count"] == len(plan.issue_ledger["occurrences"])
+    assert summary["detailed_occurrence_count"] == len(plan.manual_review_flags) + len(plan.mapping_gaps) + len(plan.issues)
+    assert summary["detailed_occurrence_count"] == sum(issue["occurrence_count"] for issue in plan.issue_ledger["issues"])
+    assert summary["canonical_unique_issue_count"] == len(plan.issue_ledger["issues"])
+    assert summary["actionable_issue_count"] == len(plan.issue_ledger["qa_presentation"]["needs_review_rows"])
+    presentation_rows = {
+        "QA_Log": plan.issue_ledger["qa_presentation"]["qa_log_rows"],
+        "Needs_Review": plan.issue_ledger["qa_presentation"]["needs_review_rows"],
+        "QA_Checks": plan.issue_ledger["qa_presentation"]["qa_check_rows"],
+    }
+    for sheet_name, rows in presentation_rows.items():
+        mapped_fields = [column["source_field"] for column in qa_bindings[sheet_name]["target_columns"]]
+        expected_cells = sum(
+            1
+            for row in rows
+            for field in mapped_fields
+            if row.get(field) not in (None, "")
+        )
+        assert qa_writes[sheet_name] == expected_cells

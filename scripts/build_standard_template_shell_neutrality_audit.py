@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import sys
 from collections import Counter
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -18,6 +20,11 @@ from openpyxl.utils import coordinate_to_tuple, range_boundaries
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from pbi_xbrl.standard_template_audit_runner import run_audit_generator
+
 DEFAULT_TEMPLATE = ROOT / "templates" / "standard_stock_model_template.xlsx"
 DEFAULT_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
 DEFAULT_OUTPUT_JSON = ROOT / "docs" / "standard_template_shell_neutrality_audit.json"
@@ -25,6 +32,7 @@ DEFAULT_OUTPUT_MD = ROOT / "docs" / "standard_template_shell_neutrality_audit.md
 
 COMPANY_SPECIFIC_TERMS = (
     "ANF",
+    "A&F",
     "Abercrombie",
     "Hollister",
     "Pitney Bowes",
@@ -39,6 +47,7 @@ COMPANY_SPECIFIC_PATTERNS = tuple(
     re.compile(pattern, re.I)
     for pattern in (
         r"\bANF\b",
+        r"A&F",
         r"\bAbercrombie\b",
         r"\bHollister\b",
         r"\bPitney Bowes\b",
@@ -65,6 +74,15 @@ FIXED_SECTOR_LABEL_PATTERNS = tuple(
         r"\bERP\b",
         r"\bfreight tailwind\b",
         r"\bmarketing headwind\b",
+        r"\bbrand health\b",
+        r"\bbrand family\b",
+        r"\bAUR\b",
+        r"\bdigital\s*/\s*omnichannel\b",
+        r"\bdigital sales mix\b",
+        r"\bstore growth\b",
+        r"\brevenue growth vs store growth\b",
+        r"\bmarketing\b",
+        r"\bsourcing\s*/\s*supplier\b",
         r"\bnet sales growth\b",
         r"\badjusted EPS\b",
         r"\bshare repurchases?\b",
@@ -85,6 +103,12 @@ SOURCE_SPECIFIC_PATTERNS = tuple(
         r"\bsource extract\b",
         r"\bsource material\b",
         r"\bprofile fallback\b",
+        r"\b20\d{2}(?:-Q[1-4]|-\d{2}-\d{2})?\b",
+        r"\$\s*-?\d",
+        r"\b\d+(?:\.\d+)?\s*(?:%|bps|million|billion)\b",
+        r"\brevolver(?:_|\s+)capacity(?:_|\s+)change",
+        r"\bbrand_family_momentum\b",
+        r"\bAUR\b",
     )
 )
 UNIVERSAL_HEADER_TEXT = {
@@ -558,12 +582,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-md", type=Path, default=DEFAULT_OUTPUT_MD)
     args = parser.parse_args(argv)
 
-    payload = build_audit(
-        template_path=args.template,
-        manifest_path=args.manifest,
-        output_json=args.output_json,
-        output_md=args.output_md,
+    is_default_run = all(
+        actual.resolve() == expected.resolve()
+        for actual, expected in (
+            (args.template, DEFAULT_TEMPLATE),
+            (args.manifest, DEFAULT_MANIFEST),
+            (args.output_json, DEFAULT_OUTPUT_JSON),
+            (args.output_md, DEFAULT_OUTPUT_MD),
+        )
     )
+    if is_default_run and os.environ.get("STANDARD_TEMPLATE_AUDIT_ISOLATED_RUN") != "1":
+        run_audit_generator(Path(__file__), root=ROOT)
+        payload = json.loads(DEFAULT_OUTPUT_JSON.read_text(encoding="utf-8"))
+    else:
+        payload = build_audit(
+            template_path=args.template,
+            manifest_path=args.manifest,
+            output_json=args.output_json,
+            output_md=args.output_md,
+        )
     summary = payload["post_neutrality_summary"]
     print(f"neutrality audit: {args.output_json}")
     print(f"neutrality audit md: {args.output_md}")

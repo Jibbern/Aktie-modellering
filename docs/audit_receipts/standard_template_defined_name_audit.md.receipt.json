@@ -1,0 +1,58 @@
+{
+  "receipt_version": "3.0.0",
+  "status": "generated",
+  "reason": "",
+  "artifact": {
+    "path": "docs/standard_template_defined_name_audit.md",
+    "sha256": "8c4b836fe4fc222ff53c0bf079953d560954c80f881d5447d20dcaba760b6b5c",
+    "output_schema": "text/markdown",
+    "output_version": "markdown-v1"
+  },
+  "authoritative_inputs": [
+    {
+      "path": "templates/standard_stock_model_template.xlsx",
+      "sha256": "e21e55e86cc310301fa5c4fb698e7a801c9ca671064fd53953b5a2d4d531b7e0"
+    },
+    {
+      "path": "docs/standard_template_shell_manifest.json",
+      "sha256": "7ef93889a75ce37648ed88eed09eac01821cff3f07403cbc3c897d1921d2e5d7"
+    },
+    {
+      "path": "docs/workbook_binding_map.json",
+      "sha256": "372e15e4421d491254542cc1d331950d422aa46bb750ee6b0899e60253b601b7"
+    }
+  ],
+  "generator": {
+    "contract_version": "1.0.0",
+    "dependencies": [],
+    "execution_contract_sha256": "9e2ee33a8c37601c6a8b1ee1949ebfc0d91e00660ff6b11802af03cbb93b1925",
+    "implementation_sha256": "9ccfc5fcaccc4b8139e448f1e7b12bbdee5b3ea28ec4e28f95a13f2003ba0a7f",
+    "path": "scripts/build_standard_template_defined_name_audit.py",
+    "receipt_engine_sha256": "d8dcde2700b5d5b2a8bbb4040b5341995408745ac09ff0559b3dd979593c5be0",
+    "runner_implementation_sha256": "a2d09fd4edefa35cbadb27ffbf3dd569c1bd3d0b306eaa12bd95555511b46291"
+  },
+  "verification": {
+    "mode": "controlled_isolated_generator_run",
+    "runner_contract_version": "2.0.0",
+    "successful_completion": true,
+    "run_generation_id": "73c54bd5c5db2c55afe612d9602350f4596f87c2b94611d0b50e7fb46a862c00",
+    "generated_outputs": [
+      {
+        "canonical_content_sha256": "7805cfab5b37676fa037cae576de5ef3ec32006c9b713094f319a0268c6595ba",
+        "output_schema": "json",
+        "output_version": "1.0.0",
+        "path": "docs/standard_template_defined_name_audit.json",
+        "sha256": "84bd72c115d6f033db0ade9e678be5334fc7c3be25b7cfbe65ae925c8d90ce63"
+      },
+      {
+        "canonical_content_sha256": "f76b35ab5b225650d427afec880c8525bd4cc4ed03c0d05bd986ff94d7922e27",
+        "output_schema": "text/markdown",
+        "output_version": "markdown-v1",
+        "path": "docs/standard_template_defined_name_audit.md",
+        "sha256": "8c4b836fe4fc222ff53c0bf079953d560954c80f881d5447d20dcaba760b6b5c"
+      }
+    ]
+  },
+  "generated_at_utc": "2026-07-13T17:37:19+00:00",
+  "generation_id": "1756918cccd57f2065b26e9fc05d06c3e9434f98173eea5a1f5d22c706148d96"
+}

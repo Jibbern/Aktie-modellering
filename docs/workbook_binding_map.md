@@ -42,6 +42,7 @@ Executable collection bindings also carry a typed planner contract:
 - `target_columns`
 - `source_ref_required`
 - optional `target_rows` when the shell contains intentional spacer rows
+- explicit `pick_exclusion_disposition` whenever `pick=first/latest`
 
 `target` remains the declared shell envelope used for layout/block ownership.
 `planner_target` is the smaller exact range a planner may emit cells for. A
@@ -64,6 +65,13 @@ source references, capacity, overflow, skipped rows, mapping gaps, and manual
 review flags. The value-only executor may apply only those exact planned cells.
 Missing values for `required` or `blocked_if_missing` bindings are P1 and fail
 the plan; they are never demoted to ordinary P2 coverage gaps.
+
+The executable identity signs the complete binding-map document, including its
+schema version, `binding_planner_contract_version`, top-level policy, and every
+binding. Serialized plans and typed snapshots are audit/cache output only.
+Coverage, filling, and post-fill validation independently reproduce the plan
+from the normalized package, exact approved shell, manifest, and binding
+contract; arbitrary `PASS` mappings or recomputed hashes have no authority.
 
 `shell_zone` must match a writable zone in
 `docs/standard_template_shell_manifest.json`. The binding map owns writable
@@ -125,12 +133,22 @@ a selected business row.
 
 The planner contracts encode business meaning, not merely writable space:
 
-- `SUMMARY!B45` receives the liquidity value; the shell's Net leverage row is
-  not used as a net-debt surrogate;
+- `SUMMARY!A3` consumes `business_description`, `A5` consumes the distinct
+  `strategic_context`, and `A9:B11` consume structured revenue-stream members
+  and numeric mix values rather than narrative revenue-model text;
+- `SUMMARY!B41` accepts only a source-backed `net_leverage` ratio and remains
+  blank with an explicit review gap when unavailable; `B45` receives the
+  source-reconciled `summary_liquidity_display`, including an exact as-of date
+  whenever total liquidity is older than SUMMARY, never net debt or cash-only
+  liquidity;
 - Quarter Notes data starts on row 10, leaving row 9 header-only;
 - Operating Drivers maps topic to column A, current read to B, source to its
   declared source column, and why/use to H;
 - segment values use member-by-period pivot cells rather than sequential rows;
+- Valuation quarterly actuals, BS quarterly segments, and BS annual segments
+  resolve their columns from explicit shared `period_axis_id` contracts. Header
+  bindings own the period-to-column map; dependent values cannot derive a
+  separate alignment and fail if a selected period has no visible column;
 - Valuation input cells `D195:D211` receive typed price/date, shares, net debt,
   TTM financials, and explicit assumptions according to their individual
   bindings;
@@ -277,3 +295,24 @@ Post-render scaffold/repair is not allowed as runtime. If normalized data does
 not satisfy a binding, the runtime reports the gap; it does not insert rows,
 copy a ticker workbook, trim ranges, top up merges, or patch visible content
 after the workbook is filled.
+
+## Canonical QA Presentation
+
+The binding planner builds `issue_ledger` before any QA cells are planned. Full
+source-level occurrences remain in `issue_ledger.occurrences`; workbook QA is a
+bounded presentation only.
+
+- `QA_Log` binds one deduplicated summary per stable `issue_id`.
+- `Needs_Review` binds only issues whose visibility disposition is
+  `needs_review`.
+- `QA_Checks` binds one aggregate row per issue `rule_id` plus explicit
+  `PASS`/`INFO` rows for executed or prerequisite-blocked validation stages.
+
+Each QA binding declares its row schema, stable row key, sorting, capacity,
+aggregation policy, visibility filter, and explicit overflow behavior. Capacity
+may limit workbook summaries, but it may never remove JSON occurrences.
+
+Only the primary Quarter Notes rows currently have approved bindings. The
+retained history layout below row 15 is shell-owned and blank; it is not a
+license for sequential dumping. A future history binding must define exact row
+keys, capacity, columns, and overflow behavior before that area becomes writable.

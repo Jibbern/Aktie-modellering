@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 from pbi_xbrl.new_ticker_binding_planner import (
     DEFAULT_BINDING_MAP,
     DEFAULT_MANIFEST,
+    DEFAULT_SHELL,
     plan_standard_template_writes_from_paths,
     write_binding_plan_report,
 )
@@ -23,6 +24,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--binding-map", type=Path, default=DEFAULT_BINDING_MAP)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--shell", type=Path, default=DEFAULT_SHELL)
     parser.add_argument("--ticker")
     parser.add_argument("--promotion-requested", action="store_true")
     args = parser.parse_args(argv)
@@ -31,6 +33,7 @@ def main(argv: list[str] | None = None) -> int:
         args.package,
         binding_map_path=args.binding_map,
         manifest_path=args.manifest,
+        shell_path=args.shell,
         ticker_override=args.ticker,
         promotion_requested=args.promotion_requested,
     )

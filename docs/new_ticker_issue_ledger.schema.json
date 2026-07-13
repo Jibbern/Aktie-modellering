@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "new_ticker_issue_ledger.schema.json",
+  "title": "New-Ticker Canonical Issue Ledger",
+  "type": "object",
+  "required": ["version", "summary", "issues", "occurrences", "checks", "qa_presentation"],
+  "properties": {
+    "version": {"type": "string", "const": "1.0.0"},
+    "summary": {
+      "type": "object",
+      "required": ["canonical_unique_issue_count", "detailed_occurrence_count", "actionable_issue_count", "audit_only_issue_count", "blocking_issue_count"],
+      "properties": {
+        "canonical_unique_issue_count": {"type": "integer", "minimum": 0},
+        "detailed_occurrence_count": {"type": "integer", "minimum": 0},
+        "actionable_issue_count": {"type": "integer", "minimum": 0},
+        "audit_only_issue_count": {"type": "integer", "minimum": 0},
+        "blocking_issue_count": {"type": "integer", "minimum": 0},
+        "issue_type_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "occurrence_type_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}}
+      },
+      "additionalProperties": false
+    },
+    "issues": {"type": "array", "items": {"$ref": "#/$defs/issue"}},
+    "occurrences": {"type": "array", "items": {"$ref": "#/$defs/occurrence"}},
+    "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}},
+    "qa_presentation": {
+      "type": "object",
+      "required": ["qa_log_rows", "needs_review_rows", "qa_check_rows"],
+      "properties": {
+        "qa_log_rows": {"type": "array", "items": {"type": "object"}},
+        "needs_review_rows": {"type": "array", "items": {"type": "object"}},
+        "qa_check_rows": {"type": "array", "items": {"type": "object"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "issue": {
+      "type": "object",
+      "required": ["issue_id", "severity", "rule_id", "issue_type", "section", "normalized_path", "business_row_key", "binding_id", "root_cause", "message", "suggested_action", "occurrence_count", "visibility_disposition", "promotion_blocking", "render_blocking", "occurrence_ids"],
+      "properties": {
+        "issue_id": {"type": "string", "pattern": "^ISS-[0-9a-f]{20}$"},
+        "severity": {"enum": ["P0", "P1", "P2", "P3"]},
+        "rule_id": {"type": "string", "minLength": 1},
+        "issue_type": {"enum": ["actionable_exception", "text_quality_demotion", "adapter_truncation_metadata", "duplicate_evidence", "unit_normalization_review", "planner_mapping_gap", "planner_overflow", "validation_failure", "audit_only_information"]},
+        "section": {"type": "string"},
+        "normalized_path": {"type": "string"},
+        "business_row_key": {"type": "string"},
+        "binding_id": {"type": "string"},
+        "canonical_issue_key": {"type": "string"},
+        "source_refs": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "evidence_keys": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "root_cause": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1},
+        "suggested_action": {"type": "string", "minLength": 1},
+        "occurrence_count": {"type": "integer", "minimum": 1},
+        "first_affected_period": {"type": "string"},
+        "last_affected_period": {"type": "string"},
+        "visibility_disposition": {"enum": ["needs_review", "json_audit_only"]},
+        "promotion_blocking": {"type": "boolean"},
+        "render_blocking": {"type": "boolean"},
+        "occurrence_ids": {"type": "array", "items": {"type": "string", "pattern": "^OCC-[0-9a-f]{24}$"}, "minItems": 1}
+      },
+      "additionalProperties": false
+    },
+    "occurrence": {
+      "type": "object",
+      "required": ["issue_id", "occurrence_id", "severity", "rule_id", "issue_type", "visibility_disposition", "promotion_blocking", "render_blocking", "origin", "detail"],
+      "properties": {
+        "issue_id": {"type": "string"},
+        "occurrence_id": {"type": "string"},
+        "severity": {"type": "string"},
+        "rule_id": {"type": "string"},
+        "issue_type": {"type": "string"},
+        "section": {"type": "string"},
+        "normalized_path": {"type": "string"},
+        "business_row_key": {"type": "string"},
+        "binding_id": {"type": "string"},
+        "canonical_issue_key": {"type": "string"},
+        "source_ref": {"type": "string"},
+        "evidence_key": {"type": "string"},
+        "source_synthesis_id": {"type": "string"},
+        "contributing_source_refs": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "root_cause": {"type": "string"},
+        "message": {"type": "string"},
+        "suggested_action": {"type": "string"},
+        "affected_period": {"type": "string"},
+        "visibility_disposition": {"type": "string"},
+        "promotion_blocking": {"type": "boolean"},
+        "render_blocking": {"type": "boolean"},
+        "origin": {"enum": ["manual_review", "mapping_gap", "validation"]},
+        "detail": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "check": {
+      "type": "object",
+      "required": ["rule_id", "status", "unique_issue_count", "occurrence_count", "blocking_count", "actionable_count", "affected_sections", "interpretation", "detail_ref"],
+      "properties": {
+        "rule_id": {"type": "string"},
+        "status": {"enum": ["FAIL", "REVIEW", "INFO", "PASS"]},
+        "unique_issue_count": {"type": "integer", "minimum": 0},
+        "occurrence_count": {"type": "integer", "minimum": 0},
+        "blocking_count": {"type": "integer", "minimum": 0},
+        "actionable_count": {"type": "integer", "minimum": 0},
+        "affected_sections": {"type": "string"},
+        "interpretation": {"type": "string"},
+        "detail_ref": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

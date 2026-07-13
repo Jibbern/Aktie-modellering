@@ -1,0 +1,93 @@
+{
+  "receipt_version": "3.0.0",
+  "status": "generated",
+  "reason": "",
+  "artifact": {
+    "path": "docs/workbook_block_architecture.json",
+    "sha256": "d228e07f7dbd91a2859f7d2b8651451cf02e8b1cb12d4b6a845bf308ec4be7d2",
+    "output_schema": "json",
+    "output_version": "0.1.0"
+  },
+  "authoritative_inputs": [
+    {
+      "path": "templates/lab/ANF_template_lab.xlsx",
+      "sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd"
+    },
+    {
+      "path": "docs/standard_template_shell_manifest.json",
+      "sha256": "7ef93889a75ce37648ed88eed09eac01821cff3f07403cbc3c897d1921d2e5d7"
+    },
+    {
+      "path": "docs/workbook_binding_map.json",
+      "sha256": "372e15e4421d491254542cc1d331950d422aa46bb750ee6b0899e60253b601b7"
+    },
+    {
+      "path": "docs/sheet_data_flow_map.json",
+      "sha256": "af39ae96d4f7e2ace8c5cc1605fee2f07cd6c69150addb6ce20741f447fc6078"
+    },
+    {
+      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\PBI_model.xlsx",
+      "sha256": "cf87600fbeeea285cf192f30520b1819bc4280ddbccd94c343828712d2020646"
+    },
+    {
+      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\GPRE_model.xlsm",
+      "sha256": "f7c23c9c0d9e3a52c708553e5fc6f964aa3fc58c8b4805d235f7ccfce5bde41b"
+    },
+    {
+      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
+      "sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd"
+    }
+  ],
+  "generator": {
+    "contract_version": "1.0.0",
+    "dependencies": [
+      {
+        "path": "pbi_xbrl/json_schema_validation.py",
+        "sha256": "000e7f72c3faab206a135a416700fc235accfb2c533cbb90ddd2e5e886bedf28"
+      }
+    ],
+    "execution_contract_sha256": "0fb39fbf730299788f9b9df975c32190c8b735c9e7d704bb765dec966f43527e",
+    "implementation_sha256": "be97dce24dd2a7ae09f44504cac1bfcca345cdc773b947a057926b683e456415",
+    "path": "scripts/build_workbook_block_architecture.py",
+    "receipt_engine_sha256": "d8dcde2700b5d5b2a8bbb4040b5341995408745ac09ff0559b3dd979593c5be0",
+    "runner_implementation_sha256": "a2d09fd4edefa35cbadb27ffbf3dd569c1bd3d0b306eaa12bd95555511b46291"
+  },
+  "verification": {
+    "mode": "controlled_isolated_generator_run",
+    "runner_contract_version": "2.0.0",
+    "successful_completion": true,
+    "run_generation_id": "0a6915ac2dc7eebd40a9d6136fe79ce770b1935aa1942a3dc5c648cd9f2f9c22",
+    "generated_outputs": [
+      {
+        "canonical_content_sha256": "6b8107eb05c5d2f9417cea4edf94d125b49fc6e4342949de5eb5d8e7f4767e25",
+        "output_schema": "json",
+        "output_version": "0.1.0",
+        "path": "docs/workbook_block_architecture.json",
+        "sha256": "d228e07f7dbd91a2859f7d2b8651451cf02e8b1cb12d4b6a845bf308ec4be7d2"
+      },
+      {
+        "canonical_content_sha256": "776dfbed5f013ddcd9306dd36f8e43de7d1fcf7d57db5d31046f9c6a91f59bb5",
+        "output_schema": "text/markdown",
+        "output_version": "markdown-v1",
+        "path": "docs/workbook_block_architecture.md",
+        "sha256": "c78001959c4c194949cc98ee0f8db5b850f1b9dfa23c13740afb355788835aa4"
+      },
+      {
+        "canonical_content_sha256": "5c4307d19fabe50d86cb60d3da2fea35bc69660c4976940cdeba75784a8400f7",
+        "output_schema": "json",
+        "output_version": "0.1.0",
+        "path": "docs/workbook_block_coverage_matrix.json",
+        "sha256": "8b5a81a8739cab52c4bfe25329f258606abad2a2e3083a5d11e0deb2161679af"
+      },
+      {
+        "canonical_content_sha256": "e9ef5c275964c2b97b0c5feaf5e26fdfb6cfe32218bfd2579ff022d33a2eff3f",
+        "output_schema": "text/markdown",
+        "output_version": "markdown-v1",
+        "path": "docs/workbook_block_coverage_matrix.md",
+        "sha256": "e3a5fc90cd4ee3b6d9d05c60cea6060d9616c3128b091f56e1d81142f9172ebf"
+      }
+    ]
+  },
+  "generated_at_utc": "2026-07-13T17:38:05+00:00",
+  "generation_id": "daf8e47d39ed8e0d8598f06e9b4338884358fb6a266974f06d7e82904a1b26a4"
+}

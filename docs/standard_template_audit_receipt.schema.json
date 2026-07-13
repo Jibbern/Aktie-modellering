@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.stockmodel/standard_template_audit_receipt.schema.json",
+  "title": "Standard template audit generation metadata receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_version",
+    "status",
+    "reason",
+    "artifact",
+    "authoritative_inputs",
+    "generator",
+    "verification",
+    "generated_at_utc",
+    "generation_id"
+  ],
+  "properties": {
+    "receipt_version": {"const": "3.0.0"},
+    "status": {"enum": ["generated", "stale"]},
+    "reason": {"type": "string"},
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "output_schema", "output_version"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "output_schema": {"type": "string", "minLength": 1},
+        "output_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "authoritative_inputs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/fileDigest"}
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "contract_version",
+        "implementation_sha256",
+        "receipt_engine_sha256",
+        "runner_implementation_sha256",
+        "execution_contract_sha256",
+        "dependencies"
+      ],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "contract_version": {"type": "string", "minLength": 1},
+        "implementation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "receipt_engine_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "runner_implementation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "execution_contract_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "dependencies": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/fileDigest"}
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "runner_contract_version",
+        "successful_completion",
+        "run_generation_id",
+        "generated_outputs"
+      ],
+      "properties": {
+        "mode": {"enum": ["controlled_isolated_generator_run", "unverified_stale"]},
+        "runner_contract_version": {"const": "2.0.0"},
+        "successful_completion": {"type": "boolean"},
+        "run_generation_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "generated_outputs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/generatedOutput"}
+        }
+      }
+    },
+    "generated_at_utc": {"type": "string", "format": "date-time"},
+    "generation_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "fileDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "generatedOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "canonical_content_sha256", "output_schema", "output_version"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "canonical_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "output_schema": {"type": "string", "minLength": 1},
+        "output_version": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
