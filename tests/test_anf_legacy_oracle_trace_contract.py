@@ -153,13 +153,17 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert package["segments"]["items"]
         assert bindings["bs_segment_quarterly_rows"]["planning_state"] == "active"
         assert bindings["bs_segment_quarterly_rows"]["planning_mode"] == "pivot_rows"
-        assert bindings["bs_segment_quarterly_rows"]["planner_target"] == "A61:I67"
+        assert bindings["bs_segment_quarterly_rows"]["planner_target"] == "A61:M67"
         assert bindings["bs_segment_quarterly_rows"]["row_key"] == ["period", "dimension", "member", "metric"]
         hollister = next(item for item in package["segments"]["items"] if item["member"] == "Hollister" and item["metric"] == "revenue" and item["period"] == "2025-Q4")
         assert hollister["revenue"]["value"] == 863.3
         americas = next(item for item in package["segments"]["items"] if item["member"] == "Americas" and item["metric"] == "revenue" and item["period"] == "2025-FY")
         assert americas["annual_revenue"]["value"] == pytest.approx(4290.4, abs=0.01)
-        assert [writes[("BS_Segments", f"{column}7")].value for column in "BCDEFGHI"] == [
+        assert [writes[("BS_Segments", f"{column}7")].value for column in "BCDEFGHIJKLM"] == [
+            "2023-Q2",
+            "2023-Q3",
+            "2023-Q4",
+            "2024-Q1",
             "2024-Q2",
             "2024-Q3",
             "2024-Q4",
@@ -169,11 +173,21 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
             "2025-Q4",
             "2026-Q1",
         ]
-        assert writes[("BS_Segments", "H66")].value == pytest.approx(863.3)
-        assert writes[("BS_Segments", "H66")].row_key == "2025-Q4|brand|Hollister|revenue"
-        assert writes[("BS_Segments", "H61")].value == pytest.approx(1383.943)
-        assert writes[("BS_Segments", "G70")].value == "2025-FY"
-        assert writes[("BS_Segments", "G72")].value == pytest.approx(4290.395)
+        assert writes[("BS_Segments", "L66")].value == pytest.approx(863.3)
+        assert writes[("BS_Segments", "L66")].row_key == "2025-Q4|brand|Hollister|revenue"
+        assert writes[("BS_Segments", "L61")].value == pytest.approx(segments["H61"].value)
+        assert [writes[("BS_Segments", f"{column}70")].value for column in "BCDEFGHI"] == [
+            "2018-FY",
+            "2019-FY",
+            "2020-FY",
+            "2021-FY",
+            "2022-FY",
+            "2023-FY",
+            "2024-FY",
+            "2025-FY",
+        ]
+        assert writes[("BS_Segments", "G72")].value == pytest.approx(segments["B72"].value)
+        assert writes[("BS_Segments", "I72")].value == pytest.approx(segments["D72"].value)
 
         # 4. Operating drivers use the two independently addressable merge anchors.
         assert drivers["A2"].value == "Operating Drivers"
@@ -215,7 +229,10 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert investment_case["A4"].value == "Investment Snapshot"
         assert investment_case["B5"].value
         assert package["investment_case"]["key_debate"]["value"] == investment_case["B7"].value
-        assert package["valuation_inputs"]["net_debt"]["value"] == valuation["D198"].value
+        assert valuation["D198"].value is not None  # legacy display is an oracle, not source lineage
+        assert package["valuation_inputs"]["net_debt"]["status"] == "missing_source"
+        assert package["valuation_inputs"]["net_debt"]["value"] is None
+        assert "D198 was not treated as evidence" in package["valuation_inputs"]["net_debt"]["reason"]
         assert package["valuation_inputs"]["base_ebitda_ttm"]["value"] == valuation["D199"].value
         assert package["valuation_inputs"]["adjusted_ebitda_ttm"]["value"] == valuation["D200"].value
         assert package["valuation_inputs"]["revenue_ttm"]["value"] == valuation["D203"].value
@@ -225,8 +242,9 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert package["debt_liquidity"]["total_liquidity"]["value"] == pytest.approx(1209.086)
         assert package["debt_liquidity"]["as_of_date"]["value"] == "2026-01-31"
         assert package["debt_liquidity"]["liquidity_freshness"]["disposition"] == "stale_but_displayable_with_date"
-        assert writes[("SUMMARY", "B45")].value == "1,209.086 as of 2026-01-31"
+        assert writes[("SUMMARY", "B45")].value == pytest.approx(1209.086)
         assert writes[("SUMMARY", "B45")].normalized_path == "debt_liquidity.summary_liquidity_display"
+        assert writes[("SUMMARY", "D45")].value == "As of 2026-01-31 (stale)"
         assert bindings["ic_investment_summary"]["planner_target"] == "B5"
         assert package["investment_case"]["summary"]["source_ref"].startswith("ANF_model.xlsx!")
 
@@ -284,15 +302,24 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     assert plan.qa_snapshot_status == "stable"
     assert not plan.has_blockers
     assert len({(write.target_sheet, write.target_cell) for write in business_writes}) == len(business_writes)
-    assert Counter(write.target_sheet for write in business_writes) == {
-        "SUMMARY": 13,
-        "Valuation": 104,
-        "BS_Segments": 40,
-        "Operating_Drivers": 12,
-        "ANF_Investment_Case": 2,
-        "Quarter_Notes_UI": 25,
-        "Promise_Progress_UI": 56,
-    }
+    business_sheets = {write.target_sheet for write in business_writes}
+    assert business_sheets == {
+        "SUMMARY",
+        "Valuation",
+        "BS_Segments",
+        "Operating_Drivers",
+        "ANF_Investment_Case",
+        "Quarter_Notes_UI",
+            "Promise_Progress_UI",
+            "History_Q",
+        }
+    by_binding = Counter(write.binding_id for write in business_writes)
+    assert by_binding["valuation_period_headers"] == 12
+    assert by_binding["valuation_revenue_series"] == 12
+    assert by_binding["valuation_net_income_series"] == 12
+    assert by_binding["valuation_operating_cash_flow_series"] == 12
+    assert by_binding["bs_annual_financial_period_headers"] == 8
+    assert by_binding["bs_annual_revenue_series"] == 8
     assert summary["detailed_occurrence_count"] == len(plan.issue_ledger["occurrences"])
     assert summary["detailed_occurrence_count"] == len(plan.manual_review_flags) + len(plan.mapping_gaps) + len(plan.issues)
     assert summary["detailed_occurrence_count"] == sum(issue["occurrence_count"] for issue in plan.issue_ledger["issues"])

@@ -2,11 +2,11 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 107,
+    "retained_count": 179,
     "classification_counts": {
-      "active_binding_anchor": 40,
-      "formula_dependency": 19,
-      "generic_named_range": 32,
+      "active_binding_anchor": 112,
+      "formula_dependency": 29,
+      "generic_named_range": 22,
       "required_shell_anchor": 16
     },
     "target_mismatch_count": 0,
@@ -32,7 +32,7 @@
     {
       "name": "Adj_EPS_TTM",
       "attr_text": "'Valuation'!$D$205",
-      "classification": "generic_named_range",
+      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -64,7 +64,7 @@
     {
       "name": "BV_PerShare",
       "attr_text": "'Valuation'!$D$206",
-      "classification": "generic_named_range",
+      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -104,7 +104,7 @@
     {
       "name": "EPS_TTM",
       "attr_text": "'Valuation'!$D$204",
-      "classification": "generic_named_range",
+      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -112,7 +112,7 @@
     {
       "name": "EV",
       "attr_text": "'Valuation'!$N$195",
-      "classification": "generic_named_range",
+      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -120,7 +120,7 @@
     {
       "name": "EqShare_Target_Adj",
       "attr_text": "'Valuation'!$N$203",
-      "classification": "generic_named_range",
+      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -128,7 +128,7 @@
     {
       "name": "EqShare_Target_EV",
       "attr_text": "'Valuation'!$N$204",
-      "classification": "generic_named_range",
+      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -136,7 +136,7 @@
     {
       "name": "EqShare_Target_Yield",
       "attr_text": "'Valuation'!$N$205",
-      "classification": "generic_named_range",
+      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -232,7 +232,7 @@
     {
       "name": "MarketCap",
       "attr_text": "'Valuation'!$N$194",
-      "classification": "generic_named_range",
+      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -280,7 +280,7 @@
     {
       "name": "Price",
       "attr_text": "'Valuation'!$D$194",
-      "classification": "generic_named_range",
+      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -392,7 +392,7 @@
     {
       "name": "TBV_PerShare",
       "attr_text": "'Valuation'!$D$207",
-      "classification": "generic_named_range",
+      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -430,6 +430,142 @@
       "company_specific": false
     },
     {
+      "name": "bs_accounts_payable_series",
+      "attr_text": "'BS_Segments'!$B$28",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$28",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_accounts_receivable_series",
+      "attr_text": "'BS_Segments'!$B$14",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$14",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_accrued_liabilities_series",
+      "attr_text": "'BS_Segments'!$B$29",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$29",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_adjusted_ebitda_series",
+      "attr_text": "'BS_Segments'!$B$90",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$90",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_base_ebitda_series",
+      "attr_text": "'BS_Segments'!$B$88",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$88",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_capital_expenditures_series",
+      "attr_text": "'BS_Segments'!$B$95",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$95",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_cash_series",
+      "attr_text": "'BS_Segments'!$B$102",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$102",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_debt_core_series",
+      "attr_text": "'BS_Segments'!$B$103",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$103",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_eps_series",
+      "attr_text": "'BS_Segments'!$B$99",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$99",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_gross_profit_series",
+      "attr_text": "'BS_Segments'!$B$84",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$84",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_net_income_series",
+      "attr_text": "'BS_Segments'!$B$92",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$92",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_operating_cash_flow_series",
+      "attr_text": "'BS_Segments'!$B$94",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$94",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_operating_income_series",
+      "attr_text": "'BS_Segments'!$B$86",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$86",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_period_headers",
+      "attr_text": "'BS_Segments'!$B$82",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$82",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_revenue_series",
+      "attr_text": "'BS_Segments'!$B$83",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$83",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_shares_outstanding_series",
+      "attr_text": "'BS_Segments'!$B$98",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$98",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_annual_financial_total_equity_series",
+      "attr_text": "'BS_Segments'!$B$100",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$100",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "bs_annual_period_headers",
       "attr_text": "'BS_Segments'!$B$70",
       "classification": "active_binding_anchor",
@@ -446,10 +582,138 @@
       "company_specific": false
     },
     {
+      "name": "bs_cash_series",
+      "attr_text": "'BS_Segments'!$B$9",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$9",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_current_assets_series",
+      "attr_text": "'BS_Segments'!$B$18",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$18",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_current_liabilities_series",
+      "attr_text": "'BS_Segments'!$B$35",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$35",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_debt_core_series",
+      "attr_text": "'BS_Segments'!$B$40",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$40",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_debt_current_series",
+      "attr_text": "'BS_Segments'!$B$33",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$33",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_diluted_shares_series",
+      "attr_text": "'BS_Segments'!$B$49",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$49",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_goodwill_series",
+      "attr_text": "'BS_Segments'!$B$22",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$22",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_intangibles_series",
+      "attr_text": "'BS_Segments'!$B$23",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$23",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_inventory_series",
+      "attr_text": "'BS_Segments'!$B$15",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$15",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_lease_liabilities_current_series",
+      "attr_text": "'BS_Segments'!$B$34",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$34",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_lease_liabilities_noncurrent_series",
+      "attr_text": "'BS_Segments'!$B$42",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$42",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "bs_liquidity_anchor",
-      "attr_text": "'BS_Segments'!$A$7",
+      "attr_text": "'BS_Segments'!$A$9",
       "classification": "required_shell_anchor",
       "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_marketable_securities_series",
+      "attr_text": "'BS_Segments'!$B$13",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$13",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_other_assets_noncurrent_series",
+      "attr_text": "'BS_Segments'!$B$24",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$24",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_other_liabilities_noncurrent_series",
+      "attr_text": "'BS_Segments'!$B$44",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$44",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_pension_obligation_net_series",
+      "attr_text": "'BS_Segments'!$B$43",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$43",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_property_plant_equipment_net_series",
+      "attr_text": "'BS_Segments'!$B$19",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$19",
       "target_matches": true,
       "company_specific": false
     },
@@ -458,6 +722,14 @@
       "attr_text": "'BS_Segments'!$B$7",
       "classification": "active_binding_anchor",
       "expected_target": "'BS_Segments'!$B$7",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_restricted_cash_series",
+      "attr_text": "'BS_Segments'!$B$10",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$10",
       "target_matches": true,
       "company_specific": false
     },
@@ -474,6 +746,62 @@
       "attr_text": "'BS_Segments'!$A$61",
       "classification": "active_binding_anchor",
       "expected_target": "'BS_Segments'!$A$61",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_shares_outstanding_series",
+      "attr_text": "'BS_Segments'!$B$48",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$48",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_short_term_borrowings_series",
+      "attr_text": "'BS_Segments'!$B$32",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$32",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_total_assets_series",
+      "attr_text": "'BS_Segments'!$B$25",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$25",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_total_equity_series",
+      "attr_text": "'BS_Segments'!$B$47",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$47",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "bs_total_liabilities_series",
+      "attr_text": "'BS_Segments'!$B$45",
+      "classification": "active_binding_anchor",
+      "expected_target": "'BS_Segments'!$B$45",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "calculation_history_quarterly_rows",
+      "attr_text": "'History_Q'!$A$2",
+      "classification": "active_binding_anchor",
+      "expected_target": "'History_Q'!$A$2",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "ic_investment_case_title",
+      "attr_text": "'{ticker}_Investment_Case'!$A$1",
+      "classification": "active_binding_anchor",
+      "expected_target": "'{ticker}_Investment_Case'!$A$1",
       "target_matches": true,
       "company_specific": false
     },
@@ -694,10 +1022,26 @@
       "company_specific": false
     },
     {
+      "name": "summary_liquidity_as_of",
+      "attr_text": "'SUMMARY'!$D$45",
+      "classification": "active_binding_anchor",
+      "expected_target": "'SUMMARY'!$D$45",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "summary_net_leverage",
       "attr_text": "'SUMMARY'!$B$41",
       "classification": "active_binding_anchor",
       "expected_target": "'SUMMARY'!$B$41",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "summary_revenue_mix_label",
+      "attr_text": "'SUMMARY'!$A$8",
+      "classification": "active_binding_anchor",
+      "expected_target": "'SUMMARY'!$A$8",
       "target_matches": true,
       "company_specific": false
     },
@@ -718,10 +1062,58 @@
       "company_specific": false
     },
     {
+      "name": "valuation_acquisitions_cash_series",
+      "attr_text": "'Valuation'!$B$265",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$265",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "valuation_actuals_anchor",
       "attr_text": "'Valuation'!$A$6",
       "classification": "required_shell_anchor",
       "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_adjusted_ebitda_series",
+      "attr_text": "'Valuation'!$B$24",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$24",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_adjusted_eps_series",
+      "attr_text": "'Valuation'!$B$110",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$110",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_buybacks_cash_series",
+      "attr_text": "'Valuation'!$B$62",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$62",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_capital_expenditures_series",
+      "attr_text": "'Valuation'!$B$44",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$44",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_cash_series",
+      "attr_text": "'Valuation'!$B$70",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$70",
       "target_matches": true,
       "company_specific": false
     },
@@ -734,10 +1126,74 @@
       "company_specific": false
     },
     {
-      "name": "valuation_ebitda_series",
-      "attr_text": "'Valuation'!$B$24",
+      "name": "valuation_debt_core_series",
+      "attr_text": "'Valuation'!$B$72",
       "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$B$24",
+      "expected_target": "'Valuation'!$B$72",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_issuance_series",
+      "attr_text": "'Valuation'!$B$267",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$267",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_repayment_series",
+      "attr_text": "'Valuation'!$B$266",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$266",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_diluted_shares_series",
+      "attr_text": "'Valuation'!$B$102",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$102",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_dividends_cash_series",
+      "attr_text": "'Valuation'!$B$264",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$264",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_ebitda_series",
+      "attr_text": "'Valuation'!$B$18",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$18",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_eps_series",
+      "attr_text": "'Valuation'!$B$107",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$107",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_goodwill_series",
+      "attr_text": "'Valuation'!$B$269",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$269",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_gross_profit_series",
+      "attr_text": "'Valuation'!$B$262",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$262",
       "target_matches": true,
       "company_specific": false
     },
@@ -766,6 +1222,14 @@
       "company_specific": false
     },
     {
+      "name": "valuation_input_adjusted_eps_ttm",
+      "attr_text": "'Valuation'!$D$205",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$205",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "valuation_input_as_of",
       "attr_text": "'Valuation'!$D$195",
       "classification": "active_binding_anchor",
@@ -778,6 +1242,14 @@
       "attr_text": "'Valuation'!$D$199",
       "classification": "active_binding_anchor",
       "expected_target": "'Valuation'!$D$199",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_input_book_value_per_share",
+      "attr_text": "'Valuation'!$D$206",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$206",
       "target_matches": true,
       "company_specific": false
     },
@@ -798,6 +1270,14 @@
       "company_specific": false
     },
     {
+      "name": "valuation_input_eps_ttm",
+      "attr_text": "'Valuation'!$D$204",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$204",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "valuation_input_fcf_ttm",
       "attr_text": "'Valuation'!$D$201",
       "classification": "active_binding_anchor",
@@ -806,10 +1286,26 @@
       "company_specific": false
     },
     {
+      "name": "valuation_input_interest_paid_ttm",
+      "attr_text": "'Valuation'!$D$212",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$212",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "valuation_input_net_debt",
       "attr_text": "'Valuation'!$D$198",
       "classification": "active_binding_anchor",
       "expected_target": "'Valuation'!$D$198",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_input_operating_cash_flow_ttm",
+      "attr_text": "'Valuation'!$D$202",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$202",
       "target_matches": true,
       "company_specific": false
     },
@@ -830,6 +1326,54 @@
       "company_specific": false
     },
     {
+      "name": "valuation_input_tangible_book_value_per_share",
+      "attr_text": "'Valuation'!$D$207",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$207",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_intangibles_series",
+      "attr_text": "'Valuation'!$B$270",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$270",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_interest_expense_series",
+      "attr_text": "'Valuation'!$B$263",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$263",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_interest_paid_series",
+      "attr_text": "'Valuation'!$B$59",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$59",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_lease_liabilities_series",
+      "attr_text": "'Valuation'!$B$79",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$79",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_marketable_securities_series",
+      "attr_text": "'Valuation'!$B$71",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$71",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "valuation_net_income_series",
       "attr_text": "'Valuation'!$B$36",
       "classification": "active_binding_anchor",
@@ -846,10 +1390,18 @@
       "company_specific": false
     },
     {
-      "name": "valuation_output_rows",
-      "attr_text": "'Valuation'!$O$64",
+      "name": "valuation_operating_income_series",
+      "attr_text": "'Valuation'!$B$32",
       "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$O$64",
+      "expected_target": "'Valuation'!$B$32",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_pension_obligation_net_series",
+      "attr_text": "'Valuation'!$B$82",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$82",
       "target_matches": true,
       "company_specific": false
     },
@@ -870,10 +1422,34 @@
       "company_specific": false
     },
     {
+      "name": "valuation_revolver_availability_series",
+      "attr_text": "'Valuation'!$B$95",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$95",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "valuation_share_count_anchor",
       "attr_text": "'Valuation'!$A$102",
       "classification": "required_shell_anchor",
       "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_shares_outstanding_series",
+      "attr_text": "'Valuation'!$B$103",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$103",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_total_equity_series",
+      "attr_text": "'Valuation'!$B$268",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$268",
       "target_matches": true,
       "company_specific": false
     }

@@ -284,6 +284,15 @@ def plan_standard_template_writes(
             axis_issues = _register_period_axis(plan, binding, writes)
             plan.planner_issues.extend(axis_issues)
 
+    disposition_report, disposition_issues = _audit_financial_fact_dispositions(
+        package,
+        binding_payload=binding_payload,
+        planned_writes=plan.planned_writes,
+        binding_reports=plan.binding_reports,
+    )
+    plan.binding_reports.append(disposition_report)
+    plan.planner_issues.extend(disposition_issues)
+
     plan.planning_completed = True
     _dedupe_plan(plan)
     _validate_planned_write_types(plan, bindings)
@@ -616,15 +625,159 @@ def _register_period_axis(
             return [_planner_issue("P1", "binding_period_axis_duplicate_period", axis_id, f"Period {period!r} appears more than once in the visible axis.")]
         period_to_column[period] = column
         period_to_cell[period] = write.target_cell
+    continuity = str(binding.get("period_axis_continuity") or "")
+    periods = list(period_to_column)
+    if continuity:
+        ordinals: list[int] = []
+        for period in periods:
+            if continuity == "consecutive_quarters":
+                match = re.fullmatch(r"(\d{4})-Q([1-4])", period)
+                ordinal = int(match.group(1)) * 4 + int(match.group(2)) - 1 if match else None
+            elif continuity == "consecutive_fiscal_years":
+                match = re.fullmatch(r"(\d{4})-FY", period)
+                ordinal = int(match.group(1)) if match else None
+            else:
+                return [_planner_issue("P1", "binding_period_axis_continuity_invalid", axis_id, f"Unsupported continuity contract {continuity!r}.")]
+            if ordinal is None:
+                return [_planner_issue("P1", "binding_period_axis_period_invalid", axis_id, f"Period {period!r} does not satisfy {continuity}.")]
+            ordinals.append(ordinal)
+        if any(ordinals[index + 1] - ordinals[index] != 1 for index in range(len(ordinals) - 1)):
+            return [_planner_issue("P1", "binding_period_axis_not_consecutive", axis_id, f"Resolved periods are not {continuity}: {periods!r}.")]
     plan.period_axes[axis_id] = {
         "period_axis_id": axis_id,
         "header_binding_id": str(binding.get("binding_id") or ""),
         "sheet": str(binding.get("sheet") or ""),
-        "periods": list(period_to_column),
+        "periods": periods,
+        "continuity": continuity,
         "period_to_column": period_to_column,
         "period_to_cell": period_to_cell,
     }
     return []
+
+
+def _audit_financial_fact_dispositions(
+    package: Mapping[str, Any],
+    *,
+    binding_payload: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+    planned_writes: Sequence[PlannedWrite],
+    binding_reports: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, Any], list[NormalizedDataIssue]]:
+    """Require an explicit terminal disposition for every populated fact."""
+
+    raw_dispositions = binding_payload.get("financial_field_dispositions") if isinstance(binding_payload, Mapping) else []
+    dispositions: dict[tuple[str, str], Mapping[str, Any]] = {}
+    issues: list[NormalizedDataIssue] = []
+    for index, raw in enumerate(raw_dispositions or []):
+        if not isinstance(raw, Mapping):
+            issues.append(_planner_issue("P1", "financial_disposition_invalid", f"financial_field_dispositions.{index}", "Financial disposition entries must be objects."))
+            continue
+        section = str(raw.get("section") or "")
+        field_name = str(raw.get("field") or "")
+        disposition = str(raw.get("disposition") or "")
+        reason = str(raw.get("reason") or "")
+        key = (section, field_name)
+        if not section or not field_name or disposition not in {"formula_owned", "audit_only", "explicitly_excluded"} or not reason:
+            issues.append(_planner_issue("P1", "financial_disposition_invalid", f"financial_field_dispositions.{index}", "Disposition requires section, field, an allowed disposition, and a business reason."))
+            continue
+        if key in dispositions:
+            issues.append(_planner_issue("P1", "financial_disposition_duplicate", f"{section}.{field_name}", "Financial disposition is declared more than once."))
+            continue
+        dispositions[key] = raw
+
+    planned_paths = {write.normalized_path for write in planned_writes}
+    selector_exclusions: dict[str, Mapping[str, Any]] = {}
+    for report in binding_reports:
+        for skipped in report.get("skipped_rows") or []:
+            if not isinstance(skipped, Mapping):
+                continue
+            normalized_path = str(skipped.get("normalized_path") or "")
+            reason = str(skipped.get("reason") or "")
+            if normalized_path and reason:
+                selector_exclusions.setdefault(normalized_path, skipped)
+    skipped_rows: list[dict[str, Any]] = []
+    populated_count = 0
+    planned_count = 0
+    for section in ("quarterly_financials", "annual_financials"):
+        rows = _path_get(package, f"{section}.rows")
+        if not isinstance(rows, list):
+            continue
+        for row_index, row in enumerate(rows):
+            if not isinstance(row, Mapping):
+                continue
+            period = str(row.get("period") or "")
+            for field_name, node in row.items():
+                if not isinstance(node, Mapping) or str(node.get("status") or "") != "populated" or node.get("value") in (None, ""):
+                    continue
+                populated_count += 1
+                normalized_path = f"{section}.rows.{row_index}.{field_name}"
+                normalized_row_path = f"{section}.rows.{row_index}"
+                if normalized_path in planned_paths:
+                    planned_count += 1
+                    continue
+                disposition = dispositions.get((section, str(field_name)))
+                if disposition is not None:
+                    skipped_rows.append(
+                        {
+                            "binding_id": "financial_fact_disposition_audit",
+                            "section": section,
+                            "field": str(field_name),
+                            "normalized_path": normalized_path,
+                            "row_key": period,
+                            "source_ref": str(node.get("source_ref") or ""),
+                            "reason": str(disposition.get("reason") or ""),
+                            "disposition": str(disposition.get("disposition") or ""),
+                            "severity": "P2",
+                        }
+                    )
+                    continue
+                selector_exclusion = selector_exclusions.get(normalized_path) or selector_exclusions.get(normalized_row_path)
+                if selector_exclusion is not None:
+                    selector_reason = str(selector_exclusion.get("reason") or "")
+                    skipped_rows.append(
+                        {
+                            "binding_id": "financial_fact_disposition_audit",
+                            "section": section,
+                            "field": str(field_name),
+                            "normalized_path": normalized_path,
+                            "row_key": str(selector_exclusion.get("row_key") or period),
+                            "source_ref": str(selector_exclusion.get("source_ref") or node.get("source_ref") or ""),
+                            "reason": f"selector_exclusion_audit_only:{selector_reason}",
+                            "disposition": "audit_only",
+                            "severity": str(selector_exclusion.get("severity") or "P2"),
+                            "selector_exclusion": True,
+                        }
+                    )
+                    continue
+                issues.append(
+                    _planner_issue(
+                        "P1",
+                        "populated_financial_fact_without_disposition",
+                        normalized_path,
+                        "Populated financial fact is neither planned, formula-owned, audit-only, nor explicitly excluded.",
+                        normalized_path=normalized_path,
+                        business_row_key=period,
+                        source_ref=str(node.get("source_ref") or ""),
+                        root_cause="missing_financial_fact_disposition",
+                    )
+                )
+    report = {
+        "binding_id": "financial_fact_disposition_audit",
+        "mode": "disposition_audit",
+        "sheet": "",
+        "target": "",
+        "normalized_field": "quarterly_financials.rows + annual_financials.rows",
+        "capacity": 0,
+        "capacity_used": planned_count,
+        "overflow_rows": [],
+        "skipped_rows": skipped_rows,
+        "planned_write_count": 0,
+        "populated_fact_count": populated_count,
+        "planned_fact_count": planned_count,
+        "explicit_disposition_count": len(skipped_rows),
+        "selector_exclusion_count": sum(bool(row.get("selector_exclusion")) for row in skipped_rows),
+        "unresolved_fact_count": sum(1 for issue in issues if issue.rule_id == "populated_financial_fact_without_disposition"),
+    }
+    return report, issues
 
 
 def _plan_binding(
@@ -864,7 +1017,12 @@ def _plan_series_binding(
             continue
         value, source_ref, populated = _read_bound_row_field(row, binding, source_field)
         if not populated:
-            severity = "P1" if source_field in set(binding.get("required_columns") or []) else _missing_binding_severity(binding)
+            severity = (
+                "P1"
+                if bool(binding.get("required"))
+                and source_field in set(binding.get("required_columns") or [])
+                else _missing_binding_severity(binding)
+            )
             reason = f"{source_field} not populated"
             event_key = _planner_event_key(binding, normalized_path=normalized_path, row_key=row_key, event_type="missing_value")
             report["skipped_rows"].append(
@@ -1024,6 +1182,9 @@ def _plan_pivot_binding(
     written_cells: set[str] = set()
     block_members: dict[str, list[str]] = {}
     for row in rows:
+        period = str(_read_row_field(row, period_field)[0] or "")
+        if period not in period_to_column:
+            continue
         dimension = str(_read_row_field(row, dimension_field)[0] or "")
         member = str(_read_row_field(row, member_field)[0] or "")
         if dimension and member and member not in block_members.setdefault(dimension, []):
@@ -1049,16 +1210,23 @@ def _plan_pivot_binding(
         dimension = str(_read_row_field(row, dimension_field)[0] or "")
         member = str(_read_row_field(row, member_field)[0] or "")
         period = str(_read_row_field(row, period_field)[0] or "")
-        reason = ""
         if period not in period_to_column:
-            reason = "period_axis_period_missing"
-        elif (dimension, member) not in member_rows:
+            report["skipped_rows"].append(
+                _structured_skip(
+                    binding,
+                    normalized_path=normalized_path,
+                    row_key=row_key,
+                    reason="period_axis_outside_visible_window",
+                    severity="P2",
+                    source_ref=source_ref,
+                )
+            )
+            continue
+        if (dimension, member) not in member_rows:
             reason = "pivot_member_has_no_declared_block_capacity"
-        if reason:
-            severity = "P1"
-            record = _structured_skip(binding, normalized_path=normalized_path, row_key=row_key, reason=reason, severity=severity, source_ref=source_ref)
+            record = _structured_skip(binding, normalized_path=normalized_path, row_key=row_key, reason=reason, severity="P1", source_ref=source_ref)
             report["overflow_rows"].append(record)
-            gaps.append(_gap(binding, reason=reason, severity=severity, normalized_path=normalized_path, row_key=row_key, source_ref=source_ref))
+            gaps.append(_gap(binding, reason=reason, severity="P1", normalized_path=normalized_path, row_key=row_key, source_ref=source_ref))
             continue
         value, value_source_ref, populated = _read_bound_row_field(row, binding, value_field)
         if not populated:
@@ -1070,7 +1238,8 @@ def _plan_pivot_binding(
         target_row = member_rows[(dimension, member)]
         label_cell = f"{label_column}{target_row}"
         if label_cell not in written_cells:
-            writes.append(_planned_write(binding, ticker=ticker, target_cell=label_cell, normalized_path=_row_normalized_path(binding, row, source_position, member_field), row_key=f"{dimension}|{member}", value=member, source_ref=source_ref, capacity_used=len(member_rows), target_type="text", target_role=f"{binding['binding_id']}.member"))
+            label_value = _pivot_member_label(binding, dimension=dimension, member=member)
+            writes.append(_planned_write(binding, ticker=ticker, target_cell=label_cell, normalized_path=_row_normalized_path(binding, row, source_position, member_field), row_key=f"{dimension}|{member}", value=label_value, source_ref=source_ref, capacity_used=len(member_rows), target_type="text", target_role=f"{binding['binding_id']}.member"))
             written_cells.add(label_cell)
         target_cell = f"{period_to_column[period]}{target_row}"
         if target_cell in written_cells:
@@ -1085,6 +1254,19 @@ def _plan_pivot_binding(
     report["capacity_used"] = len(member_rows)
     report["planned_write_count"] = len(writes)
     return report, writes, gaps, issues
+
+
+def _pivot_member_label(binding: Mapping[str, Any], *, dimension: str, member: str) -> str:
+    """Render a dimension-aware label without embedding ticker-specific names."""
+
+    templates = binding.get("dimension_label_templates")
+    template = templates.get(dimension) if isinstance(templates, Mapping) else None
+    if not isinstance(template, str) or not template:
+        return member
+    try:
+        return template.format(dimension=dimension.replace("_", " ").title(), member=member)
+    except (KeyError, ValueError):
+        return member
 
 
 def _plan_table_rows(
@@ -1135,13 +1317,14 @@ def _plan_table_rows(
             reason = "required_columns_not_populated: " + ", ".join(missing_required)
             expected_target = f"row {target_row}"
             event_key = _planner_event_key(binding, normalized_path=base_path.rstrip("."), row_key=row_key, event_type="missing_required_columns")
+            severity = "P1" if bool(binding.get("required")) else _missing_binding_severity(binding)
             report["skipped_rows"].append(
                 _structured_skip(
                     binding,
                     normalized_path=base_path.rstrip("."),
                     row_key=row_key,
                     reason=reason,
-                    severity="P1",
+                    severity=severity,
                     source_ref=row_source_ref,
                     expected_target=expected_target,
                 )
@@ -1150,7 +1333,7 @@ def _plan_table_rows(
                 _gap(
                     binding,
                     reason=reason,
-                    severity="P1",
+                    severity=severity,
                     normalized_path=base_path.rstrip("."),
                     row_key=row_key,
                     source_ref=row_source_ref,
@@ -1161,7 +1344,7 @@ def _plan_table_rows(
             )
             issues.append(
                 _planner_issue(
-                    "P1",
+                    severity,
                     "required_row_schema_column_missing",
                     f"{binding['binding_id']}:{row_key}",
                     reason,
@@ -1578,6 +1761,9 @@ def _validate_manifest_and_binding_contracts(
         if period_axis_role == "header":
             if mode != "series" or str(binding.get("source_field") or "") != str(binding.get("period_field") or "period"):
                 issues.append(_planner_issue("P1", "binding_period_axis_header_invalid", binding_id, "Period-axis header must be a series whose source_field is its period_field."))
+            continuity = str(binding.get("period_axis_continuity") or "")
+            if continuity not in {"consecutive_quarters", "consecutive_fiscal_years"}:
+                issues.append(_planner_issue("P1", "binding_period_axis_continuity_missing", binding_id, "Period-axis headers require an explicit supported continuity contract."))
         if period_axis_role == "dependent" and period_axis_id not in active_axis_headers:
             issues.append(_planner_issue("P1", "binding_period_axis_header_missing", binding_id, f"No active header binding declares period axis {period_axis_id!r}."))
         if period_axis_role == "dependent" and not str(binding.get("period_field") or ""):

@@ -15,7 +15,7 @@ from pbi_xbrl.new_ticker_binding_planner import (
     BindingPlanReproductionError,
     reproduce_binding_plan,
 )
-from pbi_xbrl.standard_template_shell_identity import verify_post_fill_structural_identity
+from pbi_xbrl.standard_template_shell_identity import _planned_cell_values_equal, verify_post_fill_structural_identity
 import scripts.fill_anf_shadow_workbook as shadow_workflow
 from scripts.fill_anf_shadow_workbook import _atomic_promote_workbook, run_anf_shadow_workbook_fill
 from scripts.validate_standard_template_shell import validate_shell
@@ -167,7 +167,13 @@ def test_anf_shadow_fill_uses_reproduced_plan_and_strict_post_fill_validation(
         for write in plan["planned_writes"]
         if write["target_sheet"] not in {"QA_Log", "Needs_Review", "QA_Checks"}
     ]
-    assert len(business_writes) == 252
+    assert len({(write["target_sheet"], write["target_cell"]) for write in business_writes}) == len(business_writes)
+    business_bindings = [write["binding_id"] for write in business_writes]
+    assert business_bindings.count("valuation_period_headers") == 12
+    assert business_bindings.count("valuation_revenue_series") == 12
+    assert business_bindings.count("valuation_net_income_series") == 12
+    assert business_bindings.count("bs_annual_financial_period_headers") == 6
+    assert business_bindings.count("bs_annual_revenue_series") == 8
     by_target = {
         f"{write['target_sheet']}!{write['target_cell']}": write["value"]
         for write in plan["planned_writes"]
@@ -176,7 +182,10 @@ def test_anf_shadow_fill_uses_reproduced_plan_and_strict_post_fill_validation(
     try:
         assert "ANF_Investment_Case" in wb.sheetnames
         for write in plan["planned_writes"]:
-            assert wb[write["target_sheet"]][write["target_cell"]].value == write["value"]
+            assert _planned_cell_values_equal(
+                wb[write["target_sheet"]][write["target_cell"]].value,
+                write["value"],
+            )
 
         assert wb["Operating_Drivers"]["A6"].value == by_target["Operating_Drivers!A6"]
         assert wb["Operating_Drivers"]["B6"].value == by_target["Operating_Drivers!B6"]

@@ -10,9 +10,26 @@
     "description": {"type": "string"},
     "binding_planner_contract_version": {"type": "string", "const": "1.2.0"},
     "binding_planner_policy": {"type": "object"},
+    "financial_field_dispositions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/financialFieldDisposition"},
+      "uniqueItems": true
+    },
     "bindings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/binding"}}
   },
   "$defs": {
+    "financialFieldDisposition": {
+      "type": "object",
+      "required": ["section", "field", "disposition", "reason"],
+      "properties": {
+        "section": {"enum": ["quarterly_financials", "annual_financials"]},
+        "field": {"type": "string", "minLength": 1},
+        "disposition": {"enum": ["formula_owned", "audit_only", "explicitly_excluded"]},
+        "reason": {"type": "string", "minLength": 1},
+        "formula_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      },
+      "additionalProperties": false
+    },
     "rowSelector": {
       "type": "object",
       "required": ["source_path"],

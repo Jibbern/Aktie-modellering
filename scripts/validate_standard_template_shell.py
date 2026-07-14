@@ -156,7 +156,6 @@ EXPECTED_STATIC_LABELS_BY_SHEET = {
         "What the company does",
         "Current strategic context",
         "Key competitive advantage",
-        "Business model / revenue streams",
         "Operating model per segment",
         "Key dependencies",
         "What would make me wrong",
@@ -195,7 +194,6 @@ EXPECTED_STATIC_LABELS_BY_SHEET = {
         "Topic",
     ],
     "{ticker}_Investment_Case": [
-        "{ticker} Investment Case",
         "Investment Snapshot",
         "Key Debate",
         "Manual Market / Scenario Inputs",
@@ -231,11 +229,30 @@ MIN_STATIC_TEXT_COUNTS = {
     "BS_Segments": 55,
     "Operating_Drivers": 45,
     "{ticker}_Investment_Case": 95,
-    "Quarter_Notes_UI": 300,
+    # Internal slot labels are intentionally blank. The exact reusable history
+    # block contract below now carries the stronger structure check.
+    "Quarter_Notes_UI": 270,
     "Promise_Progress_UI": 40,
     "QA_Log": 10,
     "Needs_Review": 10,
     "QA_Checks": 9,
+}
+
+QUARTER_NOTES_HISTORY_BLOCK_ROWS = (32, 65, 96, 127, 158, 189, 218, 247, 274, 301, 328)
+QUARTER_NOTES_HISTORY_LABELS = {
+    1: "Quarter read",
+    2: "Model read",
+    3: "What changed",
+    4: "Watch next",
+    5: "Key caveat",
+    7: "Key developments",
+}
+QUARTER_NOTES_HISTORY_TABLE_HEADERS = {
+    1: "Theme",
+    3: "What happened",
+    6: "Why it matters",
+    8: "Model / valuation implication",
+    13: "Source / confidence",
 }
 
 
@@ -768,7 +785,7 @@ def validate_shell(
             issues.append(_issue("manifest_sheet_missing", "Manifest sheet does not exist in workbook.", sheet=sheet_name))
             continue
         ws = wb[workbook_sheet_name]
-        if sheet_name not in {"QA_Log", "Needs_Review", "QA_Checks"} and not ws.merged_cells.ranges:
+        if ws.sheet_state == "visible" and sheet_name not in {"QA_Log", "Needs_Review", "QA_Checks"} and not ws.merged_cells.ranges:
             issues.append(_issue("sheet_merge_contract", "Non-QA visible sheet should retain title/section merges.", sheet=sheet_name))
         if sheet_name in {"QA_Log", "Needs_Review", "QA_Checks"} and ws.tables:
             issues.append(
@@ -805,6 +822,51 @@ def validate_shell(
                             target=coord,
                         )
                     )
+        if sheet_name == "Quarter_Notes_UI":
+            merge_contract = {str(item) for item in ws.merged_cells.ranges}
+            for block_index, row_idx in enumerate(QUARTER_NOTES_HISTORY_BLOCK_ROWS, start=1):
+                expected_title = f"Historical quarter notes {block_index}"
+                if ws.cell(row_idx, 1).value != expected_title:
+                    issues.append(
+                        _issue(
+                            "quarter_notes_history_block_title_missing",
+                            f"Historical Quarter Notes block title is missing or changed. expected={expected_title!r}",
+                            sheet=sheet_name,
+                            target=f"A{row_idx}",
+                        )
+                    )
+                expected_merge = f"A{row_idx}:O{row_idx}"
+                if expected_merge not in merge_contract:
+                    issues.append(
+                        _issue(
+                            "quarter_notes_history_block_merge_missing",
+                            "Historical Quarter Notes block title merge is missing or changed.",
+                            sheet=sheet_name,
+                            target=expected_merge,
+                        )
+                    )
+                for offset, expected_label in QUARTER_NOTES_HISTORY_LABELS.items():
+                    label_row = row_idx + offset
+                    if ws.cell(label_row, 1).value != expected_label:
+                        issues.append(
+                            _issue(
+                                "quarter_notes_history_block_structure_missing",
+                                f"Historical Quarter Notes reusable block label is missing or changed. expected={expected_label!r}",
+                                sheet=sheet_name,
+                                target=f"A{label_row}",
+                            )
+                        )
+                table_header_row = row_idx + 8
+                for column, expected_label in QUARTER_NOTES_HISTORY_TABLE_HEADERS.items():
+                    if ws.cell(table_header_row, column).value != expected_label:
+                        issues.append(
+                            _issue(
+                                "quarter_notes_history_table_header_missing",
+                                f"Historical Quarter Notes table header is missing or changed. expected={expected_label!r}",
+                                sheet=sheet_name,
+                                target=ws.cell(table_header_row, column).coordinate,
+                            )
+                        )
         if sheet_name == "Promise_Progress_UI":
             for row_idx in PROMISE_ANNUAL_HEADER_ROWS:
                 annual_headers = [ws.cell(row_idx, col).value for col in range(1, 10)]

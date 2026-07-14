@@ -298,6 +298,19 @@ ID, freeze/split panes, and other declared visual settings are shell-owned.
 Active-cell, selection-range, scroll-position, and active-tab session state are
 explicitly ignored to avoid false failures after ordinary Excel interaction.
 
+Excel-roundtrip comparison uses semantic formatting properties instead of
+workbook-local style IDs. Font, fill, border, alignment, number format, and
+protection remain contract-owned. Formula comparison normalizes only equivalent
+numeric literals and unnecessary quoting around simple sheet names; defined-name
+targets use the same quoting normalization. Row heights are compared after
+0.05-point quantization and column widths after 1/256-character quantization to
+match Excel's storage precision. Planned finite numeric cell values allow only a
+`2e-15` relative roundtrip tolerance for the final IEEE-754 serialization digit;
+text, formulas, dates, booleans, and structural contracts remain exact. Changes to visible style properties, formulas,
+protection, merges, names, or dimensions outside those explicit tolerances remain
+material drift. These rules are a validation foundation, not a claim that a new
+Excel-native roundtrip has passed; each rendered candidate must still be tested.
+
 QA presentation is downstream of the canonical issue ledger. JSON retains every
 evidence occurrence, while `QA_Log`, `Needs_Review`, and `QA_Checks` receive
 deduplicated summaries, actionable exceptions, and rule-level checks

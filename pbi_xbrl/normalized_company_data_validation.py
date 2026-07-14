@@ -162,13 +162,58 @@ _NUMERIC_FINANCIAL_FIELDS = {
     "revenue",
     "gross_profit",
     "operating_income",
+    "base_ebitda",
     "adjusted_ebitda",
     "net_income",
     "eps",
+    "adjusted_eps",
     "operating_cash_flow",
     "free_cash_flow",
     "diluted_shares",
+    "q4_diluted_shares",
+    "shares_outstanding",
     "capital_expenditures",
+    "interest_paid",
+    "interest_expense",
+    "buybacks_cash",
+    "dividends_cash",
+    "acquisitions_cash",
+    "debt_repayment",
+    "debt_issuance",
+    "cash",
+    "restricted_cash",
+    "short_term_investments",
+    "marketable_securities",
+    "total_assets",
+    "total_liabilities",
+    "current_assets",
+    "current_liabilities",
+    "accounts_receivable",
+    "inventory",
+    "accounts_payable",
+    "accrued_liabilities",
+    "short_term_borrowings",
+    "debt_current",
+    "property_plant_equipment_net",
+    "other_assets_noncurrent",
+    "other_liabilities_noncurrent",
+    "total_equity",
+    "goodwill",
+    "intangibles",
+    "pension_obligation_net",
+    "total_debt",
+    "debt_core",
+    "lease_liabilities",
+    "lease_liabilities_current",
+    "lease_liabilities_noncurrent",
+    "revolver_availability",
+}
+_CALCULATION_HISTORY_METRICS = {
+    "revenue", "gross_profit", "operating_income", "base_ebitda", "adjusted_ebitda",
+    "net_income", "operating_cash_flow", "capital_expenditures", "interest_paid",
+    "interest_expense", "buybacks_cash", "dividends_cash", "acquisitions_cash",
+    "debt_repayment", "debt_issuance", "cash", "marketable_securities", "debt_core",
+    "diluted_shares", "shares_outstanding", "eps", "adjusted_eps",
 }
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_NORMALIZED_SCHEMA = ROOT / "docs" / "normalized_company_data.schema.json"
@@ -276,6 +321,7 @@ def validate_normalized_company_data(
         issues.extend(validate_normalized_company_data_schema(package))
     issues.extend(_validate_field_statuses_and_core_fields(package))
     issues.extend(_validate_financial_row_domains(package))
+    issues.extend(_validate_calculation_history(package))
     issues.extend(_validate_collection_business_keys(package))
     issues.extend(_validate_company_profile_semantics(package))
     issues.extend(_validate_debt_liquidity_semantics(package))
@@ -389,10 +435,133 @@ def _validate_financial_row_domains(package: Mapping[str, Any]) -> List[Normaliz
     return issues
 
 
+def _calculation_quarter_ordinal(period: str) -> int | None:
+    match = _QUARTERLY_PERIOD_RE.fullmatch(str(period or ""))
+    if not match:
+        return None
+    return int(period[:4]) * 4 + int(period[-1]) - 1
+
+
+def _validate_calculation_history(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    items = _path_get(package, "calculation_history.quarterly_items")
+    issues: List[NormalizedDataIssue] = []
+    if not isinstance(items, list) or not items:
+        return [
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id="calculation_history_missing",
+                field="calculation_history.quarterly_items",
+                message="A non-empty validated quarterly calculation history is required for TTM and YoY formulas.",
+                suggested_action="Project source-backed quarterly formula inputs into calculation_history before planning.",
+            )
+        ]
+
+    by_key: dict[tuple[str, str], Mapping[str, Any]] = {}
+    revenue_ordinals: set[int] = set()
+    for index, item in enumerate(items):
+        if not isinstance(item, Mapping):
+            continue
+        path = f"calculation_history.quarterly_items.{index}"
+        period = str(item.get("period") or "")
+        metric = str(item.get("metric") or "")
+        expected_ordinal = _calculation_quarter_ordinal(period)
+        ordinal = item.get("period_ordinal")
+        source_ref = str(item.get("source_ref") or "")
+        if expected_ordinal is None or ordinal != expected_ordinal:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="calculation_history_period_ordinal_mismatch",
+                    field=path,
+                    message="Calculation-history period_ordinal must exactly match the normalized fiscal quarter.",
+                    source_ref=source_ref,
+                    suggested_action="Normalize period and period_ordinal from one shared fiscal-period contract.",
+                )
+            )
+        key = (period, metric)
+        if key in by_key:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="calculation_history_duplicate_business_key",
+                    field=path,
+                    message=f"Calculation-history business key {period}|{metric} is duplicated.",
+                    source_ref=source_ref,
+                    suggested_action="Reconcile duplicate source facts before building the formula-input projection.",
+                )
+            )
+        else:
+            by_key[key] = item
+        value = item.get("value")
+        if (
+            str(item.get("status") or "") != "populated"
+            or not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or str(item.get("unit") or "") not in {"$m", "$/share", "m shares"}
+            or not source_ref
+        ):
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="calculation_history_value_invalid",
+                    field=path,
+                    message="Calculation-history rows require a source-backed numeric value, explicit supported unit, and populated status.",
+                    source_ref=source_ref,
+                    suggested_action="Keep incomplete evidence out of the populated formula-input projection.",
+                )
+            )
+        if metric == "revenue" and expected_ordinal is not None:
+            revenue_ordinals.add(expected_ordinal)
+
+    visible_rows = _path_get(package, "quarterly_financials.rows")
+    visible_ordinals: list[int] = []
+    if isinstance(visible_rows, list):
+        for row_index, row in enumerate(visible_rows):
+            if not isinstance(row, Mapping):
+                continue
+            period = str(row.get("period") or "")
+            ordinal = _calculation_quarter_ordinal(period)
+            if ordinal is not None:
+                visible_ordinals.append(ordinal)
+            for metric in _CALCULATION_HISTORY_METRICS:
+                field = row.get(metric)
+                if not isinstance(field, Mapping) or str(field.get("status") or "") != "populated":
+                    continue
+                history_item = by_key.get((period, metric))
+                if not isinstance(history_item, Mapping) or history_item.get("value") != field.get("value") or history_item.get("unit") != field.get("unit"):
+                    issues.append(
+                        NormalizedDataIssue(
+                            severity="P1",
+                            rule_id="calculation_history_visible_fact_mismatch",
+                            field=f"quarterly_financials.rows.{row_index}.{metric}",
+                            message="A populated visible quarterly formula input is missing or differs in calculation_history.",
+                            source_ref=str(field.get("source_ref") or ""),
+                            suggested_action="Build visible and calculation-history facts from one normalized source record.",
+                        )
+                    )
+
+    if visible_ordinals:
+        required_start = min(visible_ordinals) - 7
+        required_end = max(visible_ordinals)
+        missing_revenue_periods = [ordinal for ordinal in range(required_start, required_end + 1) if ordinal not in revenue_ordinals]
+        if missing_revenue_periods:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="calculation_history_insufficient_period_axis",
+                    field="calculation_history.quarterly_items",
+                    message="Calculation history lacks a consecutive revenue period axis covering the visible window plus seven prior quarters.",
+                    suggested_action="Retain enough prior source-backed quarters for TTM, YoY, and TTM-YoY calculations.",
+                )
+            )
+    return issues
+
+
 def _validate_collection_business_keys(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
     specs = (
         ("company_profile.revenue_streams", ("member",)),
         ("quarterly_financials.rows", ("period",)),
+        ("calculation_history.quarterly_items", ("period", "metric")),
         ("annual_financials.rows", ("period",)),
         ("normalized_guidance.items", ("metric", "horizon", "source_date", "evidence_key")),
         ("segments.items", ("dimension", "member", "period", "metric")),
@@ -563,6 +732,7 @@ def _validate_liquidity_freshness_contract(section: Mapping[str, Any]) -> List[N
 
     total = section.get("total_liquidity") if isinstance(section.get("total_liquidity"), Mapping) else {}
     display = section.get("summary_liquidity_display") if isinstance(section.get("summary_liquidity_display"), Mapping) else {}
+    as_of_display = section.get("summary_liquidity_as_of_display") if isinstance(section.get("summary_liquidity_as_of_display"), Mapping) else {}
     as_of = section.get("as_of_date") if isinstance(section.get("as_of_date"), Mapping) else {}
     summary_as_of_field = section.get("summary_as_of_date") if isinstance(section.get("summary_as_of_date"), Mapping) else {}
     source_ref = str(freshness.get("source_ref") or total.get("source_ref") or "")
@@ -785,16 +955,29 @@ def _validate_liquidity_freshness_contract(section: Mapping[str, Any]) -> List[N
                     suggested_action="Date the visible display with the same authoritative liquidity as-of value.",
                 )
             )
-        visible_dates = re.findall(r"\b\d{4}-\d{2}-\d{2}\b", str(_normalized_value(display) or ""))
+        display_value = _normalized_value(display)
+        if not isinstance(display_value, (int, float)) or isinstance(display_value, bool):
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="liquidity_summary_value_not_numeric",
+                    field="debt_liquidity.summary_liquidity_display",
+                    message="The visible SUMMARY liquidity value must be numeric; unit and as-of text belong in separate cells.",
+                    source_ref=str(display.get("source_ref") or source_ref),
+                    suggested_action="Keep the numeric liquidity value separate from its unit and as-of label.",
+                )
+            )
+    if str(as_of_display.get("status") or "") == "populated":
+        visible_dates = re.findall(r"\b\d{4}-\d{2}-\d{2}\b", str(_normalized_value(as_of_display) or ""))
         if authoritative_liquidity_text and visible_dates != [authoritative_liquidity_text]:
             rule_id = "stale_liquidity_date_not_visible" if disposition == "stale_but_displayable_with_date" and not visible_dates else "liquidity_visible_date_mismatch"
             issues.append(
                 NormalizedDataIssue(
                     severity="P1",
                     rule_id=rule_id,
-                    field="debt_liquidity.summary_liquidity_display",
+                    field="debt_liquidity.summary_liquidity_as_of_display",
                     message="Visible SUMMARY liquidity must show exactly the authoritative liquidity as-of date.",
-                    source_ref=str(display.get("source_ref") or source_ref),
+                    source_ref=str(as_of_display.get("source_ref") or source_ref),
                     suggested_action="Render the authoritative liquidity date once in the normalized display text.",
                 )
             )
@@ -808,10 +991,10 @@ def _validate_liquidity_freshness_contract(section: Mapping[str, Any]) -> List[N
             NormalizedDataIssue(
                 severity="P1",
                 rule_id=rule_id,
-                field="debt_liquidity.summary_liquidity_display",
-                message="Current or displayable liquidity must have a populated, visibly dated SUMMARY display value.",
+                field="debt_liquidity.summary_liquidity_as_of_display",
+                message="Current or displayable liquidity must have a separate populated, visibly dated SUMMARY as-of value.",
                 source_ref=source_ref,
-                suggested_action="Include the authoritative liquidity as-of date in the visible display field.",
+                suggested_action="Include the authoritative liquidity as-of date in the dedicated visible as-of field.",
             )
         )
     return issues
@@ -826,6 +1009,7 @@ def _validate_debt_liquidity_semantics(package: Mapping[str, Any]) -> List[Norma
     if str(total.get("status") or "") != "populated":
         freshness = section.get("liquidity_freshness") if isinstance(section.get("liquidity_freshness"), Mapping) else {}
         display = section.get("summary_liquidity_display") if isinstance(section.get("summary_liquidity_display"), Mapping) else {}
+        as_of_display = section.get("summary_liquidity_as_of_display") if isinstance(section.get("summary_liquidity_as_of_display"), Mapping) else {}
         disposition = str(freshness.get("disposition") or "")
         if disposition in {"current", "stale_but_displayable_with_date"}:
             issues.append(
@@ -838,7 +1022,9 @@ def _validate_debt_liquidity_semantics(package: Mapping[str, Any]) -> List[Norma
                     suggested_action="Use incomplete_components or blocked_from_current_summary until the total is source-backed.",
                 )
             )
-        if disposition in {"blocked_from_current_summary", "incomplete_components"} and str(display.get("status") or "") == "populated":
+        if disposition in {"blocked_from_current_summary", "incomplete_components"} and (
+            str(display.get("status") or "") == "populated" or str(as_of_display.get("status") or "") == "populated"
+        ):
             issues.append(
                 NormalizedDataIssue(
                     severity="P1",
@@ -935,8 +1121,11 @@ def _validate_debt_liquidity_semantics(package: Mapping[str, Any]) -> List[Norma
             )
     freshness = section.get("liquidity_freshness") if isinstance(section.get("liquidity_freshness"), Mapping) else {}
     display = section.get("summary_liquidity_display") if isinstance(section.get("summary_liquidity_display"), Mapping) else {}
+    as_of_display = section.get("summary_liquidity_as_of_display") if isinstance(section.get("summary_liquidity_as_of_display"), Mapping) else {}
     disposition = str(freshness.get("disposition") or "")
-    if disposition == "blocked_from_current_summary" and str(display.get("status") or "") == "populated":
+    if disposition == "blocked_from_current_summary" and (
+        str(display.get("status") or "") == "populated" or str(as_of_display.get("status") or "") == "populated"
+    ):
         issues.append(
             NormalizedDataIssue(
                 severity="P1",
@@ -948,7 +1137,9 @@ def _validate_debt_liquidity_semantics(package: Mapping[str, Any]) -> List[Norma
             )
         )
     elif disposition == "incomplete_components" and (
-        str(total.get("status") or "") == "populated" or str(display.get("status") or "") == "populated"
+        str(total.get("status") or "") == "populated"
+        or str(display.get("status") or "") == "populated"
+        or str(as_of_display.get("status") or "") == "populated"
     ):
         issues.append(
             NormalizedDataIssue(

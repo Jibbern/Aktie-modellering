@@ -20,7 +20,7 @@ from typing import Any, Iterable
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import MergedCell
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Protection, Side
 from openpyxl.utils import absolute_coordinate, get_column_letter, quote_sheetname, range_boundaries
 from openpyxl.workbook.defined_name import DefinedName
 
@@ -33,6 +33,7 @@ from pbi_xbrl.standard_template_shell_identity import (
     compute_shell_identity,
     normalize_xlsx_package,
 )
+from pbi_xbrl.standard_template_formula_contract import apply_standard_formula_contracts
 from pbi_xbrl.json_schema_validation import load_json_strict
 from pbi_xbrl.standard_template_audit_freshness import write_audit_freshness
 
@@ -172,7 +173,7 @@ SUPPORT_SHEET_HEADERS = {
     "Guidance_Normalized": ["metric", "horizon", "period", "value", "unit", "status", "source_ref", "notes"],
     "Quarter_Notes": ["period", "theme", "metric", "note", "source_ref", "status"],
     "Promise_Progress": ["period", "metric", "previous_guide", "current_guide", "actual", "status", "source_ref"],
-    "History_Q": ["period", "metric", "value", "unit", "source_ref", "status"],
+    "History_Q": ["period", "period_ordinal", "metric", "value", "unit", "source_ref", "status"],
 }
 VALUATION_GUIDANCE_SIDECAR_HEADERS = {
     "O7": "Guidance",
@@ -266,14 +267,19 @@ STALE_UNREFERENCED_DEFINED_NAMES = {
 }
 NEUTRAL_STATIC_LABELS = {
     "SUMMARY": {
-        "A8": "Business model / revenue streams (% of total revenue)",
+        "A45": "Total liquidity",
+        "C45": "$m",
     },
     "Valuation": {
-        "A36": "Net income attributable to common shareholders",
-        "A37": "Net income attributable to common shareholders margin %",
-        "A38": "Net income attributable to common shareholders YoY %",
-        "A39": "Net income attributable to common shareholders (TTM)",
-        "A40": "Net income attributable to common shareholders margin (TTM)",
+        "A36": "Net income",
+        "A37": "Net margin %",
+        "A38": "Net income YoY %",
+        "A39": "Net income (TTM)",
+        "A40": "Net margin (TTM)",
+    },
+    "BS_Segments": {
+        "A2": "Quarter labels are fiscal periods. Values are scaled to $m unless otherwise stated.",
+        "A3": "QA checks populate after normalized data is planned.",
     },
     "Operating_Drivers": {
         "A13": "[Current actual period]",
@@ -357,6 +363,12 @@ NEUTRAL_STATIC_LABELS = {
         "A28": "Guidance progression - period block 3",
         "A33": "Guidance progression - period block 4",
         "A37": "Current open guidance",
+        "A59": "Guidance timeline block 1",
+        "A69": "Guidance timeline block 2",
+        "A76": "Guidance timeline block 3",
+        "A84": "Guidance timeline block 4",
+        "A90": "Guidance timeline block 5",
+        "A97": "Guidance timeline block 6",
     },
 }
 VISIBLE_SOURCE_TEXT_PATTERNS = tuple(
@@ -503,7 +515,7 @@ def _sheet_title(sheet_name: str) -> str:
         "Valuation": "Valuation",
         "BS_Segments": "Balance Sheet & Segments",
         "Operating_Drivers": "Operating Drivers",
-        "{ticker}_Investment_Case": "{ticker} Investment Case",
+        "{ticker}_Investment_Case": "",
         "Quarter_Notes_UI": "Quarter Notes",
         "Promise_Progress_UI": "Promise Progress",
         "QA_Log": "QA Log",
@@ -1267,8 +1279,9 @@ def _ensure_sheet_titles(wb: Workbook, manifest: dict[str, Any]) -> None:
 def _ensure_binding_anchor_labels(wb: Workbook, manifest: dict[str, Any], bindings: list[dict[str, Any]]) -> None:
     current_binding_ids = {str(entry["binding_id"]) for entry in bindings}
     current_anchor_ids = {str(anchor["anchor_id"]) for anchor in manifest.get("required_anchors", [])}
+    legacy_binding_names = {"valuation_input_adjusted_fcf_ttm"}
     for name in list(wb.defined_names):
-        if str(name) in current_binding_ids | current_anchor_ids:
+        if str(name) in current_binding_ids | current_anchor_ids | legacy_binding_names:
             del wb.defined_names[name]
     for entry in bindings:
         if str(entry.get("planning_state") or "active") != "active":
@@ -1354,6 +1367,64 @@ def _apply_neutral_static_labels(wb: Workbook) -> None:
                 cell.value = label
 
 
+def _clear_visible_placeholder_labels(wb: Workbook) -> None:
+    placeholder = re.compile(
+        r"^\s*\[(?:[^\]]*\bslot(?:\s+\d+)?\b|dimension member\s+\d+|guidance metric[^\]]*|operating driver[^\]]*|quality of earnings item\s+\d+)\](?:\s+(?:sales|sales yoy))?\s*$",
+        re.I,
+    )
+    historical_block = re.compile(r"^\s*\[Historical quarter block\s+(\d+)\]\s*$", re.I)
+    generic_dynamic_headers = {
+        "[current actual period]": "Current actual period",
+        "[current guidance period]": "Current guidance period",
+    }
+    for ws in wb.worksheets:
+        if ws.sheet_state != "visible":
+            continue
+        for row in ws.iter_rows():
+            for cell in row:
+                if isinstance(cell, MergedCell) or not isinstance(cell.value, str):
+                    continue
+                text = cell.value.strip()
+                if text.casefold() in generic_dynamic_headers:
+                    cell.value = generic_dynamic_headers[text.casefold()]
+                    continue
+                block_match = historical_block.fullmatch(text)
+                if block_match:
+                    cell.value = f"Historical quarter notes {block_match.group(1)}"
+                    continue
+                if placeholder.fullmatch(text):
+                    cell.value = None
+
+
+def _neutralize_blank_bs_signal_fills(wb: Workbook) -> None:
+    if "BS_Segments" not in wb.sheetnames:
+        return
+    ws = wb["BS_Segments"]
+    white = PatternFill("solid", fgColor="FFFFFF")
+    section_rows = {8, 27, 46, 58, 60, 69, 71}
+    for row in range(9, 57):
+        if row in section_rows:
+            continue
+        for column in range(2, 10):
+            cell = ws.cell(row, column)
+            if cell.value in (None, ""):
+                cell.fill = copy(white)
+
+
+def _configure_summary_liquidity_layout(wb: Workbook) -> None:
+    if "SUMMARY" not in wb.sheetnames:
+        return
+    ws = wb["SUMMARY"]
+    if "D45:F45" not in {str(item) for item in ws.merged_cells.ranges}:
+        ws.merge_cells("D45:F45")
+    ws["D45"] = None
+    ws["D45"].alignment = copy(ws["B45"].alignment)
+    ws["D45"].font = copy(ws["B45"].font)
+    ws["D45"].fill = copy(ws["B45"].fill)
+    ws["D45"].border = copy(ws["B45"].border)
+    ws["D45"].number_format = "General"
+
+
 def _remove_company_specific_defined_names(wb: Workbook) -> None:
     for name in list(wb.defined_names):
         defined_name = wb.defined_names[name]
@@ -1416,6 +1487,10 @@ def _neutralize_support_sheet(ws: Any, headers: list[str]) -> None:
             cell.comment = None
     for col_idx, header in enumerate(headers, start=1):
         ws.cell(1, col_idx, header)
+    if ws.title == "History_Q":
+        for row in range(2, 1001):
+            for column in range(1, len(headers) + 1):
+                ws.cell(row, column).protection = Protection(locked=False)
     ws.sheet_state = "hidden"
 
 
@@ -1497,6 +1572,10 @@ def _materialize_rich_shell(
     _neutralize_dynamic_headers(wb)
     _remove_fixed_dimension_validation(wb)
     _ensure_binding_anchor_labels(wb, manifest, bindings)
+    _clear_visible_placeholder_labels(wb)
+    _neutralize_blank_bs_signal_fills(wb)
+    _configure_summary_liquidity_layout(wb)
+    apply_standard_formula_contracts(wb)
     _remove_company_specific_defined_names(wb)
     _ensure_qa_headers(wb)
     _remove_qa_excel_tables(wb)
@@ -1548,6 +1627,8 @@ def materialize_shell(
         sheet_bindings = [entry for entry in bindings if entry["sheet"] == sheet_name]
         _write_static_structure(wb, ws, sheet_def, sheet_bindings, contracts.get(sheet_name, SourceSheetContract(None, {}, {})))
 
+    _configure_summary_liquidity_layout(wb)
+    apply_standard_formula_contracts(wb)
     _configure_calculation(wb)
     _configure_deterministic_properties(wb)
     output_path.parent.mkdir(parents=True, exist_ok=True)

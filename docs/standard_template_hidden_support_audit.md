@@ -1,6 +1,6 @@
 # Standard Template Hidden Support Audit
 
-Generated at: 2026-07-13T17:38:19+00:00
+Generated at: 2026-07-14T16:45:00+00:00
 Template: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\standard_stock_model_template.xlsx`
 ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\lab\ANF_template_lab.xlsx`
 
@@ -37,7 +37,7 @@ ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-templ
 | Hidden_Value_Base | no | delete_from_shell | 1515 | 0 | 1 | 0 | Unreferenced hidden lab sheet is excluded from the frozen neutral shell. |
 | Hidden_Value_Flags | yes | keep_formula_dependency | 12 | 0 | 0 | 0 | Valuation!AI139 uses Hidden_Value_Flags!L2:L100 as a neutral hidden-value flag lookup helper. |
 | Hidden_Value_Recompute | no | delete_from_shell | 44 | 0 | 1 | 0 | Unreferenced hidden lab sheet is excluded from the frozen neutral shell. |
-| History_Q | yes | keep_neutral_helper_shell | 6 | 0 | 0 | 0 | Neutral quarterly history support shell retained with headers only; runtime fills from quarterly_financials. |
+| History_Q | yes | keep_neutral_helper_shell | 7 | 0 | 0 | 0 | Neutral quarterly history support shell retained with headers only; runtime fills from quarterly_financials. |
 | Info_Log | no | delete_from_shell | 4367 | 0 | 1 | 713 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
 | Leverage_Liquidity | no | delete_from_shell | 638 | 0 | 1 | 0 | Unreferenced hidden lab sheet is excluded from the frozen neutral shell. |
 | NonGAAP_Bridge | no | delete_from_shell | 123 | 0 | 1 | 0 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |

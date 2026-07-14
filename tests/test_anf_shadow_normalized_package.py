@@ -3,9 +3,11 @@ from __future__ import annotations
 import copy
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 import pytest
+from openpyxl import load_workbook
 
 from pbi_xbrl.new_ticker_binding_planner import (
     BindingPlan,
@@ -21,6 +23,9 @@ from scripts.build_anf_shadow_normalized_package import (
     _annual_component_field,
     _annual_incomplete_candidate_reviews,
     _build_annual_financial_rows,
+    _build_debt_liquidity,
+    _build_quarterly_financial_rows,
+    _build_valuation_inputs,
     _payload_sha256,
     _ttm_component_field,
     build_binding_coverage_audit,
@@ -37,6 +42,8 @@ DATA_ROOT = next(
 )
 ANF_WORKBOOK = DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
 ANF_STRESS_DIR = DATA_ROOT / "outputs" / "stress_tests" / "ANF_new_ticker_engine"
+ANF_PACKAGE = ANF_STRESS_DIR / "ANF_normalized_data_package.json"
+ANF_PLAN = ANF_STRESS_DIR / "ANF_binding_plan.json"
 
 
 def test_anf_shadow_package_reports_are_built_from_read_only_legacy_artifacts(tmp_path: Path) -> None:
@@ -201,10 +208,11 @@ def test_anf_binding_coverage_reports_row_schema_capacity(tmp_path: Path) -> Non
     assert latest_revenue["structured_exclusion_count"] >= 1
     assert any(reason.startswith("row_selector_pick_excluded:") for reason in latest_revenue["structured_exclusion_reasons"])
     assert quarterly_segments["number_of_values_planner_eligible"] > 0
-    assert quarterly_segments["planner_planned_write_count"] == 14
+    assert quarterly_segments["planner_planned_write_count"] == 73
     assert quarterly_segments["would_write_useful_output"] is True
     assert annual_segments["number_of_values_planner_eligible"] > 0
-    assert annual_segments["planner_planned_write_count"] == 6
+    assert annual_segments["number_of_values_planner_eligible"] == 21
+    assert annual_segments["planner_planned_write_count"] == 27
     assert annual_segments["would_write_useful_output"] is True
     assert coverage["planner_status"] == "PASS"
 
@@ -626,6 +634,322 @@ def test_q4_only_year_remains_visible_as_missing_annual_row(monkeypatch) -> None
     assert annuals[0]["revenue"]["status"] == "missing_source"
     assert annuals[0]["revenue"]["missing_inputs"] == ["2024-Q1", "2024-Q2", "2024-Q3"]
     assert incomplete_candidates == []
+
+
+def test_all_reliable_visible_legacy_segment_business_keys_are_normalized() -> None:
+    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    normalized = {
+        (item["dimension"], item["member"], item["period"], item["revenue"]["value"])
+        for item in package["segments"]["items"]
+        if item.get("source") == "legacy_visible_segment_oracle"
+    }
+
+    wb = load_workbook(ANF_WORKBOOK, read_only=True, data_only=True)
+    try:
+        ws = wb["BS_Segments"]
+        expected = set()
+        for period_type, header_row, member_rows, columns in (
+            ("quarterly", 7, (61, 62, 63, 65, 66, 67), range(2, 14)),
+            ("annual", 70, (72, 73, 74), range(2, 10)),
+        ):
+            for row_number in member_rows:
+                member = str(ws.cell(row_number, 1).value or "")
+                dimension = "geography" if member in {"Americas", "EMEA", "APAC"} else "brand" if member in {"Hollister", "Abercrombie"} else "total_company"
+                for column in columns:
+                    value = ws.cell(row_number, column).value
+                    raw_period = ws.cell(header_row, column).value
+                    if raw_period in (None, "") or not isinstance(value, (int, float)) or isinstance(value, bool):
+                        continue
+                    period = f"{int(raw_period)}-FY" if period_type == "annual" else str(raw_period)
+                    expected.add((dimension, member, period, float(value)))
+    finally:
+        wb.close()
+
+    assert len(expected) == 52
+    assert normalized == expected
+
+
+def test_annual_eps_and_net_debt_remain_missing_without_independent_lineage() -> None:
+    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+
+    for row in package["annual_financials"]["rows"]:
+        assert row["eps"]["status"] == "missing_source"
+        assert row["eps"]["value"] is None
+        assert row["diluted_shares"]["status"] == "missing_source"
+        assert row["diluted_shares"]["value"] is None
+        if row["q4_diluted_shares"]["status"] == "populated":
+            assert "retained separately for audit" in row["diluted_shares"]["reason"]
+
+    assert package["valuation_inputs"]["net_debt"]["status"] == "missing_source"
+    assert package["valuation_inputs"]["net_debt"]["value"] is None
+    assert "D198 was not treated as evidence" in package["valuation_inputs"]["net_debt"]["reason"]
+    assert package["valuation_inputs"]["book_value_per_share"]["status"] == "missing_source"
+    assert "point-in-time shares outstanding" in package["valuation_inputs"]["book_value_per_share"]["reason"]
+
+    for section in ("quarterly_financials", "annual_financials"):
+        for row in package[section]["rows"]:
+            for field in row.values():
+                if isinstance(field, dict) and field.get("status") == "populated":
+                    assert field.get("source_ref"), (section, row["period"])
+
+    latest = package["quarterly_financials"]["rows"][-1]
+    assert latest["net_income"]["definition"] == "Net income attributable to common shareholders."
+    assert latest["eps"]["definition"] == "GAAP diluted earnings per share for the fiscal period."
+    assert latest["diluted_shares"]["definition"] == "Quarterly weighted-average diluted shares used for diluted EPS."
+
+
+def test_missing_fail_zero_placeholders_are_missing_and_never_aggregated() -> None:
+    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    quarterly = {row["period"]: row for row in package["quarterly_financials"]["rows"]}
+    expected = {
+        "total_debt": {"2024-Q2", "2024-Q3", "2024-Q4"},
+        "debt_core": {"2024-Q2", "2024-Q3", "2024-Q4", "2025-Q2", "2025-Q3", "2025-Q4"},
+        "interest_paid": {"2024-Q3", "2024-Q4", "2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"},
+    }
+    for metric, periods in expected.items():
+        for period in periods:
+            field = quarterly[period][metric]
+            assert field["status"] == "missing_source", (metric, period, field)
+            assert field["value"] is None
+            assert "zero was treated as a missing placeholder" in field["reason"]
+            assert "REPORT_" in field["source_ref"]
+
+    # The report-level Missing/FAIL marker identifies zero placeholders. It
+    # does not erase older non-zero legacy evidence on the same support row.
+    assert quarterly["2024-Q1"]["total_debt"]["status"] == "populated"
+    assert quarterly["2024-Q1"]["debt_core"]["status"] == "populated"
+    assert quarterly["2024-Q2"]["interest_paid"]["status"] == "populated"
+
+    reviews = [
+        row
+        for row in package["manual_review_flags"]
+        if row.get("rule_id") == "legacy_adapter_unsupported_zero_placeholder"
+    ]
+    assert len(reviews) == 15
+    assert {(row["row_key"].split("|", 1)[1], row["affected_period"]) for row in reviews} == {
+        (metric, period)
+        for metric, periods in expected.items()
+        for period in periods
+    }
+    assert all(row["source_ref"] and row["suggested_action"] for row in reviews)
+
+    history_keys = {
+        (item["metric"], item["period"])
+        for item in package["calculation_history"]["quarterly_items"]
+    }
+    assert not any(
+        (metric, period) in history_keys
+        for metric, periods in expected.items()
+        for period in periods
+    )
+
+    annual = {row["period"]: row for row in package["annual_financials"]["rows"]}
+    for period, metric in (
+        ("2024-FY", "total_debt"),
+        ("2024-FY", "debt_core"),
+        ("2024-FY", "interest_paid"),
+        ("2025-FY", "debt_core"),
+        ("2025-FY", "interest_paid"),
+    ):
+        field = annual[period][metric]
+        assert field["status"] in {"missing_source", "manual_review_required"}
+        assert field["value"] is None
+        assert any(
+            issue.get("reason") == "unsupported_zero_placeholder"
+            for issue in field.get("component_issues", [])
+        )
+
+    assert package["valuation_inputs"]["interest_paid_ttm"]["status"] != "populated"
+    assert package["valuation_inputs"]["interest_paid_ttm"]["value"] is None
+
+
+def test_latest_missing_fail_zero_cannot_bypass_debt_liquidity(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "scripts.build_anf_shadow_normalized_package._read_legacy_valuation_series",
+        lambda _path, _row: {},
+    )
+    history_rows = [
+        {
+            "quarter": "2025-02-01",
+            "fiscal_year": 2024,
+            "fiscal_quarter": 4,
+            "fiscal_label": "2024-Q4",
+            "revenue": 1_000_000_000.0,
+            "cash": 500_000_000.0,
+            "total_debt": 0.0,
+        }
+    ]
+    placeholders = {
+        ("total_debt", "2025-02-01"): {
+            "metric": "total_debt",
+            "line_item": "Total debt",
+            "sheet": "REPORT_BS_Q",
+            "period_end": "2025-02-01",
+            "candidate_value": 0.0,
+            "source_status": "Missing",
+            "qa_status": "FAIL",
+            "value_source_ref": "ANF_model.xlsx!REPORT_BS_Q!M5",
+            "metadata_source_ref": "ANF_model.xlsx!REPORT_BS_Q!C5:D5",
+        }
+    }
+    review_flags: list[dict] = []
+    quarterly_rows = _build_quarterly_financial_rows(
+        history_rows,
+        Path("ANF_model.xlsx"),
+        unsupported_zero_placeholders=placeholders,
+        review_flags=review_flags,
+    )
+
+    debt_liquidity = _build_debt_liquidity(
+        history_rows,
+        quarterly_rows,
+        [],
+        [],
+        Path("ANF_model.xlsx"),
+        review_flags,
+    )
+    valuation_inputs = _build_valuation_inputs(
+        quarterly_rows,
+        debt_liquidity,
+        Path("ANF_model.xlsx"),
+        review_flags=review_flags,
+    )
+
+    assert quarterly_rows[0]["total_debt"]["status"] == "missing_source"
+    assert "REPORT_BS_Q" in quarterly_rows[0]["total_debt"]["source_ref"]
+    for field in (
+        debt_liquidity["total_debt"],
+        debt_liquidity["net_debt"],
+        debt_liquidity["net_leverage"],
+        valuation_inputs["net_debt"],
+    ):
+        assert field["status"] == "missing_source"
+        assert field["value"] is None
+    assert any(
+        row.get("rule_id") == "legacy_adapter_unsupported_zero_placeholder"
+        and row.get("row_key") == "2024-Q4|total_debt"
+        for row in review_flags
+    )
+
+
+def test_all_legacy_annual_candidates_are_retained_before_visible_capacity_selection() -> None:
+    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    rows = package["annual_financials"]["rows"]
+    periods = [row["period"] for row in rows]
+
+    assert periods == [f"{year}-FY" for year in range(2014, 2026)]
+    assert {"2018-FY", "2019-FY"} <= set(periods)
+    assert {"2014-FY", "2015-FY", "2016-FY", "2017-FY"} <= set(periods)
+
+    for period in ("2018-FY", "2019-FY"):
+        row = next(item for item in rows if item["period"] == period)
+        assert row["revenue"]["status"] == "populated"
+        assert row["revenue"]["source_ref"]
+        assert row["cost_of_goods_sold"]["status"] == "populated"
+
+    plan = json.loads(ANF_PLAN.read_text(encoding="utf-8"))
+    axis = plan["period_axes"]["bs_annual_financial_periods"]
+    assert list(axis["period_to_column"]) == [f"{year}-FY" for year in range(2018, 2026)]
+    report = next(row for row in plan["bindings"] if row["binding_id"] == "financial_fact_disposition_audit")
+    older = [
+        row
+        for row in report["skipped_rows"]
+        if row["section"] == "annual_financials"
+        and row["normalized_path"].split(".")[2] in {"0", "1", "2", "3"}
+    ]
+    assert older
+    assert all(row["disposition"] in {"audit_only", "formula_owned"} for row in older)
+    assert all(row["reason"] for row in older)
+
+
+def test_calculation_history_covers_visible_axis_plus_seven_prior_quarters() -> None:
+    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    visible_periods = [row["period"] for row in package["quarterly_financials"]["rows"]]
+    revenue_ordinals = {
+        int(item["period_ordinal"])
+        for item in package["calculation_history"]["quarterly_items"]
+        if item["metric"] == "revenue"
+    }
+
+    def ordinal(period: str) -> int:
+        return int(period[:4]) * 4 + int(period[-1]) - 1
+
+    expected = set(range(min(map(ordinal, visible_periods)) - 7, max(map(ordinal, visible_periods)) + 1))
+    assert expected <= revenue_ordinals
+
+
+def test_every_populated_anf_financial_fact_has_an_explicit_disposition() -> None:
+    package = json.loads(ANF_PACKAGE.read_text(encoding="utf-8"))
+    plan = json.loads(ANF_PLAN.read_text(encoding="utf-8"))
+    report = next(row for row in plan["bindings"] if row["binding_id"] == "financial_fact_disposition_audit")
+    assert report["unresolved_fact_count"] == 0
+    assert report["populated_fact_count"] == report["planned_fact_count"] + report["explicit_disposition_count"]
+    assert len(report["skipped_rows"]) == report["explicit_disposition_count"]
+    assert all(row["disposition"] in {"formula_owned", "audit_only", "explicitly_excluded"} for row in report["skipped_rows"])
+    assert all(row["reason"] and row["normalized_path"] and row["source_ref"] for row in report["skipped_rows"])
+
+    disposition_counts = Counter(row["disposition"] for row in report["skipped_rows"])
+    assert disposition_counts.get("explicitly_excluded", 0) == 0
+    assert disposition_counts.get("formula_owned", 0) > 0
+    assert disposition_counts.get("audit_only", 0) > 0
+
+    for row in report["skipped_rows"]:
+        if row["field"] == "free_cash_flow":
+            assert row["disposition"] == "formula_owned"
+            assert "row_selector" not in row["reason"]
+        if row["field"] == "total_debt":
+            assert row["disposition"] == "audit_only"
+            assert "row_selector" not in row["reason"]
+
+    # Preserve the reviewed pre-expansion reconciliation after removing the 20
+    # quarterly/annual debt and cash-interest placeholders. The final package
+    # additionally contains older annual candidates and newly classified
+    # COGS/tax/D&A/operating-margin evidence.
+    added_quarterly_fields = {
+        "cost_of_goods_sold",
+        "income_taxes_paid",
+        "depreciation_amortization",
+        "operating_margin",
+    }
+    added_annual_fields = {
+        "cost_of_goods_sold",
+        "income_taxes_paid",
+        "depreciation_amortization",
+        "debt_current",
+    }
+    baseline_paths: list[str] = []
+    for section, rows, offset, added_fields in (
+        ("quarterly_financials", package["quarterly_financials"]["rows"], 0, added_quarterly_fields),
+        (
+            "annual_financials",
+            package["annual_financials"]["rows"][-6:],
+            len(package["annual_financials"]["rows"]) - 6,
+            added_annual_fields,
+        ),
+    ):
+        for row_index, item in enumerate(rows, start=offset):
+            for field, node in item.items():
+                if field in added_fields or not isinstance(node, dict):
+                    continue
+                if node.get("status") == "populated" and node.get("value") not in (None, ""):
+                    baseline_paths.append(f"{section}.rows.{row_index}.{field}")
+
+    planned_paths = {write["normalized_path"] for write in plan["planned_writes"]}
+    dispositions_by_path = {row["normalized_path"]: row["disposition"] for row in report["skipped_rows"]}
+    baseline_reconciliation = Counter(
+        "planned"
+        if path in planned_paths
+        else dispositions_by_path.get(path, "unexplained")
+        for path in baseline_paths
+    )
+    assert len(baseline_paths) == 523
+    assert baseline_reconciliation == Counter(
+        {"planned": 397, "formula_owned": 18, "audit_only": 108}
+    )
+
+    writes = plan["planned_writes"]
+    assert not any(write["normalized_path"] == "valuation_inputs.net_debt" for write in writes)
+    assert not any(write["target_sheet"] == "Valuation" and write["target_cell"] == "D198" for write in writes)
 
 
 def _visible_text_values(package: dict) -> list[str]:

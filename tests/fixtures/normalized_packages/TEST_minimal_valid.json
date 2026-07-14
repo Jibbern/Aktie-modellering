@@ -32,6 +32,12 @@
       "status": "populated",
       "source_ref": "synthetic_fixture:profile",
       "core": false
+    },
+    "investment_case_title": {
+      "value": "TEST Investment Case",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:ticker",
+      "core": true
     }
   },
   "company_profile": {
@@ -67,6 +73,12 @@
     },
     "revenue_model": {
       "value": "Revenue is generated from subscriptions, implementation services, and recurring support contracts.",
+      "status": "populated",
+      "source_ref": "synthetic_fixture:profile",
+      "core": true
+    },
+    "revenue_mix_label": {
+      "value": "Revenue mix by product family (% of revenue)",
       "status": "populated",
       "source_ref": "synthetic_fixture:profile",
       "core": true
@@ -117,6 +129,10 @@
         "period": "2026-Q1",
         "fiscal_year": 2026,
         "fiscal_quarter": 1,
+        "gross_profit": {"value": 48.2, "status": "populated", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "core": true, "unit": "$m", "period": "2026-Q1"},
+        "capital_expenditures": {"value": 6.6, "status": "populated", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "core": true, "unit": "$m", "period": "2026-Q1"},
+        "cash": {"value": 80.0, "status": "populated", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "core": true, "unit": "$m", "period": "2026-Q1"},
+        "total_equity": {"value": 507.6, "status": "populated", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "core": true, "unit": "$m", "period": "2026-Q1"},
         "revenue": {
           "value": 120.5,
           "status": "populated",
@@ -186,6 +202,10 @@
         "period": "2025-Q4",
         "fiscal_year": 2025,
         "fiscal_quarter": 4,
+        "gross_profit": {"value": 46.0, "status": "populated", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "core": true, "unit": "$m", "period": "2025-Q4"},
+        "capital_expenditures": {"value": 6.6, "status": "populated", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "core": true, "unit": "$m", "period": "2025-Q4"},
+        "cash": {"value": 75.0, "status": "populated", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "core": true, "unit": "$m", "period": "2025-Q4"},
+        "total_equity": {"value": 495.0, "status": "populated", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "core": true, "unit": "$m", "period": "2025-Q4"},
         "revenue": {
           "value": 118.0,
           "status": "populated",
@@ -253,6 +273,37 @@
       }
     ]
   },
+  "calculation_history": {
+    "quarterly_items": [
+      {"period": "2024-Q1", "period_ordinal": 8096, "metric": "revenue", "value": 100.0, "unit": "$m", "source_ref": "synthetic_fixture:calculation_history:2024-Q1:revenue", "status": "populated"},
+      {"period": "2024-Q2", "period_ordinal": 8097, "metric": "revenue", "value": 102.0, "unit": "$m", "source_ref": "synthetic_fixture:calculation_history:2024-Q2:revenue", "status": "populated"},
+      {"period": "2024-Q3", "period_ordinal": 8098, "metric": "revenue", "value": 104.0, "unit": "$m", "source_ref": "synthetic_fixture:calculation_history:2024-Q3:revenue", "status": "populated"},
+      {"period": "2024-Q4", "period_ordinal": 8099, "metric": "revenue", "value": 106.0, "unit": "$m", "source_ref": "synthetic_fixture:calculation_history:2024-Q4:revenue", "status": "populated"},
+      {"period": "2025-Q1", "period_ordinal": 8100, "metric": "revenue", "value": 108.0, "unit": "$m", "source_ref": "synthetic_fixture:calculation_history:2025-Q1:revenue", "status": "populated"},
+      {"period": "2025-Q2", "period_ordinal": 8101, "metric": "revenue", "value": 112.0, "unit": "$m", "source_ref": "synthetic_fixture:calculation_history:2025-Q2:revenue", "status": "populated"},
+      {"period": "2025-Q3", "period_ordinal": 8102, "metric": "revenue", "value": 115.0, "unit": "$m", "source_ref": "synthetic_fixture:calculation_history:2025-Q3:revenue", "status": "populated"},
+      {"period": "2025-Q4", "period_ordinal": 8103, "metric": "adjusted_ebitda", "value": 25.0, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "status": "populated"},
+      {"period": "2025-Q4", "period_ordinal": 8103, "metric": "base_ebitda", "value": 25.0, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "status": "populated"},
+      {"period": "2025-Q4", "period_ordinal": 8103, "metric": "capital_expenditures", "value": 6.6, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "status": "populated"},
+      {"period": "2025-Q4", "period_ordinal": 8103, "metric": "cash", "value": 75.0, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "status": "populated"},
+      {"period": "2025-Q4", "period_ordinal": 8103, "metric": "diluted_shares", "value": 42.1, "unit": "m shares", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "status": "populated"},
+      {"period": "2025-Q4", "period_ordinal": 8103, "metric": "gross_profit", "value": 46.0, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "status": "populated"},
+      {"period": "2025-Q4", "period_ordinal": 8103, "metric": "net_income", "value": 12.2, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "status": "populated"},
+      {"period": "2025-Q4", "period_ordinal": 8103, "metric": "operating_cash_flow", "value": 19.4, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "status": "populated"},
+      {"period": "2025-Q4", "period_ordinal": 8103, "metric": "operating_income", "value": 17.5, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "status": "populated"},
+      {"period": "2025-Q4", "period_ordinal": 8103, "metric": "revenue", "value": 118.0, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2025-Q4", "status": "populated"},
+      {"period": "2026-Q1", "period_ordinal": 8104, "metric": "adjusted_ebitda", "value": 26.4, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "status": "populated"},
+      {"period": "2026-Q1", "period_ordinal": 8104, "metric": "base_ebitda", "value": 26.4, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "status": "populated"},
+      {"period": "2026-Q1", "period_ordinal": 8104, "metric": "capital_expenditures", "value": 6.6, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "status": "populated"},
+      {"period": "2026-Q1", "period_ordinal": 8104, "metric": "cash", "value": 80.0, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "status": "populated"},
+      {"period": "2026-Q1", "period_ordinal": 8104, "metric": "diluted_shares", "value": 42.3, "unit": "m shares", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "status": "populated"},
+      {"period": "2026-Q1", "period_ordinal": 8104, "metric": "gross_profit", "value": 48.2, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "status": "populated"},
+      {"period": "2026-Q1", "period_ordinal": 8104, "metric": "net_income", "value": 13.1, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "status": "populated"},
+      {"period": "2026-Q1", "period_ordinal": 8104, "metric": "operating_cash_flow", "value": 20.7, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "status": "populated"},
+      {"period": "2026-Q1", "period_ordinal": 8104, "metric": "operating_income", "value": 18.2, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "status": "populated"},
+      {"period": "2026-Q1", "period_ordinal": 8104, "metric": "revenue", "value": 120.5, "unit": "$m", "source_ref": "synthetic_fixture:quarterly_financials:2026-Q1", "status": "populated"}
+    ]
+  },
   "annual_financials": {
     "rows": [
       {
@@ -266,6 +317,7 @@
           "unit": "$m",
           "period": "2025-FY"
         },
+        "gross_profit": {"value": 190.0, "status": "populated", "source_ref": "synthetic_fixture:annual_financials:2025", "core": false, "unit": "$m", "period": "2025-FY"},
         "operating_income": {
           "value": 68.0,
           "status": "populated",
@@ -306,6 +358,7 @@
           "unit": "$m",
           "period": "2025-FY"
         },
+        "capital_expenditures": {"value": 24.0, "status": "populated", "source_ref": "synthetic_fixture:annual_financials:2025", "core": false, "unit": "$m", "period": "2025-FY"},
         "free_cash_flow": {
           "value": 51.0,
           "status": "populated",
@@ -313,7 +366,14 @@
           "core": false,
           "unit": "$m",
           "period": "2025-FY"
-        }
+        },
+        "diluted_shares": {"value": null, "status": "missing_source", "source_ref": "synthetic_fixture:annual_financials:2025:no_annual_weighted_average_shares", "reason": "Annual weighted-average diluted shares were not supplied by this synthetic source.", "core": false, "unit": "m shares", "period": "2025-FY"},
+        "q4_diluted_shares": {"value": 42.3, "status": "populated", "source_ref": "synthetic_fixture:annual_financials:2025:q4_diluted_shares", "core": false, "unit": "m shares", "period": "2025-FY"},
+        "shares_outstanding": {"value": 41.8, "status": "populated", "source_ref": "synthetic_fixture:annual_financials:2025:year_end_shares", "core": false, "unit": "m shares", "period": "2025-FY"},
+        "eps": {"value": 1.58, "status": "populated", "source_ref": "synthetic_fixture:annual_financials:2025:annual_eps", "core": false, "unit": "$/share", "period": "2025-FY"},
+        "total_equity": {"value": 507.6, "status": "populated", "source_ref": "synthetic_fixture:annual_financials:2025", "core": false, "unit": "$m", "period": "2025-FY"},
+        "cash": {"value": 80.0, "status": "populated", "source_ref": "synthetic_fixture:annual_financials:2025", "core": false, "unit": "$m", "period": "2025-FY"},
+        "debt_core": {"value": 150.0, "status": "populated", "source_ref": "synthetic_fixture:annual_financials:2025", "core": false, "unit": "$m", "period": "2025-FY"}
       }
     ]
   },
@@ -397,7 +457,15 @@
       "core": true
     },
     "summary_liquidity_display": {
-      "value": "180.000 as of 2026-03-31",
+      "value": 180.0,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": true,
+      "unit": "$m",
+      "period": "2026-03-31"
+    },
+    "summary_liquidity_as_of_display": {
+      "value": "As of 2026-03-31",
       "status": "populated",
       "source_ref": "synthetic_fixture:debt_liquidity",
       "core": true,
@@ -715,7 +783,12 @@
     "net_income_ttm": {"value": 45.1, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$m"},
     "operating_cash_flow_ttm": {"value": 76.2, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$m"},
     "free_cash_flow_ttm": {"value": 53.0, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$m"},
-    "capex_ttm": {"value": 23.2, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": false, "unit": "$m"}
+    "capex_ttm": {"value": 23.2, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": false, "unit": "$m"},
+    "interest_paid_ttm": {"value": 4.0, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": false, "unit": "$m"},
+    "eps_ttm": {"value": 1.07, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": true, "unit": "$/share"},
+    "adjusted_eps_ttm": {"value": 1.1, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": false, "unit": "$/share"},
+    "book_value_per_share": {"value": 12.0, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": false, "unit": "$/share"},
+    "tangible_book_value_per_share": {"value": 9.5, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": false, "unit": "$/share"}
   },
   "valuation_outputs": {
     "items": []

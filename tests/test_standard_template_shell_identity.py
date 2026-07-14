@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
 from openpyxl.utils import absolute_coordinate, quote_sheetname, range_boundaries
 import pytest
 
@@ -14,6 +15,10 @@ from pbi_xbrl.standard_template_shell_identity import (
     SHEET_VIEW_CONTRACT_IGNORED_PROPERTIES,
     SHEET_VIEW_CONTRACT_OWNED_PROPERTIES,
     compute_shell_identity,
+    _canonical_cell_style,
+    _canonical_formula,
+    _planned_cell_values_equal,
+    _quantize_dimension,
     validate_verified_shell_token,
     verify_post_fill_structural_identity,
     verify_shell_identity,
@@ -479,19 +484,42 @@ def test_company_specific_labels_and_constant_defined_name_are_absent() -> None:
     wb = load_workbook(SHELL, read_only=False, data_only=False)
     try:
         assert [wb["Valuation"][f"A{row}"].value for row in range(36, 41)] == [
-            "Net income attributable to common shareholders",
-            "Net income attributable to common shareholders margin %",
-            "Net income attributable to common shareholders YoY %",
-            "Net income attributable to common shareholders (TTM)",
-            "Net income attributable to common shareholders margin (TTM)",
+            "Net income",
+            "Net margin %",
+            "Net income YoY %",
+            "Net income (TTM)",
+            "Net margin (TTM)",
         ]
-        assert wb["SUMMARY"]["A8"].value == "Business model / revenue streams (% of total revenue)"
+        assert wb["SUMMARY"]["A8"].value is None
+        assert wb["{ticker}_Investment_Case"]["A1"].value is None
         assert "ThesisBaseAdjEBITDA_FY" not in wb.defined_names
         assert wb["{ticker}_Investment_Case"]["A193"].value == "Business Health"
         assert wb["{ticker}_Investment_Case"]["A211"].value == "Asset Productivity / Capacity Returns"
         assert not wb["{ticker}_Investment_Case"].data_validations.dataValidation
         assert wb.defined_names["valuation_share_count_anchor"].attr_text == "'Valuation'!$A$102"
         assert wb.defined_names["investment_key_debate_anchor"].attr_text == "'{ticker}_Investment_Case'!$A$7"
+    finally:
+        wb.close()
+
+
+def test_excel_roundtrip_canonicalization_preserves_semantic_differences() -> None:
+    assert _canonical_formula("=A1+1.0") == "=A1+1"
+    assert _canonical_formula("='Valuation'!A1+1.00") == "=Valuation!A1+1"
+    assert _canonical_formula("=A1+2") != _canonical_formula("=A1+1")
+    assert _quantize_dimension(15.001, step="0.05") == 15.0
+    assert _quantize_dimension(15.04, step="0.05") == 15.05
+    assert _planned_cell_values_equal(1.103709164274075, 1.1037091642740746)
+    assert not _planned_cell_values_equal(1.1038, 1.1037)
+    assert not _planned_cell_values_equal("1.0", 1.0)
+
+    wb = load_workbook(SHELL, read_only=False, data_only=False)
+    try:
+        source = wb["SUMMARY"]["A1"]
+        same = wb["SUMMARY"]["A2"]
+        same._style = deepcopy(source._style)
+        assert _canonical_cell_style(source) == _canonical_cell_style(same)
+        same.fill = PatternFill(fill_type="solid", fgColor="FFFF0000")
+        assert _canonical_cell_style(source) != _canonical_cell_style(same)
     finally:
         wb.close()
 

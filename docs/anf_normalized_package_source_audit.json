@@ -1,8 +1,8 @@
 {
   "version": "0.2.0",
   "generator_version": "anf_legacy_adapter_audits/0.2.0",
-  "source_package_content_sha256": "111d5d9844c12c663f14ceded986265e67371ab564c159da46a02eeb0da4b41f",
-  "generated_at_utc": "2026-07-12T22:11:09+00:00",
+  "source_package_content_sha256": "29cad8b790c606b3803ddcb646c682eb5a14e13e1c9c47e9de438e306e49e3e2",
+  "generated_at_utc": "2026-07-14T17:42:06+00:00",
   "ticker": "ANF",
   "data_root": "C:\\Users\\Jibbe\\Aktier\\StockModelData",
   "legacy_workbook": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -30,9 +30,9 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 5,
+      "populated_field_count": 6,
       "field_status_counts": {
-        "populated": 5
+        "populated": 6
       },
       "manual_review_record_count": 0
     },
@@ -50,9 +50,9 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 14,
+      "populated_field_count": 15,
       "field_status_counts": {
-        "populated": 14
+        "populated": 15
       },
       "manual_review_record_count": 0
     },
@@ -70,12 +70,30 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": true,
-      "populated_field_count": 129,
+      "populated_field_count": 400,
       "field_status_counts": {
-        "missing_source": 3,
-        "populated": 129
+        "missing_source": 212,
+        "populated": 400
       },
-      "manual_review_record_count": 1
+      "manual_review_record_count": 16
+    },
+    {
+      "section": "calculation_history",
+      "available_source_candidates": [
+        "ANF_model.xlsx!History_Q projected as a period-keyed formula input ledger"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": true,
+      "missing_source": false,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": false,
+      "populated_field_count": 635,
+      "field_status_counts": {
+        "populated": 635
+      },
+      "manual_review_record_count": 0
     },
     {
       "section": "annual_financials",
@@ -91,12 +109,13 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": true,
-      "populated_field_count": 50,
+      "populated_field_count": 305,
       "field_status_counts": {
-        "missing_source": 5,
-        "populated": 50
+        "manual_review_required": 2,
+        "missing_source": 198,
+        "populated": 305
       },
-      "manual_review_record_count": 6
+      "manual_review_record_count": 118
     },
     {
       "section": "debt_liquidity",
@@ -114,7 +133,7 @@
       "manual_review_required": true,
       "populated_field_count": 12,
       "field_status_counts": {
-        "missing_source": 2,
+        "missing_source": 3,
         "not_applicable": 1,
         "populated": 12
       },
@@ -176,12 +195,12 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": true,
-      "populated_field_count": 178,
+      "populated_field_count": 1121,
       "field_status_counts": {
-        "missing_source": 68,
-        "populated": 178
+        "missing_source": 388,
+        "populated": 1121
       },
-      "manual_review_record_count": 133
+      "manual_review_record_count": 132
     },
     {
       "section": "operating_drivers",
@@ -310,7 +329,7 @@
       "manual_review_required": true,
       "populated_field_count": 0,
       "field_status_counts": {},
-      "manual_review_record_count": 1577
+      "manual_review_record_count": 1723
     }
   ]
 }

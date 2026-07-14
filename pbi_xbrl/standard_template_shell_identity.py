@@ -3,21 +3,25 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import re
 import zipfile
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Mapping as MappingABC
 from dataclasses import dataclass, field
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, Mapping, Sequence
 
 from openpyxl import load_workbook
+from openpyxl.formula import Tokenizer
 from openpyxl.utils import range_boundaries
 
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 
 
-SHELL_SEMANTIC_CONTRACT_VERSION = "1.1.0"
+SHELL_SEMANTIC_CONTRACT_VERSION = "1.2.0"
 SHEET_VIEW_IDENTITY_CONTRACT_VERSION = "1.0.0"
 BINDING_PLANNER_CONTRACT_VERSION = "1.2.0"
 ROOT = Path(__file__).resolve().parents[1]
@@ -631,7 +635,7 @@ def verify_post_fill_structural_identity(
                 mismatches = [
                     key
                     for key, value in planned_values.items()
-                    if _contract_value(target_values.get(key)) != _contract_value(value)
+                    if not _planned_cell_values_equal(target_values.get(key), value)
                 ]
                 if mismatches:
                     issues.append(
@@ -686,6 +690,149 @@ def _exact_writable_cells(bindings: Sequence[Mapping[str, Any]]) -> dict[str, se
     return result
 
 
+def _canonical_color(color: Any) -> dict[str, Any] | None:
+    if color is None:
+        return None
+    return {
+        "type": str(getattr(color, "type", "") or ""),
+        "rgb": str(getattr(color, "rgb", "") or ""),
+        "indexed": getattr(color, "indexed", None),
+        "auto": bool(getattr(color, "auto", False)),
+        "theme": getattr(color, "theme", None),
+        "tint": float(getattr(color, "tint", 0.0) or 0.0),
+    }
+
+
+def _canonical_side(side: Any) -> dict[str, Any]:
+    return {
+        "style": str(getattr(side, "style", "") or ""),
+        "color": _canonical_color(getattr(side, "color", None)),
+    }
+
+
+def _canonical_fill(fill: Any) -> dict[str, Any]:
+    stops = []
+    for stop in getattr(fill, "stop", ()) or ():
+        stops.append(
+            {
+                "position": float(getattr(stop, "position", 0.0) or 0.0),
+                "color": _canonical_color(getattr(stop, "color", None)),
+            }
+        )
+    return {
+        "type": str(getattr(fill, "fill_type", "") or getattr(fill, "type", "") or ""),
+        "fg_color": _canonical_color(getattr(fill, "fgColor", None)),
+        "bg_color": _canonical_color(getattr(fill, "bgColor", None)),
+        "degree": float(getattr(fill, "degree", 0.0) or 0.0),
+        "left": float(getattr(fill, "left", 0.0) or 0.0),
+        "right": float(getattr(fill, "right", 0.0) or 0.0),
+        "top": float(getattr(fill, "top", 0.0) or 0.0),
+        "bottom": float(getattr(fill, "bottom", 0.0) or 0.0),
+        "stops": stops,
+    }
+
+
+def _canonical_cell_style(cell: Any) -> dict[str, Any]:
+    font = cell.font
+    border = cell.border
+    alignment = cell.alignment
+    protection = cell.protection
+    return {
+        "font": {
+            "name": str(font.name or ""),
+            "size": float(font.sz) if font.sz is not None else None,
+            "bold": bool(font.b),
+            "italic": bool(font.i),
+            "underline": str(font.u or ""),
+            "strike": bool(font.strike),
+            "color": _canonical_color(font.color),
+            "vert_align": str(font.vertAlign or ""),
+            "outline": bool(font.outline),
+            "shadow": bool(font.shadow),
+            "condense": bool(font.condense),
+            "extend": bool(font.extend),
+            "scheme": str(font.scheme or ""),
+            "family": font.family,
+            "charset": font.charset,
+        },
+        "fill": _canonical_fill(cell.fill),
+        "border": {
+            "left": _canonical_side(border.left),
+            "right": _canonical_side(border.right),
+            "top": _canonical_side(border.top),
+            "bottom": _canonical_side(border.bottom),
+            "diagonal": _canonical_side(border.diagonal),
+            "vertical": _canonical_side(border.vertical),
+            "horizontal": _canonical_side(border.horizontal),
+            "diagonal_up": bool(border.diagonalUp),
+            "diagonal_down": bool(border.diagonalDown),
+            "outline": bool(border.outline),
+        },
+        "alignment": {
+            "horizontal": str(alignment.horizontal or ""),
+            "vertical": str(alignment.vertical or ""),
+            "text_rotation": int(alignment.textRotation or 0),
+            "wrap_text": bool(alignment.wrapText),
+            "shrink_to_fit": bool(alignment.shrinkToFit),
+            "indent": float(alignment.indent or 0.0),
+            "relative_indent": float(alignment.relativeIndent or 0.0),
+            "justify_last_line": bool(alignment.justifyLastLine),
+            "reading_order": float(alignment.readingOrder or 0.0),
+        },
+        "number_format": str(cell.number_format or "General"),
+        "protection": {
+            "locked": True if protection.locked is None else bool(protection.locked),
+            "hidden": bool(protection.hidden),
+        },
+        "quote_prefix": bool(getattr(cell, "quotePrefix", False)),
+        "pivot_button": bool(getattr(cell, "pivotButton", False)),
+    }
+
+
+_SIMPLE_QUOTED_SHEET_RE = re.compile(r"'([A-Za-z_][A-Za-z0-9_.]*)'!")
+
+
+def _canonical_formula(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    is_formula = value.startswith("=")
+    candidate = value if is_formula else f"={value}"
+    try:
+        tokens = Tokenizer(candidate).items
+    except Exception:
+        return _SIMPLE_QUOTED_SHEET_RE.sub(r"\1!", value)
+    pieces: list[str] = []
+    for token in tokens:
+        token_value = str(token.value)
+        if token.type == "OPERAND" and token.subtype == "NUMBER":
+            token_value = _canonical_number_token(token_value)
+        elif token.type == "OPERAND" and token.subtype == "RANGE":
+            token_value = _SIMPLE_QUOTED_SHEET_RE.sub(r"\1!", token_value)
+        elif token.type == "FUNC" and token.subtype == "OPEN" and token_value.endswith("("):
+            token_value = f"{token_value[:-1].upper()}("
+        pieces.append(token_value)
+    result = "".join(pieces)
+    return f"={result}" if is_formula else result
+
+
+def _canonical_number_token(value: str) -> str:
+    try:
+        number = Decimal(value)
+    except Exception:
+        return value
+    if number == number.to_integral():
+        return str(number.quantize(Decimal("1")))
+    return format(number.normalize(), "f").rstrip("0").rstrip(".")
+
+
+def _quantize_dimension(value: Any, *, step: str) -> float | None:
+    if value is None:
+        return None
+    quantum = Decimal(step)
+    normalized = (Decimal(str(value)) / quantum).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * quantum
+    return float(normalized)
+
+
 def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[str]]) -> dict[str, Any]:
     resolved_ticker_sheet = _resolved_ticker_sheet_name(wb)
     sheet_name_map = {
@@ -711,7 +858,7 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
         (
             {
                 "name": str(name),
-                "attr_text": str(normalized_text(getattr(wb.defined_names[name], "attr_text", "") or "")),
+                "attr_text": str(_canonical_formula(normalized_text(getattr(wb.defined_names[name], "attr_text", "") or ""))),
                 "type": str(getattr(wb.defined_names[name], "type", "") or ""),
             }
             for name in wb.defined_names
@@ -730,13 +877,13 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
                 "sheet": normalized_sheet,
                 "freeze_panes": str(ws.freeze_panes or ""),
                 "sheet_format": {
-                    "default_row_height": ws.sheet_format.defaultRowHeight,
-                    "default_column_width": ws.sheet_format.defaultColWidth,
+                    "default_row_height": _quantize_dimension(ws.sheet_format.defaultRowHeight, step="0.05"),
+                    "default_column_width": _quantize_dimension(ws.sheet_format.defaultColWidth, step="0.00390625"),
                 },
                 "rows": [
                     {
                         "index": int(index),
-                        "height": dimension.height,
+                        "height": _quantize_dimension(dimension.height, step="0.05"),
                         "hidden": bool(dimension.hidden),
                         "outline": int(dimension.outlineLevel or 0),
                     }
@@ -746,7 +893,7 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
                 "columns": [
                     {
                         "key": str(key),
-                        "width": dimension.width,
+                        "width": _quantize_dimension(dimension.width, step="0.00390625"),
                         "hidden": bool(dimension.hidden),
                         "outline": int(dimension.outlineLevel or 0),
                     }
@@ -768,8 +915,7 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
                 {
                     "sheet": normalized_sheet,
                     "cell": cell.coordinate,
-                    "style_id": int(cell.style_id),
-                    "number_format": str(cell.number_format or ""),
+                    "style": _canonical_cell_style(cell),
                     "comment": (
                         {"author": str(cell.comment.author or ""), "text": str(cell.comment.text or "")}
                         if cell.comment is not None
@@ -777,7 +923,13 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
                     ),
                     "writable": is_writable,
                     "writable_formula": bool(is_writable and isinstance(value, str) and value.startswith("=")),
-                    "protected_value": None if is_writable else value,
+                    "protected_value": (
+                        None
+                        if is_writable
+                        else _canonical_formula(value)
+                        if isinstance(value, str) and value.startswith("=")
+                        else value
+                    ),
                 }
             )
         for validation in ws.data_validations.dataValidation:
@@ -787,8 +939,8 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
                     "sqref": str(validation.sqref),
                     "type": str(validation.type or ""),
                     "operator": str(validation.operator or ""),
-                    "formula1": str(normalized_text(validation.formula1) or ""),
-                    "formula2": str(normalized_text(validation.formula2) or ""),
+                    "formula1": str(_canonical_formula(normalized_text(validation.formula1)) or ""),
+                    "formula2": str(_canonical_formula(normalized_text(validation.formula2)) or ""),
                 }
             )
         for conditional_range in ws.conditional_formatting:
@@ -801,7 +953,7 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
                         {
                             "type": str(rule.type or ""),
                             "operator": str(rule.operator or ""),
-                            "formula": [str(normalized_text(value) or "") for value in (rule.formula or [])],
+                            "formula": [str(_canonical_formula(normalized_text(value)) or "") for value in (rule.formula or [])],
                             "priority": int(rule.priority or 0),
                         }
                         for rule in rules
@@ -964,6 +1116,33 @@ def _contract_value(value: Any) -> Any:
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return str(value)
+
+
+def _planned_cell_values_equal(actual: Any, expected: Any) -> bool:
+    """Compare a saved cell with its plan without masking business drift.
+
+    Excel/Open XML writers may round an IEEE-754 value at the last represented
+    digit.  Only finite, non-boolean numeric scalars receive this narrow relative
+    tolerance; strings, formulas, dates, booleans, and structures remain exact.
+    """
+
+    if actual == expected:
+        return True
+    if (
+        isinstance(actual, (int, float))
+        and not isinstance(actual, bool)
+        and isinstance(expected, (int, float))
+        and not isinstance(expected, bool)
+    ):
+        actual_number = float(actual)
+        expected_number = float(expected)
+        return math.isfinite(actual_number) and math.isfinite(expected_number) and math.isclose(
+            actual_number,
+            expected_number,
+            rel_tol=2e-15,
+            abs_tol=0.0,
+        )
+    return _contract_value(actual) == _contract_value(expected)
 
 
 def _non_writable_contract(manifest: Mapping[str, Any]) -> list[dict[str, str]]:

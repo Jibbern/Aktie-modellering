@@ -19,6 +19,20 @@ def _field(value, *, status: str = "populated", source_ref: str = "fixture", cor
 
 
 def _base_package() -> dict:
+    calculation_history = []
+    for ordinal in range(8097, 8106):
+        year, quarter_index = divmod(ordinal, 4)
+        period = f"{year}-Q{quarter_index + 1}"
+        revenue = 100.0 if period == "2026-Q1" else 110.0 if period == "2026-Q2" else float(80 + ordinal - 8097)
+        calculation_history.append(
+            {"period": period, "period_ordinal": ordinal, "metric": "revenue", "value": revenue, "unit": "$m", "source_ref": f"fixture:{period}:revenue", "status": "populated"}
+        )
+    calculation_history.extend(
+        [
+            {"period": "2026-Q1", "period_ordinal": 8104, "metric": "diluted_shares", "value": 50.0, "unit": "m shares", "source_ref": "fixture:2026-Q1:diluted_shares", "status": "populated"},
+            {"period": "2026-Q2", "period_ordinal": 8105, "metric": "diluted_shares", "value": 51.0, "unit": "m shares", "source_ref": "fixture:2026-Q2:diluted_shares", "status": "populated"},
+        ]
+    )
     return {
         "ticker_metadata": {"ticker": _field("TEST", core=True)},
         "company_profile": {
@@ -44,6 +58,7 @@ def _base_package() -> dict:
                 },
             ]
         },
+        "calculation_history": {"quarterly_items": calculation_history},
         "annual_financials": {
             "rows": [
                 {
@@ -250,7 +265,8 @@ def test_liquidity_freshness_contract_covers_current_stale_mixed_and_incomplete(
         "liquidity_definition": _field("Cash plus undrawn revolver availability.", core=True),
         "as_of_date": _field("2026-03-31", core=True),
         "summary_as_of_date": _field("2026-05-02", core=True),
-        "summary_liquidity_display": _field("180.000 as of 2026-03-31", core=True, period="2026-03-31"),
+        "summary_liquidity_display": _field(180.0, core=True, unit="$m", period="2026-03-31"),
+        "summary_liquidity_as_of_display": _field("As of 2026-03-31 (stale)", core=True, period="2026-03-31"),
         "liquidity_freshness": {
             "disposition": "stale_but_displayable_with_date",
             "summary_as_of": "2026-05-02",
@@ -266,10 +282,10 @@ def test_liquidity_freshness_contract_covers_current_stale_mixed_and_incomplete(
     assert "stale_liquidity_date_not_visible" not in stale_rules
     assert "liquidity_current_freshness_mismatch" not in stale_rules
 
-    package["debt_liquidity"]["summary_liquidity_display"]["value"] = "180.000"
+    package["debt_liquidity"]["summary_liquidity_as_of_display"]["value"] = ""
     assert "stale_liquidity_date_not_visible" in _rule_ids(package)
 
-    package["debt_liquidity"]["summary_liquidity_display"]["value"] = "180.000 as of 2026-03-31"
+    package["debt_liquidity"]["summary_liquidity_as_of_display"]["value"] = "As of 2026-03-31 (stale)"
     package["debt_liquidity"]["liquidity_freshness"]["mixed_date_components"] = True
     assert "liquidity_mixed_date_components" in _rule_ids(package)
 
@@ -284,6 +300,12 @@ def test_liquidity_freshness_contract_covers_current_stale_mixed_and_incomplete(
         status="missing_source",
         core=True,
         reason="No displayable total.",
+    )
+    package["debt_liquidity"]["summary_liquidity_as_of_display"] = _field(
+        None,
+        status="missing_source",
+        core=True,
+        reason="No displayable total date.",
     )
     package["debt_liquidity"]["liquidity_freshness"].update(
         disposition="incomplete_components",
@@ -319,8 +341,9 @@ def test_liquidity_freshness_cross_field_dates_fail_closed() -> None:
             "liquidity_definition": _field("Cash plus undrawn revolver availability.", core=True),
             "as_of_date": _field(liquidity_as_of, core=True),
             "summary_as_of_date": _field(summary_as_of, core=True),
-            "summary_liquidity_display": _field(
-                f"180.000 as of {display_date}", core=True, period=liquidity_as_of
+            "summary_liquidity_display": _field(180.0, core=True, unit="$m", period=liquidity_as_of),
+            "summary_liquidity_as_of_display": _field(
+                f"As of {display_date}", core=True, period=liquidity_as_of
             ),
             "liquidity_freshness": {
                 "disposition": disposition,
@@ -350,7 +373,7 @@ def test_liquidity_freshness_cross_field_dates_fail_closed() -> None:
         liquidity_as_of="2026-05-02",
         disposition="current",
     )
-    current_without_visible_date["debt_liquidity"]["summary_liquidity_display"] = _field(
+    current_without_visible_date["debt_liquidity"]["summary_liquidity_as_of_display"] = _field(
         None,
         status="missing_source",
         core=True,

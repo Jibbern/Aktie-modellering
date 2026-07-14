@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional, Sequence
 
 from openpyxl import load_workbook
-from openpyxl.utils import range_boundaries
+from openpyxl.utils import get_column_letter, range_boundaries
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -45,6 +45,7 @@ REQUIRED_SECTIONS = [
     "ticker_metadata",
     "company_profile",
     "quarterly_financials",
+    "calculation_history",
     "annual_financials",
     "debt_liquidity",
     "capital_returns",
@@ -79,6 +80,78 @@ _NORMALIZED_UNITS = {
     "$/share", "m shares", "shares", "count", "days", "quarters", "pts",
     "ratio", "stores", "visits", "m visits", "units",
 }
+
+_LEGACY_REPORT_PLACEHOLDER_ROWS = {
+    "total_debt": ("REPORT_BS_Q", "Total debt"),
+    "debt_core": ("REPORT_BS_Q", "Debt core"),
+    "interest_paid": ("REPORT_CF_Q", "Cash interest"),
+}
+
+FINANCIAL_FIELD_DEFINITIONS = {
+    "revenue": "Revenue reported for the fiscal period.",
+    "cost_of_goods_sold": "Reported cost of goods sold for the fiscal period.",
+    "gross_profit": "Reported revenue less reported cost of sales.",
+    "operating_income": "Reported operating income for the fiscal period.",
+    "base_ebitda": "EBITDA before company-defined non-GAAP adjustments.",
+    "adjusted_ebitda": "Company-reported adjusted EBITDA using the source period definition.",
+    "net_income": "Net income attributable to common shareholders.",
+    "eps": "GAAP diluted earnings per share for the fiscal period.",
+    "adjusted_eps": "Company-reported adjusted diluted earnings per share.",
+    "operating_cash_flow": "Net cash provided by operating activities.",
+    "capital_expenditures": "Cash capital expenditures, represented as a positive cash outflow.",
+    "income_taxes_paid": "Cash income taxes paid during the fiscal period.",
+    "depreciation_amortization": "Reported depreciation and amortization for the fiscal period.",
+    "operating_margin": "Operating income divided by reported revenue.",
+    "free_cash_flow": "Operating cash flow less cash capital expenditures.",
+    "diluted_shares": "Quarterly weighted-average diluted shares used for diluted EPS.",
+    "shares_outstanding": "Point-in-time common shares outstanding at the period end.",
+    "total_equity": "Total shareholders' equity at the period end.",
+    "book_value_per_share": "Total shareholders' equity divided by point-in-time shares outstanding.",
+    "tangible_book_value_per_share": "Equity less goodwill and intangible assets divided by point-in-time shares outstanding.",
+    "cash": "Cash and cash equivalents at the period end.",
+    "marketable_securities": "Marketable securities reported as a separate point-in-time balance.",
+    "total_assets": "Total assets reported at the period end.",
+    "total_liabilities": "Total liabilities reported at the period end.",
+    "current_assets": "Current assets reported at the period end.",
+    "current_liabilities": "Current liabilities reported at the period end.",
+    "inventory": "Inventory reported at the period end.",
+    "accounts_payable": "Accounts payable reported at the period end.",
+    "accrued_liabilities": "Accrued liabilities reported at the period end.",
+    "property_plant_equipment_net": "Property and equipment, net, reported at the period end.",
+    "other_assets_noncurrent": "Other non-current assets reported at the period end.",
+    "other_liabilities_noncurrent": "Other non-current liabilities reported at the period end.",
+    "lease_liabilities": "Current and non-current operating lease liabilities at the period end.",
+    "lease_liabilities_current": "Current operating lease liabilities at the period end.",
+    "lease_liabilities_noncurrent": "Non-current operating lease liabilities at the period end.",
+    "total_debt": "Interest-bearing borrowings plus lease liabilities when the source definition includes both.",
+    "debt_core": "Interest-bearing core borrowings excluding operating lease liabilities.",
+    "net_debt": "Source-backed core borrowings less cash; unavailable when debt lineage is incomplete.",
+}
+
+CALCULATION_HISTORY_METRICS = (
+    "revenue",
+    "gross_profit",
+    "operating_income",
+    "base_ebitda",
+    "adjusted_ebitda",
+    "net_income",
+    "operating_cash_flow",
+    "capital_expenditures",
+    "interest_paid",
+    "interest_expense",
+    "buybacks_cash",
+    "dividends_cash",
+    "acquisitions_cash",
+    "debt_repayment",
+    "debt_issuance",
+    "cash",
+    "marketable_securities",
+    "debt_core",
+    "diluted_shares",
+    "shares_outstanding",
+    "eps",
+    "adjusted_eps",
+)
 
 
 def _default_data_root() -> Path:
@@ -128,6 +201,7 @@ def _field(
     unit: str = "",
     period: str = "",
     confidence: str = "legacy_artifact_backed",
+    definition: str = "",
 ) -> dict[str, Any]:
     out: dict[str, Any] = {
         "value": value,
@@ -147,6 +221,8 @@ def _field(
         out["period"] = period
     if confidence:
         out["confidence"] = confidence
+    if definition:
+        out["definition"] = definition
     return out
 
 
@@ -258,6 +334,164 @@ def _read_legacy_valuation_series(workbook_path: Path, row_number: int) -> dict[
         return values
     finally:
         wb.close()
+
+
+def _read_legacy_unsupported_zero_placeholders(
+    workbook_path: Path,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Read zero candidates that the legacy report explicitly marks missing/failed."""
+
+    wb = load_workbook(workbook_path, read_only=True, data_only=True)
+    try:
+        placeholders: dict[tuple[str, str], dict[str, Any]] = {}
+        for metric, (sheet_name, line_item) in _LEGACY_REPORT_PLACEHOLDER_ROWS.items():
+            if sheet_name not in wb.sheetnames:
+                continue
+            ws = wb[sheet_name]
+            row_number = next(
+                (
+                    row
+                    for row in range(4, ws.max_row + 1)
+                    if str(ws.cell(row, 2).value or "").strip().casefold() == line_item.casefold()
+                ),
+                None,
+            )
+            if row_number is None:
+                continue
+            source_status = str(ws.cell(row_number, 3).value or "").strip()
+            qa_status = str(ws.cell(row_number, 4).value or "").strip()
+            source_missing = source_status.casefold() == "missing"
+            qa_failed = qa_status.casefold() == "fail"
+            if not (source_missing or qa_failed):
+                continue
+            for column in range(7, ws.max_column + 1):
+                value = ws.cell(row_number, column).value
+                if (
+                    not isinstance(value, (int, float))
+                    or isinstance(value, bool)
+                    or float(value) != 0.0
+                ):
+                    continue
+                period_end = _to_iso(ws.cell(3, column).value)
+                if not period_end:
+                    continue
+                value_cell = f"{get_column_letter(column)}{row_number}"
+                placeholders[(metric, period_end)] = {
+                    "metric": metric,
+                    "line_item": line_item,
+                    "sheet": sheet_name,
+                    "period_end": period_end,
+                    "candidate_value": 0.0,
+                    "source_status": source_status,
+                    "qa_status": qa_status,
+                    "value_source_ref": f"{workbook_path.name}!{sheet_name}!{value_cell}",
+                    "metadata_source_ref": f"{workbook_path.name}!{sheet_name}!C{row_number}:D{row_number}",
+                }
+        return placeholders
+    finally:
+        wb.close()
+
+
+def _unsupported_zero_placeholder(
+    placeholders: Mapping[tuple[str, str], Mapping[str, Any]],
+    metric: str,
+    row: Mapping[str, Any],
+    value: Any,
+) -> Mapping[str, Any] | None:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or float(value) != 0.0
+    ):
+        return None
+    return placeholders.get((metric, _to_iso(row.get("quarter"))))
+
+
+def _placeholder_source_ref(history_source_ref: str, placeholder: Mapping[str, Any]) -> str:
+    return " + ".join(
+        filter(
+            None,
+            (
+                history_source_ref,
+                str(placeholder.get("value_source_ref") or ""),
+                str(placeholder.get("metadata_source_ref") or ""),
+            ),
+        )
+    )
+
+
+def _placeholder_reason(placeholder: Mapping[str, Any]) -> str:
+    return (
+        f"Legacy report line {placeholder.get('line_item')!r} marks the zero candidate "
+        f"Source={placeholder.get('source_status') or 'blank'} and "
+        f"QA={placeholder.get('qa_status') or 'blank'}; zero was treated as a missing placeholder."
+    )
+
+
+def _missing_placeholder_field(
+    *,
+    placeholder: Mapping[str, Any],
+    history_source_ref: str,
+    unit: str,
+    period: str,
+    core: bool = False,
+) -> dict[str, Any]:
+    return _field(
+        None,
+        status="missing_source",
+        source_ref=_placeholder_source_ref(history_source_ref, placeholder),
+        core=core,
+        reason=_placeholder_reason(placeholder),
+        unit=unit,
+        period=period,
+        confidence="",
+    )
+
+
+def _quality_checked_number(
+    *,
+    value: Any,
+    metric: str,
+    row: Mapping[str, Any],
+    period: str,
+    history_source_ref: str,
+    placeholders: Mapping[tuple[str, str], Mapping[str, Any]],
+    review_flags: list[dict[str, Any]] | None,
+    core: bool = False,
+) -> dict[str, Any]:
+    placeholder = _unsupported_zero_placeholder(placeholders, metric, row, value)
+    if placeholder is None:
+        return _populated_number(value, history_source_ref, "$m", period, core=core)
+    field = _missing_placeholder_field(
+        placeholder=placeholder,
+        history_source_ref=history_source_ref,
+        unit="$m",
+        period=period,
+        core=core,
+    )
+    if review_flags is not None:
+        review_flags.append(
+            {
+                "severity": "P2",
+                "rule_id": "legacy_adapter_unsupported_zero_placeholder",
+                "issue_type": "actionable_exception",
+                "section": "quarterly_financials",
+                "field": f"quarterly_financials.rows[{period}].{metric}",
+                "normalized_path": f"quarterly_financials.rows[{period}].{metric}",
+                "row_key": f"{period}|{metric}",
+                "affected_period": period,
+                "message": str(field["reason"]),
+                "source_ref": str(field["source_ref"]),
+                "root_cause": "legacy_missing_or_failed_zero_placeholder",
+                "visibility_disposition": "needs_review",
+                "promotion_blocking": False,
+                "suggested_action": (
+                    "Provide independent source-backed evidence before treating the zero candidate as a financial fact."
+                ),
+                "adapter_metadata": dict(placeholder),
+            }
+        )
+    return field
 
 
 def _segment_dimension(member: str) -> str:
@@ -782,17 +1016,31 @@ def _classify_source_family(path: Path) -> str:
     return "other"
 
 
-def _build_quarterly_financial_rows(history_rows: Sequence[Mapping[str, Any]], workbook_path: Path) -> list[dict[str, Any]]:
+def _build_quarterly_financial_rows(
+    history_rows: Sequence[Mapping[str, Any]],
+    workbook_path: Path,
+    *,
+    unsupported_zero_placeholders: Mapping[tuple[str, str], Mapping[str, Any]] | None = None,
+    review_flags: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     populated = [row for row in history_rows if _is_present(row.get("revenue"))]
     populated.sort(key=lambda row: _to_iso(row.get("quarter")))
     out: list[dict[str, Any]] = []
+    placeholders = unsupported_zero_placeholders or {}
     adjusted_ebitda_by_period = _read_legacy_valuation_series(workbook_path, 24)
+    adjusted_eps_by_period = _read_legacy_valuation_series(workbook_path, 110)
+    revolver_by_period = _read_legacy_valuation_series(workbook_path, 95)
     for row in populated:
         period = _normalize_period(row.get("fiscal_label") or row.get("quarter"), period_type="quarterly")
         source_ref = _source_ref("History_Q", row, workbook_path=workbook_path)
         cfo = _to_millions(row.get("cfo"))
         capex = _to_millions(row.get("capex"))
         fcf = round(cfo - capex, 3) if cfo is not None and capex is not None else None
+        eps_value = row.get("eps_diluted")
+        eps_source_ref = source_ref
+        if not _is_present(eps_value) and _is_present(row.get("net_income")) and _is_present(row.get("shares_diluted")):
+            eps_value = float(row["net_income"]) / float(row["shares_diluted"])
+            eps_source_ref = f"{source_ref} [derived: net_income / diluted_shares]"
         out.append(
             {
                 "period": period,
@@ -800,6 +1048,7 @@ def _build_quarterly_financial_rows(history_rows: Sequence[Mapping[str, Any]], w
                 "fiscal_quarter": row.get("fiscal_quarter"),
                 "period_end": _to_iso(row.get("quarter")),
                 "revenue": _populated_number(row.get("revenue"), source_ref, "$m", period, core=True),
+                "cost_of_goods_sold": _populated_number(row.get("cogs"), source_ref, "$m", period),
                 "gross_profit": _populated_number(row.get("gross_profit"), source_ref, "$m", period),
                 "operating_income": _populated_number(row.get("op_income"), source_ref, "$m", period, core=True),
                 "base_ebitda": _populated_number(row.get("ebitda"), source_ref, "$m", period),
@@ -812,15 +1061,93 @@ def _build_quarterly_financial_rows(history_rows: Sequence[Mapping[str, Any]], w
                 if period in adjusted_ebitda_by_period
                 else _missing("Legacy adjusted EBITDA row has no value for this period.", source_ref=f"{workbook_path.name}!Valuation!row:24"),
                 "net_income": _populated_number(row.get("net_income"), source_ref, "$m", period),
-                "eps": _populated_scalar(row.get("eps_diluted"), source_ref, "$/share", period),
+                "eps": _populated_scalar(eps_value, eps_source_ref, "$/share", period),
+                "adjusted_eps": _field(
+                    adjusted_eps_by_period[period],
+                    source_ref=f"{workbook_path.name}!Valuation!row:110",
+                    unit="$/share",
+                    period=period,
+                )
+                if period in adjusted_eps_by_period
+                else _missing("Legacy adjusted diluted EPS row has no value for this period.", source_ref=f"{workbook_path.name}!Valuation!row:110"),
                 "operating_cash_flow": _populated_number(row.get("cfo"), source_ref, "$m", period),
                 "capital_expenditures": _populated_number(row.get("capex"), source_ref, "$m", period),
+                "income_taxes_paid": _populated_number(row.get("tax_paid"), source_ref, "$m", period),
+                "depreciation_amortization": _populated_number(row.get("da"), source_ref, "$m", period),
+                "operating_margin": _populated_scalar(row.get("operating_margin"), source_ref, "%", period),
                 "free_cash_flow": _field(fcf, source_ref=source_ref, core=True, unit="$m", period=period)
                 if fcf is not None
                 else _missing("CFO or capex is absent for this quarter.", source_ref=source_ref, core=True),
                 "diluted_shares": _populated_share_count(row.get("shares_diluted"), source_ref, period, core=True),
+                "interest_paid": _quality_checked_number(
+                    value=row.get("interest_paid"),
+                    metric="interest_paid",
+                    row=row,
+                    period=period,
+                    history_source_ref=source_ref,
+                    placeholders=placeholders,
+                    review_flags=review_flags,
+                ),
+                "interest_expense": _populated_number(row.get("interest_expense_net"), source_ref, "$m", period),
+                "buybacks_cash": _populated_number(row.get("buybacks_cash"), source_ref, "$m", period),
+                "dividends_cash": _populated_number(row.get("dividends_cash"), source_ref, "$m", period),
+                "acquisitions_cash": _populated_number(row.get("acquisitions_cash"), source_ref, "$m", period),
+                "debt_repayment": _populated_number(row.get("debt_repayment"), source_ref, "$m", period),
+                "debt_issuance": _populated_number(row.get("debt_issuance"), source_ref, "$m", period),
+                "cash": _populated_number(row.get("cash"), source_ref, "$m", period),
+                "restricted_cash": _missing("Restricted cash is not separately identified in the ANF legacy history.", source_ref=source_ref),
+                "short_term_investments": _populated_number(row.get("short_term_investments"), source_ref, "$m", period),
+                "marketable_securities": _populated_number(row.get("marketable_securities"), source_ref, "$m", period),
+                "total_assets": _populated_number(row.get("assets"), source_ref, "$m", period),
+                "total_liabilities": _populated_number(row.get("liabilities"), source_ref, "$m", period),
+                "current_assets": _populated_number(row.get("assets_current"), source_ref, "$m", period),
+                "current_liabilities": _populated_number(row.get("liabilities_current"), source_ref, "$m", period),
+                "accounts_receivable": _populated_number(row.get("accounts_receivable"), source_ref, "$m", period),
+                "inventory": _populated_number(row.get("inventory"), source_ref, "$m", period),
+                "accounts_payable": _populated_number(row.get("accounts_payable_current"), source_ref, "$m", period),
+                "accrued_liabilities": _populated_number(row.get("accrued_liabilities_current"), source_ref, "$m", period),
+                "short_term_borrowings": _missing("Short-term borrowings are not separately identified in the ANF legacy history.", source_ref=source_ref),
+                "debt_current": _populated_number(row.get("debt_current"), source_ref, "$m", period),
+                "property_plant_equipment_net": _populated_number(row.get("property_plant_equipment_net"), source_ref, "$m", period),
+                "other_assets_noncurrent": _populated_number(row.get("other_assets_noncurrent"), source_ref, "$m", period),
+                "other_liabilities_noncurrent": _populated_number(row.get("other_liabilities_noncurrent"), source_ref, "$m", period),
+                "total_equity": _populated_number(row.get("total_equity"), source_ref, "$m", period),
+                "goodwill": _populated_number(row.get("goodwill"), source_ref, "$m", period),
+                "intangibles": _populated_number(row.get("intangibles"), source_ref, "$m", period),
+                "shares_outstanding": _populated_share_count(row.get("shares_outstanding"), source_ref, period),
+                "pension_obligation_net": _populated_number(row.get("pension_obligation_net"), source_ref, "$m", period),
+                "total_debt": _quality_checked_number(
+                    value=row.get("total_debt"),
+                    metric="total_debt",
+                    row=row,
+                    period=period,
+                    history_source_ref=source_ref,
+                    placeholders=placeholders,
+                    review_flags=review_flags,
+                ),
+                "debt_core": _quality_checked_number(
+                    value=row.get("debt_core"),
+                    metric="debt_core",
+                    row=row,
+                    period=period,
+                    history_source_ref=source_ref,
+                    placeholders=placeholders,
+                    review_flags=review_flags,
+                ),
+                "lease_liabilities": _populated_number(row.get("lease_liabilities"), source_ref, "$m", period),
+                "lease_liabilities_current": _populated_number(row.get("lease_liabilities_current"), source_ref, "$m", period),
+                "lease_liabilities_noncurrent": _populated_number(row.get("lease_liabilities_noncurrent"), source_ref, "$m", period),
+                "revolver_availability": _field(
+                    revolver_by_period[period],
+                    source_ref=f"{workbook_path.name}!Valuation!row:95",
+                    unit="$m",
+                    period=period,
+                )
+                if period in revolver_by_period
+                else _missing("Legacy revolver-availability series has no value for this period.", source_ref=f"{workbook_path.name}!Valuation!row:95"),
             }
         )
+    _attach_financial_definitions(out)
     return out
 
 
@@ -829,6 +1156,7 @@ def _build_annual_financial_rows(
     workbook_path: Path,
     *,
     incomplete_candidates: list[dict[str, Any]],
+    unsupported_zero_placeholders: Mapping[tuple[str, str], Mapping[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     by_year: dict[Any, list[Mapping[str, Any]]] = defaultdict(list)
     for row in history_rows:
@@ -837,6 +1165,7 @@ def _build_annual_financial_rows(
             by_year[year].append(row)
     annuals: list[dict[str, Any]] = []
     adjusted_ebitda_by_period = _read_legacy_valuation_series(workbook_path, 24)
+    placeholders = unsupported_zero_placeholders or {}
     for year, rows in by_year.items():
         rows = sorted(rows, key=lambda row: _to_iso(row.get("quarter")))
         if not any(_fiscal_quarter(row) == 4 for row in rows):
@@ -862,6 +1191,7 @@ def _build_annual_financial_rows(
         period = f"{year}-FY"
         components = {
             "revenue": [_annual_component(row, "revenue", unit="$", source_ref=source_ref) for row in rows],
+            "cost_of_goods_sold": [_annual_component(row, "cogs", unit="$", source_ref=source_ref) for row in rows],
             "gross_profit": [_annual_component(row, "gross_profit", unit="$", source_ref=source_ref) for row in rows],
             "operating_income": [_annual_component(row, "op_income", unit="$", source_ref=source_ref) for row in rows],
             "base_ebitda": [_annual_component(row, "ebitda", unit="$", source_ref=source_ref) for row in rows],
@@ -878,6 +1208,8 @@ def _build_annual_financial_rows(
             "net_income": [_annual_component(row, "net_income", unit="$", source_ref=source_ref) for row in rows],
             "operating_cash_flow": [_annual_component(row, "cfo", unit="$", source_ref=source_ref) for row in rows],
             "capital_expenditures": [_annual_component(row, "capex", unit="$", source_ref=source_ref) for row in rows],
+            "income_taxes_paid": [_annual_component(row, "tax_paid", unit="$", source_ref=source_ref) for row in rows],
+            "depreciation_amortization": [_annual_component(row, "da", unit="$", source_ref=source_ref) for row in rows],
             "free_cash_flow": [
                 _annual_component(
                     row,
@@ -892,6 +1224,23 @@ def _build_annual_financial_rows(
                 )
                 for row in rows
             ],
+            "interest_paid": [
+                _annual_component(
+                    row,
+                    "interest_paid",
+                    unit="$",
+                    source_ref=source_ref,
+                    normalized_metric="interest_paid",
+                    unsupported_zero_placeholders=placeholders,
+                )
+                for row in rows
+            ],
+            "interest_expense": [_annual_component(row, "interest_expense_net", unit="$", source_ref=source_ref) for row in rows],
+            "buybacks_cash": [_annual_component(row, "buybacks_cash", unit="$", source_ref=source_ref) for row in rows],
+            "dividends_cash": [_annual_component(row, "dividends_cash", unit="$", source_ref=source_ref) for row in rows],
+            "acquisitions_cash": [_annual_component(row, "acquisitions_cash", unit="$", source_ref=source_ref) for row in rows],
+            "debt_repayment": [_annual_component(row, "debt_repayment", unit="$", source_ref=source_ref) for row in rows],
+            "debt_issuance": [_annual_component(row, "debt_issuance", unit="$", source_ref=source_ref) for row in rows],
         }
         adjusted_source_ref = f"{workbook_path.name}!Valuation!row:24"
         annuals.append(
@@ -899,6 +1248,7 @@ def _build_annual_financial_rows(
                 "period": period,
                 "fiscal_year": year,
                 "revenue": _annual_component_field(components["revenue"], metric="revenue", period=period, source_ref=source_ref, divisor=1_000_000, core=True),
+                "cost_of_goods_sold": _annual_component_field(components["cost_of_goods_sold"], metric="cost_of_goods_sold", period=period, source_ref=source_ref, divisor=1_000_000),
                 "gross_profit": _annual_component_field(components["gross_profit"], metric="gross_profit", period=period, source_ref=source_ref, divisor=1_000_000),
                 "operating_income": _annual_component_field(components["operating_income"], metric="operating_income", period=period, source_ref=source_ref, divisor=1_000_000, core=True),
                 "base_ebitda": _annual_component_field(components["base_ebitda"], metric="base_ebitda", period=period, source_ref=source_ref, divisor=1_000_000),
@@ -906,11 +1256,122 @@ def _build_annual_financial_rows(
                 "net_income": _annual_component_field(components["net_income"], metric="net_income", period=period, source_ref=source_ref, divisor=1_000_000),
                 "operating_cash_flow": _annual_component_field(components["operating_cash_flow"], metric="operating_cash_flow", period=period, source_ref=source_ref, divisor=1_000_000),
                 "capital_expenditures": _annual_component_field(components["capital_expenditures"], metric="capital_expenditures", period=period, source_ref=source_ref, divisor=1_000_000),
+                "income_taxes_paid": _annual_component_field(components["income_taxes_paid"], metric="income_taxes_paid", period=period, source_ref=source_ref, divisor=1_000_000),
+                "depreciation_amortization": _annual_component_field(components["depreciation_amortization"], metric="depreciation_amortization", period=period, source_ref=source_ref, divisor=1_000_000),
                 "free_cash_flow": _annual_component_field(components["free_cash_flow"], metric="free_cash_flow", period=period, source_ref=source_ref, divisor=1_000_000, core=True),
+                "interest_paid": _annual_component_field(components["interest_paid"], metric="interest_paid", period=period, source_ref=source_ref, divisor=1_000_000),
+                "interest_expense": _annual_component_field(components["interest_expense"], metric="interest_expense", period=period, source_ref=source_ref, divisor=1_000_000),
+                "buybacks_cash": _annual_component_field(components["buybacks_cash"], metric="buybacks_cash", period=period, source_ref=source_ref, divisor=1_000_000),
+                "dividends_cash": _annual_component_field(components["dividends_cash"], metric="dividends_cash", period=period, source_ref=source_ref, divisor=1_000_000),
+                "acquisitions_cash": _annual_component_field(components["acquisitions_cash"], metric="acquisitions_cash", period=period, source_ref=source_ref, divisor=1_000_000),
+                "debt_repayment": _annual_component_field(components["debt_repayment"], metric="debt_repayment", period=period, source_ref=source_ref, divisor=1_000_000),
+                "debt_issuance": _annual_component_field(components["debt_issuance"], metric="debt_issuance", period=period, source_ref=source_ref, divisor=1_000_000),
+                "cash": _annual_endpoint_field(rows, "cash", period=period, workbook_path=workbook_path),
+                "marketable_securities": _annual_endpoint_field(rows, "marketable_securities", period=period, workbook_path=workbook_path),
+                "total_assets": _annual_endpoint_field(rows, "assets", period=period, workbook_path=workbook_path),
+                "total_liabilities": _annual_endpoint_field(rows, "liabilities", period=period, workbook_path=workbook_path),
+                "current_assets": _annual_endpoint_field(rows, "assets_current", period=period, workbook_path=workbook_path),
+                "current_liabilities": _annual_endpoint_field(rows, "liabilities_current", period=period, workbook_path=workbook_path),
+                "inventory": _annual_endpoint_field(rows, "inventory", period=period, workbook_path=workbook_path),
+                "accounts_payable": _annual_endpoint_field(rows, "accounts_payable_current", period=period, workbook_path=workbook_path),
+                "accrued_liabilities": _annual_endpoint_field(rows, "accrued_liabilities_current", period=period, workbook_path=workbook_path),
+                "lease_liabilities_current": _annual_endpoint_field(rows, "lease_liabilities_current", period=period, workbook_path=workbook_path),
+                "lease_liabilities_noncurrent": _annual_endpoint_field(rows, "lease_liabilities_noncurrent", period=period, workbook_path=workbook_path),
+                "other_assets_noncurrent": _annual_endpoint_field(rows, "other_assets_noncurrent", period=period, workbook_path=workbook_path),
+                "other_liabilities_noncurrent": _annual_endpoint_field(rows, "other_liabilities_noncurrent", period=period, workbook_path=workbook_path),
+                "property_plant_equipment_net": _annual_endpoint_field(rows, "property_plant_equipment_net", period=period, workbook_path=workbook_path),
+                "total_equity": _annual_endpoint_field(rows, "total_equity", period=period, workbook_path=workbook_path),
+                "debt_current": _annual_endpoint_field(rows, "debt_current", period=period, workbook_path=workbook_path),
+                "total_debt": _annual_endpoint_field(
+                    rows,
+                    "total_debt",
+                    period=period,
+                    workbook_path=workbook_path,
+                    normalized_metric="total_debt",
+                    unsupported_zero_placeholders=placeholders,
+                ),
+                "debt_core": _annual_endpoint_field(
+                    rows,
+                    "debt_core",
+                    period=period,
+                    workbook_path=workbook_path,
+                    normalized_metric="debt_core",
+                    unsupported_zero_placeholders=placeholders,
+                ),
+                "lease_liabilities": _annual_endpoint_field(rows, "lease_liabilities", period=period, workbook_path=workbook_path),
+                # A fiscal-Q4 weighted-average diluted share count is not an
+                # annual EPS denominator. Preserve it explicitly for audit, but
+                # do not present it as an annual diluted-share fact.
+                "q4_diluted_shares": _annual_endpoint_field(rows, "shares_diluted", period=period, workbook_path=workbook_path, share_count=True),
+                "diluted_shares": _missing(
+                    "Annual weighted-average diluted shares are unavailable; fiscal-Q4 weighted-average shares are retained separately for audit.",
+                    source_ref=f"{workbook_path.name}!History_Q!{period}",
+                ),
+                "shares_outstanding": _annual_endpoint_field(rows, "shares_outstanding", period=period, workbook_path=workbook_path, share_count=True),
+                "eps": _missing(
+                    "Source-backed annual GAAP diluted EPS or annual weighted-average diluted shares are unavailable.",
+                    source_ref=f"{workbook_path.name}!History_Q!{period}",
+                ),
             }
         )
     annuals.sort(key=lambda row: str(row.get("fiscal_year")))
+    _attach_financial_definitions(annuals)
     return annuals
+
+
+def _attach_financial_definitions(rows: Sequence[dict[str, Any]]) -> None:
+    for row in rows:
+        for metric, definition in FINANCIAL_FIELD_DEFINITIONS.items():
+            field = row.get(metric)
+            if isinstance(field, dict):
+                field.setdefault("definition", definition)
+
+
+def _annual_endpoint_field(
+    rows: Sequence[Mapping[str, Any]],
+    source_field: str,
+    *,
+    period: str,
+    workbook_path: Path,
+    share_count: bool = False,
+    normalized_metric: str = "",
+    unsupported_zero_placeholders: Mapping[tuple[str, str], Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    q4_rows = [row for row in rows if _fiscal_quarter(row) == 4]
+    if len(q4_rows) != 1:
+        return _missing(
+            f"Annual endpoint {source_field} requires exactly one fiscal Q4 row; found {len(q4_rows)}.",
+            source_ref=f"{workbook_path.name}!History_Q!{period}",
+        )
+    row = q4_rows[0]
+    source_ref = _source_ref("History_Q", row, workbook_path=workbook_path)
+    placeholder = _unsupported_zero_placeholder(
+        unsupported_zero_placeholders or {},
+        normalized_metric or source_field,
+        row,
+        row.get(source_field),
+    )
+    if placeholder is not None:
+        field = _missing_placeholder_field(
+            placeholder=placeholder,
+            history_source_ref=source_ref,
+            unit="m shares" if share_count else "$m",
+            period=period,
+        )
+        field["missing_inputs"] = [str(row.get("fiscal_label") or f"{period}-Q4")]
+        field["component_issues"] = [
+            {
+                "reason": "unsupported_zero_placeholder",
+                "quarter": 4,
+                "period": str(row.get("fiscal_label") or ""),
+                "source_ref": str(field["source_ref"]),
+                "candidate_value": 0.0,
+            }
+        ]
+        return field
+    if share_count:
+        return _populated_share_count(row.get(source_field), source_ref, period)
+    return _populated_number(row.get(source_field), source_ref, "$m", period)
 
 
 def _annual_component_field(
@@ -942,6 +1403,9 @@ def _annual_component_field(
                     "quarter": quarter,
                 }
             )
+        quality_issue = component.get("quality_issue")
+        if isinstance(quality_issue, Mapping):
+            component_issues.append(dict(quality_issue))
         by_quarter[int(quarter)].append(component)
     missing_inputs: list[str] = []
     selected: list[dict[str, Any]] = []
@@ -1006,10 +1470,12 @@ def _annual_component(
     value: Any = ...,
     unit: str,
     source_ref: str = "",
+    normalized_metric: str = "",
+    unsupported_zero_placeholders: Mapping[tuple[str, str], Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     label = str(row.get("fiscal_label") or "")
     actual_value = row.get(value_field) if value is ... else value
-    return {
+    component = {
         "label": label,
         "fiscal_year": int(row.get("fiscal_year")) if _is_present(row.get("fiscal_year")) else None,
         "fiscal_quarter": _fiscal_quarter(row),
@@ -1018,6 +1484,26 @@ def _annual_component(
         "status": "populated" if _is_present(actual_value) else "missing_source",
         "source_ref": source_ref or str(row.get("source_ref") or f"History_Q!{label}"),
     }
+    placeholder = _unsupported_zero_placeholder(
+        unsupported_zero_placeholders or {},
+        normalized_metric or value_field,
+        row,
+        actual_value,
+    )
+    if placeholder is not None:
+        component["value"] = None
+        component["status"] = "missing_source"
+        component["source_ref"] = _placeholder_source_ref(str(component["source_ref"]), placeholder)
+        component["quality_issue"] = {
+            "reason": "unsupported_zero_placeholder",
+            "quarter": component["fiscal_quarter"],
+            "period": label,
+            "source_ref": component["source_ref"],
+            "candidate_value": 0.0,
+            "source_status": str(placeholder.get("source_status") or ""),
+            "qa_status": str(placeholder.get("qa_status") or ""),
+        }
+    return component
 
 
 def _normalize_annual_component(
@@ -1121,12 +1607,13 @@ def _populated_scalar(value: Any, source_ref: str, unit: str, period: str, *, co
 def _populated_share_count(value: Any, source_ref: str, period: str, *, core: bool = False) -> dict[str, Any]:
     converted = _to_millions(value)
     if converted is None:
-        return _missing("Legacy artifact did not contain diluted share count.", source_ref=source_ref, core=core)
+        return _missing("Legacy artifact did not contain a share count.", source_ref=source_ref, core=core)
     return _field(converted, source_ref=source_ref, core=core, unit="m shares", period=period)
 
 
 def _build_debt_liquidity(
     history_rows: Sequence[Mapping[str, Any]],
+    quarterly_financial_rows: Sequence[Mapping[str, Any]],
     leverage_rows: Sequence[Mapping[str, Any]],
     revolver_rows: Sequence[Mapping[str, Any]],
     workbook_path: Path,
@@ -1137,8 +1624,34 @@ def _build_debt_liquidity(
     source_ref = _source_ref("Leverage_Liquidity", leverage, workbook_path=workbook_path) if leverage else _source_ref("History_Q", history, workbook_path=workbook_path)
     cash = _to_millions(leverage.get("cash") if leverage else history.get("cash"))
     cash_period = _to_iso(leverage.get("quarter") if leverage else history.get("quarter"))
-    total_debt = _to_millions(history.get("total_debt")) if history else None
-    debt_source_ref = _source_ref("History_Q", history, workbook_path=workbook_path)
+    history_period = _to_iso(history.get("quarter"))
+    quality_checked_history = next(
+        (
+            row
+            for row in reversed(quarterly_financial_rows)
+            if _to_iso(row.get("period_end")) == history_period
+        ),
+        {},
+    )
+    total_debt_field = (
+        quality_checked_history.get("total_debt")
+        if isinstance(quality_checked_history.get("total_debt"), Mapping)
+        else {}
+    )
+    total_debt_value = (
+        total_debt_field.get("value")
+        if str(total_debt_field.get("status") or "") == "populated"
+        else None
+    )
+    total_debt = (
+        float(total_debt_value)
+        if isinstance(total_debt_value, (int, float)) and not isinstance(total_debt_value, bool)
+        else None
+    )
+    debt_source_ref = str(
+        total_debt_field.get("source_ref")
+        or _source_ref("History_Q", history, workbook_path=workbook_path)
+    )
     if total_debt is None:
         review_flags.append(
             {
@@ -1152,9 +1665,11 @@ def _build_debt_liquidity(
             }
         )
 
-    legacy_net_debt = _read_cell(workbook_path, "Valuation", "D198")
-    net_debt = float(legacy_net_debt) if isinstance(legacy_net_debt, (int, float)) and not isinstance(legacy_net_debt, bool) else None
-    net_debt_source_ref = f"{workbook_path.name}!Valuation!D198"
+    # Valuation!D198 is a calculated legacy display cell, not independent debt
+    # evidence. Net debt remains unavailable until both debt and cash have
+    # source-backed compatible lineage.
+    net_debt = round(total_debt - cash, 3) if total_debt is not None and cash is not None else None
+    net_debt_source_ref = f"{debt_source_ref} + {source_ref}" if net_debt is not None else debt_source_ref
 
     revolver = next((row for row in reversed(revolver_rows) if _is_present(row.get("revolver_availability"))), {})
     revolver_period = _to_iso(revolver.get("quarter"))
@@ -1183,11 +1698,23 @@ def _build_debt_liquidity(
             source_ref=liquidity_source_ref,
             core=True,
         )
+        summary_liquidity_as_of_display = _missing(
+            "SUMMARY liquidity as-of text requires a complete same-date liquidity total.",
+            source_ref=liquidity_source_ref,
+            core=True,
+        )
     elif cash_period == revolver_period:
         freshness_disposition = "current"
         freshness_reason = "Liquidity and the latest SUMMARY point-in-time evidence share one as-of date."
         summary_liquidity_display = _field(
-            f"{total_liquidity:,.3f} as of {revolver_period}",
+            total_liquidity,
+            source_ref=liquidity_source_ref,
+            core=True,
+            unit="$m",
+            period=revolver_period,
+        )
+        summary_liquidity_as_of_display = _field(
+            f"As of {revolver_period}",
             source_ref=liquidity_source_ref,
             core=True,
             period=revolver_period,
@@ -1196,7 +1723,14 @@ def _build_debt_liquidity(
         freshness_disposition = "stale_but_displayable_with_date"
         freshness_reason = "Liquidity is older than the latest SUMMARY point-in-time evidence and must be visibly dated."
         summary_liquidity_display = _field(
-            f"{total_liquidity:,.3f} as of {revolver_period}",
+            total_liquidity,
+            source_ref=liquidity_source_ref,
+            core=True,
+            unit="$m",
+            period=revolver_period,
+        )
+        summary_liquidity_as_of_display = _field(
+            f"As of {revolver_period} (stale)",
             source_ref=liquidity_source_ref,
             core=True,
             period=revolver_period,
@@ -1216,7 +1750,20 @@ def _build_debt_liquidity(
     return {
         "cash": _field(cash, source_ref=source_ref, core=True, unit="$m", period=cash_period) if cash is not None else _missing("Cash not found in History_Q or Leverage_Liquidity.", source_ref=source_ref, core=True),
         "total_debt": _field(total_debt, source_ref=debt_source_ref, core=True, unit="$m", period=cash_period) if total_debt is not None else _missing("Latest total debt is not source-backed; zero was not assumed.", source_ref=debt_source_ref, core=True),
-        "net_debt": _field(net_debt, source_ref=net_debt_source_ref, core=True, unit="$m", period=cash_period) if net_debt is not None else _missing("Net debt is unavailable from source-backed legacy evidence.", source_ref=net_debt_source_ref, core=True),
+        "net_debt": _field(
+            net_debt,
+            source_ref=net_debt_source_ref,
+            core=True,
+            unit="$m",
+            period=cash_period,
+            definition=FINANCIAL_FIELD_DEFINITIONS["net_debt"],
+        )
+        if net_debt is not None
+        else _missing(
+            "Net debt is unavailable because source-backed total debt is missing; legacy Valuation!D198 was not treated as evidence.",
+            source_ref=net_debt_source_ref,
+            core=True,
+        ),
         "net_leverage": _missing("Net leverage cannot be source-backed while total debt is unavailable.", source_ref=debt_source_ref, core=False),
         "revolver_availability": _field(revolver_availability, source_ref=revolver_source_ref, core=True, unit="$m", period=revolver_period) if revolver_availability is not None else _missing("Revolver availability is unavailable.", source_ref=revolver_source_ref, core=True),
         "liquidity_cash": _field(liquidity_cash, source_ref=_source_ref("History_Q", matching_cash_row, workbook_path=workbook_path), core=True, unit="$m", period=revolver_period) if liquidity_cash is not None else _missing("Cash is unavailable for the total-liquidity as-of date.", source_ref=liquidity_source_ref, core=True),
@@ -1226,6 +1773,7 @@ def _build_debt_liquidity(
         "as_of_date": _field(revolver_period, source_ref=liquidity_source_ref, core=True) if revolver_period else _missing("Total-liquidity as-of date is unavailable.", source_ref=liquidity_source_ref, core=True),
         "summary_as_of_date": _field(cash_period, source_ref=source_ref, core=True) if cash_period else _missing("SUMMARY point-in-time as-of date is unavailable.", source_ref=source_ref, core=True),
         "summary_liquidity_display": summary_liquidity_display,
+        "summary_liquidity_as_of_display": summary_liquidity_as_of_display,
         "liquidity_freshness": {
             "disposition": freshness_disposition,
             "summary_as_of": cash_period or "",
@@ -1272,8 +1820,13 @@ def _build_valuation_inputs(
     latest_four = list(quarterly_rows[-4:])
     source_ref = f"{workbook_path.name}!History_Q!latest_4_quarters"
 
-    def total(field_name: str) -> dict[str, Any]:
-        result = _ttm_component_field(latest_four, metric=field_name, source_ref=source_ref)
+    def total(field_name: str, *, expected_unit: str = "$m") -> dict[str, Any]:
+        result = _ttm_component_field(
+            latest_four,
+            metric=field_name,
+            source_ref=source_ref,
+            expected_unit=expected_unit,
+        )
         if str(result.get("status") or "") != "populated" and review_flags is not None:
             review_flags.append(
                 {
@@ -1302,8 +1855,41 @@ def _build_valuation_inputs(
     latest_source = str(latest.get("revenue", {}).get("source_ref") or source_ref) if isinstance(latest.get("revenue"), Mapping) else source_ref
     as_of = str(latest.get("period_end") or "")
     diluted = latest.get("diluted_shares") if isinstance(latest.get("diluted_shares"), Mapping) else _missing("Latest diluted shares unavailable.", source_ref=latest_source, core=True)
-    legacy_shares = _read_cell(workbook_path, "Valuation", "D196")
-    shares = _field(float(legacy_shares), source_ref=f"{workbook_path.name}!Valuation!D196", core=True, unit="m shares") if isinstance(legacy_shares, (int, float)) else diluted
+    outstanding = latest.get("shares_outstanding") if isinstance(latest.get("shares_outstanding"), Mapping) else _missing("Latest point-in-time shares outstanding unavailable.", source_ref=latest_source, core=True)
+    equity = latest.get("total_equity") if isinstance(latest.get("total_equity"), Mapping) else {}
+    goodwill = latest.get("goodwill") if isinstance(latest.get("goodwill"), Mapping) else {}
+    intangibles = latest.get("intangibles") if isinstance(latest.get("intangibles"), Mapping) else {}
+
+    def per_share(numerator: Mapping[str, Any], *, name: str) -> dict[str, Any]:
+        numerator_value = numerator.get("value") if str(numerator.get("status") or "") == "populated" else None
+        outstanding_value = outstanding.get("value") if isinstance(outstanding, Mapping) and str(outstanding.get("status") or "") == "populated" else None
+        refs = [str(item.get("source_ref") or "") for item in (numerator, outstanding) if isinstance(item, Mapping)]
+        if not isinstance(numerator_value, (int, float)) or isinstance(numerator_value, bool) or not isinstance(outstanding_value, (int, float)) or isinstance(outstanding_value, bool) or outstanding_value == 0:
+            return _missing(f"{name} requires source-backed equity and point-in-time shares outstanding.", source_ref=" + ".join(filter(None, refs)), core=True)
+        definition_key = "tangible_book_value_per_share" if name.startswith("Tangible") else "book_value_per_share"
+        return _field(
+            round(float(numerator_value) / float(outstanding_value), 4),
+            source_ref=" + ".join(filter(None, refs)),
+            core=True,
+            unit="$/share",
+            period=as_of,
+            definition=FINANCIAL_FIELD_DEFINITIONS[definition_key],
+        )
+
+    book_value_per_share = per_share(equity, name="Book value per share")
+    tangible_value: dict[str, Any]
+    if all(str(field.get("status") or "") == "populated" for field in (equity, goodwill, intangibles)):
+        tangible_equity = _field(
+            float(equity["value"]) - float(goodwill["value"]) - float(intangibles["value"]),
+            source_ref=" + ".join(str(field.get("source_ref") or "") for field in (equity, goodwill, intangibles)),
+            core=True,
+            unit="$m",
+            period=as_of,
+        )
+        tangible_value = per_share(tangible_equity, name="Tangible book value per share")
+    else:
+        tangible_value = _missing("Tangible book value requires source-backed equity, goodwill, intangibles, and point-in-time shares outstanding; missing components were not assumed to be zero.", source_ref=latest_source, core=True)
+    shares = outstanding
     return {
         "price": _missing("Market price is intentionally not sourced by the ANF legacy adapter fixture.", source_ref=f"{workbook_path.name}!Valuation!D194"),
         "as_of_date": _field(as_of, source_ref=latest_source, core=True) if as_of else _missing("Latest period end is unavailable.", source_ref=latest_source, core=True),
@@ -1317,13 +1903,19 @@ def _build_valuation_inputs(
         "operating_cash_flow_ttm": total("operating_cash_flow"),
         "free_cash_flow_ttm": total("free_cash_flow"),
         "capex_ttm": total("capital_expenditures"),
-        "target_ev_adjusted_ebitda": _populated_scalar(_read_cell(workbook_path, "Valuation", "D208"), f"{workbook_path.name}!Valuation!D208", "x", "assumption"),
-        "target_ev_ebitda": _populated_scalar(_read_cell(workbook_path, "Valuation", "D209"), f"{workbook_path.name}!Valuation!D209", "x", "assumption"),
-        "target_ev_yield": _populated_scalar(_read_cell(workbook_path, "Valuation", "D210"), f"{workbook_path.name}!Valuation!D210", "ratio", "assumption"),
-        "maintenance_capex_ratio": _populated_scalar(_read_cell(workbook_path, "Valuation", "D213"), f"{workbook_path.name}!Valuation!D213", "ratio", "assumption"),
-        "recurring_cash_costs": _populated_scalar(_read_cell(workbook_path, "Valuation", "D214"), f"{workbook_path.name}!Valuation!D214", "$m", "assumption"),
-        "working_capital_normalization": _populated_scalar(_read_cell(workbook_path, "Valuation", "D215"), f"{workbook_path.name}!Valuation!D215", "$m", "assumption"),
-        "per_share_denominator": _field(str(_read_cell(workbook_path, "Valuation", "D216") or ""), source_ref=f"{workbook_path.name}!Valuation!D216"),
+        "interest_paid_ttm": total("interest_paid"),
+        "eps_ttm": total("eps", expected_unit="$/share"),
+        "adjusted_eps_ttm": total("adjusted_eps", expected_unit="$/share"),
+        "book_value_per_share": book_value_per_share,
+        "tangible_book_value_per_share": tangible_value,
+        "adjusted_fcf_ttm": _missing("No independently source-backed adjusted FCF TTM definition is available in the ANF legacy fixture.", source_ref=source_ref),
+        "target_ev_adjusted_ebitda": _missing("Target EV/Adjusted EBITDA is a user assumption and is intentionally blank.", source_ref="user_input"),
+        "target_ev_ebitda": _missing("Target EV/EBITDA is a user assumption and is intentionally blank.", source_ref="user_input"),
+        "target_ev_yield": _missing("Target EV yield is a user assumption and is intentionally blank.", source_ref="user_input"),
+        "maintenance_capex_ratio": _missing("Maintenance capex ratio is a user assumption and is intentionally blank.", source_ref="user_input"),
+        "recurring_cash_costs": _missing("Recurring cash costs are a user assumption and are intentionally blank.", source_ref="user_input"),
+        "working_capital_normalization": _missing("Working-capital normalization is a user assumption and is intentionally blank.", source_ref="user_input"),
+        "per_share_denominator": _missing("Per-share denominator is a user selection and is intentionally blank.", source_ref="user_input"),
     }
 
 
@@ -1339,12 +1931,52 @@ def _quarter_from_ordinal(ordinal: int) -> str:
     return f"{year}-Q{quarter_index + 1}"
 
 
+def _build_calculation_history(quarterly_rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Project full source-backed quarterly inputs for formula-owned history.
+
+    The visible workbook keeps a bounded display axis. This long-form hidden
+    projection preserves older quarters needed to calculate TTM and YoY values
+    for every visible period without copying legacy formula outputs.
+    """
+
+    items: list[dict[str, Any]] = []
+    for row in quarterly_rows:
+        period = str(row.get("period") or "")
+        ordinal = _quarter_ordinal(period)
+        if ordinal is None:
+            continue
+        for metric in CALCULATION_HISTORY_METRICS:
+            field = row.get(metric)
+            if not isinstance(field, Mapping) or str(field.get("status") or "") != "populated":
+                continue
+            value = field.get("value")
+            unit = str(field.get("unit") or "")
+            source_ref = str(field.get("source_ref") or "")
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or not unit or not source_ref:
+                continue
+            items.append(
+                {
+                    "period": period,
+                    "period_ordinal": ordinal,
+                    "metric": metric,
+                    "value": value,
+                    "unit": unit,
+                    "source_ref": source_ref,
+                    "status": "populated",
+                    "definition": str(field.get("definition") or FINANCIAL_FIELD_DEFINITIONS.get(metric) or ""),
+                }
+            )
+    items.sort(key=lambda item: (int(item["period_ordinal"]), str(item["metric"])))
+    return {"quarterly_items": items}
+
+
 def _ttm_component_field(
     quarterly_rows: Sequence[Mapping[str, Any]],
     *,
     metric: str,
     source_ref: str,
     expected_end_period: str = "",
+    expected_unit: str = "$m",
 ) -> dict[str, Any]:
     components: list[dict[str, Any]] = []
     component_issues: list[dict[str, Any]] = []
@@ -1419,12 +2051,12 @@ def _ttm_component_field(
 
     component_units = [str(component.get("unit") or "").strip() for component in components]
     if len(component_units) == 4 and (
-        any(not unit for unit in component_units) or set(component_units) != {"$m"}
+        any(not unit for unit in component_units) or set(component_units) != {expected_unit}
     ):
         component_issues.append(
             {
                 "reason": "incompatible_unit",
-                "expected": "$m",
+                "expected": expected_unit,
                 "actual": component_units,
             }
         )
@@ -1471,7 +2103,7 @@ def _ttm_component_field(
             round(sum(float(component["value"]) for component in components), 3),
             source_ref=" + ".join(source_refs) or source_ref,
             core=True,
-            unit="$m",
+            unit=expected_unit,
             period="TTM",
         )
 
@@ -1499,7 +2131,7 @@ def _ttm_component_field(
         source_ref=" + ".join(source_refs) or source_ref,
         core=True,
         reason=reason,
-        unit="$m",
+        unit=expected_unit,
         period="TTM",
         confidence="",
     )
@@ -1638,26 +2270,82 @@ def _build_guidance_items(
     return items
 
 
+def _legacy_bs_segment_items(workbook_path: Path) -> list[dict[str, Any]]:
+    """Inventory reliable visible legacy segment facts by exact business key."""
+
+    wb = load_workbook(workbook_path, read_only=True, data_only=True)
+    try:
+        ws = wb["BS_Segments"]
+        items: list[dict[str, Any]] = []
+        blocks = (
+            ("quarterly", 7, (61, 62, 63, 65, 66, 67), range(2, 14)),
+            ("annual", 70, (72, 73, 74), range(2, 10)),
+        )
+        display_order: dict[tuple[str, str], int] = {}
+        for period_type, header_row, member_rows, columns in blocks:
+            for row_number in member_rows:
+                member = str(ws.cell(row_number, 1).value or "").strip()
+                if not member:
+                    continue
+                dimension = _segment_dimension(member)
+                key = (dimension, member)
+                display_order.setdefault(
+                    key,
+                    1 + sum(1 for existing_dimension, _ in display_order if existing_dimension == dimension),
+                )
+                for column in columns:
+                    raw_period = ws.cell(header_row, column).value
+                    value = ws.cell(row_number, column).value
+                    if raw_period in (None, "") or not isinstance(value, (int, float)) or isinstance(value, bool):
+                        continue
+                    period = (
+                        f"{int(raw_period)}-FY"
+                        if period_type == "annual" and isinstance(raw_period, (int, float))
+                        else _normalize_period(raw_period, period_type=period_type)
+                    )
+                    source_ref = f"{workbook_path.name}!BS_Segments!{ws.cell(row_number, column).coordinate}"
+                    items.append(
+                        {
+                            "dimension": dimension,
+                            "member": member,
+                            "display_order": display_order[key],
+                            "segment": _field(member, source_ref=source_ref, core=True),
+                            "metric": "revenue",
+                            "period": period,
+                            "period_type": period_type,
+                            "source": "legacy_visible_segment_oracle",
+                            "note": _missing(
+                                "The legacy visible segment matrix contains a numeric fact without a separate narrative note.",
+                                source_ref=source_ref,
+                            ),
+                            "revenue": _field(
+                                float(value),
+                                source_ref=source_ref,
+                                core=True,
+                                unit="$m",
+                                period=period,
+                                definition="Revenue for the stated segment dimension, member, and fiscal period.",
+                            ),
+                        }
+                    )
+                    if period_type == "annual":
+                        items[-1]["annual_revenue"] = dict(items[-1]["revenue"])
+        return items
+    finally:
+        wb.close()
+
+
 def _build_segments(
     segment_rows: Sequence[Mapping[str, Any]],
     history_rows: Sequence[Mapping[str, Any]],
     workbook_path: Path,
     demotions: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    display_orders: dict[tuple[str, str], int] = {}
-    wb = load_workbook(workbook_path, read_only=True, data_only=True)
-    try:
-        ws = wb["BS_Segments"]
-        for row_number in (61, 62, 63, 65, 66, 67, 72, 73, 74):
-            member = str(ws.cell(row_number, 1).value or "").strip()
-            if not member:
-                continue
-            dimension = _segment_dimension(member)
-            key = (dimension, member)
-            if key not in display_orders:
-                display_orders[key] = 1 + sum(1 for existing_dimension, _member in display_orders if existing_dimension == dimension)
-    finally:
-        wb.close()
+    legacy_items = _legacy_bs_segment_items(workbook_path)
+    display_orders = {
+        (str(item["dimension"]), str(item["member"])): int(item["display_order"])
+        for item in legacy_items
+    }
     fiscal_periods = {
         _to_iso(row.get("quarter")): (str(row.get("fiscal_label") or ""), row.get("fiscal_year"))
         for row in history_rows
@@ -1669,7 +2357,11 @@ def _build_segments(
         if _is_present(row.get("segment")) and _is_present(row.get("metric")) and _is_present(row.get("value"))
     ]
     rows.sort(key=lambda row: (_to_iso(row.get("quarter")), str(row.get("period_type")), str(row.get("segment")), str(row.get("metric"))))
-    items: list[dict[str, Any]] = []
+    items: list[dict[str, Any]] = list(legacy_items)
+    seen_business_keys = {
+        (str(item["dimension"]), str(item["member"]), str(item["period"]), str(item["metric"]))
+        for item in items
+    }
     for row in rows:
         metric = str(row.get("metric") or "")
         source_ref = str(row.get("source_doc") or row.get("doc") or _source_ref("Slides_Segments", row, workbook_path=workbook_path))
@@ -1690,8 +2382,12 @@ def _build_segments(
         normalized_period = f"{fiscal_year}-FY" if period_type == "annual" and fiscal_year not in (None, "") else fiscal_label
         if not normalized_period:
             normalized_period = _normalize_period(row.get("quarter"), period_type=period_type)
+        dimension = _segment_dimension(member)
+        business_key = (dimension, member, normalized_period, metric)
+        if business_key in seen_business_keys:
+            continue
         item = {
-            "dimension": _segment_dimension(member),
+            "dimension": dimension,
             "member": member,
             "display_order": display_orders.get((_segment_dimension(member), member), 999),
             "segment": _field(member, source_ref=source_ref, core=True),
@@ -1702,10 +2398,10 @@ def _build_segments(
             "note": _field(note, source_ref=source_ref) if note else _missing("No concise source-backed segment note survived visible-text quality filtering.", source_ref=source_ref),
         }
         if metric == "revenue" and str(row.get("period_type")) == "annual":
-            item["annual_revenue"] = _field(value, source_ref=source_ref, core=True, unit="$m")
-            item["revenue"] = _field(value, source_ref=source_ref, unit="$m")
+            item["annual_revenue"] = _field(value, source_ref=source_ref, core=True, unit="$m", period=normalized_period)
+            item["revenue"] = _field(value, source_ref=source_ref, unit="$m", period=normalized_period)
         elif metric == "revenue":
-            item["revenue"] = _field(value, source_ref=source_ref, core=True, unit="$m")
+            item["revenue"] = _field(value, source_ref=source_ref, core=True, unit="$m", period=normalized_period)
         elif "margin" in metric:
             item["margin"] = _field(value, source_ref=source_ref, unit=str(row.get("unit") or ""))
         elif "operating" in metric:
@@ -1713,6 +2409,8 @@ def _build_segments(
         else:
             item["metric_value"] = _field(value, source_ref=source_ref, unit=str(row.get("unit") or ""))
         items.append(item)
+        seen_business_keys.add(business_key)
+    items.sort(key=lambda item: (str(item.get("period_type")), str(item.get("period")), int(item.get("display_order") or 999), str(item.get("dimension")), str(item.get("member"))))
     return {"items": items}
 
 
@@ -1905,9 +2603,17 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
     adapter_truncations: list[dict[str, Any]] = []
     adapter_deduplications: list[dict[str, Any]] = []
     source_coverage = _source_coverage(data_root, workbook_path)
+    unsupported_zero_placeholders = _read_legacy_unsupported_zero_placeholders(workbook_path)
 
+    full_quarterly_financials = _build_quarterly_financial_rows(
+        history_rows,
+        workbook_path,
+        unsupported_zero_placeholders=unsupported_zero_placeholders,
+        review_flags=adapter_review_flags,
+    )
+    calculation_history = _build_calculation_history(full_quarterly_financials)
     quarterly_financials = _limit_legacy_adapter_rows(
-        _build_quarterly_financial_rows(history_rows, workbook_path),
+        full_quarterly_financials,
         limit=12,
         collection_path="quarterly_financials.rows",
         workbook_path=workbook_path,
@@ -1915,22 +2621,17 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
         review_flags=adapter_review_flags,
     )
     incomplete_annual_candidates: list[dict[str, Any]] = []
-    annual_financials = _limit_legacy_adapter_rows(
-        _build_annual_financial_rows(
-            history_rows,
-            workbook_path,
-            incomplete_candidates=incomplete_annual_candidates,
-        ),
-        limit=6,
-        collection_path="annual_financials.rows",
-        workbook_path=workbook_path,
-        truncations=adapter_truncations,
-        review_flags=adapter_review_flags,
+    annual_financials = _build_annual_financial_rows(
+        history_rows,
+        workbook_path,
+        incomplete_candidates=incomplete_annual_candidates,
+        unsupported_zero_placeholders=unsupported_zero_placeholders,
     )
     adapter_review_flags.extend(_annual_missing_component_reviews(annual_financials))
     adapter_review_flags.extend(_annual_incomplete_candidate_reviews(incomplete_annual_candidates))
     debt_liquidity = _build_debt_liquidity(
         history_rows,
+        full_quarterly_financials,
         leverage_rows,
         revolver_rows,
         workbook_path,
@@ -1957,14 +2658,15 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
         truncations=adapter_truncations,
         review_flags=adapter_review_flags,
     )
-    segment_items = _limit_legacy_adapter_rows(
-        _build_segments(segment_rows, history_rows, workbook_path, text_quality_demotions)["items"],
-        limit=80,
-        collection_path="segments.items",
-        workbook_path=workbook_path,
-        truncations=adapter_truncations,
-        review_flags=adapter_review_flags,
-    )
+    # The visible legacy segment matrix is itself the migration oracle.  A
+    # generic tail limit used here previously discarded annual and older
+    # quarterly business keys before the planner could apply its period axes.
+    segment_items = _build_segments(
+        segment_rows,
+        history_rows,
+        workbook_path,
+        text_quality_demotions,
+    )["items"]
     driver_candidates = _dedupe_legacy_adapter_rows(
         _build_operating_drivers(driver_rows, workbook_path, text_quality_demotions)["items"],
         collection_path="operating_drivers.items",
@@ -2020,6 +2722,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
             "cik": _field("0001018840", source_ref="sec_cache/ANF/0001018840", core=True),
             "fiscal_year_end": _field("retail fiscal year ending around late January / early February", source_ref=source_ref, core=True),
             "reporting_currency": _field("USD", source_ref=source_ref, core=True),
+            "investment_case_title": _field("ANF Investment Case", source_ref="ticker_metadata.ticker", core=True),
         },
         "company_profile": {
             "company_name": _field("Abercrombie & Fitch Co.", source_ref=source_ref, core=True),
@@ -2028,6 +2731,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
             "business_description": _field(_clean_text(_read_cell(workbook_path, "SUMMARY", "A3"), limit=600), source_ref=source_ref, core=True),
             "strategic_context": _field(_clean_text(_read_cell(workbook_path, "SUMMARY", "A5"), limit=800), source_ref=f"{workbook_path.name}!SUMMARY!A5", core=True),
             "revenue_model": _field("Global omnichannel apparel sales through Abercrombie and Hollister brand families, stores, digital channels, and geographic regions.", source_ref=source_ref, core=True),
+            "revenue_mix_label": _field("Revenue mix by geography (% of revenue)", source_ref=f"{workbook_path.name}!SUMMARY!A8", core=True),
             "revenue_streams": _build_revenue_stream_rows(workbook_path, period=latest_annual_period),
             "key_advantages": _field(_clean_text(_read_cell(workbook_path, "SUMMARY", "A7"), limit=500), source_ref=source_ref),
             "key_risks": _field("Fashion demand, merchandise execution, tariffs, inventory/markdown risk, ERP execution, and tougher comparable-sales laps.", source_ref=source_ref),
@@ -2040,6 +2744,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
             ],
         },
         "quarterly_financials": {"rows": quarterly_financials},
+        "calculation_history": calculation_history,
         "annual_financials": {
             "rows": annual_financials,
             "incomplete_candidates": incomplete_annual_candidates,
@@ -2333,6 +3038,7 @@ def build_source_audit(package: Mapping[str, Any], *, data_root: Path, workbook_
         "ticker_metadata": ["SEC company_tickers", "sec_cache/ANF/0001018840", "ANF_model.xlsx!SUMMARY"],
         "company_profile": ["ANF_model.xlsx!SUMMARY", "company profile configuration", "earnings release About section"],
         "quarterly_financials": ["ANF_model.xlsx!History_Q", "SEC/XBRL cache", "earnings release financial schedules"],
+        "calculation_history": ["ANF_model.xlsx!History_Q projected as a period-keyed formula input ledger"],
         "annual_financials": ["ANF_model.xlsx!History_Q aggregated by fiscal_year", "annual reports", "earnings release annual schedules"],
         "debt_liquidity": ["ANF_model.xlsx!Leverage_Liquidity", "ANF_model.xlsx!History_Q", "ANF_model.xlsx!Slides_Debt_Profile"],
         "capital_returns": ["ANF_model.xlsx!History_Q", "earnings release capital allocation text"],

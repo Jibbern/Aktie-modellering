@@ -4,14 +4,14 @@
   "reason": "",
   "artifact": {
     "path": "docs/standard_template_hidden_support_audit.md",
-    "sha256": "0b7b763b3f7be0494ab19a3eebeacf616d0179c8403cec9e11bd6d0d7f8a169e",
+    "sha256": "1b4d18fe07e604ba9dd5fa0cf7adcb21cd8e8519fc4a809f46448da5fce11dc7",
     "output_schema": "text/markdown",
     "output_version": "markdown-v1"
   },
   "authoritative_inputs": [
     {
       "path": "templates/standard_stock_model_template.xlsx",
-      "sha256": "e21e55e86cc310301fa5c4fb698e7a801c9ca671064fd53953b5a2d4d531b7e0"
+      "sha256": "7363d711439d31d4c491d328c0b39040108258b3b7c4e3934b9e2dd52b198f8f"
     },
     {
       "path": "templates/lab/ANF_template_lab.xlsx",
@@ -19,7 +19,7 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "7ef93889a75ce37648ed88eed09eac01821cff3f07403cbc3c897d1921d2e5d7"
+      "sha256": "4f37b041712c16b2568403cdbcbf0614ebdf4834f3564a843d90cdda227de3ee"
     }
   ],
   "generator": {
@@ -35,24 +35,24 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "1db6aa185c248fbe354eb81e5464b71913c93e6606aa434dcf4983b6a48785b6",
+    "run_generation_id": "8fd1903a04b330e24f3d5204a4ce7f97ab5a7bfe801dd53f2a52efea3b9d4f8a",
     "generated_outputs": [
       {
-        "canonical_content_sha256": "c1bb6a3a53c495b0cfa2b4c59e870aad49bbaf754f7c8daf0198488c4ae9770c",
+        "canonical_content_sha256": "0233647ce9d7b708d205b696302745bf7b4fa13ab80430749e72bc79ec65d83c",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/standard_template_hidden_support_audit.json",
-        "sha256": "5e5eff25649805a72f1fb14376d328bd94f4a8a33c8e8a27a6a7872976351997"
+        "sha256": "4ce62a555cbffaa0f112a9b655f57abff1fb637b82803acf275571c4167c63a6"
       },
       {
-        "canonical_content_sha256": "bb6cf55b801d4f753098a1775b5e6f880abe8588fbcbd98984edfe373e01daee",
+        "canonical_content_sha256": "578bd4a613d71a24aae1516b72d9d4cf43ce3195080ca5506a8b60ad37939509",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/standard_template_hidden_support_audit.md",
-        "sha256": "0b7b763b3f7be0494ab19a3eebeacf616d0179c8403cec9e11bd6d0d7f8a169e"
+        "sha256": "1b4d18fe07e604ba9dd5fa0cf7adcb21cd8e8519fc4a809f46448da5fce11dc7"
       }
     ]
   },
-  "generated_at_utc": "2026-07-13T17:38:19+00:00",
-  "generation_id": "53b812a39be675ffc31180ba717ff7a7ce574d12d9ab381d84d878ee58f4b6ee"
+  "generated_at_utc": "2026-07-14T16:45:00+00:00",
+  "generation_id": "f91e0196900bd036128a1c9c9b5d3c698248d828a90c92c2e7cd55c18150ad1b"
 }

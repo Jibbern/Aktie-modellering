@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-13T17:38:03+00:00",
+  "generated_at": "2026-07-14T16:44:35+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -533,60 +533,114 @@
       "exclusion_reason": ""
     },
     {
-      "block_id": "valuation_actuals_quarterly_values",
-      "sheet": "Valuation",
+      "block_id": "summary_revenue_mix_label",
+      "sheet": "SUMMARY",
       "ANF": {
         "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B6:M80",
-        "nonempty_cells": 647,
+        "resolved_sheet": "SUMMARY",
+        "range": "A8:F8",
+        "nonempty_cells": 1,
         "formula_cells": 0,
-        "merge_count": 11,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 22.0
       },
       "PBI": {
         "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B6:M80",
-        "nonempty_cells": 679,
+        "resolved_sheet": "SUMMARY",
+        "range": "A8:F8",
+        "nonempty_cells": 1,
         "formula_cells": 0,
-        "merge_count": 11,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 22.0
       },
       "GPRE": {
         "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B6:M80",
-        "nonempty_cells": 634,
+        "resolved_sheet": "SUMMARY",
+        "range": "A8:F8",
+        "nonempty_cells": 1,
         "formula_cells": 0,
-        "merge_count": 11,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
+        "merge_count": 1,
+        "freeze_panes": "A2",
+        "max_row": 61,
+        "max_column": 14,
+        "average_row_height": 21.95
       },
       "range_similarity": "same",
       "style_similarity": "similar",
       "merge_similarity": "same",
       "freeze_pane_similarity": "same",
-      "row_height_similarity": "same",
+      "row_height_similarity": "similar",
       "populated_field_families": [
-        "quarterly_financials"
+        "company_profile"
       ],
       "support_sheet_dependencies": [
-        "Debt_Profile",
         "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
         "History_Q",
-        "Slides_Guidance"
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "summary_liquidity_as_of_value",
+      "sheet": "SUMMARY",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "D45:F45",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 45,
+        "max_column": 6,
+        "average_row_height": 22.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "D45:F45",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 47,
+        "max_column": 6,
+        "average_row_height": 22.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "SUMMARY",
+        "range": "D45:F45",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "A2",
+        "max_row": 61,
+        "max_column": 14,
+        "average_row_height": 21.95
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "debt_liquidity"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
       ],
       "ticker_specific_differences": [],
       "include_in_standard_template": true,
@@ -893,66 +947,6 @@
       "exclusion_reason": ""
     },
     {
-      "block_id": "valuation_output_values",
-      "sheet": "Valuation",
-      "ANF": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "O64:AA170",
-        "nonempty_cells": 39,
-        "formula_cells": 11,
-        "merge_count": 40,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "PBI": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "O64:AA170",
-        "nonempty_cells": 22,
-        "formula_cells": 0,
-        "merge_count": 23,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "GPRE": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "O64:AA170",
-        "nonempty_cells": 42,
-        "formula_cells": 3,
-        "merge_count": 44,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "range_similarity": "same",
-      "style_similarity": "similar",
-      "merge_similarity": "different",
-      "freeze_pane_similarity": "same",
-      "row_height_similarity": "same",
-      "populated_field_families": [
-        "valuation_outputs"
-      ],
-      "support_sheet_dependencies": [
-        "Debt_Profile",
-        "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
-        "History_Q",
-        "Slides_Guidance"
-      ],
-      "ticker_specific_differences": [],
-      "include_in_standard_template": true,
-      "exclusion_reason": ""
-    },
-    {
       "block_id": "valuation_guidance_status_values_lower",
       "sheet": "Valuation",
       "ANF": {
@@ -998,246 +992,6 @@
       "row_height_similarity": "same",
       "populated_field_families": [
         "normalized_guidance"
-      ],
-      "support_sheet_dependencies": [
-        "Debt_Profile",
-        "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
-        "History_Q",
-        "Slides_Guidance"
-      ],
-      "ticker_specific_differences": [],
-      "include_in_standard_template": true,
-      "exclusion_reason": ""
-    },
-    {
-      "block_id": "valuation_share_count_values",
-      "sheet": "Valuation",
-      "ANF": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B81:M90",
-        "nonempty_cells": 96,
-        "formula_cells": 0,
-        "merge_count": 1,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "PBI": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B81:M90",
-        "nonempty_cells": 102,
-        "formula_cells": 0,
-        "merge_count": 1,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "GPRE": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B81:M90",
-        "nonempty_cells": 94,
-        "formula_cells": 0,
-        "merge_count": 2,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "range_similarity": "same",
-      "style_similarity": "similar",
-      "merge_similarity": "different",
-      "freeze_pane_similarity": "same",
-      "row_height_similarity": "same",
-      "populated_field_families": [
-        "quarterly_financials"
-      ],
-      "support_sheet_dependencies": [
-        "Debt_Profile",
-        "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
-        "History_Q",
-        "Slides_Guidance"
-      ],
-      "ticker_specific_differences": [],
-      "include_in_standard_template": true,
-      "exclusion_reason": ""
-    },
-    {
-      "block_id": "valuation_debt_liquidity_values",
-      "sheet": "Valuation",
-      "ANF": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B124:M132",
-        "nonempty_cells": 0,
-        "formula_cells": 0,
-        "merge_count": 0,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "PBI": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B124:M132",
-        "nonempty_cells": 12,
-        "formula_cells": 0,
-        "merge_count": 0,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "GPRE": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B124:M132",
-        "nonempty_cells": 7,
-        "formula_cells": 0,
-        "merge_count": 1,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "range_similarity": "same",
-      "style_similarity": "similar",
-      "merge_similarity": "similar",
-      "freeze_pane_similarity": "same",
-      "row_height_similarity": "same",
-      "populated_field_families": [
-        "debt_liquidity"
-      ],
-      "support_sheet_dependencies": [
-        "Debt_Profile",
-        "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
-        "History_Q",
-        "Slides_Guidance"
-      ],
-      "ticker_specific_differences": [],
-      "include_in_standard_template": true,
-      "exclusion_reason": ""
-    },
-    {
-      "block_id": "valuation_cash_values",
-      "sheet": "Valuation",
-      "ANF": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B133:M137",
-        "nonempty_cells": 0,
-        "formula_cells": 0,
-        "merge_count": 1,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "PBI": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B133:M137",
-        "nonempty_cells": 1,
-        "formula_cells": 0,
-        "merge_count": 1,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "GPRE": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B133:M137",
-        "nonempty_cells": 0,
-        "formula_cells": 0,
-        "merge_count": 1,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "range_similarity": "same",
-      "style_similarity": "similar",
-      "merge_similarity": "same",
-      "freeze_pane_similarity": "same",
-      "row_height_similarity": "same",
-      "populated_field_families": [
-        "debt_liquidity"
-      ],
-      "support_sheet_dependencies": [
-        "Debt_Profile",
-        "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
-        "History_Q",
-        "Slides_Guidance"
-      ],
-      "ticker_specific_differences": [],
-      "include_in_standard_template": true,
-      "exclusion_reason": ""
-    },
-    {
-      "block_id": "valuation_capital_return_values",
-      "sheet": "Valuation",
-      "ANF": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B152:M156",
-        "nonempty_cells": 4,
-        "formula_cells": 0,
-        "merge_count": 4,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "PBI": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B152:M156",
-        "nonempty_cells": 4,
-        "formula_cells": 0,
-        "merge_count": 4,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "GPRE": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "B152:M156",
-        "nonempty_cells": 4,
-        "formula_cells": 0,
-        "merge_count": 4,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "range_similarity": "same",
-      "style_similarity": "same",
-      "merge_similarity": "same",
-      "freeze_pane_similarity": "same",
-      "row_height_similarity": "same",
-      "populated_field_families": [
-        "capital_returns"
       ],
       "support_sheet_dependencies": [
         "Debt_Profile",
@@ -1313,43 +1067,43 @@
       "exclusion_reason": ""
     },
     {
-      "block_id": "bs_liquidity_values",
-      "sheet": "BS_Segments",
+      "block_id": "valuation_period_headers",
+      "sheet": "Valuation",
       "ANF": {
         "block_exists": true,
-        "resolved_sheet": "BS_Segments",
-        "range": "B7:I49",
-        "nonempty_cells": 179,
+        "resolved_sheet": "Valuation",
+        "range": "B6:M6",
+        "nonempty_cells": 12,
         "formula_cells": 0,
         "merge_count": 0,
-        "freeze_panes": "B8",
-        "max_row": 74,
-        "max_column": 9,
-        "average_row_height": 18.03
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
       },
       "PBI": {
         "block_exists": true,
-        "resolved_sheet": "BS_Segments",
-        "range": "B7:I49",
-        "nonempty_cells": 255,
+        "resolved_sheet": "Valuation",
+        "range": "B6:M6",
+        "nonempty_cells": 12,
         "formula_cells": 0,
         "merge_count": 0,
-        "freeze_panes": "B8",
-        "max_row": 106,
-        "max_column": 9,
-        "average_row_height": 18.03
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
       },
       "GPRE": {
         "block_exists": true,
-        "resolved_sheet": "BS_Segments",
-        "range": "B7:I49",
-        "nonempty_cells": 197,
+        "resolved_sheet": "Valuation",
+        "range": "B6:M6",
+        "nonempty_cells": 12,
         "formula_cells": 0,
         "merge_count": 0,
-        "freeze_panes": "B8",
-        "max_row": 71,
-        "max_column": 9,
-        "average_row_height": 18.03
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
       },
       "range_similarity": "same",
       "style_similarity": "similar",
@@ -1357,16 +1111,1761 @@
       "freeze_pane_similarity": "same",
       "row_height_similarity": "same",
       "populated_field_families": [
-        "debt_liquidity",
         "quarterly_financials"
       ],
       "support_sheet_dependencies": [
-        "DATA_Facts_Long",
+        "Debt_Profile",
         "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
         "History_Q",
-        "Slides_Segments"
+        "Slides_Guidance"
       ],
       "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_revenue",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B9:M9",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B9:M9",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B9:M9",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_base_ebitda",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B18:M18",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B18:M18",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B18:M18",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_adjusted_ebitda",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B24:M24",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B24:M24",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B24:M24",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_operating_income",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B32:M32",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B32:M32",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B32:M32",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_net_income",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B36:M36",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B36:M36",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B36:M36",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_operating_cash_flow",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B43:M43",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B43:M43",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B43:M43",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_capital_expenditures",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B44:M44",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B44:M44",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B44:M44",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_interest_paid",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B59:M59",
+        "nonempty_cells": 11,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B59:M59",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B59:M59",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_buybacks_cash",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B62:M62",
+        "nonempty_cells": 10,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B62:M62",
+        "nonempty_cells": 9,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B62:M62",
+        "nonempty_cells": 9,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_cash",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B70:M70",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B70:M70",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B70:M70",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_marketable_securities",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B71:M71",
+        "nonempty_cells": 5,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B71:M71",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B71:M71",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_debt_core",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B72:M72",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B72:M72",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B72:M72",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_lease_liabilities",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B79:M79",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B79:M79",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B79:M79",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_pension_obligation_net",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B82:M82",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B82:M82",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B82:M82",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_revolver_availability",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B95:M95",
+        "nonempty_cells": 2,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B95:M95",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B95:M95",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_diluted_shares",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B102:M102",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B102:M102",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B102:M102",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_shares_outstanding",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B103:M103",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B103:M103",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B103:M103",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_eps",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B107:M107",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B107:M107",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B107:M107",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "similar",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_adjusted_eps",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B110:M110",
+        "nonempty_cells": 11,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B110:M110",
+        "nonempty_cells": 12,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "B110:M110",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_gross_profit",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B262:M262",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B262:M262",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B262:M262",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_interest_expense",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B263:M263",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B263:M263",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B263:M263",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_dividends_cash",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B264:M264",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B264:M264",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B264:M264",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_acquisitions_cash",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B265:M265",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B265:M265",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B265:M265",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_debt_repayment",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B266:M266",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B266:M266",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B266:M266",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_debt_issuance",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B267:M267",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B267:M267",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B267:M267",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_total_equity",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B268:M268",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B268:M268",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B268:M268",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_goodwill",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B269:M269",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B269:M269",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B269:M269",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "valuation_raw_intangibles",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B270:M270",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B270:M270",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "Valuation",
+        "range": "B270:M270",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "PBI: missing block or sheet",
+        "PBI: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
       "include_in_standard_template": true,
       "exclusion_reason": ""
     },
@@ -1376,7 +2875,7 @@
       "ANF": {
         "block_exists": true,
         "resolved_sheet": "BS_Segments",
-        "range": "A61:I67",
+        "range": "A61:M67",
         "nonempty_cells": 49,
         "formula_cells": 0,
         "merge_count": 0,
@@ -1388,7 +2887,7 @@
       "PBI": {
         "block_exists": true,
         "resolved_sheet": "BS_Segments",
-        "range": "A61:I67",
+        "range": "A61:M67",
         "nonempty_cells": 47,
         "formula_cells": 0,
         "merge_count": 0,
@@ -1400,7 +2899,7 @@
       "GPRE": {
         "block_exists": true,
         "resolved_sheet": "BS_Segments",
-        "range": "A61:I67",
+        "range": "A61:M67",
         "nonempty_cells": 22,
         "formula_cells": 0,
         "merge_count": 0,
@@ -1490,7 +2989,7 @@
       "ANF": {
         "block_exists": true,
         "resolved_sheet": "BS_Segments",
-        "range": "A72:I74",
+        "range": "A72:I78",
         "nonempty_cells": 12,
         "formula_cells": 0,
         "merge_count": 0,
@@ -1502,8 +3001,8 @@
       "PBI": {
         "block_exists": true,
         "resolved_sheet": "BS_Segments",
-        "range": "A72:I74",
-        "nonempty_cells": 27,
+        "range": "A72:I78",
+        "nonempty_cells": 55,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "B8",
@@ -1514,7 +3013,7 @@
       "GPRE": {
         "block_exists": false,
         "resolved_sheet": "BS_Segments",
-        "range": "A72:I74",
+        "range": "A72:I78",
         "nonempty_cells": 0,
         "formula_cells": 0,
         "merge_count": 0,
@@ -1538,6 +3037,2357 @@
         "Slides_Segments"
       ],
       "ticker_specific_differences": [
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_quarterly_period_headers",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B7:M7",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B7:M7",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B7:M7",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_cash",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B9:M9",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B9:M9",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B9:M9",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_restricted_cash",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B10:M10",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B10:M10",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B10:M10",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_marketable_securities",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B13:M13",
+        "nonempty_cells": 5,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B13:M13",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B13:M13",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_accounts_receivable",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B14:M14",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B14:M14",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B14:M14",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_inventory",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B15:M15",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B15:M15",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B15:M15",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_current_assets",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B18:M18",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B18:M18",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B18:M18",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_property_plant_equipment_net",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B19:M19",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B19:M19",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B19:M19",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_goodwill",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B22:M22",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B22:M22",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B22:M22",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_intangibles",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B23:M23",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B23:M23",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B23:M23",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_other_assets_noncurrent",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B24:M24",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B24:M24",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B24:M24",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_total_assets",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B25:M25",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B25:M25",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B25:M25",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_accounts_payable",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B28:M28",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B28:M28",
+        "nonempty_cells": 2,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B28:M28",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_accrued_liabilities",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B29:M29",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B29:M29",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B29:M29",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_short_term_borrowings",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B32:M32",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B32:M32",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B32:M32",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_debt_current",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B33:M33",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B33:M33",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B33:M33",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_lease_liabilities_current",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B34:M34",
+        "nonempty_cells": 7,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B34:M34",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B34:M34",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_current_liabilities",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B35:M35",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B35:M35",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B35:M35",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_debt_core",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B40:M40",
+        "nonempty_cells": 6,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B40:M40",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B40:M40",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_lease_liabilities_noncurrent",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B42:M42",
+        "nonempty_cells": 7,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B42:M42",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B42:M42",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_pension_obligation_net",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B43:M43",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B43:M43",
+        "nonempty_cells": 2,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B43:M43",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_other_liabilities_noncurrent",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B44:M44",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B44:M44",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B44:M44",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_total_liabilities",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B45:M45",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B45:M45",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B45:M45",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_total_equity",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B47:M47",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B47:M47",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B47:M47",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_shares_outstanding",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B48:M48",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B48:M48",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B48:M48",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_raw_diluted_shares",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B49:M49",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B49:M49",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B49:M49",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "quarterly_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_period_headers",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B82:I82",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B82:I82",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B82:I82",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_revenue",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B83:I83",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B83:I83",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B83:I83",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_gross_profit",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B84:I84",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B84:I84",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B84:I84",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_operating_income",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B86:I86",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B86:I86",
+        "nonempty_cells": 8,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B86:I86",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_base_ebitda",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B88:I88",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B88:I88",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B88:I88",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_adjusted_ebitda",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B90:I90",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B90:I90",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B90:I90",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_net_income",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B92:I92",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B92:I92",
+        "nonempty_cells": 3,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B92:I92",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_operating_cash_flow",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B94:I94",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B94:I94",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B94:I94",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_capital_expenditures",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B95:I95",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B95:I95",
+        "nonempty_cells": 3,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B95:I95",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_shares_outstanding",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B98:I98",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B98:I98",
+        "nonempty_cells": 3,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B98:I98",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_eps",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B99:I99",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B99:I99",
+        "nonempty_cells": 3,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B99:I99",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_total_equity",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B100:I100",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B100:I100",
+        "nonempty_cells": 3,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B100:I100",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_cash",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B102:I102",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B102:I102",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B102:I102",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "same",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
+        "GPRE: missing block or sheet",
+        "GPRE: source sheet shorter than block range"
+      ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "bs_annual_financial_raw_debt_core",
+      "sheet": "BS_Segments",
+      "ANF": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B103:I103",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 74,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "BS_Segments",
+        "range": "B103:I103",
+        "nonempty_cells": 3,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 106,
+        "max_column": 9,
+        "average_row_height": 18.0
+      },
+      "GPRE": {
+        "block_exists": false,
+        "resolved_sheet": "BS_Segments",
+        "range": "B103:I103",
+        "nonempty_cells": 0,
+        "formula_cells": 0,
+        "merge_count": 0,
+        "freeze_panes": "B8",
+        "max_row": 71,
+        "max_column": 9,
+        "average_row_height": 0.0
+      },
+      "range_similarity": "missing",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "different",
+      "populated_field_families": [
+        "annual_financials"
+      ],
+      "support_sheet_dependencies": [
+        "DATA_Facts_Long",
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Slides_Segments"
+      ],
+      "ticker_specific_differences": [
+        "ANF: missing block or sheet",
+        "ANF: source sheet shorter than block range",
         "GPRE: missing block or sheet",
         "GPRE: source sheet shorter than block range"
       ],
@@ -2362,6 +6212,68 @@
         "GPRE: missing block or sheet",
         "GPRE: source sheet shorter than block range"
       ],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "ic_title_value",
+      "sheet": "{ticker}_Investment_Case",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "ANF_Investment_Case",
+        "range": "A1:J1",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A4",
+        "max_row": 233,
+        "max_column": 11,
+        "average_row_height": 26.0
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "PBI_Investment_Case",
+        "range": "A1:J1",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A4",
+        "max_row": 180,
+        "max_column": 10,
+        "average_row_height": 26.0
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "GPRE_Investment_Case",
+        "range": "A1:J1",
+        "nonempty_cells": 1,
+        "formula_cells": 0,
+        "merge_count": 1,
+        "freeze_panes": "A4",
+        "max_row": 188,
+        "max_column": 10,
+        "average_row_height": 26.1
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "similar",
+      "populated_field_families": [
+        "ticker_metadata"
+      ],
+      "support_sheet_dependencies": [
+        "Guidance_Normalized",
+        "History_Q",
+        "Promise_Progress",
+        "Quarter_Notes",
+        "Scenario_Bridge_Tax_Treatment",
+        "Scenario_Driver_Assumptions",
+        "Slides_Guidance",
+        "Slides_Segments",
+        "{ticker}_Investment_Case_Data"
+      ],
+      "ticker_specific_differences": [],
       "include_in_standard_template": true,
       "exclusion_reason": ""
     },

@@ -4,22 +4,22 @@
   "reason": "",
   "artifact": {
     "path": "docs/standard_template_defined_name_audit.json",
-    "sha256": "84bd72c115d6f033db0ade9e678be5334fc7c3be25b7cfbe65ae925c8d90ce63",
+    "sha256": "83d436e56616bca9ca0acd7a75096e8a07ea46b1821a9c48b1f68cdd7724f1d7",
     "output_schema": "json",
     "output_version": "1.0.0"
   },
   "authoritative_inputs": [
     {
       "path": "templates/standard_stock_model_template.xlsx",
-      "sha256": "e21e55e86cc310301fa5c4fb698e7a801c9ca671064fd53953b5a2d4d531b7e0"
+      "sha256": "7363d711439d31d4c491d328c0b39040108258b3b7c4e3934b9e2dd52b198f8f"
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "7ef93889a75ce37648ed88eed09eac01821cff3f07403cbc3c897d1921d2e5d7"
+      "sha256": "4f37b041712c16b2568403cdbcbf0614ebdf4834f3564a843d90cdda227de3ee"
     },
     {
       "path": "docs/workbook_binding_map.json",
-      "sha256": "372e15e4421d491254542cc1d331950d422aa46bb750ee6b0899e60253b601b7"
+      "sha256": "38aeb3ba4ea10b17a33dfa2a75d1784a90f524d9f087de387859e7bd5f1cc7ec"
     }
   ],
   "generator": {
@@ -35,24 +35,24 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "73c54bd5c5db2c55afe612d9602350f4596f87c2b94611d0b50e7fb46a862c00",
+    "run_generation_id": "85013f75f9ce28e5f96de34970b052b7f175d4c599373241e0df73a04e51649d",
     "generated_outputs": [
       {
-        "canonical_content_sha256": "7805cfab5b37676fa037cae576de5ef3ec32006c9b713094f319a0268c6595ba",
+        "canonical_content_sha256": "2633cf18eca23381c7eef17638fda364a2186f883322f86834e6172a04136054",
         "output_schema": "json",
         "output_version": "1.0.0",
         "path": "docs/standard_template_defined_name_audit.json",
-        "sha256": "84bd72c115d6f033db0ade9e678be5334fc7c3be25b7cfbe65ae925c8d90ce63"
+        "sha256": "83d436e56616bca9ca0acd7a75096e8a07ea46b1821a9c48b1f68cdd7724f1d7"
       },
       {
-        "canonical_content_sha256": "f76b35ab5b225650d427afec880c8525bd4cc4ed03c0d05bd986ff94d7922e27",
+        "canonical_content_sha256": "825840d0ccbd68ad421993257134f3b506e985d520e90e4ab7d1acf786db8f4c",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/standard_template_defined_name_audit.md",
-        "sha256": "8c4b836fe4fc222ff53c0bf079953d560954c80f881d5447d20dcaba760b6b5c"
+        "sha256": "5c94c0bab4f5891edcd9a0e9f0db3f1d0d2a70b931792514e572ca4580cd3a8a"
       }
     ]
   },
-  "generated_at_utc": "2026-07-13T17:37:19+00:00",
-  "generation_id": "5fcc951853397216cf020491652e5272ad1e067a460a1acd2f08095a38de3e84"
+  "generated_at_utc": "2026-07-14T16:43:24+00:00",
+  "generation_id": "b4ff4f2b5b1920f80332c05c21e1c2a317951f9e11845c7bef17faaafe0fba33"
 }

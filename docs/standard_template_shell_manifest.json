@@ -213,85 +213,6 @@
       ]
     },
     {
-      "contract_id": "summary_liquidity",
-      "sheet": "SUMMARY",
-      "target": "B45",
-      "writable": true,
-      "target_role": "liquidity",
-      "allowed_binding_ids": [
-        "summary_liquidity"
-      ],
-      "allowed_target_types": [
-        "value",
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_period_headers",
-      "sheet": "Valuation",
-      "target": "B6:M6",
-      "writable": true,
-      "target_role": "quarter header",
-      "allowed_binding_ids": [
-        "valuation_period_headers"
-      ],
-      "allowed_target_types": [
-        "period"
-      ]
-    },
-    {
-      "contract_id": "valuation_revenue",
-      "sheet": "Valuation",
-      "target": "B9:M9",
-      "writable": true,
-      "target_role": "quarterly revenue",
-      "allowed_binding_ids": [
-        "valuation_revenue_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_adjusted_ebitda",
-      "sheet": "Valuation",
-      "target": "B24:M24",
-      "writable": true,
-      "target_role": "quarterly adjusted EBITDA",
-      "allowed_binding_ids": [
-        "valuation_ebitda_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_net_income",
-      "sheet": "Valuation",
-      "target": "B36:M36",
-      "writable": true,
-      "target_role": "quarterly net income",
-      "allowed_binding_ids": [
-        "valuation_net_income_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_operating_cash_flow",
-      "sheet": "Valuation",
-      "target": "B43:M43",
-      "writable": true,
-      "target_role": "quarterly operating cash flow",
-      "allowed_binding_ids": [
-        "valuation_operating_cash_flow_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
       "contract_id": "valuation_guidance_metric",
       "sheet": "Valuation",
       "target": "O9:O25",
@@ -354,123 +275,6 @@
       ],
       "allowed_target_types": [
         "status"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_as_of",
-      "sheet": "Valuation",
-      "target": "D195",
-      "writable": true,
-      "target_role": "valuation as-of date",
-      "allowed_binding_ids": [
-        "valuation_input_as_of"
-      ],
-      "allowed_target_types": [
-        "date"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_shares_outstanding",
-      "sheet": "Valuation",
-      "target": "D196",
-      "writable": true,
-      "target_role": "valuation shares outstanding",
-      "allowed_binding_ids": [
-        "valuation_input_shares_outstanding"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_diluted_shares",
-      "sheet": "Valuation",
-      "target": "D197",
-      "writable": true,
-      "target_role": "valuation diluted shares",
-      "allowed_binding_ids": [
-        "valuation_input_diluted_shares"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_net_debt",
-      "sheet": "Valuation",
-      "target": "D198",
-      "writable": true,
-      "target_role": "valuation net debt",
-      "allowed_binding_ids": [
-        "valuation_input_net_debt"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_base_ebitda_ttm",
-      "sheet": "Valuation",
-      "target": "D199",
-      "writable": true,
-      "target_role": "valuation base EBITDA TTM",
-      "allowed_binding_ids": [
-        "valuation_input_base_ebitda_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_adjusted_ebitda_ttm",
-      "sheet": "Valuation",
-      "target": "D200",
-      "writable": true,
-      "target_role": "valuation adjusted EBITDA TTM",
-      "allowed_binding_ids": [
-        "valuation_input_adjusted_ebitda_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_fcf_ttm",
-      "sheet": "Valuation",
-      "target": "D201",
-      "writable": true,
-      "target_role": "valuation FCF TTM",
-      "allowed_binding_ids": [
-        "valuation_input_fcf_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_revenue_ttm",
-      "sheet": "Valuation",
-      "target": "D203",
-      "writable": true,
-      "target_role": "valuation revenue TTM",
-      "allowed_binding_ids": [
-        "valuation_input_revenue_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_capex_ttm",
-      "sheet": "Valuation",
-      "target": "D211",
-      "writable": true,
-      "target_role": "valuation capex TTM",
-      "allowed_binding_ids": [
-        "valuation_input_capex_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
       ]
     },
     {
@@ -552,19 +356,6 @@
       ]
     },
     {
-      "contract_id": "bs_quarterly_period_headers",
-      "sheet": "BS_Segments",
-      "target": "B7:I7",
-      "writable": true,
-      "target_role": "quarterly period header",
-      "allowed_binding_ids": [
-        "bs_quarterly_period_headers"
-      ],
-      "allowed_target_types": [
-        "period"
-      ]
-    },
-    {
       "contract_id": "bs_quarter_segment_member",
       "sheet": "BS_Segments",
       "target": "A61:A67",
@@ -580,7 +371,7 @@
     {
       "contract_id": "bs_quarter_segment_values",
       "sheet": "BS_Segments",
-      "target": "B61:I67",
+      "target": "B61:M67",
       "writable": true,
       "target_role": "segment values by period",
       "allowed_binding_ids": [
@@ -591,35 +382,9 @@
       ]
     },
     {
-      "contract_id": "bs_annual_period_headers",
-      "sheet": "BS_Segments",
-      "target": "B70:I70",
-      "writable": true,
-      "target_role": "annual period header",
-      "allowed_binding_ids": [
-        "bs_annual_period_headers"
-      ],
-      "allowed_target_types": [
-        "period"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_revenue",
-      "sheet": "BS_Segments",
-      "target": "B71:I71",
-      "writable": true,
-      "target_role": "annual revenue",
-      "allowed_binding_ids": [
-        "bs_annual_revenue_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
       "contract_id": "bs_annual_segment_member",
       "sheet": "BS_Segments",
-      "target": "A72:A74",
+      "target": "A72:A78",
       "writable": true,
       "target_role": "annual segment member",
       "allowed_binding_ids": [
@@ -632,7 +397,7 @@
     {
       "contract_id": "bs_annual_segment_values",
       "sheet": "BS_Segments",
-      "target": "B72:I74",
+      "target": "B72:I78",
       "writable": true,
       "target_role": "annual segment values by period",
       "allowed_binding_ids": [
@@ -1331,6 +1096,1267 @@
       "allowed_target_types": [
         "text"
       ]
+    },
+    {
+      "contract_id": "summary_revenue_mix_label",
+      "sheet": "SUMMARY",
+      "target": "A8",
+      "writable": true,
+      "target_role": "summary_revenue_mix_label",
+      "allowed_binding_ids": [
+        "summary_revenue_mix_label"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "summary_liquidity",
+      "sheet": "SUMMARY",
+      "target": "B45",
+      "writable": true,
+      "target_role": "summary_liquidity",
+      "allowed_binding_ids": [
+        "summary_liquidity"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "summary_liquidity_as_of",
+      "sheet": "SUMMARY",
+      "target": "D45",
+      "writable": true,
+      "target_role": "summary_liquidity_as_of",
+      "allowed_binding_ids": [
+        "summary_liquidity_as_of"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "investment_case_title",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A1",
+      "writable": true,
+      "target_role": "ic_investment_case_title",
+      "allowed_binding_ids": [
+        "ic_investment_case_title"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_period_headers",
+      "sheet": "Valuation",
+      "target": "B6:M6",
+      "writable": true,
+      "target_role": "valuation_period_headers",
+      "allowed_binding_ids": [
+        "valuation_period_headers"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "bs_quarterly_period_headers",
+      "sheet": "BS_Segments",
+      "target": "B7:M7",
+      "writable": true,
+      "target_role": "bs_quarterly_period_headers",
+      "allowed_binding_ids": [
+        "bs_quarterly_period_headers"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_period_headers",
+      "sheet": "BS_Segments",
+      "target": "B70:I70",
+      "writable": true,
+      "target_role": "bs_annual_period_headers",
+      "allowed_binding_ids": [
+        "bs_annual_period_headers"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_revenue",
+      "sheet": "BS_Segments",
+      "target": "B71:I71",
+      "writable": true,
+      "target_role": "bs_annual_revenue_series",
+      "allowed_binding_ids": [
+        "bs_annual_revenue_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_revenue",
+      "sheet": "Valuation",
+      "target": "B9:M9",
+      "writable": true,
+      "target_role": "valuation_revenue_series",
+      "allowed_binding_ids": [
+        "valuation_revenue_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_base_ebitda",
+      "sheet": "Valuation",
+      "target": "B18:M18",
+      "writable": true,
+      "target_role": "valuation_ebitda_series",
+      "allowed_binding_ids": [
+        "valuation_ebitda_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_adjusted_ebitda",
+      "sheet": "Valuation",
+      "target": "B24:M24",
+      "writable": true,
+      "target_role": "valuation_adjusted_ebitda_series",
+      "allowed_binding_ids": [
+        "valuation_adjusted_ebitda_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_operating_income",
+      "sheet": "Valuation",
+      "target": "B32:M32",
+      "writable": true,
+      "target_role": "valuation_operating_income_series",
+      "allowed_binding_ids": [
+        "valuation_operating_income_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_net_income",
+      "sheet": "Valuation",
+      "target": "B36:M36",
+      "writable": true,
+      "target_role": "valuation_net_income_series",
+      "allowed_binding_ids": [
+        "valuation_net_income_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_operating_cash_flow",
+      "sheet": "Valuation",
+      "target": "B43:M43",
+      "writable": true,
+      "target_role": "valuation_operating_cash_flow_series",
+      "allowed_binding_ids": [
+        "valuation_operating_cash_flow_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_capital_expenditures",
+      "sheet": "Valuation",
+      "target": "B44:M44",
+      "writable": true,
+      "target_role": "valuation_capital_expenditures_series",
+      "allowed_binding_ids": [
+        "valuation_capital_expenditures_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_interest_paid",
+      "sheet": "Valuation",
+      "target": "B59:M59",
+      "writable": true,
+      "target_role": "valuation_interest_paid_series",
+      "allowed_binding_ids": [
+        "valuation_interest_paid_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_buybacks_cash",
+      "sheet": "Valuation",
+      "target": "B62:M62",
+      "writable": true,
+      "target_role": "valuation_buybacks_cash_series",
+      "allowed_binding_ids": [
+        "valuation_buybacks_cash_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_cash",
+      "sheet": "Valuation",
+      "target": "B70:M70",
+      "writable": true,
+      "target_role": "valuation_cash_series",
+      "allowed_binding_ids": [
+        "valuation_cash_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_marketable_securities",
+      "sheet": "Valuation",
+      "target": "B71:M71",
+      "writable": true,
+      "target_role": "valuation_marketable_securities_series",
+      "allowed_binding_ids": [
+        "valuation_marketable_securities_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_debt_core",
+      "sheet": "Valuation",
+      "target": "B72:M72",
+      "writable": true,
+      "target_role": "valuation_debt_core_series",
+      "allowed_binding_ids": [
+        "valuation_debt_core_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_lease_liabilities",
+      "sheet": "Valuation",
+      "target": "B79:M79",
+      "writable": true,
+      "target_role": "valuation_lease_liabilities_series",
+      "allowed_binding_ids": [
+        "valuation_lease_liabilities_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_pension_obligation_net",
+      "sheet": "Valuation",
+      "target": "B82:M82",
+      "writable": true,
+      "target_role": "valuation_pension_obligation_net_series",
+      "allowed_binding_ids": [
+        "valuation_pension_obligation_net_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_revolver_availability",
+      "sheet": "Valuation",
+      "target": "B95:M95",
+      "writable": true,
+      "target_role": "valuation_revolver_availability_series",
+      "allowed_binding_ids": [
+        "valuation_revolver_availability_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_diluted_shares",
+      "sheet": "Valuation",
+      "target": "B102:M102",
+      "writable": true,
+      "target_role": "valuation_diluted_shares_series",
+      "allowed_binding_ids": [
+        "valuation_diluted_shares_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_shares_outstanding",
+      "sheet": "Valuation",
+      "target": "B103:M103",
+      "writable": true,
+      "target_role": "valuation_shares_outstanding_series",
+      "allowed_binding_ids": [
+        "valuation_shares_outstanding_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_eps",
+      "sheet": "Valuation",
+      "target": "B107:M107",
+      "writable": true,
+      "target_role": "valuation_eps_series",
+      "allowed_binding_ids": [
+        "valuation_eps_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_adjusted_eps",
+      "sheet": "Valuation",
+      "target": "B110:M110",
+      "writable": true,
+      "target_role": "valuation_adjusted_eps_series",
+      "allowed_binding_ids": [
+        "valuation_adjusted_eps_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_gross_profit",
+      "sheet": "Valuation",
+      "target": "B262:M262",
+      "writable": true,
+      "target_role": "valuation_gross_profit_series",
+      "allowed_binding_ids": [
+        "valuation_gross_profit_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_interest_expense",
+      "sheet": "Valuation",
+      "target": "B263:M263",
+      "writable": true,
+      "target_role": "valuation_interest_expense_series",
+      "allowed_binding_ids": [
+        "valuation_interest_expense_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_dividends_cash",
+      "sheet": "Valuation",
+      "target": "B264:M264",
+      "writable": true,
+      "target_role": "valuation_dividends_cash_series",
+      "allowed_binding_ids": [
+        "valuation_dividends_cash_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_acquisitions_cash",
+      "sheet": "Valuation",
+      "target": "B265:M265",
+      "writable": true,
+      "target_role": "valuation_acquisitions_cash_series",
+      "allowed_binding_ids": [
+        "valuation_acquisitions_cash_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_debt_repayment",
+      "sheet": "Valuation",
+      "target": "B266:M266",
+      "writable": true,
+      "target_role": "valuation_debt_repayment_series",
+      "allowed_binding_ids": [
+        "valuation_debt_repayment_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_debt_issuance",
+      "sheet": "Valuation",
+      "target": "B267:M267",
+      "writable": true,
+      "target_role": "valuation_debt_issuance_series",
+      "allowed_binding_ids": [
+        "valuation_debt_issuance_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_total_equity",
+      "sheet": "Valuation",
+      "target": "B268:M268",
+      "writable": true,
+      "target_role": "valuation_total_equity_series",
+      "allowed_binding_ids": [
+        "valuation_total_equity_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_goodwill",
+      "sheet": "Valuation",
+      "target": "B269:M269",
+      "writable": true,
+      "target_role": "valuation_goodwill_series",
+      "allowed_binding_ids": [
+        "valuation_goodwill_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_raw_intangibles",
+      "sheet": "Valuation",
+      "target": "B270:M270",
+      "writable": true,
+      "target_role": "valuation_intangibles_series",
+      "allowed_binding_ids": [
+        "valuation_intangibles_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_cash",
+      "sheet": "BS_Segments",
+      "target": "B9:M9",
+      "writable": true,
+      "target_role": "bs_cash_series",
+      "allowed_binding_ids": [
+        "bs_cash_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_restricted_cash",
+      "sheet": "BS_Segments",
+      "target": "B10:M10",
+      "writable": true,
+      "target_role": "bs_restricted_cash_series",
+      "allowed_binding_ids": [
+        "bs_restricted_cash_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_marketable_securities",
+      "sheet": "BS_Segments",
+      "target": "B13:M13",
+      "writable": true,
+      "target_role": "bs_marketable_securities_series",
+      "allowed_binding_ids": [
+        "bs_marketable_securities_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_accounts_receivable",
+      "sheet": "BS_Segments",
+      "target": "B14:M14",
+      "writable": true,
+      "target_role": "bs_accounts_receivable_series",
+      "allowed_binding_ids": [
+        "bs_accounts_receivable_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_inventory",
+      "sheet": "BS_Segments",
+      "target": "B15:M15",
+      "writable": true,
+      "target_role": "bs_inventory_series",
+      "allowed_binding_ids": [
+        "bs_inventory_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_current_assets",
+      "sheet": "BS_Segments",
+      "target": "B18:M18",
+      "writable": true,
+      "target_role": "bs_current_assets_series",
+      "allowed_binding_ids": [
+        "bs_current_assets_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_property_plant_equipment_net",
+      "sheet": "BS_Segments",
+      "target": "B19:M19",
+      "writable": true,
+      "target_role": "bs_property_plant_equipment_net_series",
+      "allowed_binding_ids": [
+        "bs_property_plant_equipment_net_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_goodwill",
+      "sheet": "BS_Segments",
+      "target": "B22:M22",
+      "writable": true,
+      "target_role": "bs_goodwill_series",
+      "allowed_binding_ids": [
+        "bs_goodwill_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_intangibles",
+      "sheet": "BS_Segments",
+      "target": "B23:M23",
+      "writable": true,
+      "target_role": "bs_intangibles_series",
+      "allowed_binding_ids": [
+        "bs_intangibles_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_other_assets_noncurrent",
+      "sheet": "BS_Segments",
+      "target": "B24:M24",
+      "writable": true,
+      "target_role": "bs_other_assets_noncurrent_series",
+      "allowed_binding_ids": [
+        "bs_other_assets_noncurrent_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_total_assets",
+      "sheet": "BS_Segments",
+      "target": "B25:M25",
+      "writable": true,
+      "target_role": "bs_total_assets_series",
+      "allowed_binding_ids": [
+        "bs_total_assets_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_accounts_payable",
+      "sheet": "BS_Segments",
+      "target": "B28:M28",
+      "writable": true,
+      "target_role": "bs_accounts_payable_series",
+      "allowed_binding_ids": [
+        "bs_accounts_payable_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_accrued_liabilities",
+      "sheet": "BS_Segments",
+      "target": "B29:M29",
+      "writable": true,
+      "target_role": "bs_accrued_liabilities_series",
+      "allowed_binding_ids": [
+        "bs_accrued_liabilities_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_short_term_borrowings",
+      "sheet": "BS_Segments",
+      "target": "B32:M32",
+      "writable": true,
+      "target_role": "bs_short_term_borrowings_series",
+      "allowed_binding_ids": [
+        "bs_short_term_borrowings_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_debt_current",
+      "sheet": "BS_Segments",
+      "target": "B33:M33",
+      "writable": true,
+      "target_role": "bs_debt_current_series",
+      "allowed_binding_ids": [
+        "bs_debt_current_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_lease_liabilities_current",
+      "sheet": "BS_Segments",
+      "target": "B34:M34",
+      "writable": true,
+      "target_role": "bs_lease_liabilities_current_series",
+      "allowed_binding_ids": [
+        "bs_lease_liabilities_current_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_current_liabilities",
+      "sheet": "BS_Segments",
+      "target": "B35:M35",
+      "writable": true,
+      "target_role": "bs_current_liabilities_series",
+      "allowed_binding_ids": [
+        "bs_current_liabilities_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_debt_core",
+      "sheet": "BS_Segments",
+      "target": "B40:M40",
+      "writable": true,
+      "target_role": "bs_debt_core_series",
+      "allowed_binding_ids": [
+        "bs_debt_core_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_lease_liabilities_noncurrent",
+      "sheet": "BS_Segments",
+      "target": "B42:M42",
+      "writable": true,
+      "target_role": "bs_lease_liabilities_noncurrent_series",
+      "allowed_binding_ids": [
+        "bs_lease_liabilities_noncurrent_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_pension_obligation_net",
+      "sheet": "BS_Segments",
+      "target": "B43:M43",
+      "writable": true,
+      "target_role": "bs_pension_obligation_net_series",
+      "allowed_binding_ids": [
+        "bs_pension_obligation_net_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_other_liabilities_noncurrent",
+      "sheet": "BS_Segments",
+      "target": "B44:M44",
+      "writable": true,
+      "target_role": "bs_other_liabilities_noncurrent_series",
+      "allowed_binding_ids": [
+        "bs_other_liabilities_noncurrent_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_total_liabilities",
+      "sheet": "BS_Segments",
+      "target": "B45:M45",
+      "writable": true,
+      "target_role": "bs_total_liabilities_series",
+      "allowed_binding_ids": [
+        "bs_total_liabilities_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_total_equity",
+      "sheet": "BS_Segments",
+      "target": "B47:M47",
+      "writable": true,
+      "target_role": "bs_total_equity_series",
+      "allowed_binding_ids": [
+        "bs_total_equity_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_shares_outstanding",
+      "sheet": "BS_Segments",
+      "target": "B48:M48",
+      "writable": true,
+      "target_role": "bs_shares_outstanding_series",
+      "allowed_binding_ids": [
+        "bs_shares_outstanding_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_raw_diluted_shares",
+      "sheet": "BS_Segments",
+      "target": "B49:M49",
+      "writable": true,
+      "target_role": "bs_diluted_shares_series",
+      "allowed_binding_ids": [
+        "bs_diluted_shares_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_as_of",
+      "sheet": "Valuation",
+      "target": "D195",
+      "writable": true,
+      "target_role": "valuation_input_as_of",
+      "allowed_binding_ids": [
+        "valuation_input_as_of"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_shares_outstanding",
+      "sheet": "Valuation",
+      "target": "D196",
+      "writable": true,
+      "target_role": "valuation_input_shares_outstanding",
+      "allowed_binding_ids": [
+        "valuation_input_shares_outstanding"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_diluted_shares",
+      "sheet": "Valuation",
+      "target": "D197",
+      "writable": true,
+      "target_role": "valuation_input_diluted_shares",
+      "allowed_binding_ids": [
+        "valuation_input_diluted_shares"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_net_debt",
+      "sheet": "Valuation",
+      "target": "D198",
+      "writable": true,
+      "target_role": "valuation_input_net_debt",
+      "allowed_binding_ids": [
+        "valuation_input_net_debt"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_base_ebitda_ttm",
+      "sheet": "Valuation",
+      "target": "D199",
+      "writable": true,
+      "target_role": "valuation_input_base_ebitda_ttm",
+      "allowed_binding_ids": [
+        "valuation_input_base_ebitda_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_adjusted_ebitda_ttm",
+      "sheet": "Valuation",
+      "target": "D200",
+      "writable": true,
+      "target_role": "valuation_input_adjusted_ebitda_ttm",
+      "allowed_binding_ids": [
+        "valuation_input_adjusted_ebitda_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_fcf_ttm",
+      "sheet": "Valuation",
+      "target": "D201",
+      "writable": true,
+      "target_role": "valuation_input_fcf_ttm",
+      "allowed_binding_ids": [
+        "valuation_input_fcf_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_operating_cash_flow_ttm",
+      "sheet": "Valuation",
+      "target": "D202",
+      "writable": true,
+      "target_role": "valuation_input_operating_cash_flow_ttm",
+      "allowed_binding_ids": [
+        "valuation_input_operating_cash_flow_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_revenue_ttm",
+      "sheet": "Valuation",
+      "target": "D203",
+      "writable": true,
+      "target_role": "valuation_input_revenue_ttm",
+      "allowed_binding_ids": [
+        "valuation_input_revenue_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_eps_ttm",
+      "sheet": "Valuation",
+      "target": "D204",
+      "writable": true,
+      "target_role": "valuation_input_eps_ttm",
+      "allowed_binding_ids": [
+        "valuation_input_eps_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_adjusted_eps_ttm",
+      "sheet": "Valuation",
+      "target": "D205",
+      "writable": true,
+      "target_role": "valuation_input_adjusted_eps_ttm",
+      "allowed_binding_ids": [
+        "valuation_input_adjusted_eps_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_book_value_per_share",
+      "sheet": "Valuation",
+      "target": "D206",
+      "writable": true,
+      "target_role": "valuation_input_book_value_per_share",
+      "allowed_binding_ids": [
+        "valuation_input_book_value_per_share"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_tangible_book_value_per_share",
+      "sheet": "Valuation",
+      "target": "D207",
+      "writable": true,
+      "target_role": "valuation_input_tangible_book_value_per_share",
+      "allowed_binding_ids": [
+        "valuation_input_tangible_book_value_per_share"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_capex_ttm",
+      "sheet": "Valuation",
+      "target": "D211",
+      "writable": true,
+      "target_role": "valuation_input_capex_ttm",
+      "allowed_binding_ids": [
+        "valuation_input_capex_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_input_interest_paid_ttm",
+      "sheet": "Valuation",
+      "target": "D212",
+      "writable": true,
+      "target_role": "valuation_input_interest_paid_ttm",
+      "allowed_binding_ids": [
+        "valuation_input_interest_paid_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_period_headers",
+      "sheet": "BS_Segments",
+      "target": "B82:I82",
+      "writable": true,
+      "target_role": "bs_annual_financial_period_headers",
+      "allowed_binding_ids": [
+        "bs_annual_financial_period_headers"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_revenue",
+      "sheet": "BS_Segments",
+      "target": "B83:I83",
+      "writable": true,
+      "target_role": "bs_annual_financial_revenue_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_revenue_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_gross_profit",
+      "sheet": "BS_Segments",
+      "target": "B84:I84",
+      "writable": true,
+      "target_role": "bs_annual_financial_gross_profit_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_gross_profit_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_operating_income",
+      "sheet": "BS_Segments",
+      "target": "B86:I86",
+      "writable": true,
+      "target_role": "bs_annual_financial_operating_income_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_operating_income_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_base_ebitda",
+      "sheet": "BS_Segments",
+      "target": "B88:I88",
+      "writable": true,
+      "target_role": "bs_annual_financial_base_ebitda_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_base_ebitda_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_adjusted_ebitda",
+      "sheet": "BS_Segments",
+      "target": "B90:I90",
+      "writable": true,
+      "target_role": "bs_annual_financial_adjusted_ebitda_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_adjusted_ebitda_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_net_income",
+      "sheet": "BS_Segments",
+      "target": "B92:I92",
+      "writable": true,
+      "target_role": "bs_annual_financial_net_income_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_net_income_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_operating_cash_flow",
+      "sheet": "BS_Segments",
+      "target": "B94:I94",
+      "writable": true,
+      "target_role": "bs_annual_financial_operating_cash_flow_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_operating_cash_flow_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_capital_expenditures",
+      "sheet": "BS_Segments",
+      "target": "B95:I95",
+      "writable": true,
+      "target_role": "bs_annual_financial_capital_expenditures_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_capital_expenditures_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_shares_outstanding",
+      "sheet": "BS_Segments",
+      "target": "B98:I98",
+      "writable": true,
+      "target_role": "bs_annual_financial_shares_outstanding_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_shares_outstanding_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_eps",
+      "sheet": "BS_Segments",
+      "target": "B99:I99",
+      "writable": true,
+      "target_role": "bs_annual_financial_eps_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_eps_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_total_equity",
+      "sheet": "BS_Segments",
+      "target": "B100:I100",
+      "writable": true,
+      "target_role": "bs_annual_financial_total_equity_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_total_equity_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_cash",
+      "sheet": "BS_Segments",
+      "target": "B102:I102",
+      "writable": true,
+      "target_role": "bs_annual_financial_cash_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_cash_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "bs_annual_financial_raw_debt_core",
+      "sheet": "BS_Segments",
+      "target": "B103:I103",
+      "writable": true,
+      "target_role": "bs_annual_financial_debt_core_series",
+      "allowed_binding_ids": [
+        "bs_annual_financial_debt_core_series"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "calculation_history_period",
+      "sheet": "History_Q",
+      "target": "A2:A1000",
+      "writable": true,
+      "target_role": "calculation_history_quarterly_rows.period",
+      "allowed_binding_ids": [
+        "calculation_history_quarterly_rows"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "calculation_history_period_ordinal",
+      "sheet": "History_Q",
+      "target": "B2:B1000",
+      "writable": true,
+      "target_role": "calculation_history_quarterly_rows.period_ordinal",
+      "allowed_binding_ids": [
+        "calculation_history_quarterly_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "calculation_history_metric",
+      "sheet": "History_Q",
+      "target": "C2:C1000",
+      "writable": true,
+      "target_role": "calculation_history_quarterly_rows.metric",
+      "allowed_binding_ids": [
+        "calculation_history_quarterly_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "calculation_history_value",
+      "sheet": "History_Q",
+      "target": "D2:D1000",
+      "writable": true,
+      "target_role": "calculation_history_quarterly_rows.value",
+      "allowed_binding_ids": [
+        "calculation_history_quarterly_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "calculation_history_unit",
+      "sheet": "History_Q",
+      "target": "E2:E1000",
+      "writable": true,
+      "target_role": "calculation_history_quarterly_rows.unit",
+      "allowed_binding_ids": [
+        "calculation_history_quarterly_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "calculation_history_source_ref",
+      "sheet": "History_Q",
+      "target": "F2:F1000",
+      "writable": true,
+      "target_role": "calculation_history_quarterly_rows.source_ref",
+      "allowed_binding_ids": [
+        "calculation_history_quarterly_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "calculation_history_status",
+      "sheet": "History_Q",
+      "target": "G2:G1000",
+      "writable": true,
+      "target_role": "calculation_history_quarterly_rows.status",
+      "allowed_binding_ids": [
+        "calculation_history_quarterly_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
     }
   ],
   "planner_merge_families": [
@@ -1525,6 +2551,33 @@
       "allowed_binding_ids": [
         "qn_quarter_note_rows"
       ]
+    },
+    {
+      "merge_id": "summary_revenue_mix_merge",
+      "sheet": "SUMMARY",
+      "target": "A8:F8",
+      "anchor_column": "A",
+      "allowed_binding_ids": [
+        "summary_revenue_mix_label"
+      ]
+    },
+    {
+      "merge_id": "summary_liquidity_as_of_merge",
+      "sheet": "SUMMARY",
+      "target": "D45:F45",
+      "anchor_column": "D",
+      "allowed_binding_ids": [
+        "summary_liquidity_as_of"
+      ]
+    },
+    {
+      "merge_id": "investment_case_title_merge",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A1:J1",
+      "anchor_column": "A",
+      "allowed_binding_ids": [
+        "ic_investment_case_title"
+      ]
     }
   ],
   "required_anchors": [
@@ -1552,14 +2605,14 @@
     {
       "anchor_id": "valuation_actuals_anchor",
       "sheet": "Valuation",
-      "zone_id": "valuation_actuals_quarterly_values",
+      "zone_id": "valuation_period_headers",
       "anchor_label": "Actuals",
       "binding_required": true
     },
     {
       "anchor_id": "valuation_share_count_anchor",
       "sheet": "Valuation",
-      "zone_id": "valuation_share_count_values",
+      "zone_id": "valuation_raw_diluted_shares",
       "target": "A102",
       "anchor_label": "Diluted shares (m)",
       "binding_required": false
@@ -1574,8 +2627,9 @@
     {
       "anchor_id": "bs_liquidity_anchor",
       "sheet": "BS_Segments",
-      "zone_id": "bs_liquidity_values",
-      "anchor_label": "Liquidity / Assets",
+      "zone_id": "bs_raw_cash",
+      "target": "A9",
+      "anchor_label": "Cash and cash equivalents",
       "binding_required": false
     },
     {
@@ -1724,6 +2778,22 @@
             "scalar",
             "table_rows"
           ]
+        },
+        {
+          "zone_id": "summary_revenue_mix_label",
+          "target": "A8:F8",
+          "anchor_label": "Revenue mix",
+          "value_shapes": [
+            "text_block"
+          ]
+        },
+        {
+          "zone_id": "summary_liquidity_as_of_value",
+          "target": "D45:F45",
+          "anchor_label": "Total liquidity",
+          "value_shapes": [
+            "scalar"
+          ]
         }
       ],
       "non_writable_zones": [
@@ -1741,11 +2811,6 @@
           "zone_id": "summary_static_advantage_header",
           "target": "A6:F6",
           "reason": "Reusable narrative section header."
-        },
-        {
-          "zone_id": "summary_static_revenue_model_header",
-          "target": "A8:F8",
-          "reason": "Reusable revenue-model section header."
         },
         {
           "zone_id": "summary_static_segment_model_header",
@@ -1783,14 +2848,6 @@
       "sheet": "Valuation",
       "static_layout_owner": "frozen_template_shell",
       "writable_zones": [
-        {
-          "zone_id": "valuation_actuals_quarterly_values",
-          "target": "B6:M80",
-          "anchor_label": "Actuals",
-          "value_shapes": [
-            "quarterly_series"
-          ]
-        },
         {
           "zone_id": "valuation_guidance_values",
           "target": "O9:T27",
@@ -1836,29 +2893,12 @@
           ]
         },
         {
-          "zone_id": "valuation_output_values",
-          "target": "O64:AA170",
-          "anchor_label": "Output",
-          "value_shapes": [
-            "table_rows",
-            "text_block"
-          ]
-        },
-        {
           "zone_id": "valuation_guidance_status_values_lower",
           "target": "X29:AA36",
           "anchor_label": "Lower guidance realized/status",
           "value_shapes": [
             "table_rows",
             "text_block"
-          ]
-        },
-        {
-          "zone_id": "valuation_share_count_values",
-          "target": "B81:M90",
-          "anchor_label": "Diluted shares (m)",
-          "value_shapes": [
-            "quarterly_series"
           ]
         },
         {
@@ -1921,6 +2961,238 @@
           "anchor_label": "Inputs",
           "value_shapes": [
             "scalar"
+          ]
+        },
+        {
+          "zone_id": "valuation_period_headers",
+          "target": "B6:M6",
+          "anchor_label": "Quarter",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_revenue",
+          "target": "B9:M9",
+          "anchor_label": "revenue",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_base_ebitda",
+          "target": "B18:M18",
+          "anchor_label": "base ebitda",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_adjusted_ebitda",
+          "target": "B24:M24",
+          "anchor_label": "adjusted ebitda",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_operating_income",
+          "target": "B32:M32",
+          "anchor_label": "operating income",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_net_income",
+          "target": "B36:M36",
+          "anchor_label": "net income",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_operating_cash_flow",
+          "target": "B43:M43",
+          "anchor_label": "operating cash flow",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_capital_expenditures",
+          "target": "B44:M44",
+          "anchor_label": "capital expenditures",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_interest_paid",
+          "target": "B59:M59",
+          "anchor_label": "interest paid",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_buybacks_cash",
+          "target": "B62:M62",
+          "anchor_label": "buybacks cash",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_cash",
+          "target": "B70:M70",
+          "anchor_label": "cash",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_marketable_securities",
+          "target": "B71:M71",
+          "anchor_label": "marketable securities",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_debt_core",
+          "target": "B72:M72",
+          "anchor_label": "debt core",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_lease_liabilities",
+          "target": "B79:M79",
+          "anchor_label": "lease liabilities",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_pension_obligation_net",
+          "target": "B82:M82",
+          "anchor_label": "pension obligation net",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_revolver_availability",
+          "target": "B95:M95",
+          "anchor_label": "revolver availability",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_diluted_shares",
+          "target": "B102:M102",
+          "anchor_label": "diluted shares",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_shares_outstanding",
+          "target": "B103:M103",
+          "anchor_label": "shares outstanding",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_eps",
+          "target": "B107:M107",
+          "anchor_label": "eps",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_adjusted_eps",
+          "target": "B110:M110",
+          "anchor_label": "adjusted eps",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_gross_profit",
+          "target": "B262:M262",
+          "anchor_label": "gross profit",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_interest_expense",
+          "target": "B263:M263",
+          "anchor_label": "interest expense",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_dividends_cash",
+          "target": "B264:M264",
+          "anchor_label": "dividends cash",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_acquisitions_cash",
+          "target": "B265:M265",
+          "anchor_label": "acquisitions cash",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_debt_repayment",
+          "target": "B266:M266",
+          "anchor_label": "debt repayment",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_debt_issuance",
+          "target": "B267:M267",
+          "anchor_label": "debt issuance",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_total_equity",
+          "target": "B268:M268",
+          "anchor_label": "total equity",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_goodwill",
+          "target": "B269:M269",
+          "anchor_label": "goodwill",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "valuation_raw_intangibles",
+          "target": "B270:M270",
+          "anchor_label": "intangibles",
+          "value_shapes": [
+            "quarterly_series"
           ]
         }
       ],
@@ -2044,6 +3316,306 @@
           "zone_id": "valuation_secondary_title_row",
           "target": "B192:S192",
           "reason": "Secondary valuation section header retained from the standard visual template."
+        },
+        {
+          "zone_id": "valuation_formula_owned_outputs",
+          "target": "O64:AA170",
+          "reason": "Formula-owned valuation outputs and static interpretation labels."
+        },
+        {
+          "zone_id": "valuation_formula_row_10",
+          "target": "B10:M10",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_11",
+          "target": "B11:M11",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_13",
+          "target": "B13:M13",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_14",
+          "target": "B14:M14",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_15",
+          "target": "B15:M15",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_19",
+          "target": "B19:M19",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_20",
+          "target": "B20:M20",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_21",
+          "target": "B21:M21",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_22",
+          "target": "B22:M22",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_25",
+          "target": "B25:M25",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_26",
+          "target": "B26:M26",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_27",
+          "target": "B27:M27",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_28",
+          "target": "B28:M28",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_29",
+          "target": "B29:M29",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_33",
+          "target": "B33:M33",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_34",
+          "target": "B34:M34",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_35",
+          "target": "B35:M35",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_37",
+          "target": "B37:M37",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_38",
+          "target": "B38:M38",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_39",
+          "target": "B39:M39",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_40",
+          "target": "B40:M40",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_45",
+          "target": "B45:M45",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_46",
+          "target": "B46:M46",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_47",
+          "target": "B47:M47",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_48",
+          "target": "B48:M48",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_49",
+          "target": "B49:M49",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_50",
+          "target": "B50:M50",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_57",
+          "target": "B57:M57",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_58",
+          "target": "B58:M58",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_63",
+          "target": "B63:M63",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_64",
+          "target": "B64:M64",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_65",
+          "target": "B65:M65",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_66",
+          "target": "B66:M66",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_67",
+          "target": "B67:M67",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_73",
+          "target": "B73:M73",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_74",
+          "target": "B74:M74",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_75",
+          "target": "B75:M75",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_77",
+          "target": "B77:M77",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_78",
+          "target": "B78:M78",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_80",
+          "target": "B80:M80",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_81",
+          "target": "B81:M81",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_84",
+          "target": "B84:M84",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_85",
+          "target": "B85:M85",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_86",
+          "target": "B86:M86",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_87",
+          "target": "B87:M87",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_88",
+          "target": "B88:M88",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_89",
+          "target": "B89:M89",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_90",
+          "target": "B90:M90",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_104",
+          "target": "B104:M104",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_105",
+          "target": "B105:M105",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_108",
+          "target": "B108:M108",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_109",
+          "target": "B109:M109",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_111",
+          "target": "B111:M111",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_113",
+          "target": "B113:M113",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_114",
+          "target": "B114:M114",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_formula_row_115",
+          "target": "B115:M115",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "valuation_helper_labels",
+          "target": "A262:A270",
+          "reason": "Hidden generic formula-input labels."
+        },
+        {
+          "zone_id": "valuation_helper_support",
+          "target": "N262:AI270",
+          "reason": "Protected hidden helper support area."
+        },
+        {
+          "zone_id": "valuation_formula_helper_cfo_ttm",
+          "target": "A271:AI271",
+          "reason": "Hidden protected ticker-neutral CFO TTM formula helper."
         }
       ],
       "formulas_static_labels": [
@@ -2058,17 +3630,8 @@
       "static_layout_owner": "frozen_template_shell",
       "writable_zones": [
         {
-          "zone_id": "bs_liquidity_values",
-          "target": "B7:I49",
-          "anchor_label": "Liquidity / Assets",
-          "value_shapes": [
-            "quarterly_series",
-            "scalar"
-          ]
-        },
-        {
           "zone_id": "bs_segment_quarterly_values",
-          "target": "A61:I67",
+          "target": "A61:M67",
           "anchor_label": "Quarterly segments",
           "value_shapes": [
             "pivot_matrix",
@@ -2085,10 +3648,330 @@
         },
         {
           "zone_id": "bs_segment_annual_values",
-          "target": "A72:I74",
+          "target": "A72:I78",
           "anchor_label": "Annual segments",
           "value_shapes": [
             "pivot_matrix",
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_quarterly_period_headers",
+          "target": "B7:M7",
+          "anchor_label": "Quarter",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_cash",
+          "target": "B9:M9",
+          "anchor_label": "cash",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_restricted_cash",
+          "target": "B10:M10",
+          "anchor_label": "restricted cash",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_marketable_securities",
+          "target": "B13:M13",
+          "anchor_label": "marketable securities",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_accounts_receivable",
+          "target": "B14:M14",
+          "anchor_label": "accounts receivable",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_inventory",
+          "target": "B15:M15",
+          "anchor_label": "inventory",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_current_assets",
+          "target": "B18:M18",
+          "anchor_label": "current assets",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_property_plant_equipment_net",
+          "target": "B19:M19",
+          "anchor_label": "property plant equipment net",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_goodwill",
+          "target": "B22:M22",
+          "anchor_label": "goodwill",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_intangibles",
+          "target": "B23:M23",
+          "anchor_label": "intangibles",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_other_assets_noncurrent",
+          "target": "B24:M24",
+          "anchor_label": "other assets noncurrent",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_total_assets",
+          "target": "B25:M25",
+          "anchor_label": "total assets",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_accounts_payable",
+          "target": "B28:M28",
+          "anchor_label": "accounts payable",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_accrued_liabilities",
+          "target": "B29:M29",
+          "anchor_label": "accrued liabilities",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_short_term_borrowings",
+          "target": "B32:M32",
+          "anchor_label": "short term borrowings",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_debt_current",
+          "target": "B33:M33",
+          "anchor_label": "debt current",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_lease_liabilities_current",
+          "target": "B34:M34",
+          "anchor_label": "lease liabilities current",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_current_liabilities",
+          "target": "B35:M35",
+          "anchor_label": "current liabilities",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_debt_core",
+          "target": "B40:M40",
+          "anchor_label": "debt core",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_lease_liabilities_noncurrent",
+          "target": "B42:M42",
+          "anchor_label": "lease liabilities noncurrent",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_pension_obligation_net",
+          "target": "B43:M43",
+          "anchor_label": "pension obligation net",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_other_liabilities_noncurrent",
+          "target": "B44:M44",
+          "anchor_label": "other liabilities noncurrent",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_total_liabilities",
+          "target": "B45:M45",
+          "anchor_label": "total liabilities",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_total_equity",
+          "target": "B47:M47",
+          "anchor_label": "total equity",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_shares_outstanding",
+          "target": "B48:M48",
+          "anchor_label": "shares outstanding",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_raw_diluted_shares",
+          "target": "B49:M49",
+          "anchor_label": "diluted shares",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_period_headers",
+          "target": "B82:I82",
+          "anchor_label": "Fiscal year",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_revenue",
+          "target": "B83:I83",
+          "anchor_label": "Revenue",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_gross_profit",
+          "target": "B84:I84",
+          "anchor_label": "Gross Profit",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_operating_income",
+          "target": "B86:I86",
+          "anchor_label": "Operating Income",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_base_ebitda",
+          "target": "B88:I88",
+          "anchor_label": "EBITDA (base)",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_adjusted_ebitda",
+          "target": "B90:I90",
+          "anchor_label": "Adjusted EBITDA",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_net_income",
+          "target": "B92:I92",
+          "anchor_label": "Net Income",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_operating_cash_flow",
+          "target": "B94:I94",
+          "anchor_label": "CFO",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_capital_expenditures",
+          "target": "B95:I95",
+          "anchor_label": "Capex",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_shares_outstanding",
+          "target": "B98:I98",
+          "anchor_label": "Shares outstanding (year-end, m)",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_eps",
+          "target": "B99:I99",
+          "anchor_label": "Diluted EPS (GAAP)",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_total_equity",
+          "target": "B100:I100",
+          "anchor_label": "Total equity",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_cash",
+          "target": "B102:I102",
+          "anchor_label": "Cash",
+          "value_shapes": [
+            "annual_series"
+          ]
+        },
+        {
+          "zone_id": "bs_annual_financial_raw_debt_core",
+          "target": "B103:I103",
+          "anchor_label": "Debt (core borrowings)",
+          "value_shapes": [
             "annual_series"
           ]
         }
@@ -2111,8 +3994,132 @@
         },
         {
           "zone_id": "bs_static_labels_after_segments",
-          "target": "A75:A120",
+          "target": "A79:A120",
           "reason": "Static labels below the standard segment matrices."
+        },
+        {
+          "zone_id": "bs_formula_row_11",
+          "target": "B11:I11",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_12",
+          "target": "B12:I12",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_26",
+          "target": "B26:I26",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_36",
+          "target": "B36:I36",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_37",
+          "target": "B37:I37",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_38",
+          "target": "B38:I38",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_39",
+          "target": "B39:I39",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_41",
+          "target": "B41:I41",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_51",
+          "target": "B51:I51",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_52",
+          "target": "B52:I52",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_53",
+          "target": "B53:I53",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_54",
+          "target": "B54:I54",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_55",
+          "target": "B55:I55",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_formula_row_56",
+          "target": "B56:I56",
+          "reason": "Ticker-neutral protected formula row."
+        },
+        {
+          "zone_id": "bs_annual_formula_annual_gross_margin",
+          "target": "B85:I85",
+          "role": "formula_static",
+          "formula_owned": true
+        },
+        {
+          "zone_id": "bs_annual_formula_annual_operating_margin",
+          "target": "B87:I87",
+          "role": "formula_static",
+          "formula_owned": true
+        },
+        {
+          "zone_id": "bs_annual_formula_annual_ebitda_margin",
+          "target": "B89:I89",
+          "role": "formula_static",
+          "formula_owned": true
+        },
+        {
+          "zone_id": "bs_annual_formula_annual_adjusted_ebitda_margin",
+          "target": "B91:I91",
+          "role": "formula_static",
+          "formula_owned": true
+        },
+        {
+          "zone_id": "bs_annual_formula_annual_net_margin",
+          "target": "B93:I93",
+          "role": "formula_static",
+          "formula_owned": true
+        },
+        {
+          "zone_id": "bs_annual_formula_annual_free_cash_flow",
+          "target": "B96:I96",
+          "role": "formula_static",
+          "formula_owned": true
+        },
+        {
+          "zone_id": "bs_annual_formula_annual_free_cash_flow_margin",
+          "target": "B97:I97",
+          "role": "formula_static",
+          "formula_owned": true
+        },
+        {
+          "zone_id": "bs_annual_formula_annual_book_value_per_share",
+          "target": "B101:I101",
+          "role": "formula_static",
+          "formula_owned": true
+        },
+        {
+          "zone_id": "bs_annual_formula_annual_net_debt",
+          "target": "B104:I104",
+          "role": "formula_static",
+          "formula_owned": true
         }
       ],
       "formulas_static_labels": [
@@ -2288,13 +4295,21 @@
             "table_rows",
             "text_block"
           ]
+        },
+        {
+          "zone_id": "ic_title_value",
+          "target": "A1:J1",
+          "anchor_label": "Investment Case",
+          "value_shapes": [
+            "text_block"
+          ]
         }
       ],
       "non_writable_zones": [
         {
           "zone_id": "ic_title_header_rows",
-          "target": "A1:K4",
-          "reason": "Title, subtitle, and static shell header rows."
+          "target": "A2:K4",
+          "reason": "Subtitle and static shell header rows below the runtime-resolved title."
         },
         {
           "zone_id": "ic_static_label_column",
@@ -2617,10 +4632,40 @@
       "formulas_static_labels": [
         "QA Checks"
       ]
+    },
+    {
+      "sheet": "History_Q",
+      "state": "hidden",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "calculation_history_quarterly_rows",
+          "target": "A2:G1000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "calculation_history_headers",
+          "target": "A1:G1",
+          "reason": "Static hidden formula-input projection headers."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "period_ordinal",
+        "metric",
+        "value",
+        "unit",
+        "source_ref",
+        "status"
+      ]
     }
   ],
   "optional_support_sheets": [
-    "History_Q",
     "DATA_Facts_Long",
     "Guidance_Normalized",
     "Guidance_Raw",
@@ -2630,27 +4675,28 @@
     "SEC_Audit_Log",
     "Source_Coverage"
   ],
-  "semantic_contract_version": "1.1.0",
+  "semantic_contract_version": "1.2.0",
   "shell_identity": {
-    "semantic_contract_version": "1.1.0",
-    "workbook_sha256": "e21e55e86cc310301fa5c4fb698e7a801c9ca671064fd53953b5a2d4d531b7e0",
-    "manifest_contract_signature": "832db01c660db98dff65c4c1b2fdc6c43cd7d6458926351a9269b93d00c43e82",
+    "semantic_contract_version": "1.2.0",
+    "workbook_sha256": "7363d711439d31d4c491d328c0b39040108258b3b7c4e3934b9e2dd52b198f8f",
+    "manifest_contract_signature": "590cd4233dd6ff8e2a600b05511c73868fd8374d48789699bbefc8371b92b4ef",
     "sheet_order_visibility_signature": "bf321d478860f8ed7458e736c902f1517d543cb4186a490fd28f6fdfb74749d1",
     "sheet_view_signature": "e2566d3cb6a924bc7ac96bea5c14895d8bfc6539aac73b095c1470ea5aa826b0",
-    "merge_signature": "54d443d005c71f7e43101da9b1069db63935058945044563273511cb32e94813",
-    "defined_name_signature": "e065e48cc2fd4855a21c97f0e6c8fbd68d072d1f891f3e83e4ca1bdbeb75658e",
-    "writable_target_signature": "be1c0879816c0e7db9acb4708a6925b18fd872c65a5ab75b8c16b1b541591b09",
-    "binding_contract_signature": "ec6ebd29151827c12cf9e9b138531fe285835a803c167ab1d71337cf7e3e718e",
-    "formula_static_zone_signature": "b73f0988fb56d27c0a82354318deb0cb06fc9a8c02f413d6795212b250d934b0",
+    "merge_signature": "417d308565b3d649f9fe6eda6dfe3bb7b5957c324378558462f8b191287b65b7",
+    "defined_name_signature": "a6817262f94abaed2d1c6cbc47165e80f5dac23f2a37392fd1118be678d7d48a",
+    "writable_target_signature": "e2eb49449737eca1714239aa706014944017682d2d7b64d51444f1e131fddaeb",
+    "binding_contract_signature": "f43cc01858ce6a510c6ba8a57a629d56c0a526e90491aa823eb424d4f2b5fdc3",
+    "formula_static_zone_signature": "8848bfb2e38f00dba6dec91efbc515dfe48123e392998fc89b3dbfbf314bba86",
     "counts": {
       "sheets": 18,
       "sheet_views": 18,
-      "merges": 1882,
-      "defined_names": 107,
-      "writable_targets": 135,
-      "binding_contracts": 78,
-      "formula_cells": 73,
-      "static_cells": 1509
+      "merges": 1884,
+      "defined_names": 179,
+      "writable_targets": 286,
+      "binding_contracts": 143,
+      "formula_cells": 1016,
+      "static_cells": 1249
     }
-  }
+  },
+  "formula_contract_version": "1.2.0"
 }

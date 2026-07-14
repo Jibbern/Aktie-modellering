@@ -35,23 +35,87 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | summary_wrong_if_values | SUMMARY | A23:F24 | investment_case.key_debate | manual | standard |
 | summary_key_financials_values | SUMMARY | B26:B39 | quarterly_financials.rows.0.net_income, quarterly_financials.rows.0.period, quarterly_financials.rows.0.revenue | source-backed | standard |
 | summary_leverage_liquidity_values | SUMMARY | B41:B45 | debt_liquidity.net_leverage, debt_liquidity.summary_liquidity_display | source-backed | standard |
-| valuation_actuals_quarterly_values | Valuation | B6:M80 | quarterly_financials.rows.0.adjusted_ebitda, quarterly_financials.rows.0.free_cash_flow, quarterly_financials.rows.0.net_income, quarterly_financials.rows.0.operating_cash_flow, +3 more | source-backed | standard |
+| summary_revenue_mix_label | SUMMARY | A8:F8 | company_profile.revenue_mix_label | profile-backed | standard |
+| summary_liquidity_as_of_value | SUMMARY | D45:F45 | debt_liquidity.summary_liquidity_as_of_display | source-backed | standard |
 | valuation_guidance_values | Valuation | O9:T27 | normalized_guidance.items.value | source-backed | standard |
 | valuation_guidance_status_values | Valuation | AA9:AA27 | normalized_guidance.items.progress_status | source-backed | standard |
 | valuation_guidance_values_lower | Valuation | O29:T36 | normalized_guidance.items.0.value | source-backed | standard |
 | valuation_operating_driver_values | Valuation | O39:AA47 | operating_drivers.items.0.driver | source-backed | standard |
 | valuation_thesis_bridge_values | Valuation | O51:AA62 | investment_case.key_debate | manual | standard |
-| valuation_output_values | Valuation | O64:AA170 | valuation_outputs.items.value | derived | standard |
 | valuation_guidance_status_values_lower | Valuation | X29:AA36 | normalized_guidance.items.0.horizon | source-backed | standard |
-| valuation_share_count_values | Valuation | B81:M90 | quarterly_financials.rows.0.diluted_shares | source-backed | standard |
-| valuation_debt_liquidity_values | Valuation | B124:M132 | debt_liquidity.total_debt | source-backed | standard |
-| valuation_cash_values | Valuation | B133:M137 | debt_liquidity.cash | source-backed | standard |
-| valuation_capital_return_values | Valuation | B152:M156 | capital_returns.buybacks | source-backed | standard |
-| valuation_input_values | Valuation | D194:D216 | valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, valuation_inputs.capex_ttm, +5 more | mixed | standard |
-| bs_liquidity_values | BS_Segments | B7:I49 | debt_liquidity.cash, debt_liquidity.total_debt, quarterly_financials.rows.period | source-backed | standard |
-| bs_segment_quarterly_values | BS_Segments | A61:I67 | segments.items.revenue | source-backed | standard |
+| valuation_input_values | Valuation | D194:D216 | valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, +11 more | source-backed | standard |
+| valuation_period_headers | Valuation | B6:M6 | quarterly_financials.rows.period | source-backed | standard |
+| valuation_raw_revenue | Valuation | B9:M9 | quarterly_financials.rows.revenue | source-backed | standard |
+| valuation_raw_base_ebitda | Valuation | B18:M18 | quarterly_financials.rows.base_ebitda | source-backed | standard |
+| valuation_raw_adjusted_ebitda | Valuation | B24:M24 | quarterly_financials.rows.adjusted_ebitda | source-backed | standard |
+| valuation_raw_operating_income | Valuation | B32:M32 | quarterly_financials.rows.operating_income | source-backed | standard |
+| valuation_raw_net_income | Valuation | B36:M36 | quarterly_financials.rows.net_income | source-backed | standard |
+| valuation_raw_operating_cash_flow | Valuation | B43:M43 | quarterly_financials.rows.operating_cash_flow | source-backed | standard |
+| valuation_raw_capital_expenditures | Valuation | B44:M44 | quarterly_financials.rows.capital_expenditures | source-backed | standard |
+| valuation_raw_interest_paid | Valuation | B59:M59 | quarterly_financials.rows.interest_paid | source-backed | standard |
+| valuation_raw_buybacks_cash | Valuation | B62:M62 | quarterly_financials.rows.buybacks_cash | source-backed | standard |
+| valuation_raw_cash | Valuation | B70:M70 | quarterly_financials.rows.cash | source-backed | standard |
+| valuation_raw_marketable_securities | Valuation | B71:M71 | quarterly_financials.rows.marketable_securities | source-backed | standard |
+| valuation_raw_debt_core | Valuation | B72:M72 | quarterly_financials.rows.debt_core | source-backed | standard |
+| valuation_raw_lease_liabilities | Valuation | B79:M79 | quarterly_financials.rows.lease_liabilities | source-backed | standard |
+| valuation_raw_pension_obligation_net | Valuation | B82:M82 | quarterly_financials.rows.pension_obligation_net | source-backed | standard |
+| valuation_raw_revolver_availability | Valuation | B95:M95 | quarterly_financials.rows.revolver_availability | source-backed | standard |
+| valuation_raw_diluted_shares | Valuation | B102:M102 | quarterly_financials.rows.diluted_shares | source-backed | standard |
+| valuation_raw_shares_outstanding | Valuation | B103:M103 | quarterly_financials.rows.shares_outstanding | source-backed | standard |
+| valuation_raw_eps | Valuation | B107:M107 | quarterly_financials.rows.eps | source-backed | standard |
+| valuation_raw_adjusted_eps | Valuation | B110:M110 | quarterly_financials.rows.adjusted_eps | source-backed | standard |
+| valuation_raw_gross_profit | Valuation | B262:M262 | quarterly_financials.rows.gross_profit | source-backed | standard |
+| valuation_raw_interest_expense | Valuation | B263:M263 | quarterly_financials.rows.interest_expense | source-backed | standard |
+| valuation_raw_dividends_cash | Valuation | B264:M264 | quarterly_financials.rows.dividends_cash | source-backed | standard |
+| valuation_raw_acquisitions_cash | Valuation | B265:M265 | quarterly_financials.rows.acquisitions_cash | source-backed | standard |
+| valuation_raw_debt_repayment | Valuation | B266:M266 | quarterly_financials.rows.debt_repayment | source-backed | standard |
+| valuation_raw_debt_issuance | Valuation | B267:M267 | quarterly_financials.rows.debt_issuance | source-backed | standard |
+| valuation_raw_total_equity | Valuation | B268:M268 | quarterly_financials.rows.total_equity | source-backed | standard |
+| valuation_raw_goodwill | Valuation | B269:M269 | quarterly_financials.rows.goodwill | source-backed | standard |
+| valuation_raw_intangibles | Valuation | B270:M270 | quarterly_financials.rows.intangibles | source-backed | standard |
+| bs_segment_quarterly_values | BS_Segments | A61:M67 | segments.items.revenue | source-backed | standard |
 | bs_annual_period_values | BS_Segments | B70:I71 | annual_financials.rows.period, annual_financials.rows.revenue | source-backed | standard |
-| bs_segment_annual_values | BS_Segments | A72:I74 | segments.items.annual_revenue | source-backed | standard |
+| bs_segment_annual_values | BS_Segments | A72:I78 | segments.items.annual_revenue | source-backed | standard |
+| bs_quarterly_period_headers | BS_Segments | B7:M7 | quarterly_financials.rows.period | source-backed | standard |
+| bs_raw_cash | BS_Segments | B9:M9 | quarterly_financials.rows.cash | source-backed | standard |
+| bs_raw_restricted_cash | BS_Segments | B10:M10 | quarterly_financials.rows.restricted_cash | source-backed | standard |
+| bs_raw_marketable_securities | BS_Segments | B13:M13 | quarterly_financials.rows.marketable_securities | source-backed | standard |
+| bs_raw_accounts_receivable | BS_Segments | B14:M14 | quarterly_financials.rows.accounts_receivable | source-backed | standard |
+| bs_raw_inventory | BS_Segments | B15:M15 | quarterly_financials.rows.inventory | source-backed | standard |
+| bs_raw_current_assets | BS_Segments | B18:M18 | quarterly_financials.rows.current_assets | source-backed | standard |
+| bs_raw_property_plant_equipment_net | BS_Segments | B19:M19 | quarterly_financials.rows.property_plant_equipment_net | source-backed | standard |
+| bs_raw_goodwill | BS_Segments | B22:M22 | quarterly_financials.rows.goodwill | source-backed | standard |
+| bs_raw_intangibles | BS_Segments | B23:M23 | quarterly_financials.rows.intangibles | source-backed | standard |
+| bs_raw_other_assets_noncurrent | BS_Segments | B24:M24 | quarterly_financials.rows.other_assets_noncurrent | source-backed | standard |
+| bs_raw_total_assets | BS_Segments | B25:M25 | quarterly_financials.rows.total_assets | source-backed | standard |
+| bs_raw_accounts_payable | BS_Segments | B28:M28 | quarterly_financials.rows.accounts_payable | source-backed | standard |
+| bs_raw_accrued_liabilities | BS_Segments | B29:M29 | quarterly_financials.rows.accrued_liabilities | source-backed | standard |
+| bs_raw_short_term_borrowings | BS_Segments | B32:M32 | quarterly_financials.rows.short_term_borrowings | source-backed | standard |
+| bs_raw_debt_current | BS_Segments | B33:M33 | quarterly_financials.rows.debt_current | source-backed | standard |
+| bs_raw_lease_liabilities_current | BS_Segments | B34:M34 | quarterly_financials.rows.lease_liabilities_current | source-backed | standard |
+| bs_raw_current_liabilities | BS_Segments | B35:M35 | quarterly_financials.rows.current_liabilities | source-backed | standard |
+| bs_raw_debt_core | BS_Segments | B40:M40 | quarterly_financials.rows.debt_core | source-backed | standard |
+| bs_raw_lease_liabilities_noncurrent | BS_Segments | B42:M42 | quarterly_financials.rows.lease_liabilities_noncurrent | source-backed | standard |
+| bs_raw_pension_obligation_net | BS_Segments | B43:M43 | quarterly_financials.rows.pension_obligation_net | source-backed | standard |
+| bs_raw_other_liabilities_noncurrent | BS_Segments | B44:M44 | quarterly_financials.rows.other_liabilities_noncurrent | source-backed | standard |
+| bs_raw_total_liabilities | BS_Segments | B45:M45 | quarterly_financials.rows.total_liabilities | source-backed | standard |
+| bs_raw_total_equity | BS_Segments | B47:M47 | quarterly_financials.rows.total_equity | source-backed | standard |
+| bs_raw_shares_outstanding | BS_Segments | B48:M48 | quarterly_financials.rows.shares_outstanding | source-backed | standard |
+| bs_raw_diluted_shares | BS_Segments | B49:M49 | quarterly_financials.rows.diluted_shares | source-backed | standard |
+| bs_annual_financial_period_headers | BS_Segments | B82:I82 | annual_financials.rows.period | source-backed | standard |
+| bs_annual_financial_raw_revenue | BS_Segments | B83:I83 | annual_financials.rows.revenue | source-backed | standard |
+| bs_annual_financial_raw_gross_profit | BS_Segments | B84:I84 | annual_financials.rows.gross_profit | source-backed | standard |
+| bs_annual_financial_raw_operating_income | BS_Segments | B86:I86 | annual_financials.rows.operating_income | source-backed | standard |
+| bs_annual_financial_raw_base_ebitda | BS_Segments | B88:I88 | annual_financials.rows.base_ebitda | source-backed | standard |
+| bs_annual_financial_raw_adjusted_ebitda | BS_Segments | B90:I90 | annual_financials.rows.adjusted_ebitda | source-backed | standard |
+| bs_annual_financial_raw_net_income | BS_Segments | B92:I92 | annual_financials.rows.net_income | source-backed | standard |
+| bs_annual_financial_raw_operating_cash_flow | BS_Segments | B94:I94 | annual_financials.rows.operating_cash_flow | source-backed | standard |
+| bs_annual_financial_raw_capital_expenditures | BS_Segments | B95:I95 | annual_financials.rows.capital_expenditures | source-backed | standard |
+| bs_annual_financial_raw_shares_outstanding | BS_Segments | B98:I98 | annual_financials.rows.shares_outstanding | source-backed | standard |
+| bs_annual_financial_raw_eps | BS_Segments | B99:I99 | annual_financials.rows.eps | source-backed | standard |
+| bs_annual_financial_raw_total_equity | BS_Segments | B100:I100 | annual_financials.rows.total_equity | source-backed | standard |
+| bs_annual_financial_raw_cash | BS_Segments | B102:I102 | annual_financials.rows.cash | source-backed | standard |
+| bs_annual_financial_raw_debt_core | BS_Segments | B103:I103 | annual_financials.rows.debt_core | source-backed | standard |
 | od_watchlist_values | Operating_Drivers | A6:N9 | operating_drivers.items.current_read | source-backed | standard |
 | od_topic_current_read_values | Operating_Drivers | B13:N18 | operating_drivers.items.0.current_read | source-backed | standard |
 | od_horizon_commentary_values | Operating_Drivers | B20:N30 | operating_drivers.items.0.driver | source-backed | standard |
@@ -65,6 +129,7 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | ic_lower_inventory_values | {ticker}_Investment_Case | B202:K209 | operating_drivers.items.0.metric_value | source-backed | standard |
 | ic_lower_asset_productivity_values | {ticker}_Investment_Case | B212:K225 | operating_drivers.items.0.metric_value | source-backed | standard |
 | ic_lower_guidance_setup_values | {ticker}_Investment_Case | B228:K233 | normalized_guidance.items.0.value | source-backed | standard |
+| ic_title_value | {ticker}_Investment_Case | A1:J1 | ticker_metadata.investment_case_title | derived | standard |
 | qn_quarter_summary_values | Quarter_Notes_UI | B3:O6 | quarter_notes.items.commentary | source-backed | standard |
 | qn_quarter_block_values | Quarter_Notes_UI | A10:O15 | quarter_notes.items.commentary | source-backed | standard |
 | pp_scorecard_values | Promise_Progress_UI | B5:O11 | normalized_guidance.items.0.metric | source-backed | standard |
@@ -156,18 +221,26 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
   - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
   - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank values; emit mapping gap
+  - Missing data: blank values; emit mapping gap | leave blank and emit a structured mapping gap
+  - Validation: unexplained_empty_core_field
+
+- `summary_revenue_mix_label` `A8:F8`
+  - Normalized fields: company_profile.revenue_mix_label
+  - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
+  - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
+  - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave blank and emit a structured mapping gap
+  - Validation: unexplained_empty_core_field
+
+- `summary_liquidity_as_of_value` `D45:F45`
+  - Normalized fields: debt_liquidity.summary_liquidity_as_of_display
+  - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
+  - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
+  - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave blank and emit a structured mapping gap
   - Validation: unexplained_empty_core_field
 
 ### Valuation
-
-- `valuation_actuals_quarterly_values` `B6:M80`
-  - Normalized fields: quarterly_financials.rows.0.adjusted_ebitda, quarterly_financials.rows.0.free_cash_flow, quarterly_financials.rows.0.net_income, quarterly_financials.rows.0.operating_cash_flow, quarterly_financials.rows.0.operating_income, quarterly_financials.rows.0.period, quarterly_financials.rows.0.revenue
-  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
-  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
-  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank values; emit valuation mapping gap | do not infer from profile; emit valuation mapping gap | optional blank with missing_source reason; do not proxy without review
-  - Validation: unexplained_empty_core_field, valuation_core_mapping_gap
 
 - `valuation_guidance_values` `O9:T27`
   - Normalized fields: normalized_guidance.items.value
@@ -209,14 +282,6 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Missing data: blank thesis bridge rows until investment-case evidence is populated
   - Validation: placeholder_investment_case_promotion
 
-- `valuation_output_values` `O64:AA170`
-  - Normalized fields: valuation_outputs.items.value
-  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
-  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
-  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank output rows until required valuation inputs are mapped and validated
-  - Validation: valuation_output_contract
-
 - `valuation_guidance_status_values_lower` `X29:AA36`
   - Normalized fields: normalized_guidance.items.0.horizon
   - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
@@ -225,57 +290,249 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Missing data: blank lower guidance status rows until realized/status evidence exists
   - Validation: boilerplate_guidance
 
-- `valuation_share_count_values` `B81:M90`
-  - Normalized fields: quarterly_financials.rows.0.diluted_shares
+- `valuation_input_values` `D194:D216`
+  - Normalized fields: valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, valuation_inputs.book_value_per_share, valuation_inputs.capex_ttm, valuation_inputs.diluted_shares, valuation_inputs.eps_ttm, +7 more
   - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
   - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank values; emit mapping gap
-  - Validation: share_count_outlier
-
-- `valuation_debt_liquidity_values` `B124:M132`
-  - Normalized fields: debt_liquidity.total_debt
-  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
-  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
-  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank values; emit mapping gap
-  - Validation: valuation_core_mapping_gap
-
-- `valuation_cash_values` `B133:M137`
-  - Normalized fields: debt_liquidity.cash
-  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
-  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
-  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank values; emit mapping gap
-  - Validation: valuation_core_mapping_gap
-
-- `valuation_capital_return_values` `B152:M156`
-  - Normalized fields: capital_returns.buybacks
-  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
-  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
-  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: optional blank with not_applicable or missing_source reason
+  - Missing data: leave blank and emit a structured mapping gap | leave blank and emit a structured mapping gap; point-in-time shares outstanding must not be replaced by diluted weighted-average shares
   - Validation: unexplained_empty_core_field
 
-- `valuation_input_values` `D194:D216`
-  - Normalized fields: valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, valuation_inputs.capex_ttm, valuation_inputs.diluted_shares, valuation_inputs.free_cash_flow_ttm, valuation_inputs.net_debt, valuation_inputs.revenue_ttm, +1 more
+- `valuation_period_headers` `B6:M6`
+  - Normalized fields: quarterly_financials.rows.period
   - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
   - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: leave blank and emit a P1 mapping gap | leave blank and emit a mapping gap
-  - Validation: share_count_outlier, valuation_core_mapping_gap
+  - Missing data: leave period headers blank and block render
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_revenue` `B9:M9`
+  - Normalized fields: quarterly_financials.rows.revenue
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_base_ebitda` `B18:M18`
+  - Normalized fields: quarterly_financials.rows.base_ebitda
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_adjusted_ebitda` `B24:M24`
+  - Normalized fields: quarterly_financials.rows.adjusted_ebitda
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_operating_income` `B32:M32`
+  - Normalized fields: quarterly_financials.rows.operating_income
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_net_income` `B36:M36`
+  - Normalized fields: quarterly_financials.rows.net_income
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_operating_cash_flow` `B43:M43`
+  - Normalized fields: quarterly_financials.rows.operating_cash_flow
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_capital_expenditures` `B44:M44`
+  - Normalized fields: quarterly_financials.rows.capital_expenditures
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_interest_paid` `B59:M59`
+  - Normalized fields: quarterly_financials.rows.interest_paid
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_buybacks_cash` `B62:M62`
+  - Normalized fields: quarterly_financials.rows.buybacks_cash
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_cash` `B70:M70`
+  - Normalized fields: quarterly_financials.rows.cash
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_marketable_securities` `B71:M71`
+  - Normalized fields: quarterly_financials.rows.marketable_securities
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_debt_core` `B72:M72`
+  - Normalized fields: quarterly_financials.rows.debt_core
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_lease_liabilities` `B79:M79`
+  - Normalized fields: quarterly_financials.rows.lease_liabilities
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_pension_obligation_net` `B82:M82`
+  - Normalized fields: quarterly_financials.rows.pension_obligation_net
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_revolver_availability` `B95:M95`
+  - Normalized fields: quarterly_financials.rows.revolver_availability
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_diluted_shares` `B102:M102`
+  - Normalized fields: quarterly_financials.rows.diluted_shares
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_shares_outstanding` `B103:M103`
+  - Normalized fields: quarterly_financials.rows.shares_outstanding
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_eps` `B107:M107`
+  - Normalized fields: quarterly_financials.rows.eps
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_adjusted_eps` `B110:M110`
+  - Normalized fields: quarterly_financials.rows.adjusted_eps
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_gross_profit` `B262:M262`
+  - Normalized fields: quarterly_financials.rows.gross_profit
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_interest_expense` `B263:M263`
+  - Normalized fields: quarterly_financials.rows.interest_expense
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_dividends_cash` `B264:M264`
+  - Normalized fields: quarterly_financials.rows.dividends_cash
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_acquisitions_cash` `B265:M265`
+  - Normalized fields: quarterly_financials.rows.acquisitions_cash
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_debt_repayment` `B266:M266`
+  - Normalized fields: quarterly_financials.rows.debt_repayment
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_debt_issuance` `B267:M267`
+  - Normalized fields: quarterly_financials.rows.debt_issuance
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_total_equity` `B268:M268`
+  - Normalized fields: quarterly_financials.rows.total_equity
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_goodwill` `B269:M269`
+  - Normalized fields: quarterly_financials.rows.goodwill
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `valuation_raw_intangibles` `B270:M270`
+  - Normalized fields: quarterly_financials.rows.intangibles
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
 
 ### BS_Segments
 
-- `bs_liquidity_values` `B7:I49`
-  - Normalized fields: debt_liquidity.cash, debt_liquidity.total_debt, quarterly_financials.rows.period
-  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
-  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
-  - Future owner: future segments normalizer, docs/workbook_binding_map.json
-  - Missing data: blank values; emit mapping gap | leave quarterly period headers blank and emit a P1 mapping gap
-  - Validation: unexplained_empty_core_field
-
-- `bs_segment_quarterly_values` `A61:I67`
+- `bs_segment_quarterly_values` `A61:M67`
   - Normalized fields: segments.items.revenue
   - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
   - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
@@ -288,16 +545,336 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
   - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
   - Future owner: future segments normalizer, docs/workbook_binding_map.json
-  - Missing data: leave annual period headers blank and emit a P1 mapping gap | leave annual revenue values blank and emit a P1 mapping gap
-  - Validation: unexplained_empty_core_field
+  - Missing data: leave annual headers blank and block render | leave annual revenue blank and block render
+  - Validation: financial_history_mapping_gap
 
-- `bs_segment_annual_values` `A72:I74`
+- `bs_segment_annual_values` `A72:I78`
   - Normalized fields: segments.items.annual_revenue
   - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
   - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
   - Future owner: future segments normalizer, docs/workbook_binding_map.json
   - Missing data: show no annual segment row until source-backed
   - Validation: unsupported_sector_specific_leakage
+
+- `bs_quarterly_period_headers` `B7:M7`
+  - Normalized fields: quarterly_financials.rows.period
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave period headers blank and block render
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_cash` `B9:M9`
+  - Normalized fields: quarterly_financials.rows.cash
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_restricted_cash` `B10:M10`
+  - Normalized fields: quarterly_financials.rows.restricted_cash
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_marketable_securities` `B13:M13`
+  - Normalized fields: quarterly_financials.rows.marketable_securities
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_accounts_receivable` `B14:M14`
+  - Normalized fields: quarterly_financials.rows.accounts_receivable
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_inventory` `B15:M15`
+  - Normalized fields: quarterly_financials.rows.inventory
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_current_assets` `B18:M18`
+  - Normalized fields: quarterly_financials.rows.current_assets
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_property_plant_equipment_net` `B19:M19`
+  - Normalized fields: quarterly_financials.rows.property_plant_equipment_net
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_goodwill` `B22:M22`
+  - Normalized fields: quarterly_financials.rows.goodwill
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_intangibles` `B23:M23`
+  - Normalized fields: quarterly_financials.rows.intangibles
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_other_assets_noncurrent` `B24:M24`
+  - Normalized fields: quarterly_financials.rows.other_assets_noncurrent
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_total_assets` `B25:M25`
+  - Normalized fields: quarterly_financials.rows.total_assets
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_accounts_payable` `B28:M28`
+  - Normalized fields: quarterly_financials.rows.accounts_payable
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_accrued_liabilities` `B29:M29`
+  - Normalized fields: quarterly_financials.rows.accrued_liabilities
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_short_term_borrowings` `B32:M32`
+  - Normalized fields: quarterly_financials.rows.short_term_borrowings
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_debt_current` `B33:M33`
+  - Normalized fields: quarterly_financials.rows.debt_current
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_lease_liabilities_current` `B34:M34`
+  - Normalized fields: quarterly_financials.rows.lease_liabilities_current
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_current_liabilities` `B35:M35`
+  - Normalized fields: quarterly_financials.rows.current_liabilities
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_debt_core` `B40:M40`
+  - Normalized fields: quarterly_financials.rows.debt_core
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_lease_liabilities_noncurrent` `B42:M42`
+  - Normalized fields: quarterly_financials.rows.lease_liabilities_noncurrent
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_pension_obligation_net` `B43:M43`
+  - Normalized fields: quarterly_financials.rows.pension_obligation_net
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_other_liabilities_noncurrent` `B44:M44`
+  - Normalized fields: quarterly_financials.rows.other_liabilities_noncurrent
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_total_liabilities` `B45:M45`
+  - Normalized fields: quarterly_financials.rows.total_liabilities
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_total_equity` `B47:M47`
+  - Normalized fields: quarterly_financials.rows.total_equity
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_shares_outstanding` `B48:M48`
+  - Normalized fields: quarterly_financials.rows.shares_outstanding
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_raw_diluted_shares` `B49:M49`
+  - Normalized fields: quarterly_financials.rows.diluted_shares
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing periods blank and emit a structured mapping gap
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_period_headers` `B82:I82`
+  - Normalized fields: annual_financials.rows.period
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave annual headers blank and block render
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_revenue` `B83:I83`
+  - Normalized fields: annual_financials.rows.revenue
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave annual revenue blank and block render
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_gross_profit` `B84:I84`
+  - Normalized fields: annual_financials.rows.gross_profit
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave annual revenue blank and block render
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_operating_income` `B86:I86`
+  - Normalized fields: annual_financials.rows.operating_income
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave annual revenue blank and block render
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_base_ebitda` `B88:I88`
+  - Normalized fields: annual_financials.rows.base_ebitda
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing annual EBITDA blank and create manual review
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_adjusted_ebitda` `B90:I90`
+  - Normalized fields: annual_financials.rows.adjusted_ebitda
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave annual revenue blank and block render
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_net_income` `B92:I92`
+  - Normalized fields: annual_financials.rows.net_income
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave annual revenue blank and block render
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_operating_cash_flow` `B94:I94`
+  - Normalized fields: annual_financials.rows.operating_cash_flow
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing annual CFO blank and create manual review
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_capital_expenditures` `B95:I95`
+  - Normalized fields: annual_financials.rows.capital_expenditures
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing annual Capex blank and create manual review
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_shares_outstanding` `B98:I98`
+  - Normalized fields: annual_financials.rows.shares_outstanding
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave blank and report missing point-in-time shares; do not substitute fiscal-Q4 weighted-average diluted shares
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_eps` `B99:I99`
+  - Normalized fields: annual_financials.rows.eps
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave blank unless annual GAAP diluted EPS or a source-backed annual weighted-average-share contract exists
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_total_equity` `B100:I100`
+  - Normalized fields: annual_financials.rows.total_equity
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave annual revenue blank and block render
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_cash` `B102:I102`
+  - Normalized fields: annual_financials.rows.cash
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave annual revenue blank and block render
+  - Validation: financial_history_mapping_gap
+
+- `bs_annual_financial_raw_debt_core` `B103:I103`
+  - Normalized fields: annual_financials.rows.debt_core
+  - Support sheets: DATA_Facts_Long, Debt_Tranches_Q, History_Q, Slides_Segments
+  - Current owner: pbi_xbrl/excel_writer_bs_segments.py, pbi_xbrl/excel_writer_segment_sources.py
+  - Future owner: future segments normalizer, docs/workbook_binding_map.json
+  - Missing data: leave missing annual debt blank and create manual review
+  - Validation: financial_history_mapping_gap
 
 ### Operating_Drivers
 
@@ -406,6 +983,14 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
   - Missing data: blank optional guidance setup until source-backed guidance exists
   - Validation: guidance_metric_misclassification
+
+- `ic_title_value` `A1:J1`
+  - Normalized fields: ticker_metadata.investment_case_title
+  - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
+  - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py
+  - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
+  - Missing data: leave blank and emit a structured mapping gap
+  - Validation: unexplained_empty_core_field
 
 ### Quarter_Notes_UI
 

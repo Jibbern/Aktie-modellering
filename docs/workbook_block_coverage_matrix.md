@@ -15,23 +15,87 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | summary_wrong_if_values | SUMMARY | yes | same | similar | same | same | - |
 | summary_key_financials_values | SUMMARY | yes | same | similar | similar | same | - |
 | summary_leverage_liquidity_values | SUMMARY | yes | same | similar | similar | same | - |
-| valuation_actuals_quarterly_values | Valuation | yes | same | similar | same | same | - |
+| summary_revenue_mix_label | SUMMARY | yes | same | similar | same | same | - |
+| summary_liquidity_as_of_value | SUMMARY | yes | same | same | same | same | - |
 | valuation_guidance_values | Valuation | yes | same | similar | similar | same | - |
 | valuation_guidance_status_values | Valuation | yes | same | similar | similar | same | - |
 | valuation_guidance_values_lower | Valuation | yes | same | similar | different | same | - |
 | valuation_operating_driver_values | Valuation | yes | same | similar | similar | same | - |
 | valuation_thesis_bridge_values | Valuation | yes | same | similar | different | same | - |
-| valuation_output_values | Valuation | yes | same | similar | different | same | - |
 | valuation_guidance_status_values_lower | Valuation | yes | same | similar | different | same | - |
-| valuation_share_count_values | Valuation | yes | same | similar | different | same | - |
-| valuation_debt_liquidity_values | Valuation | yes | same | similar | similar | same | - |
-| valuation_cash_values | Valuation | yes | same | similar | same | same | - |
-| valuation_capital_return_values | Valuation | yes | same | same | same | same | - |
 | valuation_input_values | Valuation | yes | same | similar | same | same | - |
-| bs_liquidity_values | BS_Segments | yes | same | similar | same | same | - |
+| valuation_period_headers | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_revenue | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_base_ebitda | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_adjusted_ebitda | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_operating_income | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_net_income | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_operating_cash_flow | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_capital_expenditures | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_interest_paid | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_buybacks_cash | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_cash | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_marketable_securities | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_debt_core | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_lease_liabilities | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_pension_obligation_net | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_revolver_availability | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_diluted_shares | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_shares_outstanding | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_eps | Valuation | yes | same | similar | similar | same | - |
+| valuation_raw_adjusted_eps | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_gross_profit | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
+| valuation_raw_interest_expense | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
+| valuation_raw_dividends_cash | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
+| valuation_raw_acquisitions_cash | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
+| valuation_raw_debt_repayment | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
+| valuation_raw_debt_issuance | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
+| valuation_raw_total_equity | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
+| valuation_raw_goodwill | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
+| valuation_raw_intangibles | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
 | bs_segment_quarterly_values | BS_Segments | yes | same | similar | same | same | - |
 | bs_annual_period_values | BS_Segments | yes | same | similar | same | same | - |
-| bs_segment_annual_values | BS_Segments | yes | missing | similar | same | same | GPRE: missing block or sheet, GPRE: source sheet shorter than block range |
+| bs_segment_annual_values | BS_Segments | yes | missing | similar | same | same | ANF: source sheet shorter than block range, GPRE: missing block or sheet, GPRE: source sheet shorter than block range |
+| bs_quarterly_period_headers | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_cash | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_restricted_cash | BS_Segments | yes | same | same | same | same | - |
+| bs_raw_marketable_securities | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_accounts_receivable | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_inventory | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_current_assets | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_property_plant_equipment_net | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_goodwill | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_intangibles | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_other_assets_noncurrent | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_total_assets | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_accounts_payable | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_accrued_liabilities | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_short_term_borrowings | BS_Segments | yes | same | same | same | same | - |
+| bs_raw_debt_current | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_lease_liabilities_current | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_current_liabilities | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_debt_core | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_lease_liabilities_noncurrent | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_pension_obligation_net | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_other_liabilities_noncurrent | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_total_liabilities | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_total_equity | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_shares_outstanding | BS_Segments | yes | same | similar | same | same | - |
+| bs_raw_diluted_shares | BS_Segments | yes | same | similar | same | same | - |
+| bs_annual_financial_period_headers | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_revenue | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_gross_profit | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_operating_income | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_base_ebitda | BS_Segments | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_adjusted_ebitda | BS_Segments | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_net_income | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_operating_cash_flow | BS_Segments | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_capital_expenditures | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_shares_outstanding | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_eps | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_total_equity | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_cash | BS_Segments | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| bs_annual_financial_raw_debt_core | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
 | od_watchlist_values | Operating_Drivers | yes | same | similar | same | same | GPRE has separate sector overlays that are excluded from standard blocks |
 | od_topic_current_read_values | Operating_Drivers | yes | same | similar | similar | same | GPRE has separate sector overlays that are excluded from standard blocks |
 | od_horizon_commentary_values | Operating_Drivers | yes | same | similar | same | same | GPRE has separate sector overlays that are excluded from standard blocks |
@@ -45,6 +109,7 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | ic_lower_inventory_values | {ticker}_Investment_Case | yes | missing | similar | different | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
 | ic_lower_asset_productivity_values | {ticker}_Investment_Case | yes | missing | similar | different | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
 | ic_lower_guidance_setup_values | {ticker}_Investment_Case | yes | missing | similar | different | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
+| ic_title_value | {ticker}_Investment_Case | yes | same | similar | same | same | - |
 | qn_quarter_summary_values | Quarter_Notes_UI | yes | same | similar | same | same | - |
 | qn_quarter_block_values | Quarter_Notes_UI | yes | same | similar | same | same | - |
 | pp_scorecard_values | Promise_Progress_UI | yes | same | same | same | same | - |

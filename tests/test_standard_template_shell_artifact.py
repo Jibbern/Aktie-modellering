@@ -370,7 +370,7 @@ def test_standard_template_shell_clears_representative_source_value_leaks() -> N
     try:
         representative_source_cells = {
             "SUMMARY": ["A3", "A5", "A7", "B27", "B28", "B29"],
-            "Valuation": ["B6", "B9", "M19", "S10", "AA14"],
+            "Valuation": ["B6", "B9", "M18", "S10", "AA14"],
             "BS_Segments": ["B7", "B47", "I49", "A50"],
             "Operating_Drivers": ["B6", "H6"],
             "{ticker}_Investment_Case": ["A185", "B191", "B209", "F221", "H231"],
@@ -447,15 +447,35 @@ def test_standard_template_shell_clears_history_evidence_and_fixed_period_labels
                 text = str(value).strip()
                 if text.casefold() in allowed_history_text:
                     continue
-                if cell.column == 1 and re.fullmatch(r"\[(?:Historical quarter block|Quarter note theme|Dimension member)(?: slot)? \d+\]", text, re.I):
+                if cell.column == 1 and re.fullmatch(r"Historical quarter notes \d+", text, re.I):
                     continue
                 offenders.append(f"Quarter_Notes_UI!{cell.coordinate}: {text}")
 
         assert offenders == []
         assert quarter_notes["C42"].value is None
-        assert wb["Operating_Drivers"]["A14"].value == "[Current guidance period]"
+        assert wb["Operating_Drivers"]["A14"].value == "Current guidance period"
         assert wb["Promise_Progress_UI"]["A11"].value == "Guidance progression - period block 1"
-        assert wb["{ticker}_Investment_Case"]["A156"].value == "[Capital return sensitivity slot]"
+        assert wb["{ticker}_Investment_Case"]["A156"].value is None
+    finally:
+        wb.close()
+
+
+def test_visible_shell_contains_no_internal_slot_placeholders() -> None:
+    wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
+    try:
+        offenders: list[str] = []
+        for ws in wb.worksheets:
+            if ws.sheet_state != "visible":
+                continue
+            for row in ws.iter_rows():
+                for cell in row:
+                    if not isinstance(cell.value, str):
+                        continue
+                    text = cell.value.strip()
+                    if re.search(r"\[[^\]]*(?:slot|dimension member|quality of earnings item)[^\]]*\]", text, re.I):
+                        offenders.append(f"{ws.title}!{cell.coordinate}: {text}")
+
+        assert offenders == []
     finally:
         wb.close()
 

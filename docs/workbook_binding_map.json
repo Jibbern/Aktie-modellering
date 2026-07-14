@@ -4,6 +4,63 @@
   "description": "Typed exact-cell bindings for the generic new-ticker runtime. The broad target is a shell envelope; planner_target is the only executable range.",
   "bindings": [
     {
+      "binding_id": "calculation_history_quarterly_rows",
+      "sheet": "History_Q",
+      "section": "Formula calculation history",
+      "target": "A2:G1000",
+      "shell_zone": "calculation_history_quarterly_rows",
+      "anchor_label": "period",
+      "row_family": "calculation_history_rows",
+      "normalized_field": "calculation_history.quarterly_items",
+      "value_shape": "table_rows",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "block formulas and render when no validated calculation history is available",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "calculation_history_contract",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A2:G1000",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "calculation_history.quarterly_items"
+      },
+      "row_key": [
+        "period",
+        "metric"
+      ],
+      "sort_order": [
+        "period_ordinal:asc",
+        "metric:asc"
+      ],
+      "capacity": 999,
+      "minimum_rows": 1,
+      "overflow_behavior": "fail",
+      "required_columns": [
+        "period",
+        "period_ordinal",
+        "metric",
+        "value",
+        "unit",
+        "source_ref",
+        "status"
+      ],
+      "target_columns": [
+        {"column_id": "period", "source_field": "period", "target_column": "A", "target_type": "period", "target_role": "calculation_history_quarterly_rows.period"},
+        {"column_id": "period_ordinal", "source_field": "period_ordinal", "target_column": "B", "target_type": "number", "target_role": "calculation_history_quarterly_rows.period_ordinal"},
+        {"column_id": "metric", "source_field": "metric", "target_column": "C", "target_type": "text", "target_role": "calculation_history_quarterly_rows.metric"},
+        {"column_id": "value", "source_field": "value", "target_column": "D", "target_type": "number", "target_role": "calculation_history_quarterly_rows.value"},
+        {"column_id": "unit", "source_field": "unit", "target_column": "E", "target_type": "text", "target_role": "calculation_history_quarterly_rows.unit"},
+        {"column_id": "source_ref", "source_field": "source_ref", "target_column": "F", "target_type": "text", "target_role": "calculation_history_quarterly_rows.source_ref"},
+        {"column_id": "status", "source_field": "status", "target_column": "G", "target_type": "text", "target_role": "calculation_history_quarterly_rows.status"}
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "source_ref",
+      "planning_state": "active",
+      "visibility": "hidden_support",
+      "block_ownership": "formula_input_projection"
+    },
+    {
       "binding_id": "summary_company_description",
       "sheet": "SUMMARY",
       "section": "Company Overview",
@@ -72,7 +129,7 @@
     {
       "binding_id": "summary_revenue_stream_rows",
       "sheet": "SUMMARY",
-      "section": "Business model / revenue streams",
+      "section": "Revenue mix by selected dimension",
       "target": "A9:F11",
       "shell_zone": "summary_revenue_model_values",
       "anchor_label": "Business model / revenue streams",
@@ -365,72 +422,6 @@
       "planning_state": "active"
     },
     {
-      "binding_id": "summary_liquidity",
-      "sheet": "SUMMARY",
-      "section": "Leverage/Liquidity",
-      "target": "B45:B45",
-      "shell_zone": "summary_leverage_liquidity_values",
-      "anchor_label": "Liquidity",
-      "row_family": "summary_leverage_liquidity_rows",
-      "normalized_field": "debt_liquidity.summary_liquidity_display",
-      "value_shape": "scalar",
-      "required": true,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank values; emit mapping gap",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "unexplained_empty_core_field",
-      "writable": true,
-      "planning_mode": "scalar",
-      "planner_target": "B45",
-      "source_path": "debt_liquidity.summary_liquidity_display",
-      "target_type": "value",
-      "freshness_contract": "debt_liquidity.liquidity_freshness",
-      "planning_state": "active"
-    },
-    {
-      "binding_id": "valuation_revenue_series",
-      "sheet": "Valuation",
-      "section": "Actuals and operating metrics",
-      "target": "B6:M28",
-      "shell_zone": "valuation_actuals_quarterly_values",
-      "anchor_label": "Revenue",
-      "row_family": "valuation_actuals_quarterly_rows",
-      "normalized_field": "quarterly_financials.rows.0.revenue",
-      "value_shape": "quarterly_series",
-      "required": true,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B9:M9",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "valuation_quarterly_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "quarterly_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 12,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "revenue"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "revenue",
-      "planning_state": "active"
-    },
-    {
       "binding_id": "valuation_guidance_rows",
       "sheet": "Valuation",
       "section": "Guidance",
@@ -685,7 +676,7 @@
       "missing_source_behavior": "blank output rows until required valuation inputs are mapped and validated",
       "promotion_requirement": "manual_review",
       "validation_rule": "valuation_output_contract",
-      "writable": true,
+      "writable": false,
       "planning_mode": "table_rows",
       "planner_target": "O64:X75",
       "target_type": "table_row",
@@ -741,7 +732,8 @@
       ],
       "source_ref_required": false,
       "source_ref_field": "value",
-      "planning_state": "active"
+      "planning_state": "formula_owned",
+      "planning_block_reason": "Generic valuation outputs are protected formulas owned by the frozen shell."
     },
     {
       "binding_id": "valuation_guidance_status_rows",
@@ -856,70 +848,32 @@
       "planning_block_reason": "Lower guidance status block needs an explicit period/revision selector before it can consume source rows."
     },
     {
-      "binding_id": "valuation_operating_income_series",
-      "sheet": "Valuation",
-      "section": "Actuals and operating metrics",
-      "target": "B29:M36",
-      "shell_zone": "valuation_actuals_quarterly_values",
-      "anchor_label": "Operating income",
-      "row_family": "valuation_actuals_quarterly_rows",
-      "normalized_field": "quarterly_financials.rows.0.operating_income",
-      "value_shape": "quarterly_series",
-      "required": false,
+      "binding_id": "bs_annual_financial_period_headers",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B82:I82",
+      "shell_zone": "bs_annual_financial_period_headers",
+      "block_id": "bs_annual",
+      "anchor_label": "Fiscal year",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.period",
+      "value_shape": "annual_series",
+      "required": true,
       "source_policy": "source-backed",
-      "missing_source_behavior": "blank values; emit valuation mapping gap",
+      "missing_source_behavior": "leave annual headers blank and block render",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
+      "validation_rule": "financial_history_mapping_gap",
       "writable": true,
       "planning_mode": "series",
-      "planner_target": "B29:M29",
+      "planner_target": "B82:I82",
       "target_axis": "columns",
-      "target_type": "number",
-      "row_selector": {
-        "source_path": "quarterly_financials.rows"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 12,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "operating_income"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "operating_income",
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "No generic Valuation row is contractually equivalent to operating_income; do not write a value into an EBIT/TTM row."
-    },
-    {
-      "binding_id": "valuation_ebitda_series",
-      "sheet": "Valuation",
-      "section": "Actuals and operating metrics",
-      "target": "B24:M24",
-      "shell_zone": "valuation_actuals_quarterly_values",
-      "anchor_label": "Adj EBITDA",
-      "row_family": "valuation_actuals_quarterly_rows",
-      "normalized_field": "quarterly_financials.rows.0.adjusted_ebitda",
-      "value_shape": "quarterly_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "optional blank with missing_source reason; do not proxy without review",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "unexplained_empty_core_field",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B24:M24",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "valuation_quarterly_periods",
-      "period_axis_role": "dependent",
+      "target_type": "period",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "header",
+      "period_axis_continuity": "consecutive_fiscal_years",
       "period_field": "period",
       "row_selector": {
-        "source_path": "quarterly_financials.rows",
+        "source_path": "annual_financials.rows",
         "window": "latest_capacity"
       },
       "row_key": [
@@ -928,7 +882,228 @@
       "sort_order": [
         "period:asc"
       ],
-      "capacity": 12,
+      "capacity": 8,
+      "overflow_behavior": "fail",
+      "required_columns": [
+        "period"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "period",
+      "source_ref_field": "revenue",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_revenue_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B83:I83",
+      "shell_zone": "bs_annual_financial_raw_revenue",
+      "block_id": "bs_annual",
+      "anchor_label": "Revenue",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.revenue",
+      "value_shape": "annual_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave annual revenue blank and block render",
+      "promotion_requirement": "required",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B83:I83",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "revenue"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "revenue",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_gross_profit_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B84:I84",
+      "shell_zone": "bs_annual_financial_raw_gross_profit",
+      "block_id": "bs_annual",
+      "anchor_label": "Gross Profit",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.gross_profit",
+      "value_shape": "annual_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave annual revenue blank and block render",
+      "promotion_requirement": "required",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B84:I84",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "gross_profit"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "gross_profit",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_operating_income_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B86:I86",
+      "shell_zone": "bs_annual_financial_raw_operating_income",
+      "block_id": "bs_annual",
+      "anchor_label": "Operating Income",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.operating_income",
+      "value_shape": "annual_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave annual revenue blank and block render",
+      "promotion_requirement": "required",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B86:I86",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "operating_income"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "operating_income",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_base_ebitda_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B88:I88",
+      "shell_zone": "bs_annual_financial_raw_base_ebitda",
+      "block_id": "bs_annual",
+      "anchor_label": "EBITDA (base)",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.base_ebitda",
+      "value_shape": "annual_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing annual EBITDA blank and create manual review",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B88:I88",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "base_ebitda"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "base_ebitda",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_adjusted_ebitda_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B90:I90",
+      "shell_zone": "bs_annual_financial_raw_adjusted_ebitda",
+      "block_id": "bs_annual",
+      "anchor_label": "Adjusted EBITDA",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.adjusted_ebitda",
+      "value_shape": "annual_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave annual revenue blank and block render",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B90:I90",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
         "adjusted_ebitda"
@@ -939,280 +1114,356 @@
       "planning_state": "active"
     },
     {
-      "binding_id": "valuation_fcf_series",
-      "sheet": "Valuation",
-      "section": "Cash Flow",
-      "target": "B45:M54",
-      "shell_zone": "valuation_actuals_quarterly_values",
-      "anchor_label": "Free cash flow",
-      "row_family": "valuation_cash_flow_quarterly_rows",
-      "normalized_field": "quarterly_financials.rows.0.free_cash_flow",
-      "value_shape": "quarterly_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank values; emit valuation mapping gap",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B45:M45",
-      "target_axis": "columns",
-      "target_type": "number",
-      "row_selector": {
-        "source_path": "quarterly_financials.rows"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 12,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "free_cash_flow"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "free_cash_flow",
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "The declared range begins at Capex % of revenue, not a free-cash-flow row; a generic FCF target is not yet defined."
-    },
-    {
-      "binding_id": "valuation_diluted_shares_series",
-      "sheet": "Valuation",
-      "section": "Share count",
-      "target": "B81:M90",
-      "shell_zone": "valuation_share_count_values",
-      "anchor_label": "Diluted shares (m)",
-      "row_family": "valuation_share_count_quarterly_rows",
-      "normalized_field": "quarterly_financials.rows.0.diluted_shares",
-      "value_shape": "quarterly_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank values; emit mapping gap",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "share_count_outlier",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B81:M81",
-      "target_axis": "columns",
-      "target_type": "number",
-      "row_selector": {
-        "source_path": "quarterly_financials.rows"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 12,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "diluted_shares"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "diluted_shares",
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "The declared range is a leverage/coverage block, not a share-count row family."
-    },
-    {
-      "binding_id": "valuation_total_debt_series",
-      "sheet": "Valuation",
-      "section": "Leverage and liquidity",
-      "target": "B124:M132",
-      "shell_zone": "valuation_debt_liquidity_values",
-      "anchor_label": "Debt Detail (latest)",
-      "row_family": "valuation_debt_liquidity_quarterly_rows",
-      "normalized_field": "debt_liquidity.total_debt",
-      "value_shape": "quarterly_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank values; emit mapping gap",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B124:M124",
-      "target_axis": "columns",
-      "target_type": "number",
-      "row_selector": {
-        "source_path": "debt_liquidity.total_debt"
-      },
-      "row_key": [
-        "normalized_field"
-      ],
-      "sort_order": [],
-      "capacity": 12,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "value"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "value",
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "A scalar debt field cannot be dumped into a quarterly series without period-keyed debt history."
-    },
-    {
-      "binding_id": "valuation_cash_series",
-      "sheet": "Valuation",
-      "section": "Leverage and liquidity",
-      "target": "B133:M137",
-      "shell_zone": "valuation_cash_values",
-      "anchor_label": "Debt Detail (latest)",
-      "row_family": "valuation_debt_liquidity_quarterly_rows",
-      "normalized_field": "debt_liquidity.cash",
-      "value_shape": "quarterly_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank values; emit mapping gap",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B133:M133",
-      "target_axis": "columns",
-      "target_type": "number",
-      "row_selector": {
-        "source_path": "debt_liquidity.cash"
-      },
-      "row_key": [
-        "normalized_field"
-      ],
-      "sort_order": [],
-      "capacity": 12,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "value"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "value",
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "A scalar cash field cannot be dumped into a quarterly series without period-keyed cash history."
-    },
-    {
-      "binding_id": "valuation_buybacks_series",
-      "sheet": "Valuation",
-      "section": "Capital return",
-      "target": "B152:M156",
-      "shell_zone": "valuation_capital_return_values",
-      "anchor_label": "Buybacks",
-      "row_family": "valuation_capital_return_quarterly_rows",
-      "normalized_field": "capital_returns.buybacks",
-      "value_shape": "quarterly_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "optional blank with not_applicable or missing_source reason",
-      "promotion_requirement": "optional",
-      "validation_rule": "unexplained_empty_core_field",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B152:M152",
-      "target_axis": "columns",
-      "target_type": "number",
-      "row_selector": {
-        "source_path": "capital_returns.buybacks"
-      },
-      "row_key": [
-        "normalized_field"
-      ],
-      "sort_order": [],
-      "capacity": 12,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "value"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "value",
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "A scalar capital-return field cannot be dumped into a quarterly series without period-keyed returns history."
-    },
-    {
-      "binding_id": "bs_cash_series",
+      "binding_id": "bs_annual_financial_net_income_series",
       "sheet": "BS_Segments",
-      "section": "Balance sheet",
-      "target": "B7:I18",
-      "shell_zone": "bs_liquidity_values",
+      "section": "Annual financial history",
+      "target": "B92:I92",
+      "shell_zone": "bs_annual_financial_raw_net_income",
+      "block_id": "bs_annual",
+      "anchor_label": "Net Income",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.net_income",
+      "value_shape": "annual_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave annual revenue blank and block render",
+      "promotion_requirement": "required",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B92:I92",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "net_income"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "net_income",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_operating_cash_flow_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B94:I94",
+      "shell_zone": "bs_annual_financial_raw_operating_cash_flow",
+      "block_id": "bs_annual",
+      "anchor_label": "CFO",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.operating_cash_flow",
+      "value_shape": "annual_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing annual CFO blank and create manual review",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B94:I94",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "operating_cash_flow"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "operating_cash_flow",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_capital_expenditures_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B95:I95",
+      "shell_zone": "bs_annual_financial_raw_capital_expenditures",
+      "block_id": "bs_annual",
+      "anchor_label": "Capex",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.capital_expenditures",
+      "value_shape": "annual_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing annual Capex blank and create manual review",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B95:I95",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "capital_expenditures"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "capital_expenditures",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_shares_outstanding_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B98:I98",
+      "shell_zone": "bs_annual_financial_raw_shares_outstanding",
+      "block_id": "bs_annual",
+      "anchor_label": "Shares outstanding (year-end, m)",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.shares_outstanding",
+      "value_shape": "annual_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and report missing point-in-time shares; do not substitute fiscal-Q4 weighted-average diluted shares",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B98:I98",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "shares_outstanding"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "shares_outstanding",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_eps_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B99:I99",
+      "shell_zone": "bs_annual_financial_raw_eps",
+      "block_id": "bs_annual",
+      "anchor_label": "Diluted EPS (GAAP)",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.eps",
+      "value_shape": "annual_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank unless annual GAAP diluted EPS or a source-backed annual weighted-average-share contract exists",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B99:I99",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": ["period"],
+      "sort_order": ["period:asc"],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": ["eps"],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "eps",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_total_equity_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B100:I100",
+      "shell_zone": "bs_annual_financial_raw_total_equity",
+      "block_id": "bs_annual",
+      "anchor_label": "Total equity",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.total_equity",
+      "value_shape": "annual_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave annual revenue blank and block render",
+      "promotion_requirement": "required",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B100:I100",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "total_equity"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "total_equity",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "bs_annual_financial_cash_series",
+      "sheet": "BS_Segments",
+      "section": "Annual financial history",
+      "target": "B102:I102",
+      "shell_zone": "bs_annual_financial_raw_cash",
+      "block_id": "bs_annual",
       "anchor_label": "Cash",
-      "row_family": "bs_liquidity_quarterly_rows",
-      "normalized_field": "debt_liquidity.cash",
-      "value_shape": "quarterly_series",
-      "required": false,
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.cash",
+      "value_shape": "annual_series",
+      "required": true,
       "source_policy": "source-backed",
-      "missing_source_behavior": "blank values; emit mapping gap",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "unexplained_empty_core_field",
+      "missing_source_behavior": "leave annual revenue blank and block render",
+      "promotion_requirement": "required",
+      "validation_rule": "financial_history_mapping_gap",
       "writable": true,
       "planning_mode": "series",
-      "planner_target": "B7:I7",
+      "planner_target": "B102:I102",
       "target_axis": "columns",
       "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
       "row_selector": {
-        "source_path": "debt_liquidity.cash"
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
       },
       "row_key": [
-        "normalized_field"
+        "period"
       ],
-      "sort_order": [],
+      "sort_order": [
+        "period:asc"
+      ],
       "capacity": 8,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "value"
+        "cash"
       ],
       "target_columns": [],
       "source_ref_required": true,
-      "source_field": "value",
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "A scalar cash field cannot be dumped into a balance-sheet quarterly grid without period-keyed history."
+      "source_field": "cash",
+      "planning_state": "active"
     },
     {
-      "binding_id": "bs_debt_series",
+      "binding_id": "bs_annual_financial_debt_core_series",
       "sheet": "BS_Segments",
-      "section": "Balance sheet",
-      "target": "B19:I49",
-      "shell_zone": "bs_liquidity_values",
-      "anchor_label": "Total debt",
-      "row_family": "bs_liquidity_quarterly_rows",
-      "normalized_field": "debt_liquidity.total_debt",
-      "value_shape": "quarterly_series",
+      "section": "Annual financial history",
+      "target": "B103:I103",
+      "shell_zone": "bs_annual_financial_raw_debt_core",
+      "block_id": "bs_annual",
+      "anchor_label": "Debt (core borrowings)",
+      "row_family": "annual_financial_history",
+      "normalized_field": "annual_financials.rows.debt_core",
+      "value_shape": "annual_series",
       "required": false,
       "source_policy": "source-backed",
-      "missing_source_behavior": "blank values; emit mapping gap",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "unexplained_empty_core_field",
+      "missing_source_behavior": "leave missing annual debt blank and create manual review",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
       "writable": true,
       "planning_mode": "series",
-      "planner_target": "B19:I19",
+      "planner_target": "B103:I103",
       "target_axis": "columns",
       "target_type": "number",
+      "period_axis_id": "bs_annual_financial_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
       "row_selector": {
-        "source_path": "debt_liquidity.total_debt"
+        "source_path": "annual_financials.rows",
+        "window": "latest_capacity"
       },
       "row_key": [
-        "normalized_field"
+        "period"
       ],
-      "sort_order": [],
+      "sort_order": [
+        "period:asc"
+      ],
       "capacity": 8,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "value"
+        "debt_core"
       ],
       "target_columns": [],
       "source_ref_required": true,
-      "source_field": "value",
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "A scalar debt field cannot be dumped into a balance-sheet quarterly grid without period-keyed history."
+      "source_field": "debt_core",
+      "planning_state": "active"
     },
     {
       "binding_id": "bs_segment_quarterly_rows",
       "sheet": "BS_Segments",
       "section": "Quarterly segments",
-      "target": "A61:I67",
+      "target": "A61:M67",
       "shell_zone": "bs_segment_quarterly_values",
       "anchor_label": "Quarterly segments",
       "row_family": "bs_segment_quarterly_row_family",
@@ -1227,7 +1478,7 @@
       "planning_mode": "pivot_rows",
       "period_axis_id": "bs_quarterly_periods",
       "period_axis_role": "dependent",
-      "planner_target": "A61:I67",
+      "planner_target": "A61:M67",
       "target_type": "pivot_matrix",
       "row_selector": {
         "source_path": "segments.items",
@@ -1292,13 +1543,18 @@
       },
       "source_ref_required": true,
       "source_ref_field": "revenue",
-      "planning_state": "active"
+      "planning_state": "active",
+      "dimension_label_templates": {
+        "geography": "Geography: {member}",
+        "total_company": "{member}",
+        "brand": "Brand: {member}"
+      }
     },
     {
       "binding_id": "bs_segment_annual_rows",
       "sheet": "BS_Segments",
       "section": "Annual segments",
-      "target": "A72:I74",
+      "target": "A72:I78",
       "shell_zone": "bs_segment_annual_values",
       "anchor_label": "Annual segments",
       "row_family": "bs_segment_annual_row_family",
@@ -1313,7 +1569,7 @@
       "planning_mode": "pivot_rows",
       "period_axis_id": "bs_annual_periods",
       "period_axis_role": "dependent",
-      "planner_target": "A72:I74",
+      "planner_target": "A72:I78",
       "target_type": "pivot_matrix",
       "row_selector": {
         "source_path": "segments.items",
@@ -1329,10 +1585,6 @@
           {
             "field": "metric",
             "equals": "revenue"
-          },
-          {
-            "field": "dimension",
-            "equals": "geography"
           }
         ]
       },
@@ -1349,7 +1601,7 @@
         "member:asc",
         "metric:asc"
       ],
-      "capacity": 3,
+      "capacity": 6,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
         "dimension",
@@ -1371,11 +1623,23 @@
           72,
           73,
           74
+        ],
+        "total_company": [
+          76
+        ],
+        "brand": [
+          77,
+          78
         ]
       },
       "source_ref_required": true,
       "source_ref_field": "annual_revenue",
-      "planning_state": "active"
+      "planning_state": "active",
+      "dimension_label_templates": {
+        "geography": "Geography: {member}",
+        "total_company": "{member}",
+        "brand": "Brand: {member}"
+      }
     },
     {
       "binding_id": "od_watchlist_rows",
@@ -2327,7 +2591,7 @@
       "section": "Annual guidance progression block 1",
       "target": "B13:O22",
       "shell_zone": "pp_annual_guidance_values",
-      "anchor_label": "Annual guidance progression block 1",
+      "anchor_label": "Guidance progression - period block 1",
       "row_family": "promise_annual_guidance_rows_block_1",
       "normalized_field": "normalized_guidance.items.0.value",
       "value_shape": "table_rows",
@@ -2472,7 +2736,7 @@
       "section": "Annual guidance progression block 2",
       "target": "B24:O28",
       "shell_zone": "pp_annual_guidance_values_block_2",
-      "anchor_label": "Annual guidance progression block 2",
+      "anchor_label": "Guidance progression - period block 2",
       "row_family": "promise_annual_guidance_rows_block_2",
       "normalized_field": "normalized_guidance.items.0.value",
       "value_shape": "table_rows",
@@ -2520,7 +2784,7 @@
       "section": "Annual guidance progression block 3",
       "target": "B30:O33",
       "shell_zone": "pp_annual_guidance_values_block_3",
-      "anchor_label": "Annual guidance progression block 3",
+      "anchor_label": "Guidance progression - period block 3",
       "row_family": "promise_annual_guidance_rows_block_3",
       "normalized_field": "normalized_guidance.items.0.value",
       "value_shape": "table_rows",
@@ -2568,7 +2832,7 @@
       "section": "Annual guidance progression block 4",
       "target": "B35:O35",
       "shell_zone": "pp_annual_guidance_values_block_4",
-      "anchor_label": "Annual guidance progression block 4",
+      "anchor_label": "Guidance progression - period block 4",
       "row_family": "promise_annual_guidance_rows_block_4",
       "normalized_field": "normalized_guidance.items.0.value",
       "value_shape": "table_rows",
@@ -3808,21 +4072,113 @@
       "source_ref_field": "revenue"
     },
     {
+      "binding_id": "summary_revenue_mix_label",
+      "sheet": "SUMMARY",
+      "section": "Template display",
+      "target": "A8:F8",
+      "shell_zone": "summary_revenue_mix_label",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "company_profile.revenue_mix_label",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "profile-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "A8",
+      "source_path": "company_profile.revenue_mix_label",
+      "target_type": "text",
+      "planning_state": "active",
+      "named_range": "summary_revenue_mix_label"
+    },
+    {
+      "binding_id": "summary_liquidity",
+      "sheet": "SUMMARY",
+      "section": "Template display",
+      "target": "B45",
+      "shell_zone": "summary_leverage_liquidity_values",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "debt_liquidity.summary_liquidity_display",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "B45",
+      "source_path": "debt_liquidity.summary_liquidity_display",
+      "target_type": "number",
+      "planning_state": "active",
+      "named_range": "summary_liquidity"
+    },
+    {
+      "binding_id": "summary_liquidity_as_of",
+      "sheet": "SUMMARY",
+      "section": "Template display",
+      "target": "D45:F45",
+      "shell_zone": "summary_liquidity_as_of_value",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "debt_liquidity.summary_liquidity_as_of_display",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D45",
+      "source_path": "debt_liquidity.summary_liquidity_as_of_display",
+      "target_type": "text",
+      "planning_state": "active",
+      "named_range": "summary_liquidity_as_of"
+    },
+    {
+      "binding_id": "ic_investment_case_title",
+      "sheet": "{ticker}_Investment_Case",
+      "section": "Template display",
+      "target": "A1:J1",
+      "shell_zone": "ic_title_value",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "ticker_metadata.investment_case_title",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "derived",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "A1",
+      "source_path": "ticker_metadata.investment_case_title",
+      "target_type": "text",
+      "planning_state": "active",
+      "named_range": "ic_investment_case_title"
+    },
+    {
       "binding_id": "valuation_period_headers",
       "sheet": "Valuation",
-      "section": "Actuals and operating metrics",
-      "target": "B6:M28",
-      "shell_zone": "valuation_actuals_quarterly_values",
-      "block_id": "valuation_actuals_quarterly_values",
+      "section": "Quarterly financial history",
+      "target": "B6:M6",
+      "shell_zone": "valuation_period_headers",
+      "block_id": "valuation_actuals",
       "anchor_label": "Quarter",
-      "row_family": "valuation_actuals_quarterly_rows",
-      "normalized_field": "quarterly_financials.rows.0.period",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.period",
       "value_shape": "quarterly_series",
       "required": true,
       "source_policy": "source-backed",
-      "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
+      "missing_source_behavior": "leave period headers blank and block render",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
+      "validation_rule": "financial_history_mapping_gap",
       "writable": true,
       "planning_mode": "series",
       "planner_target": "B6:M6",
@@ -3830,6 +4186,51 @@
       "target_type": "period",
       "period_axis_id": "valuation_quarterly_periods",
       "period_axis_role": "header",
+      "period_axis_continuity": "consecutive_quarters",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "fail",
+      "required_columns": [
+        "period"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "period",
+      "source_ref_field": "revenue",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "valuation_revenue_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B9:M9",
+      "shell_zone": "valuation_raw_revenue",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.revenue",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B9:M9",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
       "period_field": "period",
       "row_selector": {
         "source_path": "quarterly_financials.rows",
@@ -3844,30 +4245,161 @@
       "capacity": 12,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "period"
+        "revenue"
       ],
       "target_columns": [],
       "source_ref_required": true,
-      "source_field": "period",
+      "source_field": "revenue",
       "planning_state": "active",
-      "source_ref_field": "revenue"
+      "named_range": "valuation_revenue_series"
+    },
+    {
+      "binding_id": "valuation_ebitda_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B18:M18",
+      "shell_zone": "valuation_raw_base_ebitda",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.base_ebitda",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B18:M18",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "base_ebitda"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "base_ebitda",
+      "planning_state": "active",
+      "named_range": "valuation_ebitda_series"
+    },
+    {
+      "binding_id": "valuation_adjusted_ebitda_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B24:M24",
+      "shell_zone": "valuation_raw_adjusted_ebitda",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.adjusted_ebitda",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B24:M24",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "adjusted_ebitda"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "adjusted_ebitda",
+      "planning_state": "active",
+      "named_range": "valuation_adjusted_ebitda_series"
+    },
+    {
+      "binding_id": "valuation_operating_income_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B32:M32",
+      "shell_zone": "valuation_raw_operating_income",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.operating_income",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B32:M32",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "operating_income"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "operating_income",
+      "planning_state": "active",
+      "named_range": "valuation_operating_income_series"
     },
     {
       "binding_id": "valuation_net_income_series",
       "sheet": "Valuation",
-      "section": "Actuals and operating metrics",
+      "section": "Quarterly financial history",
       "target": "B36:M36",
-      "shell_zone": "valuation_actuals_quarterly_values",
-      "block_id": "valuation_actuals_quarterly_values",
-      "anchor_label": "Net income attributable to common shareholders",
-      "row_family": "valuation_actuals_quarterly_rows",
-      "normalized_field": "quarterly_financials.rows.0.net_income",
+      "shell_zone": "valuation_raw_net_income",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.net_income",
       "value_shape": "quarterly_series",
       "required": true,
       "source_policy": "source-backed",
-      "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
+      "validation_rule": "financial_history_mapping_gap",
       "writable": true,
       "planning_mode": "series",
       "planner_target": "B36:M36",
@@ -3894,24 +4426,24 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "net_income",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_net_income_series"
     },
     {
       "binding_id": "valuation_operating_cash_flow_series",
       "sheet": "Valuation",
-      "section": "Actuals and operating metrics",
+      "section": "Quarterly financial history",
       "target": "B43:M43",
-      "shell_zone": "valuation_actuals_quarterly_values",
-      "block_id": "valuation_actuals_quarterly_values",
-      "anchor_label": "CFO",
-      "row_family": "valuation_actuals_quarterly_rows",
-      "normalized_field": "quarterly_financials.rows.0.operating_cash_flow",
+      "shell_zone": "valuation_raw_operating_cash_flow",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.operating_cash_flow",
       "value_shape": "quarterly_series",
       "required": true,
       "source_policy": "source-backed",
-      "missing_source_behavior": "do not infer from profile; emit valuation mapping gap",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
+      "validation_rule": "financial_history_mapping_gap",
       "writable": true,
       "planning_mode": "series",
       "planner_target": "B43:M43",
@@ -3938,31 +4470,31 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "operating_cash_flow",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_operating_cash_flow_series"
     },
     {
-      "binding_id": "bs_quarterly_period_headers",
-      "sheet": "BS_Segments",
-      "section": "Quarterly financials",
-      "target": "B7:I7",
-      "shell_zone": "bs_liquidity_values",
-      "block_id": "bs_liquidity_values",
-      "anchor_label": "Quarter",
-      "row_family": "bs_quarterly_financial_series",
-      "normalized_field": "quarterly_financials.rows.period",
+      "binding_id": "valuation_capital_expenditures_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B44:M44",
+      "shell_zone": "valuation_raw_capital_expenditures",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.capital_expenditures",
       "value_shape": "quarterly_series",
-      "required": false,
+      "required": true,
       "source_policy": "source-backed",
-      "missing_source_behavior": "leave quarterly period headers blank and emit a P1 mapping gap",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "unexplained_empty_core_field",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
       "writable": true,
       "planning_mode": "series",
-      "planner_target": "B7:I7",
+      "planner_target": "B44:M44",
       "target_axis": "columns",
-      "target_type": "period",
-      "period_axis_id": "bs_quarterly_periods",
-      "period_axis_role": "header",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
       "period_field": "period",
       "row_selector": {
         "source_path": "quarterly_financials.rows",
@@ -3974,9 +4506,978 @@
       "sort_order": [
         "period:asc"
       ],
-      "capacity": 8,
-      "minimum_rows": 1,
-      "overflow_behavior": "fail",
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "capital_expenditures"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "capital_expenditures",
+      "planning_state": "active",
+      "named_range": "valuation_capital_expenditures_series"
+    },
+    {
+      "binding_id": "valuation_interest_paid_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B59:M59",
+      "shell_zone": "valuation_raw_interest_paid",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.interest_paid",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B59:M59",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "interest_paid"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "interest_paid",
+      "planning_state": "active",
+      "named_range": "valuation_interest_paid_series"
+    },
+    {
+      "binding_id": "valuation_buybacks_cash_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B62:M62",
+      "shell_zone": "valuation_raw_buybacks_cash",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.buybacks_cash",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B62:M62",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "buybacks_cash"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "buybacks_cash",
+      "planning_state": "active",
+      "named_range": "valuation_buybacks_cash_series"
+    },
+    {
+      "binding_id": "valuation_cash_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B70:M70",
+      "shell_zone": "valuation_raw_cash",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.cash",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B70:M70",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "cash"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "cash",
+      "planning_state": "active",
+      "named_range": "valuation_cash_series"
+    },
+    {
+      "binding_id": "valuation_marketable_securities_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B71:M71",
+      "shell_zone": "valuation_raw_marketable_securities",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.marketable_securities",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B71:M71",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "marketable_securities"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "marketable_securities",
+      "planning_state": "active",
+      "named_range": "valuation_marketable_securities_series"
+    },
+    {
+      "binding_id": "valuation_debt_core_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B72:M72",
+      "shell_zone": "valuation_raw_debt_core",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.debt_core",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B72:M72",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "debt_core"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "debt_core",
+      "planning_state": "active",
+      "named_range": "valuation_debt_core_series"
+    },
+    {
+      "binding_id": "valuation_lease_liabilities_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B79:M79",
+      "shell_zone": "valuation_raw_lease_liabilities",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.lease_liabilities",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B79:M79",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "lease_liabilities"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "lease_liabilities",
+      "planning_state": "active",
+      "named_range": "valuation_lease_liabilities_series"
+    },
+    {
+      "binding_id": "valuation_pension_obligation_net_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B82:M82",
+      "shell_zone": "valuation_raw_pension_obligation_net",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.pension_obligation_net",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B82:M82",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "pension_obligation_net"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "pension_obligation_net",
+      "planning_state": "active",
+      "named_range": "valuation_pension_obligation_net_series"
+    },
+    {
+      "binding_id": "valuation_revolver_availability_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B95:M95",
+      "shell_zone": "valuation_raw_revolver_availability",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.revolver_availability",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B95:M95",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "revolver_availability"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "revolver_availability",
+      "planning_state": "active",
+      "named_range": "valuation_revolver_availability_series"
+    },
+    {
+      "binding_id": "valuation_diluted_shares_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B102:M102",
+      "shell_zone": "valuation_raw_diluted_shares",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.diluted_shares",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B102:M102",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "diluted_shares"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "diluted_shares",
+      "planning_state": "active",
+      "named_range": "valuation_diluted_shares_series"
+    },
+    {
+      "binding_id": "valuation_shares_outstanding_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B103:M103",
+      "shell_zone": "valuation_raw_shares_outstanding",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.shares_outstanding",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B103:M103",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "shares_outstanding"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "shares_outstanding",
+      "planning_state": "active",
+      "named_range": "valuation_shares_outstanding_series"
+    },
+    {
+      "binding_id": "valuation_eps_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B107:M107",
+      "shell_zone": "valuation_raw_eps",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.eps",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B107:M107",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "eps"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "eps",
+      "planning_state": "active",
+      "named_range": "valuation_eps_series"
+    },
+    {
+      "binding_id": "valuation_adjusted_eps_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B110:M110",
+      "shell_zone": "valuation_raw_adjusted_eps",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.adjusted_eps",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B110:M110",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "adjusted_eps"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "adjusted_eps",
+      "planning_state": "active",
+      "named_range": "valuation_adjusted_eps_series"
+    },
+    {
+      "binding_id": "valuation_gross_profit_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B262:M262",
+      "shell_zone": "valuation_raw_gross_profit",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.gross_profit",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B262:M262",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "gross_profit"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "gross_profit",
+      "planning_state": "active",
+      "named_range": "valuation_gross_profit_series"
+    },
+    {
+      "binding_id": "valuation_interest_expense_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B263:M263",
+      "shell_zone": "valuation_raw_interest_expense",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.interest_expense",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B263:M263",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "interest_expense"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "interest_expense",
+      "planning_state": "active",
+      "named_range": "valuation_interest_expense_series"
+    },
+    {
+      "binding_id": "valuation_dividends_cash_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B264:M264",
+      "shell_zone": "valuation_raw_dividends_cash",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.dividends_cash",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B264:M264",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "dividends_cash"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "dividends_cash",
+      "planning_state": "active",
+      "named_range": "valuation_dividends_cash_series"
+    },
+    {
+      "binding_id": "valuation_acquisitions_cash_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B265:M265",
+      "shell_zone": "valuation_raw_acquisitions_cash",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.acquisitions_cash",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B265:M265",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "acquisitions_cash"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "acquisitions_cash",
+      "planning_state": "active",
+      "named_range": "valuation_acquisitions_cash_series"
+    },
+    {
+      "binding_id": "valuation_debt_repayment_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B266:M266",
+      "shell_zone": "valuation_raw_debt_repayment",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.debt_repayment",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B266:M266",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "debt_repayment"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "debt_repayment",
+      "planning_state": "active",
+      "named_range": "valuation_debt_repayment_series"
+    },
+    {
+      "binding_id": "valuation_debt_issuance_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B267:M267",
+      "shell_zone": "valuation_raw_debt_issuance",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.debt_issuance",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B267:M267",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "debt_issuance"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "debt_issuance",
+      "planning_state": "active",
+      "named_range": "valuation_debt_issuance_series"
+    },
+    {
+      "binding_id": "valuation_total_equity_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B268:M268",
+      "shell_zone": "valuation_raw_total_equity",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.total_equity",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B268:M268",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "total_equity"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "total_equity",
+      "planning_state": "active",
+      "named_range": "valuation_total_equity_series"
+    },
+    {
+      "binding_id": "valuation_goodwill_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B269:M269",
+      "shell_zone": "valuation_raw_goodwill",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.goodwill",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B269:M269",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "goodwill"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "goodwill",
+      "planning_state": "active",
+      "named_range": "valuation_goodwill_series"
+    },
+    {
+      "binding_id": "valuation_intangibles_series",
+      "sheet": "Valuation",
+      "section": "Quarterly financial history",
+      "target": "B270:M270",
+      "shell_zone": "valuation_raw_intangibles",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.intangibles",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B270:M270",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "valuation_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "intangibles"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "intangibles",
+      "planning_state": "active",
+      "named_range": "valuation_intangibles_series"
+    },
+    {
+      "binding_id": "bs_quarterly_period_headers",
+      "sheet": "BS_Segments",
+      "section": "Quarterly balance-sheet history",
+      "target": "B7:M7",
+      "shell_zone": "bs_quarterly_period_headers",
+      "block_id": "bs_quarterly",
+      "anchor_label": "Quarter",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.period",
+      "value_shape": "quarterly_series",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave period headers blank and block render",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B7:M7",
+      "target_axis": "columns",
+      "target_type": "period",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "header",
+      "period_axis_continuity": "consecutive_quarters",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
       "required_columns": [
         "period"
       ],
@@ -3987,21 +5488,1121 @@
       "planning_state": "active"
     },
     {
+      "binding_id": "bs_cash_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B9:M9",
+      "shell_zone": "bs_raw_cash",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.cash",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B9:M9",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "cash"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "cash",
+      "planning_state": "active",
+      "named_range": "bs_cash_series"
+    },
+    {
+      "binding_id": "bs_restricted_cash_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B10:M10",
+      "shell_zone": "bs_raw_restricted_cash",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.restricted_cash",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B10:M10",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "restricted_cash"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "restricted_cash",
+      "planning_state": "active",
+      "named_range": "bs_restricted_cash_series"
+    },
+    {
+      "binding_id": "bs_marketable_securities_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B13:M13",
+      "shell_zone": "bs_raw_marketable_securities",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.marketable_securities",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B13:M13",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "marketable_securities"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "marketable_securities",
+      "planning_state": "active",
+      "named_range": "bs_marketable_securities_series"
+    },
+    {
+      "binding_id": "bs_accounts_receivable_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B14:M14",
+      "shell_zone": "bs_raw_accounts_receivable",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.accounts_receivable",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B14:M14",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "accounts_receivable"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "accounts_receivable",
+      "planning_state": "active",
+      "named_range": "bs_accounts_receivable_series"
+    },
+    {
+      "binding_id": "bs_inventory_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B15:M15",
+      "shell_zone": "bs_raw_inventory",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.inventory",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B15:M15",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "inventory"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "inventory",
+      "planning_state": "active",
+      "named_range": "bs_inventory_series"
+    },
+    {
+      "binding_id": "bs_current_assets_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B18:M18",
+      "shell_zone": "bs_raw_current_assets",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.current_assets",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B18:M18",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "current_assets"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "current_assets",
+      "planning_state": "active",
+      "named_range": "bs_current_assets_series"
+    },
+    {
+      "binding_id": "bs_property_plant_equipment_net_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B19:M19",
+      "shell_zone": "bs_raw_property_plant_equipment_net",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.property_plant_equipment_net",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B19:M19",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "property_plant_equipment_net"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "property_plant_equipment_net",
+      "planning_state": "active",
+      "named_range": "bs_property_plant_equipment_net_series"
+    },
+    {
+      "binding_id": "bs_goodwill_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B22:M22",
+      "shell_zone": "bs_raw_goodwill",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.goodwill",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B22:M22",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "goodwill"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "goodwill",
+      "planning_state": "active",
+      "named_range": "bs_goodwill_series"
+    },
+    {
+      "binding_id": "bs_intangibles_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B23:M23",
+      "shell_zone": "bs_raw_intangibles",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.intangibles",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B23:M23",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "intangibles"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "intangibles",
+      "planning_state": "active",
+      "named_range": "bs_intangibles_series"
+    },
+    {
+      "binding_id": "bs_other_assets_noncurrent_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B24:M24",
+      "shell_zone": "bs_raw_other_assets_noncurrent",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.other_assets_noncurrent",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B24:M24",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "other_assets_noncurrent"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "other_assets_noncurrent",
+      "planning_state": "active",
+      "named_range": "bs_other_assets_noncurrent_series"
+    },
+    {
+      "binding_id": "bs_total_assets_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B25:M25",
+      "shell_zone": "bs_raw_total_assets",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.total_assets",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B25:M25",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "total_assets"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "total_assets",
+      "planning_state": "active",
+      "named_range": "bs_total_assets_series"
+    },
+    {
+      "binding_id": "bs_accounts_payable_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B28:M28",
+      "shell_zone": "bs_raw_accounts_payable",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.accounts_payable",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B28:M28",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "accounts_payable"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "accounts_payable",
+      "planning_state": "active",
+      "named_range": "bs_accounts_payable_series"
+    },
+    {
+      "binding_id": "bs_accrued_liabilities_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B29:M29",
+      "shell_zone": "bs_raw_accrued_liabilities",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.accrued_liabilities",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B29:M29",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "accrued_liabilities"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "accrued_liabilities",
+      "planning_state": "active",
+      "named_range": "bs_accrued_liabilities_series"
+    },
+    {
+      "binding_id": "bs_short_term_borrowings_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B32:M32",
+      "shell_zone": "bs_raw_short_term_borrowings",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.short_term_borrowings",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B32:M32",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "short_term_borrowings"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "short_term_borrowings",
+      "planning_state": "active",
+      "named_range": "bs_short_term_borrowings_series"
+    },
+    {
+      "binding_id": "bs_debt_current_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B33:M33",
+      "shell_zone": "bs_raw_debt_current",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.debt_current",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B33:M33",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "debt_current"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "debt_current",
+      "planning_state": "active",
+      "named_range": "bs_debt_current_series"
+    },
+    {
+      "binding_id": "bs_lease_liabilities_current_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B34:M34",
+      "shell_zone": "bs_raw_lease_liabilities_current",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.lease_liabilities_current",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B34:M34",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "lease_liabilities_current"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "lease_liabilities_current",
+      "planning_state": "active",
+      "named_range": "bs_lease_liabilities_current_series"
+    },
+    {
+      "binding_id": "bs_current_liabilities_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B35:M35",
+      "shell_zone": "bs_raw_current_liabilities",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.current_liabilities",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B35:M35",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "current_liabilities"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "current_liabilities",
+      "planning_state": "active",
+      "named_range": "bs_current_liabilities_series"
+    },
+    {
+      "binding_id": "bs_debt_core_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B40:M40",
+      "shell_zone": "bs_raw_debt_core",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.debt_core",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B40:M40",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "debt_core"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "debt_core",
+      "planning_state": "active",
+      "named_range": "bs_debt_core_series"
+    },
+    {
+      "binding_id": "bs_lease_liabilities_noncurrent_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B42:M42",
+      "shell_zone": "bs_raw_lease_liabilities_noncurrent",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.lease_liabilities_noncurrent",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B42:M42",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "lease_liabilities_noncurrent"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "lease_liabilities_noncurrent",
+      "planning_state": "active",
+      "named_range": "bs_lease_liabilities_noncurrent_series"
+    },
+    {
+      "binding_id": "bs_pension_obligation_net_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B43:M43",
+      "shell_zone": "bs_raw_pension_obligation_net",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.pension_obligation_net",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B43:M43",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "pension_obligation_net"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "pension_obligation_net",
+      "planning_state": "active",
+      "named_range": "bs_pension_obligation_net_series"
+    },
+    {
+      "binding_id": "bs_other_liabilities_noncurrent_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B44:M44",
+      "shell_zone": "bs_raw_other_liabilities_noncurrent",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.other_liabilities_noncurrent",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B44:M44",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "other_liabilities_noncurrent"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "other_liabilities_noncurrent",
+      "planning_state": "active",
+      "named_range": "bs_other_liabilities_noncurrent_series"
+    },
+    {
+      "binding_id": "bs_total_liabilities_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B45:M45",
+      "shell_zone": "bs_raw_total_liabilities",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.total_liabilities",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B45:M45",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "total_liabilities"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "total_liabilities",
+      "planning_state": "active",
+      "named_range": "bs_total_liabilities_series"
+    },
+    {
+      "binding_id": "bs_total_equity_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B47:M47",
+      "shell_zone": "bs_raw_total_equity",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.total_equity",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B47:M47",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "total_equity"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "total_equity",
+      "planning_state": "active",
+      "named_range": "bs_total_equity_series"
+    },
+    {
+      "binding_id": "bs_shares_outstanding_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B48:M48",
+      "shell_zone": "bs_raw_shares_outstanding",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.shares_outstanding",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B48:M48",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "shares_outstanding"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "shares_outstanding",
+      "planning_state": "active",
+      "named_range": "bs_shares_outstanding_series"
+    },
+    {
+      "binding_id": "bs_diluted_shares_series",
+      "sheet": "BS_Segments",
+      "section": "Quarterly financial history",
+      "target": "B49:M49",
+      "shell_zone": "bs_raw_diluted_shares",
+      "anchor_label": "",
+      "row_family": "quarterly_financial_series",
+      "normalized_field": "quarterly_financials.rows.diluted_shares",
+      "value_shape": "quarterly_series",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave missing periods blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "financial_history_mapping_gap",
+      "writable": true,
+      "planning_mode": "series",
+      "planner_target": "B49:M49",
+      "target_axis": "columns",
+      "target_type": "number",
+      "period_axis_id": "bs_quarterly_periods",
+      "period_axis_role": "dependent",
+      "period_field": "period",
+      "row_selector": {
+        "source_path": "quarterly_financials.rows",
+        "window": "latest_capacity"
+      },
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
+      "capacity": 12,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": [
+        "diluted_shares"
+      ],
+      "target_columns": [],
+      "source_ref_required": true,
+      "source_field": "diluted_shares",
+      "planning_state": "active",
+      "named_range": "bs_diluted_shares_series"
+    },
+    {
       "binding_id": "bs_annual_period_headers",
       "sheet": "BS_Segments",
-      "section": "Annual financials",
+      "section": "Annual financial history",
       "target": "B70:I70",
       "shell_zone": "bs_annual_period_values",
-      "block_id": "bs_segment_annual_values",
+      "block_id": "bs_annual",
       "anchor_label": "Year",
-      "row_family": "bs_annual_financial_series",
+      "row_family": "annual_financial_series",
       "normalized_field": "annual_financials.rows.period",
       "value_shape": "annual_series",
       "required": true,
       "source_policy": "source-backed",
-      "missing_source_behavior": "leave annual period headers blank and emit a P1 mapping gap",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "unexplained_empty_core_field",
+      "missing_source_behavior": "leave annual headers blank and block render",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "financial_history_mapping_gap",
       "writable": true,
       "planning_mode": "series",
       "planner_target": "B70:I70",
@@ -4009,6 +6610,7 @@
       "target_type": "period",
       "period_axis_id": "bs_annual_periods",
       "period_axis_role": "header",
+      "period_axis_continuity": "consecutive_fiscal_years",
       "period_field": "period",
       "row_selector": {
         "source_path": "annual_financials.rows",
@@ -4021,7 +6623,6 @@
         "period:asc"
       ],
       "capacity": 8,
-      "minimum_rows": 1,
       "overflow_behavior": "fail",
       "required_columns": [
         "period"
@@ -4035,19 +6636,19 @@
     {
       "binding_id": "bs_annual_revenue_series",
       "sheet": "BS_Segments",
-      "section": "Annual financials",
+      "section": "Annual financial history",
       "target": "B71:I71",
       "shell_zone": "bs_annual_period_values",
-      "block_id": "bs_segment_annual_values",
-      "anchor_label": "Revenue",
-      "row_family": "bs_annual_financial_series",
+      "block_id": "bs_annual",
+      "anchor_label": "Revenues",
+      "row_family": "annual_financial_series",
       "normalized_field": "annual_financials.rows.revenue",
       "value_shape": "annual_series",
       "required": true,
       "source_policy": "source-backed",
-      "missing_source_behavior": "leave annual revenue values blank and emit a P1 mapping gap",
+      "missing_source_behavior": "leave annual revenue blank and block render",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "unexplained_empty_core_field",
+      "validation_rule": "financial_history_mapping_gap",
       "writable": true,
       "planning_mode": "series",
       "planner_target": "B71:I71",
@@ -4067,7 +6668,6 @@
         "period:asc"
       ],
       "capacity": 8,
-      "minimum_rows": 1,
       "overflow_behavior": "fail",
       "required_columns": [
         "revenue"
@@ -4083,22 +6683,22 @@
       "section": "Valuation inputs",
       "target": "D195",
       "shell_zone": "valuation_input_values",
-      "block_id": "valuation_input_values",
-      "anchor_label": "As of",
-      "row_family": "valuation_input_rows",
+      "anchor_label": "",
+      "row_family": "scalar_values",
       "normalized_field": "valuation_inputs.as_of_date",
       "value_shape": "scalar",
       "required": true,
       "source_policy": "source-backed",
-      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
+      "validation_rule": "unexplained_empty_core_field",
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "D195",
       "source_path": "valuation_inputs.as_of_date",
       "target_type": "date",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_input_as_of"
     },
     {
       "binding_id": "valuation_input_shares_outstanding",
@@ -4106,22 +6706,22 @@
       "section": "Valuation inputs",
       "target": "D196",
       "shell_zone": "valuation_input_values",
-      "anchor_label": "Shares outstanding (m)",
-      "row_family": "valuation_input_rows",
+      "anchor_label": "",
+      "row_family": "scalar_values",
       "normalized_field": "valuation_inputs.shares_outstanding",
-      "block_id": "valuation_input_values",
       "value_shape": "scalar",
-      "required": true,
+      "required": false,
       "source_policy": "source-backed",
-      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "share_count_outlier",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "unexplained_empty_core_field",
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "D196",
       "source_path": "valuation_inputs.shares_outstanding",
       "target_type": "number",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_input_shares_outstanding"
     },
     {
       "binding_id": "valuation_input_diluted_shares",
@@ -4129,22 +6729,22 @@
       "section": "Valuation inputs",
       "target": "D197",
       "shell_zone": "valuation_input_values",
-      "anchor_label": "Shares diluted (m)",
-      "row_family": "valuation_input_rows",
+      "anchor_label": "",
+      "row_family": "scalar_values",
       "normalized_field": "valuation_inputs.diluted_shares",
-      "block_id": "valuation_input_values",
       "value_shape": "scalar",
       "required": true,
       "source_policy": "source-backed",
-      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "share_count_outlier",
+      "validation_rule": "unexplained_empty_core_field",
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "D197",
       "source_path": "valuation_inputs.diluted_shares",
       "target_type": "number",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_input_diluted_shares"
     },
     {
       "binding_id": "valuation_input_net_debt",
@@ -4152,22 +6752,22 @@
       "section": "Valuation inputs",
       "target": "D198",
       "shell_zone": "valuation_input_values",
-      "anchor_label": "Net debt (core, $m)",
-      "row_family": "valuation_input_rows",
+      "anchor_label": "",
+      "row_family": "scalar_values",
       "normalized_field": "valuation_inputs.net_debt",
-      "block_id": "valuation_input_values",
       "value_shape": "scalar",
-      "required": true,
-      "source_policy": "derived",
-      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "unexplained_empty_core_field",
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "D198",
       "source_path": "valuation_inputs.net_debt",
       "target_type": "number",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_input_net_debt"
     },
     {
       "binding_id": "valuation_input_base_ebitda_ttm",
@@ -4175,22 +6775,22 @@
       "section": "Valuation inputs",
       "target": "D199",
       "shell_zone": "valuation_input_values",
-      "anchor_label": "EBITDA TTM ($m)",
-      "row_family": "valuation_input_rows",
+      "anchor_label": "",
+      "row_family": "scalar_values",
       "normalized_field": "valuation_inputs.base_ebitda_ttm",
-      "block_id": "valuation_input_values",
       "value_shape": "scalar",
       "required": true,
-      "source_policy": "derived",
-      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
+      "validation_rule": "unexplained_empty_core_field",
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "D199",
       "source_path": "valuation_inputs.base_ebitda_ttm",
       "target_type": "number",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_input_base_ebitda_ttm"
     },
     {
       "binding_id": "valuation_input_adjusted_ebitda_ttm",
@@ -4198,22 +6798,22 @@
       "section": "Valuation inputs",
       "target": "D200",
       "shell_zone": "valuation_input_values",
-      "anchor_label": "Adj EBITDA TTM ($m)",
-      "row_family": "valuation_input_rows",
+      "anchor_label": "",
+      "row_family": "scalar_values",
       "normalized_field": "valuation_inputs.adjusted_ebitda_ttm",
-      "block_id": "valuation_input_values",
       "value_shape": "scalar",
       "required": true,
-      "source_policy": "derived",
-      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
+      "validation_rule": "unexplained_empty_core_field",
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "D200",
       "source_path": "valuation_inputs.adjusted_ebitda_ttm",
       "target_type": "number",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_input_adjusted_ebitda_ttm"
     },
     {
       "binding_id": "valuation_input_fcf_ttm",
@@ -4221,22 +6821,45 @@
       "section": "Valuation inputs",
       "target": "D201",
       "shell_zone": "valuation_input_values",
-      "anchor_label": "FCF TTM ($m)",
-      "row_family": "valuation_input_rows",
+      "anchor_label": "",
+      "row_family": "scalar_values",
       "normalized_field": "valuation_inputs.free_cash_flow_ttm",
-      "block_id": "valuation_input_values",
       "value_shape": "scalar",
       "required": true,
-      "source_policy": "derived",
-      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
+      "validation_rule": "unexplained_empty_core_field",
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "D201",
       "source_path": "valuation_inputs.free_cash_flow_ttm",
       "target_type": "number",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_input_fcf_ttm"
+    },
+    {
+      "binding_id": "valuation_input_operating_cash_flow_ttm",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D202",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "valuation_inputs.operating_cash_flow_ttm",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D202",
+      "source_path": "valuation_inputs.operating_cash_flow_ttm",
+      "target_type": "number",
+      "planning_state": "active",
+      "named_range": "valuation_input_operating_cash_flow_ttm"
     },
     {
       "binding_id": "valuation_input_revenue_ttm",
@@ -4244,22 +6867,114 @@
       "section": "Valuation inputs",
       "target": "D203",
       "shell_zone": "valuation_input_values",
-      "anchor_label": "Revenue TTM ($m)",
-      "row_family": "valuation_input_rows",
+      "anchor_label": "",
+      "row_family": "scalar_values",
       "normalized_field": "valuation_inputs.revenue_ttm",
-      "block_id": "valuation_input_values",
       "value_shape": "scalar",
       "required": true,
-      "source_policy": "derived",
-      "missing_source_behavior": "leave blank and emit a P1 mapping gap",
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
       "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "valuation_core_mapping_gap",
+      "validation_rule": "unexplained_empty_core_field",
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "D203",
       "source_path": "valuation_inputs.revenue_ttm",
       "target_type": "number",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_input_revenue_ttm"
+    },
+    {
+      "binding_id": "valuation_input_eps_ttm",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D204",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "valuation_inputs.eps_ttm",
+      "value_shape": "scalar",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D204",
+      "source_path": "valuation_inputs.eps_ttm",
+      "target_type": "number",
+      "planning_state": "active",
+      "named_range": "valuation_input_eps_ttm"
+    },
+    {
+      "binding_id": "valuation_input_adjusted_eps_ttm",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D205",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "valuation_inputs.adjusted_eps_ttm",
+      "value_shape": "scalar",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D205",
+      "source_path": "valuation_inputs.adjusted_eps_ttm",
+      "target_type": "number",
+      "planning_state": "active",
+      "named_range": "valuation_input_adjusted_eps_ttm"
+    },
+    {
+      "binding_id": "valuation_input_book_value_per_share",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D206",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "valuation_inputs.book_value_per_share",
+      "value_shape": "scalar",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap; point-in-time shares outstanding must not be replaced by diluted weighted-average shares",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D206",
+      "source_path": "valuation_inputs.book_value_per_share",
+      "target_type": "number",
+      "planning_state": "active",
+      "named_range": "valuation_input_book_value_per_share"
+    },
+    {
+      "binding_id": "valuation_input_tangible_book_value_per_share",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D207",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "valuation_inputs.tangible_book_value_per_share",
+      "value_shape": "scalar",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D207",
+      "source_path": "valuation_inputs.tangible_book_value_per_share",
+      "target_type": "number",
+      "planning_state": "active",
+      "named_range": "valuation_input_tangible_book_value_per_share"
     },
     {
       "binding_id": "valuation_input_capex_ttm",
@@ -4267,22 +6982,260 @@
       "section": "Valuation inputs",
       "target": "D211",
       "shell_zone": "valuation_input_values",
-      "anchor_label": "Capex TTM ($m)",
-      "row_family": "valuation_input_rows",
+      "anchor_label": "",
+      "row_family": "scalar_values",
       "normalized_field": "valuation_inputs.capex_ttm",
-      "block_id": "valuation_input_values",
       "value_shape": "scalar",
-      "required": false,
-      "source_policy": "derived",
-      "missing_source_behavior": "leave blank and emit a mapping gap",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "valuation_core_mapping_gap",
+      "required": true,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "blocked_if_missing",
+      "validation_rule": "unexplained_empty_core_field",
       "writable": true,
       "planning_mode": "scalar",
       "planner_target": "D211",
       "source_path": "valuation_inputs.capex_ttm",
       "target_type": "number",
-      "planning_state": "active"
+      "planning_state": "active",
+      "named_range": "valuation_input_capex_ttm"
+    },
+    {
+      "binding_id": "valuation_input_interest_paid_ttm",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D212",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "valuation_inputs.interest_paid_ttm",
+      "value_shape": "scalar",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "unexplained_empty_core_field",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D212",
+      "source_path": "valuation_inputs.interest_paid_ttm",
+      "target_type": "number",
+      "planning_state": "active",
+      "named_range": "valuation_input_interest_paid_ttm"
+    }
+  ],
+  "financial_field_dispositions": [
+    {
+      "section": "quarterly_financials",
+      "field": "cost_of_goods_sold",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed audit evidence; the generic visible model presents gross profit and gross margin instead of duplicating cost of goods sold."
+    },
+    {
+      "section": "quarterly_financials",
+      "field": "income_taxes_paid",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed cash-tax evidence for audit and future cash-flow contracts; no current universal visible row exists."
+    },
+    {
+      "section": "quarterly_financials",
+      "field": "depreciation_amortization",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed D&A evidence; the current visible model uses independently sourced base EBITDA and does not duplicate D&A."
+    },
+    {
+      "section": "quarterly_financials",
+      "field": "operating_margin",
+      "disposition": "formula_owned",
+      "reason": "Visible operating margin is calculated generically from source-backed operating income and revenue.",
+      "formula_ids": ["operating_margin", "operating_margin_ttm"]
+    },
+    {
+      "section": "quarterly_financials",
+      "field": "free_cash_flow",
+      "disposition": "formula_owned",
+      "reason": "Visible FCF is calculated generically as source-backed CFO less source-backed capex.",
+      "formula_ids": ["free_cash_flow", "free_cash_flow_ttm"]
+    },
+    {
+      "section": "quarterly_financials",
+      "field": "total_debt",
+      "disposition": "audit_only",
+      "reason": "The generic visible debt row uses the narrower core-borrowings definition; total-debt evidence remains available in JSON audit detail."
+    },
+    {
+      "section": "quarterly_financials",
+      "field": "short_term_investments",
+      "disposition": "explicitly_excluded",
+      "reason": "The visible shell maps the compatible marketable-securities field and does not duplicate the same source fact."
+    },
+    {
+      "section": "annual_financials",
+      "field": "free_cash_flow",
+      "disposition": "formula_owned",
+      "reason": "Annual FCF is calculated generically as source-backed annual CFO less source-backed annual capex.",
+      "formula_ids": ["annual_free_cash_flow"]
+    },
+    {
+      "section": "annual_financials",
+      "field": "cost_of_goods_sold",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual audit evidence; the generic annual block presents gross profit and gross margin instead."
+    },
+    {
+      "section": "annual_financials",
+      "field": "income_taxes_paid",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual cash-tax evidence; no current universal visible annual row exists."
+    },
+    {
+      "section": "annual_financials",
+      "field": "depreciation_amortization",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual D&A evidence; the visible annual block uses independently sourced base EBITDA."
+    },
+    {
+      "section": "annual_financials",
+      "field": "q4_diluted_shares",
+      "disposition": "audit_only",
+      "reason": "Fiscal-Q4 weighted-average diluted shares are not a valid annual EPS or book-value denominator."
+    },
+    {
+      "section": "annual_financials",
+      "field": "interest_paid",
+      "disposition": "audit_only",
+      "reason": "Retained for coverage and valuation evidence; the current annual visible block has no dedicated row."
+    },
+    {
+      "section": "annual_financials",
+      "field": "interest_expense",
+      "disposition": "audit_only",
+      "reason": "Retained for coverage analysis; the current annual visible block has no dedicated row."
+    },
+    {
+      "section": "annual_financials",
+      "field": "buybacks_cash",
+      "disposition": "audit_only",
+      "reason": "Retained in normalized audit detail; capital-return presentation is owned by the dedicated capital-returns block."
+    },
+    {
+      "section": "annual_financials",
+      "field": "dividends_cash",
+      "disposition": "audit_only",
+      "reason": "Retained in normalized audit detail; capital-return presentation is owned by the dedicated capital-returns block."
+    },
+    {
+      "section": "annual_financials",
+      "field": "acquisitions_cash",
+      "disposition": "audit_only",
+      "reason": "Retained for audit and future cash-allocation contracts; no current universal visible row exists."
+    },
+    {
+      "section": "annual_financials",
+      "field": "debt_repayment",
+      "disposition": "audit_only",
+      "reason": "Retained for audit and future debt-history contracts; no current universal visible row exists."
+    },
+    {
+      "section": "annual_financials",
+      "field": "debt_issuance",
+      "disposition": "audit_only",
+      "reason": "Retained for audit and future debt-history contracts; no current universal visible row exists."
+    },
+    {
+      "section": "annual_financials",
+      "field": "marketable_securities",
+      "disposition": "audit_only",
+      "reason": "Retained as a point-in-time annual fact; the current annual visible block has no dedicated row."
+    },
+    {
+      "section": "annual_financials",
+      "field": "total_assets",
+      "disposition": "audit_only",
+      "reason": "Quarterly balance-sheet history is the primary visible presentation; annual endpoint remains in JSON."
+    },
+    {
+      "section": "annual_financials",
+      "field": "total_liabilities",
+      "disposition": "audit_only",
+      "reason": "Quarterly balance-sheet history is the primary visible presentation; annual endpoint remains in JSON."
+    },
+    {
+      "section": "annual_financials",
+      "field": "current_assets",
+      "disposition": "audit_only",
+      "reason": "Quarterly balance-sheet history is the primary visible presentation; annual endpoint remains in JSON."
+    },
+    {
+      "section": "annual_financials",
+      "field": "current_liabilities",
+      "disposition": "audit_only",
+      "reason": "Quarterly balance-sheet history is the primary visible presentation; annual endpoint remains in JSON."
+    },
+    {
+      "section": "annual_financials",
+      "field": "inventory",
+      "disposition": "audit_only",
+      "reason": "Quarterly balance-sheet history is the primary visible presentation; annual endpoint remains in JSON."
+    },
+    {
+      "section": "annual_financials",
+      "field": "lease_liabilities",
+      "disposition": "audit_only",
+      "reason": "Retained for debt/liquidity analysis; the current annual visible block uses core debt only."
+    },
+    {
+      "section": "annual_financials",
+      "field": "accounts_payable",
+      "disposition": "audit_only",
+      "reason": "Reliable fiscal-Q4 endpoint retained in normalized audit detail; the visible quarterly balance-sheet matrix is the primary history presentation."
+    },
+    {
+      "section": "annual_financials",
+      "field": "accrued_liabilities",
+      "disposition": "audit_only",
+      "reason": "Reliable fiscal-Q4 endpoint retained in normalized audit detail; the visible quarterly balance-sheet matrix is the primary history presentation."
+    },
+    {
+      "section": "annual_financials",
+      "field": "lease_liabilities_current",
+      "disposition": "audit_only",
+      "reason": "Reliable fiscal-Q4 lease endpoint retained for debt-definition audit; no dedicated universal annual row exists."
+    },
+    {
+      "section": "annual_financials",
+      "field": "lease_liabilities_noncurrent",
+      "disposition": "audit_only",
+      "reason": "Reliable fiscal-Q4 lease endpoint retained for debt-definition audit; no dedicated universal annual row exists."
+    },
+    {
+      "section": "annual_financials",
+      "field": "other_assets_noncurrent",
+      "disposition": "audit_only",
+      "reason": "Reliable fiscal-Q4 endpoint retained in normalized audit detail; the visible quarterly balance-sheet matrix is the primary history presentation."
+    },
+    {
+      "section": "annual_financials",
+      "field": "other_liabilities_noncurrent",
+      "disposition": "audit_only",
+      "reason": "Reliable fiscal-Q4 endpoint retained in normalized audit detail; the visible quarterly balance-sheet matrix is the primary history presentation."
+    },
+    {
+      "section": "annual_financials",
+      "field": "property_plant_equipment_net",
+      "disposition": "audit_only",
+      "reason": "Reliable fiscal-Q4 endpoint retained in normalized audit detail; the visible quarterly balance-sheet matrix is the primary history presentation."
+    },
+    {
+      "section": "annual_financials",
+      "field": "debt_current",
+      "disposition": "audit_only",
+      "reason": "Current debt is retained as source-backed annual audit evidence; no universal annual visible row is assigned in the frozen shell."
+    },
+    {
+      "section": "annual_financials",
+      "field": "total_debt",
+      "disposition": "audit_only",
+      "reason": "Historical fiscal-Q4 debt evidence remains in JSON for audit and does not establish current-period net debt without matching current source-backed debt and cash."
     }
   ],
   "binding_planner_contract_version": "1.2.0",

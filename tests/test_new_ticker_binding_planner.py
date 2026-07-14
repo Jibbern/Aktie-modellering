@@ -273,7 +273,7 @@ def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
     assert ("Valuation", "T9") not in writes
 
     # Segment rows are a member-by-period pivot, not a sequential row dump.
-    assert writes[("BS_Segments", "A66")].value == "Workflow software"
+    assert writes[("BS_Segments", "A66")].value == "Brand: Workflow software"
     assert writes[("BS_Segments", "C66")].value == 92.0
     assert writes[("BS_Segments", "B72")].value == 360.0
     assert writes[("BS_Segments", "C66")].row_key == "2026-Q1|brand|Workflow software|revenue"
@@ -316,8 +316,11 @@ def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
     # Liquidity and valuation inputs have exact business semantics.
     assert writes[("SUMMARY", "B41")].value == 0.7
     assert writes[("SUMMARY", "B41")].normalized_path == "debt_liquidity.net_leverage"
-    assert writes[("SUMMARY", "B45")].value == "180.000 as of 2026-03-31"
+    assert writes[("SUMMARY", "B45")].value == 180.0
     assert writes[("SUMMARY", "B45")].normalized_path == "debt_liquidity.summary_liquidity_display"
+    assert writes[("SUMMARY", "D45")].value == "As of 2026-03-31"
+    assert writes[("Valuation", "D202")].value == 76.2
+    assert writes[("Valuation", "D202")].normalized_path == "valuation_inputs.operating_cash_flow_ttm"
     assert writes[("Valuation", "D195")].value == "2026-03-31"
     assert writes[("Valuation", "D196")].value == 42.0
     assert writes[("Valuation", "D197")].value == 42.3

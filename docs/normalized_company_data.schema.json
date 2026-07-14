@@ -8,6 +8,7 @@
     "ticker_metadata",
     "company_profile",
     "quarterly_financials",
+    "calculation_history",
     "annual_financials",
     "debt_liquidity",
     "capital_returns",
@@ -28,6 +29,7 @@
     "ticker_metadata.cik",
     "ticker_metadata.fiscal_year_end",
     "ticker_metadata.reporting_currency",
+    "ticker_metadata.investment_case_title",
     "company_profile.company_name",
     "company_profile.sector",
     "company_profile.industry",
@@ -39,6 +41,7 @@
     "company_profile.revenue_streams.mix",
     "company_profile.revenue_streams.period",
     "company_profile.revenue_streams.source_ref",
+    "company_profile.revenue_mix_label",
     "company_profile.key_advantages",
     "company_profile.key_risks",
     "company_profile.allowed_sector_terms",
@@ -54,14 +57,43 @@
     "quarterly_financials.rows.free_cash_flow",
     "quarterly_financials.rows.diluted_shares",
     "quarterly_financials.rows.capital_expenditures",
+    "quarterly_financials.rows.adjusted_eps",
+    "quarterly_financials.rows.interest_paid",
+    "quarterly_financials.rows.interest_expense",
+    "quarterly_financials.rows.buybacks_cash",
+    "quarterly_financials.rows.cash",
+    "quarterly_financials.rows.total_assets",
+    "quarterly_financials.rows.current_assets",
+    "quarterly_financials.rows.current_liabilities",
+    "quarterly_financials.rows.inventory",
+    "quarterly_financials.rows.total_equity",
+    "quarterly_financials.rows.debt_core",
+    "quarterly_financials.rows.lease_liabilities",
+    "quarterly_financials.rows.marketable_securities",
+    "quarterly_financials.rows.revolver_availability",
+    "calculation_history.quarterly_items.period",
+    "calculation_history.quarterly_items.period_ordinal",
+    "calculation_history.quarterly_items.metric",
+    "calculation_history.quarterly_items.value",
+    "calculation_history.quarterly_items.unit",
+    "calculation_history.quarterly_items.source_ref",
     "annual_financials.rows.period",
     "annual_financials.rows.revenue",
+    "annual_financials.rows.gross_profit",
     "annual_financials.rows.operating_income",
     "annual_financials.rows.base_ebitda",
     "annual_financials.rows.adjusted_ebitda",
     "annual_financials.rows.net_income",
     "annual_financials.rows.operating_cash_flow",
     "annual_financials.rows.free_cash_flow",
+    "annual_financials.rows.capital_expenditures",
+    "annual_financials.rows.cash",
+    "annual_financials.rows.debt_core",
+    "annual_financials.rows.total_equity",
+    "annual_financials.rows.diluted_shares",
+    "annual_financials.rows.q4_diluted_shares",
+    "annual_financials.rows.shares_outstanding",
+    "annual_financials.rows.eps",
     "debt_liquidity.cash",
     "debt_liquidity.total_debt",
     "debt_liquidity.net_debt",
@@ -74,6 +106,7 @@
     "debt_liquidity.as_of_date",
     "debt_liquidity.summary_as_of_date",
     "debt_liquidity.summary_liquidity_display",
+    "debt_liquidity.summary_liquidity_as_of_display",
     "debt_liquidity.liquidity_freshness",
     "debt_liquidity.liquidity",
     "debt_liquidity.lease_liabilities",
@@ -144,7 +177,13 @@
     "valuation_inputs.net_income_ttm",
     "valuation_inputs.operating_cash_flow_ttm",
     "valuation_inputs.free_cash_flow_ttm",
+    "valuation_inputs.adjusted_fcf_ttm",
     "valuation_inputs.capex_ttm",
+    "valuation_inputs.interest_paid_ttm",
+    "valuation_inputs.eps_ttm",
+    "valuation_inputs.adjusted_eps_ttm",
+    "valuation_inputs.book_value_per_share",
+    "valuation_inputs.tangible_book_value_per_share",
     "valuation_outputs.items.metric",
     "valuation_outputs.items.value",
     "valuation_outputs.items.interpretation",
@@ -184,6 +223,9 @@
         "reporting_currency": {
           "$ref": "#/$defs/normalizedField"
         },
+        "investment_case_title": {
+          "$ref": "#/$defs/normalizedField"
+        },
         "package_version": {
           "$ref": "#/$defs/normalizedField"
         },
@@ -220,6 +262,9 @@
         "revenue_model": {
           "$ref": "#/$defs/normalizedField"
         },
+        "revenue_mix_label": {
+          "$ref": "#/$defs/normalizedField"
+        },
         "revenue_streams": {
           "type": "array",
           "minItems": 1,
@@ -254,6 +299,18 @@
           "items": {
             "$ref": "#/$defs/financialRow"
           }
+        }
+      }
+    },
+    "calculation_history": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quarterly_items"],
+      "properties": {
+        "quarterly_items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/calculationHistoryItem"}
         }
       }
     },
@@ -304,6 +361,7 @@
         "as_of_date",
         "summary_as_of_date",
         "summary_liquidity_display",
+        "summary_liquidity_as_of_display",
         "liquidity_freshness"
       ],
       "properties": {
@@ -341,6 +399,9 @@
           "$ref": "#/$defs/normalizedField"
         },
         "summary_liquidity_display": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "summary_liquidity_as_of_display": {
           "$ref": "#/$defs/normalizedField"
         },
         "liquidity_freshness": {
@@ -534,7 +595,25 @@
         },
         "period": {
           "type": "string"
+        },
+        "definition": {
+          "type": "string"
         }
+      }
+    },
+    "calculationHistoryItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["period", "period_ordinal", "metric", "value", "unit", "source_ref", "status"],
+      "properties": {
+        "period": {"type": "string", "pattern": "^[0-9]{4}-Q[1-4]$"},
+        "period_ordinal": {"type": "integer", "minimum": 8000},
+        "metric": {"type": "string", "minLength": 1},
+        "value": {"type": "number"},
+        "unit": {"type": "string", "enum": ["$m", "$/share", "m shares"]},
+        "source_ref": {"type": "string", "minLength": 1},
+        "status": {"const": "populated"},
+        "definition": {"type": "string"}
       }
     },
     "revenueStreamRow": {
@@ -598,9 +677,14 @@
             "null"
           ]
         },
+        "period_end": {
+          "type": "string",
+          "format": "date"
+        },
         "revenue": {
           "$ref": "#/$defs/normalizedField"
         },
+        "cost_of_goods_sold": {"$ref": "#/$defs/normalizedField"},
         "gross_profit": {
           "$ref": "#/$defs/normalizedField"
         },
@@ -628,9 +712,49 @@
         "diluted_shares": {
           "$ref": "#/$defs/normalizedField"
         },
+        "q4_diluted_shares": {"$ref": "#/$defs/normalizedField"},
         "capital_expenditures": {
           "$ref": "#/$defs/normalizedField"
-        }
+        },
+        "income_taxes_paid": {"$ref": "#/$defs/normalizedField"},
+        "depreciation_amortization": {"$ref": "#/$defs/normalizedField"},
+        "operating_margin": {"$ref": "#/$defs/normalizedField"},
+        "adjusted_eps": {"$ref": "#/$defs/normalizedField"},
+        "interest_paid": {"$ref": "#/$defs/normalizedField"},
+        "interest_expense": {"$ref": "#/$defs/normalizedField"},
+        "buybacks_cash": {"$ref": "#/$defs/normalizedField"},
+        "dividends_cash": {"$ref": "#/$defs/normalizedField"},
+        "acquisitions_cash": {"$ref": "#/$defs/normalizedField"},
+        "debt_repayment": {"$ref": "#/$defs/normalizedField"},
+        "debt_issuance": {"$ref": "#/$defs/normalizedField"},
+        "cash": {"$ref": "#/$defs/normalizedField"},
+        "restricted_cash": {"$ref": "#/$defs/normalizedField"},
+        "short_term_investments": {"$ref": "#/$defs/normalizedField"},
+        "marketable_securities": {"$ref": "#/$defs/normalizedField"},
+        "total_assets": {"$ref": "#/$defs/normalizedField"},
+        "total_liabilities": {"$ref": "#/$defs/normalizedField"},
+        "current_assets": {"$ref": "#/$defs/normalizedField"},
+        "current_liabilities": {"$ref": "#/$defs/normalizedField"},
+        "accounts_receivable": {"$ref": "#/$defs/normalizedField"},
+        "inventory": {"$ref": "#/$defs/normalizedField"},
+        "accounts_payable": {"$ref": "#/$defs/normalizedField"},
+        "accrued_liabilities": {"$ref": "#/$defs/normalizedField"},
+        "short_term_borrowings": {"$ref": "#/$defs/normalizedField"},
+        "debt_current": {"$ref": "#/$defs/normalizedField"},
+        "property_plant_equipment_net": {"$ref": "#/$defs/normalizedField"},
+        "other_assets_noncurrent": {"$ref": "#/$defs/normalizedField"},
+        "other_liabilities_noncurrent": {"$ref": "#/$defs/normalizedField"},
+        "total_equity": {"$ref": "#/$defs/normalizedField"},
+        "goodwill": {"$ref": "#/$defs/normalizedField"},
+        "intangibles": {"$ref": "#/$defs/normalizedField"},
+        "shares_outstanding": {"$ref": "#/$defs/normalizedField"},
+        "pension_obligation_net": {"$ref": "#/$defs/normalizedField"},
+        "total_debt": {"$ref": "#/$defs/normalizedField"},
+        "debt_core": {"$ref": "#/$defs/normalizedField"},
+        "lease_liabilities": {"$ref": "#/$defs/normalizedField"},
+        "lease_liabilities_current": {"$ref": "#/$defs/normalizedField"},
+        "lease_liabilities_noncurrent": {"$ref": "#/$defs/normalizedField"},
+        "revolver_availability": {"$ref": "#/$defs/normalizedField"}
       }
     },
     "guidanceItem": {
@@ -969,7 +1093,12 @@
         "net_income_ttm",
         "operating_cash_flow_ttm",
         "free_cash_flow_ttm",
-        "capex_ttm"
+        "capex_ttm",
+        "interest_paid_ttm",
+        "eps_ttm",
+        "adjusted_eps_ttm",
+        "book_value_per_share",
+        "tangible_book_value_per_share"
       ],
       "properties": {
         "price": {"$ref": "#/$defs/normalizedField"},
@@ -983,7 +1112,13 @@
         "net_income_ttm": {"$ref": "#/$defs/normalizedField"},
         "operating_cash_flow_ttm": {"$ref": "#/$defs/normalizedField"},
         "free_cash_flow_ttm": {"$ref": "#/$defs/normalizedField"},
+        "adjusted_fcf_ttm": {"$ref": "#/$defs/normalizedField"},
         "capex_ttm": {"$ref": "#/$defs/normalizedField"},
+        "interest_paid_ttm": {"$ref": "#/$defs/normalizedField"},
+        "eps_ttm": {"$ref": "#/$defs/normalizedField"},
+        "adjusted_eps_ttm": {"$ref": "#/$defs/normalizedField"},
+        "book_value_per_share": {"$ref": "#/$defs/normalizedField"},
+        "tangible_book_value_per_share": {"$ref": "#/$defs/normalizedField"},
         "target_ev_adjusted_ebitda": {"$ref": "#/$defs/normalizedField"},
         "target_ev_ebitda": {"$ref": "#/$defs/normalizedField"},
         "target_ev_yield": {"$ref": "#/$defs/normalizedField"},
