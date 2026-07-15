@@ -24,6 +24,8 @@ BINDING_MAP = ROOT / "docs" / "workbook_binding_map.json"
 BINDING_SCHEMA = ROOT / "docs" / "workbook_binding_map.schema.json"
 PLAN_SCHEMA = ROOT / "docs" / "new_ticker_binding_plan.schema.json"
 AUDIT_RECEIPT_SCHEMA = ROOT / "docs" / "standard_template_audit_receipt.schema.json"
+MODULE_MANIFEST = ROOT / "docs" / "workbook_module_manifest.json"
+MODULE_SCHEMA = ROOT / "docs" / "workbook_module_manifest.schema.json"
 
 
 def _load(path: Path) -> dict:
@@ -38,6 +40,7 @@ def test_every_checked_in_schema_keyword_is_supported() -> None:
         BINDING_SCHEMA,
         PLAN_SCHEMA,
         AUDIT_RECEIPT_SCHEMA,
+        MODULE_SCHEMA,
     ):
         used = schema_keywords(_load(path))
         unsupported = {keyword for keyword in used if keyword not in SUPPORTED_SCHEMA_KEYWORDS and not keyword.startswith("x-")}
@@ -47,6 +50,7 @@ def test_every_checked_in_schema_keyword_is_supported() -> None:
 def test_checked_in_manifest_and_binding_contracts_match_their_schemas() -> None:
     assert validate_json_schema(_load(MANIFEST), _load(MANIFEST_SCHEMA)) == []
     assert validate_json_schema(_load(BINDING_MAP), _load(BINDING_SCHEMA)) == []
+    assert validate_json_schema(_load(MODULE_MANIFEST), _load(MODULE_SCHEMA)) == []
 
 
 def test_strict_json_loader_rejects_duplicate_keys(tmp_path: Path) -> None:

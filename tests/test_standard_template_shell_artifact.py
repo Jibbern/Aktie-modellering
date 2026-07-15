@@ -73,16 +73,14 @@ SIGNAL_FILL_COLORS = {
     "0056B4E9",
     "00CC79A7",
 }
+MODULE_MANIFEST_PAYLOAD = json.loads((ROOT / "docs" / "workbook_module_manifest.json").read_text(encoding="utf-8"))
 ALLOWED_HIDDEN_SHELL_SHEETS = {
-    "Hidden_Value_Flags",
-    "Revolver_History",
-    "Debt_Tranches_Latest",
-    "Debt_Profile",
-    "Guidance_Normalized",
-    "Quarter_Notes",
-    "Promise_Progress",
-    "History_Q",
+    sheet["sheet"]
+    for module in MODULE_MANIFEST_PAYLOAD["modules"]
+    for sheet in module["sheets"]
+    if sheet["role"] != "visible_product"
 }
+REQUIRED_SUPPORT_SHELL_SHEETS = set(ALLOWED_HIDDEN_SHELL_SHEETS)
 REQUIRED_PROMISE_ANNUAL_HEADERS = [
     "Metric",
     "Initial guide",
@@ -207,18 +205,6 @@ OPERATING_DRIVER_SHEET_HEADERS = {
     "B19": "Stated in",
     "C19": "Commentary",
 }
-REQUIRED_SUPPORT_SHELL_SHEETS = {
-    "Hidden_Value_Flags",
-    "Revolver_History",
-    "Debt_Tranches_Latest",
-    "Debt_Profile",
-    "Guidance_Normalized",
-    "Quarter_Notes",
-    "Promise_Progress",
-    "History_Q",
-}
-
-
 def _load_validator():
     path = ROOT / "scripts" / "validate_standard_template_shell.py"
     spec = importlib.util.spec_from_file_location("validate_standard_template_shell", path)
@@ -954,16 +940,26 @@ def test_standard_template_sheet_inventory_and_lifecycle_docs_exist() -> None:
     lifecycle = json.loads(SUPPORT_LIFECYCLE_JSON.read_text(encoding="utf-8"))
     inventory_rows = {row["sheet_name"]: row for row in inventory["sheets"]}
     lifecycle_rows = {row["sheet_name"]: row for row in lifecycle["support_sheets"]}
+    module_contracts = {
+        sheet["sheet"]: sheet
+        for module in MODULE_MANIFEST_PAYLOAD["modules"]
+        for sheet in module["sheets"]
+    }
 
     for sheet_name in REQUIRED_SUPPORT_SHELL_SHEETS:
-        assert inventory_rows[sheet_name]["classification"] == "required_support_shell_sheet"
+        expected_classification = {
+            "B": "required_support_shell_sheet",
+            "C": "optional_module_shell_sheet",
+            "E": "fixture_capacity_shell_sheet",
+        }[module_contracts[sheet_name]["legacy_class"]]
+        assert inventory_rows[sheet_name]["classification"] == expected_classification
         assert inventory_rows[sheet_name]["present_in_standard_shell"] is True
         assert lifecycle_rows[sheet_name]["owner"] == "frozen_shell"
         assert lifecycle_rows[sheet_name]["neutral_shell_required"] is True
 
-    for sheet_name in ("Guidance_Raw", "Promise_Evidence", "Quarter_Notes_Audit", "DATA_Facts_Long"):
+    for sheet_name in ("Guidance_Raw", "Quarter_Notes_Audit", "DATA_Facts_Long"):
         assert sheet_name in lifecycle_rows
-        assert lifecycle_rows[sheet_name]["owner"] == "value_only_runtime"
+        assert lifecycle_rows[sheet_name]["owner"] == "external_normalized_json"
         assert lifecycle_rows[sheet_name]["neutral_shell_required"] is False
 
 

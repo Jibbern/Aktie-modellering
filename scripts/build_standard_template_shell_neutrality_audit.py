@@ -24,6 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from pbi_xbrl.standard_template_audit_runner import run_audit_generator
+from pbi_xbrl.workbook_modules import DEFAULT_MODULE_MANIFEST, load_workbook_module_manifest, sheet_contracts
 
 DEFAULT_TEMPLATE = ROOT / "templates" / "standard_stock_model_template.xlsx"
 DEFAULT_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
@@ -128,16 +129,6 @@ UNIVERSAL_HEADER_TEXT = {
     "binding_id",
     "target",
 }
-REQUIRED_SUPPORT_SHELL_SHEETS = {
-    "Hidden_Value_Flags",
-    "Revolver_History",
-    "Debt_Tranches_Latest",
-    "Debt_Profile",
-    "Guidance_Normalized",
-    "Quarter_Notes",
-    "Promise_Progress",
-    "History_Q",
-}
 RED_GREEN_STATUS_TERMS = {"PASS", "WARN", "FAIL", "N/A"}
 SIGNAL_FILL_COLORS = {
     "002F80ED",
@@ -240,7 +231,12 @@ def _is_placeholder(text: str) -> bool:
     return stripped.startswith("[") and stripped.endswith("]")
 
 
-def _classify_cell(sheet: str, coord: str, value: Any) -> tuple[str, str]:
+def _classify_cell(
+    sheet: str,
+    coord: str,
+    value: Any,
+    module_headers: set[str] | None = None,
+) -> tuple[str, str]:
     if _is_formula(value):
         return "formula_static", "Excel formula retained in protected/static shell structure."
     if isinstance(value, (date, datetime)):
@@ -256,7 +252,7 @@ def _classify_cell(sheet: str, coord: str, value: Any) -> tuple[str, str]:
         return "placeholder_slot", "Blank cell is not recorded as non-empty content."
     if _is_placeholder(text):
         return "placeholder_slot", "Generic writable/template slot."
-    if lowered in UNIVERSAL_HEADER_TEXT:
+    if lowered in UNIVERSAL_HEADER_TEXT or lowered in (module_headers or set()):
         return "universal_template_label", "Universal QA/source/status header."
     if _is_company_specific(text):
         return "company_specific_text", "Company/source-family term must not be standard template text."
@@ -294,8 +290,24 @@ def _fill_rgb(cell: Any) -> str:
     return str(cell.fill.fgColor.rgb or "")
 
 
-def scan_neutrality_workbook(*, template_path: Path = DEFAULT_TEMPLATE, manifest_path: Path = DEFAULT_MANIFEST) -> dict[str, Any]:
+def scan_neutrality_workbook(
+    *,
+    template_path: Path = DEFAULT_TEMPLATE,
+    manifest_path: Path = DEFAULT_MANIFEST,
+    module_manifest_path: Path = DEFAULT_MODULE_MANIFEST,
+) -> dict[str, Any]:
     manifest = _load_json(manifest_path)
+    module_payload = load_workbook_module_manifest(module_manifest_path)
+    module_headers = {
+        str(header).strip().lower()
+        for contract in sheet_contracts(module_payload).values()
+        for header in contract.get("headers") or []
+    }
+    required_support_sheets = {
+        name
+        for name, contract in sheet_contracts(module_payload).items()
+        if str(contract["role"]) != "visible_product"
+    }
     wb = load_workbook(template_path, data_only=False, read_only=False)
     try:
         visible_sheets = [ws.title for ws in wb.worksheets if ws.sheet_state == "visible"]
@@ -313,7 +325,12 @@ def scan_neutrality_workbook(*, template_path: Path = DEFAULT_TEMPLATE, manifest
                     value = cell.value
                     if value in (None, ""):
                         continue
-                    classification, reason = _classify_cell(ws.title, cell.coordinate, value)
+                    classification, reason = _classify_cell(
+                        ws.title,
+                        cell.coordinate,
+                        value,
+                        module_headers,
+                    )
                     classification_counts[classification] += 1
                     if ws.title == "Valuation" and isinstance(value, (int, float)):
                         valuation_numeric_count += 1
@@ -467,7 +484,7 @@ def scan_neutrality_workbook(*, template_path: Path = DEFAULT_TEMPLATE, manifest
                         )
 
         hidden_sheets = {ws.title for ws in wb.worksheets if ws.sheet_state != "visible"}
-        missing_required_support = sorted(REQUIRED_SUPPORT_SHELL_SHEETS - hidden_sheets)
+        missing_required_support = sorted(required_support_sheets - hidden_sheets)
 
         summary = {
             "company_specific_value_count": classification_counts["company_specific_value"],
@@ -492,6 +509,7 @@ def scan_neutrality_workbook(*, template_path: Path = DEFAULT_TEMPLATE, manifest
             "version": "0.1.0",
             "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
             "template_path": str(template_path),
+            "module_manifest_path": str(module_manifest_path),
             "visible_sheets": visible_sheets,
             "retained_hidden_sheets": retained_hidden_sheets,
             "classification_counts": dict(sorted(classification_counts.items())),
@@ -564,10 +582,15 @@ def build_audit(
     *,
     template_path: Path = DEFAULT_TEMPLATE,
     manifest_path: Path = DEFAULT_MANIFEST,
+    module_manifest_path: Path = DEFAULT_MODULE_MANIFEST,
     output_json: Path = DEFAULT_OUTPUT_JSON,
     output_md: Path = DEFAULT_OUTPUT_MD,
 ) -> dict[str, Any]:
-    payload = scan_neutrality_workbook(template_path=template_path, manifest_path=manifest_path)
+    payload = scan_neutrality_workbook(
+        template_path=template_path,
+        manifest_path=manifest_path,
+        module_manifest_path=module_manifest_path,
+    )
     output_json.parent.mkdir(parents=True, exist_ok=True)
     output_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     _write_markdown(output_md, payload)
@@ -578,6 +601,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--module-manifest", type=Path, default=DEFAULT_MODULE_MANIFEST)
     parser.add_argument("--output-json", type=Path, default=DEFAULT_OUTPUT_JSON)
     parser.add_argument("--output-md", type=Path, default=DEFAULT_OUTPUT_MD)
     args = parser.parse_args(argv)
@@ -587,6 +611,7 @@ def main(argv: list[str] | None = None) -> int:
         for actual, expected in (
             (args.template, DEFAULT_TEMPLATE),
             (args.manifest, DEFAULT_MANIFEST),
+            (args.module_manifest, DEFAULT_MODULE_MANIFEST),
             (args.output_json, DEFAULT_OUTPUT_JSON),
             (args.output_md, DEFAULT_OUTPUT_MD),
         )
@@ -598,6 +623,7 @@ def main(argv: list[str] | None = None) -> int:
         payload = build_audit(
             template_path=args.template,
             manifest_path=args.manifest,
+            module_manifest_path=args.module_manifest,
             output_json=args.output_json,
             output_md=args.output_md,
         )

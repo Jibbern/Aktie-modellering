@@ -46,19 +46,62 @@
         "status"
       ],
       "target_columns": [
-        {"column_id": "period", "source_field": "period", "target_column": "A", "target_type": "period", "target_role": "calculation_history_quarterly_rows.period"},
-        {"column_id": "period_ordinal", "source_field": "period_ordinal", "target_column": "B", "target_type": "number", "target_role": "calculation_history_quarterly_rows.period_ordinal"},
-        {"column_id": "metric", "source_field": "metric", "target_column": "C", "target_type": "text", "target_role": "calculation_history_quarterly_rows.metric"},
-        {"column_id": "value", "source_field": "value", "target_column": "D", "target_type": "number", "target_role": "calculation_history_quarterly_rows.value"},
-        {"column_id": "unit", "source_field": "unit", "target_column": "E", "target_type": "text", "target_role": "calculation_history_quarterly_rows.unit"},
-        {"column_id": "source_ref", "source_field": "source_ref", "target_column": "F", "target_type": "text", "target_role": "calculation_history_quarterly_rows.source_ref"},
-        {"column_id": "status", "source_field": "status", "target_column": "G", "target_type": "text", "target_role": "calculation_history_quarterly_rows.status"}
+        {
+          "column_id": "period",
+          "source_field": "period",
+          "target_column": "A",
+          "target_type": "period",
+          "target_role": "calculation_history_quarterly_rows.period"
+        },
+        {
+          "column_id": "period_ordinal",
+          "source_field": "period_ordinal",
+          "target_column": "B",
+          "target_type": "number",
+          "target_role": "calculation_history_quarterly_rows.period_ordinal"
+        },
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "C",
+          "target_type": "text",
+          "target_role": "calculation_history_quarterly_rows.metric"
+        },
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "D",
+          "target_type": "number",
+          "target_role": "calculation_history_quarterly_rows.value"
+        },
+        {
+          "column_id": "unit",
+          "source_field": "unit",
+          "target_column": "E",
+          "target_type": "text",
+          "target_role": "calculation_history_quarterly_rows.unit"
+        },
+        {
+          "column_id": "source_ref",
+          "source_field": "source_ref",
+          "target_column": "F",
+          "target_type": "text",
+          "target_role": "calculation_history_quarterly_rows.source_ref"
+        },
+        {
+          "column_id": "status",
+          "source_field": "status",
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "calculation_history_quarterly_rows.status"
+        }
       ],
       "source_ref_required": true,
       "source_ref_field": "source_ref",
       "planning_state": "active",
       "visibility": "hidden_support",
-      "block_ownership": "formula_input_projection"
+      "block_ownership": "formula_input_projection",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "summary_company_description",
@@ -80,7 +123,8 @@
       "planner_target": "A3",
       "source_path": "company_profile.business_description",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "summary_key_advantage",
@@ -102,7 +146,8 @@
       "planner_target": "A7",
       "source_path": "company_profile.key_advantages",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "summary_strategic_context",
@@ -124,7 +169,8 @@
       "planner_target": "A5",
       "source_path": "company_profile.strategic_context",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "summary_revenue_stream_rows",
@@ -179,7 +225,8 @@
       ],
       "source_ref_required": true,
       "source_ref_field": "mix",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "segments_dimensions"
     },
     {
       "binding_id": "summary_segment_model",
@@ -232,7 +279,8 @@
       ],
       "source_ref_required": true,
       "source_ref_field": "description",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "segments_dimensions"
     },
     {
       "binding_id": "summary_key_risks",
@@ -278,7 +326,8 @@
       ],
       "source_ref_required": true,
       "source_ref_field": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "summary_wrong_if",
@@ -324,7 +373,8 @@
       ],
       "source_ref_required": true,
       "source_ref_field": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "summary_as_of_quarter",
@@ -366,7 +416,8 @@
       "source_ref_required": true,
       "source_field": "period",
       "planning_state": "active",
-      "source_ref_field": "revenue"
+      "source_ref_field": "revenue",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "summary_latest_net_income",
@@ -408,7 +459,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "net_income",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "summary_net_leverage",
@@ -430,7 +482,8 @@
       "planner_target": "B41",
       "source_path": "debt_liquidity.net_leverage",
       "target_type": "number",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "valuation_guidance_rows",
@@ -508,7 +561,8 @@
       "source_ref_required": true,
       "source_ref_field": "value",
       "planning_state": "active",
-      "rowset_id": "current_primary_guidance"
+      "rowset_id": "current_primary_guidance",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "valuation_guidance_rows_lower",
@@ -556,7 +610,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower guidance block needs an explicit period/revision selector before it can consume source rows."
+      "planning_block_reason": "Lower guidance block needs an explicit period/revision selector before it can consume source rows.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "valuation_operating_driver_sidecar_rows",
@@ -628,7 +683,8 @@
       "source_ref_required": true,
       "source_ref_field": "current_read",
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "The sidecar needs a declared independent target for current_read before it can write a complete operating-driver row."
+      "planning_block_reason": "The sidecar needs a declared independent target for current_read before it can write a complete operating-driver row.",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "valuation_thesis_bridge_rows",
@@ -670,7 +726,8 @@
       ],
       "source_ref_required": false,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "A scalar key_debate field is not a typed thesis_bridge_items table."
+      "planning_block_reason": "A scalar key_debate field is not a typed thesis_bridge_items table.",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_output_rows",
@@ -744,7 +801,8 @@
       "source_ref_required": false,
       "source_ref_field": "value",
       "planning_state": "formula_owned",
-      "planning_block_reason": "Generic valuation outputs are protected formulas owned by the frozen shell."
+      "planning_block_reason": "Generic valuation outputs are protected formulas owned by the frozen shell.",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_guidance_status_rows",
@@ -808,7 +866,8 @@
       "source_ref_required": true,
       "planning_state": "active",
       "source_ref_field": "value",
-      "rowset_id": "current_primary_guidance"
+      "rowset_id": "current_primary_guidance",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "valuation_guidance_status_rows_lower",
@@ -856,7 +915,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower guidance status block needs an explicit period/revision selector before it can consume source rows."
+      "planning_block_reason": "Lower guidance status block needs an explicit period/revision selector before it can consume source rows.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "bs_annual_financial_period_headers",
@@ -902,7 +962,8 @@
       "source_ref_required": true,
       "source_field": "period",
       "source_ref_field": "revenue",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_revenue_series",
@@ -946,7 +1007,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "revenue",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_gross_profit_series",
@@ -990,7 +1052,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "gross_profit",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_operating_income_series",
@@ -1034,7 +1097,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "operating_income",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_base_ebitda_series",
@@ -1078,7 +1142,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "base_ebitda",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_adjusted_ebitda_series",
@@ -1122,7 +1187,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "adjusted_ebitda",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "non_gaap_adjustments"
     },
     {
       "binding_id": "bs_annual_financial_net_income_series",
@@ -1166,7 +1232,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "net_income",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_operating_cash_flow_series",
@@ -1210,7 +1277,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "operating_cash_flow",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_capital_expenditures_series",
@@ -1254,7 +1322,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "capital_expenditures",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_shares_outstanding_series",
@@ -1298,7 +1367,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "shares_outstanding",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_eps_series",
@@ -1328,15 +1398,22 @@
         "source_path": "annual_financials.rows",
         "window": "latest_capacity"
       },
-      "row_key": ["period"],
-      "sort_order": ["period:asc"],
+      "row_key": [
+        "period"
+      ],
+      "sort_order": [
+        "period:asc"
+      ],
       "capacity": 8,
       "overflow_behavior": "mapping_gap",
-      "required_columns": ["eps"],
+      "required_columns": [
+        "eps"
+      ],
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "eps",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_total_equity_series",
@@ -1380,7 +1457,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "total_equity",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_cash_series",
@@ -1424,7 +1502,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "cash",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_financial_debt_core_series",
@@ -1468,7 +1547,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "debt_core",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "bs_segment_quarterly_rows",
@@ -1559,7 +1639,8 @@
         "geography": "Geography: {member}",
         "total_company": "{member}",
         "brand": "Brand: {member}"
-      }
+      },
+      "module_id": "segments_dimensions"
     },
     {
       "binding_id": "bs_segment_annual_rows",
@@ -1650,7 +1731,8 @@
         "geography": "Geography: {member}",
         "total_company": "{member}",
         "brand": "Brand: {member}"
-      }
+      },
+      "module_id": "segments_dimensions"
     },
     {
       "binding_id": "od_watchlist_rows",
@@ -1752,7 +1834,8 @@
       "source_ref_required": true,
       "source_ref_field": "current_read",
       "planning_state": "active",
-      "rowset_id": "current_operating_driver_watchlist"
+      "rowset_id": "current_operating_driver_watchlist",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "od_current_actual_read",
@@ -1774,7 +1857,8 @@
       "planner_target": "B13",
       "source_path": "operating_drivers.current_outlook.current_actual_read",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "od_current_actual_use",
@@ -1796,7 +1880,8 @@
       "planner_target": "H13",
       "source_path": "operating_drivers.current_outlook.current_actual_use",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "od_current_guidance_read",
@@ -1818,7 +1903,8 @@
       "planner_target": "B14",
       "source_path": "operating_drivers.current_outlook.current_guidance_read",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "od_current_guidance_use",
@@ -1840,7 +1926,8 @@
       "planner_target": "H14",
       "source_path": "operating_drivers.current_outlook.current_guidance_use",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "od_margin_bridge_read",
@@ -1862,7 +1949,8 @@
       "planner_target": "B15",
       "source_path": "operating_drivers.current_outlook.margin_bridge_read",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "od_margin_bridge_use",
@@ -1884,7 +1972,8 @@
       "planner_target": "H15",
       "source_path": "operating_drivers.current_outlook.margin_bridge_use",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "od_topic_current_read_rows",
@@ -1932,7 +2021,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Current sub-block lacks declared independent generic table slots."
+      "planning_block_reason": "Current sub-block lacks declared independent generic table slots.",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "od_horizon_commentary_rows",
@@ -1980,7 +2070,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Current sub-block lacks declared independent generic table slots."
+      "planning_block_reason": "Current sub-block lacks declared independent generic table slots.",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "od_current_outlook_rows",
@@ -2028,7 +2119,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Current sub-block lacks declared independent generic table slots."
+      "planning_block_reason": "Current sub-block lacks declared independent generic table slots.",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "od_driver_actuals_rows",
@@ -2076,7 +2168,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Current sub-block lacks declared independent generic table slots."
+      "planning_block_reason": "Current sub-block lacks declared independent generic table slots.",
+      "module_id": "operating_drivers"
     },
     {
       "binding_id": "ic_investment_summary",
@@ -2098,7 +2191,8 @@
       "planner_target": "B5",
       "source_path": "investment_case.summary",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_key_debate",
@@ -2120,7 +2214,8 @@
       "planner_target": "B7",
       "source_path": "investment_case.key_debate",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_why_it_can_work",
@@ -2142,7 +2237,8 @@
       "planner_target": "B6",
       "source_path": "investment_case.why_it_can_work",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_upside_factors",
@@ -2164,7 +2260,8 @@
       "planner_target": "B8",
       "source_path": "investment_case.upside_factors",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_downside_factors",
@@ -2186,7 +2283,8 @@
       "planner_target": "B9",
       "source_path": "investment_case.downside_factors",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_watch_next",
@@ -2208,7 +2306,8 @@
       "planner_target": "B10",
       "source_path": "investment_case.watch_next",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_current_stance",
@@ -2230,7 +2329,8 @@
       "planner_target": "B11",
       "source_path": "investment_case.current_stance",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_bull_base_bear_rows",
@@ -2272,7 +2372,8 @@
       ],
       "source_ref_required": false,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Scenario rows need a typed investment_case.scenario_items collection."
+      "planning_block_reason": "Scenario rows need a typed investment_case.scenario_items collection.",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_scenario_bridge_rows",
@@ -2322,7 +2423,8 @@
       ],
       "source_ref_required": false,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Scenario bridge rows need a typed valuation/investment-case bridge collection."
+      "planning_block_reason": "Scenario bridge rows need a typed valuation/investment-case bridge collection.",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_lower_comp_history_labels",
@@ -2370,7 +2472,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output."
+      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output.",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_lower_business_health_rows",
@@ -2419,7 +2522,8 @@
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
       "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output.",
-      "block_id": "ic_lower_business_health_values"
+      "block_id": "ic_lower_business_health_values",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_lower_inventory_rows",
@@ -2467,7 +2571,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output."
+      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output.",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_lower_asset_productivity_rows",
@@ -2516,7 +2621,8 @@
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
       "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output.",
-      "block_id": "ic_lower_asset_productivity_values"
+      "block_id": "ic_lower_asset_productivity_values",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "ic_lower_guidance_setup_rows",
@@ -2564,7 +2670,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Guidance setup needs a typed scenario collection and explicit selector."
+      "planning_block_reason": "Guidance setup needs a typed scenario collection and explicit selector.",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "qn_quarter_note_rows",
@@ -2697,7 +2804,8 @@
       "source_ref_required": true,
       "source_ref_field": "commentary",
       "planning_state": "active",
-      "rowset_id": "latest_valid_quarter_notes"
+      "rowset_id": "latest_valid_quarter_notes",
+      "module_id": "quarter_notes_evidence"
     },
     {
       "binding_id": "qn_quarter_summary_rows",
@@ -2719,7 +2827,8 @@
       "planner_target": "B3",
       "source_path": "quarter_notes.summary.model_read",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "quarter_notes_evidence"
     },
     {
       "binding_id": "qn_quarter_summary_what_changed",
@@ -2741,7 +2850,8 @@
       "planner_target": "B4",
       "source_path": "quarter_notes.summary.what_changed",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "quarter_notes_evidence"
     },
     {
       "binding_id": "qn_quarter_summary_watch_next",
@@ -2763,7 +2873,8 @@
       "planner_target": "B5",
       "source_path": "quarter_notes.summary.watch_next",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "quarter_notes_evidence"
     },
     {
       "binding_id": "qn_quarter_summary_key_caveat",
@@ -2785,7 +2896,8 @@
       "planner_target": "B6",
       "source_path": "quarter_notes.summary.key_caveat",
       "target_type": "text",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "quarter_notes_evidence"
     },
     {
       "binding_id": "qn_quarter_model_implication_rows",
@@ -2835,7 +2947,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Quarter Notes shell slot ownership is not declared; merged slots must be resolved before separate fields can render."
+      "planning_block_reason": "Quarter Notes shell slot ownership is not declared; merged slots must be resolved before separate fields can render.",
+      "module_id": "quarter_notes_evidence"
     },
     {
       "binding_id": "pp_scorecard_rows",
@@ -2883,7 +2996,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Promise scorecard needs explicit metric-to-static-row selector mapping."
+      "planning_block_reason": "Promise scorecard needs explicit metric-to-static-row selector mapping.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_annual_guidance_rows",
@@ -3028,7 +3142,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Promise progression needs declared independent cell slots for all revision columns."
+      "planning_block_reason": "Promise progression needs declared independent cell slots for all revision columns.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_annual_guidance_rows_block_2",
@@ -3076,7 +3191,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Promise progression needs an explicit annual-period selector."
+      "planning_block_reason": "Promise progression needs an explicit annual-period selector.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_annual_guidance_rows_block_3",
@@ -3124,7 +3240,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Promise progression needs an explicit annual-period selector."
+      "planning_block_reason": "Promise progression needs an explicit annual-period selector.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_annual_guidance_rows_block_4",
@@ -3172,7 +3289,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Promise progression needs an explicit annual-period selector."
+      "planning_block_reason": "Promise progression needs an explicit annual-period selector.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_open_guidance_rows",
@@ -3317,7 +3435,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Promise open-guidance block needs declared independent cell slots and horizon selector."
+      "planning_block_reason": "Promise open-guidance block needs declared independent cell slots and horizon selector.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_progress_fy2025_rows",
@@ -3331,15 +3450,51 @@
       "value_shape": "table_rows",
       "row_source": "promise_progress.items",
       "row_schema": [
-        {"column_id": "metric", "source_field": "display_metric", "target_column": "A"},
-        {"column_id": "initial_guide", "source_field": "original_commitment", "target_column": "B"},
-        {"column_id": "q1_update", "source_field": "q1_update", "target_column": "C"},
-        {"column_id": "q2_update", "source_field": "q2_update", "target_column": "D"},
-        {"column_id": "q3_update", "source_field": "q3_update", "target_column": "E"},
-        {"column_id": "q4_update", "source_field": "q4_update", "target_column": "F"},
-        {"column_id": "actual", "source_field": "actual", "target_column": "G"},
-        {"column_id": "status", "source_field": "progress_status", "target_column": "H"},
-        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "I"}
+        {
+          "column_id": "metric",
+          "source_field": "display_metric",
+          "target_column": "A"
+        },
+        {
+          "column_id": "initial_guide",
+          "source_field": "original_commitment",
+          "target_column": "B"
+        },
+        {
+          "column_id": "q1_update",
+          "source_field": "q1_update",
+          "target_column": "C"
+        },
+        {
+          "column_id": "q2_update",
+          "source_field": "q2_update",
+          "target_column": "D"
+        },
+        {
+          "column_id": "q3_update",
+          "source_field": "q3_update",
+          "target_column": "E"
+        },
+        {
+          "column_id": "q4_update",
+          "source_field": "q4_update",
+          "target_column": "F"
+        },
+        {
+          "column_id": "actual",
+          "source_field": "actual",
+          "target_column": "G"
+        },
+        {
+          "column_id": "status",
+          "source_field": "progress_status",
+          "target_column": "H"
+        },
+        {
+          "column_id": "notes_source",
+          "source_field": "notes_source",
+          "target_column": "I"
+        }
       ],
       "required": false,
       "source_policy": "source-backed",
@@ -3353,31 +3508,98 @@
       "row_selector": {
         "source_path": "promise_progress.items",
         "filters": [
-          {"field": "display_block", "equals": "fy2025"},
-          {"field": "display_role", "equals": "historical_progression"}
+          {
+            "field": "display_block",
+            "equals": "fy2025"
+          },
+          {
+            "field": "display_role",
+            "equals": "historical_progression"
+          }
         ]
       },
-      "row_key": ["metric", "horizon", "evidence_key"],
-      "sort_order": ["display_priority:asc", "metric:asc", "evidence_key:asc"],
+      "row_key": [
+        "metric",
+        "horizon",
+        "evidence_key"
+      ],
+      "sort_order": [
+        "display_priority:asc",
+        "metric:asc",
+        "evidence_key:asc"
+      ],
       "capacity": 8,
       "overflow_behavior": "mapping_gap",
-      "required_columns": ["display_metric", "original_commitment", "current_guidance", "notes_source"],
-      "row_key_only_columns": ["current_guidance"],
+      "required_columns": [
+        "display_metric",
+        "original_commitment",
+        "current_guidance",
+        "notes_source"
+      ],
+      "row_key_only_columns": [
+        "current_guidance"
+      ],
       "target_columns": [
-        {"column_id": "metric", "source_field": "display_metric", "target_column": "A", "target_type": "text"},
-        {"column_id": "initial_guide", "source_field": "original_commitment", "target_column": "B", "target_type": "text"},
-        {"column_id": "q1_update", "source_field": "q1_update", "target_column": "C", "target_type": "text"},
-        {"column_id": "q2_update", "source_field": "q2_update", "target_column": "D", "target_type": "text"},
-        {"column_id": "q3_update", "source_field": "q3_update", "target_column": "E", "target_type": "text"},
-        {"column_id": "q4_update", "source_field": "q4_update", "target_column": "F", "target_type": "text"},
-        {"column_id": "actual", "source_field": "actual", "target_column": "G", "target_type": "value"},
-        {"column_id": "status", "source_field": "progress_status", "target_column": "H", "target_type": "status"},
-        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "I", "target_type": "text"}
+        {
+          "column_id": "metric",
+          "source_field": "display_metric",
+          "target_column": "A",
+          "target_type": "text"
+        },
+        {
+          "column_id": "initial_guide",
+          "source_field": "original_commitment",
+          "target_column": "B",
+          "target_type": "text"
+        },
+        {
+          "column_id": "q1_update",
+          "source_field": "q1_update",
+          "target_column": "C",
+          "target_type": "text"
+        },
+        {
+          "column_id": "q2_update",
+          "source_field": "q2_update",
+          "target_column": "D",
+          "target_type": "text"
+        },
+        {
+          "column_id": "q3_update",
+          "source_field": "q3_update",
+          "target_column": "E",
+          "target_type": "text"
+        },
+        {
+          "column_id": "q4_update",
+          "source_field": "q4_update",
+          "target_column": "F",
+          "target_type": "text"
+        },
+        {
+          "column_id": "actual",
+          "source_field": "actual",
+          "target_column": "G",
+          "target_type": "value"
+        },
+        {
+          "column_id": "status",
+          "source_field": "progress_status",
+          "target_column": "H",
+          "target_type": "status"
+        },
+        {
+          "column_id": "notes_source",
+          "source_field": "notes_source",
+          "target_column": "I",
+          "target_type": "text"
+        }
       ],
       "source_ref_required": true,
       "source_ref_field": "current_guidance",
       "planning_state": "active",
-      "rowset_id": "promise_progress_fy2025"
+      "rowset_id": "promise_progress_fy2025",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_progress_fy2024_rows",
@@ -3391,15 +3613,51 @@
       "value_shape": "table_rows",
       "row_source": "promise_progress.items",
       "row_schema": [
-        {"column_id": "metric", "source_field": "display_metric", "target_column": "A"},
-        {"column_id": "initial_guide", "source_field": "original_commitment", "target_column": "B"},
-        {"column_id": "q1_update", "source_field": "q1_update", "target_column": "C"},
-        {"column_id": "q2_update", "source_field": "q2_update", "target_column": "D"},
-        {"column_id": "q3_update", "source_field": "q3_update", "target_column": "E"},
-        {"column_id": "q4_update", "source_field": "q4_update", "target_column": "F"},
-        {"column_id": "actual", "source_field": "actual", "target_column": "G"},
-        {"column_id": "status", "source_field": "progress_status", "target_column": "H"},
-        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "I"}
+        {
+          "column_id": "metric",
+          "source_field": "display_metric",
+          "target_column": "A"
+        },
+        {
+          "column_id": "initial_guide",
+          "source_field": "original_commitment",
+          "target_column": "B"
+        },
+        {
+          "column_id": "q1_update",
+          "source_field": "q1_update",
+          "target_column": "C"
+        },
+        {
+          "column_id": "q2_update",
+          "source_field": "q2_update",
+          "target_column": "D"
+        },
+        {
+          "column_id": "q3_update",
+          "source_field": "q3_update",
+          "target_column": "E"
+        },
+        {
+          "column_id": "q4_update",
+          "source_field": "q4_update",
+          "target_column": "F"
+        },
+        {
+          "column_id": "actual",
+          "source_field": "actual",
+          "target_column": "G"
+        },
+        {
+          "column_id": "status",
+          "source_field": "progress_status",
+          "target_column": "H"
+        },
+        {
+          "column_id": "notes_source",
+          "source_field": "notes_source",
+          "target_column": "I"
+        }
       ],
       "required": false,
       "source_policy": "source-backed",
@@ -3413,31 +3671,98 @@
       "row_selector": {
         "source_path": "promise_progress.items",
         "filters": [
-          {"field": "display_block", "equals": "fy2024"},
-          {"field": "display_role", "equals": "historical_progression"}
+          {
+            "field": "display_block",
+            "equals": "fy2024"
+          },
+          {
+            "field": "display_role",
+            "equals": "historical_progression"
+          }
         ]
       },
-      "row_key": ["metric", "horizon", "evidence_key"],
-      "sort_order": ["display_priority:asc", "metric:asc", "evidence_key:asc"],
+      "row_key": [
+        "metric",
+        "horizon",
+        "evidence_key"
+      ],
+      "sort_order": [
+        "display_priority:asc",
+        "metric:asc",
+        "evidence_key:asc"
+      ],
       "capacity": 4,
       "overflow_behavior": "mapping_gap",
-      "required_columns": ["display_metric", "original_commitment", "current_guidance", "notes_source"],
-      "row_key_only_columns": ["current_guidance"],
+      "required_columns": [
+        "display_metric",
+        "original_commitment",
+        "current_guidance",
+        "notes_source"
+      ],
+      "row_key_only_columns": [
+        "current_guidance"
+      ],
       "target_columns": [
-        {"column_id": "metric", "source_field": "display_metric", "target_column": "A", "target_type": "text"},
-        {"column_id": "initial_guide", "source_field": "original_commitment", "target_column": "B", "target_type": "text"},
-        {"column_id": "q1_update", "source_field": "q1_update", "target_column": "C", "target_type": "text"},
-        {"column_id": "q2_update", "source_field": "q2_update", "target_column": "D", "target_type": "text"},
-        {"column_id": "q3_update", "source_field": "q3_update", "target_column": "E", "target_type": "text"},
-        {"column_id": "q4_update", "source_field": "q4_update", "target_column": "F", "target_type": "text"},
-        {"column_id": "actual", "source_field": "actual", "target_column": "G", "target_type": "value"},
-        {"column_id": "status", "source_field": "progress_status", "target_column": "H", "target_type": "status"},
-        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "I", "target_type": "text"}
+        {
+          "column_id": "metric",
+          "source_field": "display_metric",
+          "target_column": "A",
+          "target_type": "text"
+        },
+        {
+          "column_id": "initial_guide",
+          "source_field": "original_commitment",
+          "target_column": "B",
+          "target_type": "text"
+        },
+        {
+          "column_id": "q1_update",
+          "source_field": "q1_update",
+          "target_column": "C",
+          "target_type": "text"
+        },
+        {
+          "column_id": "q2_update",
+          "source_field": "q2_update",
+          "target_column": "D",
+          "target_type": "text"
+        },
+        {
+          "column_id": "q3_update",
+          "source_field": "q3_update",
+          "target_column": "E",
+          "target_type": "text"
+        },
+        {
+          "column_id": "q4_update",
+          "source_field": "q4_update",
+          "target_column": "F",
+          "target_type": "text"
+        },
+        {
+          "column_id": "actual",
+          "source_field": "actual",
+          "target_column": "G",
+          "target_type": "value"
+        },
+        {
+          "column_id": "status",
+          "source_field": "progress_status",
+          "target_column": "H",
+          "target_type": "status"
+        },
+        {
+          "column_id": "notes_source",
+          "source_field": "notes_source",
+          "target_column": "I",
+          "target_type": "text"
+        }
       ],
       "source_ref_required": true,
       "source_ref_field": "current_guidance",
       "planning_state": "active",
-      "rowset_id": "promise_progress_fy2024"
+      "rowset_id": "promise_progress_fy2024",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_current_secondary_guidance_rows",
@@ -3451,11 +3776,31 @@
       "value_shape": "table_rows",
       "row_source": "normalized_guidance.items",
       "row_schema": [
-        {"column_id": "metric", "source_field": "metric", "target_column": "A"},
-        {"column_id": "current_guide", "source_field": "value", "target_column": "B"},
-        {"column_id": "horizon", "source_field": "horizon", "target_column": "C"},
-        {"column_id": "status", "source_field": "progress_status", "target_column": "D"},
-        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "E"}
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "A"
+        },
+        {
+          "column_id": "current_guide",
+          "source_field": "value",
+          "target_column": "B"
+        },
+        {
+          "column_id": "horizon",
+          "source_field": "horizon",
+          "target_column": "C"
+        },
+        {
+          "column_id": "status",
+          "source_field": "progress_status",
+          "target_column": "D"
+        },
+        {
+          "column_id": "notes_source",
+          "source_field": "notes_source",
+          "target_column": "E"
+        }
       ],
       "required": false,
       "source_policy": "source-backed",
@@ -3468,25 +3813,74 @@
       "target_type": "table_row",
       "row_selector": {
         "source_path": "normalized_guidance.items",
-        "filters": [{"field": "display_role", "equals": "current_secondary"}]
+        "filters": [
+          {
+            "field": "display_role",
+            "equals": "current_secondary"
+          }
+        ]
       },
-      "row_key": ["metric", "horizon", "publication_date", "evidence_key"],
-      "sort_order": ["display_priority:asc", "metric:asc", "publication_date:desc", "evidence_key:asc"],
+      "row_key": [
+        "metric",
+        "horizon",
+        "publication_date",
+        "evidence_key"
+      ],
+      "sort_order": [
+        "display_priority:asc",
+        "metric:asc",
+        "publication_date:desc",
+        "evidence_key:asc"
+      ],
       "capacity": 20,
       "overflow_behavior": "mapping_gap",
-      "required_columns": ["metric", "value", "horizon", "publication_date", "notes_source"],
-      "row_key_only_columns": ["publication_date"],
+      "required_columns": [
+        "metric",
+        "value",
+        "horizon",
+        "publication_date",
+        "notes_source"
+      ],
+      "row_key_only_columns": [
+        "publication_date"
+      ],
       "target_columns": [
-        {"column_id": "metric", "source_field": "metric", "target_column": "A", "target_type": "text"},
-        {"column_id": "current_guide", "source_field": "value", "target_column": "B", "target_type": "text"},
-        {"column_id": "horizon", "source_field": "horizon", "target_column": "C", "target_type": "horizon"},
-        {"column_id": "status", "source_field": "progress_status", "target_column": "D", "target_type": "status"},
-        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "E", "target_type": "text"}
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "A",
+          "target_type": "text"
+        },
+        {
+          "column_id": "current_guide",
+          "source_field": "value",
+          "target_column": "B",
+          "target_type": "text"
+        },
+        {
+          "column_id": "horizon",
+          "source_field": "horizon",
+          "target_column": "C",
+          "target_type": "horizon"
+        },
+        {
+          "column_id": "status",
+          "source_field": "progress_status",
+          "target_column": "D",
+          "target_type": "status"
+        },
+        {
+          "column_id": "notes_source",
+          "source_field": "notes_source",
+          "target_column": "E",
+          "target_type": "text"
+        }
       ],
       "source_ref_required": true,
       "source_ref_field": "value",
       "planning_state": "active",
-      "rowset_id": "current_secondary_guidance"
+      "rowset_id": "current_secondary_guidance",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_guidance_timeline_rows",
@@ -3604,7 +3998,8 @@
       "source_ref_required": true,
       "source_ref_field": "value",
       "planning_state": "active",
-      "rowset_id": "current_primary_guidance"
+      "rowset_id": "current_primary_guidance",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_2",
@@ -3652,7 +4047,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping."
+      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_3",
@@ -3700,7 +4096,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping."
+      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_4",
@@ -3748,7 +4145,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping."
+      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_5",
@@ -3796,7 +4194,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping."
+      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "pp_guidance_timeline_rows_block_6",
@@ -3844,7 +4243,8 @@
       ],
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping."
+      "planning_block_reason": "Guidance timeline needs explicit revision-event rows, not generic guidance item dumping.",
+      "module_id": "guidance_promises"
     },
     {
       "binding_id": "qa_log_validation_rows",
@@ -4083,7 +4483,8 @@
       "planning_state": "active",
       "aggregation_policy": "one row per stable issue_id; full occurrences remain in issue_ledger.occurrences",
       "visibility_filter": "all canonical issues",
-      "full_detail_path": "issue_ledger.occurrences"
+      "full_detail_path": "issue_ledger.occurrences",
+      "module_id": "qa_lineage"
     },
     {
       "binding_id": "needs_review_validation_rows",
@@ -4305,7 +4706,8 @@
       "planning_state": "active",
       "aggregation_policy": "one row per actionable stable issue_id; never duplicate audit-only evidence",
       "visibility_filter": "visibility_disposition equals needs_review",
-      "full_detail_path": "issue_ledger.occurrences"
+      "full_detail_path": "issue_ledger.occurrences",
+      "module_id": "qa_lineage"
     },
     {
       "binding_id": "qa_checks_mapping_gap_rows",
@@ -4495,7 +4897,8 @@
       "planning_state": "active",
       "aggregation_policy": "one row per rule_id with unique, occurrence, blocking and actionable counts",
       "visibility_filter": "all rule-level checks",
-      "full_detail_path": "issue_ledger.occurrences"
+      "full_detail_path": "issue_ledger.occurrences",
+      "module_id": "qa_lineage"
     },
     {
       "binding_id": "summary_latest_revenue",
@@ -4538,7 +4941,8 @@
       "source_ref_required": true,
       "source_field": "revenue",
       "planning_state": "active",
-      "source_ref_field": "revenue"
+      "source_ref_field": "revenue",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "summary_revenue_mix_label",
@@ -4561,7 +4965,8 @@
       "source_path": "company_profile.revenue_mix_label",
       "target_type": "text",
       "planning_state": "active",
-      "named_range": "summary_revenue_mix_label"
+      "named_range": "summary_revenue_mix_label",
+      "module_id": "segments_dimensions"
     },
     {
       "binding_id": "summary_liquidity",
@@ -4584,7 +4989,8 @@
       "source_path": "debt_liquidity.summary_liquidity_display",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "summary_liquidity"
+      "named_range": "summary_liquidity",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "summary_liquidity_as_of",
@@ -4607,7 +5013,8 @@
       "source_path": "debt_liquidity.summary_liquidity_as_of_display",
       "target_type": "text",
       "planning_state": "active",
-      "named_range": "summary_liquidity_as_of"
+      "named_range": "summary_liquidity_as_of",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "ic_investment_case_title",
@@ -4630,7 +5037,8 @@
       "source_path": "ticker_metadata.investment_case_title",
       "target_type": "text",
       "planning_state": "active",
-      "named_range": "ic_investment_case_title"
+      "named_range": "ic_investment_case_title",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "valuation_period_headers",
@@ -4676,7 +5084,8 @@
       "source_ref_required": true,
       "source_field": "period",
       "source_ref_field": "revenue",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "valuation_revenue_series",
@@ -4720,7 +5129,8 @@
       "source_ref_required": true,
       "source_field": "revenue",
       "planning_state": "active",
-      "named_range": "valuation_revenue_series"
+      "named_range": "valuation_revenue_series",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "valuation_ebitda_series",
@@ -4764,7 +5174,8 @@
       "source_ref_required": true,
       "source_field": "base_ebitda",
       "planning_state": "active",
-      "named_range": "valuation_ebitda_series"
+      "named_range": "valuation_ebitda_series",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "valuation_adjusted_ebitda_series",
@@ -4808,7 +5219,8 @@
       "source_ref_required": true,
       "source_field": "adjusted_ebitda",
       "planning_state": "active",
-      "named_range": "valuation_adjusted_ebitda_series"
+      "named_range": "valuation_adjusted_ebitda_series",
+      "module_id": "non_gaap_adjustments"
     },
     {
       "binding_id": "valuation_operating_income_series",
@@ -4852,7 +5264,8 @@
       "source_ref_required": true,
       "source_field": "operating_income",
       "planning_state": "active",
-      "named_range": "valuation_operating_income_series"
+      "named_range": "valuation_operating_income_series",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "valuation_net_income_series",
@@ -4896,7 +5309,8 @@
       "source_ref_required": true,
       "source_field": "net_income",
       "planning_state": "active",
-      "named_range": "valuation_net_income_series"
+      "named_range": "valuation_net_income_series",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "valuation_operating_cash_flow_series",
@@ -4940,7 +5354,8 @@
       "source_ref_required": true,
       "source_field": "operating_cash_flow",
       "planning_state": "active",
-      "named_range": "valuation_operating_cash_flow_series"
+      "named_range": "valuation_operating_cash_flow_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_capital_expenditures_series",
@@ -4984,7 +5399,8 @@
       "source_ref_required": true,
       "source_field": "capital_expenditures",
       "planning_state": "active",
-      "named_range": "valuation_capital_expenditures_series"
+      "named_range": "valuation_capital_expenditures_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_interest_paid_series",
@@ -5028,7 +5444,8 @@
       "source_ref_required": true,
       "source_field": "interest_paid",
       "planning_state": "active",
-      "named_range": "valuation_interest_paid_series"
+      "named_range": "valuation_interest_paid_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "valuation_buybacks_cash_series",
@@ -5072,7 +5489,8 @@
       "source_ref_required": true,
       "source_field": "buybacks_cash",
       "planning_state": "active",
-      "named_range": "valuation_buybacks_cash_series"
+      "named_range": "valuation_buybacks_cash_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_cash_series",
@@ -5116,7 +5534,8 @@
       "source_ref_required": true,
       "source_field": "cash",
       "planning_state": "active",
-      "named_range": "valuation_cash_series"
+      "named_range": "valuation_cash_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_marketable_securities_series",
@@ -5160,7 +5579,8 @@
       "source_ref_required": true,
       "source_field": "marketable_securities",
       "planning_state": "active",
-      "named_range": "valuation_marketable_securities_series"
+      "named_range": "valuation_marketable_securities_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_debt_core_series",
@@ -5204,7 +5624,8 @@
       "source_ref_required": true,
       "source_field": "debt_core",
       "planning_state": "active",
-      "named_range": "valuation_debt_core_series"
+      "named_range": "valuation_debt_core_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "valuation_lease_liabilities_series",
@@ -5248,7 +5669,8 @@
       "source_ref_required": true,
       "source_field": "lease_liabilities",
       "planning_state": "active",
-      "named_range": "valuation_lease_liabilities_series"
+      "named_range": "valuation_lease_liabilities_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "valuation_pension_obligation_net_series",
@@ -5292,7 +5714,8 @@
       "source_ref_required": true,
       "source_field": "pension_obligation_net",
       "planning_state": "active",
-      "named_range": "valuation_pension_obligation_net_series"
+      "named_range": "valuation_pension_obligation_net_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "valuation_revolver_availability_series",
@@ -5336,7 +5759,8 @@
       "source_ref_required": true,
       "source_field": "revolver_availability",
       "planning_state": "active",
-      "named_range": "valuation_revolver_availability_series"
+      "named_range": "valuation_revolver_availability_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "valuation_diluted_shares_series",
@@ -5380,7 +5804,8 @@
       "source_ref_required": true,
       "source_field": "diluted_shares",
       "planning_state": "active",
-      "named_range": "valuation_diluted_shares_series"
+      "named_range": "valuation_diluted_shares_series",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "valuation_shares_outstanding_series",
@@ -5424,7 +5849,8 @@
       "source_ref_required": true,
       "source_field": "shares_outstanding",
       "planning_state": "active",
-      "named_range": "valuation_shares_outstanding_series"
+      "named_range": "valuation_shares_outstanding_series",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "valuation_eps_series",
@@ -5468,7 +5894,8 @@
       "source_ref_required": true,
       "source_field": "eps",
       "planning_state": "active",
-      "named_range": "valuation_eps_series"
+      "named_range": "valuation_eps_series",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "valuation_adjusted_eps_series",
@@ -5512,7 +5939,8 @@
       "source_ref_required": true,
       "source_field": "adjusted_eps",
       "planning_state": "active",
-      "named_range": "valuation_adjusted_eps_series"
+      "named_range": "valuation_adjusted_eps_series",
+      "module_id": "non_gaap_adjustments"
     },
     {
       "binding_id": "valuation_gross_profit_series",
@@ -5556,7 +5984,8 @@
       "source_ref_required": true,
       "source_field": "gross_profit",
       "planning_state": "active",
-      "named_range": "valuation_gross_profit_series"
+      "named_range": "valuation_gross_profit_series",
+      "module_id": "core_financial_history"
     },
     {
       "binding_id": "valuation_interest_expense_series",
@@ -5600,7 +6029,8 @@
       "source_ref_required": true,
       "source_field": "interest_expense",
       "planning_state": "active",
-      "named_range": "valuation_interest_expense_series"
+      "named_range": "valuation_interest_expense_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_dividends_cash_series",
@@ -5644,7 +6074,8 @@
       "source_ref_required": true,
       "source_field": "dividends_cash",
       "planning_state": "active",
-      "named_range": "valuation_dividends_cash_series"
+      "named_range": "valuation_dividends_cash_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_acquisitions_cash_series",
@@ -5688,7 +6119,8 @@
       "source_ref_required": true,
       "source_field": "acquisitions_cash",
       "planning_state": "active",
-      "named_range": "valuation_acquisitions_cash_series"
+      "named_range": "valuation_acquisitions_cash_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_debt_repayment_series",
@@ -5732,7 +6164,8 @@
       "source_ref_required": true,
       "source_field": "debt_repayment",
       "planning_state": "active",
-      "named_range": "valuation_debt_repayment_series"
+      "named_range": "valuation_debt_repayment_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_debt_issuance_series",
@@ -5776,7 +6209,8 @@
       "source_ref_required": true,
       "source_field": "debt_issuance",
       "planning_state": "active",
-      "named_range": "valuation_debt_issuance_series"
+      "named_range": "valuation_debt_issuance_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_total_equity_series",
@@ -5820,7 +6254,8 @@
       "source_ref_required": true,
       "source_field": "total_equity",
       "planning_state": "active",
-      "named_range": "valuation_total_equity_series"
+      "named_range": "valuation_total_equity_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_goodwill_series",
@@ -5864,7 +6299,8 @@
       "source_ref_required": true,
       "source_field": "goodwill",
       "planning_state": "active",
-      "named_range": "valuation_goodwill_series"
+      "named_range": "valuation_goodwill_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_intangibles_series",
@@ -5908,7 +6344,8 @@
       "source_ref_required": true,
       "source_field": "intangibles",
       "planning_state": "active",
-      "named_range": "valuation_intangibles_series"
+      "named_range": "valuation_intangibles_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_quarterly_period_headers",
@@ -5954,7 +6391,8 @@
       "source_ref_required": true,
       "source_field": "period",
       "source_ref_field": "revenue",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_cash_series",
@@ -5998,7 +6436,8 @@
       "source_ref_required": true,
       "source_field": "cash",
       "planning_state": "active",
-      "named_range": "bs_cash_series"
+      "named_range": "bs_cash_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_restricted_cash_series",
@@ -6042,7 +6481,8 @@
       "source_ref_required": true,
       "source_field": "restricted_cash",
       "planning_state": "active",
-      "named_range": "bs_restricted_cash_series"
+      "named_range": "bs_restricted_cash_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_marketable_securities_series",
@@ -6086,7 +6526,8 @@
       "source_ref_required": true,
       "source_field": "marketable_securities",
       "planning_state": "active",
-      "named_range": "bs_marketable_securities_series"
+      "named_range": "bs_marketable_securities_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_accounts_receivable_series",
@@ -6130,7 +6571,8 @@
       "source_ref_required": true,
       "source_field": "accounts_receivable",
       "planning_state": "active",
-      "named_range": "bs_accounts_receivable_series"
+      "named_range": "bs_accounts_receivable_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_inventory_series",
@@ -6174,7 +6616,8 @@
       "source_ref_required": true,
       "source_field": "inventory",
       "planning_state": "active",
-      "named_range": "bs_inventory_series"
+      "named_range": "bs_inventory_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_current_assets_series",
@@ -6218,7 +6661,8 @@
       "source_ref_required": true,
       "source_field": "current_assets",
       "planning_state": "active",
-      "named_range": "bs_current_assets_series"
+      "named_range": "bs_current_assets_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_property_plant_equipment_net_series",
@@ -6262,7 +6706,8 @@
       "source_ref_required": true,
       "source_field": "property_plant_equipment_net",
       "planning_state": "active",
-      "named_range": "bs_property_plant_equipment_net_series"
+      "named_range": "bs_property_plant_equipment_net_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_goodwill_series",
@@ -6306,7 +6751,8 @@
       "source_ref_required": true,
       "source_field": "goodwill",
       "planning_state": "active",
-      "named_range": "bs_goodwill_series"
+      "named_range": "bs_goodwill_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_intangibles_series",
@@ -6350,7 +6796,8 @@
       "source_ref_required": true,
       "source_field": "intangibles",
       "planning_state": "active",
-      "named_range": "bs_intangibles_series"
+      "named_range": "bs_intangibles_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_other_assets_noncurrent_series",
@@ -6394,7 +6841,8 @@
       "source_ref_required": true,
       "source_field": "other_assets_noncurrent",
       "planning_state": "active",
-      "named_range": "bs_other_assets_noncurrent_series"
+      "named_range": "bs_other_assets_noncurrent_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_total_assets_series",
@@ -6438,7 +6886,8 @@
       "source_ref_required": true,
       "source_field": "total_assets",
       "planning_state": "active",
-      "named_range": "bs_total_assets_series"
+      "named_range": "bs_total_assets_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_accounts_payable_series",
@@ -6482,7 +6931,8 @@
       "source_ref_required": true,
       "source_field": "accounts_payable",
       "planning_state": "active",
-      "named_range": "bs_accounts_payable_series"
+      "named_range": "bs_accounts_payable_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_accrued_liabilities_series",
@@ -6526,7 +6976,8 @@
       "source_ref_required": true,
       "source_field": "accrued_liabilities",
       "planning_state": "active",
-      "named_range": "bs_accrued_liabilities_series"
+      "named_range": "bs_accrued_liabilities_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_short_term_borrowings_series",
@@ -6570,7 +7021,8 @@
       "source_ref_required": true,
       "source_field": "short_term_borrowings",
       "planning_state": "active",
-      "named_range": "bs_short_term_borrowings_series"
+      "named_range": "bs_short_term_borrowings_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "bs_debt_current_series",
@@ -6614,7 +7066,8 @@
       "source_ref_required": true,
       "source_field": "debt_current",
       "planning_state": "active",
-      "named_range": "bs_debt_current_series"
+      "named_range": "bs_debt_current_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "bs_lease_liabilities_current_series",
@@ -6658,7 +7111,8 @@
       "source_ref_required": true,
       "source_field": "lease_liabilities_current",
       "planning_state": "active",
-      "named_range": "bs_lease_liabilities_current_series"
+      "named_range": "bs_lease_liabilities_current_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "bs_current_liabilities_series",
@@ -6702,7 +7156,8 @@
       "source_ref_required": true,
       "source_field": "current_liabilities",
       "planning_state": "active",
-      "named_range": "bs_current_liabilities_series"
+      "named_range": "bs_current_liabilities_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_debt_core_series",
@@ -6746,7 +7201,8 @@
       "source_ref_required": true,
       "source_field": "debt_core",
       "planning_state": "active",
-      "named_range": "bs_debt_core_series"
+      "named_range": "bs_debt_core_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "bs_lease_liabilities_noncurrent_series",
@@ -6790,7 +7246,8 @@
       "source_ref_required": true,
       "source_field": "lease_liabilities_noncurrent",
       "planning_state": "active",
-      "named_range": "bs_lease_liabilities_noncurrent_series"
+      "named_range": "bs_lease_liabilities_noncurrent_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "bs_pension_obligation_net_series",
@@ -6834,7 +7291,8 @@
       "source_ref_required": true,
       "source_field": "pension_obligation_net",
       "planning_state": "active",
-      "named_range": "bs_pension_obligation_net_series"
+      "named_range": "bs_pension_obligation_net_series",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "bs_other_liabilities_noncurrent_series",
@@ -6878,7 +7336,8 @@
       "source_ref_required": true,
       "source_field": "other_liabilities_noncurrent",
       "planning_state": "active",
-      "named_range": "bs_other_liabilities_noncurrent_series"
+      "named_range": "bs_other_liabilities_noncurrent_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_total_liabilities_series",
@@ -6922,7 +7381,8 @@
       "source_ref_required": true,
       "source_field": "total_liabilities",
       "planning_state": "active",
-      "named_range": "bs_total_liabilities_series"
+      "named_range": "bs_total_liabilities_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_total_equity_series",
@@ -6966,7 +7426,8 @@
       "source_ref_required": true,
       "source_field": "total_equity",
       "planning_state": "active",
-      "named_range": "bs_total_equity_series"
+      "named_range": "bs_total_equity_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_shares_outstanding_series",
@@ -7010,7 +7471,8 @@
       "source_ref_required": true,
       "source_field": "shares_outstanding",
       "planning_state": "active",
-      "named_range": "bs_shares_outstanding_series"
+      "named_range": "bs_shares_outstanding_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_diluted_shares_series",
@@ -7054,7 +7516,8 @@
       "source_ref_required": true,
       "source_field": "diluted_shares",
       "planning_state": "active",
-      "named_range": "bs_diluted_shares_series"
+      "named_range": "bs_diluted_shares_series",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_period_headers",
@@ -7100,7 +7563,8 @@
       "source_ref_required": true,
       "source_field": "period",
       "source_ref_field": "revenue",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "bs_annual_revenue_series",
@@ -7144,7 +7608,8 @@
       "target_columns": [],
       "source_ref_required": true,
       "source_field": "revenue",
-      "planning_state": "active"
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
     },
     {
       "binding_id": "valuation_input_as_of",
@@ -7167,7 +7632,8 @@
       "source_path": "valuation_inputs.as_of_date",
       "target_type": "date",
       "planning_state": "active",
-      "named_range": "valuation_input_as_of"
+      "named_range": "valuation_input_as_of",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_shares_outstanding",
@@ -7190,7 +7656,8 @@
       "source_path": "valuation_inputs.shares_outstanding",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_shares_outstanding"
+      "named_range": "valuation_input_shares_outstanding",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_diluted_shares",
@@ -7213,7 +7680,8 @@
       "source_path": "valuation_inputs.diluted_shares",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_diluted_shares"
+      "named_range": "valuation_input_diluted_shares",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_net_debt",
@@ -7236,7 +7704,8 @@
       "source_path": "valuation_inputs.net_debt",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_net_debt"
+      "named_range": "valuation_input_net_debt",
+      "module_id": "debt_liquidity"
     },
     {
       "binding_id": "valuation_input_base_ebitda_ttm",
@@ -7259,7 +7728,8 @@
       "source_path": "valuation_inputs.base_ebitda_ttm",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_base_ebitda_ttm"
+      "named_range": "valuation_input_base_ebitda_ttm",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_adjusted_ebitda_ttm",
@@ -7282,7 +7752,8 @@
       "source_path": "valuation_inputs.adjusted_ebitda_ttm",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_adjusted_ebitda_ttm"
+      "named_range": "valuation_input_adjusted_ebitda_ttm",
+      "module_id": "non_gaap_adjustments"
     },
     {
       "binding_id": "valuation_input_fcf_ttm",
@@ -7305,7 +7776,8 @@
       "source_path": "valuation_inputs.free_cash_flow_ttm",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_fcf_ttm"
+      "named_range": "valuation_input_fcf_ttm",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_operating_cash_flow_ttm",
@@ -7328,7 +7800,8 @@
       "source_path": "valuation_inputs.operating_cash_flow_ttm",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_operating_cash_flow_ttm"
+      "named_range": "valuation_input_operating_cash_flow_ttm",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_revenue_ttm",
@@ -7351,7 +7824,8 @@
       "source_path": "valuation_inputs.revenue_ttm",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_revenue_ttm"
+      "named_range": "valuation_input_revenue_ttm",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_eps_ttm",
@@ -7374,7 +7848,8 @@
       "source_path": "valuation_inputs.eps_ttm",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_eps_ttm"
+      "named_range": "valuation_input_eps_ttm",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_adjusted_eps_ttm",
@@ -7397,7 +7872,8 @@
       "source_path": "valuation_inputs.adjusted_eps_ttm",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_adjusted_eps_ttm"
+      "named_range": "valuation_input_adjusted_eps_ttm",
+      "module_id": "non_gaap_adjustments"
     },
     {
       "binding_id": "valuation_input_book_value_per_share",
@@ -7420,7 +7896,8 @@
       "source_path": "valuation_inputs.book_value_per_share",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_book_value_per_share"
+      "named_range": "valuation_input_book_value_per_share",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_tangible_book_value_per_share",
@@ -7443,7 +7920,8 @@
       "source_path": "valuation_inputs.tangible_book_value_per_share",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_tangible_book_value_per_share"
+      "named_range": "valuation_input_tangible_book_value_per_share",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_capex_ttm",
@@ -7466,7 +7944,8 @@
       "source_path": "valuation_inputs.capex_ttm",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_capex_ttm"
+      "named_range": "valuation_input_capex_ttm",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "valuation_input_interest_paid_ttm",
@@ -7489,7 +7968,8 @@
       "source_path": "valuation_inputs.interest_paid_ttm",
       "target_type": "number",
       "planning_state": "active",
-      "named_range": "valuation_input_interest_paid_ttm"
+      "named_range": "valuation_input_interest_paid_ttm",
+      "module_id": "debt_liquidity"
     }
   ],
   "financial_field_dispositions": [
@@ -7516,14 +7996,20 @@
       "field": "operating_margin",
       "disposition": "formula_owned",
       "reason": "Visible operating margin is calculated generically from source-backed operating income and revenue.",
-      "formula_ids": ["operating_margin", "operating_margin_ttm"]
+      "formula_ids": [
+        "operating_margin",
+        "operating_margin_ttm"
+      ]
     },
     {
       "section": "quarterly_financials",
       "field": "free_cash_flow",
       "disposition": "formula_owned",
       "reason": "Visible FCF is calculated generically as source-backed CFO less source-backed capex.",
-      "formula_ids": ["free_cash_flow", "free_cash_flow_ttm"]
+      "formula_ids": [
+        "free_cash_flow",
+        "free_cash_flow_ttm"
+      ]
     },
     {
       "section": "quarterly_financials",
@@ -7542,7 +8028,9 @@
       "field": "free_cash_flow",
       "disposition": "formula_owned",
       "reason": "Annual FCF is calculated generically as source-backed annual CFO less source-backed annual capex.",
-      "formula_ids": ["annual_free_cash_flow"]
+      "formula_ids": [
+        "annual_free_cash_flow"
+      ]
     },
     {
       "section": "annual_financials",
@@ -7728,5 +8216,26 @@
       "Needs_Review",
       "QA_Checks"
     ]
-  }
+  },
+  "module_manifest_version": "1.0.0",
+  "module_contract_version": "1.0.0",
+  "module_profile_id": "full_union",
+  "enabled_modules": [
+    "core_financial_history",
+    "balance_cash_flow",
+    "segments_dimensions",
+    "debt_liquidity",
+    "non_gaap_adjustments",
+    "qa_lineage",
+    "guidance_promises",
+    "quarter_notes_evidence",
+    "operating_drivers",
+    "valuation_scenarios",
+    "investment_case_market_implied",
+    "hidden_value_signals",
+    "profile_packs"
+  ],
+  "profile_pack_ids": [],
+  "module_manifest_signature": "a5b7f43dc41422e9f70d04f32ae08d944e7f8603e23c22f285f3b4063b41663b",
+  "module_profile_signature": "e792faf8030f6035e44d1ba547cb5e44a7f269f5b4beb088814196bf01567f8b"
 }

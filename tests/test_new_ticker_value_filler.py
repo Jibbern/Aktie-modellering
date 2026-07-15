@@ -116,7 +116,7 @@ def test_exact_cell_plan_executes_in_memory_without_obsolete_targets() -> None:
         assert workbook["Quarter_Notes_UI"]["A10"].value == "Demand"
         assert workbook["Quarter_Notes_UI"]["C10"].value.startswith("Recurring software demand")
         assert workbook["Quarter_Notes_UI"]["H10"].value.startswith("Growth durability")
-        assert workbook["Quarter_Notes_UI"]["M10"].value == "synthetic_fixture:quarter_notes"
+        assert workbook["Quarter_Notes_UI"]["M10"].value == "Synthetic quarterly evidence"
 
         assert workbook["Promise_Progress_UI"]["A61"].value == "Revenue"
         assert workbook["Promise_Progress_UI"]["C61"].value.startswith("Revenue growth")
@@ -141,6 +141,7 @@ def test_row_schema_values_stay_in_distinct_exact_cells() -> None:
         }
     )
     package["quarter_notes"]["items"][0]["source"] = source_ref
+    package["quarter_notes"]["items"][0]["source_display"]["value"] = "Row schema source display"
     package["operating_drivers"]["items"][0]["source"] = source_ref
 
     workbook, _plan, _written = _execute_in_memory(package)
@@ -151,7 +152,7 @@ def test_row_schema_values_stay_in_distinct_exact_cells() -> None:
         assert workbook["Quarter_Notes_UI"]["A10"].value == "Demand"
         assert workbook["Quarter_Notes_UI"]["C10"].value.startswith("Recurring software demand")
         assert workbook["Quarter_Notes_UI"]["H10"].value.startswith("Growth durability")
-        assert workbook["Quarter_Notes_UI"]["M10"].value == source_ref
+        assert workbook["Quarter_Notes_UI"]["M10"].value == "Row schema source display"
         assert workbook["Promise_Progress_UI"]["A61"].value == "Revenue"
         assert workbook["Promise_Progress_UI"]["C61"].value == "Revenue growth expected in the mid-single-digit range."
         assert workbook["Promise_Progress_UI"]["G61"].value == "Open"

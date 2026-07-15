@@ -1,48 +1,233 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-15T12:02:53+00:00",
+  "generated_at": "2026-07-15T21:24:02+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "lab_source_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\lab\\ANF_template_lab.xlsx",
+  "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "allowed_hidden_shell_sheets": {
-    "Hidden_Value_Flags": {
-      "classification": "keep_formula_dependency",
-      "reason": "Valuation!AI139 uses Hidden_Value_Flags!L2:L100 as a neutral hidden-value flag lookup helper."
-    },
-    "Revolver_History": {
+    "REPORT_IS_Q": {
       "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral debt/liquidity support shell retained with headers only; runtime fills rows from normalized debt_liquidity."
-    },
-    "Debt_Tranches_Latest": {
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral debt-tranche support shell retained with headers only; runtime fills rows from normalized debt_liquidity."
-    },
-    "Debt_Profile": {
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral debt profile shell retained with headers only for valuation/liquidity workflows."
-    },
-    "Guidance_Normalized": {
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral guidance support shell retained with headers only; normalized_guidance owns future values."
-    },
-    "Quarter_Notes": {
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral quarter-note support shell retained with headers only; runtime fills from quarter_notes."
-    },
-    "Promise_Progress": {
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral promise-progress support shell retained with headers only; runtime fills from normalized_guidance evidence."
+      "reason": "Header-only hidden projection until normalized income-statement history is available.",
+      "module_id": "core_financial_history",
+      "legacy_class": "B"
     },
     "History_Q": {
       "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral quarterly history support shell retained with headers only; runtime fills from quarterly_financials."
+      "reason": "Header-only hidden calculation axis until exact planned history rows are written.",
+      "module_id": "core_financial_history",
+      "legacy_class": "B"
+    },
+    "DATA_Period_Index": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only period index; full raw period detail remains external.",
+      "module_id": "core_financial_history",
+      "legacy_class": "B"
+    },
+    "REPORT_BS_Q": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only hidden projection until validated balance-sheet facts exist.",
+      "module_id": "balance_cash_flow",
+      "legacy_class": "B"
+    },
+    "REPORT_CF_Q": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only hidden projection until validated cash-flow facts exist.",
+      "module_id": "balance_cash_flow",
+      "legacy_class": "B"
+    },
+    "Revolver_History": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until source-backed revolver facts exist.",
+      "module_id": "debt_liquidity",
+      "legacy_class": "C"
+    },
+    "Debt_Tranches_Latest": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until source-backed tranche facts exist.",
+      "module_id": "debt_liquidity",
+      "legacy_class": "C"
+    },
+    "Debt_Profile": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until source-backed debt or liquidity facts exist.",
+      "module_id": "debt_liquidity",
+      "legacy_class": "C"
+    },
+    "Debt_Credit_Notes": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until reliable credit evidence exists.",
+      "module_id": "debt_liquidity",
+      "legacy_class": "C"
+    },
+    "Leverage_Liquidity": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only and fail-closed when debt evidence is unavailable.",
+      "module_id": "debt_liquidity",
+      "legacy_class": "C"
+    },
+    "Debt_Maturity_Ladder": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity; no user-facing ladder is shown without evidence.",
+      "module_id": "debt_liquidity",
+      "legacy_class": "E"
+    },
+    "Debt_Buckets": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity for maturity buckets.",
+      "module_id": "debt_liquidity",
+      "legacy_class": "E"
+    },
+    "Debt_Recon": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity for a source-backed debt roll-forward.",
+      "module_id": "debt_liquidity",
+      "legacy_class": "E"
+    },
+    "Debt_Tranches_Q": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity for period-keyed tranche history.",
+      "module_id": "debt_liquidity",
+      "legacy_class": "E"
+    },
+    "NonGAAP_Credibility": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until reliable adjusted disclosures exist.",
+      "module_id": "non_gaap_adjustments",
+      "legacy_class": "C"
+    },
+    "Adjusted_Metrics": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until source-backed adjusted metrics exist.",
+      "module_id": "non_gaap_adjustments",
+      "legacy_class": "C"
+    },
+    "NonGAAP_Bridge": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until adjustment evidence exists.",
+      "module_id": "non_gaap_adjustments",
+      "legacy_class": "C"
+    },
+    "Scenario_Bridge_Tax_Treatment": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until scenario adjustments have explicit tax treatment.",
+      "module_id": "non_gaap_adjustments",
+      "legacy_class": "C"
+    },
+    "Adjustments_Breakdown": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity; no fabricated bridge rows.",
+      "module_id": "non_gaap_adjustments",
+      "legacy_class": "E"
+    },
+    "Promise_Evidence": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only evidence projection.",
+      "module_id": "guidance_promises",
+      "legacy_class": "B"
+    },
+    "Promise_Progress": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only normalized Promise progression.",
+      "module_id": "guidance_promises",
+      "legacy_class": "B"
+    },
+    "Guidance_Normalized": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only normalized guidance projection.",
+      "module_id": "guidance_promises",
+      "legacy_class": "B"
+    },
+    "Promise_Tracker": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity for typed progression relationships.",
+      "module_id": "guidance_promises",
+      "legacy_class": "E"
+    },
+    "Quarter_Notes": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only normalized note projection.",
+      "module_id": "quarter_notes_evidence",
+      "legacy_class": "B"
+    },
+    "Quarter_Notes_Evidence": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only accepted evidence index.",
+      "module_id": "quarter_notes_evidence",
+      "legacy_class": "B"
+    },
+    "Quarter_Narrative_Data": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only source-backed narrative projection.",
+      "module_id": "quarter_notes_evidence",
+      "legacy_class": "B"
+    },
+    "operating_drivers_raw": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only normalized driver projection.",
+      "module_id": "operating_drivers",
+      "legacy_class": "B"
+    },
+    "Valuation_Summary": {
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only formula/output projection.",
+      "module_id": "valuation_scenarios",
+      "legacy_class": "B"
+    },
+    "Scenario_Driver_Assumptions": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only assumptions; no legacy defaults are copied.",
+      "module_id": "valuation_scenarios",
+      "legacy_class": "C"
+    },
+    "Valuation_Grid": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden scenario-grid capacity; no static outputs.",
+      "module_id": "valuation_scenarios",
+      "legacy_class": "E"
+    },
+    "{ticker}_Investment_Case_Data": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only typed investment-case support projection.",
+      "module_id": "investment_case_market_implied",
+      "legacy_class": "C"
+    },
+    "Hidden_Value_Flags": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only flag projection; no precomputed signal.",
+      "module_id": "hidden_value_signals",
+      "legacy_class": "C"
+    },
+    "Hidden_Value_Audit": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only signal audit projection.",
+      "module_id": "hidden_value_signals",
+      "legacy_class": "C"
+    },
+    "Hidden_Value_Recompute": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only recomputation inputs.",
+      "module_id": "hidden_value_signals",
+      "legacy_class": "C"
+    },
+    "Hidden_Value_Base": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only signal base projection.",
+      "module_id": "hidden_value_signals",
+      "legacy_class": "C"
+    },
+    "OCR_Text_Log": {
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity only; full OCR detail remains external JSON.",
+      "module_id": "qa_lineage",
+      "legacy_class": "E"
     }
   },
   "pre_neutralization_summary": {
-    "candidate_hidden_sheet_count": 47,
+    "candidate_hidden_sheet_count": 48,
     "company_source_leakage_cells": 9015
   },
   "post_neutralization_summary": {
-    "hidden_sheet_count": 8,
+    "hidden_sheet_count": 36,
     "company_source_leakage_cells": 0,
     "retained_unclassified_hidden_sheets": []
   },
@@ -94,49 +279,10 @@
     },
     {
       "sheet_name": "Adjusted_Metrics",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:Q34",
-      "non_empty_cells": 412,
-      "formula_count": 0,
-      "table_count": 1,
-      "defined_name_references": [],
-      "visible_formula_references": [],
-      "hidden_formula_references": [],
-      "data_validation_references": [],
-      "contains_company_source_text": true,
-      "company_source_leakage_cells": 99,
-      "company_source_leakage_samples": [
-        "H2=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-03-07_earnings_release.htm",
-        "K2=ANF financial schedule",
-        "L2=Merged local fallback metrics | adj_ebit:C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-03-07_earnings_release.htm | adj_eps:C:\\User",
-        "H3=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-05-30_earnings_release.htm",
-        "K3=ANF financial schedule",
-        "L3=Merged local fallback metrics | adj_ebit:C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-05-30_earnings_release.htm",
-        "H4=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-08-30_earnings_release.htm",
-        "K4=ANF financial schedule"
-      ],
-      "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 103,
-      "source_raw_audit_samples": [
-        "C1=source_period_label",
-        "D1=source",
-        "E1=source_type",
-        "L1=source_snippet",
-        "D2=earnings_release",
-        "H2=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-03-07_earnings_release.htm",
-        "L2=Merged local fallback metrics | adj_ebit:C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-03-07_earnings_release.htm | adj_eps:C:\\User",
-        "D3=earnings_release"
-      ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
-    },
-    {
-      "sheet_name": "Adjustments_Breakdown",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:A1",
-      "non_empty_cells": 1,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
       "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
@@ -146,11 +292,36 @@
       "contains_company_source_text": false,
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": false,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Unreferenced hidden lab sheet is excluded from the frozen neutral shell."
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "F1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until source-backed adjusted metrics exist."
+    },
+    {
+      "sheet_name": "Adjustments_Breakdown",
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:I1",
+      "non_empty_cells": 9,
+      "formula_count": 0,
+      "table_count": 0,
+      "defined_name_references": [],
+      "visible_formula_references": [],
+      "hidden_formula_references": [],
+      "data_validation_references": [],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "H1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity; no fabricated bridge rows."
     },
     {
       "sheet_name": "DATA_Facts_Long",
@@ -235,12 +406,12 @@
     },
     {
       "sheet_name": "DATA_Period_Index",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:C13",
-      "non_empty_cells": 39,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
       "formula_count": 0,
-      "table_count": 1,
+      "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
@@ -251,95 +422,14 @@
       "contains_source_raw_audit_data": true,
       "source_raw_audit_cells": 0,
       "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only period index; full raw period detail remains external."
     },
     {
       "sheet_name": "Debt_Buckets",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:A1",
-      "non_empty_cells": 1,
-      "formula_count": 0,
-      "table_count": 0,
-      "defined_name_references": [],
-      "visible_formula_references": [],
-      "hidden_formula_references": [],
-      "data_validation_references": [],
-      "contains_company_source_text": false,
-      "company_source_leakage_cells": 0,
-      "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": false,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Unreferenced hidden lab sheet is excluded from the frozen neutral shell."
-    },
-    {
-      "sheet_name": "Debt_Credit_Notes",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:K52",
-      "non_empty_cells": 572,
-      "formula_count": 0,
-      "table_count": 1,
-      "defined_name_references": [],
-      "visible_formula_references": [],
-      "hidden_formula_references": [],
-      "data_validation_references": [],
-      "contains_company_source_text": true,
-      "company_source_leakage_cells": 61,
-      "company_source_leakage_samples": [
-        "F2=anf-20260502.htm",
-        "F3=anf-20260502.htm",
-        "F4=anf-20260502.htm",
-        "H4=s of its Common Stock.                         Abercrombie &amp; Fitch Co.     28      2026 1Q Form 10-Q             Table of Contents      Credit facility     ",
-        "F5=anf-20260502.htm",
-        "F6=anf-20260502.htm",
-        "F7=anf-20260502.htm",
-        "F8=anf-20260502.htm"
-      ],
-      "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 104,
-      "source_raw_audit_samples": [
-        "I1=source_class",
-        "F2=anf-20260502.htm",
-        "I2=filing_text",
-        "F3=anf-20260502.htm",
-        "H3=growth. The Company also has the ABL Facility available as a source of additional funding, which is described further below under &#8220;  Credit facility.  &#8",
-        "I3=filing_text",
-        "F4=anf-20260502.htm",
-        "I4=filing_text"
-      ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
-    },
-    {
-      "sheet_name": "Debt_Maturity_Ladder",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:A1",
-      "non_empty_cells": 1,
-      "formula_count": 0,
-      "table_count": 0,
-      "defined_name_references": [],
-      "visible_formula_references": [],
-      "hidden_formula_references": [],
-      "data_validation_references": [],
-      "contains_company_source_text": false,
-      "company_source_leakage_cells": 0,
-      "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": false,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Unreferenced hidden lab sheet is excluded from the frozen neutral shell."
-    },
-    {
-      "sheet_name": "Debt_Profile",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:F3",
+      "used_range": "A1:F1",
       "non_empty_cells": 6,
       "formula_count": 0,
       "table_count": 0,
@@ -355,15 +445,15 @@
       "source_raw_audit_samples": [
         "E1=source_ref"
       ],
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral debt profile shell retained with headers only for valuation/liquidity workflows."
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity for maturity buckets."
     },
     {
-      "sheet_name": "Debt_Recon",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:A1",
-      "non_empty_cells": 1,
+      "sheet_name": "Debt_Credit_Notes",
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
       "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
@@ -373,11 +463,82 @@
       "contains_company_source_text": false,
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": false,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Unreferenced hidden lab sheet is excluded from the frozen neutral shell."
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "E1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until reliable credit evidence exists."
+    },
+    {
+      "sheet_name": "Debt_Maturity_Ladder",
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
+      "formula_count": 0,
+      "table_count": 0,
+      "defined_name_references": [],
+      "visible_formula_references": [],
+      "hidden_formula_references": [],
+      "data_validation_references": [],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "F1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity; no user-facing ladder is shown without evidence."
+    },
+    {
+      "sheet_name": "Debt_Profile",
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
+      "formula_count": 0,
+      "table_count": 0,
+      "defined_name_references": [],
+      "visible_formula_references": [],
+      "hidden_formula_references": [],
+      "data_validation_references": [],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "E1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until source-backed debt or liquidity facts exist."
+    },
+    {
+      "sheet_name": "Debt_Recon",
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:H1",
+      "non_empty_cells": 8,
+      "formula_count": 0,
+      "table_count": 0,
+      "defined_name_references": [],
+      "visible_formula_references": [],
+      "hidden_formula_references": [],
+      "data_validation_references": [],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "G1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity for a source-backed debt roll-forward."
     },
     {
       "sheet_name": "Debt_Tranches_Latest",
@@ -399,15 +560,15 @@
       "source_raw_audit_samples": [
         "F1=source_ref"
       ],
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral debt-tranche support shell retained with headers only; runtime fills rows from normalized debt_liquidity."
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until source-backed tranche facts exist."
     },
     {
       "sheet_name": "Debt_Tranches_Q",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:A1",
-      "non_empty_cells": 1,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:H1",
+      "non_empty_cells": 8,
       "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
@@ -417,17 +578,19 @@
       "contains_company_source_text": false,
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": false,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Unreferenced hidden lab sheet is excluded from the frozen neutral shell."
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "G1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity for period-keyed tranche history."
     },
     {
       "sheet_name": "Guidance_Normalized",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:S197",
+      "used_range": "A1:H1",
       "non_empty_cells": 8,
       "formula_count": 0,
       "table_count": 0,
@@ -444,7 +607,7 @@
         "G1=source_ref"
       ],
       "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral guidance support shell retained with headers only; normalized_guidance owns future values."
+      "reason": "Header-only normalized guidance projection."
     },
     {
       "sheet_name": "Guidance_Raw",
@@ -487,12 +650,12 @@
     },
     {
       "sheet_name": "Hidden_Value_Audit",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:M8",
-      "non_empty_cells": 104,
-      "formula_count": 11,
-      "table_count": 1,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
+      "formula_count": 0,
+      "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
@@ -501,40 +664,45 @@
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
       "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 2,
+      "source_raw_audit_cells": 1,
       "source_raw_audit_samples": [
-        "E1=input_sources_json",
-        "M1=source_evidence_json"
+        "F1=source_ref"
       ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only signal audit projection."
     },
     {
       "sheet_name": "Hidden_Value_Base",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:BO50",
-      "non_empty_cells": 1515,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
       "formula_count": 0,
-      "table_count": 1,
-      "defined_name_references": [],
+      "table_count": 0,
+      "defined_name_references": [
+        "FCF_TTM_Pos_Years: 'Hidden_Value_Base'!$BE$50",
+        "Pos_FCF_Ratio: 'Hidden_Value_Base'!$BD$50",
+        "Interest_Coverage: 'Hidden_Value_Base'!$AQ$50"
+      ],
       "visible_formula_references": [],
       "hidden_formula_references": [],
       "data_validation_references": [],
       "contains_company_source_text": false,
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": false,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Unreferenced hidden lab sheet is excluded from the frozen neutral shell."
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "E1=source_ref"
+      ],
+      "classification": "keep_formula_dependency",
+      "reason": "Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it."
     },
     {
       "sheet_name": "Hidden_Value_Flags",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:L8",
+      "used_range": "A1:L1",
       "non_empty_cells": 12,
       "formula_count": 0,
       "table_count": 0,
@@ -553,16 +721,16 @@
         "D1=source_policy"
       ],
       "classification": "keep_formula_dependency",
-      "reason": "Valuation!AI139 uses Hidden_Value_Flags!L2:L100 as a neutral hidden-value flag lookup helper."
+      "reason": "Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it."
     },
     {
       "sheet_name": "Hidden_Value_Recompute",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:I8",
-      "non_empty_cells": 44,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
       "formula_count": 0,
-      "table_count": 1,
+      "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
@@ -573,14 +741,14 @@
       "contains_source_raw_audit_data": false,
       "source_raw_audit_cells": 0,
       "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Unreferenced hidden lab sheet is excluded from the frozen neutral shell."
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only recomputation inputs."
     },
     {
       "sheet_name": "History_Q",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:BB1000",
+      "used_range": "A1:G1000",
       "non_empty_cells": 7,
       "formula_count": 0,
       "table_count": 0,
@@ -923,8 +1091,8 @@
       "source_raw_audit_samples": [
         "F1=source_ref"
       ],
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral quarterly history support shell retained with headers only; runtime fills from quarterly_financials."
+      "classification": "keep_formula_dependency",
+      "reason": "Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it."
     },
     {
       "sheet_name": "Info_Log",
@@ -967,12 +1135,12 @@
     },
     {
       "sheet_name": "Leverage_Liquidity",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:X47",
-      "non_empty_cells": 638,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:H1",
+      "non_empty_cells": 8,
       "formula_count": 0,
-      "table_count": 1,
+      "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
@@ -980,20 +1148,22 @@
       "contains_company_source_text": false,
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": false,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Unreferenced hidden lab sheet is excluded from the frozen neutral shell."
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "G1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only and fail-closed when debt evidence is unavailable."
     },
     {
       "sheet_name": "NonGAAP_Bridge",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:F29",
-      "non_empty_cells": 123,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
       "formula_count": 0,
-      "table_count": 1,
+      "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
@@ -1002,49 +1172,35 @@
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
       "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "F1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until adjustment evidence exists."
     },
     {
       "sheet_name": "NonGAAP_Credibility",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:AI29",
-      "non_empty_cells": 689,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:H1",
+      "non_empty_cells": 8,
       "formula_count": 0,
-      "table_count": 1,
+      "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
       "data_validation_references": [],
-      "contains_company_source_text": true,
-      "company_source_leakage_cells": 84,
-      "company_source_leakage_samples": [
-        "P2=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-03-07_earnings_release.htm",
-        "Q2=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-03-07_earnings_release.htm",
-        "U2=Merged local fallback metrics | adj_ebit:C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-03-07_earnings_release.htm | adj_eps:C:\\User",
-        "P3=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-05-30_earnings_release.htm",
-        "Q3=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-05-30_earnings_release.htm",
-        "U3=Merged local fallback metrics | adj_ebit:C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-05-30_earnings_release.htm",
-        "P4=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-08-30_earnings_release.htm",
-        "Q4=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-08-30_earnings_release.htm"
-      ],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
       "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 145,
+      "source_raw_audit_cells": 1,
       "source_raw_audit_samples": [
-        "V1=source_kind",
-        "AE1=qa_source_exists",
-        "AI1=qa_fallback_source",
-        "P2=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-03-07_earnings_release.htm",
-        "Q2=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-03-07_earnings_release.htm",
-        "R2=8-K_2019-03-07_earnings_release.htm",
-        "S2=8-K_2019-03-07_earnings_release.htm",
-        "U2=Merged local fallback metrics | adj_ebit:C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2019-03-07_earnings_release.htm | adj_eps:C:\\User"
+        "G1=source_ref"
       ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until reliable adjusted disclosures exist."
     },
     {
       "sheet_name": "NonGAAP_Files",
@@ -1087,61 +1243,10 @@
     },
     {
       "sheet_name": "OCR_Text_Log",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:A1",
-      "non_empty_cells": 1,
-      "formula_count": 0,
-      "table_count": 0,
-      "defined_name_references": [],
-      "visible_formula_references": [],
-      "hidden_formula_references": [],
-      "data_validation_references": [],
-      "contains_company_source_text": false,
-      "company_source_leakage_cells": 0,
-      "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
-    },
-    {
-      "sheet_name": "Promise_Evidence",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:F282",
-      "non_empty_cells": 1130,
-      "formula_count": 0,
-      "table_count": 1,
-      "defined_name_references": [],
-      "visible_formula_references": [],
-      "hidden_formula_references": [],
-      "data_validation_references": [],
-      "contains_company_source_text": true,
-      "company_source_leakage_cells": 281,
-      "company_source_leakage_samples": [
-        "A2=ANF:FY2019:Revenue:1",
-        "A3=ANF:FY2019:Tariffs:1",
-        "A4=ANF:FY2019:Tariffs:2",
-        "A5=ANF:FY2019:Tariffs:3",
-        "A6=ANF:FY2019:Tariffs:4",
-        "A7=ANF:FY2019:Tariffs:5",
-        "A8=ANF:FY2020:Capex:1",
-        "A9=ANF:FY2020:Capex:2"
-      ],
-      "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
-    },
-    {
-      "sheet_name": "Promise_Progress",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:V282",
-      "non_empty_cells": 7,
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
       "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
@@ -1154,76 +1259,16 @@
       "contains_source_raw_audit_data": true,
       "source_raw_audit_cells": 1,
       "source_raw_audit_samples": [
-        "G1=source_ref"
+        "A1=source_ref"
       ],
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral promise-progress support shell retained with headers only; runtime fills from normalized_guidance evidence."
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity only; full OCR detail remains external JSON."
     },
     {
-      "sheet_name": "Promise_Tracker",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:A1",
-      "non_empty_cells": 1,
-      "formula_count": 0,
-      "table_count": 0,
-      "defined_name_references": [],
-      "visible_formula_references": [],
-      "hidden_formula_references": [],
-      "data_validation_references": [],
-      "contains_company_source_text": false,
-      "company_source_leakage_cells": 0,
-      "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
-    },
-    {
-      "sheet_name": "Quarter_Narrative_Data",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:S97",
-      "non_empty_cells": 1720,
-      "formula_count": 0,
-      "table_count": 0,
-      "defined_name_references": [],
-      "visible_formula_references": [],
-      "hidden_formula_references": [],
-      "data_validation_references": [],
-      "contains_company_source_text": true,
-      "company_source_leakage_cells": 121,
-      "company_source_leakage_samples": [
-        "A2=ANF",
-        "A3=ANF",
-        "Q3=ANF/earnings_release/8-K_2026-03-04_earnings_release.htm | stated in 2026-Q1",
-        "A4=ANF",
-        "A5=ANF",
-        "A6=ANF",
-        "A7=ANF",
-        "A8=ANF"
-      ],
-      "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 137,
-      "source_raw_audit_samples": [
-        "O1=Source date",
-        "P1=Source type",
-        "Q1=Source / note",
-        "F2=Driver row is already source-backed or model-derived in Operating_Drivers.",
-        "G2=Source-backed quarter item helps explain what moved and what needs follow-up.",
-        "J2=Do not turn commentary into numeric guidance unless the source gives a clean metric.",
-        "Q3=ANF/earnings_release/8-K_2026-03-04_earnings_release.htm | stated in 2026-Q1",
-        "F4=Driver row is already source-backed or model-derived in Operating_Drivers."
-      ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
-    },
-    {
-      "sheet_name": "Quarter_Notes",
+      "sheet_name": "Promise_Evidence",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:AO680",
+      "used_range": "A1:F1",
       "non_empty_cells": 6,
       "formula_count": 0,
       "table_count": 0,
@@ -1240,7 +1285,99 @@
         "E1=source_ref"
       ],
       "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral quarter-note support shell retained with headers only; runtime fills from quarter_notes."
+      "reason": "Header-only evidence projection."
+    },
+    {
+      "sheet_name": "Promise_Progress",
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
+      "formula_count": 0,
+      "table_count": 0,
+      "defined_name_references": [],
+      "visible_formula_references": [],
+      "hidden_formula_references": [],
+      "data_validation_references": [],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "G1=source_ref"
+      ],
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only normalized Promise progression."
+    },
+    {
+      "sheet_name": "Promise_Tracker",
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:H1",
+      "non_empty_cells": 8,
+      "formula_count": 0,
+      "table_count": 0,
+      "defined_name_references": [],
+      "visible_formula_references": [],
+      "hidden_formula_references": [],
+      "data_validation_references": [],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "H1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden capacity for typed progression relationships."
+    },
+    {
+      "sheet_name": "Quarter_Narrative_Data",
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
+      "formula_count": 0,
+      "table_count": 0,
+      "defined_name_references": [],
+      "visible_formula_references": [],
+      "hidden_formula_references": [],
+      "data_validation_references": [],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "E1=source_ref"
+      ],
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only source-backed narrative projection."
+    },
+    {
+      "sheet_name": "Quarter_Notes",
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
+      "formula_count": 0,
+      "table_count": 0,
+      "defined_name_references": [],
+      "visible_formula_references": [],
+      "hidden_formula_references": [],
+      "data_validation_references": [],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "E1=source_ref"
+      ],
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only normalized note projection."
     },
     {
       "sheet_name": "Quarter_Notes_Audit",
@@ -1283,49 +1420,33 @@
     },
     {
       "sheet_name": "Quarter_Notes_Evidence",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:H680",
-      "non_empty_cells": 5440,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
       "formula_count": 0,
-      "table_count": 1,
+      "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
       "data_validation_references": [],
-      "contains_company_source_text": true,
-      "company_source_leakage_cells": 87,
-      "company_source_leakage_samples": [
-        "D98=company = Abercrombie & Fitch Co.",
-        "H98=company = Abercrombie & Fitch Co.",
-        "D101=As used in this presentation, unless otherwise defined, references to \"Abercrombie\" and \"Abercrombie Brands\" includes Abercrombie & Fitch and abercrombie kids a",
-        "H101=As used in this presentation, unless otherwise defined, references to \"Abercrombie\" and \"Abercrombie Brands\" includes Abercrombie & Fitch and abercrombie kids a",
-        "D102=references to \"Hollister\" and \"Hollister Brands\" includes Hollister and Gilly Hicks. Additionally, references to \"Americas\" includes North America and South Ame",
-        "H102=references to \"Hollister\" and \"Hollister Brands\" includes Hollister and Gilly Hicks. Additionally, references to \"Americas\" includes North America and South Ame",
-        "D104=About Abercrombie & Fitch Co.",
-        "H104=About Abercrombie & Fitch Co."
-      ],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
       "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 19,
+      "source_raw_audit_cells": 1,
       "source_raw_audit_samples": [
-        "F304=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-03-06_earnings_release.htm",
-        "D359=audit_flag_1 = full_year_guidance_depends_on_current_tariff_assumptions_and_management_mitigation_estimates",
-        "H359=audit_flag_1 = full_year_guidance_depends_on_current_tariff_assumptions_and_management_mitigation_estimates",
-        "D364=FY2026 margin bridge is sourced: Q1 includes tariff headwind, freight tailwind, ERP operating disruption, higher marketing as a percent of sales and modest AUR/",
-        "H364=FY2026 margin bridge is sourced: Q1 includes tariff headwind, freight tailwind, ERP operating disruption, higher marketing as a percent of sales and modest AUR/",
-        "D383=Q4 FY2025 brand momentum was explicit in source materials: both brands delivered record Q4 net sales, Abercrombie returned to growth and Hollister extended its ",
-        "H383=Q4 FY2025 brand momentum was explicit in source materials: both brands delivered record Q4 net sales, Abercrombie returned to growth and Hollister extended its ",
-        "F398=C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-05-29_earnings_release.htm"
+        "E1=source_ref"
       ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only accepted evidence index."
     },
     {
       "sheet_name": "REPORT_BS_Q",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:R8",
-      "non_empty_cells": 100,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
       "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
@@ -1338,17 +1459,17 @@
       "contains_source_raw_audit_data": true,
       "source_raw_audit_cells": 1,
       "source_raw_audit_samples": [
-        "C3=Source"
+        "E1=source_ref"
       ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only hidden projection until validated balance-sheet facts exist."
     },
     {
       "sheet_name": "REPORT_CF_Q",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:R9",
-      "non_empty_cells": 124,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
       "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
@@ -1361,17 +1482,17 @@
       "contains_source_raw_audit_data": true,
       "source_raw_audit_cells": 1,
       "source_raw_audit_samples": [
-        "C3=Source"
+        "E1=source_ref"
       ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only hidden projection until validated cash-flow facts exist."
     },
     {
       "sheet_name": "REPORT_IS_Q",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:S19",
-      "non_empty_cells": 235,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
       "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
@@ -1384,16 +1505,16 @@
       "contains_source_raw_audit_data": true,
       "source_raw_audit_cells": 1,
       "source_raw_audit_samples": [
-        "C3=Source"
+        "E1=source_ref"
       ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only hidden projection until normalized income-statement history is available."
     },
     {
       "sheet_name": "Revolver_History",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:S21",
+      "used_range": "A1:G1",
       "non_empty_cells": 7,
       "formula_count": 0,
       "table_count": 0,
@@ -1409,8 +1530,8 @@
       "source_raw_audit_samples": [
         "F1=source_ref"
       ],
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Neutral debt/liquidity support shell retained with headers only; runtime fills rows from normalized debt_liquidity."
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until source-backed revolver facts exist."
     },
     {
       "sheet_name": "SEC_Audit_Log",
@@ -1453,65 +1574,49 @@
     },
     {
       "sheet_name": "Scenario_Bridge_Tax_Treatment",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:H5",
-      "non_empty_cells": 37,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
       "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
       "data_validation_references": [],
-      "contains_company_source_text": true,
-      "company_source_leakage_cells": 5,
-      "company_source_leakage_samples": [
-        "A2=ANF",
-        "A3=ANF",
-        "A4=ANF",
-        "H4=ANF active basis prevents summing brand and geography together.",
-        "A5=ANF"
-      ],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
       "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 3,
+      "source_raw_audit_cells": 1,
       "source_raw_audit_samples": [
-        "F1=Source / basis",
-        "E2=active scenario tax rate; default scenario tax rate if no clean source",
-        "E4=active scenario tax rate; default scenario tax rate if no clean source"
+        "F1=source_ref"
       ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only until scenario adjustments have explicit tax treatment."
     },
     {
       "sheet_name": "Scenario_Driver_Assumptions",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:M6",
-      "non_empty_cells": 78,
-      "formula_count": 25,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
+      "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
       "data_validation_references": [],
-      "contains_company_source_text": true,
-      "company_source_leakage_cells": 7,
-      "company_source_leakage_samples": [
-        "A2=ANF",
-        "C2=Abercrombie (brand)",
-        "A3=ANF",
-        "C3=Hollister (brand)",
-        "A4=ANF",
-        "A5=ANF",
-        "A6=ANF"
-      ],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
       "contains_source_raw_audit_data": true,
       "source_raw_audit_cells": 1,
       "source_raw_audit_samples": [
-        "M1=Source / note"
+        "E1=source_ref"
       ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only assumptions; no legacy defaults are copied."
     },
     {
       "sheet_name": "Slides_Debt_Profile",
@@ -1632,10 +1737,10 @@
     },
     {
       "sheet_name": "Valuation_Grid",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:A1",
-      "non_empty_cells": 1,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:F1",
+      "non_empty_cells": 6,
       "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
@@ -1648,17 +1753,17 @@
       "contains_source_raw_audit_data": false,
       "source_raw_audit_cells": 0,
       "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Unreferenced hidden lab sheet is excluded from the frozen neutral shell."
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Reserved hidden scenario-grid capacity; no static outputs."
     },
     {
       "sheet_name": "Valuation_Summary",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:D25",
-      "non_empty_cells": 82,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
       "formula_count": 0,
-      "table_count": 1,
+      "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
@@ -1666,50 +1771,59 @@
       "contains_company_source_text": false,
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": false,
-      "source_raw_audit_cells": 0,
-      "source_raw_audit_samples": [],
-      "classification": "delete_from_shell",
-      "reason": "Unreferenced hidden lab sheet is excluded from the frozen neutral shell."
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "E1=source_ref"
+      ],
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only formula/output projection."
     },
     {
       "sheet_name": "operating_drivers_raw",
-      "present_in_shell": false,
-      "hidden_state": "deleted",
-      "used_range": "A1:J833",
-      "non_empty_cells": 7606,
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
       "formula_count": 0,
       "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
       "hidden_formula_references": [],
       "data_validation_references": [],
-      "contains_company_source_text": true,
-      "company_source_leakage_cells": 530,
-      "company_source_leakage_samples": [
-        "C2=Abercrombie vs Hollister brands",
-        "I2=um was explicit in source materials: both brands delivered record Q4 net sales, Abercrombie returned to growth and Hollister extended its consecutive-quarter gr",
-        "C6=Abercrombie vs Hollister brands",
-        "I6=Net income per share attributable to Abercrombie & Fitch Co.:",
-        "C9=Abercrombie vs Hollister brands",
-        "I9=Net income per share attributable to Abercrombie & Fitch Co.:",
-        "C13=Abercrombie vs Hollister brands",
-        "I13=Net income per share attributable to Abercrombie & Fitch Co.:"
-      ],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
       "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 491,
+      "source_raw_audit_cells": 1,
       "source_raw_audit_samples": [
-        "H1=Source",
-        "I2=um was explicit in source materials: both brands delivered record Q4 net sales, Abercrombie returned to growth and Hollister extended its consecutive-quarter gr",
-        "I3=FY2026 margin bridge is sourced: Q1 includes tariff headwind, freight tailwind, ERP operating disruption, higher marketing as a percent of sales and modest AUR/",
-        "H8=earnings_release",
-        "I10=FY2026 margin bridge is sourced: Q1 includes tariff headwind, freight tailwind, ERP operating disruption, higher marketing as a percent of sales and modest AUR/",
-        "H12=earnings_release",
-        "I14=FY2026 margin bridge is sourced: Q1 includes tariff headwind, freight tailwind, ERP operating disruption, higher marketing as a percent of sales and modest AUR/",
-        "H16=earnings_release"
+        "F1=source_ref"
       ],
-      "classification": "delete_from_shell",
-      "reason": "Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell."
+      "classification": "keep_neutral_helper_shell",
+      "reason": "Header-only normalized driver projection."
+    },
+    {
+      "sheet_name": "{ticker}_Investment_Case_Data",
+      "present_in_shell": true,
+      "hidden_state": "hidden",
+      "used_range": "A1:G1",
+      "non_empty_cells": 7,
+      "formula_count": 0,
+      "table_count": 0,
+      "defined_name_references": [],
+      "visible_formula_references": [],
+      "hidden_formula_references": [],
+      "data_validation_references": [],
+      "contains_company_source_text": false,
+      "company_source_leakage_cells": 0,
+      "company_source_leakage_samples": [],
+      "contains_source_raw_audit_data": true,
+      "source_raw_audit_cells": 1,
+      "source_raw_audit_samples": [
+        "F1=source_ref"
+      ],
+      "classification": "keep_optional_runtime_output_shell",
+      "reason": "Header-only typed investment-case support projection."
     }
   ]
 }

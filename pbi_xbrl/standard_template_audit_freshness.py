@@ -48,6 +48,7 @@ _SHELL = "templates/standard_stock_model_template.xlsx"
 _LAB = "templates/lab/ANF_template_lab.xlsx"
 _MANIFEST = "docs/standard_template_shell_manifest.json"
 _BINDINGS = "docs/workbook_binding_map.json"
+_MODULE_MANIFEST = "docs/workbook_module_manifest.json"
 _FLOW = "docs/sheet_data_flow_map.json"
 _SOURCE_MODELS = ("@stock_model:PBI", "@stock_model:GPRE", "@stock_model:ANF")
 
@@ -78,11 +79,13 @@ DEFAULT_AUDIT_CONTRACTS: tuple[AuditGeneratorContract, ...] = (
             AuditArtifactContract("docs/support_sheet_lifecycle_contract.json", "json", "0.1.0"),
             AuditArtifactContract("docs/support_sheet_lifecycle_contract.md", "text/markdown", "markdown-v1"),
         ),
-        authoritative_inputs=(_SHELL, _MANIFEST, _BINDINGS, *_SOURCE_MODELS),
+        authoritative_inputs=(_SHELL, _MANIFEST, _BINDINGS, _MODULE_MANIFEST, *_SOURCE_MODELS),
+        dependencies=("pbi_xbrl/workbook_modules.py", "pbi_xbrl/json_schema_validation.py"),
         command_arguments=(
             "--template", "{root}/templates/standard_stock_model_template.xlsx",
             "--manifest", "{root}/docs/standard_template_shell_manifest.json",
             "--binding-map", "{root}/docs/workbook_binding_map.json",
+            "--module-manifest", "{root}/docs/workbook_module_manifest.json",
             "--data-root", "{data_root}",
             "--inventory-json", "{artifact:0}",
             "--inventory-md", "{artifact:1}",
@@ -97,10 +100,12 @@ DEFAULT_AUDIT_CONTRACTS: tuple[AuditGeneratorContract, ...] = (
             AuditArtifactContract("docs/standard_template_shell_neutrality_audit.json", "json", "0.1.0"),
             AuditArtifactContract("docs/standard_template_shell_neutrality_audit.md", "text/markdown", "markdown-v1"),
         ),
-        authoritative_inputs=(_SHELL, _MANIFEST),
+        authoritative_inputs=(_SHELL, _MANIFEST, _MODULE_MANIFEST),
+        dependencies=("pbi_xbrl/workbook_modules.py", "pbi_xbrl/json_schema_validation.py"),
         command_arguments=(
             "--template", "{root}/templates/standard_stock_model_template.xlsx",
             "--manifest", "{root}/docs/standard_template_shell_manifest.json",
+            "--module-manifest", "{root}/docs/workbook_module_manifest.json",
             "--output-json", "{artifact:0}",
             "--output-md", "{artifact:1}",
         ),
@@ -133,11 +138,13 @@ DEFAULT_AUDIT_CONTRACTS: tuple[AuditGeneratorContract, ...] = (
             AuditArtifactContract("docs/standard_template_hidden_support_audit.json", "json", "0.1.0"),
             AuditArtifactContract("docs/standard_template_hidden_support_audit.md", "text/markdown", "markdown-v1"),
         ),
-        authoritative_inputs=(_SHELL, _LAB, _MANIFEST),
+        authoritative_inputs=(_SHELL, _LAB, _MANIFEST, _MODULE_MANIFEST),
+        dependencies=("pbi_xbrl/workbook_modules.py", "pbi_xbrl/json_schema_validation.py"),
         command_arguments=(
             "--template", "{root}/templates/standard_stock_model_template.xlsx",
             "--lab", "{root}/templates/lab/ANF_template_lab.xlsx",
             "--manifest", "{root}/docs/standard_template_shell_manifest.json",
+            "--module-manifest", "{root}/docs/workbook_module_manifest.json",
             "--audit-json", "{artifact:0}",
             "--audit-md", "{artifact:1}",
         ),

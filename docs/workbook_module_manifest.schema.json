@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.stockmodel/workbook_module_manifest.schema.json",
+  "title": "Workbook Module Manifest",
+  "type": "object",
+  "required": [
+    "version",
+    "module_contract_version",
+    "union_shell_profile_id",
+    "union_sheet_order",
+    "dimension_contract_ids",
+    "modules",
+    "profile_packs",
+    "profiles",
+    "ticker_profile_map",
+    "legacy_sheet_inventory"
+  ],
+  "properties": {
+    "$schema": {"type": "string", "format": "uri"},
+    "version": {"type": "string", "const": "1.0.0"},
+    "module_contract_version": {"type": "string", "const": "1.0.0"},
+    "description": {"type": "string", "minLength": 1},
+    "union_shell_profile_id": {"type": "string", "minLength": 1},
+    "union_sheet_order": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 31}
+    },
+    "dimension_contract_ids": {"$ref": "#/$defs/stringList"},
+    "modules": {
+      "type": "array",
+      "minItems": 13,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/module"}
+    },
+    "profile_packs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/profilePack"}
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/profile"}
+    },
+    "ticker_profile_map": {
+      "type": "object",
+      "minProperties": 3,
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "legacy_sheet_inventory": {
+      "type": "array",
+      "minItems": 57,
+      "maxItems": 57,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/legacySheet"}
+    }
+  },
+  "$defs": {
+    "stringList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "sheet": {
+      "type": "object",
+      "required": [
+        "sheet",
+        "role",
+        "legacy_class",
+        "default_state",
+        "active_state",
+        "inactive_state",
+        "capacity_rows",
+        "capacity_columns",
+        "headers",
+        "empty_state"
+      ],
+      "properties": {
+        "sheet": {"type": "string", "minLength": 1, "maxLength": 31},
+        "role": {"enum": ["visible_product", "hidden_support", "module_capacity"]},
+        "legacy_class": {"enum": ["A", "B", "C", "E"]},
+        "default_state": {"enum": ["visible", "hidden", "veryHidden"]},
+        "active_state": {"enum": ["visible", "hidden", "veryHidden"]},
+        "inactive_state": {"enum": ["hidden", "veryHidden"]},
+        "capacity_rows": {"type": "integer", "minimum": 1},
+        "capacity_columns": {"type": "integer", "minimum": 1, "maximum": 16384},
+        "headers": {"$ref": "#/$defs/stringList"},
+        "empty_state": {"type": "string", "minLength": 1},
+        "style_owner": {"type": "string", "minLength": 1},
+        "formula_owner": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "visibleBlock": {
+      "type": "object",
+      "required": ["block_id", "sheet", "target", "empty_state"],
+      "properties": {
+        "block_id": {"type": "string", "minLength": 1},
+        "sheet": {"type": "string", "minLength": 1},
+        "target": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*(?::[A-Z]+[1-9][0-9]*)?$"},
+        "empty_state": {"type": "string", "minLength": 1},
+        "exclusive_slot_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+      },
+      "additionalProperties": false
+    },
+    "styleRange": {
+      "type": "object",
+      "required": ["style_id", "sheet", "target"],
+      "properties": {
+        "style_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "sheet": {"type": "string", "minLength": 1, "maxLength": 31},
+        "target": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*(?::[A-Z]+[1-9][0-9]*)?$"}
+      },
+      "additionalProperties": false
+    },
+    "module": {
+      "type": "object",
+      "required": [
+        "module_id",
+        "display_name",
+        "module_type",
+        "dependencies",
+        "sheets",
+        "visible_blocks",
+        "normalized_contracts",
+        "binding_ids",
+        "formula_ids",
+        "defined_name_ids",
+        "style_ownership",
+        "activation_criteria",
+        "empty_state_behavior",
+        "tests_required"
+      ],
+      "properties": {
+        "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "display_name": {"type": "string", "minLength": 1},
+        "module_type": {"enum": ["core", "reusable_optional", "profile_pack_host"]},
+        "dependencies": {"$ref": "#/$defs/stringList"},
+        "sheets": {"type": "array", "items": {"$ref": "#/$defs/sheet"}},
+        "visible_blocks": {"type": "array", "items": {"$ref": "#/$defs/visibleBlock"}},
+        "normalized_contracts": {"$ref": "#/$defs/stringList"},
+        "binding_ids": {"$ref": "#/$defs/stringList"},
+        "formula_ids": {"$ref": "#/$defs/stringList"},
+        "defined_name_ids": {"$ref": "#/$defs/stringList"},
+        "style_ownership": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/styleRange"}},
+        "activation_criteria": {"type": "object", "minProperties": 1},
+        "empty_state_behavior": {"type": "string", "minLength": 1},
+        "tests_required": {"$ref": "#/$defs/stringList"}
+      },
+      "additionalProperties": false
+    },
+    "dimension": {
+      "type": "object",
+      "required": ["dimension_id", "display_name", "members_source"],
+      "properties": {
+        "dimension_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "display_name": {"type": "string", "minLength": 1},
+        "members_source": {"enum": ["normalized_package", "profile_pack", "universal"]}
+      },
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object",
+      "required": ["profile_id", "enabled_modules", "profile_pack_ids", "dimensions"],
+      "properties": {
+        "profile_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "enabled_modules": {"$ref": "#/$defs/stringList"},
+        "profile_pack_ids": {"$ref": "#/$defs/stringList"},
+        "dimensions": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/dimension"}}
+      },
+      "additionalProperties": false
+    },
+    "profilePack": {
+      "type": "object",
+      "required": ["pack_id", "display_name", "host_module_id", "normalized_contracts", "visible_blocks", "activation_mode"],
+      "properties": {
+        "pack_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "display_name": {"type": "string", "minLength": 1},
+        "host_module_id": {"type": "string", "minLength": 1},
+        "normalized_contracts": {"$ref": "#/$defs/stringList"},
+        "visible_blocks": {"type": "array", "items": {"$ref": "#/$defs/visibleBlock"}},
+        "activation_mode": {"const": "explicit_profile_only"}
+      },
+      "additionalProperties": false
+    },
+    "legacySheet": {
+      "type": "object",
+      "required": ["legacy_sheet", "business_purpose", "legacy_class", "disposition", "reason"],
+      "properties": {
+        "legacy_sheet": {"type": "string", "minLength": 1},
+        "business_purpose": {"type": "string", "minLength": 1},
+        "legacy_class": {"enum": ["A", "B", "C", "D", "E", "F"]},
+        "disposition": {"enum": ["union_shell", "external_detail", "fixture_capacity", "rejected_redundant"]},
+        "module_id": {"type": "string", "minLength": 1},
+        "union_sheet": {"type": "string", "minLength": 1, "maxLength": 31},
+        "external_contract": {"type": "string", "minLength": 1},
+        "replacement": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

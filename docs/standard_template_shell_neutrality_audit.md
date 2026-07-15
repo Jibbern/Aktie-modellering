@@ -3,9 +3,9 @@
 This audit scans the frozen standard shell for visible and retained-hidden content that would make the template company-specific or sector-specific.
 
 - Template: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\standard_stock_model_template.xlsx`
-- Generated at: `2026-07-15T12:02:18+00:00`
+- Generated at: `2026-07-15T21:23:25+00:00`
 - Visible sheets: SUMMARY, Valuation, BS_Segments, Operating_Drivers, {ticker}_Investment_Case, Quarter_Notes_UI, Promise_Progress_UI, QA_Log, Needs_Review, QA_Checks
-- Retained hidden sheets: Hidden_Value_Flags, Revolver_History, Debt_Tranches_Latest, Debt_Profile, Quarter_Notes, Promise_Progress, Guidance_Normalized, History_Q
+- Retained hidden sheets: REPORT_IS_Q, REPORT_BS_Q, REPORT_CF_Q, Quarter_Notes, Quarter_Notes_Evidence, Quarter_Narrative_Data, Valuation_Summary, Promise_Evidence, Promise_Progress, Guidance_Normalized, History_Q, operating_drivers_raw, DATA_Period_Index, Hidden_Value_Flags, Hidden_Value_Audit, Hidden_Value_Recompute, Hidden_Value_Base, Revolver_History, Debt_Tranches_Latest, Debt_Profile, Debt_Credit_Notes, Leverage_Liquidity, NonGAAP_Credibility, Adjusted_Metrics, NonGAAP_Bridge, {ticker}_Investment_Case_Data, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Debt_Maturity_Ladder, Debt_Buckets, Debt_Recon, Debt_Tranches_Q, Valuation_Grid, Promise_Tracker, Adjustments_Breakdown, OCR_Text_Log
 
 ## Post-Neutrality Summary
 
@@ -34,9 +34,9 @@ This audit scans the frozen standard shell for visible and retained-hidden conte
 | Classification | Count |
 | --- | ---: |
 | `formula_static` | 1016 |
-| `generic_block_label` | 535 |
-| `row_label_generic` | 639 |
-| `universal_template_label` | 75 |
+| `generic_block_label` | 470 |
+| `row_label_generic` | 587 |
+| `universal_template_label` | 384 |
 
 ## Remaining Non-Neutral Items
 

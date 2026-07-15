@@ -31,6 +31,11 @@ if not SOURCE_WORKBOOKS["GPRE"].exists():
 ALLOWED_CLASSIFICATIONS = {
     "standard_visible_shell_sheet",
     "required_support_shell_sheet",
+    "optional_module_shell_sheet",
+    "fixture_capacity_shell_sheet",
+    "external_detail_sheet",
+    "rejected_redundant_sheet",
+    "legacy_module_source_sheet",
     "runtime_generated_support_sheet",
     "runtime_generated_audit_sheet",
     "optional_sector_pack_sheet",
@@ -103,6 +108,9 @@ def test_support_lifecycle_contract_covers_non_visible_inventory_outputs() -> No
         "runtime_generated_support_sheet",
         "runtime_generated_audit_sheet",
         "optional_sector_pack_sheet",
+        "optional_module_shell_sheet",
+        "fixture_capacity_shell_sheet",
+        "external_detail_sheet",
     }
     for row in inventory["sheets"]:
         if row["classification"] not in lifecycle_required_classes:
@@ -111,13 +119,20 @@ def test_support_lifecycle_contract_covers_non_visible_inventory_outputs() -> No
 
     for row in lifecycle_rows.values():
         assert LIFECYCLE_FIELDS <= set(row)
-        assert row["owner"] in {"frozen_shell", "value_only_runtime", "legacy_writer", "optional_sector_pack"}
+        assert row["owner"] in {
+            "frozen_shell",
+            "value_only_runtime",
+            "legacy_writer",
+            "optional_sector_pack",
+            "external_normalized_json",
+        }
         assert row["lifecycle"] in {
             "static_template",
             "runtime_output",
             "audit_output",
             "source_cache_projection",
             "optional_sector_output",
+            "external_detail",
         }
 
 

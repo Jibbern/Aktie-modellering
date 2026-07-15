@@ -2,11 +2,11 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 199,
+    "retained_count": 202,
     "classification_counts": {
       "active_binding_anchor": 132,
       "formula_dependency": 29,
-      "generic_named_range": 22,
+      "generic_named_range": 25,
       "required_shell_anchor": 16
     },
     "target_mismatch_count": 0,
@@ -166,6 +166,14 @@
       "company_specific": false
     },
     {
+      "name": "FCF_TTM_Pos_Years",
+      "attr_text": "'Hidden_Value_Base'!$BE$50",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "ImpliedGT_Output",
       "attr_text": "'Valuation'!$Q$223:$Q$230",
       "classification": "generic_named_range",
@@ -222,6 +230,14 @@
       "company_specific": false
     },
     {
+      "name": "Interest_Coverage",
+      "attr_text": "'Hidden_Value_Base'!$AQ$50",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "MaintCapexRatio",
       "attr_text": "'Valuation'!$D$213",
       "classification": "formula_dependency",
@@ -273,6 +289,14 @@
       "name": "PerShareMode",
       "attr_text": "'Valuation'!$D$216",
       "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "Pos_FCF_Ratio",
+      "attr_text": "'Hidden_Value_Base'!$BD$50",
+      "classification": "generic_named_range",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false

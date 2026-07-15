@@ -21,7 +21,7 @@ from openpyxl.utils import range_boundaries
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 
 
-SHELL_SEMANTIC_CONTRACT_VERSION = "1.2.0"
+SHELL_SEMANTIC_CONTRACT_VERSION = "1.3.0"
 SHEET_VIEW_IDENTITY_CONTRACT_VERSION = "1.0.0"
 BINDING_PLANNER_CONTRACT_VERSION = "1.2.0"
 ROOT = Path(__file__).resolve().parents[1]

@@ -22,47 +22,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from pbi_xbrl.standard_template_audit_runner import run_audit_generator
+from pbi_xbrl.workbook_modules import DEFAULT_MODULE_MANIFEST, load_workbook_module_manifest, sheet_contracts
 
 DEFAULT_TEMPLATE = ROOT / "templates" / "standard_stock_model_template.xlsx"
 DEFAULT_LAB_SOURCE = ROOT / "templates" / "lab" / "ANF_template_lab.xlsx"
 DEFAULT_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
 DEFAULT_AUDIT_JSON = ROOT / "docs" / "standard_template_hidden_support_audit.json"
 DEFAULT_AUDIT_MD = ROOT / "docs" / "standard_template_hidden_support_audit.md"
-
-ALLOWED_HIDDEN_SHELL_SHEETS = {
-    "Hidden_Value_Flags": {
-        "classification": "keep_formula_dependency",
-        "reason": "Valuation!AI139 uses Hidden_Value_Flags!L2:L100 as a neutral hidden-value flag lookup helper.",
-    },
-    "Revolver_History": {
-        "classification": "keep_neutral_helper_shell",
-        "reason": "Neutral debt/liquidity support shell retained with headers only; runtime fills rows from normalized debt_liquidity.",
-    },
-    "Debt_Tranches_Latest": {
-        "classification": "keep_neutral_helper_shell",
-        "reason": "Neutral debt-tranche support shell retained with headers only; runtime fills rows from normalized debt_liquidity.",
-    },
-    "Debt_Profile": {
-        "classification": "keep_neutral_helper_shell",
-        "reason": "Neutral debt profile shell retained with headers only for valuation/liquidity workflows.",
-    },
-    "Guidance_Normalized": {
-        "classification": "keep_neutral_helper_shell",
-        "reason": "Neutral guidance support shell retained with headers only; normalized_guidance owns future values.",
-    },
-    "Quarter_Notes": {
-        "classification": "keep_neutral_helper_shell",
-        "reason": "Neutral quarter-note support shell retained with headers only; runtime fills from quarter_notes.",
-    },
-    "Promise_Progress": {
-        "classification": "keep_neutral_helper_shell",
-        "reason": "Neutral promise-progress support shell retained with headers only; runtime fills from normalized_guidance evidence.",
-    },
-    "History_Q": {
-        "classification": "keep_neutral_helper_shell",
-        "reason": "Neutral quarterly history support shell retained with headers only; runtime fills from quarterly_financials.",
-    },
-}
 
 SOURCE_SPECIFIC_TERMS = (
     "ANF",
@@ -266,11 +232,17 @@ def _classify(
     defined_name_refs: list[str],
     data_validation_refs: list[str],
     counts: dict[str, Any],
+    allowed_hidden_sheets: dict[str, dict[str, str]],
 ) -> tuple[str, str]:
-    if sheet_name in ALLOWED_HIDDEN_SHELL_SHEETS:
+    if sheet_name in allowed_hidden_sheets:
+        if visible_refs or defined_name_refs or data_validation_refs:
+            return (
+                "keep_formula_dependency",
+                "Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it.",
+            )
         return (
-            ALLOWED_HIDDEN_SHELL_SHEETS[sheet_name]["classification"],
-            ALLOWED_HIDDEN_SHELL_SHEETS[sheet_name]["reason"],
+            allowed_hidden_sheets[sheet_name]["classification"],
+            allowed_hidden_sheets[sheet_name]["reason"],
         )
     if visible_refs or defined_name_refs or data_validation_refs:
         return (
@@ -298,8 +270,24 @@ def scan_hidden_support_package(
     template_path: Path = DEFAULT_TEMPLATE,
     lab_path: Path = DEFAULT_LAB_SOURCE,
     manifest_path: Path = DEFAULT_MANIFEST,
+    module_manifest_path: Path = DEFAULT_MODULE_MANIFEST,
 ) -> dict[str, Any]:
     manifest = _load_json(manifest_path)
+    module_payload = load_workbook_module_manifest(module_manifest_path)
+    allowed_hidden_sheets = {
+        sheet_name: {
+            "classification": (
+                "keep_neutral_helper_shell"
+                if str(contract["legacy_class"]) == "B"
+                else "keep_optional_runtime_output_shell"
+            ),
+            "reason": str(contract["empty_state"]),
+            "module_id": str(contract["module_id"]),
+            "legacy_class": str(contract["legacy_class"]),
+        }
+        for sheet_name, contract in sheet_contracts(module_payload).items()
+        if str(contract["role"]) != "visible_product"
+    }
     standard_visible = set(manifest["visible_sheet_order"])
     lab_standard_visible = {name.replace("{ticker}", "ANF") for name in standard_visible}
     template_wb = load_workbook(template_path, data_only=False, read_only=False)
@@ -336,6 +324,7 @@ def scan_hidden_support_package(
                 defined_name_refs=defined_name_refs.get(sheet_name, []),
                 data_validation_refs=data_validation_refs.get(sheet_name, []),
                 counts=counts,
+                allowed_hidden_sheets=allowed_hidden_sheets,
             )
             rows.append(
                 {
@@ -372,7 +361,8 @@ def scan_hidden_support_package(
             "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
             "template_path": str(template_path),
             "lab_source_path": str(lab_path),
-            "allowed_hidden_shell_sheets": ALLOWED_HIDDEN_SHELL_SHEETS,
+            "module_manifest_path": str(module_manifest_path),
+            "allowed_hidden_shell_sheets": allowed_hidden_sheets,
             "pre_neutralization_summary": {
                 "candidate_hidden_sheet_count": len(candidate_names),
                 "company_source_leakage_cells": pre_leakage,
@@ -434,6 +424,7 @@ def build_audit(
     template_path: Path,
     lab_path: Path,
     manifest_path: Path,
+    module_manifest_path: Path,
     audit_json_path: Path,
     audit_md_path: Path,
 ) -> dict[str, Any]:
@@ -441,6 +432,7 @@ def build_audit(
         template_path=template_path,
         lab_path=lab_path,
         manifest_path=manifest_path,
+        module_manifest_path=module_manifest_path,
     )
     audit_json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     _write_markdown(payload, audit_md_path)
@@ -452,6 +444,7 @@ def main() -> int:
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     parser.add_argument("--lab", type=Path, default=DEFAULT_LAB_SOURCE)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--module-manifest", type=Path, default=DEFAULT_MODULE_MANIFEST)
     parser.add_argument("--audit-json", type=Path, default=DEFAULT_AUDIT_JSON)
     parser.add_argument("--audit-md", type=Path, default=DEFAULT_AUDIT_MD)
     args = parser.parse_args()
@@ -462,6 +455,7 @@ def main() -> int:
             (args.template, DEFAULT_TEMPLATE),
             (args.lab, DEFAULT_LAB_SOURCE),
             (args.manifest, DEFAULT_MANIFEST),
+            (args.module_manifest, DEFAULT_MODULE_MANIFEST),
             (args.audit_json, DEFAULT_AUDIT_JSON),
             (args.audit_md, DEFAULT_AUDIT_MD),
         )
@@ -474,6 +468,7 @@ def main() -> int:
             template_path=args.template.resolve(),
             lab_path=args.lab.resolve(),
             manifest_path=args.manifest.resolve(),
+            module_manifest_path=args.module_manifest.resolve(),
             audit_json_path=args.audit_json.resolve(),
             audit_md_path=args.audit_md.resolve(),
         )

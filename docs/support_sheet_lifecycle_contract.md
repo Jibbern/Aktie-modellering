@@ -4,55 +4,55 @@ The normalized company data package is the source of values. Support/audit sheet
 
 | Sheet | Owner | Lifecycle | Neutral shell | Visibility | Created when |
 | --- | --- | --- | --- | --- | --- |
-| `Adjusted_Metrics` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Adjustments_Breakdown` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
+| `Adjusted_Metrics` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Adjustments_Breakdown` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
 | `Basis_Proxy_Sandbox` | `optional_sector_pack` | `optional_sector_output` | False | hidden_or_visible_by_pack_contract | only when an explicit sector pack is selected |
-| `DATA_Facts_Long` | `value_only_runtime` | `audit_output` | False | hidden | only during runtime report/workbook generation |
-| `DATA_IS_Rules` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `DATA_LineItem_Map` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `DATA_Period_Index` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Debt_Buckets` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Debt_Credit_Notes` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Debt_Maturity_Ladder` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Debt_Profile` | `frozen_shell` | `static_template` | True | hidden | materialized into the frozen standard shell as a hidden neutral header-only sheet |
-| `Debt_Recon` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Debt_Tranches_Latest` | `frozen_shell` | `static_template` | True | hidden | materialized into the frozen standard shell as a hidden neutral header-only sheet |
-| `Debt_Tranches_Q` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
+| `DATA_Facts_Long` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
+| `DATA_IS_Rules` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
+| `DATA_LineItem_Map` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
+| `DATA_Period_Index` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Debt_Buckets` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Debt_Credit_Notes` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Debt_Maturity_Ladder` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Debt_Profile` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Debt_Recon` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Debt_Tranches_Latest` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Debt_Tranches_Q` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
 | `Economics_Overlay` | `optional_sector_pack` | `optional_sector_output` | False | hidden_or_visible_by_pack_contract | only when an explicit sector pack is selected |
-| `Guidance_Normalized` | `frozen_shell` | `static_template` | True | hidden | materialized into the frozen standard shell as a hidden neutral header-only sheet |
-| `Guidance_Raw` | `value_only_runtime` | `audit_output` | False | hidden | only during runtime report/workbook generation |
-| `Hidden_Value_Audit` | `value_only_runtime` | `audit_output` | False | hidden | only during runtime report/workbook generation |
-| `Hidden_Value_Base` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Hidden_Value_Flags` | `frozen_shell` | `static_template` | True | hidden | materialized into the frozen standard shell as a hidden neutral header-only sheet |
-| `Hidden_Value_Recompute` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `History_Q` | `frozen_shell` | `static_template` | True | hidden | materialized into the frozen standard shell as a hidden neutral header-only sheet |
-| `Info_Log` | `value_only_runtime` | `audit_output` | False | hidden | only during runtime report/workbook generation |
-| `Leverage_Liquidity` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `NonGAAP_Bridge` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `NonGAAP_Credibility` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `NonGAAP_Files` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `OCR_Text_Log` | `value_only_runtime` | `audit_output` | False | hidden | only during runtime report/workbook generation |
-| `Promise_Evidence` | `value_only_runtime` | `audit_output` | False | hidden | only during runtime report/workbook generation |
-| `Promise_Progress` | `frozen_shell` | `static_template` | True | hidden | materialized into the frozen standard shell as a hidden neutral header-only sheet |
-| `Promise_Tracker` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Quarter_Narrative_Data` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Quarter_Notes` | `frozen_shell` | `static_template` | True | hidden | materialized into the frozen standard shell as a hidden neutral header-only sheet |
-| `Quarter_Notes_Audit` | `value_only_runtime` | `audit_output` | False | hidden | only during runtime report/workbook generation |
-| `Quarter_Notes_Evidence` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `REPORT_BS_Q` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `REPORT_CF_Q` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `REPORT_IS_Q` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Revolver_History` | `frozen_shell` | `static_template` | True | hidden | materialized into the frozen standard shell as a hidden neutral header-only sheet |
-| `SEC_Audit_Log` | `value_only_runtime` | `audit_output` | False | hidden | only during runtime report/workbook generation |
-| `Scenario_Bridge_Tax_Treatment` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Scenario_Driver_Assumptions` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Slides_Debt_Profile` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Slides_Guidance` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Slides_Segments` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Valuation_Grid` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
-| `Valuation_Summary` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
+| `Guidance_Normalized` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Guidance_Raw` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
+| `Hidden_Value_Audit` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Hidden_Value_Base` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Hidden_Value_Flags` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Hidden_Value_Recompute` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `History_Q` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Info_Log` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
+| `Leverage_Liquidity` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `NonGAAP_Bridge` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `NonGAAP_Credibility` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `NonGAAP_Files` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
+| `OCR_Text_Log` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Promise_Evidence` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Promise_Progress` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Promise_Tracker` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Quarter_Narrative_Data` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Quarter_Notes` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Quarter_Notes_Audit` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
+| `Quarter_Notes_Evidence` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `REPORT_BS_Q` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `REPORT_CF_Q` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `REPORT_IS_Q` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Revolver_History` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `SEC_Audit_Log` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
+| `Scenario_Bridge_Tax_Treatment` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Scenario_Driver_Assumptions` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Slides_Debt_Profile` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
+| `Slides_Segments` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
+| `Valuation_Grid` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `Valuation_Summary` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
 | `economics_market_raw` | `optional_sector_pack` | `optional_sector_output` | False | hidden_or_visible_by_pack_contract | only when an explicit sector pack is selected |
-| `operating_drivers_raw` | `value_only_runtime` | `runtime_output` | False | hidden | only when a promoted output workbook needs the support projection |
+| `operating_drivers_raw` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
+| `{ticker}_Investment_Case_Data` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
 
 ## Visible QA Surfaces
 

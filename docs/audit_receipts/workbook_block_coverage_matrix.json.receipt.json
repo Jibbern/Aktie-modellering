@@ -4,7 +4,7 @@
   "reason": "",
   "artifact": {
     "path": "docs/workbook_block_coverage_matrix.json",
-    "sha256": "6b6d38faf159deed01e44c57e1026440f799ae5a70542443e13b1a0bdfc8d527",
+    "sha256": "025694f42fe14419f91701355395593a64d0bacef3395f429cc2b279c954a69d",
     "output_schema": "json",
     "output_version": "0.1.0"
   },
@@ -15,11 +15,11 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "2113499af0af427a50d0d1f2fa40d6eb224c0af44be71c27b15a424f267531e5"
+      "sha256": "43c4ab329acc26a671a3165da1dff70c63e72353b5c2676d76dfb8529acc8bea"
     },
     {
       "path": "docs/workbook_binding_map.json",
-      "sha256": "5e18ba698aaeb81a7088ba73df2fa7e6fa4b1d22fa4183156bd01b486546e5f5"
+      "sha256": "7126d50ce908be2ad7653d1345ec5416d8b8a7ab7856331caf13fbcc8b58d18d"
     },
     {
       "path": "docs/sheet_data_flow_map.json",
@@ -49,21 +49,21 @@
     "execution_contract_sha256": "0fb39fbf730299788f9b9df975c32190c8b735c9e7d704bb765dec966f43527e",
     "implementation_sha256": "be97dce24dd2a7ae09f44504cac1bfcca345cdc773b947a057926b683e456415",
     "path": "scripts/build_workbook_block_architecture.py",
-    "receipt_engine_sha256": "d8dcde2700b5d5b2a8bbb4040b5341995408745ac09ff0559b3dd979593c5be0",
+    "receipt_engine_sha256": "7a235734fe4851f27b7b5daf946b874f716d2a8e24eab75ab66c6069e39e3336",
     "runner_implementation_sha256": "a2d09fd4edefa35cbadb27ffbf3dd569c1bd3d0b306eaa12bd95555511b46291"
   },
   "verification": {
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "9b02ebe1748a5f2e8cf18ac8eb1fe08d08d670d2d5832da87d96dbf3d533b9c0",
+    "run_generation_id": "4c4c9221e81729c1fa411558aa8708e009face52563af952b40cbd8bdce7ca74",
     "generated_outputs": [
       {
         "canonical_content_sha256": "a729ae46d8816b9b89d5bb7101eabb504c4085785dc35f2a8275fc14a28ed54e",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_architecture.json",
-        "sha256": "c8779daa6cb908da2b1d4dc512499363f494dbd3dbf6b1e442484f324ac99e02"
+        "sha256": "64e69262b4f45f7074386aeb4bdca42ca145b5421e4f2f30e7743898fc660b4f"
       },
       {
         "canonical_content_sha256": "008e0bacce5a37ff6231ef34bbe72b7ffe4380c1c05ae1e594bbd83c526894e9",
@@ -77,7 +77,7 @@
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_coverage_matrix.json",
-        "sha256": "6b6d38faf159deed01e44c57e1026440f799ae5a70542443e13b1a0bdfc8d527"
+        "sha256": "025694f42fe14419f91701355395593a64d0bacef3395f429cc2b279c954a69d"
       },
       {
         "canonical_content_sha256": "1043e4455da8d8e59b088cd24a2dbdea54149c29cc7cdb06c85957cc041fe549",
@@ -88,6 +88,6 @@
       }
     ]
   },
-  "generated_at_utc": "2026-07-15T12:02:41+00:00",
-  "generation_id": "e72ef685726e8d163c4aa29d37c1d941fe1afb40154df18e891f7124fb95d071"
+  "generated_at_utc": "2026-07-15T21:23:49+00:00",
+  "generation_id": "a9cf153232bf08ea3bb6030dca1b163723b11db5225c8b40d100a949171a4e96"
 }

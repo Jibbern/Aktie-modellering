@@ -3,12 +3,39 @@
   "$id": "https://local.stockmodel/workbook_binding_map.schema.json",
   "title": "Workbook Binding Map",
   "type": "object",
-  "required": ["version", "binding_planner_contract_version", "bindings"],
+  "required": [
+    "version",
+    "binding_planner_contract_version",
+    "module_manifest_version",
+    "module_contract_version",
+    "module_profile_id",
+    "module_manifest_signature",
+    "module_profile_signature",
+    "enabled_modules",
+    "profile_pack_ids",
+    "bindings"
+  ],
   "properties": {
     "$schema": {"type": "string", "format": "uri"},
     "version": {"type": "string", "const": "0.3.0"},
     "description": {"type": "string"},
     "binding_planner_contract_version": {"type": "string", "const": "1.2.0"},
+    "module_manifest_version": {"type": "string", "const": "1.0.0"},
+    "module_contract_version": {"type": "string", "const": "1.0.0"},
+    "module_profile_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+    "module_manifest_signature": {"$ref": "#/$defs/sha256"},
+    "module_profile_signature": {"$ref": "#/$defs/sha256"},
+    "enabled_modules": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+    },
+    "profile_pack_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+    },
     "binding_planner_policy": {"type": "object"},
     "financial_field_dispositions": {
       "type": "array",
@@ -58,6 +85,7 @@
       "type": "object",
       "required": [
         "binding_id",
+        "module_id",
         "sheet",
         "section",
         "target",
@@ -72,6 +100,7 @@
       ],
       "properties": {
         "binding_id": {"type": "string", "minLength": 1},
+        "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
         "sheet": {"type": "string", "minLength": 1},
         "section": {"type": "string", "minLength": 1},
         "target": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*(?::[A-Z]+[1-9][0-9]*)?$"},
@@ -93,7 +122,8 @@
         "target_columns": {"type": "array", "items": {"$ref": "#/$defs/targetColumn"}}
       },
       "additionalProperties": true
-    }
+    },
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
   },
   "additionalProperties": false
 }

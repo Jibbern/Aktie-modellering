@@ -1,6 +1,6 @@
 {
   "$schema": "https://local.stockmodel/standard_template_shell_manifest.schema.json",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "file_type": ".xlsx",
   "description": "Manifest for the materialized frozen standard stock-model workbook shell. The shell file exists at templates/standard_stock_model_template.xlsx and future runtime may write values only to declared writable zones.",
   "visible_sheet_order": [
@@ -3389,7 +3389,11 @@
         "Company Overview",
         "Key Financials",
         "Leverage / Liquidity"
-      ]
+      ],
+      "module_id": "core_financial_history",
+      "module_role": "visible_product",
+      "legacy_class": "A",
+      "state": "visible"
     },
     {
       "sheet": "Valuation",
@@ -4170,7 +4174,11 @@
         "Actuals",
         "Leverage & Liquidity",
         "Capital return"
-      ]
+      ],
+      "module_id": "core_financial_history",
+      "module_role": "visible_product",
+      "legacy_class": "A",
+      "state": "visible"
     },
     {
       "sheet": "BS_Segments",
@@ -4674,7 +4682,11 @@
         "Liquidity / Assets",
         "Quarterly segments",
         "Annual segments"
-      ]
+      ],
+      "module_id": "balance_cash_flow",
+      "module_role": "visible_product",
+      "legacy_class": "A",
+      "state": "visible"
     },
     {
       "sheet": "Operating_Drivers",
@@ -4757,7 +4769,11 @@
         "Operating Drivers",
         "Current watchlist",
         "Current/latest outlook"
-      ]
+      ],
+      "module_id": "operating_drivers",
+      "module_role": "visible_product",
+      "legacy_class": "A",
+      "state": "visible"
     },
     {
       "sheet": "{ticker}_Investment_Case",
@@ -4874,7 +4890,11 @@
         "Key Debate",
         "Manual Market / Scenario Inputs",
         "Scenario Driver Bridge"
-      ]
+      ],
+      "module_id": "investment_case_market_implied",
+      "module_role": "visible_product",
+      "legacy_class": "A",
+      "state": "visible"
     },
     {
       "sheet": "Quarter_Notes_UI",
@@ -4930,7 +4950,11 @@
         "Quarter read",
         "Key developments",
         "Guidance / Promise interpretation"
-      ]
+      ],
+      "module_id": "quarter_notes_evidence",
+      "module_role": "visible_product",
+      "legacy_class": "A",
+      "state": "visible"
     },
     {
       "sheet": "Promise_Progress_UI",
@@ -5131,7 +5155,11 @@
         "Scorecard",
         "Open guidance",
         "Guidance timeline"
-      ]
+      ],
+      "module_id": "guidance_promises",
+      "module_role": "visible_product",
+      "legacy_class": "A",
+      "state": "visible"
     },
     {
       "sheet": "QA_Log",
@@ -5155,7 +5183,11 @@
       ],
       "formulas_static_labels": [
         "QA Log"
-      ]
+      ],
+      "module_id": "qa_lineage",
+      "module_role": "visible_product",
+      "legacy_class": "A",
+      "state": "visible"
     },
     {
       "sheet": "Needs_Review",
@@ -5179,7 +5211,11 @@
       ],
       "formulas_static_labels": [
         "Needs Review"
-      ]
+      ],
+      "module_id": "qa_lineage",
+      "module_role": "visible_product",
+      "legacy_class": "A",
+      "state": "visible"
     },
     {
       "sheet": "QA_Checks",
@@ -5203,7 +5239,348 @@
       ],
       "formulas_static_labels": [
         "QA Checks"
-      ]
+      ],
+      "module_id": "qa_lineage",
+      "module_role": "visible_product",
+      "legacy_class": "A",
+      "state": "visible"
+    },
+    {
+      "sheet": "REPORT_IS_Q",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_core_financial_history_report_is_q_rows",
+          "target": "A2:G5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_core_financial_history_report_is_q_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "metric",
+        "value",
+        "unit",
+        "source_ref",
+        "status",
+        "definition"
+      ],
+      "module_id": "core_financial_history",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "REPORT_BS_Q",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_balance_cash_flow_report_bs_q_rows",
+          "target": "A2:G5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_balance_cash_flow_report_bs_q_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "metric",
+        "value",
+        "unit",
+        "source_ref",
+        "status",
+        "definition"
+      ],
+      "module_id": "balance_cash_flow",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "REPORT_CF_Q",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_balance_cash_flow_report_cf_q_rows",
+          "target": "A2:G5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_balance_cash_flow_report_cf_q_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "metric",
+        "value",
+        "unit",
+        "source_ref",
+        "status",
+        "definition"
+      ],
+      "module_id": "balance_cash_flow",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_quarter_notes_evidence_quarter_notes_rows",
+          "target": "A2:F5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_quarter_notes_evidence_quarter_notes_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "theme",
+        "metric",
+        "note",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "quarter_notes_evidence",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes_Evidence",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_quarter_notes_evidence_quarter_notes_evidence_rows",
+          "target": "A2:F5000",
+          "anchor_label": "evidence_key",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_quarter_notes_evidence_quarter_notes_evidence_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "evidence_key",
+        "period",
+        "topic",
+        "text",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "quarter_notes_evidence",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Narrative_Data",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_quarter_notes_evidence_quarter_narrative_data_rows",
+          "target": "A2:F5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_quarter_notes_evidence_quarter_narrative_data_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "topic",
+        "narrative_type",
+        "text",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "quarter_notes_evidence",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Summary",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_valuation_scenarios_valuation_summary_rows",
+          "target": "A2:G1000",
+          "anchor_label": "metric",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_valuation_scenarios_valuation_summary_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "metric",
+        "value",
+        "unit",
+        "as_of",
+        "source_ref",
+        "status",
+        "definition"
+      ],
+      "module_id": "valuation_scenarios",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Promise_Evidence",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_guidance_promises_promise_evidence_rows",
+          "target": "A2:F5000",
+          "anchor_label": "promise_key",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_guidance_promises_promise_evidence_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "promise_key",
+        "period",
+        "metric",
+        "evidence",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "guidance_promises",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Promise_Progress",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_guidance_promises_promise_progress_rows",
+          "target": "A2:G5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_guidance_promises_promise_progress_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "metric",
+        "previous_guide",
+        "current_guide",
+        "actual",
+        "status",
+        "source_ref"
+      ],
+      "module_id": "guidance_promises",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Guidance_Normalized",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_guidance_promises_guidance_normalized_rows",
+          "target": "A2:H5000",
+          "anchor_label": "metric",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_guidance_promises_guidance_normalized_headers",
+          "target": "A1:H1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "metric",
+        "horizon",
+        "period",
+        "value",
+        "unit",
+        "status",
+        "source_ref",
+        "notes"
+      ],
+      "module_id": "guidance_promises",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
     },
     {
       "sheet": "History_Q",
@@ -5234,41 +5611,1428 @@
         "unit",
         "source_ref",
         "status"
-      ]
+      ],
+      "module_id": "core_financial_history",
+      "module_role": "hidden_support",
+      "legacy_class": "B"
+    },
+    {
+      "sheet": "operating_drivers_raw",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_operating_drivers_operating_drivers_raw_rows",
+          "target": "A2:G5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_operating_drivers_operating_drivers_raw_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "topic",
+        "metric",
+        "value",
+        "unit",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "operating_drivers",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "DATA_Period_Index",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_core_financial_history_data_period_index_rows",
+          "target": "A2:F5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_core_financial_history_data_period_index_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "period_ordinal",
+        "period_type",
+        "fiscal_year",
+        "fiscal_quarter",
+        "status"
+      ],
+      "module_id": "core_financial_history",
+      "module_role": "hidden_support",
+      "legacy_class": "B",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_flags_rows",
+          "target": "A2:L1000",
+          "anchor_label": "field",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_flags_headers",
+          "target": "A1:L1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "field",
+        "display_name",
+        "metric_type",
+        "source_policy",
+        "status",
+        "reason",
+        "sheet",
+        "target",
+        "binding_id",
+        "review_status",
+        "reserved",
+        "has_hidden_value_issue"
+      ],
+      "module_id": "hidden_value_signals",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Audit",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_audit_rows",
+          "target": "A2:F5000",
+          "anchor_label": "flag_id",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_audit_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "flag_id",
+        "metric",
+        "period",
+        "status",
+        "reason",
+        "source_ref"
+      ],
+      "module_id": "hidden_value_signals",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Recompute",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_recompute_rows",
+          "target": "A2:F5000",
+          "anchor_label": "flag_id",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_recompute_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "flag_id",
+        "input_key",
+        "value",
+        "unit",
+        "period",
+        "status"
+      ],
+      "module_id": "hidden_value_signals",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Base",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_base_rows",
+          "target": "A2:F5000",
+          "anchor_label": "metric",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_base_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "metric",
+        "period",
+        "value",
+        "unit",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "hidden_value_signals",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_revolver_history_rows",
+          "target": "A2:G5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_revolver_history_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "capacity",
+        "drawn",
+        "availability",
+        "covenant_status",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "debt_liquidity",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Latest",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_tranches_latest_rows",
+          "target": "A2:G1000",
+          "anchor_label": "instrument",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_tranches_latest_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "instrument",
+        "principal",
+        "coupon",
+        "maturity",
+        "secured",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "debt_liquidity",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_profile_rows",
+          "target": "A2:F1000",
+          "anchor_label": "metric",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_profile_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "metric",
+        "value",
+        "period",
+        "unit",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "debt_liquidity",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_credit_notes_rows",
+          "target": "A2:F1000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_credit_notes_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "topic",
+        "note",
+        "covenant",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "debt_liquidity",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_leverage_liquidity_rows",
+          "target": "A2:H5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_leverage_liquidity_headers",
+          "target": "A1:H1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "gross_debt",
+        "net_debt",
+        "liquidity",
+        "leverage",
+        "coverage",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "debt_liquidity",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Credibility",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_non_gaap_adjustments_nongaap_credibility_rows",
+          "target": "A2:H1000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_non_gaap_adjustments_nongaap_credibility_headers",
+          "target": "A1:H1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "metric",
+        "gaap_value",
+        "adjusted_value",
+        "adjustments",
+        "credibility",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "non_gaap_adjustments",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Adjusted_Metrics",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_non_gaap_adjustments_adjusted_metrics_rows",
+          "target": "A2:G5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_non_gaap_adjustments_adjusted_metrics_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "metric",
+        "gaap_value",
+        "adjusted_value",
+        "unit",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "non_gaap_adjustments",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Bridge",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_non_gaap_adjustments_nongaap_bridge_rows",
+          "target": "A2:G5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_non_gaap_adjustments_nongaap_bridge_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "adjustment",
+        "amount",
+        "tax_treatment",
+        "recurring",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "non_gaap_adjustments",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "{ticker}_Investment_Case_Data",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_rows",
+          "target": "A2:G5000",
+          "anchor_label": "section",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "section",
+        "item_key",
+        "value",
+        "unit",
+        "period",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "investment_case_market_implied",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Bridge_Tax_Treatment",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_non_gaap_adjustments_scenario_bridge_tax_treatment_rows",
+          "target": "A2:G1000",
+          "anchor_label": "scenario_id",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_non_gaap_adjustments_scenario_bridge_tax_treatment_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "scenario_id",
+        "adjustment",
+        "pretax_value",
+        "tax_rate",
+        "after_tax_value",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "non_gaap_adjustments",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Driver_Assumptions",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_valuation_scenarios_scenario_driver_assumptions_rows",
+          "target": "A2:G1000",
+          "anchor_label": "scenario_id",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_valuation_scenarios_scenario_driver_assumptions_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "scenario_id",
+        "driver",
+        "value",
+        "unit",
+        "source_ref",
+        "status",
+        "definition"
+      ],
+      "module_id": "valuation_scenarios",
+      "module_role": "hidden_support",
+      "legacy_class": "C",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_maturity_ladder_rows",
+          "target": "A2:G1000",
+          "anchor_label": "instrument",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_maturity_ladder_headers",
+          "target": "A1:G1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "instrument",
+        "bucket",
+        "amount",
+        "unit",
+        "maturity",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "debt_liquidity",
+      "module_role": "module_capacity",
+      "legacy_class": "E",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Buckets",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_buckets_rows",
+          "target": "A2:F1000",
+          "anchor_label": "bucket",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_buckets_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "bucket",
+        "amount",
+        "unit",
+        "as_of",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "debt_liquidity",
+      "module_role": "module_capacity",
+      "legacy_class": "E",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Recon",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_recon_rows",
+          "target": "A2:H1000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_recon_headers",
+          "target": "A1:H1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "opening",
+        "debt_issued",
+        "debt_repaid",
+        "other",
+        "closing",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "debt_liquidity",
+      "module_role": "module_capacity",
+      "legacy_class": "E",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Q",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_tranches_q_rows",
+          "target": "A2:H5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_debt_liquidity_debt_tranches_q_headers",
+          "target": "A1:H1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "instrument",
+        "principal",
+        "coupon",
+        "maturity",
+        "secured",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "debt_liquidity",
+      "module_role": "module_capacity",
+      "legacy_class": "E",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Grid",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_valuation_scenarios_valuation_grid_rows",
+          "target": "A2:F1000",
+          "anchor_label": "scenario_id",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_valuation_scenarios_valuation_grid_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "scenario_id",
+        "row_driver",
+        "column_driver",
+        "output_metric",
+        "value",
+        "status"
+      ],
+      "module_id": "valuation_scenarios",
+      "module_role": "module_capacity",
+      "legacy_class": "E",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Promise_Tracker",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_guidance_promises_promise_tracker_rows",
+          "target": "A2:H5000",
+          "anchor_label": "promise_key",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_guidance_promises_promise_tracker_headers",
+          "target": "A1:H1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "promise_key",
+        "metric",
+        "horizon",
+        "stage",
+        "value",
+        "actual",
+        "status",
+        "source_ref"
+      ],
+      "module_id": "guidance_promises",
+      "module_role": "module_capacity",
+      "legacy_class": "E",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_non_gaap_adjustments_adjustments_breakdown_rows",
+          "target": "A2:I5000",
+          "anchor_label": "period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_non_gaap_adjustments_adjustments_breakdown_headers",
+          "target": "A1:I1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "period",
+        "adjustment",
+        "amount",
+        "unit",
+        "recurring",
+        "cash_noncash",
+        "tax_treatment",
+        "source_ref",
+        "status"
+      ],
+      "module_id": "non_gaap_adjustments",
+      "module_role": "module_capacity",
+      "legacy_class": "E",
+      "state": "hidden"
+    },
+    {
+      "sheet": "OCR_Text_Log",
+      "static_layout_owner": "frozen_template_shell",
+      "writable_zones": [
+        {
+          "zone_id": "module_qa_lineage_ocr_text_log_rows",
+          "target": "A2:F5000",
+          "anchor_label": "source_ref",
+          "value_shapes": [
+            "table_rows"
+          ]
+        }
+      ],
+      "non_writable_zones": [
+        {
+          "zone_id": "module_qa_lineage_ocr_text_log_headers",
+          "target": "A1:F1",
+          "reason": "Neutral module support headers owned by the frozen shell."
+        }
+      ],
+      "formulas_static_labels": [
+        "source_ref",
+        "page",
+        "row_key",
+        "text",
+        "parser_status",
+        "review_status"
+      ],
+      "module_id": "qa_lineage",
+      "module_role": "module_capacity",
+      "legacy_class": "E",
+      "state": "hidden"
     }
   ],
   "optional_support_sheets": [
-    "DATA_Facts_Long",
-    "Guidance_Normalized",
-    "Guidance_Raw",
-    "Quarter_Narrative_Data",
-    "Scenario_Bridge_Tax_Treatment",
-    "Scenario_Driver_Assumptions",
-    "SEC_Audit_Log",
-    "Source_Coverage"
+    {
+      "sheet": "REPORT_IS_Q",
+      "module_id": "core_financial_history",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "REPORT_BS_Q",
+      "module_id": "balance_cash_flow",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "REPORT_CF_Q",
+      "module_id": "balance_cash_flow",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes",
+      "module_id": "quarter_notes_evidence",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes_Evidence",
+      "module_id": "quarter_notes_evidence",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Narrative_Data",
+      "module_id": "quarter_notes_evidence",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Summary",
+      "module_id": "valuation_scenarios",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Promise_Evidence",
+      "module_id": "guidance_promises",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Promise_Progress",
+      "module_id": "guidance_promises",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Guidance_Normalized",
+      "module_id": "guidance_promises",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "History_Q",
+      "module_id": "core_financial_history",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "operating_drivers_raw",
+      "module_id": "operating_drivers",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "DATA_Period_Index",
+      "module_id": "core_financial_history",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "module_id": "hidden_value_signals",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Audit",
+      "module_id": "hidden_value_signals",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Recompute",
+      "module_id": "hidden_value_signals",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Base",
+      "module_id": "hidden_value_signals",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "module_id": "debt_liquidity",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Latest",
+      "module_id": "debt_liquidity",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "module_id": "debt_liquidity",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "module_id": "debt_liquidity",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "module_id": "debt_liquidity",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Credibility",
+      "module_id": "non_gaap_adjustments",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Adjusted_Metrics",
+      "module_id": "non_gaap_adjustments",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Bridge",
+      "module_id": "non_gaap_adjustments",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "{ticker}_Investment_Case_Data",
+      "module_id": "investment_case_market_implied",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Bridge_Tax_Treatment",
+      "module_id": "non_gaap_adjustments",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Driver_Assumptions",
+      "module_id": "valuation_scenarios",
+      "module_role": "hidden_support",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "module_id": "debt_liquidity",
+      "module_role": "module_capacity",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Buckets",
+      "module_id": "debt_liquidity",
+      "module_role": "module_capacity",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Recon",
+      "module_id": "debt_liquidity",
+      "module_role": "module_capacity",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Q",
+      "module_id": "debt_liquidity",
+      "module_role": "module_capacity",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Grid",
+      "module_id": "valuation_scenarios",
+      "module_role": "module_capacity",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Promise_Tracker",
+      "module_id": "guidance_promises",
+      "module_role": "module_capacity",
+      "state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "module_id": "non_gaap_adjustments",
+      "module_role": "module_capacity",
+      "state": "hidden"
+    },
+    {
+      "sheet": "OCR_Text_Log",
+      "module_id": "qa_lineage",
+      "module_role": "module_capacity",
+      "state": "hidden"
+    }
   ],
-  "semantic_contract_version": "1.2.0",
+  "semantic_contract_version": "1.3.0",
   "shell_identity": {
-    "semantic_contract_version": "1.2.0",
-    "workbook_sha256": "e85c7fe14b372403201764a441bb7763f5cd823dc0bdeb9b78a1a53d36dce037",
-    "manifest_contract_signature": "d024d73ee7d43ae3ee24adb0cd27106255d89e96d2e9d00a0c6caf456d32df31",
-    "sheet_order_visibility_signature": "bf321d478860f8ed7458e736c902f1517d543cb4186a490fd28f6fdfb74749d1",
-    "sheet_view_signature": "e2566d3cb6a924bc7ac96bea5c14895d8bfc6539aac73b095c1470ea5aa826b0",
+    "semantic_contract_version": "1.3.0",
+    "workbook_sha256": "1a03e543d13b4ce7c5ab8c07cd11b3635197b806eb547bb8dd2ed962159d91b6",
+    "manifest_contract_signature": "739400cd8ca9b13756e509b2d1e1f4890086e858c0d0f20ee33238b320f780af",
+    "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
+    "sheet_view_signature": "05ae7b3677f3e327032c0dbbd0953f8c059c7d333d84c0fb7ed8662a9d00fd6c",
     "merge_signature": "417d308565b3d649f9fe6eda6dfe3bb7b5957c324378558462f8b191287b65b7",
-    "defined_name_signature": "be36170c91988ba4375e2403b88a68e69b8108dd0cf81837e8c37b33e3e6b354",
+    "defined_name_signature": "5de1eee0b83fd586e92fa73a46ef86003190b944d83f47f4de852788e5d1b98b",
     "writable_target_signature": "46383f5c318385176c39b0f176f85f85499841b5a5fdf4e41622f3ffd217d6cf",
-    "binding_contract_signature": "7ee6cfe2ed2c90ddcee0cf5a9eef875bf93673391c266114eb3db2ab2fabf6a8",
-    "formula_static_zone_signature": "e7c9c0461f94b9b53d2fdf2eea759df9508e33364d423cdb1ad9a2da808205f7",
+    "binding_contract_signature": "0cc1d6c6e3029325848e404a4db88800ad84645fa9bbecb2e3b897a97e408b6a",
+    "formula_static_zone_signature": "51cebf59aeb2c34ccf1ff7acbed039236b5e7aa6de330eec732b255d99732b8a",
     "counts": {
-      "sheets": 18,
-      "sheet_views": 18,
+      "sheets": 46,
+      "sheet_views": 46,
       "merges": 1884,
-      "defined_names": 199,
+      "defined_names": 202,
       "writable_targets": 348,
       "binding_contracts": 160,
       "formula_cells": 1016,
-      "static_cells": 1249
+      "static_cells": 1441
     }
   },
-  "formula_contract_version": "1.2.0"
+  "formula_contract_version": "1.2.0",
+  "union_sheet_order": [
+    "SUMMARY",
+    "Valuation",
+    "BS_Segments",
+    "Operating_Drivers",
+    "{ticker}_Investment_Case",
+    "Quarter_Notes_UI",
+    "Promise_Progress_UI",
+    "QA_Log",
+    "Needs_Review",
+    "QA_Checks",
+    "REPORT_IS_Q",
+    "REPORT_BS_Q",
+    "REPORT_CF_Q",
+    "Quarter_Notes",
+    "Quarter_Notes_Evidence",
+    "Quarter_Narrative_Data",
+    "Valuation_Summary",
+    "Promise_Evidence",
+    "Promise_Progress",
+    "Guidance_Normalized",
+    "History_Q",
+    "operating_drivers_raw",
+    "DATA_Period_Index",
+    "Hidden_Value_Flags",
+    "Hidden_Value_Audit",
+    "Hidden_Value_Recompute",
+    "Hidden_Value_Base",
+    "Revolver_History",
+    "Debt_Tranches_Latest",
+    "Debt_Profile",
+    "Debt_Credit_Notes",
+    "Leverage_Liquidity",
+    "NonGAAP_Credibility",
+    "Adjusted_Metrics",
+    "NonGAAP_Bridge",
+    "{ticker}_Investment_Case_Data",
+    "Scenario_Bridge_Tax_Treatment",
+    "Scenario_Driver_Assumptions",
+    "Debt_Maturity_Ladder",
+    "Debt_Buckets",
+    "Debt_Recon",
+    "Debt_Tranches_Q",
+    "Valuation_Grid",
+    "Promise_Tracker",
+    "Adjustments_Breakdown",
+    "OCR_Text_Log"
+  ],
+  "module_manifest": {
+    "path": "docs/workbook_module_manifest.json",
+    "version": "1.0.0",
+    "module_contract_version": "1.0.0",
+    "signature": "a5b7f43dc41422e9f70d04f32ae08d944e7f8603e23c22f285f3b4063b41663b"
+  },
+  "module_profile": {
+    "profile_id": "full_union",
+    "enabled_modules": [
+      "core_financial_history",
+      "balance_cash_flow",
+      "segments_dimensions",
+      "debt_liquidity",
+      "non_gaap_adjustments",
+      "qa_lineage",
+      "guidance_promises",
+      "quarter_notes_evidence",
+      "operating_drivers",
+      "valuation_scenarios",
+      "investment_case_market_implied",
+      "hidden_value_signals",
+      "profile_packs"
+    ],
+    "profile_pack_ids": [],
+    "dimensions": [
+      {
+        "dimension_id": "total_company",
+        "display_name": "Total company",
+        "members_source": "universal"
+      },
+      {
+        "dimension_id": "business_segment",
+        "display_name": "Business segment",
+        "members_source": "normalized_package"
+      }
+    ],
+    "visible_sheet_order": [
+      "SUMMARY",
+      "Valuation",
+      "BS_Segments",
+      "Operating_Drivers",
+      "{ticker}_Investment_Case",
+      "Quarter_Notes_UI",
+      "Promise_Progress_UI",
+      "QA_Log",
+      "Needs_Review",
+      "QA_Checks"
+    ],
+    "sheet_states": {
+      "SUMMARY": "visible",
+      "Valuation": "visible",
+      "BS_Segments": "visible",
+      "Operating_Drivers": "visible",
+      "{ticker}_Investment_Case": "visible",
+      "Quarter_Notes_UI": "visible",
+      "Promise_Progress_UI": "visible",
+      "QA_Log": "visible",
+      "Needs_Review": "visible",
+      "QA_Checks": "visible",
+      "REPORT_IS_Q": "hidden",
+      "REPORT_BS_Q": "hidden",
+      "REPORT_CF_Q": "hidden",
+      "Quarter_Notes": "hidden",
+      "Quarter_Notes_Evidence": "hidden",
+      "Quarter_Narrative_Data": "hidden",
+      "Valuation_Summary": "hidden",
+      "Promise_Evidence": "hidden",
+      "Promise_Progress": "hidden",
+      "Guidance_Normalized": "hidden",
+      "History_Q": "hidden",
+      "operating_drivers_raw": "hidden",
+      "DATA_Period_Index": "hidden",
+      "Hidden_Value_Flags": "hidden",
+      "Hidden_Value_Audit": "hidden",
+      "Hidden_Value_Recompute": "hidden",
+      "Hidden_Value_Base": "hidden",
+      "Revolver_History": "hidden",
+      "Debt_Tranches_Latest": "hidden",
+      "Debt_Profile": "hidden",
+      "Debt_Credit_Notes": "hidden",
+      "Leverage_Liquidity": "hidden",
+      "NonGAAP_Credibility": "hidden",
+      "Adjusted_Metrics": "hidden",
+      "NonGAAP_Bridge": "hidden",
+      "{ticker}_Investment_Case_Data": "hidden",
+      "Scenario_Bridge_Tax_Treatment": "hidden",
+      "Scenario_Driver_Assumptions": "hidden",
+      "Debt_Maturity_Ladder": "hidden",
+      "Debt_Buckets": "hidden",
+      "Debt_Recon": "hidden",
+      "Debt_Tranches_Q": "hidden",
+      "Valuation_Grid": "hidden",
+      "Promise_Tracker": "hidden",
+      "Adjustments_Breakdown": "hidden",
+      "OCR_Text_Log": "hidden"
+    },
+    "enabled_formula_ids": [
+      "acquisitions_ttm",
+      "adjusted_ebitda_delta",
+      "adjusted_ebitda_margin",
+      "adjusted_ebitda_margin_ttm",
+      "adjusted_ebitda_ttm",
+      "adjusted_ebitda_ttm_copy",
+      "adjusted_ebitda_yoy",
+      "adjusted_eps_ttm",
+      "adjusted_net_leverage",
+      "annual_adjusted_ebitda_margin",
+      "annual_book_value_per_share",
+      "annual_ebitda_margin",
+      "annual_free_cash_flow",
+      "annual_free_cash_flow_margin",
+      "annual_gross_margin",
+      "annual_net_debt",
+      "annual_net_margin",
+      "annual_operating_margin",
+      "book_value_per_share",
+      "bs_cash_including_restricted",
+      "bs_cash_qoq",
+      "bs_core_net_cash",
+      "bs_current_ratio",
+      "bs_debt_qoq",
+      "bs_diluted_shares_yoy",
+      "bs_goodwill_assets_ratio",
+      "bs_inventory_vs_revenue_growth",
+      "bs_inventory_yoy",
+      "bs_quick_ratio",
+      "bs_revenue_yoy",
+      "bs_total_lease_liabilities",
+      "bs_working_capital",
+      "bs_working_capital_qoq",
+      "buybacks_ttm",
+      "capex_margin",
+      "capex_margin_ttm",
+      "cash_interest_coverage",
+      "core_net_cash",
+      "debt_issuance_ttm",
+      "debt_repayment_ttm",
+      "diluted_shares_qoq",
+      "diluted_shares_yoy",
+      "dividends_ttm",
+      "ebitda_margin",
+      "ebitda_margin_ttm",
+      "ebitda_ttm",
+      "ebitda_ttm_copy",
+      "ebitda_yoy",
+      "fcf_conversion",
+      "free_cash_flow",
+      "free_cash_flow_margin",
+      "free_cash_flow_margin_ttm",
+      "free_cash_flow_per_share",
+      "free_cash_flow_ttm",
+      "free_cash_flow_ttm_yoy_delta",
+      "free_cash_flow_yoy_delta",
+      "gaap_eps_ttm",
+      "gaap_eps_yoy",
+      "gross_margin",
+      "hidden_value_issue_anchor",
+      "interest_coverage",
+      "investment_case_sensitivity_formulas",
+      "lease_adjusted_net_debt",
+      "lease_adjusted_net_debt_with_securities",
+      "net_cash_with_securities",
+      "net_debt",
+      "net_debt_qoq",
+      "net_debt_yoy",
+      "net_income_ttm",
+      "net_income_yoy",
+      "net_leverage",
+      "net_margin",
+      "net_margin_ttm",
+      "operating_cash_flow_ttm",
+      "operating_income_margin",
+      "operating_income_margin_ttm",
+      "operating_income_ttm",
+      "operating_margin",
+      "operating_margin_ttm",
+      "revenue_ttm",
+      "revenue_yoy",
+      "tangible_book_value_per_share",
+      "valuation_output_formulas",
+      "valuation_scenario_formulas",
+      "valuation_sidecar_formulas"
+    ],
+    "enabled_defined_name_ids": [
+      "Adj_EBITDA",
+      "Adj_EPS_TTM",
+      "Adj_FCF_TTM",
+      "AsOfQuarter",
+      "AutoImpliedGT",
+      "BV_PerShare",
+      "Base_EBITDA",
+      "Capex_TTM",
+      "CompanyOperatingMargin_Latest",
+      "CompanyOperatingMargin_TTM",
+      "EPS_TTM",
+      "EV",
+      "EqShare_Target_Adj",
+      "EqShare_Target_EV",
+      "EqShare_Target_Yield",
+      "Equity_FCF_Yield",
+      "FCFF_Proxy_TTM",
+      "FCF_TTM",
+      "FCF_TTM_Pos_Years",
+      "ImpliedGT_Output",
+      "ImpliedGT_Status",
+      "ImpliedGT_WACC",
+      "Implied_EV_AdjEBITDA",
+      "Implied_EV_EBITDA",
+      "Implied_FCFF_Yield",
+      "InterestPaid_TTM",
+      "Interest_Coverage",
+      "MaintCapexRatio",
+      "MarketCap",
+      "NetDebt",
+      "OperatingMargin_Latest",
+      "OwnerEarnings_TTM",
+      "OwnerEarnings_Yield",
+      "PerShareMode",
+      "Pos_FCF_Ratio",
+      "Price",
+      "RecurringCashCosts",
+      "Revenue_TTM",
+      "ScenarioAdjEBITDA",
+      "ScenarioBuyback",
+      "ScenarioEqShare_EVAdj",
+      "ScenarioEqShare_Yield",
+      "ScenarioGrowth",
+      "ScenarioMargin",
+      "ScenarioOwnerEarnings",
+      "ScenarioProfile",
+      "ScenarioRefiNorm",
+      "Shares",
+      "SharesDiluted",
+      "TBV_PerShare",
+      "Target_EV_AdjEBITDA",
+      "Target_EV_EBITDA",
+      "Target_EV_Yield",
+      "WCNormalization",
+      "bs_liquidity_anchor",
+      "investment_key_debate_anchor",
+      "investment_snapshot_anchor",
+      "needs_review_rows_anchor",
+      "operating_drivers_watchlist_anchor",
+      "promise_open_guidance_anchor",
+      "promise_primary_revision_anchor",
+      "qa_checks_rows_anchor",
+      "qa_log_rows_anchor",
+      "quarter_notes_blocks_anchor",
+      "summary_company_overview_anchor",
+      "summary_key_financials_anchor",
+      "summary_leverage_liquidity_anchor",
+      "valuation_actuals_anchor",
+      "valuation_debt_anchor",
+      "valuation_share_count_anchor"
+    ],
+    "signature": "e792faf8030f6035e44d1ba547cb5e44a7f269f5b4beb088814196bf01567f8b"
+  },
+  "external_detail_sheets": [
+    "Guidance_Raw",
+    "NonGAAP_Files",
+    "Slides_Segments",
+    "Slides_Debt_Profile",
+    "DATA_Facts_Long",
+    "DATA_LineItem_Map",
+    "DATA_IS_Rules",
+    "SEC_Audit_Log",
+    "Info_Log",
+    "Quarter_Notes_Audit"
+  ],
+  "rejected_legacy_functions": [
+    {
+      "legacy_sheet": "Slides_Guidance",
+      "replacement": "Guidance_Normalized"
+    }
+  ]
 }

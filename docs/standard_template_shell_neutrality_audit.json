@@ -1,7 +1,8 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-15T12:02:18+00:00",
+  "generated_at": "2026-07-15T21:23:25+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
+  "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "visible_sheets": [
     "SUMMARY",
     "Valuation",
@@ -15,20 +16,48 @@
     "QA_Checks"
   ],
   "retained_hidden_sheets": [
+    "REPORT_IS_Q",
+    "REPORT_BS_Q",
+    "REPORT_CF_Q",
+    "Quarter_Notes",
+    "Quarter_Notes_Evidence",
+    "Quarter_Narrative_Data",
+    "Valuation_Summary",
+    "Promise_Evidence",
+    "Promise_Progress",
+    "Guidance_Normalized",
+    "History_Q",
+    "operating_drivers_raw",
+    "DATA_Period_Index",
     "Hidden_Value_Flags",
+    "Hidden_Value_Audit",
+    "Hidden_Value_Recompute",
+    "Hidden_Value_Base",
     "Revolver_History",
     "Debt_Tranches_Latest",
     "Debt_Profile",
-    "Quarter_Notes",
-    "Promise_Progress",
-    "Guidance_Normalized",
-    "History_Q"
+    "Debt_Credit_Notes",
+    "Leverage_Liquidity",
+    "NonGAAP_Credibility",
+    "Adjusted_Metrics",
+    "NonGAAP_Bridge",
+    "{ticker}_Investment_Case_Data",
+    "Scenario_Bridge_Tax_Treatment",
+    "Scenario_Driver_Assumptions",
+    "Debt_Maturity_Ladder",
+    "Debt_Buckets",
+    "Debt_Recon",
+    "Debt_Tranches_Q",
+    "Valuation_Grid",
+    "Promise_Tracker",
+    "Adjustments_Breakdown",
+    "OCR_Text_Log"
   ],
   "classification_counts": {
     "formula_static": 1016,
-    "generic_block_label": 535,
-    "row_label_generic": 639,
-    "universal_template_label": 75
+    "generic_block_label": 470,
+    "row_label_generic": 587,
+    "universal_template_label": 384
   },
   "post_neutrality_summary": {
     "company_specific_value_count": 0,
@@ -518,8 +547,8 @@
       "sheet": "Valuation",
       "cell": "O8",
       "value": "Metric",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -1966,8 +1995,8 @@
       "sheet": "Valuation",
       "cell": "O28",
       "value": "Metric",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -2678,8 +2707,8 @@
       "sheet": "Valuation",
       "cell": "R38",
       "value": "Driver",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -3590,16 +3619,16 @@
       "sheet": "Valuation",
       "cell": "U50",
       "value": "Value",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
       "cell": "X50",
       "value": "Notes",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -4006,8 +4035,8 @@
       "sheet": "Valuation",
       "cell": "U63",
       "value": "Value",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7286,8 +7315,8 @@
       "sheet": "Valuation",
       "cell": "F123",
       "value": "Maturity",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7526,8 +7555,8 @@
       "sheet": "Valuation",
       "cell": "A159",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7638,8 +7667,8 @@
       "sheet": "Valuation",
       "cell": "C169",
       "value": "Evidence",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7814,8 +7843,8 @@
       "sheet": "Valuation",
       "cell": "D193",
       "value": "Value",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7846,8 +7875,8 @@
       "sheet": "Valuation",
       "cell": "N193",
       "value": "Value",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -9718,24 +9747,24 @@
       "sheet": "Valuation",
       "cell": "N247",
       "value": "Principal",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
       "cell": "O247",
       "value": "Coupon",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
       "cell": "P247",
       "value": "Maturity",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -12774,8 +12803,8 @@
       "sheet": "Operating_Drivers",
       "cell": "A12",
       "value": "Topic",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -12830,8 +12859,8 @@
       "sheet": "Operating_Drivers",
       "cell": "A19",
       "value": "Horizon",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -13390,8 +13419,8 @@
       "sheet": "{ticker}_Investment_Case",
       "cell": "A55",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -13430,8 +13459,8 @@
       "sheet": "{ticker}_Investment_Case",
       "cell": "A61",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -13710,8 +13739,8 @@
       "sheet": "{ticker}_Investment_Case",
       "cell": "A129",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14062,8 +14091,8 @@
       "sheet": "{ticker}_Investment_Case",
       "cell": "A194",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14110,8 +14139,8 @@
       "sheet": "{ticker}_Investment_Case",
       "cell": "A202",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14158,8 +14187,8 @@
       "sheet": "{ticker}_Investment_Case",
       "cell": "A212",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14190,8 +14219,8 @@
       "sheet": "{ticker}_Investment_Case",
       "cell": "A228",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14294,8 +14323,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A9",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14390,8 +14419,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A24",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14478,8 +14507,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A40",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14574,8 +14603,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A57",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14662,8 +14691,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A73",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14758,8 +14787,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A88",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14846,8 +14875,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A104",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -14942,8 +14971,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A119",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15030,8 +15059,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A135",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15126,8 +15155,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A150",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15214,8 +15243,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A166",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15310,8 +15339,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A181",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15398,8 +15427,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A197",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15494,8 +15523,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A210",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15582,8 +15611,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A226",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15678,8 +15707,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A239",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15766,8 +15795,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A255",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15862,8 +15891,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A267",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -15950,8 +15979,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A282",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16046,8 +16075,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A294",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16134,8 +16163,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A309",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16230,8 +16259,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A321",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16318,8 +16347,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A336",
       "value": "Theme",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16414,8 +16443,8 @@
       "sheet": "Quarter_Notes_UI",
       "cell": "A348",
       "value": "Driver",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16478,8 +16507,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "C4",
       "value": "Evidence",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16502,8 +16531,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A12",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16550,8 +16579,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "G12",
       "value": "Actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16582,8 +16611,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A23",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16630,8 +16659,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "G23",
       "value": "Actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16662,8 +16691,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A29",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16710,8 +16739,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "G29",
       "value": "Actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16742,8 +16771,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A34",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16790,8 +16819,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "G34",
       "value": "Actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16822,8 +16851,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A38",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16838,8 +16867,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "C38",
       "value": "Horizon",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16870,8 +16899,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A60",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16902,8 +16931,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "E60",
       "value": "Actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16926,8 +16955,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "H60",
       "value": "Horizon",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16966,8 +16995,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A70",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16998,8 +17027,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "E70",
       "value": "Actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17022,8 +17051,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "H70",
       "value": "Horizon",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17062,8 +17091,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A77",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17094,8 +17123,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "E77",
       "value": "Actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17118,8 +17147,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "H77",
       "value": "Horizon",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17158,8 +17187,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A85",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17190,8 +17219,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "E85",
       "value": "Actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17214,8 +17243,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "H85",
       "value": "Horizon",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17254,8 +17283,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A91",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17286,8 +17315,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "E91",
       "value": "Actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17310,8 +17339,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "H91",
       "value": "Horizon",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17350,8 +17379,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A98",
       "value": "Metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17382,8 +17411,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "E98",
       "value": "Actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17406,8 +17435,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "H98",
       "value": "Horizon",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -17433,486 +17462,6 @@
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "A1",
-      "value": "field",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "B1",
-      "value": "display_name",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "C1",
-      "value": "metric_type",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "D1",
-      "value": "source_policy",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "E1",
-      "value": "status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "F1",
-      "value": "reason",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "G1",
-      "value": "sheet",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "H1",
-      "value": "target",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "I1",
-      "value": "binding_id",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "J1",
-      "value": "review_status",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "K1",
-      "value": "reserved",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Hidden_Value_Flags",
-      "cell": "L1",
-      "value": "has_hidden_value_issue",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Revolver_History",
-      "cell": "A1",
-      "value": "period",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Revolver_History",
-      "cell": "B1",
-      "value": "capacity",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Revolver_History",
-      "cell": "C1",
-      "value": "drawn",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Revolver_History",
-      "cell": "D1",
-      "value": "availability",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Revolver_History",
-      "cell": "E1",
-      "value": "covenant_status",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Revolver_History",
-      "cell": "F1",
-      "value": "source_ref",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Revolver_History",
-      "cell": "G1",
-      "value": "status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Tranches_Latest",
-      "cell": "A1",
-      "value": "instrument",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Tranches_Latest",
-      "cell": "B1",
-      "value": "principal",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Tranches_Latest",
-      "cell": "C1",
-      "value": "coupon",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Tranches_Latest",
-      "cell": "D1",
-      "value": "maturity",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Tranches_Latest",
-      "cell": "E1",
-      "value": "secured",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Tranches_Latest",
-      "cell": "F1",
-      "value": "source_ref",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Tranches_Latest",
-      "cell": "G1",
-      "value": "status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Profile",
-      "cell": "A1",
-      "value": "metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Profile",
-      "cell": "B1",
-      "value": "value",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Profile",
-      "cell": "C1",
-      "value": "period",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Profile",
-      "cell": "D1",
-      "value": "unit",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Profile",
-      "cell": "E1",
-      "value": "source_ref",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Debt_Profile",
-      "cell": "F1",
-      "value": "status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Quarter_Notes",
-      "cell": "A1",
-      "value": "period",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Quarter_Notes",
-      "cell": "B1",
-      "value": "theme",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Quarter_Notes",
-      "cell": "C1",
-      "value": "metric",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Quarter_Notes",
-      "cell": "D1",
-      "value": "note",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Quarter_Notes",
-      "cell": "E1",
-      "value": "source_ref",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Quarter_Notes",
-      "cell": "F1",
-      "value": "status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Promise_Progress",
-      "cell": "A1",
-      "value": "period",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Promise_Progress",
-      "cell": "B1",
-      "value": "metric",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Promise_Progress",
-      "cell": "C1",
-      "value": "previous_guide",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Promise_Progress",
-      "cell": "D1",
-      "value": "current_guide",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Promise_Progress",
-      "cell": "E1",
-      "value": "actual",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Promise_Progress",
-      "cell": "F1",
-      "value": "status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Promise_Progress",
-      "cell": "G1",
-      "value": "source_ref",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Guidance_Normalized",
-      "cell": "A1",
-      "value": "metric",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Guidance_Normalized",
-      "cell": "B1",
-      "value": "horizon",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Guidance_Normalized",
-      "cell": "C1",
-      "value": "period",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Guidance_Normalized",
-      "cell": "D1",
-      "value": "value",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Guidance_Normalized",
-      "cell": "E1",
-      "value": "unit",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Guidance_Normalized",
-      "cell": "F1",
-      "value": "status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Guidance_Normalized",
-      "cell": "G1",
-      "value": "source_ref",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "Guidance_Normalized",
-      "cell": "H1",
-      "value": "notes",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "History_Q",
-      "cell": "A1",
-      "value": "period",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "History_Q",
-      "cell": "B1",
-      "value": "period_ordinal",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "History_Q",
-      "cell": "C1",
-      "value": "metric",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "History_Q",
-      "cell": "D1",
-      "value": "value",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "History_Q",
-      "cell": "E1",
-      "value": "unit",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "History_Q",
-      "cell": "F1",
-      "value": "source_ref",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
-    },
-    {
-      "sheet": "History_Q",
-      "cell": "G1",
-      "value": "status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "hidden"
     },
     {
       "sheet": "QA_Log",
@@ -18169,6 +17718,2022 @@
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
+    },
+    {
+      "sheet": "REPORT_IS_Q",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_IS_Q",
+      "cell": "B1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_IS_Q",
+      "cell": "C1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_IS_Q",
+      "cell": "D1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_IS_Q",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_IS_Q",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_IS_Q",
+      "cell": "G1",
+      "value": "definition",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_BS_Q",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_BS_Q",
+      "cell": "B1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_BS_Q",
+      "cell": "C1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_BS_Q",
+      "cell": "D1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_BS_Q",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_BS_Q",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_BS_Q",
+      "cell": "G1",
+      "value": "definition",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_CF_Q",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_CF_Q",
+      "cell": "B1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_CF_Q",
+      "cell": "C1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_CF_Q",
+      "cell": "D1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_CF_Q",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_CF_Q",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "REPORT_CF_Q",
+      "cell": "G1",
+      "value": "definition",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes",
+      "cell": "B1",
+      "value": "theme",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes",
+      "cell": "C1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes",
+      "cell": "D1",
+      "value": "note",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes_Evidence",
+      "cell": "A1",
+      "value": "evidence_key",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes_Evidence",
+      "cell": "B1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes_Evidence",
+      "cell": "C1",
+      "value": "topic",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes_Evidence",
+      "cell": "D1",
+      "value": "text",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes_Evidence",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Notes_Evidence",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Narrative_Data",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Narrative_Data",
+      "cell": "B1",
+      "value": "topic",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Narrative_Data",
+      "cell": "C1",
+      "value": "narrative_type",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Narrative_Data",
+      "cell": "D1",
+      "value": "text",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Narrative_Data",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Quarter_Narrative_Data",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Summary",
+      "cell": "A1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Summary",
+      "cell": "B1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Summary",
+      "cell": "C1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Summary",
+      "cell": "D1",
+      "value": "as_of",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Summary",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Summary",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Summary",
+      "cell": "G1",
+      "value": "definition",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Evidence",
+      "cell": "A1",
+      "value": "promise_key",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Evidence",
+      "cell": "B1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Evidence",
+      "cell": "C1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Evidence",
+      "cell": "D1",
+      "value": "evidence",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Evidence",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Evidence",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Progress",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Progress",
+      "cell": "B1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Progress",
+      "cell": "C1",
+      "value": "previous_guide",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Progress",
+      "cell": "D1",
+      "value": "current_guide",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Progress",
+      "cell": "E1",
+      "value": "actual",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Progress",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Progress",
+      "cell": "G1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Guidance_Normalized",
+      "cell": "A1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Guidance_Normalized",
+      "cell": "B1",
+      "value": "horizon",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Guidance_Normalized",
+      "cell": "C1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Guidance_Normalized",
+      "cell": "D1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Guidance_Normalized",
+      "cell": "E1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Guidance_Normalized",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Guidance_Normalized",
+      "cell": "G1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Guidance_Normalized",
+      "cell": "H1",
+      "value": "notes",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "History_Q",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "History_Q",
+      "cell": "B1",
+      "value": "period_ordinal",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "History_Q",
+      "cell": "C1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "History_Q",
+      "cell": "D1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "History_Q",
+      "cell": "E1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "History_Q",
+      "cell": "F1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "History_Q",
+      "cell": "G1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "operating_drivers_raw",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "operating_drivers_raw",
+      "cell": "B1",
+      "value": "topic",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "operating_drivers_raw",
+      "cell": "C1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "operating_drivers_raw",
+      "cell": "D1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "operating_drivers_raw",
+      "cell": "E1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "operating_drivers_raw",
+      "cell": "F1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "operating_drivers_raw",
+      "cell": "G1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "DATA_Period_Index",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "DATA_Period_Index",
+      "cell": "B1",
+      "value": "period_ordinal",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "DATA_Period_Index",
+      "cell": "C1",
+      "value": "period_type",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "DATA_Period_Index",
+      "cell": "D1",
+      "value": "fiscal_year",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "DATA_Period_Index",
+      "cell": "E1",
+      "value": "fiscal_quarter",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "DATA_Period_Index",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "A1",
+      "value": "field",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "B1",
+      "value": "display_name",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "C1",
+      "value": "metric_type",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "D1",
+      "value": "source_policy",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "E1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "F1",
+      "value": "reason",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "G1",
+      "value": "sheet",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "H1",
+      "value": "target",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "I1",
+      "value": "binding_id",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "J1",
+      "value": "review_status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "K1",
+      "value": "reserved",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Flags",
+      "cell": "L1",
+      "value": "has_hidden_value_issue",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Audit",
+      "cell": "A1",
+      "value": "flag_id",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Audit",
+      "cell": "B1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Audit",
+      "cell": "C1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Audit",
+      "cell": "D1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Audit",
+      "cell": "E1",
+      "value": "reason",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Audit",
+      "cell": "F1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Recompute",
+      "cell": "A1",
+      "value": "flag_id",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Recompute",
+      "cell": "B1",
+      "value": "input_key",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Recompute",
+      "cell": "C1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Recompute",
+      "cell": "D1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Recompute",
+      "cell": "E1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Recompute",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Base",
+      "cell": "A1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Base",
+      "cell": "B1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Base",
+      "cell": "C1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Base",
+      "cell": "D1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Base",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Hidden_Value_Base",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "B1",
+      "value": "capacity",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "C1",
+      "value": "drawn",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "D1",
+      "value": "availability",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "E1",
+      "value": "covenant_status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "F1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "G1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Latest",
+      "cell": "A1",
+      "value": "instrument",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Latest",
+      "cell": "B1",
+      "value": "principal",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Latest",
+      "cell": "C1",
+      "value": "coupon",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Latest",
+      "cell": "D1",
+      "value": "maturity",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Latest",
+      "cell": "E1",
+      "value": "secured",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Latest",
+      "cell": "F1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Latest",
+      "cell": "G1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "A1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "B1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "C1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "D1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "cell": "B1",
+      "value": "topic",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "cell": "C1",
+      "value": "note",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "cell": "D1",
+      "value": "covenant",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "B1",
+      "value": "gross_debt",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "C1",
+      "value": "net_debt",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "D1",
+      "value": "liquidity",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "E1",
+      "value": "leverage",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F1",
+      "value": "coverage",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "G1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Credibility",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Credibility",
+      "cell": "B1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Credibility",
+      "cell": "C1",
+      "value": "gaap_value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Credibility",
+      "cell": "D1",
+      "value": "adjusted_value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Credibility",
+      "cell": "E1",
+      "value": "adjustments",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Credibility",
+      "cell": "F1",
+      "value": "credibility",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Credibility",
+      "cell": "G1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Credibility",
+      "cell": "H1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjusted_Metrics",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjusted_Metrics",
+      "cell": "B1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjusted_Metrics",
+      "cell": "C1",
+      "value": "gaap_value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjusted_Metrics",
+      "cell": "D1",
+      "value": "adjusted_value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjusted_Metrics",
+      "cell": "E1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjusted_Metrics",
+      "cell": "F1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjusted_Metrics",
+      "cell": "G1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Bridge",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Bridge",
+      "cell": "B1",
+      "value": "adjustment",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Bridge",
+      "cell": "C1",
+      "value": "amount",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Bridge",
+      "cell": "D1",
+      "value": "tax_treatment",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Bridge",
+      "cell": "E1",
+      "value": "recurring",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Bridge",
+      "cell": "F1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "NonGAAP_Bridge",
+      "cell": "G1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "{ticker}_Investment_Case_Data",
+      "cell": "A1",
+      "value": "section",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "{ticker}_Investment_Case_Data",
+      "cell": "B1",
+      "value": "item_key",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "{ticker}_Investment_Case_Data",
+      "cell": "C1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "{ticker}_Investment_Case_Data",
+      "cell": "D1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "{ticker}_Investment_Case_Data",
+      "cell": "E1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "{ticker}_Investment_Case_Data",
+      "cell": "F1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "{ticker}_Investment_Case_Data",
+      "cell": "G1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Bridge_Tax_Treatment",
+      "cell": "A1",
+      "value": "scenario_id",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Bridge_Tax_Treatment",
+      "cell": "B1",
+      "value": "adjustment",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Bridge_Tax_Treatment",
+      "cell": "C1",
+      "value": "pretax_value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Bridge_Tax_Treatment",
+      "cell": "D1",
+      "value": "tax_rate",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Bridge_Tax_Treatment",
+      "cell": "E1",
+      "value": "after_tax_value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Bridge_Tax_Treatment",
+      "cell": "F1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Bridge_Tax_Treatment",
+      "cell": "G1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Driver_Assumptions",
+      "cell": "A1",
+      "value": "scenario_id",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Driver_Assumptions",
+      "cell": "B1",
+      "value": "driver",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Driver_Assumptions",
+      "cell": "C1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Driver_Assumptions",
+      "cell": "D1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Driver_Assumptions",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Driver_Assumptions",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Scenario_Driver_Assumptions",
+      "cell": "G1",
+      "value": "definition",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "cell": "A1",
+      "value": "instrument",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "cell": "B1",
+      "value": "bucket",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "cell": "C1",
+      "value": "amount",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "cell": "D1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "cell": "E1",
+      "value": "maturity",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "cell": "F1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "cell": "G1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Buckets",
+      "cell": "A1",
+      "value": "bucket",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Buckets",
+      "cell": "B1",
+      "value": "amount",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Buckets",
+      "cell": "C1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Buckets",
+      "cell": "D1",
+      "value": "as_of",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Buckets",
+      "cell": "E1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Buckets",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Recon",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Recon",
+      "cell": "B1",
+      "value": "opening",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Recon",
+      "cell": "C1",
+      "value": "debt_issued",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Recon",
+      "cell": "D1",
+      "value": "debt_repaid",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Recon",
+      "cell": "E1",
+      "value": "other",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Recon",
+      "cell": "F1",
+      "value": "closing",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Recon",
+      "cell": "G1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Recon",
+      "cell": "H1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Q",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Q",
+      "cell": "B1",
+      "value": "instrument",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Q",
+      "cell": "C1",
+      "value": "principal",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Q",
+      "cell": "D1",
+      "value": "coupon",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Q",
+      "cell": "E1",
+      "value": "maturity",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Q",
+      "cell": "F1",
+      "value": "secured",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Q",
+      "cell": "G1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Tranches_Q",
+      "cell": "H1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Grid",
+      "cell": "A1",
+      "value": "scenario_id",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Grid",
+      "cell": "B1",
+      "value": "row_driver",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Grid",
+      "cell": "C1",
+      "value": "column_driver",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Grid",
+      "cell": "D1",
+      "value": "output_metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Grid",
+      "cell": "E1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Valuation_Grid",
+      "cell": "F1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Tracker",
+      "cell": "A1",
+      "value": "promise_key",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Tracker",
+      "cell": "B1",
+      "value": "metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Tracker",
+      "cell": "C1",
+      "value": "horizon",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Tracker",
+      "cell": "D1",
+      "value": "stage",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Tracker",
+      "cell": "E1",
+      "value": "value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Tracker",
+      "cell": "F1",
+      "value": "actual",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Tracker",
+      "cell": "G1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Promise_Tracker",
+      "cell": "H1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "cell": "A1",
+      "value": "period",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "cell": "B1",
+      "value": "adjustment",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "cell": "C1",
+      "value": "amount",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "cell": "D1",
+      "value": "unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "cell": "E1",
+      "value": "recurring",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "cell": "F1",
+      "value": "cash_noncash",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "cell": "G1",
+      "value": "tax_treatment",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "cell": "H1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Adjustments_Breakdown",
+      "cell": "I1",
+      "value": "status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "OCR_Text_Log",
+      "cell": "A1",
+      "value": "source_ref",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "OCR_Text_Log",
+      "cell": "B1",
+      "value": "page",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "OCR_Text_Log",
+      "cell": "C1",
+      "value": "row_key",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "OCR_Text_Log",
+      "cell": "D1",
+      "value": "text",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "OCR_Text_Log",
+      "cell": "E1",
+      "value": "parser_status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "OCR_Text_Log",
+      "cell": "F1",
+      "value": "review_status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
     }
   ],
   "non_neutral_items": [],

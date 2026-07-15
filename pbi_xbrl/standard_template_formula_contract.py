@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Collection
 
 from openpyxl.styles import Protection
 from openpyxl.utils import get_column_letter
@@ -39,6 +39,15 @@ class FormulaRow:
     row: int
     number_format: str
     description: str
+
+
+@dataclass(frozen=True)
+class FormulaTargetContract:
+    """One formula contract ID and its exact owned workbook cells."""
+
+    formula_id: str
+    sheet: str
+    targets: tuple[str, ...]
 
 
 VALUATION_RAW_ROWS = {
@@ -137,6 +146,23 @@ ANNUAL_FORMULA_ROWS = (
     FormulaRow("annual_net_debt", "BS_Segments", 104, "#,##0.0;[Red]-#,##0.0", "Annual core debt less cash."),
 )
 
+BS_QUARTERLY_FORMULA_ROWS = (
+    FormulaRow("bs_cash_including_restricted", "BS_Segments", 11, "#,##0.0;[Red]-#,##0.0", "Cash plus restricted cash."),
+    FormulaRow("bs_cash_qoq", "BS_Segments", 12, "#,##0.0;[Red]-#,##0.0", "Quarter-over-quarter cash change."),
+    FormulaRow("bs_goodwill_assets_ratio", "BS_Segments", 26, "0.0%;[Red]-0.0%", "Goodwill divided by total assets."),
+    FormulaRow("bs_working_capital", "BS_Segments", 36, "#,##0.0;[Red]-#,##0.0", "Current assets less current liabilities."),
+    FormulaRow("bs_working_capital_qoq", "BS_Segments", 37, "#,##0.0;[Red]-#,##0.0", "Quarter-over-quarter working-capital change."),
+    FormulaRow("bs_current_ratio", "BS_Segments", 38, "0.0%;[Red]-0.0%", "Current assets divided by current liabilities."),
+    FormulaRow("bs_quick_ratio", "BS_Segments", 39, "0.0%;[Red]-0.0%", "Cash-adjusted current assets divided by current liabilities."),
+    FormulaRow("bs_debt_qoq", "BS_Segments", 41, "#,##0.0;[Red]-#,##0.0", "Quarter-over-quarter core-debt change."),
+    FormulaRow("bs_inventory_yoy", "BS_Segments", 51, "0.0%;[Red]-0.0%", "Inventory growth versus prior year."),
+    FormulaRow("bs_revenue_yoy", "BS_Segments", 52, "0.0%;[Red]-0.0%", "Revenue growth versus prior year."),
+    FormulaRow("bs_inventory_vs_revenue_growth", "BS_Segments", 53, "0.0%;[Red]-0.0%", "Inventory growth less revenue growth."),
+    FormulaRow("bs_core_net_cash", "BS_Segments", 54, "#,##0.0;[Red]-#,##0.0", "Cash plus securities less core debt."),
+    FormulaRow("bs_total_lease_liabilities", "BS_Segments", 55, "#,##0.0;[Red]-#,##0.0", "Current plus non-current lease liabilities."),
+    FormulaRow("bs_diluted_shares_yoy", "BS_Segments", 56, "0.0%;[Red]-0.0%", "Diluted-share growth versus prior year."),
+)
+
 VALUATION_OUTPUT_FORMULA_CELLS = tuple(f"N{row}" for row in range(194, 211))
 VALUATION_SIDECAR_FORMULA_CELLS = tuple(f"U{row}" for row in (64, 65, 66, 67, 68, 69, 70, 73, 74, 75))
 
@@ -202,11 +228,57 @@ FORMULA_ROWS = (
 )
 
 
-def apply_standard_formula_contracts(workbook: Any) -> None:
+def formula_target_contracts() -> tuple[FormulaTargetContract, ...]:
+    """Return the complete executable formula-cell contract for the union shell."""
+
+    contracts = [
+        FormulaTargetContract(row.formula_id, row.sheet, (f"B{row.row}:M{row.row}",))
+        for row in FORMULA_ROWS
+    ]
+    contracts.extend(
+        FormulaTargetContract(row.formula_id, row.sheet, (f"B{row.row}:M{row.row}",))
+        for row in BS_QUARTERLY_FORMULA_ROWS
+    )
+    contracts.extend(
+        FormulaTargetContract(row.formula_id, row.sheet, (f"B{row.row}:I{row.row}",))
+        for row in ANNUAL_FORMULA_ROWS
+    )
+    contracts.extend(
+        (
+            FormulaTargetContract("valuation_output_formulas", "Valuation", ("N194:N210",)),
+            FormulaTargetContract("valuation_sidecar_formulas", "Valuation", ("U64:U70", "U72:U75")),
+            FormulaTargetContract(
+                "valuation_scenario_formulas",
+                "Valuation",
+                ("J218", "Q219:Q221", "J222:J223", "H227:L234", "F236", "E241:E244", "E259:E261"),
+            ),
+            FormulaTargetContract(
+                "investment_case_sensitivity_formulas",
+                "{ticker}_Investment_Case",
+                ("A161:A163", "A172:A174", "A178:A180"),
+            ),
+            FormulaTargetContract("hidden_value_issue_anchor", "Valuation", ("AI139",)),
+        )
+    )
+    return tuple(contracts)
+
+
+def apply_standard_formula_contracts(
+    workbook: Any,
+    *,
+    enabled_formula_ids: Collection[str] | None = None,
+) -> None:
     """Apply generic labels, formulas, helper rows, and formula protection."""
+
+    all_formula_ids = {contract.formula_id for contract in formula_target_contracts()}
+    enabled = all_formula_ids if enabled_formula_ids is None else {str(value) for value in enabled_formula_ids}
+    unknown = sorted(enabled - all_formula_ids)
+    if unknown:
+        raise ValueError(f"Unknown standard-template formula contracts: {unknown!r}.")
 
     valuation = workbook["Valuation"]
     bs = workbook["BS_Segments"]
+    _clear_disabled_formula_targets(workbook, enabled)
     _prepare_calculation_history_sheet(workbook)
     _extend_balance_sheet_quarterly_axis(bs)
     _prepare_raw_targets(valuation, bs)
@@ -214,11 +286,25 @@ def apply_standard_formula_contracts(workbook: Any) -> None:
     _apply_balance_sheet_labels(bs)
     _apply_hidden_helpers(valuation)
     _apply_hidden_formula_helpers(valuation)
-    _apply_valuation_quarterly_formulas(valuation)
-    _apply_balance_sheet_formulas(bs)
-    _apply_annual_financial_block(bs)
-    _apply_valuation_input_outputs(valuation)
-    _apply_valuation_sidecar_outputs(valuation)
+    _apply_valuation_quarterly_formulas(valuation, enabled)
+    _apply_balance_sheet_formulas(bs, enabled)
+    _apply_annual_financial_block(bs, enabled)
+    _apply_valuation_input_outputs(valuation, enabled)
+    _apply_valuation_sidecar_outputs(valuation, enabled)
+
+
+def _clear_disabled_formula_targets(workbook: Any, enabled_formula_ids: set[str]) -> None:
+    from openpyxl.utils.cell import range_boundaries
+
+    for contract in formula_target_contracts():
+        if contract.formula_id in enabled_formula_ids or contract.sheet not in workbook.sheetnames:
+            continue
+        ws = workbook[contract.sheet]
+        for target in contract.targets:
+            min_col, min_row, max_col, max_row = range_boundaries(target)
+            for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
+                for cell in row:
+                    cell.value = None
 
 
 def _prepare_raw_targets(valuation: Any, bs: Any) -> None:
@@ -356,7 +442,7 @@ def _apply_hidden_formula_helpers(ws: Any) -> None:
             cell.protection = Protection(locked=True)
 
 
-def _apply_valuation_quarterly_formulas(ws: Any) -> None:
+def _apply_valuation_quarterly_formulas(ws: Any, enabled_formula_ids: set[str]) -> None:
     helper = VALUATION_HELPER_ROWS
     for column in range(FIRST_QUARTER_COLUMN, LAST_QUARTER_COLUMN + 1):
         col = get_column_letter(column)
@@ -422,11 +508,13 @@ def _apply_valuation_quarterly_formulas(ws: Any) -> None:
             115: _ratio(f"{col}49", f"{col}102"),
             271: _history_ttm_sum(period_cell, "operating_cash_flow", "$m"),
         }
+        formula_ids_by_row = {contract.row: contract.formula_id for contract in FORMULA_ROWS}
         for row, formula in formulas.items():
-            _set_formula(ws.cell(row, column), formula, _number_format_for_row(row))
+            if formula_ids_by_row[row] in enabled_formula_ids:
+                _set_formula(ws.cell(row, column), formula, _number_format_for_row(row))
 
 
-def _apply_balance_sheet_formulas(ws: Any) -> None:
+def _apply_balance_sheet_formulas(ws: Any, enabled_formula_ids: set[str]) -> None:
     for column in range(FIRST_QUARTER_COLUMN, LAST_QUARTER_COLUMN + 1):
         col = get_column_letter(column)
         prior = get_column_letter(column - 1) if column > 2 else ""
@@ -447,12 +535,15 @@ def _apply_balance_sheet_formulas(ws: Any) -> None:
             55: f'=IF(OR({col}34="",{col}42=""),"",{col}34+{col}42)',
             56: _yoy_ratio(yoy, col, 49),
         }
+        formula_ids_by_row = {contract.row: contract.formula_id for contract in BS_QUARTERLY_FORMULA_ROWS}
         for row, formula in formulas.items():
+            if formula_ids_by_row[row] not in enabled_formula_ids:
+                continue
             number_format = "0.0%;[Red]-0.0%" if row in {26, 38, 39, 51, 52, 53, 56} else "#,##0.0;[Red]-#,##0.0"
             _set_formula(ws.cell(row, column), formula, number_format)
 
 
-def _apply_annual_financial_block(ws: Any) -> None:
+def _apply_annual_financial_block(ws: Any, enabled_formula_ids: set[str]) -> None:
     """Create a ticker-neutral annual history block below annual segments."""
 
     if "A81:I81" not in {str(item) for item in ws.merged_cells.ranges}:
@@ -513,11 +604,15 @@ def _apply_annual_financial_block(ws: Any) -> None:
             104: _difference(f"{col}103", f"{col}102"),
         }
         formats = {contract.row: contract.number_format for contract in ANNUAL_FORMULA_ROWS}
+        formula_ids_by_row = {contract.row: contract.formula_id for contract in ANNUAL_FORMULA_ROWS}
         for row, formula in formulas.items():
-            _set_formula(ws.cell(row, column), formula, formats[row])
+            if formula_ids_by_row[row] in enabled_formula_ids:
+                _set_formula(ws.cell(row, column), formula, formats[row])
 
 
-def _apply_valuation_input_outputs(ws: Any) -> None:
+def _apply_valuation_input_outputs(ws: Any, enabled_formula_ids: set[str]) -> None:
+    if not {"valuation_output_formulas", "valuation_scenario_formulas"} & enabled_formula_ids:
+        return
     labels = {
         "B199": "EBITDA (base, TTM)",
         "B200": "Adjusted EBITDA (TTM)",
@@ -560,19 +655,23 @@ def _apply_valuation_input_outputs(ws: Any) -> None:
         "N209": '=IF(OR(Price="",BV_PerShare="",BV_PerShare=0),"",Price/BV_PerShare)',
         "N210": '=IF(OR(Price="",TBV_PerShare="",TBV_PerShare=0),"",Price/TBV_PerShare)',
     }
-    for coordinate, formula in output_formulas.items():
-        number_format = "0.00x" if coordinate in {"N196", "N197", "N206", "N207", "N208", "N209", "N210"} else ("0.0%" if coordinate in {"N199", "N200", "N202"} else "#,##0.0")
-        _set_formula(ws[coordinate], formula, number_format)
+    if "valuation_output_formulas" in enabled_formula_ids:
+        for coordinate, formula in output_formulas.items():
+            number_format = "0.00x" if coordinate in {"N196", "N197", "N206", "N207", "N208", "N209", "N210"} else ("0.0%" if coordinate in {"N199", "N200", "N202"} else "#,##0.0")
+            _set_formula(ws[coordinate], formula, number_format)
 
     # Scenario assumptions are intentionally empty user inputs.  The legacy
     # workbook's company-specific presets must never be frozen into the shell.
     for coordinate in ("E236", "E237", "E238", "E239", "E240"):
         ws[coordinate] = None
         ws[coordinate].protection = Protection(locked=False)
-    ws["F236"] = '=IF(E236="","",IF(OR(E236="Base",E236="Bull",E236="Bear"),"Preset selected","Custom"))'
+    if "valuation_scenario_formulas" in enabled_formula_ids:
+        ws["F236"] = '=IF(E236="","",IF(OR(E236="Base",E236="Bull",E236="Bear"),"Preset selected","Custom"))'
 
 
-def _apply_valuation_sidecar_outputs(ws: Any) -> None:
+def _apply_valuation_sidecar_outputs(ws: Any, enabled_formula_ids: set[str]) -> None:
+    if "valuation_sidecar_formulas" not in enabled_formula_ids:
+        return
     labels = {
         64: "Adjusted EBITDA TTM",
         65: "FCF TTM",
@@ -594,6 +693,7 @@ def _apply_valuation_sidecar_outputs(ws: Any) -> None:
         68: '=IF(OR(U67="",NetDebt=""),"",U67-NetDebt)',
         69: '=IF(OR(Base_EBITDA="",Target_EV_EBITDA=""),"",Base_EBITDA*Target_EV_EBITDA)',
         70: '=IF(OR(U69="",NetDebt=""),"",U69-NetDebt)',
+        72: '=TEXT(MIN(U73,U74,U75),"$0")&"-"&TEXT(MAX(U73,U74,U75),"$0")',
         73: '=IF(EqShare_Target_Adj="","",EqShare_Target_Adj)',
         74: '=IF(EqShare_Target_EV="","",EqShare_Target_EV)',
         75: '=IF(EqShare_Target_Yield="","",EqShare_Target_Yield)',

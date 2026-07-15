@@ -25,6 +25,10 @@ def _manifest() -> dict:
     return json.loads((ROOT / "docs" / "standard_template_shell_manifest.json").read_text(encoding="utf-8"))
 
 
+def _module_manifest() -> dict:
+    return json.loads((ROOT / "docs" / "workbook_module_manifest.json").read_text(encoding="utf-8"))
+
+
 _A1_RE = re.compile(r"^([A-Z]+)(\d+):([A-Z]+)(\d+)$")
 
 
@@ -58,6 +62,10 @@ def test_standard_template_shell_manifest_defines_visible_shell_contract() -> No
 
     assert manifest["file_type"] == ".xlsx"
     assert manifest["visible_sheet_order"] == VISIBLE_SHEET_ORDER
+    assert manifest["version"] == "0.3.0"
+    assert manifest["semantic_contract_version"] == "1.3.0"
+    assert manifest["union_sheet_order"] == _module_manifest()["union_sheet_order"]
+    assert manifest["module_profile"]["profile_id"] == "full_union"
     assert manifest["ticker_sheet_token_rule"]["template"] == "{ticker}_Investment_Case"
     assert manifest["ticker_sheet_token_rule"]["example"] == "PBI_Investment_Case"
     assert "macros" not in json.dumps(manifest).lower()
@@ -69,6 +77,12 @@ def test_standard_template_shell_manifest_defines_visible_shell_contract() -> No
         assert sheet["static_layout_owner"] == "frozen_template_shell"
         assert sheet["writable_zones"]
         assert sheet["non_writable_zones"]
+    assert len(sheets_by_name) == 46
+    for sheet in sheets_by_name.values():
+        assert sheet["module_id"]
+        assert sheet["module_role"] in {"visible_product", "hidden_support", "module_capacity"}
+        assert sheet["legacy_class"] in {"A", "B", "C", "E"}
+        assert sheet["state"] in {"visible", "hidden", "veryHidden"}
 
 
 def test_standard_template_shell_manifest_required_anchors_are_bindable() -> None:

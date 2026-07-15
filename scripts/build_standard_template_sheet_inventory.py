@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from pbi_xbrl.standard_template_audit_runner import run_audit_generator
+from pbi_xbrl.workbook_modules import DEFAULT_MODULE_MANIFEST, load_workbook_module_manifest, sheet_contracts
 
 DEFAULT_TEMPLATE = ROOT / "templates" / "standard_stock_model_template.xlsx"
 DEFAULT_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
@@ -220,7 +222,32 @@ def _visible_formula_refs(template_path: Path) -> dict[str, list[str]]:
     return refs
 
 
-def _classification(sheet_name: str, standard_visible: set[str]) -> tuple[str, str]:
+def _classification(
+    sheet_name: str,
+    standard_visible: set[str],
+    module_sheets: dict[str, dict[str, Any]],
+    legacy_inventory: dict[str, dict[str, Any]],
+) -> tuple[str, str]:
+    module_contract = module_sheets.get(sheet_name)
+    if module_contract:
+        role = str(module_contract["role"])
+        legacy_class = str(module_contract["legacy_class"])
+        if role == "visible_product":
+            return "standard_visible_shell_sheet", "Visible product sheet owned by the selected frozen-shell module profile."
+        if legacy_class == "B":
+            return "required_support_shell_sheet", "Required neutral hidden support sheet owned by a reusable module."
+        if legacy_class == "C":
+            return "optional_module_shell_sheet", "Reusable optional module sheet retained as a neutral inactive header-only shell."
+        return "fixture_capacity_shell_sheet", "Neutral fixture-capacity sheet reserved by an explicit module contract."
+    legacy = legacy_inventory.get(sheet_name)
+    if legacy:
+        disposition = str(legacy["disposition"])
+        if disposition == "external_detail":
+            return "external_detail_sheet", str(legacy["reason"])
+        if disposition == "rejected_redundant":
+            return "rejected_redundant_sheet", str(legacy["reason"])
+        if disposition in {"union_shell", "fixture_capacity"}:
+            return "legacy_module_source_sheet", f"Legacy source equivalent of {legacy.get('union_sheet')!r}; values are not copied into the shell."
     if sheet_name in standard_visible:
         return "standard_visible_shell_sheet", "Visible UI sheet owned by the frozen shell."
     if sheet_name.endswith("_Investment_Case") or sheet_name.endswith("_Investment_Case_Data"):
@@ -236,22 +263,46 @@ def _classification(sheet_name: str, standard_visible: set[str]) -> tuple[str, s
     return "exclude_from_standard_shell", "Not part of the standard neutral shell unless a future explicit contract promotes it."
 
 
-def _lifecycle_for(sheet_name: str, classification: str) -> dict[str, Any] | None:
-    if classification == "required_support_shell_sheet":
+def _lifecycle_for(
+    sheet_name: str,
+    classification: str,
+    module_contract: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    if classification in {"required_support_shell_sheet", "optional_module_shell_sheet", "fixture_capacity_shell_sheet"}:
+        headers = [str(value) for value in (module_contract or {}).get("headers") or []]
+        capacity_rows = int((module_contract or {}).get("capacity_rows") or 5000)
+        capacity_columns = int((module_contract or {}).get("capacity_columns") or max(1, len(headers)))
         return {
             "sheet_name": sheet_name,
             "owner": "frozen_shell",
             "lifecycle": "static_template",
             "neutral_shell_required": True,
-            "headers_required": SUPPORT_HEADERS.get(sheet_name, ["field", "value", "source_ref", "status"]),
-            "allowed_writable_zones": ["A2:Z5000"],
-            "source_of_data": "future normalized company data package/runtime projections",
-            "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+            "headers_required": headers,
+            "allowed_writable_zones": [f"A2:{get_column_letter(capacity_columns)}{capacity_rows}"],
+            "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+            "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
             "visibility": "hidden",
             "validation_rules": [
                 "headers present",
                 "no source/company text below header row",
                 "no raw filing rows in frozen shell",
+                "activation is profile-declared",
+            ],
+        }
+    if classification == "external_detail_sheet":
+        return {
+            "sheet_name": sheet_name,
+            "owner": "external_normalized_json",
+            "lifecycle": "external_detail",
+            "neutral_shell_required": False,
+            "headers_required": [],
+            "allowed_writable_zones": [],
+            "source_of_data": "source evidence and normalized-package detail outside the workbook",
+            "created_when": "generated outside Excel and linked through concise workbook lineage references",
+            "visibility": "external_only",
+            "validation_rules": [
+                "not stored in frozen shell",
+                "material workbook values retain detail references",
             ],
         }
     if classification == "runtime_generated_support_sheet":
@@ -301,11 +352,18 @@ def build_inventory(
     template_path: Path = DEFAULT_TEMPLATE,
     manifest_path: Path = DEFAULT_MANIFEST,
     binding_map_path: Path = DEFAULT_BINDING_MAP,
+    module_manifest_path: Path = DEFAULT_MODULE_MANIFEST,
     data_root: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     data_root = data_root or _default_data_root()
     manifest = _load_json(manifest_path)
     bindings = list((_load_json(binding_map_path).get("bindings") or []))
+    module_payload = load_workbook_module_manifest(module_manifest_path)
+    module_sheets = sheet_contracts(module_payload)
+    legacy_inventory = {
+        str(row["legacy_sheet"]): dict(row)
+        for row in module_payload["legacy_sheet_inventory"]
+    }
     standard_visible = set(manifest["visible_sheet_order"])
     shell_states = _sheet_states(template_path)
     source_paths = _source_workbook_paths(data_root)
@@ -314,6 +372,8 @@ def build_inventory(
     binding_sheets = {str(binding["sheet"]) for binding in bindings}
 
     all_sheet_names = set(shell_states)
+    all_sheet_names.update(module_sheets)
+    all_sheet_names.update(legacy_inventory)
     all_sheet_names.update(OPTIONAL_SECTOR_PACK_SHEETS)
     for states in source_states.values():
         all_sheet_names.update(states)
@@ -321,15 +381,20 @@ def build_inventory(
 
     rows: list[dict[str, Any]] = []
     lifecycle_rows: list[dict[str, Any]] = []
-    for sheet_name in sorted(all_sheet_names, key=lambda name: (name not in manifest["visible_sheet_order"], name)):
-        classification, reason = _classification(sheet_name, standard_visible)
+    union_index = {str(name): index for index, name in enumerate(module_payload["union_sheet_order"])}
+    for sheet_name in sorted(all_sheet_names, key=lambda name: (union_index.get(name, 10000), name)):
+        classification, reason = _classification(sheet_name, standard_visible, module_sheets, legacy_inventory)
         dependency = bool(visible_refs.get(sheet_name)) or sheet_name in binding_sheets
         runtime_fill = classification in {
             "required_support_shell_sheet",
             "runtime_generated_support_sheet",
             "runtime_generated_audit_sheet",
             "optional_sector_pack_sheet",
+            "optional_module_shell_sheet",
+            "fixture_capacity_shell_sheet",
         }
+        module_contract = module_sheets.get(sheet_name)
+        legacy = legacy_inventory.get(sheet_name, {})
         row = {
             "sheet_name": sheet_name,
             "classification": classification,
@@ -345,9 +410,12 @@ def build_inventory(
             "visible_formula_or_binding_dependency": dependency,
             "visible_formula_references": visible_refs.get(sheet_name, []),
             "runtime_must_create_or_fill": runtime_fill,
+            "module_id": str((module_contract or {}).get("module_id") or legacy.get("module_id") or ""),
+            "legacy_class": str((module_contract or {}).get("legacy_class") or legacy.get("legacy_class") or ""),
+            "legacy_disposition": str(legacy.get("disposition") or ""),
         }
         rows.append(row)
-        lifecycle = _lifecycle_for(sheet_name, classification)
+        lifecycle = _lifecycle_for(sheet_name, classification, module_contract)
         if lifecycle is not None:
             lifecycle_rows.append(lifecycle)
 
@@ -355,6 +423,9 @@ def build_inventory(
         "version": "0.1.0",
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
         "template_path": str(template_path),
+        "module_manifest_path": str(module_manifest_path),
+        "module_manifest_version": str(module_payload["version"]),
+        "module_profile_id": str(manifest.get("module_profile", {}).get("profile_id") or ""),
         "source_workbooks": {ticker: str(path) for ticker, path in source_paths.items()},
         "sheets": rows,
     }
@@ -437,6 +508,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--binding-map", type=Path, default=DEFAULT_BINDING_MAP)
+    parser.add_argument("--module-manifest", type=Path, default=DEFAULT_MODULE_MANIFEST)
     parser.add_argument("--data-root", type=Path, default=None)
     parser.add_argument("--inventory-json", type=Path, default=DEFAULT_INVENTORY_JSON)
     parser.add_argument("--inventory-md", type=Path, default=DEFAULT_INVENTORY_MD)
@@ -451,6 +523,7 @@ def main(argv: list[str] | None = None) -> int:
             (args.template, DEFAULT_TEMPLATE),
             (args.manifest, DEFAULT_MANIFEST),
             (args.binding_map, DEFAULT_BINDING_MAP),
+            (args.module_manifest, DEFAULT_MODULE_MANIFEST),
             (args.inventory_json, DEFAULT_INVENTORY_JSON),
             (args.inventory_md, DEFAULT_INVENTORY_MD),
             (args.lifecycle_json, DEFAULT_LIFECYCLE_JSON),
@@ -466,6 +539,7 @@ def main(argv: list[str] | None = None) -> int:
             template_path=args.template,
             manifest_path=args.manifest,
             binding_map_path=args.binding_map,
+            module_manifest_path=args.module_manifest,
             data_root=args.data_root,
             inventory_json=args.inventory_json,
             inventory_md=args.inventory_md,

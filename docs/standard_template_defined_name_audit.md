@@ -1,6 +1,6 @@
 # Standard Template Defined-Name Audit
 
-- Retained names: `199`
+- Retained names: `202`
 - Target mismatches: `0`
 - Company-specific names/constants: `0`
 - Removed constant: `ThesisBaseAdjEBITDA_FY=815.59`
@@ -27,6 +27,7 @@
 | `Equity_FCF_Yield` | `generic_named_range` | `'Valuation'!$N$200` | True |
 | `FCFF_Proxy_TTM` | `formula_dependency` | `'Valuation'!$N$198` | True |
 | `FCF_TTM` | `formula_dependency` | `'Valuation'!$D$201` | True |
+| `FCF_TTM_Pos_Years` | `generic_named_range` | `'Hidden_Value_Base'!$BE$50` | True |
 | `ImpliedGT_Output` | `generic_named_range` | `'Valuation'!$Q$223:$Q$230` | True |
 | `ImpliedGT_Status` | `generic_named_range` | `'Valuation'!$S$223:$S$230` | True |
 | `ImpliedGT_WACC` | `generic_named_range` | `'Valuation'!$P$223:$P$230` | True |
@@ -34,6 +35,7 @@
 | `Implied_EV_EBITDA` | `generic_named_range` | `'Valuation'!$N$197` | True |
 | `Implied_FCFF_Yield` | `generic_named_range` | `'Valuation'!$N$199` | True |
 | `InterestPaid_TTM` | `formula_dependency` | `'Valuation'!$D$212` | True |
+| `Interest_Coverage` | `generic_named_range` | `'Hidden_Value_Base'!$AQ$50` | True |
 | `MaintCapexRatio` | `formula_dependency` | `'Valuation'!$D$213` | True |
 | `MarketCap` | `formula_dependency` | `'Valuation'!$N$194` | True |
 | `NetDebt` | `formula_dependency` | `'Valuation'!$D$198` | True |
@@ -41,6 +43,7 @@
 | `OwnerEarnings_TTM` | `formula_dependency` | `'Valuation'!$N$201` | True |
 | `OwnerEarnings_Yield` | `generic_named_range` | `'Valuation'!$N$202` | True |
 | `PerShareMode` | `formula_dependency` | `'Valuation'!$D$216` | True |
+| `Pos_FCF_Ratio` | `generic_named_range` | `'Hidden_Value_Base'!$BD$50` | True |
 | `Price` | `formula_dependency` | `'Valuation'!$D$194` | True |
 | `RecurringCashCosts` | `formula_dependency` | `'Valuation'!$D$214` | True |
 | `Revenue_TTM` | `formula_dependency` | `'Valuation'!$D$203` | True |

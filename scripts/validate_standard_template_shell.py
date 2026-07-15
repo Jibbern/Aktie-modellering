@@ -32,6 +32,11 @@ from pbi_xbrl.new_ticker_binding_planner import (
     reproduce_binding_plan,
 )
 from pbi_xbrl.json_schema_validation import load_json_strict
+from pbi_xbrl.workbook_modules import (
+    load_workbook_module_manifest,
+    resolve_module_profile,
+    validate_workbook_execution_ownership,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build_standard_template_hidden_support_audit import (  # noqa: E402
@@ -687,7 +692,11 @@ def validate_shell(
                     target="; ".join(row["company_source_leakage_samples"][:3]),
                 )
             )
-        if row["contains_source_raw_audit_data"] and row["classification"] not in {"keep_formula_dependency", "keep_neutral_helper_shell"}:
+        if row["contains_source_raw_audit_data"] and row["classification"] not in {
+            "keep_formula_dependency",
+            "keep_neutral_helper_shell",
+            "keep_optional_runtime_output_shell",
+        }:
             issues.append(
                 _issue(
                     "hidden_raw_source_data_retained",
@@ -1045,6 +1054,24 @@ def validate_shell(
         workbook_sheet_name = _workbook_sheet_name(wb, sheet_name, allow_filled_values=allow_filled_values)
         if anchor_id not in defined_names and (workbook_sheet_name not in wb.sheetnames or not _sheet_has_label(wb[workbook_sheet_name], label)):
             issues.append(_issue("required_anchor_missing", f"Required anchor {anchor_id} / {label!r} is missing.", sheet=sheet_name))
+
+    if not allow_filled_values:
+        try:
+            module_path = ROOT / str(manifest["module_manifest"]["path"])
+            module_payload = load_workbook_module_manifest(module_path)
+            resolved_profile = resolve_module_profile(
+                module_payload,
+                str(manifest["module_profile"]["profile_id"]),
+            )
+            for ownership_issue in validate_workbook_execution_ownership(
+                wb,
+                module_payload,
+                binding_payload,
+                resolved_profile,
+            ):
+                issues.append(_issue("module_execution_ownership", ownership_issue))
+        except (KeyError, TypeError, ValueError) as exc:
+            issues.append(_issue("module_execution_contract", str(exc)))
 
     wb.close()
     status = "PASS" if not issues else "FAIL"

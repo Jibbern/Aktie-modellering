@@ -3,7 +3,9 @@
 This pass defines and materializes the frozen standard workbook shell at
 `templates/standard_stock_model_template.xlsx`. The future filler writes values
 only into the writable zones declared here and in
-`docs/workbook_binding_map.json`.
+`docs/workbook_binding_map.json`. Module ownership, profile activation, and the
+46-sheet full-feature union are declared in
+`docs/workbook_module_manifest.json`.
 
 ## Shell Identity
 
@@ -171,24 +173,18 @@ pane). The former row-2 title band is intentionally blank in the frozen shell.
 
 ## Support Sheet Lifecycle
 
-The frozen shell now keeps only neutral hidden support shells when the template
-contract needs a structural placeholder:
+The frozen shell contains the accepted union of A/B/C/E capabilities. All 36
+non-visible module sheets are hidden, header-only, package-neutral, and owned by
+an explicit module. B-class sheets are required support projections, C-class
+sheets are reusable optional modules, and E-class sheets reserve neutral fixture
+capacity. D-class raw detail remains external normalized JSON with workbook
+detail references. The complete lifecycle is generated in
+`docs/support_sheet_lifecycle_contract.json`.
 
-- `Hidden_Value_Flags`
-- `Revolver_History`
-- `Debt_Tranches_Latest`
-- `Debt_Profile`
-- `Guidance_Normalized`
-- `Quarter_Notes`
-- `Promise_Progress`
-- `History_Q`
-
-They are hidden, header-only, and validated as package-neutral. Runtime-created
-support/audit sheets such as `Guidance_Raw`, `Promise_Evidence`,
-`Quarter_Notes_Audit`, `DATA_Facts_Long`, SEC/OCR logs, and sector-pack outputs
-are documented in `docs/support_sheet_lifecycle_contract.json` but are not
-stored in the frozen shell. The normalized data package is the runtime data
-source, not workbook support sheets scraped during fill.
+Profile selection happens before planning. Disabled module-owned visible sheets
+are hidden, their bindings are removed from the profile binding contract, and
+every retained hidden sheet remains neutral. The value filler still receives only
+an exact-cell plan and never decides module activation.
 
 ## Hidden Package Contract
 
@@ -249,6 +245,13 @@ including normalized/source paths, selectors, row keys, sorting, period axes,
 capacity/overflow policy, row schemas, target types, visibility, and block
 ownership. Shell validation and planner path entrypoints fail before writes when
 any signed component drifts.
+
+The manifest-contract signature also binds the canonical digest of the complete
+module manifest and resolved profile. The binding-contract signature includes
+module ownership, enabled modules, profile packs, and profile identity. A change
+to dependencies, capacities, activation criteria, profile dimensions, or binding
+ownership therefore requires controlled rematerialization and a new reviewed
+identity.
 
 Only the verifier-produced identity result is accepted by planning. The token
 is bound to every recorded identity field and cannot be reused with another

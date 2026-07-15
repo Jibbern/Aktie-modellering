@@ -1,52 +1,62 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-15T12:02:09+00:00",
+  "generated_at": "2026-07-15T21:23:19+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "support_sheets": [
     {
       "sheet_name": "Adjusted_Metrics",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "metric",
+        "gaap_value",
+        "adjusted_value",
+        "unit",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:G5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Adjustments_Breakdown",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "adjustment",
+        "amount",
+        "unit",
+        "recurring",
+        "cash_noncash",
+        "tax_treatment",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:I5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
@@ -73,165 +83,152 @@
     },
     {
       "sheet_name": "DATA_Facts_Long",
-      "owner": "value_only_runtime",
-      "lifecycle": "audit_output",
+      "owner": "external_normalized_json",
+      "lifecycle": "external_detail",
       "neutral_shell_required": false,
-      "headers_required": [
-        "ticker",
-        "taxonomy",
-        "fact",
-        "period",
-        "value",
-        "unit",
-        "source_ref"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined audit rows"
-      ],
-      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
-      "created_when": "only during runtime report/workbook generation",
-      "visibility": "hidden",
+      "headers_required": [],
+      "allowed_writable_zones": [],
+      "source_of_data": "source evidence and normalized-package detail outside the workbook",
+      "created_when": "generated outside Excel and linked through concise workbook lineage references",
+      "visibility": "external_only",
       "validation_rules": [
-        "runtime-generated only",
-        "no raw source rows in frozen shell"
+        "not stored in frozen shell",
+        "material workbook values retain detail references"
       ]
     },
     {
       "sheet_name": "DATA_IS_Rules",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
+      "owner": "external_normalized_json",
+      "lifecycle": "external_detail",
       "neutral_shell_required": false,
-      "headers_required": [
-        "field",
-        "value",
-        "period",
-        "source_ref",
-        "status"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined table rows"
-      ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
-      "visibility": "hidden",
+      "headers_required": [],
+      "allowed_writable_zones": [],
+      "source_of_data": "source evidence and normalized-package detail outside the workbook",
+      "created_when": "generated outside Excel and linked through concise workbook lineage references",
+      "visibility": "external_only",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "not stored in frozen shell",
+        "material workbook values retain detail references"
       ]
     },
     {
       "sheet_name": "DATA_LineItem_Map",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
+      "owner": "external_normalized_json",
+      "lifecycle": "external_detail",
       "neutral_shell_required": false,
-      "headers_required": [
-        "field",
-        "value",
-        "period",
-        "source_ref",
-        "status"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined table rows"
-      ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
-      "visibility": "hidden",
+      "headers_required": [],
+      "allowed_writable_zones": [],
+      "source_of_data": "source evidence and normalized-package detail outside the workbook",
+      "created_when": "generated outside Excel and linked through concise workbook lineage references",
+      "visibility": "external_only",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "not stored in frozen shell",
+        "material workbook values retain detail references"
       ]
     },
     {
       "sheet_name": "DATA_Period_Index",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
-        "source_ref",
+        "period_ordinal",
+        "period_type",
+        "fiscal_year",
+        "fiscal_quarter",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:F5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Debt_Buckets",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
-        "period",
+        "bucket",
+        "amount",
+        "unit",
+        "as_of",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:F1000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Debt_Credit_Notes",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "topic",
+        "note",
+        "covenant",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:F1000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Debt_Maturity_Ladder",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
-        "period",
+        "instrument",
+        "bucket",
+        "amount",
+        "unit",
+        "maturity",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:G1000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
@@ -248,38 +245,44 @@
         "status"
       ],
       "allowed_writable_zones": [
-        "A2:Z5000"
+        "A2:F1000"
       ],
-      "source_of_data": "future normalized company data package/runtime projections",
-      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
         "headers present",
         "no source/company text below header row",
-        "no raw filing rows in frozen shell"
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Debt_Recon",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "opening",
+        "debt_issued",
+        "debt_repaid",
+        "other",
+        "closing",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:H1000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
@@ -297,38 +300,44 @@
         "status"
       ],
       "allowed_writable_zones": [
-        "A2:Z5000"
+        "A2:G1000"
       ],
-      "source_of_data": "future normalized company data package/runtime projections",
-      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
         "headers present",
         "no source/company text below header row",
-        "no raw filing rows in frozen shell"
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Debt_Tranches_Q",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "instrument",
+        "principal",
+        "coupon",
+        "maturity",
+        "secured",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:H5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
@@ -369,84 +378,83 @@
         "notes"
       ],
       "allowed_writable_zones": [
-        "A2:Z5000"
+        "A2:H5000"
       ],
-      "source_of_data": "future normalized company data package/runtime projections",
-      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
         "headers present",
         "no source/company text below header row",
-        "no raw filing rows in frozen shell"
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Guidance_Raw",
-      "owner": "value_only_runtime",
-      "lifecycle": "audit_output",
+      "owner": "external_normalized_json",
+      "lifecycle": "external_detail",
       "neutral_shell_required": false,
-      "headers_required": [
-        "source_ref",
-        "date",
-        "metric_text",
-        "raw_value",
-        "snippet",
-        "parser_status"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined audit rows"
-      ],
-      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
-      "created_when": "only during runtime report/workbook generation",
-      "visibility": "hidden",
+      "headers_required": [],
+      "allowed_writable_zones": [],
+      "source_of_data": "source evidence and normalized-package detail outside the workbook",
+      "created_when": "generated outside Excel and linked through concise workbook lineage references",
+      "visibility": "external_only",
       "validation_rules": [
-        "runtime-generated only",
-        "no raw source rows in frozen shell"
+        "not stored in frozen shell",
+        "material workbook values retain detail references"
       ]
     },
     {
       "sheet_name": "Hidden_Value_Audit",
-      "owner": "value_only_runtime",
-      "lifecycle": "audit_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "source_ref",
-        "field",
-        "message",
-        "status"
+        "flag_id",
+        "metric",
+        "period",
+        "status",
+        "reason",
+        "source_ref"
       ],
       "allowed_writable_zones": [
-        "runtime-defined audit rows"
+        "A2:F5000"
       ],
-      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
-      "created_when": "only during runtime report/workbook generation",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "runtime-generated only",
-        "no raw source rows in frozen shell"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Hidden_Value_Base",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
+        "metric",
         "period",
+        "value",
+        "unit",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:F5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
@@ -469,38 +477,42 @@
         "has_hidden_value_issue"
       ],
       "allowed_writable_zones": [
-        "A2:Z5000"
+        "A2:L1000"
       ],
-      "source_of_data": "future normalized company data package/runtime projections",
-      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
         "headers present",
         "no source/company text below header row",
-        "no raw filing rows in frozen shell"
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Hidden_Value_Recompute",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
+        "flag_id",
+        "input_key",
         "value",
+        "unit",
         "period",
-        "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:F5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
@@ -510,6 +522,7 @@
       "neutral_shell_required": true,
       "headers_required": [
         "period",
+        "period_ordinal",
         "metric",
         "value",
         "unit",
@@ -517,175 +530,181 @@
         "status"
       ],
       "allowed_writable_zones": [
-        "A2:Z5000"
+        "A2:G1000"
       ],
-      "source_of_data": "future normalized company data package/runtime projections",
-      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
         "headers present",
         "no source/company text below header row",
-        "no raw filing rows in frozen shell"
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Info_Log",
-      "owner": "value_only_runtime",
-      "lifecycle": "audit_output",
+      "owner": "external_normalized_json",
+      "lifecycle": "external_detail",
       "neutral_shell_required": false,
-      "headers_required": [
-        "source_ref",
-        "field",
-        "message",
-        "status"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined audit rows"
-      ],
-      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
-      "created_when": "only during runtime report/workbook generation",
-      "visibility": "hidden",
+      "headers_required": [],
+      "allowed_writable_zones": [],
+      "source_of_data": "source evidence and normalized-package detail outside the workbook",
+      "created_when": "generated outside Excel and linked through concise workbook lineage references",
+      "visibility": "external_only",
       "validation_rules": [
-        "runtime-generated only",
-        "no raw source rows in frozen shell"
+        "not stored in frozen shell",
+        "material workbook values retain detail references"
       ]
     },
     {
       "sheet_name": "Leverage_Liquidity",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "gross_debt",
+        "net_debt",
+        "liquidity",
+        "leverage",
+        "coverage",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:H5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "NonGAAP_Bridge",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "adjustment",
+        "amount",
+        "tax_treatment",
+        "recurring",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:G5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "NonGAAP_Credibility",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "metric",
+        "gaap_value",
+        "adjusted_value",
+        "adjustments",
+        "credibility",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:H1000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "NonGAAP_Files",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
+      "owner": "external_normalized_json",
+      "lifecycle": "external_detail",
       "neutral_shell_required": false,
-      "headers_required": [
-        "field",
-        "value",
-        "period",
-        "source_ref",
-        "status"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined table rows"
-      ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
-      "visibility": "hidden",
+      "headers_required": [],
+      "allowed_writable_zones": [],
+      "source_of_data": "source evidence and normalized-package detail outside the workbook",
+      "created_when": "generated outside Excel and linked through concise workbook lineage references",
+      "visibility": "external_only",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "not stored in frozen shell",
+        "material workbook values retain detail references"
       ]
     },
     {
       "sheet_name": "OCR_Text_Log",
-      "owner": "value_only_runtime",
-      "lifecycle": "audit_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
         "source_ref",
-        "field",
-        "message",
-        "status"
+        "page",
+        "row_key",
+        "text",
+        "parser_status",
+        "review_status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined audit rows"
+        "A2:F5000"
       ],
-      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
-      "created_when": "only during runtime report/workbook generation",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "runtime-generated only",
-        "no raw source rows in frozen shell"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Promise_Evidence",
-      "owner": "value_only_runtime",
-      "lifecycle": "audit_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "promise_id",
-        "metric",
+        "promise_key",
         "period",
+        "metric",
         "evidence",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined audit rows"
+        "A2:F5000"
       ],
-      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
-      "created_when": "only during runtime report/workbook generation",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "runtime-generated only",
-        "no raw source rows in frozen shell"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
@@ -703,61 +722,70 @@
         "source_ref"
       ],
       "allowed_writable_zones": [
-        "A2:Z5000"
+        "A2:G5000"
       ],
-      "source_of_data": "future normalized company data package/runtime projections",
-      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
         "headers present",
         "no source/company text below header row",
-        "no raw filing rows in frozen shell"
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Promise_Tracker",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
+        "promise_key",
+        "metric",
+        "horizon",
+        "stage",
         "value",
-        "period",
-        "source_ref",
-        "status"
+        "actual",
+        "status",
+        "source_ref"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:H5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Quarter_Narrative_Data",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "topic",
+        "narrative_type",
+        "text",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:F5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
@@ -774,130 +802,138 @@
         "status"
       ],
       "allowed_writable_zones": [
-        "A2:Z5000"
+        "A2:F5000"
       ],
-      "source_of_data": "future normalized company data package/runtime projections",
-      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
         "headers present",
         "no source/company text below header row",
-        "no raw filing rows in frozen shell"
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Quarter_Notes_Audit",
-      "owner": "value_only_runtime",
-      "lifecycle": "audit_output",
+      "owner": "external_normalized_json",
+      "lifecycle": "external_detail",
       "neutral_shell_required": false,
-      "headers_required": [
-        "period",
-        "note_id",
-        "source_ref",
-        "parser_status",
-        "review_status"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined audit rows"
-      ],
-      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
-      "created_when": "only during runtime report/workbook generation",
-      "visibility": "hidden",
+      "headers_required": [],
+      "allowed_writable_zones": [],
+      "source_of_data": "source evidence and normalized-package detail outside the workbook",
+      "created_when": "generated outside Excel and linked through concise workbook lineage references",
+      "visibility": "external_only",
       "validation_rules": [
-        "runtime-generated only",
-        "no raw source rows in frozen shell"
+        "not stored in frozen shell",
+        "material workbook values retain detail references"
       ]
     },
     {
       "sheet_name": "Quarter_Notes_Evidence",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
+        "evidence_key",
         "period",
+        "topic",
+        "text",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:F5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "REPORT_BS_Q",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "metric",
+        "value",
+        "unit",
         "source_ref",
-        "status"
+        "status",
+        "definition"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:G5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "REPORT_CF_Q",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "metric",
+        "value",
+        "unit",
         "source_ref",
-        "status"
+        "status",
+        "definition"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:G5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "REPORT_IS_Q",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
         "period",
+        "metric",
+        "value",
+        "unit",
         "source_ref",
-        "status"
+        "status",
+        "definition"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:G5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
@@ -915,198 +951,168 @@
         "status"
       ],
       "allowed_writable_zones": [
-        "A2:Z5000"
+        "A2:G5000"
       ],
-      "source_of_data": "future normalized company data package/runtime projections",
-      "created_when": "materialized into the frozen standard shell as a hidden neutral header-only sheet",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
         "headers present",
         "no source/company text below header row",
-        "no raw filing rows in frozen shell"
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "SEC_Audit_Log",
-      "owner": "value_only_runtime",
-      "lifecycle": "audit_output",
+      "owner": "external_normalized_json",
+      "lifecycle": "external_detail",
       "neutral_shell_required": false,
-      "headers_required": [
-        "source_ref",
-        "field",
-        "message",
-        "status"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined audit rows"
-      ],
-      "source_of_data": "parser evidence, source coverage, validation issues, and mapping gaps",
-      "created_when": "only during runtime report/workbook generation",
-      "visibility": "hidden",
+      "headers_required": [],
+      "allowed_writable_zones": [],
+      "source_of_data": "source evidence and normalized-package detail outside the workbook",
+      "created_when": "generated outside Excel and linked through concise workbook lineage references",
+      "visibility": "external_only",
       "validation_rules": [
-        "runtime-generated only",
-        "no raw source rows in frozen shell"
+        "not stored in frozen shell",
+        "material workbook values retain detail references"
       ]
     },
     {
       "sheet_name": "Scenario_Bridge_Tax_Treatment",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
-        "value",
-        "period",
+        "scenario_id",
+        "adjustment",
+        "pretax_value",
+        "tax_rate",
+        "after_tax_value",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:G1000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Scenario_Driver_Assumptions",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
+        "scenario_id",
+        "driver",
         "value",
-        "period",
+        "unit",
         "source_ref",
-        "status"
+        "status",
+        "definition"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:G1000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Slides_Debt_Profile",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
+      "owner": "external_normalized_json",
+      "lifecycle": "external_detail",
       "neutral_shell_required": false,
-      "headers_required": [
-        "field",
-        "value",
-        "period",
-        "source_ref",
-        "status"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined table rows"
-      ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
-      "visibility": "hidden",
+      "headers_required": [],
+      "allowed_writable_zones": [],
+      "source_of_data": "source evidence and normalized-package detail outside the workbook",
+      "created_when": "generated outside Excel and linked through concise workbook lineage references",
+      "visibility": "external_only",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
-      ]
-    },
-    {
-      "sheet_name": "Slides_Guidance",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
-      "headers_required": [
-        "field",
-        "value",
-        "period",
-        "source_ref",
-        "status"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined table rows"
-      ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
-      "visibility": "hidden",
-      "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "not stored in frozen shell",
+        "material workbook values retain detail references"
       ]
     },
     {
       "sheet_name": "Slides_Segments",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
+      "owner": "external_normalized_json",
+      "lifecycle": "external_detail",
       "neutral_shell_required": false,
-      "headers_required": [
-        "field",
-        "value",
-        "period",
-        "source_ref",
-        "status"
-      ],
-      "allowed_writable_zones": [
-        "runtime-defined table rows"
-      ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
-      "visibility": "hidden",
+      "headers_required": [],
+      "allowed_writable_zones": [],
+      "source_of_data": "source evidence and normalized-package detail outside the workbook",
+      "created_when": "generated outside Excel and linked through concise workbook lineage references",
+      "visibility": "external_only",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "not stored in frozen shell",
+        "material workbook values retain detail references"
       ]
     },
     {
       "sheet_name": "Valuation_Grid",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
+        "scenario_id",
+        "row_driver",
+        "column_driver",
+        "output_metric",
         "value",
-        "period",
-        "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:F1000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
       "sheet_name": "Valuation_Summary",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
+        "metric",
         "value",
-        "period",
+        "unit",
+        "as_of",
         "source_ref",
-        "status"
+        "status",
+        "definition"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:G1000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     },
     {
@@ -1133,25 +1139,56 @@
     },
     {
       "sheet_name": "operating_drivers_raw",
-      "owner": "value_only_runtime",
-      "lifecycle": "runtime_output",
-      "neutral_shell_required": false,
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
       "headers_required": [
-        "field",
+        "period",
+        "topic",
+        "metric",
         "value",
+        "unit",
+        "source_ref",
+        "status"
+      ],
+      "allowed_writable_zones": [
+        "A2:G5000"
+      ],
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
+      "visibility": "hidden",
+      "validation_rules": [
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
+      ]
+    },
+    {
+      "sheet_name": "{ticker}_Investment_Case_Data",
+      "owner": "frozen_shell",
+      "lifecycle": "static_template",
+      "neutral_shell_required": true,
+      "headers_required": [
+        "section",
+        "item_key",
+        "value",
+        "unit",
         "period",
         "source_ref",
         "status"
       ],
       "allowed_writable_zones": [
-        "runtime-defined table rows"
+        "A2:G5000"
       ],
-      "source_of_data": "normalized package plus derived/runtime calculations",
-      "created_when": "only when a promoted output workbook needs the support projection",
+      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
+      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
       "visibility": "hidden",
       "validation_rules": [
-        "documented runtime output",
-        "no inheritance from ANF/PBI/GPRE lab sheets"
+        "headers present",
+        "no source/company text below header row",
+        "no raw filing rows in frozen shell",
+        "activation is profile-declared"
       ]
     }
   ],

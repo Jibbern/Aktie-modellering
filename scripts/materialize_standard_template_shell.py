@@ -36,6 +36,18 @@ from pbi_xbrl.standard_template_shell_identity import (
 from pbi_xbrl.standard_template_formula_contract import apply_standard_formula_contracts
 from pbi_xbrl.json_schema_validation import load_json_strict
 from pbi_xbrl.standard_template_audit_freshness import write_audit_freshness
+from pbi_xbrl.workbook_modules import (
+    DEFAULT_MODULE_MANIFEST,
+    ResolvedModuleProfile,
+    build_profile_binding_payload,
+    build_profile_shell_manifest,
+    enabled_defined_name_ids,
+    enabled_formula_ids,
+    load_workbook_module_manifest,
+    resolve_module_profile,
+    validate_workbook_execution_ownership,
+    visible_block_contracts,
+)
 
 
 ROOT = REPO_ROOT
@@ -152,29 +164,6 @@ QA_COLUMN_WIDTHS = {
     "Needs_Review": [24, 9, 30, 20, 32, 24, 56, 42, 16, 16, 34],
     "QA_Checks": [34, 12, 18, 18, 16, 16, 34, 60, 34],
 }
-SUPPORT_SHEET_HEADERS = {
-    "Hidden_Value_Flags": [
-        "field",
-        "display_name",
-        "metric_type",
-        "source_policy",
-        "status",
-        "reason",
-        "sheet",
-        "target",
-        "binding_id",
-        "review_status",
-        "reserved",
-        "has_hidden_value_issue",
-    ],
-    "Revolver_History": ["period", "capacity", "drawn", "availability", "covenant_status", "source_ref", "status"],
-    "Debt_Tranches_Latest": ["instrument", "principal", "coupon", "maturity", "secured", "source_ref", "status"],
-    "Debt_Profile": ["metric", "value", "period", "unit", "source_ref", "status"],
-    "Guidance_Normalized": ["metric", "horizon", "period", "value", "unit", "status", "source_ref", "notes"],
-    "Quarter_Notes": ["period", "theme", "metric", "note", "source_ref", "status"],
-    "Promise_Progress": ["period", "metric", "previous_guide", "current_guide", "actual", "status", "source_ref"],
-    "History_Q": ["period", "period_ordinal", "metric", "value", "unit", "source_ref", "status"],
-}
 VALUATION_GUIDANCE_SIDECAR_HEADERS = {
     "O7": "Guidance",
     "O28": "Metric",
@@ -256,7 +245,6 @@ OPERATING_DRIVER_SHEET_HEADERS = {
     "B19": "Stated in",
     "C19": "Commentary",
 }
-ALLOWED_HIDDEN_SHELL_SHEETS = set(SUPPORT_SHEET_HEADERS)
 SHEET_REF_RE = re.compile(r"'([^']+)'!|(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_ ]{0,60})!")
 COMPANY_SPECIFIC_DEFINED_NAMES = {"ThesisBaseAdjEBITDA_FY"}
 STALE_UNREFERENCED_DEFINED_NAMES = {
@@ -543,7 +531,7 @@ def _fallback_freeze(sheet_name: str) -> str:
         "QA_Log": "A2",
         "Needs_Review": "A2",
         "QA_Checks": "A2",
-    }[sheet_name]
+    }.get(sheet_name, "A2")
 
 
 def _anchor_row_from_zone(sheet_def: dict[str, Any], zone_id: str) -> int:
@@ -584,17 +572,6 @@ def _merge_title(ws: Any, sheet_name: str, max_col: int) -> None:
     end_col = min(max_col, 15)
     if end_col > 1:
         ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=end_col)
-
-
-def _write_formula_support(ws: Any, sheet_name: str) -> None:
-    if sheet_name == "Valuation":
-        ws["N20"] = '=IFERROR(B20,"")'
-        ws["N21"] = '=IFERROR(B21,"")'
-        ws["N120"] = '=IFERROR(B120,"")'
-        ws["N151"] = '=IFERROR(B151,"")'
-    elif sheet_name == "{ticker}_Investment_Case":
-        ws["B191"] = '=IFERROR(B81,"")'
-        ws["B192"] = '=IFERROR(B131,"")'
 
 
 def _apply_dimensions(ws: Any, sheet_name: str, contract: SourceSheetContract, max_col: int, max_row: int) -> None:
@@ -692,8 +669,6 @@ def _write_static_structure(
         ws["B1"] = "$m"
         ws["A2"] = "Values scaled to $m unless %"
 
-    _write_formula_support(ws, sheet_name)
-
     for anchor in wb._standard_template_required_anchors:  # type: ignore[attr-defined]
         if anchor["sheet"] != sheet_name:
             continue
@@ -716,12 +691,18 @@ def _rich_template_source(data_root: Path) -> Path | None:
 def _rename_investment_case_sheet(wb: Workbook) -> None:
     if "ANF_Investment_Case" in wb.sheetnames and "{ticker}_Investment_Case" not in wb.sheetnames:
         wb["ANF_Investment_Case"].title = "{ticker}_Investment_Case"
+    if "ANF_Investment_Case_Data" in wb.sheetnames and "{ticker}_Investment_Case_Data" not in wb.sheetnames:
+        wb["ANF_Investment_Case_Data"].title = "{ticker}_Investment_Case_Data"
 
 
 def _hide_nonstandard_sheets(wb: Workbook, manifest: dict[str, Any]) -> None:
+    states = {
+        str(sheet_name): str(state)
+        for sheet_name, state in (manifest.get("module_profile", {}).get("sheet_states", {}) or {}).items()
+    }
     standard_visible = {str(sheet_name) for sheet_name in manifest["visible_sheet_order"]}
     for ws in wb.worksheets:
-        ws.sheet_state = "visible" if ws.title in standard_visible else "hidden"
+        ws.sheet_state = states.get(ws.title, "visible" if ws.title in standard_visible else "hidden")
 
 
 def _clear_range_values(ws: Any, range_ref: str) -> None:
@@ -1454,6 +1435,92 @@ def _remove_company_specific_defined_names(wb: Workbook) -> None:
             del wb.defined_names[name]
 
 
+def _ranges_overlap(left: str, right: str) -> bool:
+    left_min_col, left_min_row, left_max_col, left_max_row = range_boundaries(left)
+    right_min_col, right_min_row, right_max_col, right_max_row = range_boundaries(right)
+    return not (
+        left_max_col < right_min_col
+        or right_max_col < left_min_col
+        or left_max_row < right_min_row
+        or right_max_row < left_min_row
+    )
+
+
+def _clear_profile_owned_range(wb: Workbook, sheet_name: str, target: str) -> None:
+    if sheet_name not in wb.sheetnames:
+        return
+    ws = wb[sheet_name]
+    for merged_range in list(ws.merged_cells.ranges):
+        if _ranges_overlap(str(merged_range), target):
+            ws.unmerge_cells(str(merged_range))
+
+    retained_validations = []
+    for validation in ws.data_validations.dataValidation:
+        if any(_ranges_overlap(str(cell_range), target) for cell_range in validation.ranges.ranges):
+            continue
+        retained_validations.append(validation)
+    ws.data_validations.dataValidation = retained_validations
+
+    retained_rules = {}
+    for conditional_range, rules in ws.conditional_formatting._cf_rules.items():
+        ranges = getattr(conditional_range, "sqref", ())
+        if any(_ranges_overlap(str(cell_range), target) for cell_range in ranges):
+            continue
+        retained_rules[conditional_range] = rules
+    ws.conditional_formatting._cf_rules.clear()
+    ws.conditional_formatting._cf_rules.update(retained_rules)
+
+    min_col, min_row, max_col, max_row = range_boundaries(target)
+    normal_style = copy(wb._cell_styles[0])  # type: ignore[attr-defined]
+    for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
+        for cell in row:
+            if isinstance(cell, MergedCell):
+                continue
+            cell.value = None
+            cell.comment = None
+            cell.hyperlink = None
+            cell._style = copy(normal_style)  # type: ignore[attr-defined]
+            cell.protection = Protection(locked=True)
+
+
+def _apply_module_profile_boundaries(
+    wb: Workbook,
+    module_payload: dict[str, Any],
+    resolved_profile: ResolvedModuleProfile,
+) -> None:
+    enabled_modules = set(resolved_profile.enabled_modules)
+    selected_packs = set(resolved_profile.profile_pack_ids)
+    union_profile_active = resolved_profile.profile_id == str(module_payload["union_shell_profile_id"])
+    pack_blocks = [block for block in visible_block_contracts(module_payload) if block.kind == "profile_pack_block"]
+    active_pack_slots = {
+        (block.sheet, block.target)
+        for block in pack_blocks
+        if block.owner_id in enabled_modules
+        and (union_profile_active or block.source_id in selected_packs)
+    }
+    cleared: set[tuple[str, str]] = set()
+    for block in visible_block_contracts(module_payload):
+        disabled = block.owner_id not in enabled_modules
+        if block.kind == "profile_pack_block":
+            disabled = (block.sheet, block.target) not in active_pack_slots
+        key = (block.sheet, block.target)
+        if disabled and key not in cleared:
+            _clear_profile_owned_range(wb, block.sheet, block.target)
+            cleared.add(key)
+
+
+def _prune_defined_names_for_profile(
+    wb: Workbook,
+    module_payload: dict[str, Any],
+    binding_payload: dict[str, Any],
+    resolved_profile: ResolvedModuleProfile,
+) -> None:
+    allowed = enabled_defined_name_ids(module_payload, binding_payload, resolved_profile)
+    for name in list(wb.defined_names):
+        if str(name) not in allowed:
+            del wb.defined_names[name]
+
+
 def _remove_qa_excel_tables(wb: Workbook) -> None:
     for sheet_name in ("QA_Log", "Needs_Review", "QA_Checks"):
         if sheet_name not in wb.sheetnames:
@@ -1491,7 +1558,7 @@ def _remove_defined_names_pointing_to_missing_sheets(wb: Workbook) -> None:
             del wb.defined_names[name]
 
 
-def _neutralize_support_sheet(ws: Any, headers: list[str]) -> None:
+def _neutralize_support_sheet(ws: Any, headers: list[str], *, state: str = "hidden") -> None:
     for table_name in list(ws.tables.keys()):
         del ws.tables[table_name]
     for merged_range in list(ws.merged_cells.ranges):
@@ -1506,37 +1573,63 @@ def _neutralize_support_sheet(ws: Any, headers: list[str]) -> None:
                 continue
             cell.value = None
             cell.comment = None
+            cell.font = Font(name="Aptos", size=10, color="1F2933")
+            cell.fill = PatternFill(fill_type=None)
+            cell.border = Border()
+            cell.alignment = Alignment(vertical="center")
+            cell.number_format = "General"
+            cell.protection = Protection(locked=True)
+    ws.row_dimensions.clear()
+    ws.column_dimensions.clear()
     for col_idx, header in enumerate(headers, start=1):
-        ws.cell(1, col_idx, header)
+        cell = ws.cell(1, col_idx, header)
+        cell.font = Font(name="Aptos", size=10, bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="4472C4")
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+        ws.column_dimensions[get_column_letter(col_idx)].width = max(12.0, min(32.0, len(header) + 2.0))
+    ws.row_dimensions[1].height = 20.0
+    ws.freeze_panes = "A2"
+    ws.sheet_view.showGridLines = False
     if ws.title == "History_Q":
         for row in range(2, 1001):
             for column in range(1, len(headers) + 1):
                 ws.cell(row, column).protection = Protection(locked=False)
-    ws.sheet_state = "hidden"
+    ws.sheet_state = state
 
 
 def _neutralize_hidden_support_sheets(wb: Workbook, manifest: dict[str, Any]) -> None:
-    standard_visible = {str(sheet_name) for sheet_name in manifest["visible_sheet_order"]}
+    union_order = [str(sheet_name) for sheet_name in manifest["union_sheet_order"]]
+    union_sheets = set(union_order)
+    contracts = {str(row["sheet"]): row for row in manifest["sheets"]}
     for sheet_name in list(wb.sheetnames):
-        if sheet_name in standard_visible:
-            continue
-        if sheet_name not in ALLOWED_HIDDEN_SHELL_SHEETS:
+        if sheet_name not in union_sheets:
             del wb[sheet_name]
-            continue
-        _neutralize_support_sheet(wb[sheet_name], SUPPORT_SHEET_HEADERS[sheet_name])
 
-    for sheet_name in SUPPORT_SHEET_HEADERS:
-        if sheet_name in wb.sheetnames:
-            wb[sheet_name].sheet_state = "hidden"
+    for sheet_name in union_order:
+        contract = contracts[sheet_name]
+        if str(contract["module_role"]) == "visible_product":
+            if sheet_name not in wb.sheetnames:
+                raise ValueError(f"Rich shell source lacks required visible sheet {sheet_name!r}.")
+            wb[sheet_name].sheet_state = str(contract["state"])
             continue
+        if sheet_name in wb.sheetnames:
+            del wb[sheet_name]
         ws = wb.create_sheet(sheet_name)
-        _neutralize_support_sheet(ws, SUPPORT_SHEET_HEADERS[sheet_name])
+        module_contract = next(
+            row
+            for row in manifest.get("sheets") or []
+            if str(row.get("sheet") or "") == sheet_name
+        )
+        headers = [str(value) for value in module_contract.get("formulas_static_labels") or []]
+        _neutralize_support_sheet(ws, headers, state=str(contract["state"]))
+
+    wb._sheets = [wb[sheet_name] for sheet_name in union_order]  # type: ignore[attr-defined]
 
     _remove_defined_names_pointing_to_missing_sheets(wb)
 
 
 def _ensure_freeze_panes(wb: Workbook, manifest: dict[str, Any]) -> None:
-    for sheet_name in manifest["visible_sheet_order"]:
+    for sheet_name in manifest["union_sheet_order"]:
         if sheet_name in wb.sheetnames and not wb[sheet_name].freeze_panes:
             wb[sheet_name].freeze_panes = _fallback_freeze(str(sheet_name))
 
@@ -1563,8 +1656,11 @@ def _materialize_rich_shell(
     source_path: Path,
     output_path: Path,
     manifest: dict[str, Any],
-    bindings: list[dict[str, Any]],
+    binding_payload: dict[str, Any],
+    module_payload: dict[str, Any],
+    resolved_profile: ResolvedModuleProfile,
 ) -> Path:
+    bindings = list(binding_payload.get("bindings") or [])
     output_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source_path, output_path)
     wb = load_workbook(output_path, data_only=False, read_only=False)
@@ -1597,15 +1693,28 @@ def _materialize_rich_shell(
     _clear_visible_placeholder_labels(wb)
     _neutralize_blank_bs_signal_fills(wb)
     _configure_summary_liquidity_layout(wb)
-    apply_standard_formula_contracts(wb)
+    apply_standard_formula_contracts(
+        wb,
+        enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
+    )
+    _apply_module_profile_boundaries(wb, module_payload, resolved_profile)
     _remove_company_specific_defined_names(wb)
+    _neutralize_hidden_support_sheets(wb, manifest)
+    _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _ensure_qa_headers(wb)
     _remove_qa_excel_tables(wb)
     _clear_workbook_comments(wb)
-    _neutralize_hidden_support_sheets(wb, manifest)
     _ensure_freeze_panes(wb, manifest)
     _configure_calculation(wb)
     _configure_deterministic_properties(wb)
+    ownership_issues = validate_workbook_execution_ownership(
+        wb,
+        module_payload,
+        binding_payload,
+        resolved_profile,
+    )
+    if ownership_issues:
+        raise ValueError("Invalid materialized module ownership: " + "; ".join(ownership_issues[:20]))
     wb.save(output_path)
     wb.close()
     normalize_xlsx_package(output_path)
@@ -1618,10 +1727,36 @@ def materialize_shell(
     output_path: Path,
     manifest_path: Path,
     binding_map_path: Path,
+    module_manifest_path: Path = DEFAULT_MODULE_MANIFEST,
+    module_profile_id: str = "full_union",
+    contract_manifest_output_path: Path | None = None,
+    contract_binding_map_output_path: Path | None = None,
     update_identity: bool = False,
 ) -> Path:
-    manifest = _load_json(manifest_path)
-    binding_payload = _load_json(binding_map_path)
+    base_manifest = _load_json(manifest_path)
+    base_binding_payload = _load_json(binding_map_path)
+    module_payload = load_workbook_module_manifest(module_manifest_path)
+    resolved_profile = resolve_module_profile(module_payload, module_profile_id)
+    manifest = build_profile_shell_manifest(base_manifest, module_payload, resolved_profile)
+    binding_payload = build_profile_binding_payload(base_binding_payload, module_payload, resolved_profile)
+    manifest["version"] = "0.3.0"
+    manifest["semantic_contract_version"] = SHELL_SEMANTIC_CONTRACT_VERSION
+    manifest["optional_support_sheets"] = [
+        {
+            "sheet": str(row["sheet"]),
+            "module_id": str(row["module_id"]),
+            "module_role": str(row["module_role"]),
+            "state": str(row["state"]),
+        }
+        for row in manifest["sheets"]
+        if str(row["module_role"]) != "visible_product"
+    ]
+    if (contract_manifest_output_path is None) != (contract_binding_map_output_path is None):
+        raise ValueError("Profile contract outputs must provide both manifest and binding-map paths.")
+    if module_profile_id != str(module_payload["union_shell_profile_id"]) and contract_manifest_output_path is None:
+        raise ValueError("Non-union profile variants require isolated manifest and binding-map output paths.")
+    manifest_output = contract_manifest_output_path or manifest_path
+    binding_output = contract_binding_map_output_path or binding_map_path
     bindings = list(binding_payload.get("bindings") or [])
 
     rich_source = _rich_template_source(data_root)
@@ -1630,10 +1765,18 @@ def materialize_shell(
             source_path=rich_source,
             output_path=output_path,
             manifest=manifest,
-            bindings=bindings,
+            binding_payload=binding_payload,
+            module_payload=module_payload,
+            resolved_profile=resolved_profile,
         )
         if update_identity:
-            _update_manifest_identity(result, manifest_path=manifest_path, binding_map_path=binding_map_path)
+            _update_manifest_identity(
+                result,
+                manifest=manifest,
+                binding_payload=binding_payload,
+                manifest_output_path=manifest_output,
+                binding_output_path=binding_output,
+            )
         return result
 
     contracts = _load_source_contracts(data_root, manifest)
@@ -1646,40 +1789,76 @@ def materialize_shell(
     for sheet_def in manifest["sheets"]:
         sheet_name = str(sheet_def["sheet"])
         ws = wb.create_sheet(sheet_name)
+        if str(sheet_def.get("module_role") or "") != "visible_product":
+            _neutralize_support_sheet(
+                ws,
+                [str(value) for value in sheet_def.get("formulas_static_labels") or []],
+                state=str(sheet_def["state"]),
+            )
+            continue
         sheet_bindings = [entry for entry in bindings if entry["sheet"] == sheet_name]
         _write_static_structure(wb, ws, sheet_def, sheet_bindings, contracts.get(sheet_name, SourceSheetContract(None, {}, {})))
+        ws.sheet_state = str(sheet_def["state"])
 
     _configure_summary_liquidity_layout(wb)
     _configure_narrative_text_layout(wb)
-    apply_standard_formula_contracts(wb)
+    apply_standard_formula_contracts(
+        wb,
+        enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
+    )
+    _apply_module_profile_boundaries(wb, module_payload, resolved_profile)
+    _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _configure_calculation(wb)
     _configure_deterministic_properties(wb)
+    ownership_issues = validate_workbook_execution_ownership(
+        wb,
+        module_payload,
+        binding_payload,
+        resolved_profile,
+    )
+    if ownership_issues:
+        raise ValueError("Invalid materialized module ownership: " + "; ".join(ownership_issues[:20]))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)
     wb.close()
     normalize_xlsx_package(output_path)
     if update_identity:
-        _update_manifest_identity(output_path, manifest_path=manifest_path, binding_map_path=binding_map_path)
+        _update_manifest_identity(
+            output_path,
+            manifest=manifest,
+            binding_payload=binding_payload,
+            manifest_output_path=manifest_output,
+            binding_output_path=binding_output,
+        )
     return output_path
 
 
-def _update_manifest_identity(output_path: Path, *, manifest_path: Path, binding_map_path: Path) -> None:
-    manifest = _load_json(manifest_path)
-    bindings = _load_json(binding_map_path)
+def _update_manifest_identity(
+    output_path: Path,
+    *,
+    manifest: dict[str, Any],
+    binding_payload: dict[str, Any],
+    manifest_output_path: Path,
+    binding_output_path: Path,
+) -> None:
     manifest["semantic_contract_version"] = SHELL_SEMANTIC_CONTRACT_VERSION
     manifest["shell_identity"] = compute_shell_identity(
         output_path,
         manifest=manifest,
-        binding_payload=bindings,
+        binding_payload=binding_payload,
         semantic_contract_version=SHELL_SEMANTIC_CONTRACT_VERSION,
     )
-    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    write_audit_freshness(
-        shell_path=output_path,
-        manifest=manifest,
-        binding_payload=bindings,
-        root=ROOT,
-    )
+    manifest_output_path.parent.mkdir(parents=True, exist_ok=True)
+    binding_output_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_output_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    binding_output_path.write_text(json.dumps(binding_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    if manifest_output_path.resolve() == (ROOT / "docs" / "standard_template_shell_manifest.json").resolve():
+        write_audit_freshness(
+            shell_path=output_path,
+            manifest=manifest,
+            binding_payload=binding_payload,
+            root=ROOT,
+        )
 
 
 def main() -> int:
@@ -1688,6 +1867,10 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--manifest", type=Path, default=ROOT / "docs" / "standard_template_shell_manifest.json")
     parser.add_argument("--binding-map", type=Path, default=ROOT / "docs" / "workbook_binding_map.json")
+    parser.add_argument("--module-manifest", type=Path, default=DEFAULT_MODULE_MANIFEST)
+    parser.add_argument("--module-profile", default="full_union")
+    parser.add_argument("--profile-manifest-output", type=Path, default=None)
+    parser.add_argument("--profile-binding-map-output", type=Path, default=None)
     parser.add_argument("--update-identity", action="store_true", help="Update manifest shell_identity after deterministic materialization.")
     args = parser.parse_args()
 
@@ -1696,6 +1879,10 @@ def main() -> int:
         output_path=args.output.expanduser().resolve(),
         manifest_path=args.manifest.expanduser().resolve(),
         binding_map_path=args.binding_map.expanduser().resolve(),
+        module_manifest_path=args.module_manifest.expanduser().resolve(),
+        module_profile_id=str(args.module_profile),
+        contract_manifest_output_path=args.profile_manifest_output.expanduser().resolve() if args.profile_manifest_output else None,
+        contract_binding_map_output_path=args.profile_binding_map_output.expanduser().resolve() if args.profile_binding_map_output else None,
         update_identity=args.update_identity,
     )
     print(f"standard template shell: {path}")

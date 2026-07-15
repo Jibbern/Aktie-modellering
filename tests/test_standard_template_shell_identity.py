@@ -155,6 +155,23 @@ def test_binding_source_and_selector_semantic_drift_is_detected() -> None:
         assert any(issue["rule_id"] == "shell_binding_contract_drift" for issue in report["issues"])
 
 
+def test_module_profile_and_module_binding_metadata_drift_are_detected() -> None:
+    manifest, bindings = _contracts()
+
+    profile_drift = deepcopy(manifest)
+    profile_drift["module_profile"]["profile_pack_ids"] = ["unexpected_pack"]
+    manifest_report = verify_shell_identity(SHELL, manifest=profile_drift, binding_payload=bindings)
+
+    binding_drift = deepcopy(bindings)
+    binding_drift["bindings"][0]["module_id"] = "qa_lineage"
+    binding_report = verify_shell_identity(SHELL, manifest=manifest, binding_payload=binding_drift)
+
+    assert manifest_report.status == "FAIL"
+    assert "shell_manifest_contract_drift" in {row["rule_id"] for row in manifest_report.issues}
+    assert binding_report.status == "FAIL"
+    assert "shell_binding_contract_drift" in {row["rule_id"] for row in binding_report.issues}
+
+
 def test_verified_token_is_bound_to_complete_manifest_identity() -> None:
     manifest, bindings = _contracts()
     token = verify_shell_identity(SHELL, manifest=manifest, binding_payload=bindings)
