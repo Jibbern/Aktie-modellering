@@ -172,7 +172,7 @@ def test_anf_shadow_fill_uses_reproduced_plan_and_strict_post_fill_validation(
     assert business_bindings.count("valuation_period_headers") == 12
     assert business_bindings.count("valuation_revenue_series") == 12
     assert business_bindings.count("valuation_net_income_series") == 12
-    assert business_bindings.count("bs_annual_financial_period_headers") == 6
+    assert business_bindings.count("bs_annual_financial_period_headers") == 8
     assert business_bindings.count("bs_annual_revenue_series") == 8
     by_target = {
         f"{write['target_sheet']}!{write['target_cell']}": write["value"]
@@ -318,6 +318,52 @@ def test_anf_strict_post_fill_rejects_unplanned_writable_value(
     report = _strict_post_fill_report(drifted, anf_shadow_artifacts["plan_json"])
     assert report["status"] == "FAIL"
     assert "post_fill_unplanned_value_change" in {issue["rule_id"] for issue in report["issues"]}
+
+
+def test_anf_strict_post_fill_allows_exact_planned_hidden_source_lineage(
+    anf_shadow_artifacts: dict[str, Path],
+) -> None:
+    plan = _load_json(anf_shadow_artifacts["plan_json"])
+    planned_lineage = [
+        write
+        for write in plan["planned_writes"]
+        if write["target_sheet"] == "History_Q"
+        and write["target_cell"].startswith("F")
+        and "ANF_model.xlsx" in str(write["value"])
+    ]
+
+    assert len(planned_lineage) == 635
+    report = _strict_post_fill_report(anf_shadow_artifacts["workbook"], anf_shadow_artifacts["plan_json"])
+    assert report["status"] == "PASS", report["issues"][:10]
+    assert not {
+        "hidden_company_source_leakage",
+        "hidden_sheet_company_source_text",
+    } & {issue["rule_id"] for issue in report["issues"]}
+
+
+def test_anf_strict_post_fill_rejects_unplanned_hidden_source_lineage(
+    anf_shadow_artifacts: dict[str, Path], tmp_path: Path
+) -> None:
+    drifted = tmp_path / "unplanned-hidden-lineage.xlsx"
+    shutil.copyfile(anf_shadow_artifacts["workbook"], drifted)
+    plan = _load_json(anf_shadow_artifacts["plan_json"])
+    assert ("History_Q", "F637") not in {
+        (str(write["target_sheet"]), str(write["target_cell"]))
+        for write in plan["planned_writes"]
+    }
+    wb = load_workbook(drifted, data_only=False, read_only=False)
+    try:
+        wb["History_Q"]["F637"] = "ANF_model.xlsx!History_Q!row:999"
+        wb.save(drifted)
+    finally:
+        wb.close()
+
+    report = _strict_post_fill_report(drifted, anf_shadow_artifacts["plan_json"])
+    rule_ids = {issue["rule_id"] for issue in report["issues"]}
+    assert report["status"] == "FAIL"
+    assert "hidden_company_source_leakage" in rule_ids
+    assert "hidden_sheet_company_source_text" in rule_ids
+    assert "post_fill_unplanned_value_change" in rule_ids
 
 
 def test_atomic_shadow_promotion_replaces_only_the_final_path(tmp_path: Path) -> None:

@@ -23,6 +23,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from pbi_xbrl.standard_template_shell_identity import (
+    _planned_cell_values_equal,
     verify_post_fill_structural_identity,
     verify_shell_identity,
 )
@@ -33,7 +34,10 @@ from pbi_xbrl.new_ticker_binding_planner import (
 from pbi_xbrl.json_schema_validation import load_json_strict
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_standard_template_hidden_support_audit import scan_hidden_support_package  # noqa: E402
+from build_standard_template_hidden_support_audit import (  # noqa: E402
+    _source_specific_match,
+    scan_hidden_support_package,
+)
 from build_standard_template_shell_neutrality_audit import scan_neutrality_workbook  # noqa: E402
 from build_standard_template_sheet_inventory import build_inventory  # noqa: E402
 
@@ -452,6 +456,26 @@ def _package_source_leakage_parts(path: Path) -> list[dict[str, str]]:
     return hits
 
 
+def _unplanned_hidden_company_source_text(
+    wb: Any,
+    planned_values: dict[tuple[str, str], Any],
+) -> dict[str, list[str]]:
+    hits: dict[str, list[str]] = {}
+    missing = object()
+    for ws in wb.worksheets:
+        if ws.sheet_state == "visible":
+            continue
+        for row in ws.iter_rows():
+            for cell in row:
+                if not _source_specific_match(cell.value):
+                    continue
+                expected = planned_values.get((ws.title, cell.coordinate), missing)
+                if expected is not missing and _planned_cell_values_equal(cell.value, expected):
+                    continue
+                hits.setdefault(ws.title, []).append(f"{cell.coordinate}={str(cell.value)[:160]}")
+    return hits
+
+
 def validate_shell(
     *,
     template_path: Path = DEFAULT_TEMPLATE,
@@ -463,6 +487,7 @@ def validate_shell(
     normalized_package_path: Path | None = None,
 ) -> dict[str, Any]:
     issues: list[ShellValidationIssue] = []
+    approved_planned_values: dict[tuple[str, str], Any] = {}
     if not template_path.exists():
         return {
             "status": "FAIL",
@@ -481,9 +506,10 @@ def validate_shell(
     except zipfile.BadZipFile:
         issues.append(_issue("template_bad_zip", "Template is not a valid xlsx zip archive."))
 
-    if not allow_filled_values and not any(issue.rule_id == "template_bad_zip" for issue in issues):
+    if not any(issue.rule_id == "template_bad_zip" for issue in issues):
+        neutrality_package_path = approved_shell_path if allow_filled_values else template_path
         try:
-            for hit in _package_source_leakage_parts(template_path):
+            for hit in _package_source_leakage_parts(neutrality_package_path):
                 issues.append(
                     _issue(
                         "package_company_source_leakage",
@@ -533,6 +559,10 @@ def validate_shell(
                     shell_path=approved_shell_path,
                     expected_plan=approved_plan,
                 )
+                approved_planned_values = {
+                    (str(write["target_sheet"]), str(write["target_cell"])): write.get("value")
+                    for write in reproduced_plan.to_dict().get("planned_writes") or []
+                }
             except BindingPlanReproductionError as exc:
                 issues.append(_issue("post_fill_plan_reproduction_failed", str(exc)))
         post_fill_identity = verify_post_fill_structural_identity(
@@ -603,8 +633,9 @@ def validate_shell(
         if forbidden in wb.sheetnames:
             issues.append(_issue("ticker_specific_sheet_name", f"Template contains ticker-specific sheet {forbidden}.", sheet=forbidden))
 
+    neutrality_template_path = approved_shell_path if allow_filled_values else template_path
     hidden_audit = scan_hidden_support_package(
-        template_path=template_path,
+        template_path=neutrality_template_path,
         lab_path=DEFAULT_LAB_SOURCE,
         manifest_path=manifest_path,
     )
@@ -618,7 +649,16 @@ def validate_shell(
     retained_unclassified = hidden_audit["post_neutralization_summary"]["retained_unclassified_hidden_sheets"]
     for sheet_name in retained_unclassified:
         issues.append(_issue("unclassified_hidden_sheet_retained", "Hidden sheet remains without an allowed shell classification.", sheet=sheet_name))
-    hidden_leakage = int(hidden_audit["post_neutralization_summary"]["company_source_leakage_cells"])
+    unplanned_hidden_leakage = (
+        _unplanned_hidden_company_source_text(wb, approved_planned_values)
+        if allow_filled_values
+        else {}
+    )
+    hidden_leakage = (
+        sum(len(samples) for samples in unplanned_hidden_leakage.values())
+        if allow_filled_values
+        else int(hidden_audit["post_neutralization_summary"]["company_source_leakage_cells"])
+    )
     if hidden_leakage:
         issues.append(
             _issue(
@@ -626,10 +666,19 @@ def validate_shell(
                 f"Hidden workbook package contains company/source-specific leakage cells. count={hidden_leakage}",
             )
         )
+    for sheet_name, samples in unplanned_hidden_leakage.items():
+        issues.append(
+            _issue(
+                "hidden_sheet_company_source_text",
+                "Hidden sheet contains unplanned ANF/PBI/GPRE/GTX company/source-specific text.",
+                sheet=sheet_name,
+                target="; ".join(samples[:3]),
+            )
+        )
     for row in hidden_audit["hidden_support_sheets"]:
         if not row["present_in_shell"]:
             continue
-        if row["contains_company_source_text"]:
+        if not allow_filled_values and row["contains_company_source_text"]:
             issues.append(
                 _issue(
                     "hidden_sheet_company_source_text",
@@ -648,7 +697,7 @@ def validate_shell(
             )
 
     neutrality_audit = scan_neutrality_workbook(
-        template_path=template_path,
+        template_path=neutrality_template_path,
         manifest_path=manifest_path,
     )
     neutrality_summary = neutrality_audit["post_neutrality_summary"]
@@ -683,17 +732,6 @@ def validate_shell(
         f"{item['sheet']}!{item['cell']}" for item in neutrality_samples[:5]
     )
     for key, rule_id in neutrality_rule_map.items():
-        if allow_filled_values and key in {
-            "company_specific_value_count",
-            "company_specific_text_count",
-            "sector_specific_label_count",
-            "fixed_dimension_member_count",
-            "source_specific_text_count",
-            "valuation_numeric_constant_count",
-            "visible_value_date_status_constant_count",
-            "visible_company_source_text_count",
-        }:
-            continue
         count = int(neutrality_summary.get(key, 0))
         if count:
             issues.append(
