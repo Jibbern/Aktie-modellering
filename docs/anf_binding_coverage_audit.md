@@ -2,7 +2,7 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-15T09:03:59+00:00`
+- Generated: `2026-07-15T11:58:36+00:00`
 - Bindings with populated data: `75` / `160`
 - Bindings that would write useful output: `103`
 

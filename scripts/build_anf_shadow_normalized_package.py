@@ -129,6 +129,15 @@ _LEGACY_REPORT_PLACEHOLDER_ROWS = {
     "interest_paid": ("REPORT_CF_Q", "Cash interest"),
 }
 
+_ANF_FY2018_BALANCE_SHEET_SOURCE_REF = (
+    "tickers/ANF/earnings_release/8-K_2019-03-07_earnings_release.htm"
+    "#consolidated-balance-sheets-in-thousands"
+)
+_ANF_HISTORY_SCALE_CORRECTIONS = {
+    ("2018-Q4", "cash", 723_135_000_000): 723_135_000,
+    ("2018-Q4", "inventory", 437_879_000_000): 437_879_000,
+}
+
 FINANCIAL_FIELD_DEFINITIONS = {
     "revenue": "Revenue reported for the fiscal period.",
     "cost_of_goods_sold": "Reported cost of goods sold for the fiscal period.",
@@ -793,6 +802,23 @@ def _to_millions(value: Any) -> float | None:
     return round(numeric, 3)
 
 
+def _anf_history_source_evidence(
+    row: Mapping[str, Any],
+    source_field: str,
+    legacy_source_ref: str,
+) -> tuple[Any, str]:
+    """Correct two source-proven FY2018 scale defects in the ANF fixture."""
+
+    raw_value = row.get(source_field)
+    if not isinstance(raw_value, (int, float)) or isinstance(raw_value, bool):
+        return raw_value, legacy_source_ref
+    key = (str(row.get("fiscal_label") or ""), source_field, raw_value)
+    corrected_value = _ANF_HISTORY_SCALE_CORRECTIONS.get(key)
+    if corrected_value is None:
+        return raw_value, legacy_source_ref
+    return corrected_value, f"{legacy_source_ref} + {_ANF_FY2018_BALANCE_SHEET_SOURCE_REF}"
+
+
 def _clean_text(value: Any, *, limit: int = 420) -> str:
     text = re.sub(r"\s+", " ", str(value or "")).strip()
     if len(text) <= limit:
@@ -1233,6 +1259,8 @@ def _build_quarterly_financial_rows(
     for row in populated:
         period = _normalize_period(row.get("fiscal_label") or row.get("quarter"), period_type="quarterly")
         source_ref = _source_ref("History_Q", row, workbook_path=workbook_path)
+        cash_value, cash_source_ref = _anf_history_source_evidence(row, "cash", source_ref)
+        inventory_value, inventory_source_ref = _anf_history_source_evidence(row, "inventory", source_ref)
         cfo = _to_millions(row.get("cfo"))
         capex = _to_millions(row.get("capex"))
         fcf = round(cfo - capex, 3) if cfo is not None and capex is not None else None
@@ -1294,7 +1322,7 @@ def _build_quarterly_financial_rows(
                 "acquisitions_cash": _populated_number(row.get("acquisitions_cash"), source_ref, "$m", period),
                 "debt_repayment": _populated_number(row.get("debt_repayment"), source_ref, "$m", period),
                 "debt_issuance": _populated_number(row.get("debt_issuance"), source_ref, "$m", period),
-                "cash": _populated_number(row.get("cash"), source_ref, "$m", period),
+                "cash": _populated_number(cash_value, cash_source_ref, "$m", period),
                 "restricted_cash": _missing("Restricted cash is not separately identified in the ANF legacy history.", source_ref=source_ref),
                 "short_term_investments": _populated_number(row.get("short_term_investments"), source_ref, "$m", period),
                 "marketable_securities": _populated_number(row.get("marketable_securities"), source_ref, "$m", period),
@@ -1303,7 +1331,7 @@ def _build_quarterly_financial_rows(
                 "current_assets": _populated_number(row.get("assets_current"), source_ref, "$m", period),
                 "current_liabilities": _populated_number(row.get("liabilities_current"), source_ref, "$m", period),
                 "accounts_receivable": _populated_number(row.get("accounts_receivable"), source_ref, "$m", period),
-                "inventory": _populated_number(row.get("inventory"), source_ref, "$m", period),
+                "inventory": _populated_number(inventory_value, inventory_source_ref, "$m", period),
                 "accounts_payable": _populated_number(row.get("accounts_payable_current"), source_ref, "$m", period),
                 "accrued_liabilities": _populated_number(row.get("accrued_liabilities_current"), source_ref, "$m", period),
                 "short_term_borrowings": _missing("Short-term borrowings are not separately identified in the ANF legacy history.", source_ref=source_ref),
@@ -1545,6 +1573,7 @@ def _annual_endpoint_field(
         )
     row = q4_rows[0]
     source_ref = _source_ref("History_Q", row, workbook_path=workbook_path)
+    source_value, source_ref = _anf_history_source_evidence(row, source_field, source_ref)
     placeholder = _unsupported_zero_placeholder(
         unsupported_zero_placeholders or {},
         normalized_metric or source_field,
@@ -1570,8 +1599,8 @@ def _annual_endpoint_field(
         ]
         return field
     if share_count:
-        return _populated_share_count(row.get(source_field), source_ref, period)
-    return _populated_number(row.get(source_field), source_ref, "$m", period)
+        return _populated_share_count(source_value, source_ref, period)
+    return _populated_number(source_value, source_ref, "$m", period)
 
 
 def _annual_component_field(

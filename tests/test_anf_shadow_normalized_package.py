@@ -22,6 +22,7 @@ from pbi_xbrl.standard_template_shell_identity import verify_shell_identity
 from scripts.build_anf_shadow_normalized_package import (
     _annual_component_field,
     _annual_incomplete_candidate_reviews,
+    _anf_history_source_evidence,
     _build_annual_financial_rows,
     _build_debt_liquidity,
     _build_quarterly_financial_rows,
@@ -44,6 +45,39 @@ ANF_WORKBOOK = DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
 ANF_STRESS_DIR = DATA_ROOT / "outputs" / "stress_tests" / "ANF_new_ticker_engine"
 ANF_PACKAGE = ANF_STRESS_DIR / "ANF_normalized_data_package.json"
 ANF_PLAN = ANF_STRESS_DIR / "ANF_binding_plan.json"
+
+
+def test_fy2018_balance_sheet_scale_correction_is_exact_not_heuristic() -> None:
+    legacy_ref = "ANF_model.xlsx!History_Q!row:21"
+
+    cash, cash_ref = _anf_history_source_evidence(
+        {"fiscal_label": "2018-Q4", "cash": 723_135_000_000},
+        "cash",
+        legacy_ref,
+    )
+    inventory, inventory_ref = _anf_history_source_evidence(
+        {"fiscal_label": "2018-Q4", "inventory": 437_879_000_000},
+        "inventory",
+        legacy_ref,
+    )
+    unchanged_period, unchanged_ref = _anf_history_source_evidence(
+        {"fiscal_label": "2019-Q4", "cash": 723_135_000_000},
+        "cash",
+        legacy_ref,
+    )
+    unchanged_value, _ = _anf_history_source_evidence(
+        {"fiscal_label": "2018-Q4", "cash": 723_135_000},
+        "cash",
+        legacy_ref,
+    )
+
+    assert cash == 723_135_000
+    assert inventory == 437_879_000
+    assert "8-K_2019-03-07_earnings_release.htm" in cash_ref
+    assert "8-K_2019-03-07_earnings_release.htm" in inventory_ref
+    assert unchanged_period == 723_135_000_000
+    assert unchanged_ref == legacy_ref
+    assert unchanged_value == 723_135_000
 
 
 def test_anf_shadow_package_reports_are_built_from_read_only_legacy_artifacts(tmp_path: Path) -> None:

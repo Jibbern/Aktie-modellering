@@ -3,7 +3,7 @@
 This audit scans the frozen standard shell for visible and retained-hidden content that would make the template company-specific or sector-specific.
 
 - Template: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\standard_stock_model_template.xlsx`
-- Generated at: `2026-07-14T16:44:07+00:00`
+- Generated at: `2026-07-15T12:02:18+00:00`
 - Visible sheets: SUMMARY, Valuation, BS_Segments, Operating_Drivers, {ticker}_Investment_Case, Quarter_Notes_UI, Promise_Progress_UI, QA_Log, Needs_Review, QA_Checks
 - Retained hidden sheets: Hidden_Value_Flags, Revolver_History, Debt_Tranches_Latest, Debt_Profile, Quarter_Notes, Promise_Progress, Guidance_Normalized, History_Q
 

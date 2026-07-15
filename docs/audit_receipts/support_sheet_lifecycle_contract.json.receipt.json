@@ -4,22 +4,22 @@
   "reason": "",
   "artifact": {
     "path": "docs/support_sheet_lifecycle_contract.json",
-    "sha256": "0e22f8f4ce8a6f46e0d726b69fc8b7afc22e4e6bd24b129ff4cf9394f28e9260",
+    "sha256": "165fad8900037431e3284f31ecbb308c537c44ce185c132231d1f62b88eae12d",
     "output_schema": "json",
     "output_version": "0.1.0"
   },
   "authoritative_inputs": [
     {
       "path": "templates/standard_stock_model_template.xlsx",
-      "sha256": "7363d711439d31d4c491d328c0b39040108258b3b7c4e3934b9e2dd52b198f8f"
+      "sha256": "e85c7fe14b372403201764a441bb7763f5cd823dc0bdeb9b78a1a53d36dce037"
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "4f37b041712c16b2568403cdbcbf0614ebdf4834f3564a843d90cdda227de3ee"
+      "sha256": "2113499af0af427a50d0d1f2fa40d6eb224c0af44be71c27b15a424f267531e5"
     },
     {
       "path": "docs/workbook_binding_map.json",
-      "sha256": "38aeb3ba4ea10b17a33dfa2a75d1784a90f524d9f087de387859e7bd5f1cc7ec"
+      "sha256": "5e18ba698aaeb81a7088ba73df2fa7e6fa4b1d22fa4183156bd01b486546e5f5"
     },
     {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\PBI_model.xlsx",
@@ -47,14 +47,14 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "5dd1cc9100c5cdc092e482319176b5ff289952d430094a7b69a5d6712fb707fa",
+    "run_generation_id": "a0f1d57de53ce11c368b42d1e96ad3f20826694599622bba6b6f554736f7b9f6",
     "generated_outputs": [
       {
         "canonical_content_sha256": "e32a1a75b860244bde143b3420c706b1ca6709dc7e0e9f83970e0904f4c56f03",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/standard_template_sheet_inventory.json",
-        "sha256": "347ab9f30dabb7ab39d32e462ec0ed3ad3d929222b59585dbc806efcaddb20f2"
+        "sha256": "946097047d16d00fa2e583e67d9018c0906cfbf0f0b1b929789ded79273e3e37"
       },
       {
         "canonical_content_sha256": "3e82b15e96fe96daa98dd3adcf6f53f2f5ddcb6228b7442b3c03340563157ffa",
@@ -68,7 +68,7 @@
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/support_sheet_lifecycle_contract.json",
-        "sha256": "0e22f8f4ce8a6f46e0d726b69fc8b7afc22e4e6bd24b129ff4cf9394f28e9260"
+        "sha256": "165fad8900037431e3284f31ecbb308c537c44ce185c132231d1f62b88eae12d"
       },
       {
         "canonical_content_sha256": "902538e65d2dda660f7045115ddd9afc1e0091c94d4e6429fcad40fb31667266",
@@ -79,6 +79,6 @@
       }
     ]
   },
-  "generated_at_utc": "2026-07-14T16:43:47+00:00",
-  "generation_id": "268d974843c5da3eaaeb4471c27dee066f645cb6e55014927160829ab878b1ca"
+  "generated_at_utc": "2026-07-15T12:02:09+00:00",
+  "generation_id": "4936f96e9fddff4bd50fff29e43ff15f206d41e337e824e5d203662934906d7c"
 }

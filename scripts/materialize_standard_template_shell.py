@@ -1142,6 +1142,27 @@ def _ensure_promise_progress_structure(wb: Workbook) -> None:
         cell.value = f"[Guidance metric slot {row_idx}]"
 
 
+def _configure_narrative_text_layout(wb: Workbook) -> None:
+    if "Operating_Drivers" in wb.sheetnames:
+        ws = wb["Operating_Drivers"]
+        for row_idx in (6, 7, 8, 9, 14, 15):
+            alignment = copy(ws[f"B{row_idx}"].alignment)
+            alignment.wrap_text = True
+            alignment.vertical = "center"
+            ws[f"B{row_idx}"].alignment = alignment
+            ws.row_dimensions[row_idx].height = 42.0
+
+    if "Promise_Progress_UI" in wb.sheetnames:
+        ws = wb["Promise_Progress_UI"]
+        for row_idx, columns, height in ((19, "BCDE", 60.0), (67, "BC", 42.0)):
+            for column in columns:
+                alignment = copy(ws[f"{column}{row_idx}"].alignment)
+                alignment.wrap_text = True
+                alignment.vertical = "center"
+                ws[f"{column}{row_idx}"].alignment = alignment
+            ws.row_dimensions[row_idx].height = height
+
+
 def _ensure_merged_range(ws: Any, range_ref: str) -> None:
     if range_ref not in {str(merged_range) for merged_range in ws.merged_cells.ranges}:
         ws.merge_cells(range_ref)
@@ -1563,6 +1584,7 @@ def _materialize_rich_shell(
     _neutralize_red_green_flags(wb)
     _neutralize_blank_valuation_value_fills(wb)
     _ensure_promise_progress_structure(wb)
+    _configure_narrative_text_layout(wb)
     _ensure_valuation_guidance_sidecar_headers(wb)
     _ensure_operating_driver_sheet_headers(wb)
     _neutralize_remaining_visible_row_labels(wb)
@@ -1628,6 +1650,7 @@ def materialize_shell(
         _write_static_structure(wb, ws, sheet_def, sheet_bindings, contracts.get(sheet_name, SourceSheetContract(None, {}, {})))
 
     _configure_summary_liquidity_layout(wb)
+    _configure_narrative_text_layout(wb)
     apply_standard_formula_contracts(wb)
     _configure_calculation(wb)
     _configure_deterministic_properties(wb)

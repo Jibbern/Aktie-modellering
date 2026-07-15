@@ -32,7 +32,10 @@ from pbi_xbrl.standard_template_formula_contract import (
     VALUATION_OUTPUT_FORMULA_CELLS,
     VALUATION_SIDECAR_FORMULA_CELLS,
 )
-from scripts.build_anf_shadow_normalized_package import _anf_legacy_guidance_horizon
+from scripts.build_anf_shadow_normalized_package import (
+    _anf_history_source_evidence,
+    _anf_legacy_guidance_horizon,
+)
 
 
 DEFAULT_SHELL = ROOT / "templates" / "standard_stock_model_template.xlsx"
@@ -1342,7 +1345,14 @@ def build_parity_matrix(
         period = str(legacy_row["period"])
         package_row_info = quarterly_package_rows.get(period)
         for legacy_header, (metric, unit, domain) in LEGACY_HISTORY_METRICS.items():
-            legacy_value = _normalized_legacy_value(legacy_row["values"].get(legacy_header), unit)
+            column = history_headers[legacy_header]
+            history_ref = f"{legacy_path.name}!History_Q!{get_column_letter(column)}{legacy_row['row_number']}"
+            source_value, source_ref = _anf_history_source_evidence(
+                legacy_row["values"],
+                legacy_header,
+                history_ref,
+            )
+            legacy_value = _normalized_legacy_value(source_value, unit)
             if legacy_value is None:
                 continue
             if package_row_info is None:
@@ -1369,8 +1379,6 @@ def build_parity_matrix(
                         ),
                     )
                 )
-                column = history_headers[legacy_header]
-                history_ref = f"{legacy_path.name}!History_Q!{get_column_letter(column)}{legacy_row['row_number']}"
                 entries.append(
                     _entry(
                         parity_id=f"legacy-quarter:{period}:{metric}",
@@ -1410,8 +1418,6 @@ def build_parity_matrix(
                 writes=writes,
                 disposition=disposition,
             )
-            column = history_headers[legacy_header]
-            source_ref = f"{legacy_path.name}!History_Q!{get_column_letter(column)}{legacy_row['row_number']}"
             derived_metric = legacy_header in LEGACY_DERIVED_HISTORY_METRICS
             entries.append(
                 _entry(
@@ -1551,15 +1557,21 @@ def build_parity_matrix(
                     )
                 )
                 continue
-            component_values = [_normalized_legacy_value(row["values"].get(legacy_header), unit) for row in component_rows]
+            component_evidence = [
+                _anf_history_source_evidence(
+                    row["values"],
+                    legacy_header,
+                    f"{legacy_path.name}!History_Q!{get_column_letter(history_headers[legacy_header])}{row['row_number']}",
+                )
+                for row in component_rows
+            ]
+            component_values = [_normalized_legacy_value(value, unit) for value, _ in component_evidence]
             if metric in ANNUAL_FLOW_FIELDS:
                 if any(value is None for value in component_values):
                     continue
                 legacy_value = round(sum(float(value) for value in component_values), 6)
-                source_rows = component_rows
             else:
                 legacy_value = component_values[-1]
-                source_rows = [component_rows[-1]]
                 if legacy_value is None:
                     continue
             path = (
@@ -1576,7 +1588,11 @@ def build_parity_matrix(
             status, comparison, normalized_value = _source_fact_status(
                 legacy_value=legacy_value, field=package_row.get(metric), writes=writes, disposition=disposition,
             )
-            source_refs = [f"{legacy_path.name}!History_Q!{get_column_letter(history_headers[legacy_header])}{row['row_number']}" for row in source_rows]
+            source_refs = (
+                [source_ref for _, source_ref in component_evidence]
+                if metric in ANNUAL_FLOW_FIELDS
+                else [component_evidence[-1][1]]
+            )
             entries.append(
                 _entry(
                     parity_id=f"legacy-annual:{period}:{metric}", domain="annual_financials" if metric not in ANNUAL_POINT_IN_TIME_FIELDS else "balance_sheet",

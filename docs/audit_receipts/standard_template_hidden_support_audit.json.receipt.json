@@ -4,14 +4,14 @@
   "reason": "",
   "artifact": {
     "path": "docs/standard_template_hidden_support_audit.json",
-    "sha256": "4ce62a555cbffaa0f112a9b655f57abff1fb637b82803acf275571c4167c63a6",
+    "sha256": "49cf2c849bd331a29dcd51fbb2bb62b1672f04fb4a86167281810b88dbe257c4",
     "output_schema": "json",
     "output_version": "0.1.0"
   },
   "authoritative_inputs": [
     {
       "path": "templates/standard_stock_model_template.xlsx",
-      "sha256": "7363d711439d31d4c491d328c0b39040108258b3b7c4e3934b9e2dd52b198f8f"
+      "sha256": "e85c7fe14b372403201764a441bb7763f5cd823dc0bdeb9b78a1a53d36dce037"
     },
     {
       "path": "templates/lab/ANF_template_lab.xlsx",
@@ -19,7 +19,7 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "4f37b041712c16b2568403cdbcbf0614ebdf4834f3564a843d90cdda227de3ee"
+      "sha256": "2113499af0af427a50d0d1f2fa40d6eb224c0af44be71c27b15a424f267531e5"
     }
   ],
   "generator": {
@@ -35,24 +35,24 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "8fd1903a04b330e24f3d5204a4ce7f97ab5a7bfe801dd53f2a52efea3b9d4f8a",
+    "run_generation_id": "f7babe00e3952da4fd28bde4c8fb143494d34b85d37a37f1cd491ebc3447bff7",
     "generated_outputs": [
       {
         "canonical_content_sha256": "0233647ce9d7b708d205b696302745bf7b4fa13ab80430749e72bc79ec65d83c",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/standard_template_hidden_support_audit.json",
-        "sha256": "4ce62a555cbffaa0f112a9b655f57abff1fb637b82803acf275571c4167c63a6"
+        "sha256": "49cf2c849bd331a29dcd51fbb2bb62b1672f04fb4a86167281810b88dbe257c4"
       },
       {
         "canonical_content_sha256": "578bd4a613d71a24aae1516b72d9d4cf43ce3195080ca5506a8b60ad37939509",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/standard_template_hidden_support_audit.md",
-        "sha256": "1b4d18fe07e604ba9dd5fa0cf7adcb21cd8e8519fc4a809f46448da5fce11dc7"
+        "sha256": "532fa7740249fa5a19ddbc0eda11e6380692179ce7ad4c5d4a2bcccfd8d61734"
       }
     ]
   },
-  "generated_at_utc": "2026-07-14T16:45:00+00:00",
-  "generation_id": "0e0324a3334f6d1dbf75f4e4d72a44ceb434aa410420796928aeb6be081c3d4e"
+  "generated_at_utc": "2026-07-15T12:02:53+00:00",
+  "generation_id": "b6d9dbf67919941c4847d5eb03d00964e7096c1c25315470651516297fb29758"
 }

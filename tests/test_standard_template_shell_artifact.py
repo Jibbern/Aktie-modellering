@@ -707,6 +707,23 @@ def test_operating_drivers_sheet_preserves_standard_subheaders() -> None:
         wb.close()
 
 
+def test_long_narrative_zones_are_wrapped_and_resized() -> None:
+    wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
+    try:
+        drivers = wb["Operating_Drivers"]
+        for row_idx in (6, 7, 8, 9, 14, 15):
+            assert drivers[f"B{row_idx}"].alignment.wrap_text is True
+            assert drivers.row_dimensions[row_idx].height == 42.0
+
+        promise = wb["Promise_Progress_UI"]
+        for coord in ("B19", "C19", "D19", "E19", "B67", "C67"):
+            assert promise[coord].alignment.wrap_text is True
+        assert promise.row_dimensions[19].height == 60.0
+        assert promise.row_dimensions[67].height == 42.0
+    finally:
+        wb.close()
+
+
 def test_operating_drivers_title_is_on_row_1_and_only_top_row_is_frozen() -> None:
     wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
     try:

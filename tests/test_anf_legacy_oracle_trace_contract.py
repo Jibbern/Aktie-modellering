@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from html import unescape
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -29,6 +31,7 @@ ANF_PACKAGE = DATA_ROOT / "outputs" / "stress_tests" / "ANF_new_ticker_engine" /
 BINDING_MAP = ROOT / "docs" / "workbook_binding_map.json"
 MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
 SHELL = ROOT / "templates" / "standard_stock_model_template.xlsx"
+ANF_2019_RELEASE = DATA_ROOT / "tickers" / "ANF" / "earnings_release" / "8-K_2019-03-07_earnings_release.htm"
 
 
 def _bindings() -> dict[str, dict]:
@@ -36,6 +39,40 @@ def _bindings() -> dict[str, dict]:
         binding["binding_id"]: binding
         for binding in json.loads(BINDING_MAP.read_text(encoding="utf-8"))["bindings"]
     }
+
+
+def test_fy2018_cash_and_inventory_match_the_source_release_scale() -> None:
+    assert ANF_2019_RELEASE.exists()
+    source_html = ANF_2019_RELEASE.read_text(encoding="utf-8", errors="ignore")
+    source_text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", unescape(source_html)))
+    assert re.search(
+        r"Consolidated Balance Sheets \(in thousands\).*?Cash and equivalents \$ 723,135.*?Inventories 437,879",
+        source_text,
+    )
+
+    wb = load_workbook(ANF_WORKBOOK, read_only=True, data_only=True)
+    try:
+        history = wb["History_Q"]
+        headers = {str(history.cell(1, column).value or ""): column for column in range(1, history.max_column + 1)}
+        row_number = next(
+            row
+            for row in range(2, history.max_row + 1)
+            if str(history.cell(row, headers["fiscal_label"]).value or "") == "2018-Q4"
+        )
+        assert history.cell(row_number, headers["cash"]).value == 723_135_000_000
+        assert history.cell(row_number, headers["inventory"]).value == 437_879_000_000
+    finally:
+        wb.close()
+
+    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    annual = next(row for row in package["annual_financials"]["rows"] if row["period"] == "2018-FY")
+
+    assert annual["cash"]["value"] == 723.135
+    assert annual["inventory"]["value"] == 437.879
+    assert "8-K_2019-03-07_earnings_release.htm" in annual["cash"]["source_ref"]
+    assert "8-K_2019-03-07_earnings_release.htm" in annual["inventory"]["source_ref"]
+    assert annual["cash"]["value"] + annual["inventory"]["value"] < annual["current_assets"]["value"]
+    assert annual["current_assets"]["value"] < annual["total_assets"]["value"]
 
 
 def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -> None:
@@ -90,6 +127,9 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert annuals["2025-FY"]["net_income"]["value"] == 506.921
         assert annuals["2025-FY"]["free_cash_flow"]["value"] == 378.368
         assert annuals["2025-FY"]["operating_cash_flow"]["value"] == 619.142
+        assert annuals["2018-FY"]["cash"]["value"] == 723.135
+        assert annuals["2018-FY"]["inventory"]["value"] == 437.879
+        assert writes[("BS_Segments", "B102")].value == 723.135
         assert bindings["summary_as_of_quarter"]["source_field"] == "period"
         assert bindings["summary_latest_revenue"]["source_field"] == "revenue"
         assert bindings["summary_latest_net_income"]["source_field"] == "net_income"
