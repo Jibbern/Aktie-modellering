@@ -87,8 +87,9 @@ REQUIRED_ROW_SCHEMA_COLUMNS_BY_BINDING = {
         "quarter",
         "metric",
         "commentary",
+        "why_it_matters",
         "model_implication",
-        "source",
+        "source_display",
     },
     "od_watchlist_rows": {
         "topic",

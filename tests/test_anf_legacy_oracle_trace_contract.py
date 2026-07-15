@@ -94,8 +94,10 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert bindings["summary_latest_revenue"]["source_field"] == "revenue"
         assert bindings["summary_latest_net_income"]["source_field"] == "net_income"
         assert bindings["valuation_period_headers"]["source_field"] == "period"
-        assert writes[("SUMMARY", "A3")].value == summary["A3"].value
-        assert writes[("SUMMARY", "A5")].value == summary["A5"].value
+        assert writes[("SUMMARY", "A3")].value == package["company_profile"]["business_description"]["value"]
+        assert writes[("SUMMARY", "A5")].value == package["company_profile"]["strategic_context"]["value"]
+        assert writes[("SUMMARY", "A3")].source_ref in package["company_profile"]["business_description"]["evidence_refs"]
+        assert writes[("SUMMARY", "A5")].source_ref in package["company_profile"]["strategic_context"]["evidence_refs"]
         assert writes[("SUMMARY", "A9")].value == "Americas"
         assert writes[("SUMMARY", "B9")].value == 81.5
 
@@ -189,7 +191,8 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert writes[("BS_Segments", "G72")].value == pytest.approx(segments["B72"].value)
         assert writes[("BS_Segments", "I72")].value == pytest.approx(segments["D72"].value)
 
-        # 4. Operating drivers use the two independently addressable merge anchors.
+        # 4. Operating drivers preserve the generic three-column contract while
+        # the ANF adapter supplies clean source-backed monitoring themes.
         assert drivers["A2"].value == "Operating Drivers"
         assert drivers["A5"].value == "Watch item"
         assert package["operating_drivers"]["items"]
@@ -198,37 +201,66 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert {column["target_column"] for column in bindings["od_watchlist_rows"]["target_columns"]} == {"A", "B", "H"}
         current_drivers = sorted((item for item in package["operating_drivers"]["items"] if item["display_role"] == "current_watchlist"), key=lambda item: item["display_priority"])
         assert len(current_drivers) == 4
+        assert [item["topic"]["value"] for item in current_drivers] == [
+            "Sales execution",
+            "Margin durability",
+            "Inventory quality",
+            "Capital returns",
+        ]
         for row_number, item in enumerate(current_drivers, start=6):
-            assert item["topic"]["value"] == drivers.cell(row_number, 1).value
-            assert item["current_read"]["value"] == drivers.cell(row_number, 2).value
-            assert item["why_it_matters"]["value"] == drivers.cell(row_number, 8).value
             assert writes[("Operating_Drivers", f"A{row_number}")].value == item["topic"]["value"]
             assert writes[("Operating_Drivers", f"B{row_number}")].value == item["current_read"]["value"]
             assert writes[("Operating_Drivers", f"H{row_number}")].value == item["why_it_matters"]["value"]
+            assert item["current_read"]["source_ref"]
+            assert item["current_read"]["source_ref"] == item["why_it_matters"]["source_ref"]
 
-        # 5. Quarter notes: the six source-backed fields have distinct legacy UI
-        # headers, so concatenating them into one merged cell is prohibited.
+        # 5. Quarter notes retain legacy column intent without copying noisy
+        # legacy UI prose or substituting Operating Drivers lineage.
         assert notes["C9"].value == "What happened"
         assert notes["H9"].value == "Model / valuation implication"
         assert notes["M9"].value == "Source / confidence"
         assert package["quarter_notes"]["items"]
         assert bindings["qn_quarter_note_rows"]["planning_state"] == "active"
         assert bindings["qn_quarter_note_rows"]["planner_target"] == "A10:M15"
-        assert {column["target_column"] for column in bindings["qn_quarter_note_rows"]["target_columns"]} == {"A", "C", "H", "M"}
+        assert {column["target_column"] for column in bindings["qn_quarter_note_rows"]["target_columns"]} == {"A", "C", "F", "H", "M"}
         current_notes = sorted((item for item in package["quarter_notes"]["items"] if item["display_role"] == "current_note"), key=lambda item: item["display_priority"])
         assert len(current_notes) == 6
+        assert [item["theme"]["value"] for item in current_notes] == [
+            "Q4 results",
+            "Brand mix",
+            "Inventory",
+            "2026 margin bridge",
+            "Capital allocation",
+            "Growth channels",
+        ]
         for row_number, item in enumerate(current_notes, start=10):
-            assert item["theme"]["value"] == notes.cell(row_number, 1).value
-            assert item["commentary"]["value"] == notes.cell(row_number, 3).value
-            assert item["model_implication"]["value"] == notes.cell(row_number, 8).value
-            assert item["model_implication"]["source_ref"] == f"ANF_model.xlsx!Quarter_Notes_UI!row:{row_number}"
-            assert writes[("Quarter_Notes_UI", f"H{row_number}")].value == notes.cell(row_number, 8).value
+            assert writes[("Quarter_Notes_UI", f"A{row_number}")].value == item["theme"]["value"]
+            assert writes[("Quarter_Notes_UI", f"C{row_number}")].value == item["commentary"]["value"]
+            assert writes[("Quarter_Notes_UI", f"F{row_number}")].value == item["why_it_matters"]["value"]
+            assert writes[("Quarter_Notes_UI", f"H{row_number}")].value == item["model_implication"]["value"]
+            assert writes[("Quarter_Notes_UI", f"M{row_number}")].value == item["source_display"]["value"]
+            assert item["commentary"]["source_ref"] in item["evidence_refs"]
+            visible_text = " ".join(str(item[field]["value"]) for field in ("commentary", "why_it_matters", "model_implication"))
+            assert "Operating_Drivers" not in visible_text
+            assert "binding" not in visible_text.casefold()
+            assert "parser" not in visible_text.casefold()
 
         # 6. Investment case: the generic tokenized target is a scalar surface;
         # ANF's text remains read-only migration evidence, never template text.
         assert investment_case["A4"].value == "Investment Snapshot"
         assert investment_case["B5"].value
-        assert package["investment_case"]["key_debate"]["value"] == investment_case["B7"].value
+        assert package["investment_case"]["key_debate"]["evidence_classification"] == "analyst_interpretation_requiring_review"
+        for cell, field in {
+            "B5": "summary",
+            "B6": "why_it_can_work",
+            "B7": "key_debate",
+            "B8": "upside_factors",
+            "B9": "downside_factors",
+            "B10": "watch_next",
+            "B11": "current_stance",
+        }.items():
+            assert writes[("ANF_Investment_Case", cell)].value == package["investment_case"][field]["value"]
+            assert package["investment_case"][field]["source_ref"]
         assert valuation["D198"].value is not None  # legacy display is an oracle, not source lineage
         assert package["valuation_inputs"]["net_debt"]["status"] == "missing_source"
         assert package["valuation_inputs"]["net_debt"]["value"] is None
@@ -246,10 +278,13 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert writes[("SUMMARY", "B45")].normalized_path == "debt_liquidity.summary_liquidity_display"
         assert writes[("SUMMARY", "D45")].value == "As of 2026-01-31 (stale)"
         assert bindings["ic_investment_summary"]["planner_target"] == "B5"
-        assert package["investment_case"]["summary"]["source_ref"].startswith("ANF_model.xlsx!")
+        investment_summary = package["investment_case"]["summary"]
+        assert investment_summary["source_ref"] in investment_summary["evidence_refs"]
+        assert investment_summary["source_ref"].startswith("tickers/ANF/")
+        assert investment_summary["evidence_classification"] == "evidence_backed_synthesis"
 
-        # The legacy annual progression block remains inactive. The generic
-        # executable contract uses the neutral primary revision table.
+        # The old broad progression contract remains inactive. Typed current,
+        # secondary, and historical rowsets own distinct visible blocks.
         assert [promise.cell(12, column).value for column in range(1, 10)] == [
             "Metric",
             "Initial guide",
@@ -262,8 +297,15 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
             "Notes/source",
         ]
         assert bindings["pp_annual_guidance_rows"]["planning_state"] == "inactive_legacy_contract"
+        assert bindings["pp_progress_fy2025_rows"]["planning_state"] == "active"
+        assert bindings["pp_progress_fy2024_rows"]["planning_state"] == "active"
+        assert bindings["pp_current_secondary_guidance_rows"]["planning_state"] == "active"
         assert bindings["pp_guidance_timeline_rows"]["planning_state"] == "active"
         assert bindings["pp_guidance_timeline_rows"]["planner_target"] == "A61:K67"
+        assert writes[("Promise_Progress_UI", "A13")].value == "FY2025 Revenue"
+        assert writes[("Promise_Progress_UI", "A24")].value == "FY2024 Revenue"
+        assert writes[("Promise_Progress_UI", "A39")].value == "Capex"
+        assert writes[("Promise_Progress_UI", "C39")].value == "2026 year"
         assert bindings["summary_liquidity"]["planner_target"] == "B45"
         assert bindings["summary_net_leverage"]["planner_target"] == "B41"
         assert bindings["summary_net_leverage"]["normalized_field"] == "debt_liquidity.net_leverage"

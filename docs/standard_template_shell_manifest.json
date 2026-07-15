@@ -134,6 +134,58 @@
       ]
     },
     {
+      "contract_id": "summary_operating_model_member",
+      "sheet": "SUMMARY",
+      "target": "A13:A15",
+      "writable": true,
+      "target_role": "operating model dimension member",
+      "allowed_binding_ids": [
+        "summary_segment_model"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "summary_operating_model_description",
+      "sheet": "SUMMARY",
+      "target": "B13:B15",
+      "writable": true,
+      "target_role": "operating model dimension description",
+      "allowed_binding_ids": [
+        "summary_segment_model"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "summary_key_dependencies",
+      "sheet": "SUMMARY",
+      "target": "A17:A21",
+      "writable": true,
+      "target_role": "key dependency narrative",
+      "allowed_binding_ids": [
+        "summary_key_risks"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "summary_thesis_invalidators",
+      "sheet": "SUMMARY",
+      "target": "A23:A24",
+      "writable": true,
+      "target_role": "thesis invalidator narrative",
+      "allowed_binding_ids": [
+        "summary_wrong_if"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
       "contract_id": "summary_revenue_stream_member",
       "sheet": "SUMMARY",
       "target": "A9:A11",
@@ -447,6 +499,84 @@
       ]
     },
     {
+      "contract_id": "operating_driver_current_actual_read",
+      "sheet": "Operating_Drivers",
+      "target": "B13",
+      "writable": true,
+      "target_role": "current actual evidence read",
+      "allowed_binding_ids": [
+        "od_current_actual_read"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "operating_driver_current_actual_use",
+      "sheet": "Operating_Drivers",
+      "target": "H13",
+      "writable": true,
+      "target_role": "current actual investor use",
+      "allowed_binding_ids": [
+        "od_current_actual_use"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "operating_driver_current_guidance_read",
+      "sheet": "Operating_Drivers",
+      "target": "B14",
+      "writable": true,
+      "target_role": "current guidance evidence read",
+      "allowed_binding_ids": [
+        "od_current_guidance_read"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "operating_driver_current_guidance_use",
+      "sheet": "Operating_Drivers",
+      "target": "H14",
+      "writable": true,
+      "target_role": "current guidance investor use",
+      "allowed_binding_ids": [
+        "od_current_guidance_use"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "operating_driver_margin_bridge_read",
+      "sheet": "Operating_Drivers",
+      "target": "B15",
+      "writable": true,
+      "target_role": "margin bridge evidence read",
+      "allowed_binding_ids": [
+        "od_margin_bridge_read"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "operating_driver_margin_bridge_use",
+      "sheet": "Operating_Drivers",
+      "target": "H15",
+      "writable": true,
+      "target_role": "margin bridge investor use",
+      "allowed_binding_ids": [
+        "od_margin_bridge_use"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
       "contract_id": "investment_summary",
       "sheet": "{ticker}_Investment_Case",
       "target": "B5",
@@ -473,6 +603,71 @@
       ]
     },
     {
+      "contract_id": "investment_why_it_can_work",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B6",
+      "writable": true,
+      "target_role": "investment case support",
+      "allowed_binding_ids": [
+        "ic_why_it_can_work"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "investment_upside_factors",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B8",
+      "writable": true,
+      "target_role": "investment upside factors",
+      "allowed_binding_ids": [
+        "ic_upside_factors"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "investment_downside_factors",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B9",
+      "writable": true,
+      "target_role": "investment downside factors",
+      "allowed_binding_ids": [
+        "ic_downside_factors"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "investment_watch_next",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B10",
+      "writable": true,
+      "target_role": "investment watch next",
+      "allowed_binding_ids": [
+        "ic_watch_next"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "investment_current_stance",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B11",
+      "writable": true,
+      "target_role": "reviewed current stance",
+      "allowed_binding_ids": [
+        "ic_current_stance"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
       "contract_id": "quarter_summary",
       "sheet": "Quarter_Notes_UI",
       "target": "B3",
@@ -480,6 +675,45 @@
       "target_role": "latest quarter summary",
       "allowed_binding_ids": [
         "qn_quarter_summary_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "quarter_summary_what_changed",
+      "sheet": "Quarter_Notes_UI",
+      "target": "B4",
+      "writable": true,
+      "target_role": "latest quarter change summary",
+      "allowed_binding_ids": [
+        "qn_quarter_summary_what_changed"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "quarter_summary_watch_next",
+      "sheet": "Quarter_Notes_UI",
+      "target": "B5",
+      "writable": true,
+      "target_role": "latest quarter watch item",
+      "allowed_binding_ids": [
+        "qn_quarter_summary_watch_next"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "quarter_summary_key_caveat",
+      "sheet": "Quarter_Notes_UI",
+      "target": "B6",
+      "writable": true,
+      "target_role": "latest quarter caveat",
+      "allowed_binding_ids": [
+        "qn_quarter_summary_key_caveat"
       ],
       "allowed_target_types": [
         "text"
@@ -512,6 +746,19 @@
       ]
     },
     {
+      "contract_id": "quarter_note_why_it_matters",
+      "sheet": "Quarter_Notes_UI",
+      "target": "F10:F15",
+      "writable": true,
+      "target_role": "quarter investor relevance",
+      "allowed_binding_ids": [
+        "qn_quarter_note_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
       "contract_id": "quarter_note_implication",
       "sheet": "Quarter_Notes_UI",
       "target": "H10:H15",
@@ -534,7 +781,307 @@
         "qn_quarter_note_rows"
       ],
       "allowed_target_types": [
-        "source_ref"
+        "source_ref",
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2025_metric",
+      "sheet": "Promise_Progress_UI",
+      "target": "A13:A20",
+      "writable": true,
+      "target_role": "FY2025 progression metric",
+      "allowed_binding_ids": [
+        "pp_progress_fy2025_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2025_initial",
+      "sheet": "Promise_Progress_UI",
+      "target": "B13:B20",
+      "writable": true,
+      "target_role": "FY2025 initial guidance",
+      "allowed_binding_ids": [
+        "pp_progress_fy2025_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2025_q1",
+      "sheet": "Promise_Progress_UI",
+      "target": "C13:C20",
+      "writable": true,
+      "target_role": "FY2025 Q1 update",
+      "allowed_binding_ids": [
+        "pp_progress_fy2025_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2025_q2",
+      "sheet": "Promise_Progress_UI",
+      "target": "D13:D20",
+      "writable": true,
+      "target_role": "FY2025 Q2 update",
+      "allowed_binding_ids": [
+        "pp_progress_fy2025_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2025_q3",
+      "sheet": "Promise_Progress_UI",
+      "target": "E13:E20",
+      "writable": true,
+      "target_role": "FY2025 Q3 update",
+      "allowed_binding_ids": [
+        "pp_progress_fy2025_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2025_q4",
+      "sheet": "Promise_Progress_UI",
+      "target": "F13:F20",
+      "writable": true,
+      "target_role": "FY2025 Q4 update",
+      "allowed_binding_ids": [
+        "pp_progress_fy2025_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2025_actual",
+      "sheet": "Promise_Progress_UI",
+      "target": "G13:G20",
+      "writable": true,
+      "target_role": "FY2025 actual",
+      "allowed_binding_ids": [
+        "pp_progress_fy2025_rows"
+      ],
+      "allowed_target_types": [
+        "value"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2025_status",
+      "sheet": "Promise_Progress_UI",
+      "target": "H13:H20",
+      "writable": true,
+      "target_role": "FY2025 deterministic status",
+      "allowed_binding_ids": [
+        "pp_progress_fy2025_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2025_notes",
+      "sheet": "Promise_Progress_UI",
+      "target": "I13:I20",
+      "writable": true,
+      "target_role": "FY2025 source notes",
+      "allowed_binding_ids": [
+        "pp_progress_fy2025_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2024_metric",
+      "sheet": "Promise_Progress_UI",
+      "target": "A24:A27",
+      "writable": true,
+      "target_role": "FY2024 progression metric",
+      "allowed_binding_ids": [
+        "pp_progress_fy2024_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2024_initial",
+      "sheet": "Promise_Progress_UI",
+      "target": "B24:B27",
+      "writable": true,
+      "target_role": "FY2024 initial guidance",
+      "allowed_binding_ids": [
+        "pp_progress_fy2024_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2024_q1",
+      "sheet": "Promise_Progress_UI",
+      "target": "C24:C27",
+      "writable": true,
+      "target_role": "FY2024 Q1 update",
+      "allowed_binding_ids": [
+        "pp_progress_fy2024_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2024_q2",
+      "sheet": "Promise_Progress_UI",
+      "target": "D24:D27",
+      "writable": true,
+      "target_role": "FY2024 Q2 update",
+      "allowed_binding_ids": [
+        "pp_progress_fy2024_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2024_q3",
+      "sheet": "Promise_Progress_UI",
+      "target": "E24:E27",
+      "writable": true,
+      "target_role": "FY2024 Q3 update",
+      "allowed_binding_ids": [
+        "pp_progress_fy2024_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2024_q4",
+      "sheet": "Promise_Progress_UI",
+      "target": "F24:F27",
+      "writable": true,
+      "target_role": "FY2024 Q4 update",
+      "allowed_binding_ids": [
+        "pp_progress_fy2024_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2024_actual",
+      "sheet": "Promise_Progress_UI",
+      "target": "G24:G27",
+      "writable": true,
+      "target_role": "FY2024 actual",
+      "allowed_binding_ids": [
+        "pp_progress_fy2024_rows"
+      ],
+      "allowed_target_types": [
+        "value"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2024_status",
+      "sheet": "Promise_Progress_UI",
+      "target": "H24:H27",
+      "writable": true,
+      "target_role": "FY2024 deterministic status",
+      "allowed_binding_ids": [
+        "pp_progress_fy2024_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "promise_fy2024_notes",
+      "sheet": "Promise_Progress_UI",
+      "target": "I24:I27",
+      "writable": true,
+      "target_role": "FY2024 source notes",
+      "allowed_binding_ids": [
+        "pp_progress_fy2024_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_secondary_metric",
+      "sheet": "Promise_Progress_UI",
+      "target": "A39:A58",
+      "writable": true,
+      "target_role": "current secondary guidance metric",
+      "allowed_binding_ids": [
+        "pp_current_secondary_guidance_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_secondary_value",
+      "sheet": "Promise_Progress_UI",
+      "target": "B39:B58",
+      "writable": true,
+      "target_role": "current secondary guidance value",
+      "allowed_binding_ids": [
+        "pp_current_secondary_guidance_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "promise_secondary_horizon",
+      "sheet": "Promise_Progress_UI",
+      "target": "C39:C58",
+      "writable": true,
+      "target_role": "current secondary guidance horizon",
+      "allowed_binding_ids": [
+        "pp_current_secondary_guidance_rows"
+      ],
+      "allowed_target_types": [
+        "horizon"
+      ]
+    },
+    {
+      "contract_id": "promise_secondary_status",
+      "sheet": "Promise_Progress_UI",
+      "target": "D39:D58",
+      "writable": true,
+      "target_role": "current secondary guidance status",
+      "allowed_binding_ids": [
+        "pp_current_secondary_guidance_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "promise_secondary_notes",
+      "sheet": "Promise_Progress_UI",
+      "target": "E39:E58",
+      "writable": true,
+      "target_role": "current secondary guidance notes and source",
+      "allowed_binding_ids": [
+        "pp_current_secondary_guidance_rows"
+      ],
+      "allowed_target_types": [
+        "text"
       ]
     },
     {
@@ -4399,7 +4946,7 @@
         },
         {
           "zone_id": "pp_annual_guidance_values",
-          "target": "B13:O22",
+          "target": "A13:I20",
           "anchor_label": "Annual guidance progression block 1",
           "value_shapes": [
             "table_rows"
@@ -4407,7 +4954,7 @@
         },
         {
           "zone_id": "pp_annual_guidance_values_block_2",
-          "target": "B24:O28",
+          "target": "A24:I27",
           "anchor_label": "Annual guidance progression block 2",
           "value_shapes": [
             "table_rows"
@@ -4415,7 +4962,7 @@
         },
         {
           "zone_id": "pp_annual_guidance_values_block_3",
-          "target": "B30:O33",
+          "target": "A30:I32",
           "anchor_label": "Annual guidance progression block 3",
           "value_shapes": [
             "table_rows"
@@ -4423,7 +4970,7 @@
         },
         {
           "zone_id": "pp_annual_guidance_values_block_4",
-          "target": "B35:O35",
+          "target": "A35:I36",
           "anchor_label": "Annual guidance progression block 4",
           "value_shapes": [
             "table_rows"
@@ -4431,7 +4978,7 @@
         },
         {
           "zone_id": "pp_open_guidance_values",
-          "target": "B39:O59",
+          "target": "A39:E58",
           "anchor_label": "Open guidance",
           "value_shapes": [
             "table_rows",
@@ -4490,8 +5037,33 @@
       "non_writable_zones": [
         {
           "zone_id": "pp_static_headers_labels_upper",
-          "target": "A1:A60",
-          "reason": "Static scorecard/guidance section labels above the primary revision table."
+          "target": "A1:A12",
+          "reason": "Static title, scorecard and first progression headers."
+        },
+        {
+          "zone_id": "pp_static_headers_labels_upper_block_2",
+          "target": "A21:A23",
+          "reason": "Static second progression title and header."
+        },
+        {
+          "zone_id": "pp_static_headers_labels_upper_block_3",
+          "target": "A28:A29",
+          "reason": "Static third progression title and header."
+        },
+        {
+          "zone_id": "pp_static_headers_labels_upper_block_4",
+          "target": "A33:A34",
+          "reason": "Static fourth progression title and header."
+        },
+        {
+          "zone_id": "pp_static_headers_labels_open_guidance",
+          "target": "A37:A38",
+          "reason": "Static open-guidance title and header."
+        },
+        {
+          "zone_id": "pp_static_headers_labels_primary_timeline",
+          "target": "A59:A60",
+          "reason": "Static primary guidance-timeline title and header."
         },
         {
           "zone_id": "pp_static_headers_labels_lower",
@@ -4500,32 +5072,32 @@
         },
         {
           "zone_id": "pp_annual_guidance_column_headers",
-          "target": "B12:I12",
+          "target": "A12:I12",
           "reason": "Annual guidance progression column headers owned by the shell."
         },
         {
           "zone_id": "pp_annual_guidance_column_headers_block_2",
-          "target": "B23:I23",
+          "target": "A23:I23",
           "reason": "Repeated annual guidance progression column headers owned by the shell."
         },
         {
           "zone_id": "pp_annual_guidance_column_headers_block_3",
-          "target": "B29:I29",
+          "target": "A29:I29",
           "reason": "Repeated annual guidance progression column headers owned by the shell."
         },
         {
           "zone_id": "pp_annual_guidance_column_headers_block_4",
-          "target": "B34:I34",
+          "target": "A34:I34",
           "reason": "Repeated annual guidance progression column headers owned by the shell."
         },
         {
           "zone_id": "pp_open_guidance_column_headers",
-          "target": "B38:E38",
+          "target": "A38:E38",
           "reason": "Open guidance column headers owned by the shell."
         },
         {
           "zone_id": "pp_revision_column_headers_primary",
-          "target": "B60:K60",
+          "target": "A60:K60",
           "reason": "Guidance revision table column headers owned by the shell."
         },
         {
@@ -4678,22 +5250,22 @@
   "semantic_contract_version": "1.2.0",
   "shell_identity": {
     "semantic_contract_version": "1.2.0",
-    "workbook_sha256": "7363d711439d31d4c491d328c0b39040108258b3b7c4e3934b9e2dd52b198f8f",
-    "manifest_contract_signature": "590cd4233dd6ff8e2a600b05511c73868fd8374d48789699bbefc8371b92b4ef",
+    "workbook_sha256": "c7406134ecfcb1c795f0766f3ed24c07fd53fe875c65eab4f066800572d11e4a",
+    "manifest_contract_signature": "d024d73ee7d43ae3ee24adb0cd27106255d89e96d2e9d00a0c6caf456d32df31",
     "sheet_order_visibility_signature": "bf321d478860f8ed7458e736c902f1517d543cb4186a490fd28f6fdfb74749d1",
     "sheet_view_signature": "e2566d3cb6a924bc7ac96bea5c14895d8bfc6539aac73b095c1470ea5aa826b0",
     "merge_signature": "417d308565b3d649f9fe6eda6dfe3bb7b5957c324378558462f8b191287b65b7",
-    "defined_name_signature": "a6817262f94abaed2d1c6cbc47165e80f5dac23f2a37392fd1118be678d7d48a",
-    "writable_target_signature": "e2eb49449737eca1714239aa706014944017682d2d7b64d51444f1e131fddaeb",
-    "binding_contract_signature": "f43cc01858ce6a510c6ba8a57a629d56c0a526e90491aa823eb424d4f2b5fdc3",
-    "formula_static_zone_signature": "8848bfb2e38f00dba6dec91efbc515dfe48123e392998fc89b3dbfbf314bba86",
+    "defined_name_signature": "be36170c91988ba4375e2403b88a68e69b8108dd0cf81837e8c37b33e3e6b354",
+    "writable_target_signature": "46383f5c318385176c39b0f176f85f85499841b5a5fdf4e41622f3ffd217d6cf",
+    "binding_contract_signature": "7ee6cfe2ed2c90ddcee0cf5a9eef875bf93673391c266114eb3db2ab2fabf6a8",
+    "formula_static_zone_signature": "e7c9c0461f94b9b53d2fdf2eea759df9508e33364d423cdb1ad9a2da808205f7",
     "counts": {
       "sheets": 18,
       "sheet_views": 18,
       "merges": 1884,
-      "defined_names": 179,
-      "writable_targets": 286,
-      "binding_contracts": 143,
+      "defined_names": 199,
+      "writable_targets": 348,
+      "binding_contracts": 160,
       "formula_cells": 1016,
       "static_cells": 1249
     }

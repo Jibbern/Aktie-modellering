@@ -1,6 +1,6 @@
 # Standard Template Defined-Name Audit
 
-- Retained names: `179`
+- Retained names: `199`
 - Target mismatches: `0`
 - Company-specific names/constants: `0`
 - Removed constant: `ThesisBaseAdjEBITDA_FY=815.59`
@@ -106,16 +106,30 @@
 | `bs_total_equity_series` | `active_binding_anchor` | `'BS_Segments'!$B$47` | True |
 | `bs_total_liabilities_series` | `active_binding_anchor` | `'BS_Segments'!$B$45` | True |
 | `calculation_history_quarterly_rows` | `active_binding_anchor` | `'History_Q'!$A$2` | True |
+| `ic_current_stance` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$11` | True |
+| `ic_downside_factors` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$9` | True |
 | `ic_investment_case_title` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$A$1` | True |
 | `ic_investment_summary` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$5` | True |
 | `ic_key_debate` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$7` | True |
+| `ic_upside_factors` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$8` | True |
+| `ic_watch_next` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$10` | True |
+| `ic_why_it_can_work` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$6` | True |
 | `investment_key_debate_anchor` | `required_shell_anchor` | `'{ticker}_Investment_Case'!$A$7` | True |
 | `investment_snapshot_anchor` | `required_shell_anchor` | `'{ticker}_Investment_Case'!$A$5` | True |
 | `needs_review_rows_anchor` | `required_shell_anchor` | `'Needs_Review'!$A$1` | True |
 | `needs_review_validation_rows` | `active_binding_anchor` | `'Needs_Review'!$A$2` | True |
+| `od_current_actual_read` | `active_binding_anchor` | `'Operating_Drivers'!$B$13` | True |
+| `od_current_actual_use` | `active_binding_anchor` | `'Operating_Drivers'!$H$13` | True |
+| `od_current_guidance_read` | `active_binding_anchor` | `'Operating_Drivers'!$B$14` | True |
+| `od_current_guidance_use` | `active_binding_anchor` | `'Operating_Drivers'!$H$14` | True |
+| `od_margin_bridge_read` | `active_binding_anchor` | `'Operating_Drivers'!$B$15` | True |
+| `od_margin_bridge_use` | `active_binding_anchor` | `'Operating_Drivers'!$H$15` | True |
 | `od_watchlist_rows` | `active_binding_anchor` | `'Operating_Drivers'!$A$6` | True |
 | `operating_drivers_watchlist_anchor` | `required_shell_anchor` | `'Operating_Drivers'!$A$6` | True |
+| `pp_current_secondary_guidance_rows` | `active_binding_anchor` | `'Promise_Progress_UI'!$A$39` | True |
 | `pp_guidance_timeline_rows` | `active_binding_anchor` | `'Promise_Progress_UI'!$A$61` | True |
+| `pp_progress_fy2024_rows` | `active_binding_anchor` | `'Promise_Progress_UI'!$A$24` | True |
+| `pp_progress_fy2025_rows` | `active_binding_anchor` | `'Promise_Progress_UI'!$A$13` | True |
 | `promise_open_guidance_anchor` | `required_shell_anchor` | `'Promise_Progress_UI'!$A$39` | True |
 | `promise_primary_revision_anchor` | `required_shell_anchor` | `'Promise_Progress_UI'!$A$61` | True |
 | `qa_checks_mapping_gap_rows` | `active_binding_anchor` | `'QA_Checks'!$A$2` | True |
@@ -123,13 +137,17 @@
 | `qa_log_rows_anchor` | `required_shell_anchor` | `'QA_Log'!$A$1` | True |
 | `qa_log_validation_rows` | `active_binding_anchor` | `'QA_Log'!$A$2` | True |
 | `qn_quarter_note_rows` | `active_binding_anchor` | `'Quarter_Notes_UI'!$A$10` | True |
+| `qn_quarter_summary_key_caveat` | `active_binding_anchor` | `'Quarter_Notes_UI'!$B$6` | True |
 | `qn_quarter_summary_rows` | `active_binding_anchor` | `'Quarter_Notes_UI'!$B$3` | True |
+| `qn_quarter_summary_watch_next` | `active_binding_anchor` | `'Quarter_Notes_UI'!$B$5` | True |
+| `qn_quarter_summary_what_changed` | `active_binding_anchor` | `'Quarter_Notes_UI'!$B$4` | True |
 | `quarter_notes_blocks_anchor` | `required_shell_anchor` | `'Quarter_Notes_UI'!$A$10` | True |
 | `summary_as_of_quarter` | `active_binding_anchor` | `'SUMMARY'!$B$26` | True |
 | `summary_company_description` | `active_binding_anchor` | `'SUMMARY'!$A$3` | True |
 | `summary_company_overview_anchor` | `required_shell_anchor` | `'SUMMARY'!$A$3` | True |
 | `summary_key_advantage` | `active_binding_anchor` | `'SUMMARY'!$A$7` | True |
 | `summary_key_financials_anchor` | `required_shell_anchor` | `'SUMMARY'!$A$26` | True |
+| `summary_key_risks` | `active_binding_anchor` | `'SUMMARY'!$A$17` | True |
 | `summary_latest_net_income` | `active_binding_anchor` | `'SUMMARY'!$B$30` | True |
 | `summary_latest_revenue` | `active_binding_anchor` | `'SUMMARY'!$B$28` | True |
 | `summary_leverage_liquidity_anchor` | `required_shell_anchor` | `'SUMMARY'!$A$41` | True |
@@ -138,7 +156,9 @@
 | `summary_net_leverage` | `active_binding_anchor` | `'SUMMARY'!$B$41` | True |
 | `summary_revenue_mix_label` | `active_binding_anchor` | `'SUMMARY'!$A$8` | True |
 | `summary_revenue_stream_rows` | `active_binding_anchor` | `'SUMMARY'!$A$9` | True |
+| `summary_segment_model` | `active_binding_anchor` | `'SUMMARY'!$A$13` | True |
 | `summary_strategic_context` | `active_binding_anchor` | `'SUMMARY'!$A$5` | True |
+| `summary_wrong_if` | `active_binding_anchor` | `'SUMMARY'!$A$23` | True |
 | `valuation_acquisitions_cash_series` | `active_binding_anchor` | `'Valuation'!$B$265` | True |
 | `valuation_actuals_anchor` | `required_shell_anchor` | `'Valuation'!$A$6` | True |
 | `valuation_adjusted_ebitda_series` | `active_binding_anchor` | `'Valuation'!$B$24` | True |

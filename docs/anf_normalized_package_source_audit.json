@@ -1,8 +1,8 @@
 {
   "version": "0.2.0",
   "generator_version": "anf_legacy_adapter_audits/0.2.0",
-  "source_package_content_sha256": "29cad8b790c606b3803ddcb646c682eb5a14e13e1c9c47e9de438e306e49e3e2",
-  "generated_at_utc": "2026-07-14T17:42:06+00:00",
+  "source_package_content_sha256": "c925eab1d71265fb4f44230b40236d811c01fdcb4481808e42c6b86b2ec99b6a",
+  "generated_at_utc": "2026-07-15T09:03:55+00:00",
   "ticker": "ANF",
   "data_root": "C:\\Users\\Jibbe\\Aktier\\StockModelData",
   "legacy_workbook": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -50,9 +50,9 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 15,
+      "populated_field_count": 23,
       "field_status_counts": {
-        "populated": 15
+        "populated": 23
       },
       "manual_review_record_count": 0
     },
@@ -174,12 +174,36 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": true,
-      "populated_field_count": 90,
+      "populated_field_count": 787,
       "field_status_counts": {
-        "missing_source": 180,
-        "populated": 90
+        "missing_source": 977,
+        "populated": 787
       },
-      "manual_review_record_count": 1
+      "manual_review_record_count": 67
+    },
+    {
+      "section": "promise_progress",
+      "available_source_candidates": [
+        "ANF_model.xlsx!Guidance_Normalized",
+        "ANF_model.xlsx!Promise_Progress",
+        "annual reports",
+        "earnings releases",
+        "transcripts"
+      ],
+      "source_backed_available": true,
+      "profile_backed_available": false,
+      "legacy_workbook_derived_available": true,
+      "missing_source": true,
+      "missing_mapping": false,
+      "parser_conflict": false,
+      "manual_review_required": true,
+      "populated_field_count": 146,
+      "field_status_counts": {
+        "manual_review_required": 12,
+        "missing_source": 24,
+        "populated": 146
+      },
+      "manual_review_record_count": 0
     },
     {
       "section": "segments",
@@ -216,10 +240,10 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": true,
-      "populated_field_count": 155,
+      "populated_field_count": 161,
       "field_status_counts": {
         "missing_source": 15,
-        "populated": 155
+        "populated": 161
       },
       "manual_review_record_count": 751
     },
@@ -236,9 +260,9 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": true,
-      "populated_field_count": 42,
+      "populated_field_count": 58,
       "field_status_counts": {
-        "populated": 42
+        "populated": 58
       },
       "manual_review_record_count": 679
     },
@@ -251,14 +275,14 @@
       "source_backed_available": true,
       "profile_backed_available": true,
       "legacy_workbook_derived_available": true,
-      "missing_source": false,
+      "missing_source": true,
       "missing_mapping": false,
       "parser_conflict": false,
-      "manual_review_required": true,
-      "populated_field_count": 3,
+      "manual_review_required": false,
+      "populated_field_count": 10,
       "field_status_counts": {
-        "manual_review_required": 3,
-        "populated": 3
+        "missing_source": 3,
+        "populated": 10
       },
       "manual_review_record_count": 0
     },
@@ -329,7 +353,7 @@
       "manual_review_required": true,
       "populated_field_count": 0,
       "field_status_counts": {},
-      "manual_review_record_count": 1723
+      "manual_review_record_count": 1789
     }
   ]
 }

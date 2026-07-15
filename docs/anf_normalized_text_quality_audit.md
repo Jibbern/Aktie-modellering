@@ -2,8 +2,8 @@
 
 Read-only text-quality audit for the ANF shadow normalized package. Non-renderable snippets are demoted to manual review/source coverage rather than copied into visible UI fields.
 
-- Generated: `2026-07-14T17:42:10+00:00`
-- Audited text rows: `298`
+- Generated: `2026-07-15T09:03:59+00:00`
+- Audited text rows: `704`
 - Non-clean visible rows after filtering: `0`
 - Demoted rows before render: `1325`
 
@@ -11,9 +11,12 @@ Read-only text-quality audit for the ANF shadow normalized package. Non-renderab
 
 | Section | Candidate rows before filter | Visible clean after filter | Visible non-clean after filter | Demoted before render |
 | --- | ---: | ---: | ---: | ---: |
-| `normalized_guidance` | 60 | 60 | 0 | 0 |
-| `operating_drivers` | 616 | 102 | 0 | 514 |
-| `quarter_notes` | 703 | 24 | 0 | 679 |
+| `company_profile` | 13 | 13 | 0 | 0 |
+| `investment_case` | 10 | 10 | 0 | 0 |
+| `normalized_guidance` | 26 | 26 | 0 | 0 |
+| `operating_drivers` | 532 | 18 | 0 | 514 |
+| `promise_progress` | 30 | 30 | 0 | 0 |
+| `quarter_notes` | 707 | 28 | 0 | 679 |
 | `segments` | 240 | 108 | 0 | 132 |
 
 ## Demotions

@@ -71,6 +71,11 @@ def _base_package() -> dict:
         "debt_liquidity": {"net_debt": _field(10.0, core=True)},
         "capital_returns": {"buybacks": _field(0.0, core=False)},
         "normalized_guidance": {"items": []},
+        "promise_progress": {
+            "items": [],
+            "scorecard_items": [],
+            "scorecard_disposition": "No source-backed scorecard is available in this fixture.",
+        },
         "segments": {"items": []},
         "operating_drivers": {"items": []},
         "quarter_notes": {"items": []},
@@ -82,6 +87,39 @@ def _base_package() -> dict:
         "source_coverage": {"sources": []},
         "mapping_gaps": [],
         "manual_review_flags": [],
+    }
+
+
+def _quarter_note(commentary: str, *, source_ref: str = "fixture:quarter-note") -> dict:
+    return {
+        "theme": _field("Test theme", source_ref=source_ref),
+        "quarter": _field("2026-Q1", source_ref=source_ref),
+        "metric": _field("Narrative", source_ref=source_ref),
+        "commentary": _field(commentary, source_ref=source_ref, core=True),
+        "why_it_matters": _field("This is a validation fixture.", source_ref=source_ref),
+        "model_implication": _field("Review the source-backed implication.", source_ref=source_ref),
+        "source_display": _field("Validation fixture", source_ref=source_ref),
+        "source": source_ref,
+        "evidence_refs": [source_ref],
+        "evidence_key": "fixture-quarter-note",
+        "display_role": "current_note",
+        "display_priority": 1,
+        "review_state": "accepted",
+    }
+
+
+def _operating_driver(current_read: str, *, source_ref: str = "fixture:driver") -> dict:
+    return {
+        "topic": _field("Operating margin", source_ref=source_ref),
+        "driver": _field("Operating margin", source_ref=source_ref),
+        "driver_type": "margin",
+        "period": "2026-Q1",
+        "current_read": _field(current_read, source_ref=source_ref, core=True),
+        "source": source_ref,
+        "why_it_matters": _field("Margin quality affects earnings durability.", source_ref=source_ref),
+        "evidence_key": "fixture-operating-driver",
+        "display_role": "current_watchlist",
+        "display_priority": 1,
     }
 
 
@@ -117,9 +155,7 @@ def test_validation_catches_boilerplate_guidance() -> None:
 
 def test_validation_catches_parser_noise_snippets() -> None:
     package = _base_package()
-    package["quarter_notes"]["items"].append(
-        {"period": "2026-Q1", "note": _field("Guidance signal in filing text: raw_json source_txt_file", core=True)}
-    )
+    package["quarter_notes"]["items"].append(_quarter_note("Guidance signal in filing text: raw_json source_txt_file"))
 
     assert "parser_noise_snippet" in _rule_ids(package)
 
@@ -127,14 +163,10 @@ def test_validation_catches_parser_noise_snippets() -> None:
 def test_validation_catches_compensation_governance_noise_in_quarter_notes() -> None:
     package = _base_package()
     package["quarter_notes"]["items"].append(
-        {
-            "period": "2026-Q1",
-            "note": _field(
-                "The Company’s compensation offerings include cash-",
-                source_ref="ANF_10K.htm",
-                core=True,
-            ),
-        }
+        _quarter_note(
+            "The Company's compensation offerings include cash awards.",
+            source_ref="ANF_10K.htm",
+        )
     )
 
     assert "visible_text_quality_compensation_or_governance_noise" in _rule_ids(package)
@@ -143,14 +175,10 @@ def test_validation_catches_compensation_governance_noise_in_quarter_notes() -> 
 def test_validation_catches_legal_boilerplate_in_visible_quarter_notes() -> None:
     package = _base_package()
     package["quarter_notes"]["items"].append(
-        {
-            "period": "2026-Q1",
-            "note": _field(
-                "Risks related to the timing and implementation of changes to existing tariff programs.",
-                source_ref="ANF_10K.htm",
-                core=True,
-            ),
-        }
+        _quarter_note(
+            "Risks related to the timing and implementation of changes to existing tariff programs.",
+            source_ref="ANF_10K.htm",
+        )
     )
 
     assert "visible_text_quality_boilerplate_or_legal" in _rule_ids(package)
@@ -159,10 +187,7 @@ def test_validation_catches_legal_boilerplate_in_visible_quarter_notes() -> None
 def test_validation_catches_formula_definitions_as_operating_drivers() -> None:
     package = _base_package()
     package["operating_drivers"]["items"].append(
-        {
-            "driver": _field("Gross margin", core=True),
-            "current_read": _field("Gross profit divided by reported net sales.", source_ref="internal_metric", core=True),
-        }
+        _operating_driver("Gross profit divided by reported net sales.", source_ref="internal_metric")
     )
 
     assert "visible_text_quality_accounting_policy_or_definition" in _rule_ids(package)
@@ -183,9 +208,7 @@ def test_validation_catches_release_headers_as_segment_notes() -> None:
 
 def test_validation_catches_broken_visible_text_fragments() -> None:
     package = _base_package()
-    package["quarter_notes"]["items"].append(
-        {"period": "2026-Q1", "note": _field("Comparable sales improved because of", core=True)}
-    )
+    package["quarter_notes"]["items"].append(_quarter_note("Comparable sales improved because of"))
 
     assert "visible_text_quality_fragmented_sentence" in _rule_ids(package)
 
@@ -193,10 +216,7 @@ def test_validation_catches_broken_visible_text_fragments() -> None:
 def test_text_quality_audit_and_validation_stay_in_sync() -> None:
     package = _base_package()
     package["operating_drivers"]["items"].append(
-        {
-            "driver": _field("Operating margin", core=True),
-            "current_read": _field("Operating income divided by reported net sales.", core=True),
-        }
+        _operating_driver("Operating income divided by reported net sales.")
     )
 
     audit = build_normalized_text_quality_audit(package)

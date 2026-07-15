@@ -119,6 +119,7 @@ def test_anf_shadow_package_reports_are_built_from_read_only_legacy_artifacts(tm
         "debt_liquidity",
         "capital_returns",
         "normalized_guidance",
+        "promise_progress",
         "segments",
         "operating_drivers",
         "quarter_notes",
@@ -187,8 +188,9 @@ def test_anf_binding_coverage_reports_row_schema_capacity(tmp_path: Path) -> Non
         "quarter",
         "metric",
         "commentary",
+        "why_it_matters",
         "model_implication",
-        "source",
+        "source_display",
     }
     assert set(operating_drivers["row_schema_columns"]) >= {"topic", "current_read", "source", "why_it_matters"}
     assert set(qa_rows["row_schema_columns"]) >= {

@@ -2,9 +2,9 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-14T17:42:10+00:00`
-- Bindings with populated data: `57` / `143`
-- Bindings that would write useful output: `83`
+- Generated: `2026-07-15T09:03:59+00:00`
+- Bindings with populated data: `75` / `160`
+- Bindings that would write useful output: `103`
 
 | Binding | Sheet | Field | Values | Rows | Would write | Reason if blank |
 | --- | --- | --- | ---: | ---: | --- | --- |
@@ -13,19 +13,19 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `summary_key_advantage` | `SUMMARY` | `company_profile.key_advantages` | 1 | 1/1 | True |  |
 | `summary_strategic_context` | `SUMMARY` | `company_profile.strategic_context` | 1 | 1/1 | True |  |
 | `summary_revenue_stream_rows` | `SUMMARY` | `company_profile.revenue_streams` | 3 | 3/3 | True |  |
-| `summary_segment_model` | `SUMMARY` | `segments.items.0.revenue` | 105 | 105/3 | False | binding planning_state is inactive_legacy_contract |
-| `summary_key_risks` | `SUMMARY` | `company_profile.key_risks` | 1 | 1/5 | False | binding planning_state is inactive_legacy_contract |
-| `summary_wrong_if` | `SUMMARY` | `investment_case.key_debate` | 1 | 1/2 | False | binding planning_state is inactive_legacy_contract |
+| `summary_segment_model` | `SUMMARY` | `company_profile.operating_model_rows` | 3 | 3/3 | True |  |
+| `summary_key_risks` | `SUMMARY` | `company_profile.key_dependencies` | 5 | 5/5 | True |  |
+| `summary_wrong_if` | `SUMMARY` | `investment_case.invalidators` | 2 | 2/2 | True |  |
 | `summary_as_of_quarter` | `SUMMARY` | `quarterly_financials.rows.0.period` | 0 | 0/4 | True |  |
 | `summary_latest_net_income` | `SUMMARY` | `quarterly_financials.rows.0.net_income` | 12 | 12/10 | True |  |
 | `summary_net_leverage` | `SUMMARY` | `debt_liquidity.net_leverage` | 0 | 0/1 | False | normalized field is absent or not populated |
 | `valuation_guidance_rows` | `Valuation` | `normalized_guidance.items.value` | 0 | 0/19 | True |  |
-| `valuation_guidance_rows_lower` | `Valuation` | `normalized_guidance.items.0.value` | 30 | 30/8 | False | binding planning_state is inactive_legacy_contract |
+| `valuation_guidance_rows_lower` | `Valuation` | `normalized_guidance.items.0.value` | 196 | 196/8 | False | binding planning_state is inactive_legacy_contract |
 | `valuation_operating_driver_sidecar_rows` | `Valuation` | `operating_drivers.items.0.driver` | 34 | 34/9 | False | binding planning_state is inactive_legacy_contract |
 | `valuation_thesis_bridge_rows` | `Valuation` | `investment_case.key_debate` | 1 | 1/12 | False | binding planning_state is inactive_legacy_contract |
 | `valuation_output_rows` | `Valuation` | `valuation_outputs.items.value` | 0 | 0/107 | False | binding planning_state is formula_owned |
 | `valuation_guidance_status_rows` | `Valuation` | `normalized_guidance.items.progress_status` | 0 | 0/19 | True |  |
-| `valuation_guidance_status_rows_lower` | `Valuation` | `normalized_guidance.items.0.horizon` | 30 | 30/8 | False | binding planning_state is inactive_legacy_contract |
+| `valuation_guidance_status_rows_lower` | `Valuation` | `normalized_guidance.items.0.horizon` | 196 | 196/8 | False | binding planning_state is inactive_legacy_contract |
 | `bs_annual_financial_period_headers` | `BS_Segments` | `annual_financials.rows.period` | 0 | 0/1 | True |  |
 | `bs_annual_financial_revenue_series` | `BS_Segments` | `annual_financials.rows.revenue` | 0 | 0/1 | True |  |
 | `bs_annual_financial_gross_profit_series` | `BS_Segments` | `annual_financials.rows.gross_profit` | 0 | 0/1 | True |  |
@@ -43,34 +43,51 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `bs_segment_quarterly_rows` | `BS_Segments` | `segments.items.revenue` | 105 | 105/7 | True |  |
 | `bs_segment_annual_rows` | `BS_Segments` | `segments.items.annual_revenue` | 21 | 21/7 | True |  |
 | `od_watchlist_rows` | `Operating_Drivers` | `operating_drivers.items.current_read` | 136 | 34/4 | True |  |
+| `od_current_actual_read` | `Operating_Drivers` | `operating_drivers.current_outlook.current_actual_read` | 1 | 1/1 | True |  |
+| `od_current_actual_use` | `Operating_Drivers` | `operating_drivers.current_outlook.current_actual_use` | 1 | 1/1 | True |  |
+| `od_current_guidance_read` | `Operating_Drivers` | `operating_drivers.current_outlook.current_guidance_read` | 1 | 1/1 | True |  |
+| `od_current_guidance_use` | `Operating_Drivers` | `operating_drivers.current_outlook.current_guidance_use` | 1 | 1/1 | True |  |
+| `od_margin_bridge_read` | `Operating_Drivers` | `operating_drivers.current_outlook.margin_bridge_read` | 1 | 1/1 | True |  |
+| `od_margin_bridge_use` | `Operating_Drivers` | `operating_drivers.current_outlook.margin_bridge_use` | 1 | 1/1 | True |  |
 | `od_topic_current_read_rows` | `Operating_Drivers` | `operating_drivers.items.0.current_read` | 34 | 34/6 | False | binding planning_state is inactive_legacy_contract |
 | `od_horizon_commentary_rows` | `Operating_Drivers` | `operating_drivers.items.0.driver` | 34 | 34/11 | False | binding planning_state is inactive_legacy_contract |
 | `od_current_outlook_rows` | `Operating_Drivers` | `operating_drivers.items.0.driver` | 34 | 34/25 | False | binding planning_state is inactive_legacy_contract |
 | `od_driver_actuals_rows` | `Operating_Drivers` | `operating_drivers.items.0.metric_value` | 19 | 19/70 | False | binding planning_state is inactive_legacy_contract |
 | `ic_investment_summary` | `{ticker}_Investment_Case` | `investment_case.summary` | 1 | 1/26 | True |  |
 | `ic_key_debate` | `{ticker}_Investment_Case` | `investment_case.key_debate` | 1 | 1/1 | True |  |
+| `ic_why_it_can_work` | `{ticker}_Investment_Case` | `investment_case.why_it_can_work` | 1 | 1/1 | True |  |
+| `ic_upside_factors` | `{ticker}_Investment_Case` | `investment_case.upside_factors` | 1 | 1/1 | True |  |
+| `ic_downside_factors` | `{ticker}_Investment_Case` | `investment_case.downside_factors` | 1 | 1/1 | True |  |
+| `ic_watch_next` | `{ticker}_Investment_Case` | `investment_case.watch_next` | 1 | 1/1 | True |  |
+| `ic_current_stance` | `{ticker}_Investment_Case` | `investment_case.current_stance` | 1 | 1/1 | True |  |
 | `ic_bull_base_bear_rows` | `{ticker}_Investment_Case` | `investment_case.scenario_drivers` | 1 | 1/50 | False | binding planning_state is inactive_legacy_contract |
 | `ic_scenario_bridge_rows` | `{ticker}_Investment_Case` | `segments.items.0.revenue` | 105 | 105/60 | False | binding planning_state is inactive_legacy_contract |
 | `ic_lower_comp_history_labels` | `{ticker}_Investment_Case` | `operating_drivers.items.0.driver` | 34 | 34/7 | False | binding planning_state is inactive_legacy_contract |
 | `ic_lower_business_health_rows` | `{ticker}_Investment_Case` | `operating_drivers.items.0.current_read` | 34 | 34/6 | False | binding planning_state is inactive_legacy_contract |
 | `ic_lower_inventory_rows` | `{ticker}_Investment_Case` | `operating_drivers.items.0.metric_value` | 19 | 19/8 | False | binding planning_state is inactive_legacy_contract |
 | `ic_lower_asset_productivity_rows` | `{ticker}_Investment_Case` | `operating_drivers.items.0.metric_value` | 19 | 19/14 | False | binding planning_state is inactive_legacy_contract |
-| `ic_lower_guidance_setup_rows` | `{ticker}_Investment_Case` | `normalized_guidance.items.0.value` | 30 | 30/6 | False | binding planning_state is inactive_legacy_contract |
-| `qn_quarter_note_rows` | `Quarter_Notes_UI` | `quarter_notes.items.commentary` | 36 | 6/6 | True |  |
-| `qn_quarter_summary_rows` | `Quarter_Notes_UI` | `quarter_notes.items.commentary` | 0 | 0/4 | True |  |
+| `ic_lower_guidance_setup_rows` | `{ticker}_Investment_Case` | `normalized_guidance.items.0.value` | 196 | 196/6 | False | binding planning_state is inactive_legacy_contract |
+| `qn_quarter_note_rows` | `Quarter_Notes_UI` | `quarter_notes.items.commentary` | 42 | 6/6 | True |  |
+| `qn_quarter_summary_rows` | `Quarter_Notes_UI` | `quarter_notes.summary.model_read` | 1 | 1/1 | True |  |
+| `qn_quarter_summary_what_changed` | `Quarter_Notes_UI` | `quarter_notes.summary.what_changed` | 1 | 1/1 | True |  |
+| `qn_quarter_summary_watch_next` | `Quarter_Notes_UI` | `quarter_notes.summary.watch_next` | 1 | 1/1 | True |  |
+| `qn_quarter_summary_key_caveat` | `Quarter_Notes_UI` | `quarter_notes.summary.key_caveat` | 1 | 1/1 | True |  |
 | `qn_quarter_model_implication_rows` | `Quarter_Notes_UI` | `quarter_notes.items.0.model_implication` | 6 | 6/353 | False | binding planning_state is inactive_legacy_contract |
-| `pp_scorecard_rows` | `Promise_Progress_UI` | `normalized_guidance.items.0.metric` | 30 | 30/7 | False | binding planning_state is inactive_legacy_contract |
-| `pp_annual_guidance_rows` | `Promise_Progress_UI` | `normalized_guidance.items.0.value` | 90 | 30/10 | False | binding planning_state is inactive_legacy_contract |
-| `pp_annual_guidance_rows_block_2` | `Promise_Progress_UI` | `normalized_guidance.items.0.value` | 30 | 30/5 | False | binding planning_state is inactive_legacy_contract |
-| `pp_annual_guidance_rows_block_3` | `Promise_Progress_UI` | `normalized_guidance.items.0.value` | 30 | 30/4 | False | binding planning_state is inactive_legacy_contract |
-| `pp_annual_guidance_rows_block_4` | `Promise_Progress_UI` | `normalized_guidance.items.0.value` | 30 | 30/1 | False | binding planning_state is inactive_legacy_contract |
-| `pp_open_guidance_rows` | `Promise_Progress_UI` | `normalized_guidance.items.0.value` | 90 | 30/21 | False | binding planning_state is inactive_legacy_contract |
-| `pp_guidance_timeline_rows` | `Promise_Progress_UI` | `normalized_guidance.items` | 30 | 30/7 | True |  |
-| `pp_guidance_timeline_rows_block_2` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 30 | 30/6 | False | binding planning_state is inactive_legacy_contract |
-| `pp_guidance_timeline_rows_block_3` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 30 | 30/7 | False | binding planning_state is inactive_legacy_contract |
-| `pp_guidance_timeline_rows_block_4` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 30 | 30/5 | False | binding planning_state is inactive_legacy_contract |
-| `pp_guidance_timeline_rows_block_5` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 30 | 30/6 | False | binding planning_state is inactive_legacy_contract |
-| `pp_guidance_timeline_rows_block_6` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 30 | 30/17 | False | binding planning_state is inactive_legacy_contract |
+| `pp_scorecard_rows` | `Promise_Progress_UI` | `normalized_guidance.items.0.metric` | 196 | 196/7 | False | binding planning_state is inactive_legacy_contract |
+| `pp_annual_guidance_rows` | `Promise_Progress_UI` | `normalized_guidance.items.0.value` | 787 | 196/8 | False | binding planning_state is inactive_legacy_contract |
+| `pp_annual_guidance_rows_block_2` | `Promise_Progress_UI` | `normalized_guidance.items.0.value` | 196 | 196/4 | False | binding planning_state is inactive_legacy_contract |
+| `pp_annual_guidance_rows_block_3` | `Promise_Progress_UI` | `normalized_guidance.items.0.value` | 196 | 196/3 | False | binding planning_state is inactive_legacy_contract |
+| `pp_annual_guidance_rows_block_4` | `Promise_Progress_UI` | `normalized_guidance.items.0.value` | 196 | 196/2 | False | binding planning_state is inactive_legacy_contract |
+| `pp_open_guidance_rows` | `Promise_Progress_UI` | `normalized_guidance.items.0.value` | 787 | 196/20 | False | binding planning_state is inactive_legacy_contract |
+| `pp_progress_fy2025_rows` | `Promise_Progress_UI` | `promise_progress.items` | 82 | 13/8 | True |  |
+| `pp_progress_fy2024_rows` | `Promise_Progress_UI` | `promise_progress.items` | 82 | 13/4 | True |  |
+| `pp_current_secondary_guidance_rows` | `Promise_Progress_UI` | `normalized_guidance.items` | 980 | 196/20 | True |  |
+| `pp_guidance_timeline_rows` | `Promise_Progress_UI` | `normalized_guidance.items` | 196 | 196/7 | True |  |
+| `pp_guidance_timeline_rows_block_2` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 196 | 196/6 | False | binding planning_state is inactive_legacy_contract |
+| `pp_guidance_timeline_rows_block_3` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 196 | 196/7 | False | binding planning_state is inactive_legacy_contract |
+| `pp_guidance_timeline_rows_block_4` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 196 | 196/5 | False | binding planning_state is inactive_legacy_contract |
+| `pp_guidance_timeline_rows_block_5` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 196 | 196/6 | False | binding planning_state is inactive_legacy_contract |
+| `pp_guidance_timeline_rows_block_6` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 196 | 196/17 | False | binding planning_state is inactive_legacy_contract |
 | `qa_log_validation_rows` | `QA_Log` | `issue_ledger.qa_presentation.qa_log_rows` | 0 | 0/4999 | False | validation output binding |
 | `needs_review_validation_rows` | `Needs_Review` | `issue_ledger.qa_presentation.needs_review_rows` | 0 | 0/4999 | False | validation output binding |
 | `qa_checks_mapping_gap_rows` | `QA_Checks` | `issue_ledger.qa_presentation.qa_check_rows` | 0 | 0/4999 | False | validation output binding |

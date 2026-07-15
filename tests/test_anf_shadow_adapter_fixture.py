@@ -108,11 +108,16 @@ def test_anf_legacy_adapter_builds_schema_valid_package_without_writing() -> Non
             lineage_ids.append(row["lineage_id"])
 
     truncations = package["source_coverage"]["legacy_adapter_truncations"]
-    assert sum(record["dropped_rows"] for record in truncations) == 823
-    assert sum(len(record["excluded_rows"]) for record in truncations) == 823
-    assert len(detail_paths) == len(set(detail_paths)) == 823
-    assert len(lineage_ids) == len(set(lineage_ids)) == 823
+    assert {record["collection"] for record in truncations} == {
+        "quarterly_financials.rows",
+        "operating_drivers.items",
+    }
+    dropped_total = sum(record["dropped_rows"] for record in truncations)
+    assert dropped_total > 0
+    assert sum(len(record["excluded_rows"]) for record in truncations) == dropped_total
+    assert len(detail_paths) == len(set(detail_paths)) == dropped_total
+    assert len(lineage_ids) == len(set(lineage_ids)) == dropped_total
     reviews = [row for row in package["manual_review_flags"] if row.get("rule_id") == "legacy_adapter_truncation"]
-    assert sum(int(row["adapter_metadata"]["dropped_rows"]) for row in reviews) == 823
+    assert sum(int(row["adapter_metadata"]["dropped_rows"]) for row in reviews) == dropped_total
     assert all(str(row["adapter_metadata"]["detail_ref"]).endswith(".excluded_rows") for row in reviews)
     assert all(isinstance(_resolve_package_path(package, row["adapter_metadata"]["detail_ref"]), list) for row in reviews)

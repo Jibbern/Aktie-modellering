@@ -16,7 +16,7 @@
   ],
   "properties": {
     "$schema": {"const": "./anf_new_ticker_parity_matrix.schema.json"},
-    "version": {"const": "1.2.0"},
+    "version": {"const": "1.3.0"},
     "contract_name": {"type": "string", "minLength": 1},
     "architectural_scope": {"type": "string", "minLength": 1},
     "inventory_method": {"type": "string", "minLength": 1},
@@ -28,7 +28,7 @@
     "summary": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["entry_count", "required_count", "required_reproduced_count", "required_missing_count", "independent_source_fact_count", "independent_source_fact_reproduced_count", "inventory_class_counts", "formula_contract_counts", "formula_calculability_counts", "domain_status_counts"],
+      "required": ["entry_count", "required_count", "required_reproduced_count", "required_missing_count", "independent_source_fact_count", "independent_source_fact_reproduced_count", "inventory_class_counts", "formula_contract_counts", "formula_calculability_counts", "promise_progress_key_disposition_counts", "promise_progress_occurrence_disposition_counts", "domain_status_counts"],
       "properties": {
         "entry_count": {"type": "integer", "minimum": 1},
         "required_count": {"type": "integer", "minimum": 1},
@@ -39,6 +39,8 @@
         "inventory_class_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
         "formula_contract_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
         "formula_calculability_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "promise_progress_key_disposition_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "promise_progress_occurrence_disposition_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
         "domain_status_counts": {"type": "object"}
       }
     },
@@ -83,8 +85,26 @@
           "period": {"type": "string"},
           "dimensions": {"type": "object"},
           "legacy_sheet_range": {"type": "string"},
-          "source_backed_vs_derived": {"enum": ["source_backed", "derived", "unavailable"]},
-          "inventory_class": {"enum": ["source_fact", "formula_improvement", "duplicate_display_use", "unsupported_legacy_content"]},
+          "source_backed_vs_derived": {
+            "enum": [
+              "source_backed",
+              "derived",
+              "derived_from_guidance_evidence",
+              "evidence_backed_synthesis",
+              "analyst_interpretation_requiring_review",
+              "legacy_only",
+              "unavailable"
+            ]
+          },
+          "inventory_class": {
+            "enum": [
+              "source_fact",
+              "formula_improvement",
+              "duplicate_display_use",
+              "unsupported_legacy_content",
+              "parser_internal_text"
+            ]
+          },
           "inventory_origin": {"type": "string", "minLength": 1},
           "legacy_value": {},
           "normalized_value": {},
@@ -99,10 +119,21 @@
           "binding_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
           "formula_ownership": {"type": "string", "minLength": 1},
           "expected_new_workbook_destination": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-          "minimum_coverage_requirement": {"type": "integer", "minimum": 1},
+          "minimum_coverage_requirement": {"type": "integer", "minimum": 0},
           "parity_requirement": {"enum": ["must_reproduce", "may_improve_semantically", "intentionally_rejected", "unavailable_missing_evidence"]},
           "rejection_reason": {"type": "string"},
-          "current_status": {"enum": ["reproduced_correctly", "contract_present_blank_by_missing_evidence", "missing_or_explicitly_unavailable"]}
+          "current_status": {
+            "enum": [
+              "reproduced_correctly",
+              "reproduced_with_improved_wording",
+              "contract_present_blank_by_missing_evidence",
+              "missing_or_explicitly_unavailable",
+              "audit_only_evidence_preserved",
+              "duplicate_or_superseded_evidence_preserved",
+              "explicitly_rejected_with_evidence",
+              "unavailable_without_adequate_evidence"
+            ]
+          }
         }
       }
     }

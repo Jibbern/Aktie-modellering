@@ -296,7 +296,8 @@ def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
     assert writes[("Quarter_Notes_UI", "A10")].value == "Demand"
     assert writes[("Quarter_Notes_UI", "C10")].value.startswith("Recurring software demand")
     assert writes[("Quarter_Notes_UI", "H10")].value.startswith("Growth durability")
-    assert writes[("Quarter_Notes_UI", "M10")].value == "synthetic_fixture:quarter_notes"
+    assert writes[("Quarter_Notes_UI", "M10")].value == "Synthetic quarterly evidence"
+    assert writes[("Quarter_Notes_UI", "M10")].source_ref == "synthetic_fixture:quarter_notes"
     assert writes[("Quarter_Notes_UI", "C10")].row_key == note_key
     assert not any(sheet == "Quarter_Notes_UI" and cell.endswith("9") for sheet, cell in writes)
 
@@ -472,7 +473,7 @@ def test_target_type_mismatch_and_invalid_sort_key_fail_before_writes() -> None:
     assert type_plan.planned_writes == []
 
     bindings = _bindings()
-    _binding(bindings, "qn_quarter_summary_rows")["sort_order"] = ["missing_business_sort_key:asc"]
+    _binding(bindings, "qn_quarter_note_rows")["sort_order"] = ["missing_business_sort_key:asc"]
     sort_plan = _plan(bindings=bindings)
     assert sort_plan.status == "FAIL"
     assert "binding_sort_key_missing" in _rule_ids(sort_plan)
@@ -525,13 +526,6 @@ def test_current_guidance_rowset_excludes_history_with_an_explicit_reason() -> N
 
 def test_pick_selector_reconciles_eligible_selected_and_structured_exclusions() -> None:
     package = _package()
-    second_note = deepcopy(package["quarter_notes"]["items"][0])
-    second_note["theme"]["value"] = "Margin"
-    second_note["metric"]["value"] = "Gross margin"
-    second_note["evidence_key"] = "test-quarter-note-2026q1-secondary"
-    second_note["display_priority"] = 2
-    package["quarter_notes"]["items"].append(second_note)
-
     plan = _plan(package)
 
     assert plan.status == "PASS", [issue.to_dict() for issue in plan.issues]
@@ -539,7 +533,6 @@ def test_pick_selector_reconciles_eligible_selected_and_structured_exclusions() 
         "summary_as_of_quarter": 2,
         "summary_latest_net_income": 2,
         "summary_latest_revenue": 2,
-        "qn_quarter_summary_rows": 2,
     }
     for binding_id, eligible_count in expected_eligible.items():
         report = next(row for row in plan.binding_reports if row["binding_id"] == binding_id)
@@ -552,10 +545,6 @@ def test_pick_selector_reconciles_eligible_selected_and_structured_exclusions() 
         assert all(row["selected_row_key"] and row["excluded_row_key"] for row in pick_exclusions)
         assert all(row["selector_rule"] in {"pick=first", "pick=latest"} for row in pick_exclusions)
         assert all(isinstance(row["period"], str) and not row["period"].startswith("{") for row in pick_exclusions)
-        if binding_id == "qn_quarter_summary_rows":
-            assert {row["period"] for row in pick_exclusions} == {"2026-Q1"}
-            assert all(row["source_ref"] for row in pick_exclusions)
-            assert all(row["row_key"] == row["excluded_row_key"] for row in pick_exclusions)
         assert report["overflow_rows"] == []
 
 

@@ -30,9 +30,9 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | summary_strategic_context_value | SUMMARY | A5:F5 | company_profile.strategic_context | profile-backed | standard |
 | summary_key_advantage_value | SUMMARY | A7:F7 | company_profile.key_advantages | profile-backed | standard |
 | summary_revenue_model_values | SUMMARY | A9:F11 | company_profile.revenue_streams | profile-backed | standard |
-| summary_segment_model_values | SUMMARY | A13:F15 | segments.items.0.revenue | source-backed | standard |
-| summary_key_dependencies_values | SUMMARY | A17:F21 | company_profile.key_risks | profile-backed | standard |
-| summary_wrong_if_values | SUMMARY | A23:F24 | investment_case.key_debate | manual | standard |
+| summary_segment_model_values | SUMMARY | A13:F15 | company_profile.operating_model_rows | source-backed | standard |
+| summary_key_dependencies_values | SUMMARY | A17:F21 | company_profile.key_dependencies | source-backed | standard |
+| summary_wrong_if_values | SUMMARY | A23:F24 | investment_case.invalidators | source-backed | standard |
 | summary_key_financials_values | SUMMARY | B26:B39 | quarterly_financials.rows.0.net_income, quarterly_financials.rows.0.period, quarterly_financials.rows.0.revenue | source-backed | standard |
 | summary_leverage_liquidity_values | SUMMARY | B41:B45 | debt_liquidity.net_leverage, debt_liquidity.summary_liquidity_display | source-backed | standard |
 | summary_revenue_mix_label | SUMMARY | A8:F8 | company_profile.revenue_mix_label | profile-backed | standard |
@@ -117,11 +117,11 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | bs_annual_financial_raw_cash | BS_Segments | B102:I102 | annual_financials.rows.cash | source-backed | standard |
 | bs_annual_financial_raw_debt_core | BS_Segments | B103:I103 | annual_financials.rows.debt_core | source-backed | standard |
 | od_watchlist_values | Operating_Drivers | A6:N9 | operating_drivers.items.current_read | source-backed | standard |
-| od_topic_current_read_values | Operating_Drivers | B13:N18 | operating_drivers.items.0.current_read | source-backed | standard |
+| od_topic_current_read_values | Operating_Drivers | B13:N18 | operating_drivers.current_outlook.current_actual_read, operating_drivers.current_outlook.current_actual_use, operating_drivers.current_outlook.current_guidance_read, operating_drivers.current_outlook.current_guidance_use, +3 more | source-backed | standard |
 | od_horizon_commentary_values | Operating_Drivers | B20:N30 | operating_drivers.items.0.driver | source-backed | standard |
 | od_current_outlook_values | Operating_Drivers | B31:N55 | operating_drivers.items.0.driver | source-backed | standard |
 | od_driver_actuals_values | Operating_Drivers | B56:N125 | operating_drivers.items.0.metric_value | source-backed | standard |
-| ic_snapshot_values | {ticker}_Investment_Case | B5:K30 | investment_case.key_debate, investment_case.summary | manual | standard |
+| ic_snapshot_values | {ticker}_Investment_Case | B5:K30 | investment_case.current_stance, investment_case.downside_factors, investment_case.key_debate, investment_case.summary, +3 more | mixed | standard |
 | ic_manual_input_values | {ticker}_Investment_Case | B81:K130 | investment_case.scenario_drivers | manual | standard |
 | ic_scenario_bridge_values | {ticker}_Investment_Case | B131:K190 | segments.items.0.revenue | derived | standard |
 | ic_lower_comp_history_labels | {ticker}_Investment_Case | A185:K191 | operating_drivers.items.0.driver | source-backed | standard |
@@ -130,14 +130,14 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | ic_lower_asset_productivity_values | {ticker}_Investment_Case | B212:K225 | operating_drivers.items.0.metric_value | source-backed | standard |
 | ic_lower_guidance_setup_values | {ticker}_Investment_Case | B228:K233 | normalized_guidance.items.0.value | source-backed | standard |
 | ic_title_value | {ticker}_Investment_Case | A1:J1 | ticker_metadata.investment_case_title | derived | standard |
-| qn_quarter_summary_values | Quarter_Notes_UI | B3:O6 | quarter_notes.items.commentary | source-backed | standard |
+| qn_quarter_summary_values | Quarter_Notes_UI | B3:O6 | quarter_notes.summary.key_caveat, quarter_notes.summary.model_read, quarter_notes.summary.watch_next, quarter_notes.summary.what_changed | source-backed | standard |
 | qn_quarter_block_values | Quarter_Notes_UI | A10:O15 | quarter_notes.items.commentary | source-backed | standard |
 | pp_scorecard_values | Promise_Progress_UI | B5:O11 | normalized_guidance.items.0.metric | source-backed | standard |
-| pp_annual_guidance_values | Promise_Progress_UI | B13:O22 | normalized_guidance.items.0.value | source-backed | standard |
-| pp_annual_guidance_values_block_2 | Promise_Progress_UI | B24:O28 | normalized_guidance.items.0.value | source-backed | standard |
-| pp_annual_guidance_values_block_3 | Promise_Progress_UI | B30:O33 | normalized_guidance.items.0.value | source-backed | standard |
-| pp_annual_guidance_values_block_4 | Promise_Progress_UI | B35:O35 | normalized_guidance.items.0.value | source-backed | standard |
-| pp_open_guidance_values | Promise_Progress_UI | B39:O59 | normalized_guidance.items.0.value | source-backed | standard |
+| pp_annual_guidance_values | Promise_Progress_UI | A13:I20 | normalized_guidance.items.0.value, promise_progress.items | source-backed | standard |
+| pp_annual_guidance_values_block_2 | Promise_Progress_UI | A24:I27 | normalized_guidance.items.0.value, promise_progress.items | source-backed | standard |
+| pp_annual_guidance_values_block_3 | Promise_Progress_UI | A30:I32 | normalized_guidance.items.0.value | source-backed | standard |
+| pp_annual_guidance_values_block_4 | Promise_Progress_UI | A35:I36 | normalized_guidance.items.0.value | source-backed | standard |
+| pp_open_guidance_values | Promise_Progress_UI | A39:E58 | normalized_guidance.items, normalized_guidance.items.0.value | source-backed | standard |
 | pp_guidance_revision_primary_values | Promise_Progress_UI | A61:K67 | normalized_guidance.items | source-backed | standard |
 | pp_guidance_timeline_values_block_2 | Promise_Progress_UI | B71:O76 | normalized_guidance.items.0.horizon | source-backed | standard |
 | pp_guidance_timeline_values_block_3 | Promise_Progress_UI | B78:O84 | normalized_guidance.items.0.horizon | source-backed | standard |
@@ -185,15 +185,15 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Validation: unexplained_empty_core_field
 
 - `summary_segment_model_values` `A13:F15`
-  - Normalized fields: segments.items.0.revenue
+  - Normalized fields: company_profile.operating_model_rows
   - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
   - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
   - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank segment rows until source-backed segment labels and values exist
+  - Missing data: blank typed operating-model rows until source-backed descriptions exist
   - Validation: unsupported_sector_specific_leakage
 
 - `summary_key_dependencies_values` `A17:F21`
-  - Normalized fields: company_profile.key_risks
+  - Normalized fields: company_profile.key_dependencies
   - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
   - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
   - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
@@ -201,7 +201,7 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Validation: unsupported_sector_specific_leakage
 
 - `summary_wrong_if_values` `A23:F24`
-  - Normalized fields: investment_case.key_debate
+  - Normalized fields: investment_case.invalidators
   - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
   - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
   - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
@@ -887,12 +887,12 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Validation: unsupported_sector_specific_leakage
 
 - `od_topic_current_read_values` `B13:N18`
-  - Normalized fields: operating_drivers.items.0.current_read
+  - Normalized fields: operating_drivers.current_outlook.current_actual_read, operating_drivers.current_outlook.current_actual_use, operating_drivers.current_outlook.current_guidance_read, operating_drivers.current_outlook.current_guidance_use, operating_drivers.current_outlook.margin_bridge_read, operating_drivers.current_outlook.margin_bridge_use, operating_drivers.items.0.current_read
   - Support sheets: History_Q, Quarter_Notes, Slides_Segments, operating_drivers_raw
   - Current owner: pbi_xbrl/excel_writer_drivers.py, pbi_xbrl/operating_drivers_runtime.py, pbi_xbrl/excel_writer_operating_drivers.py
   - Future owner: future operating_drivers normalizer, normalized_company_data_validation.py
-  - Missing data: do not use sector fallback; emit manual review flag
-  - Validation: unsupported_sector_specific_leakage
+  - Missing data: do not use sector fallback; emit manual review flag | leave blank with explicit review disposition
+  - Validation: unsupported_sector_specific_leakage, visible_narrative_missing_evidence_refs
 
 - `od_horizon_commentary_values` `B20:N30`
   - Normalized fields: operating_drivers.items.0.driver
@@ -921,12 +921,12 @@ The standard shell keeps generic block slots only. Sector/company member names f
 ### {ticker}_Investment_Case
 
 - `ic_snapshot_values` `B5:K30`
-  - Normalized fields: investment_case.key_debate, investment_case.summary
+  - Normalized fields: investment_case.current_stance, investment_case.downside_factors, investment_case.key_debate, investment_case.summary, investment_case.upside_factors, investment_case.watch_next, investment_case.why_it_can_work
   - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
   - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py
   - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
-  - Missing data: block promotion; emit manual review flag
-  - Validation: placeholder_investment_case
+  - Missing data: block promotion; emit manual review flag | leave blank and retain a structured review disposition
+  - Validation: placeholder_investment_case, visible_narrative_missing_evidence_refs
 
 - `ic_manual_input_values` `B81:K130`
   - Normalized fields: investment_case.scenario_drivers
@@ -995,12 +995,12 @@ The standard shell keeps generic block slots only. Sector/company member names f
 ### Quarter_Notes_UI
 
 - `qn_quarter_summary_values` `B3:O6`
-  - Normalized fields: quarter_notes.items.commentary
+  - Normalized fields: quarter_notes.summary.key_caveat, quarter_notes.summary.model_read, quarter_notes.summary.watch_next, quarter_notes.summary.what_changed
   - Support sheets: Guidance_Normalized, Quarter_Narrative_Data, Quarter_Notes, Quarter_Notes_Evidence
   - Current owner: pbi_xbrl/excel_writer_quarter_notes_ui_orchestrator.py, pbi_xbrl/excel_writer_quarter_notes_ui_*, pbi_xbrl/quarter_notes.py
   - Future owner: future quarter_notes normalizer, normalized_company_data_validation.py
-  - Missing data: blank summary rows until source-backed quarter narrative exists
-  - Validation: parser_noise_snippet
+  - Missing data: blank summary rows until source-backed quarter narrative exists | leave blank with explicit review disposition
+  - Validation: visible_narrative_missing_evidence_refs
 
 - `qn_quarter_block_values` `A10:O15`
   - Normalized fields: quarter_notes.items.commentary
@@ -1020,7 +1020,23 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Missing data: no visible scorecard row until metric/value/source are clean
   - Validation: guidance_metric_misclassification
 
-- `pp_annual_guidance_values` `B13:O22`
+- `pp_annual_guidance_values` `A13:I20`
+  - Normalized fields: normalized_guidance.items.0.value, promise_progress.items
+  - Support sheets: Guidance_Normalized, Guidance_Raw, Promise_Evidence, Promise_Progress, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_promise_progress.py, pbi_xbrl/excel_writer_promise_progress_*, pbi_xbrl/doc_intel.py
+  - Future owner: future normalized_guidance builder, normalized_company_data_validation.py
+  - Missing data: leave unsupported progression cells blank and retain exact review detail | no visible annual guidance row; emit parser_conflict/manual review flag
+  - Validation: guidance_metric_misclassification
+
+- `pp_annual_guidance_values_block_2` `A24:I27`
+  - Normalized fields: normalized_guidance.items.0.value, promise_progress.items
+  - Support sheets: Guidance_Normalized, Guidance_Raw, Promise_Evidence, Promise_Progress, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_promise_progress.py, pbi_xbrl/excel_writer_promise_progress_*, pbi_xbrl/doc_intel.py
+  - Future owner: future normalized_guidance builder, normalized_company_data_validation.py
+  - Missing data: leave unsupported progression cells blank and retain exact review detail | no visible annual guidance row; emit parser_conflict/manual review flag
+  - Validation: guidance_metric_misclassification
+
+- `pp_annual_guidance_values_block_3` `A30:I32`
   - Normalized fields: normalized_guidance.items.0.value
   - Support sheets: Guidance_Normalized, Guidance_Raw, Promise_Evidence, Promise_Progress, Slides_Guidance
   - Current owner: pbi_xbrl/excel_writer_promise_progress.py, pbi_xbrl/excel_writer_promise_progress_*, pbi_xbrl/doc_intel.py
@@ -1028,7 +1044,7 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Missing data: no visible annual guidance row; emit parser_conflict/manual review flag
   - Validation: guidance_metric_misclassification
 
-- `pp_annual_guidance_values_block_2` `B24:O28`
+- `pp_annual_guidance_values_block_4` `A35:I36`
   - Normalized fields: normalized_guidance.items.0.value
   - Support sheets: Guidance_Normalized, Guidance_Raw, Promise_Evidence, Promise_Progress, Slides_Guidance
   - Current owner: pbi_xbrl/excel_writer_promise_progress.py, pbi_xbrl/excel_writer_promise_progress_*, pbi_xbrl/doc_intel.py
@@ -1036,28 +1052,12 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Missing data: no visible annual guidance row; emit parser_conflict/manual review flag
   - Validation: guidance_metric_misclassification
 
-- `pp_annual_guidance_values_block_3` `B30:O33`
-  - Normalized fields: normalized_guidance.items.0.value
+- `pp_open_guidance_values` `A39:E58`
+  - Normalized fields: normalized_guidance.items, normalized_guidance.items.0.value
   - Support sheets: Guidance_Normalized, Guidance_Raw, Promise_Evidence, Promise_Progress, Slides_Guidance
   - Current owner: pbi_xbrl/excel_writer_promise_progress.py, pbi_xbrl/excel_writer_promise_progress_*, pbi_xbrl/doc_intel.py
   - Future owner: future normalized_guidance builder, normalized_company_data_validation.py
-  - Missing data: no visible annual guidance row; emit parser_conflict/manual review flag
-  - Validation: guidance_metric_misclassification
-
-- `pp_annual_guidance_values_block_4` `B35:O35`
-  - Normalized fields: normalized_guidance.items.0.value
-  - Support sheets: Guidance_Normalized, Guidance_Raw, Promise_Evidence, Promise_Progress, Slides_Guidance
-  - Current owner: pbi_xbrl/excel_writer_promise_progress.py, pbi_xbrl/excel_writer_promise_progress_*, pbi_xbrl/doc_intel.py
-  - Future owner: future normalized_guidance builder, normalized_company_data_validation.py
-  - Missing data: no visible annual guidance row; emit parser_conflict/manual review flag
-  - Validation: guidance_metric_misclassification
-
-- `pp_open_guidance_values` `B39:O59`
-  - Normalized fields: normalized_guidance.items.0.value
-  - Support sheets: Guidance_Normalized, Guidance_Raw, Promise_Evidence, Promise_Progress, Slides_Guidance
-  - Current owner: pbi_xbrl/excel_writer_promise_progress.py, pbi_xbrl/excel_writer_promise_progress_*, pbi_xbrl/doc_intel.py
-  - Future owner: future normalized_guidance builder, normalized_company_data_validation.py
-  - Missing data: no visible guidance row; emit parser_conflict/manual review flag
+  - Missing data: leave unsupported cells blank and retain exact review detail | no visible guidance row; emit parser_conflict/manual review flag
   - Validation: guidance_metric_misclassification
 
 - `pp_guidance_revision_primary_values` `A61:K67`

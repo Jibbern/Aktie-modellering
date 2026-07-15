@@ -2,9 +2,9 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 179,
+    "retained_count": 199,
     "classification_counts": {
-      "active_binding_anchor": 112,
+      "active_binding_anchor": 132,
       "formula_dependency": 29,
       "generic_named_range": 22,
       "required_shell_anchor": 16
@@ -798,6 +798,22 @@
       "company_specific": false
     },
     {
+      "name": "ic_current_stance",
+      "attr_text": "'{ticker}_Investment_Case'!$B$11",
+      "classification": "active_binding_anchor",
+      "expected_target": "'{ticker}_Investment_Case'!$B$11",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "ic_downside_factors",
+      "attr_text": "'{ticker}_Investment_Case'!$B$9",
+      "classification": "active_binding_anchor",
+      "expected_target": "'{ticker}_Investment_Case'!$B$9",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "ic_investment_case_title",
       "attr_text": "'{ticker}_Investment_Case'!$A$1",
       "classification": "active_binding_anchor",
@@ -818,6 +834,30 @@
       "attr_text": "'{ticker}_Investment_Case'!$B$7",
       "classification": "active_binding_anchor",
       "expected_target": "'{ticker}_Investment_Case'!$B$7",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "ic_upside_factors",
+      "attr_text": "'{ticker}_Investment_Case'!$B$8",
+      "classification": "active_binding_anchor",
+      "expected_target": "'{ticker}_Investment_Case'!$B$8",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "ic_watch_next",
+      "attr_text": "'{ticker}_Investment_Case'!$B$10",
+      "classification": "active_binding_anchor",
+      "expected_target": "'{ticker}_Investment_Case'!$B$10",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "ic_why_it_can_work",
+      "attr_text": "'{ticker}_Investment_Case'!$B$6",
+      "classification": "active_binding_anchor",
+      "expected_target": "'{ticker}_Investment_Case'!$B$6",
       "target_matches": true,
       "company_specific": false
     },
@@ -854,6 +894,54 @@
       "company_specific": false
     },
     {
+      "name": "od_current_actual_read",
+      "attr_text": "'Operating_Drivers'!$B$13",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Operating_Drivers'!$B$13",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "od_current_actual_use",
+      "attr_text": "'Operating_Drivers'!$H$13",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Operating_Drivers'!$H$13",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "od_current_guidance_read",
+      "attr_text": "'Operating_Drivers'!$B$14",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Operating_Drivers'!$B$14",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "od_current_guidance_use",
+      "attr_text": "'Operating_Drivers'!$H$14",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Operating_Drivers'!$H$14",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "od_margin_bridge_read",
+      "attr_text": "'Operating_Drivers'!$B$15",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Operating_Drivers'!$B$15",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "od_margin_bridge_use",
+      "attr_text": "'Operating_Drivers'!$H$15",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Operating_Drivers'!$H$15",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "od_watchlist_rows",
       "attr_text": "'Operating_Drivers'!$A$6",
       "classification": "active_binding_anchor",
@@ -870,10 +958,34 @@
       "company_specific": false
     },
     {
+      "name": "pp_current_secondary_guidance_rows",
+      "attr_text": "'Promise_Progress_UI'!$A$39",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Promise_Progress_UI'!$A$39",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "pp_guidance_timeline_rows",
       "attr_text": "'Promise_Progress_UI'!$A$61",
       "classification": "active_binding_anchor",
       "expected_target": "'Promise_Progress_UI'!$A$61",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "pp_progress_fy2024_rows",
+      "attr_text": "'Promise_Progress_UI'!$A$24",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Promise_Progress_UI'!$A$24",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "pp_progress_fy2025_rows",
+      "attr_text": "'Promise_Progress_UI'!$A$13",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Promise_Progress_UI'!$A$13",
       "target_matches": true,
       "company_specific": false
     },
@@ -934,10 +1046,34 @@
       "company_specific": false
     },
     {
+      "name": "qn_quarter_summary_key_caveat",
+      "attr_text": "'Quarter_Notes_UI'!$B$6",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Quarter_Notes_UI'!$B$6",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "qn_quarter_summary_rows",
       "attr_text": "'Quarter_Notes_UI'!$B$3",
       "classification": "active_binding_anchor",
       "expected_target": "'Quarter_Notes_UI'!$B$3",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "qn_quarter_summary_watch_next",
+      "attr_text": "'Quarter_Notes_UI'!$B$5",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Quarter_Notes_UI'!$B$5",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "qn_quarter_summary_what_changed",
+      "attr_text": "'Quarter_Notes_UI'!$B$4",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Quarter_Notes_UI'!$B$4",
       "target_matches": true,
       "company_specific": false
     },
@@ -986,6 +1122,14 @@
       "attr_text": "'SUMMARY'!$A$26",
       "classification": "required_shell_anchor",
       "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "summary_key_risks",
+      "attr_text": "'SUMMARY'!$A$17",
+      "classification": "active_binding_anchor",
+      "expected_target": "'SUMMARY'!$A$17",
       "target_matches": true,
       "company_specific": false
     },
@@ -1054,10 +1198,26 @@
       "company_specific": false
     },
     {
+      "name": "summary_segment_model",
+      "attr_text": "'SUMMARY'!$A$13",
+      "classification": "active_binding_anchor",
+      "expected_target": "'SUMMARY'!$A$13",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "summary_strategic_context",
       "attr_text": "'SUMMARY'!$A$5",
       "classification": "active_binding_anchor",
       "expected_target": "'SUMMARY'!$A$5",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "summary_wrong_if",
+      "attr_text": "'SUMMARY'!$A$23",
+      "classification": "active_binding_anchor",
+      "expected_target": "'SUMMARY'!$A$23",
       "target_matches": true,
       "company_specific": false
     },

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from collections import Counter, defaultdict
 from datetime import date, datetime
@@ -23,6 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from pbi_xbrl.json_schema_validation import load_json_strict
+from pbi_xbrl.new_ticker_guidance_scope import guidance_scope_key, normalize_guidance_scope
 from pbi_xbrl.standard_template_formula_contract import (
     ANNUAL_FORMULA_ROWS,
     FORMULA_CONTRACT_VERSION,
@@ -30,6 +32,7 @@ from pbi_xbrl.standard_template_formula_contract import (
     VALUATION_OUTPUT_FORMULA_CELLS,
     VALUATION_SIDECAR_FORMULA_CELLS,
 )
+from scripts.build_anf_shadow_normalized_package import _anf_legacy_guidance_horizon
 
 
 DEFAULT_SHELL = ROOT / "templates" / "standard_stock_model_template.xlsx"
@@ -163,17 +166,6 @@ ANNUAL_POINT_IN_TIME_FIELDS = {
 }
 
 SCALAR_REQUIREMENTS = (
-    ("summary", "ticker_metadata.company_name", "may_improve_semantically"),
-    ("summary", "company_profile.description", "may_improve_semantically"),
-    ("summary", "company_profile.strategic_context", "may_improve_semantically"),
-    ("summary", "company_profile.revenue_mix_label", "may_improve_semantically"),
-    ("summary", "debt_liquidity.summary_liquidity_display", "may_improve_semantically"),
-    ("summary", "debt_liquidity.summary_liquidity_as_of_display", "may_improve_semantically"),
-    ("investment_case", "ticker_metadata.investment_case_title", "may_improve_semantically"),
-    ("investment_case", "investment_case.summary", "may_improve_semantically"),
-    ("investment_case", "investment_case.key_debate", "may_improve_semantically"),
-    ("investment_case", "investment_case.upside", "may_improve_semantically"),
-    ("investment_case", "investment_case.downside", "may_improve_semantically"),
     ("valuation_inputs", "valuation_inputs.price", "intentionally_rejected"),
     ("valuation_inputs", "valuation_inputs.as_of_date", "must_reproduce"),
     ("valuation_inputs", "valuation_inputs.shares_outstanding", "unavailable_missing_evidence"),
@@ -198,6 +190,33 @@ SCALAR_REQUIREMENTS = (
     ("valuation_inputs", "valuation_inputs.recurring_cash_costs", "intentionally_rejected"),
     ("valuation_inputs", "valuation_inputs.working_capital_normalization", "intentionally_rejected"),
     ("valuation_inputs", "valuation_inputs.per_share_denominator", "intentionally_rejected"),
+)
+
+# These keys are inventoried from stable visible legacy business rows before the
+# normalized package is consulted. Text may be improved when the legacy wording
+# contains unsupported claims or implementation language.
+LEGACY_NARRATIVE_SCALARS = (
+    ("summary:company-description", "summary", "SUMMARY", "A3", "company_profile.business_description", "may_improve_semantically"),
+    ("summary:strategic-context", "summary", "SUMMARY", "A5", "company_profile.strategic_context", "may_improve_semantically"),
+    ("summary:key-advantage", "summary", "SUMMARY", "A7", "company_profile.key_advantages", "may_improve_semantically"),
+    ("investment:title", "investment_case", "ANF_Investment_Case", "A1", "ticker_metadata.investment_case_title", "must_reproduce"),
+    ("investment:model-read", "investment_case", "ANF_Investment_Case", "B5", "investment_case.summary", "may_improve_semantically"),
+    ("investment:why-it-can-work", "investment_case", "ANF_Investment_Case", "B6", "investment_case.why_it_can_work", "may_improve_semantically"),
+    ("investment:key-debate", "investment_case", "ANF_Investment_Case", "B7", "investment_case.key_debate", "may_improve_semantically"),
+    ("investment:upside", "investment_case", "ANF_Investment_Case", "B8", "investment_case.upside_factors", "may_improve_semantically"),
+    ("investment:downside", "investment_case", "ANF_Investment_Case", "B9", "investment_case.downside_factors", "may_improve_semantically"),
+    ("investment:watch-next", "investment_case", "ANF_Investment_Case", "B10", "investment_case.watch_next", "may_improve_semantically"),
+    ("investment:current-stance", "investment_case", "ANF_Investment_Case", "B11", "investment_case.current_stance", "may_improve_semantically"),
+    ("drivers:current-actual-read", "operating_drivers", "Operating_Drivers", "B13", "operating_drivers.current_outlook.current_actual_read", "may_improve_semantically"),
+    ("drivers:current-actual-use", "operating_drivers", "Operating_Drivers", "H13", "operating_drivers.current_outlook.current_actual_use", "may_improve_semantically"),
+    ("drivers:current-guidance-read", "operating_drivers", "Operating_Drivers", "B14", "operating_drivers.current_outlook.current_guidance_read", "may_improve_semantically"),
+    ("drivers:current-guidance-use", "operating_drivers", "Operating_Drivers", "H14", "operating_drivers.current_outlook.current_guidance_use", "may_improve_semantically"),
+    ("drivers:margin-bridge-read", "operating_drivers", "Operating_Drivers", "B15", "operating_drivers.current_outlook.margin_bridge_read", "may_improve_semantically"),
+    ("drivers:margin-bridge-use", "operating_drivers", "Operating_Drivers", "H15", "operating_drivers.current_outlook.margin_bridge_use", "may_improve_semantically"),
+    ("quarter-notes:model-read", "quarter_notes", "Quarter_Notes_UI", "B3", "quarter_notes.summary.model_read", "may_improve_semantically"),
+    ("quarter-notes:what-changed", "quarter_notes", "Quarter_Notes_UI", "B4", "quarter_notes.summary.what_changed", "may_improve_semantically"),
+    ("quarter-notes:watch-next", "quarter_notes", "Quarter_Notes_UI", "B5", "quarter_notes.summary.watch_next", "may_improve_semantically"),
+    ("quarter-notes:key-caveat", "quarter_notes", "Quarter_Notes_UI", "B6", "quarter_notes.summary.key_caveat", "may_improve_semantically"),
 )
 
 
@@ -747,6 +766,554 @@ def _entry(
     }
 
 
+def _iso_value(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value or "").strip()
+
+
+def _publication_date_from_document(document: str, fallback: Any) -> str:
+    match = re.search(r"(20\d{2})[-_](\d{2})[-_](\d{2})", document)
+    if match:
+        return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
+    return _iso_value(fallback)
+
+
+def _guidance_signature(item: Mapping[str, Any]) -> tuple[Any, ...]:
+    value = str(_scalar(item.get("value")) or "")
+    return (
+        *guidance_scope_key(item),
+        str(item.get("publication_date") or ""),
+        re.sub(r"\s+", " ", value.strip().casefold()),
+    )
+
+
+def _legacy_guidance_inventory(legacy_path: Path) -> list[dict[str, Any]]:
+    """Read legacy guidance business keys before consulting the package."""
+
+    workbook = load_workbook(legacy_path, read_only=True, data_only=True)
+    try:
+        sheet = workbook["Guidance_Normalized"]
+        headers = {str(sheet.cell(1, column).value or ""): column for column in range(1, sheet.max_column + 1)}
+        rows: list[dict[str, Any]] = []
+        for row_number in range(2, sheet.max_row + 1):
+            metric = str(sheet.cell(row_number, headers.get("metric", headers["metric_hint"])).value or "").strip()
+            value = str(sheet.cell(row_number, headers["numbers"]).value or "").strip()
+            legacy_horizon = str(sheet.cell(row_number, headers["horizon_label"]).value or "").strip()
+            if not metric or not value or not legacy_horizon:
+                continue
+            document = str(sheet.cell(row_number, headers["doc"]).value or "").strip()
+            horizon, source_table_context = _anf_legacy_guidance_horizon(
+                row_number=row_number,
+                document=document,
+                page=sheet.cell(row_number, headers["page"]).value,
+                metric=metric,
+                numbers=value,
+                legacy_horizon=legacy_horizon,
+            )
+            publication_date = _publication_date_from_document(
+                document,
+                sheet.cell(row_number, headers.get("source_date", headers["quarter"])).value,
+            )
+            source_ref = f"{document}#{legacy_path.name}!Guidance_Normalized!row:{row_number}" if document else f"{legacy_path.name}!Guidance_Normalized!row:{row_number}"
+            item = {
+                "metric": {"value": metric},
+                "value": {"value": value, "unit": str(sheet.cell(row_number, headers["unit"]).value or "")},
+                "horizon": {"value": horizon},
+                "publication_date": publication_date,
+                "stated_in_period": str(sheet.cell(row_number, headers["stated_in_label"]).value or "").strip(),
+            }
+            if source_table_context:
+                item["source_table_context"] = source_table_context
+            rows.append(
+                {
+                    "row_number": row_number,
+                    "item": item,
+                    "source_ref": source_ref,
+                    "legacy_range": f"{legacy_path.name}!Guidance_Normalized!A{row_number}:S{row_number}",
+                }
+            )
+        return rows
+    finally:
+        workbook.close()
+
+
+def _guidance_parity_entries(
+    package: Mapping[str, Any],
+    writes_by_path: Mapping[str, Sequence[Mapping[str, Any]]],
+    legacy_path: Path,
+) -> list[dict[str, Any]]:
+    legacy_rows = _legacy_guidance_inventory(legacy_path)
+    package_rows = _path_get(package, "normalized_guidance.items") or []
+    package_by_signature: dict[tuple[Any, ...], list[tuple[int, Mapping[str, Any]]]] = defaultdict(list)
+    for index, item in enumerate(package_rows):
+        if isinstance(item, Mapping):
+            package_by_signature[_guidance_signature(item)].append((index, item))
+
+    seen_signatures: Counter[tuple[Any, ...]] = Counter()
+    entries: list[dict[str, Any]] = []
+    for legacy in legacy_rows:
+        item = legacy["item"]
+        signature = _guidance_signature(item)
+        seen_signatures[signature] += 1
+        matches = package_by_signature.get(signature, [])
+        package_index, package_item = matches[0] if matches else (-1, {})
+        path = (
+            f"normalized_guidance.items.{package_index}.value"
+            if package_index >= 0
+            else f"normalized_guidance.items[missing:{legacy['row_number']}].value"
+        )
+        writes = list(writes_by_path.get(path, []))
+        evidence_refs = package_item.get("evidence_refs", []) if isinstance(package_item, Mapping) else []
+        lineage_retained = legacy["source_ref"] in evidence_refs
+        role = str(package_item.get("display_role") or "") if isinstance(package_item, Mapping) else ""
+        routed = bool(writes) if role in {"current_primary", "current_secondary"} else role in {"history", "superseded", "audit_only"}
+        reproduced = bool(matches) and lineage_retained and routed
+        scope = normalize_guidance_scope(item)
+        entries.append(
+            _entry(
+                parity_id=f"legacy-guidance:{legacy['row_number']}:{scope.metric}:{scope.horizon}",
+                domain="guidance",
+                metric=scope.metric,
+                period=scope.horizon,
+                dimensions={
+                    "publication_date": item["publication_date"],
+                    "source_reporting_period": item["stated_in_period"],
+                    "display_role": role,
+                    "duplicate_evidence": seen_signatures[signature] > 1,
+                },
+                legacy_range=legacy["legacy_range"],
+                source_kind="source_backed",
+                normalized_path=path,
+                requirement="must_reproduce" if seen_signatures[signature] == 1 else "may_improve_semantically",
+                minimum=1,
+                writes=writes,
+                source_ref=legacy["source_ref"],
+                inventory_class="source_fact" if seen_signatures[signature] == 1 else "duplicate_display_use",
+                inventory_origin="legacy_workbook_business_key",
+                legacy_value=_scalar(item["value"]),
+                normalized_value=_scalar(package_item.get("value")) if isinstance(package_item, Mapping) else None,
+                unit=str(item["value"].get("unit") or ""),
+                comparison_result=(
+                    "semantic_value_and_lineage_match"
+                    if reproduced
+                    else "normalized_match_missing_exact_lineage"
+                    if matches
+                    else "missing_normalized_guidance"
+                ),
+                disposition=role or "missing",
+                current_status="reproduced_correctly" if reproduced else "missing_or_explicitly_unavailable",
+            )
+        )
+    return entries
+
+
+def _legacy_narrative_scalar_entries(
+    package: Mapping[str, Any],
+    writes_by_path: Mapping[str, Sequence[Mapping[str, Any]]],
+    legacy_path: Path,
+) -> list[dict[str, Any]]:
+    workbook = load_workbook(legacy_path, read_only=True, data_only=True)
+    try:
+        inventory = [
+            {
+                "parity_id": parity_id,
+                "domain": domain,
+                "sheet": sheet_name,
+                "cell": cell,
+                "legacy_value": workbook[sheet_name][cell].value,
+                "path": path,
+                "requirement": requirement,
+            }
+            for parity_id, domain, sheet_name, cell, path, requirement in LEGACY_NARRATIVE_SCALARS
+        ]
+    finally:
+        workbook.close()
+
+    entries: list[dict[str, Any]] = []
+    for item in inventory:
+        field = _path_get(package, item["path"])
+        normalized_value, status, source_ref = _field_state(field)
+        writes = list(writes_by_path.get(item["path"], []))
+        internal_legacy = bool(re.search(r"Operating_Drivers|Investment_Case|planner|binding|parser", str(item["legacy_value"] or ""), re.I))
+        reproduced = status == "populated" and bool(source_ref) and bool(writes)
+        entries.append(
+            _entry(
+                parity_id=item["parity_id"],
+                domain=item["domain"],
+                metric=item["parity_id"].split(":", 1)[-1],
+                period="latest",
+                dimensions={},
+                legacy_range=f"{legacy_path.name}!{item['sheet']}!{item['cell']}",
+                source_kind="evidence_backed_synthesis",
+                normalized_path=item["path"],
+                requirement=item["requirement"],
+                minimum=1,
+                writes=writes,
+                source_ref=source_ref,
+                inventory_class="parser_internal_text" if internal_legacy else "source_fact",
+                inventory_origin="legacy_workbook_business_key",
+                legacy_value=item["legacy_value"],
+                normalized_value=normalized_value,
+                comparison_result="legacy_internal_text_replaced" if internal_legacy and reproduced else "investor_wording_improved" if reproduced else "missing_normalized_narrative",
+                disposition="visible_improved" if reproduced else "missing",
+                current_status="reproduced_with_improved_wording" if reproduced else "missing_or_explicitly_unavailable",
+            )
+        )
+    return entries
+
+
+def _find_row_path(
+    package: Mapping[str, Any],
+    collection_path: str,
+    field_name: str,
+    expected_value: str,
+    value_field: str,
+) -> tuple[str, Mapping[str, Any]]:
+    rows = _path_get(package, collection_path)
+    if not isinstance(rows, list):
+        return f"{collection_path}[missing:{expected_value}].{value_field}", {}
+    for index, row in enumerate(rows):
+        if isinstance(row, Mapping) and str(_scalar(row.get(field_name)) or row.get(field_name) or "").strip().casefold() == expected_value.strip().casefold():
+            return f"{collection_path}.{index}.{value_field}", row
+    return f"{collection_path}[missing:{expected_value}].{value_field}", {}
+
+
+def _legacy_narrative_row_entries(
+    package: Mapping[str, Any],
+    writes_by_path: Mapping[str, Sequence[Mapping[str, Any]]],
+    legacy_path: Path,
+) -> list[dict[str, Any]]:
+    workbook = load_workbook(legacy_path, read_only=True, data_only=True)
+    try:
+        summary_operating = [(row, str(workbook["SUMMARY"].cell(row, 1).value or "").rstrip(":"), workbook["SUMMARY"].cell(row, 2).value) for row in range(13, 16)]
+        summary_dependencies = [(row, workbook["SUMMARY"].cell(row, 1).value) for row in range(17, 22)]
+        summary_invalidators = [(row, workbook["SUMMARY"].cell(row, 1).value) for row in range(23, 25)]
+        driver_topics = [(row, str(workbook["Operating_Drivers"].cell(row, 1).value or "")) for row in range(6, 10)]
+        quarter_note_rows = [(row, workbook["Quarter_Notes_UI"].cell(row, 3).value) for row in range(10, 16)]
+    finally:
+        workbook.close()
+
+    entries: list[dict[str, Any]] = []
+
+    for row_number, member, legacy_text in summary_operating:
+        path, row = _find_row_path(package, "company_profile.operating_model_rows", "member", member, "description")
+        writes = list(writes_by_path.get(path, []))
+        field = row.get("description") if isinstance(row, Mapping) else None
+        value, status, source_ref = _field_state(field)
+        entries.append(_entry(
+            parity_id=f"summary:operating-model:{member}", domain="summary", metric="operating model by geography",
+            period="latest", dimensions={"member": member}, legacy_range=f"{legacy_path.name}!SUMMARY!A{row_number}:B{row_number}",
+            source_kind="evidence_backed_synthesis", normalized_path=path, requirement="may_improve_semantically", minimum=1,
+            writes=writes, source_ref=source_ref, legacy_value=legacy_text, normalized_value=value,
+            comparison_result="investor_wording_improved" if status == "populated" and writes else "missing_normalized_narrative",
+            disposition="visible_improved" if writes else "missing", current_status="reproduced_with_improved_wording" if writes else "missing_or_explicitly_unavailable",
+        ))
+
+    dependency_rows = _path_get(package, "company_profile.key_dependencies") or []
+    for offset, (row_number, legacy_text) in enumerate(summary_dependencies):
+        package_row = dependency_rows[offset] if offset < len(dependency_rows) and isinstance(dependency_rows[offset], Mapping) else {}
+        path = f"company_profile.key_dependencies.{offset}.text" if package_row else f"company_profile.key_dependencies[missing:{row_number}].text"
+        field = package_row.get("text") if package_row else None
+        value, status, source_ref = _field_state(field)
+        writes = list(writes_by_path.get(path, []))
+        entries.append(_entry(
+            parity_id=f"summary:dependency:{row_number}", domain="summary", metric="key dependency", period="latest", dimensions={"display_order": offset + 1},
+            legacy_range=f"{legacy_path.name}!SUMMARY!A{row_number}", source_kind="evidence_backed_synthesis", normalized_path=path,
+            requirement="may_improve_semantically", minimum=1, writes=writes, source_ref=source_ref,
+            legacy_value=legacy_text, normalized_value=value, comparison_result="investor_wording_improved" if status == "populated" and writes else "missing_normalized_narrative",
+            disposition="visible_improved" if writes else "missing", current_status="reproduced_with_improved_wording" if writes else "missing_or_explicitly_unavailable",
+        ))
+
+    invalidator_rows = _path_get(package, "investment_case.invalidators") or []
+    for offset, (row_number, legacy_text) in enumerate(summary_invalidators):
+        package_row = invalidator_rows[offset] if offset < len(invalidator_rows) and isinstance(invalidator_rows[offset], Mapping) else {}
+        path = f"investment_case.invalidators.{offset}.text" if package_row else f"investment_case.invalidators[missing:{row_number}].text"
+        field = package_row.get("text") if package_row else None
+        value, status, source_ref = _field_state(field)
+        writes = list(writes_by_path.get(path, []))
+        entries.append(_entry(
+            parity_id=f"summary:invalidator:{row_number}", domain="summary", metric="thesis invalidator", period="latest", dimensions={"display_order": offset + 1},
+            legacy_range=f"{legacy_path.name}!SUMMARY!A{row_number}", source_kind="analyst_interpretation_requiring_review", normalized_path=path,
+            requirement="may_improve_semantically", minimum=1, writes=writes, source_ref=source_ref,
+            legacy_value=legacy_text, normalized_value=value, comparison_result="unsupported_legacy_generalization_replaced" if status == "populated" and writes else "missing_normalized_narrative",
+            disposition="visible_reviewed_interpretation" if writes else "missing", current_status="reproduced_with_improved_wording" if writes else "missing_or_explicitly_unavailable",
+        ))
+
+    driver_aliases = {"Sales guide": "Sales execution", "Margin durability": "Margin durability", "Inventory quality": "Inventory quality", "Capital returns": "Capital returns"}
+    for row_number, legacy_topic in driver_topics:
+        expected_topic = driver_aliases.get(legacy_topic, legacy_topic)
+        path, row = _find_row_path(package, "operating_drivers.items", "topic", expected_topic, "current_read")
+        field = row.get("current_read") if isinstance(row, Mapping) else None
+        value, status, source_ref = _field_state(field)
+        writes = list(writes_by_path.get(path, []))
+        entries.append(_entry(
+            parity_id=f"driver:{legacy_topic.casefold().replace(' ', '-')}", domain="operating_drivers", metric=legacy_topic,
+            period=str(row.get("period") or "latest") if isinstance(row, Mapping) else "latest", dimensions={},
+            legacy_range=f"{legacy_path.name}!Operating_Drivers!A{row_number}:H{row_number}", source_kind="evidence_backed_synthesis",
+            normalized_path=path, requirement="must_reproduce", minimum=1, writes=writes, source_ref=source_ref,
+            normalized_value=value, comparison_result="source_backed_theme_improved" if status == "populated" and writes else "missing_normalized_driver",
+            disposition="visible_improved" if writes else "missing", current_status="reproduced_with_improved_wording" if writes else "missing_or_explicitly_unavailable",
+        ))
+
+    note_mapping = {10: "Q4 results", 11: "2026 margin bridge"}
+    rejected_reasons = {
+        12: "Legacy row contains implementation language and duplicates current guidance.",
+        13: "Legacy revolver-change row is duplicated liquidity content and is not a clean quarter theme.",
+        14: "Legacy row duplicates operating-margin guidance already routed to guidance blocks.",
+        15: "Legacy row duplicates revenue guidance already routed to guidance blocks.",
+    }
+    for row_number, legacy_text in quarter_note_rows:
+        if row_number in rejected_reasons:
+            entries.append(_entry(
+                parity_id=f"quarter-note:legacy-row-{row_number}", domain="quarter_notes", metric="legacy quarter-note candidate", period="2026-Q1", dimensions={},
+                legacy_range=f"{legacy_path.name}!Quarter_Notes_UI!A{row_number}:M{row_number}", source_kind="legacy_only",
+                normalized_path="", requirement="intentionally_rejected", minimum=0, writes=[], inventory_class="parser_internal_text" if row_number == 12 else "duplicate_display_use",
+                inventory_origin="legacy_workbook_business_key", legacy_value=legacy_text, comparison_result="intentionally_rejected",
+                disposition="rejected", current_status="reproduced_correctly", rejection_reason=rejected_reasons[row_number],
+            ))
+            continue
+        theme = note_mapping[row_number]
+        path, row = _find_row_path(package, "quarter_notes.items", "theme", theme, "commentary")
+        field = row.get("commentary") if isinstance(row, Mapping) else None
+        value, status, source_ref = _field_state(field)
+        writes = list(writes_by_path.get(path, []))
+        entries.append(_entry(
+            parity_id=f"quarter-note:legacy-row-{row_number}", domain="quarter_notes", metric=theme, period=str(_scalar(row.get("quarter")) or "2025-Q4") if isinstance(row, Mapping) else "2025-Q4", dimensions={},
+            legacy_range=f"{legacy_path.name}!Quarter_Notes_UI!A{row_number}:M{row_number}", source_kind="evidence_backed_synthesis",
+            normalized_path=path, requirement="must_reproduce", minimum=1, writes=writes, source_ref=source_ref,
+            legacy_value=legacy_text, normalized_value=value, inventory_class="parser_internal_text", comparison_result="legacy_internal_text_replaced" if status == "populated" and writes else "missing_clean_quarter_note",
+            disposition="visible_improved" if writes else "missing", current_status="reproduced_with_improved_wording" if writes else "missing_or_explicitly_unavailable",
+        ))
+
+    for theme in ("Brand mix", "Inventory", "Capital allocation", "Growth channels"):
+        path, row = _find_row_path(package, "quarter_notes.items", "theme", theme, "commentary")
+        field = row.get("commentary") if isinstance(row, Mapping) else None
+        value, status, source_ref = _field_state(field)
+        writes = list(writes_by_path.get(path, []))
+        entries.append(_entry(
+            parity_id=f"quarter-note:source:{theme.casefold().replace(' ', '-')}", domain="quarter_notes", metric=theme,
+            period=str(_scalar(row.get("quarter")) or "2025-Q4") if isinstance(row, Mapping) else "2025-Q4", dimensions={},
+            legacy_range=source_ref, source_kind="source_backed", normalized_path=path, requirement="must_reproduce", minimum=1,
+            writes=writes, source_ref=source_ref, normalized_value=value, inventory_origin="source_evidence_business_key",
+            comparison_result="source_backed_theme_added" if status == "populated" and writes else "missing_clean_quarter_note",
+            disposition="visible_improved" if writes else "missing", current_status="reproduced_correctly" if writes else "missing_or_explicitly_unavailable",
+        ))
+    return entries
+
+
+def _promise_progress_parity_entries(
+    package: Mapping[str, Any],
+    writes_by_path: Mapping[str, Sequence[Mapping[str, Any]]],
+    legacy_path: Path,
+) -> list[dict[str, Any]]:
+    """Inventory legacy Promise Progress scopes before matching normalized routes."""
+
+    legacy_metric_aliases = {
+        "eps": "Adj EPS",
+        "diluted-share": "Diluted shares",
+        "real-estate": "Real estate activity",
+        "tariff-impact": "Tariffs",
+    }
+    workbook = load_workbook(legacy_path, read_only=True, data_only=True)
+    try:
+        sheet = workbook["Promise_Progress"]
+        headers = {str(sheet.cell(1, column).value or ""): column for column in range(1, sheet.max_column + 1)}
+        grouped: dict[tuple[str, int], dict[str, Any]] = {}
+        for row_number in range(2, sheet.max_row + 1):
+            metric_text = str(sheet.cell(row_number, headers["metric_display"]).value or sheet.cell(row_number, headers["metric_ref"]).value or "").strip()
+            horizon = str(sheet.cell(row_number, headers["target_period_label"]).value or "").strip()
+            if not metric_text or not horizon:
+                continue
+            metric_text = re.sub(r"\s+guidance$", "", metric_text, flags=re.I)
+            metric_text = legacy_metric_aliases.get(metric_text.casefold(), metric_text)
+            scope = normalize_guidance_scope({"metric": {"value": metric_text}, "horizon": {"value": horizon}, "value": {"unit": ""}})
+            if scope.fiscal_year is None:
+                continue
+            key = (scope.metric, int(scope.fiscal_year))
+            group = grouped.setdefault(key, {"rows": [], "values": [], "horizon": scope.horizon})
+            group["rows"].append(row_number)
+            target = sheet.cell(row_number, headers["target_display"]).value
+            if target not in (None, ""):
+                group["values"].append(str(target))
+    finally:
+        workbook.close()
+
+    promise_rows = _path_get(package, "promise_progress.items") or []
+    promise_index: dict[tuple[str, int], tuple[int, Mapping[str, Any]]] = {}
+    for index, row in enumerate(promise_rows):
+        if not isinstance(row, Mapping):
+            continue
+        scope = normalize_guidance_scope({"metric": row.get("metric"), "horizon": row.get("horizon"), "value": row.get("current_guidance")})
+        if scope.fiscal_year is not None:
+            promise_index[(scope.metric, int(scope.fiscal_year))] = (index, row)
+
+    guidance_rows = _path_get(package, "normalized_guidance.items") or []
+    guidance_index: dict[tuple[str, int], list[tuple[int, Mapping[str, Any]]]] = defaultdict(list)
+    for index, row in enumerate(guidance_rows):
+        if not isinstance(row, Mapping):
+            continue
+        scope = normalize_guidance_scope(row)
+        if scope.fiscal_year is not None and scope.horizon_type == "FY":
+            guidance_index[(scope.metric, int(scope.fiscal_year))].append((index, row))
+
+    historical_rows = _path_get(package, "promise_progress.historical_evidence_items") or []
+    historical_index: dict[tuple[str, int], list[tuple[int, Mapping[str, Any]]]] = defaultdict(list)
+    for index, row in enumerate(historical_rows):
+        if not isinstance(row, Mapping):
+            continue
+        scope = normalize_guidance_scope(
+            {
+                "metric": {"value": row.get("metric")},
+                "horizon": {"value": row.get("horizon")},
+                "value": {"unit": ""},
+            }
+        )
+        if scope.fiscal_year is not None and scope.horizon_type == "FY":
+            historical_index[(scope.metric, int(scope.fiscal_year))].append((index, row))
+
+    entries: list[dict[str, Any]] = []
+    for (metric, fiscal_year), inventory in sorted(grouped.items()):
+        promise_match = promise_index.get((metric, fiscal_year))
+        if promise_match:
+            index, row = promise_match
+            path = f"promise_progress.items.{index}.current_guidance"
+            item_prefix = f"promise_progress.items.{index}."
+            writes = [
+                write
+                for write_path, path_writes in writes_by_path.items()
+                if str(write_path).startswith(item_prefix)
+                for write in path_writes
+            ]
+            role = str(row.get("display_role") or "")
+            disposition = str(row.get("visibility_disposition") or role)
+            normalized_value = _scalar(row.get("current_guidance"))
+            parity_category = "visible_reproduced" if writes else "audit_only" if disposition == "audit_only" else "historical_reproduced"
+            current_status = "reproduced_correctly"
+            rejection_reason = ""
+            disposition_paths: list[str] = []
+            disposition_source_refs: list[str] = []
+            occurrence_dispositions: Counter[str] = Counter()
+        else:
+            candidates = sorted(
+                guidance_index.get((metric, fiscal_year), []),
+                key=lambda pair: (str(pair[1].get("publication_date") or ""), str(pair[1].get("evidence_key") or "")),
+            )
+            if candidates:
+                index, row = candidates[-1]
+                path = f"normalized_guidance.items.{index}.value"
+                role = str(row.get("display_role") or "")
+                disposition = "current_guidance_visible_elsewhere" if role in {"current_primary", "current_secondary"} else role
+                normalized_value = _scalar(row.get("value"))
+                parity_category = (
+                    "visible_reproduced"
+                    if disposition == "current_guidance_visible_elsewhere"
+                    else "historical_reproduced"
+                    if role == "history"
+                    else "duplicate_superseded"
+                    if role == "superseded"
+                    else "audit_only"
+                )
+                current_status = "reproduced_correctly"
+                rejection_reason = ""
+                disposition_paths = []
+                disposition_source_refs = []
+                occurrence_dispositions = Counter()
+            else:
+                disposition_rows = historical_index.get((metric, fiscal_year), [])
+                if disposition_rows:
+                    indexes = [index for index, _row in disposition_rows]
+                    rows_with_disposition = [row for _index, row in disposition_rows]
+                    occurrence_dispositions = Counter(str(row.get("disposition") or "") for row in rows_with_disposition)
+                    disposition_paths = [f"promise_progress.historical_evidence_items.{index}" for index in indexes]
+                    disposition_source_refs = list(
+                        dict.fromkeys(
+                            ref
+                            for row in rows_with_disposition
+                            for ref in (row.get("source_refs") or [])
+                            if ref
+                        )
+                    )
+                    if occurrence_dispositions["audit_only_historical_evidence"]:
+                        parity_category = "audit_only"
+                        disposition = "audit_only_historical_evidence"
+                        current_status = "audit_only_evidence_preserved"
+                    elif occurrence_dispositions["duplicate_or_superseded_evidence"]:
+                        parity_category = "duplicate_superseded"
+                        disposition = "duplicate_or_superseded_evidence"
+                        current_status = "duplicate_or_superseded_evidence_preserved"
+                    elif occurrence_dispositions["rejected_with_evidence"]:
+                        parity_category = "rejected_with_evidence"
+                        disposition = "rejected_with_evidence"
+                        current_status = "explicitly_rejected_with_evidence"
+                    else:
+                        parity_category = "unavailable_without_adequate_evidence"
+                        disposition = "unavailable_without_adequate_evidence"
+                        current_status = "unavailable_without_adequate_evidence"
+                    path = disposition_paths[0]
+                    row = rows_with_disposition[0]
+                    role = ""
+                    normalized_value = [str(item.get("target_value") or "") for item in rows_with_disposition]
+                    rejection_reason = "; ".join(
+                        dict.fromkeys(
+                            str(item.get("disposition_reason") or "")
+                            for item in rows_with_disposition
+                            if item.get("disposition") == "rejected_with_evidence"
+                        )
+                    )
+                else:
+                    path = f"promise_progress.items[missing:{metric}:FY{fiscal_year}].current_guidance"
+                    row = {}
+                    role = ""
+                    disposition = "unavailable_without_adequate_evidence"
+                    normalized_value = None
+                    parity_category = "unavailable_without_adequate_evidence"
+                    current_status = "unavailable_without_adequate_evidence"
+                    rejection_reason = "No normalized route or evidence-preserving disposition exists for the legacy business key."
+                    disposition_paths = []
+                    disposition_source_refs = []
+                    occurrence_dispositions = Counter()
+            writes = list(writes_by_path.get(path, []))
+        rows = inventory["rows"]
+        entries.append(_entry(
+            parity_id=f"promise-progress:{metric}:FY{fiscal_year}", domain="promise_progress", metric=metric,
+            period=f"FY{fiscal_year}", dimensions={
+                "legacy_occurrence_count": len(rows),
+                "route": disposition,
+                "promise_parity_category": parity_category,
+                "disposition_paths": disposition_paths,
+                "source_refs": disposition_source_refs,
+                "occurrence_disposition_counts": dict(sorted(occurrence_dispositions.items())),
+            },
+            legacy_range=f"{legacy_path.name}!Promise_Progress!A{min(rows)}:V{max(rows)}", source_kind="derived_from_guidance_evidence",
+            normalized_path=path, requirement="may_improve_semantically", minimum=1, writes=writes,
+            source_ref=(
+                disposition_source_refs[0]
+                if disposition_source_refs
+                else str((row.get("evidence_refs") or [""])[0])
+                if isinstance(row, Mapping) and row.get("evidence_refs")
+                else str(row.get("source_ref") or "")
+                if isinstance(row, Mapping)
+                else ""
+            ),
+            inventory_class="duplicate_display_use", inventory_origin="legacy_workbook_business_key",
+            legacy_value=sorted(set(inventory["values"])), normalized_value=normalized_value,
+            comparison_result=(
+                "routed_to_progression_or_guidance"
+                if current_status == "reproduced_correctly"
+                else "evidence_preserved_with_explicit_disposition"
+                if current_status != "unavailable_without_adequate_evidence"
+                else "unavailable_without_adequate_evidence"
+            ),
+            disposition=disposition,
+            current_status=current_status,
+            rejection_reason=rejection_reason,
+        ))
+    return entries
+
+
 def build_parity_matrix(
     *,
     package: Mapping[str, Any],
@@ -1110,33 +1677,10 @@ def build_parity_matrix(
     finally:
         legacy_wb.close()
 
-    for index, row in enumerate(_path_get(package, "normalized_guidance.items") or []):
-        if not isinstance(row, Mapping):
-            continue
-        path = f"normalized_guidance.items.{index}.value"
-        _, status, source_ref = _field_state(row.get("value"))
-        requirement = "may_improve_semantically"
-        metric = str(_scalar(row.get("metric")) or "guidance")
-        horizon = str(_scalar(row.get("horizon")) or _scalar(row.get("period")) or "")
-        publication_date = str(_scalar(row.get("publication_date")) or "")
-        evidence_key = str(_scalar(row.get("evidence_key")) or f"row-{index}")
-        entries.append(
-            _entry(
-                parity_id=f"guidance:{metric}:{horizon}:{publication_date}:{evidence_key}",
-                domain="guidance_promise_progress",
-                metric=metric,
-                period=horizon,
-                dimensions={"visibility": row.get("visibility"), "update_stage": _scalar(row.get("update_stage"))},
-                legacy_range=source_ref,
-                source_kind="source_backed",
-                normalized_path=path,
-                requirement=requirement,
-                minimum=5,
-                writes=writes_by_path.get(path, []),
-                source_ref=source_ref,
-                inventory_origin="deferred_pass_2_package_projection",
-            )
-        )
+    entries.extend(_guidance_parity_entries(package, writes_by_path, legacy_path))
+    entries.extend(_promise_progress_parity_entries(package, writes_by_path, legacy_path))
+    entries.extend(_legacy_narrative_scalar_entries(package, writes_by_path, legacy_path))
+    entries.extend(_legacy_narrative_row_entries(package, writes_by_path, legacy_path))
 
     for domain, path, requirement in SCALAR_REQUIREMENTS:
         value, status, source_ref = _field_state(_path_get(package, path))
@@ -1266,8 +1810,9 @@ def build_parity_matrix(
     domain_counts: dict[str, Counter[str]] = defaultdict(Counter)
     for row in entries:
         domain_counts[str(row["domain"])][str(row["current_status"])] += 1
+    reproduced_statuses = {"reproduced_correctly", "reproduced_with_improved_wording"}
     required = [row for row in entries if row["parity_requirement"] == "must_reproduce"]
-    missing_required = [row for row in required if row["current_status"] != "reproduced_correctly"]
+    missing_required = [row for row in required if row["current_status"] not in reproduced_statuses]
     independent_source_facts = [
         row for row in entries
         if row["inventory_class"] == "source_fact" and row["inventory_origin"] == "legacy_workbook_business_key"
@@ -1276,9 +1821,19 @@ def build_parity_matrix(
     formula_entries = [row for row in entries if row["inventory_class"] == "formula_improvement"]
     formula_contract_counts = Counter(str(row["formula_contract_status"]) for row in formula_entries)
     formula_calculability_counts = Counter(str(row["economic_calculability"]) for row in formula_entries)
+    promise_entries = [row for row in entries if row["domain"] == "promise_progress"]
+    promise_key_disposition_counts = Counter(
+        str((row.get("dimensions") or {}).get("promise_parity_category") or "unavailable_without_adequate_evidence")
+        for row in promise_entries
+    )
+    promise_occurrence_disposition_counts = Counter(
+        str(row.get("disposition") or "")
+        for row in (_path_get(package, "promise_progress.historical_evidence_items") or [])
+        if isinstance(row, Mapping)
+    )
     return {
         "$schema": "./anf_new_ticker_parity_matrix.schema.json",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "contract_name": "ANF legacy-oracle parity matrix",
         "architectural_scope": "legacy_adapter_fixture_only; generic engine remains ticker-neutral",
         "inventory_method": "legacy workbook business keys are inventoried first; normalized package and plan are comparison targets only",
@@ -1296,10 +1851,14 @@ def build_parity_matrix(
             "required_reproduced_count": len(required) - len(missing_required),
             "required_missing_count": len(missing_required),
             "independent_source_fact_count": len(independent_source_facts),
-            "independent_source_fact_reproduced_count": sum(row["current_status"] == "reproduced_correctly" for row in independent_source_facts),
+            "independent_source_fact_reproduced_count": sum(
+                row["current_status"] in reproduced_statuses for row in independent_source_facts
+            ),
             "inventory_class_counts": dict(sorted(inventory_class_counts.items())),
             "formula_contract_counts": dict(sorted(formula_contract_counts.items())),
             "formula_calculability_counts": dict(sorted(formula_calculability_counts.items())),
+            "promise_progress_key_disposition_counts": dict(sorted(promise_key_disposition_counts.items())),
+            "promise_progress_occurrence_disposition_counts": dict(sorted(promise_occurrence_disposition_counts.items())),
             "domain_status_counts": {key: dict(value) for key, value in sorted(domain_counts.items())},
         },
         "entries": entries,
@@ -1320,6 +1879,8 @@ def _markdown(matrix: Mapping[str, Any]) -> str:
         f"- Inventory classes: {json.dumps(summary['inventory_class_counts'], sort_keys=True)}",
         f"- Formula contracts: {json.dumps(summary['formula_contract_counts'], sort_keys=True)}",
         f"- Formula calculability: {json.dumps(summary['formula_calculability_counts'], sort_keys=True)}",
+        f"- Promise Progress key dispositions: {json.dumps(summary['promise_progress_key_disposition_counts'], sort_keys=True)}",
+        f"- Promise Progress occurrence dispositions: {json.dumps(summary['promise_progress_occurrence_disposition_counts'], sort_keys=True)}",
         "",
         "| Domain | Economically reproduced | Contract present, blank by missing evidence | Missing / unavailable |",
         "|---|---:|---:|---:|",

@@ -36,11 +36,12 @@ def test_parity_matrix_is_schema_valid_and_has_unique_business_keys() -> None:
 
 def test_all_available_required_items_are_reproduced() -> None:
     matrix = _matrix()
+    reproduced_statuses = {"reproduced_correctly", "reproduced_with_improved_wording"}
     missing = [
         row
         for row in matrix["entries"]
         if row["parity_requirement"] == "must_reproduce"
-        and row["current_status"] != "reproduced_correctly"
+        and row["current_status"] not in reproduced_statuses
     ]
     assert missing == []
     assert matrix["summary"]["required_missing_count"] == 0
@@ -48,8 +49,73 @@ def test_all_available_required_items_are_reproduced() -> None:
         row["inventory_origin"]
         for row in matrix["entries"]
         if row["parity_requirement"] == "must_reproduce"
-    } <= {"legacy_workbook_business_key", "legacy_visible_display_contract"}
+    } <= {
+        "legacy_workbook_business_key",
+        "legacy_visible_display_contract",
+        "source_evidence_business_key",
+    }
     assert matrix["summary"]["independent_source_fact_reproduced_count"] == matrix["summary"]["independent_source_fact_count"]
+
+
+def test_promise_progress_legacy_aliases_and_visible_row_routes_are_reproduced() -> None:
+    rows = {
+        row["parity_id"]: row
+        for row in _matrix()["entries"]
+        if row["domain"] == "promise_progress"
+    }
+    expected_fy2025 = {
+        "promise-progress:revenue:FY2025",
+        "promise-progress:operating_margin:FY2025",
+        "promise-progress:adjusted_eps:FY2025",
+        "promise-progress:capital_expenditures:FY2025",
+        "promise-progress:diluted_shares:FY2025",
+        "promise-progress:real_estate_activity:FY2025",
+        "promise-progress:share_repurchases:FY2025",
+        "promise-progress:tariffs:FY2025",
+    }
+    assert expected_fy2025 <= rows.keys()
+    for parity_id in expected_fy2025:
+        row = rows[parity_id]
+        assert row["current_status"] == "reproduced_correctly", parity_id
+        assert row["disposition"] == "visible", parity_id
+        assert row["expected_new_workbook_destination"], parity_id
+        assert all(
+            destination.startswith("Promise_Progress_UI!")
+            for destination in row["expected_new_workbook_destination"]
+        ), parity_id
+
+    old_revenue = rows["promise-progress:revenue:FY2020"]
+    assert old_revenue["current_status"] == "explicitly_rejected_with_evidence"
+    assert old_revenue["disposition"] == "rejected_with_evidence"
+    assert old_revenue["dimensions"]["legacy_occurrence_count"] == 1
+    assert old_revenue["dimensions"]["source_refs"]
+    assert "reopened-store sales productivity" in old_revenue["rejection_reason"]
+    assert old_revenue["expected_new_workbook_destination"] == []
+
+
+def test_promise_progress_parity_reports_explicit_key_and_occurrence_dispositions() -> None:
+    matrix = _matrix()
+    rows = {
+        row["parity_id"]: row
+        for row in matrix["entries"]
+        if row["domain"] == "promise_progress"
+    }
+
+    assert matrix["summary"]["promise_progress_key_disposition_counts"] == {
+        "audit_only": 6,
+        "duplicate_superseded": 1,
+        "rejected_with_evidence": 5,
+        "visible_reproduced": 17,
+    }
+    assert matrix["summary"]["promise_progress_occurrence_disposition_counts"] == {
+        "audit_only_historical_evidence": 9,
+        "duplicate_or_superseded_evidence": 5,
+        "rejected_with_evidence": 12,
+    }
+    assert rows["promise-progress:capital_expenditures:FY2020"]["current_status"] == "audit_only_evidence_preserved"
+    assert rows["promise-progress:operating_margin:FY2023"]["current_status"] == "duplicate_or_superseded_evidence_preserved"
+    assert rows["promise-progress:tariffs:FY2019"]["current_status"] == "explicitly_rejected_with_evidence"
+    assert not any(row["disposition"] == "missing" for row in rows.values())
 
 
 def test_parity_inventory_is_legacy_first_and_keeps_fy2018_fy2019_and_older_history() -> None:
@@ -138,7 +204,13 @@ def test_source_backed_required_items_have_lineage_and_exact_destinations() -> N
         assert row["source_ref"], row["parity_id"]
         assert row["normalized_package_path"], row["parity_id"]
         if not row["expected_new_workbook_destination"]:
-            assert row["disposition"] in {"audit_only", "formula_owned", "explicitly_excluded"}, row["parity_id"]
+            assert row["disposition"] in {
+                "audit_only",
+                "formula_owned",
+                "explicitly_excluded",
+                "history",
+                "superseded",
+            }, row["parity_id"]
 
 
 def test_valuation_input_parity_covers_actual_optional_and_user_input_contracts() -> None:

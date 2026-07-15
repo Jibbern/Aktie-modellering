@@ -78,11 +78,14 @@ TEXT_QUALITY_CLASSES = {
     "fragmented_sentence",
     "too_long_unstructured",
     "missing_context",
+    "unresolved_template_token",
+    "internal_implementation_language",
+    "mechanical_fact_read_boilerplate",
     "manual_review_required",
 }
 _NON_CLEAN_VISIBLE_TEXT_CLASSES = TEXT_QUALITY_CLASSES - {"clean_visible_ui", "clean_audit_only"}
 _COMPENSATION_GOVERNANCE_RE = re.compile(
-    r"\b(compensation|governance|director|board|officer|proxy|restricted stock|stock award|equity award|cash-)\b",
+    r"\b(compensation|governance|director|board|officer|proxy|restricted stock|stock award|equity award|cash compensation|cash award)\b",
     re.I,
 )
 _LEGAL_BOILERPLATE_RE = re.compile(
@@ -115,11 +118,26 @@ _RELEASE_HEADER_RE = re.compile(
     re.I,
 )
 _FRAGMENTED_TEXT_RE = re.compile(r"[-–]$|\b(and|of|the|to|from|with|include|including)$", re.I)
+_UNRESOLVED_TOKEN_RE = re.compile(r"\{[^{}]+\}|\[[^\[\]]*\bslot\b[^\[\]]*\]", re.I)
+_INTERNAL_IMPLEMENTATION_RE = re.compile(
+    r"\b(?:adapter|binding|binding_id|binding map|planner|parser|row_schema)\b|"
+    r"\b(?:Operating_Drivers|Quarter_Notes_UI|Promise_Progress_UI|ANF_Investment_Case)\b",
+    re.I,
+)
+_MECHANICAL_NARRATIVE_RE = re.compile(r"^\s*(?:fact|read)\s*:\s*", re.I)
 _VISIBLE_TEXT_FIELD_SPECS = (
-    ("quarter_notes.items", ("note", "commentary", "model_implication", "valuation_implication"), True),
+    ("company_profile", ("business_description", "strategic_context", "revenue_model", "key_advantages", "key_risks"), True),
+    ("company_profile.operating_model_rows", ("description",), True),
+    ("company_profile.key_dependencies", ("text",), True),
+    ("quarter_notes.summary", ("model_read", "what_changed", "watch_next", "key_caveat"), True),
+    ("quarter_notes.items", ("commentary", "why_it_matters", "model_implication", "source_display"), True),
     ("operating_drivers.items", ("driver", "current_read", "why_it_matters"), True),
+    ("operating_drivers.current_outlook", ("current_actual_read", "current_actual_use", "current_guidance_read", "current_guidance_use", "margin_bridge_read", "margin_bridge_use"), True),
+    ("promise_progress.items", ("display_metric", "why_it_matters", "notes_source"), True),
     ("segments.items", ("note",), True),
     ("normalized_guidance.items", ("source_excerpt", "notes_source"), True),
+    ("investment_case", ("summary", "why_it_can_work", "key_debate", "upside_factors", "downside_factors", "watch_next", "current_stance", "scenario_drivers"), True),
+    ("investment_case.invalidators", ("text",), True),
     ("investment_case.source_evidence", ("source_ref", "section"), False),
 )
 _QUARTERLY_PERIOD_RE = re.compile(r"^\d{4}-Q[1-4]$")
@@ -327,8 +345,11 @@ def validate_normalized_company_data(
     issues.extend(_validate_debt_liquidity_semantics(package))
     issues.extend(_validate_source_backed_core_field_lineage(package, bindings))
     issues.extend(_validate_guidance(package))
+    issues.extend(_validate_promise_progress_semantics(package))
     issues.extend(_validate_parser_noise(package))
     issues.extend(_validate_visible_text_quality(package))
+    issues.extend(_validate_visible_narrative_lineage(package))
+    issues.extend(_validate_visible_narrative_duplicates(package))
     issues.extend(_validate_share_count_outliers(package))
     issues.extend(_validate_binding_map_gaps(package, bindings))
     if promotion_requested:
@@ -1199,6 +1220,12 @@ def classify_normalized_text_quality(
         return "missing_context"
     if not visible_ui:
         return "clean_audit_only"
+    if _UNRESOLVED_TOKEN_RE.search(clean):
+        return "unresolved_template_token"
+    if _INTERNAL_IMPLEMENTATION_RE.search(clean):
+        return "internal_implementation_language"
+    if _MECHANICAL_NARRATIVE_RE.search(clean):
+        return "mechanical_fact_read_boilerplate"
     if _COMPENSATION_GOVERNANCE_RE.search(clean):
         return "compensation_or_governance_noise"
     if _LEGAL_BOILERPLATE_RE.search(clean):
@@ -1507,6 +1534,90 @@ def _guidance_horizon_year(horizon: str) -> int:
     return int(match.group(1)) if match else 0
 
 
+def _validate_promise_progress_semantics(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    issues: List[NormalizedDataIssue] = []
+    section = package.get("promise_progress") if isinstance(package, Mapping) else None
+    items = section.get("items", []) if isinstance(section, Mapping) else []
+    for index, item in enumerate(items if isinstance(items, list) else []):
+        if not isinstance(item, Mapping):
+            continue
+        rule_id = str(item.get("status_rule_id") or "")
+        progress_status = item.get("progress_status") if isinstance(item.get("progress_status"), Mapping) else {}
+        source_ref = _field_source_ref(item.get("current_guidance"))
+        field_path = f"promise_progress.items.{index}.progress_status"
+        if str(progress_status.get("status") or "") == "populated" and not rule_id:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="promise_progress_status_missing_rule",
+                    field=field_path,
+                    message="A populated Promise status requires an explicit deterministic status rule.",
+                    source_ref=source_ref,
+                    suggested_action="Leave the status blank/manual review or attach a compatible typed comparison rule.",
+                )
+            )
+            continue
+        if rule_id != "actual_within_published_range":
+            continue
+
+        contract = item.get("status_comparison") if isinstance(item.get("status_comparison"), Mapping) else {}
+        actual = item.get("actual") if isinstance(item.get("actual"), Mapping) else {}
+        low, high, actual_value = contract.get("low"), contract.get("high"), actual.get("value")
+        row_scope = normalize_guidance_scope(
+            {"metric": item.get("metric"), "horizon": item.get("horizon"), "value": item.get("current_guidance")}
+        )
+        contract_scope = normalize_guidance_scope(
+            {
+                "metric": {"value": contract.get("metric")},
+                "horizon": {"value": contract.get("horizon")},
+                "value": {"unit": contract.get("unit")},
+            }
+        )
+        actual_scope = normalize_guidance_scope(
+            {
+                "metric": {"value": actual.get("comparison_metric")},
+                "horizon": {"value": actual.get("comparison_horizon")},
+                "value": {"unit": actual.get("unit")},
+            }
+        )
+        compatible = (
+            contract.get("comparison_type") == "range"
+            and isinstance(low, (int, float))
+            and not isinstance(low, bool)
+            and isinstance(high, (int, float))
+            and not isinstance(high, bool)
+            and isinstance(actual_value, (int, float))
+            and not isinstance(actual_value, bool)
+            and float(low) <= float(high)
+            and row_scope.metric == contract_scope.metric == actual_scope.metric
+            and row_scope.horizon == contract_scope.horizon == actual_scope.horizon
+            and bool(row_scope.unit)
+            and row_scope.unit == contract_scope.unit == actual_scope.unit
+        )
+        expected_status = (
+            "Within range"
+            if compatible and float(low) <= float(actual_value) <= float(high)
+            else "Outside range"
+            if compatible
+            else ""
+        )
+        if not compatible or progress_status.get("value") != expected_status:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="promise_progress_range_contract_incompatible",
+                    field=field_path,
+                    message=(
+                        "Range status requires explicit compatible low/high/actual values for one metric, unit and horizon, "
+                        "and the displayed status must match that comparison."
+                    ),
+                    source_ref=source_ref,
+                    suggested_action="Remove the status or correct the typed comparison contract; never infer a range from prose.",
+                )
+            )
+    return issues
+
+
 def _validate_parser_noise(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
     issues: List[NormalizedDataIssue] = []
     for path, text, source_ref in _iter_text_values(package):
@@ -1747,13 +1858,14 @@ def _iter_audited_text_fields(obj: Mapping[str, Any]) -> Iterable[Tuple[str, str
             for idx, item in enumerate(collection):
                 if not isinstance(item, Mapping):
                     continue
+                item_visible = visible_ui and _visible_narrative_item(collection_path, item)
                 for field_name in field_names:
                     value = item.get(field_name)
                     text = _field_text(value)
                     if not text:
                         continue
                     source_ref = _field_source_ref(value)
-                    yield f"{collection_path}.{idx}.{field_name}", text, source_ref, visible_ui
+                    yield f"{collection_path}.{idx}.{field_name}", text, source_ref, item_visible
             continue
         if isinstance(collection, Mapping):
             for field_name in field_names:
@@ -1763,6 +1875,104 @@ def _iter_audited_text_fields(obj: Mapping[str, Any]) -> Iterable[Tuple[str, str
                     continue
                 source_ref = _field_source_ref(value)
                 yield f"{collection_path}.{field_name}", text, source_ref, visible_ui
+
+
+def _visible_narrative_item(collection_path: str, item: Mapping[str, Any]) -> bool:
+    role = str(item.get("display_role") or "")
+    if collection_path == "quarter_notes.items":
+        return role == "current_note"
+    if collection_path == "operating_drivers.items":
+        return role == "current_watchlist"
+    if collection_path == "normalized_guidance.items":
+        return role in CURRENT_GUIDANCE_ROLES
+    if collection_path == "promise_progress.items":
+        return str(item.get("visibility_disposition") or "") == "visible"
+    return True
+
+
+def _validate_visible_narrative_lineage(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    issues: List[NormalizedDataIssue] = []
+    lineage_classes = {
+        "source_backed_fact",
+        "source_backed_calculation",
+        "evidence_backed_synthesis",
+        "analyst_interpretation_requiring_review",
+    }
+    for path, text, source_ref, visible_ui in _iter_audited_text_fields(package):
+        if not visible_ui:
+            continue
+        node = _path_get(package, path)
+        if not isinstance(node, Mapping) or str(node.get("status") or "") != "populated":
+            continue
+        classification = str(node.get("evidence_classification") or "")
+        raw_refs = node.get("evidence_refs", [])
+        evidence_refs = [str(ref).strip() for ref in raw_refs if str(ref).strip()] if isinstance(raw_refs, list) else []
+        if classification in lineage_classes and not evidence_refs:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="visible_narrative_missing_evidence_refs",
+                    field=path,
+                    message="Visible factual or synthesized narrative is missing contributing evidence references.",
+                    source_ref=source_ref,
+                    suggested_action="Attach every contributing source reference before planning the visible text.",
+                )
+            )
+        if classification == "source_backed_fact" and not source_ref.strip():
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="visible_source_fact_missing_source_ref",
+                    field=path,
+                    message="Visible source-backed narrative is missing its primary source reference.",
+                    suggested_action="Attach the exact source location before planning the visible text.",
+                )
+            )
+        if _NUMBER_RE.search(text) and classification and not source_ref.strip() and not evidence_refs:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="visible_numeric_claim_missing_lineage",
+                    field=path,
+                    message="Visible narrative contains a numeric claim without source lineage.",
+                    suggested_action="Attach exact evidence or remove the unsupported numeric claim.",
+                )
+            )
+    return issues
+
+
+def _validate_visible_narrative_duplicates(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    issues: List[NormalizedDataIssue] = []
+    checks = (
+        ("quarter_notes.items", "commentary", "current_note"),
+        ("operating_drivers.items", "current_read", "current_watchlist"),
+    )
+    for collection_path, field_name, visible_role in checks:
+        rows = _path_get(package, collection_path)
+        if not isinstance(rows, list):
+            continue
+        seen: dict[str, int] = {}
+        for index, item in enumerate(rows):
+            if not isinstance(item, Mapping) or str(item.get("display_role") or "") != visible_role:
+                continue
+            text = _field_text(item.get(field_name))
+            fingerprint = re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
+            if not fingerprint:
+                continue
+            if fingerprint in seen:
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="duplicate_visible_narrative",
+                        field=f"{collection_path}.{index}.{field_name}",
+                        message=f"Visible narrative duplicates row {seen[fingerprint]} in the same block.",
+                        source_ref=_field_source_ref(item.get(field_name)),
+                        suggested_action="Keep one useful theme visible and preserve duplicate evidence in audit-only data.",
+                    )
+                )
+            else:
+                seen[fingerprint] = index
+    return issues
 
 
 def _path_get(obj: Any, dotted_path: str) -> Any:
@@ -1833,6 +2043,12 @@ def _text_quality_action(classification: str, *, visible_ui: bool) -> str:
         return "Remove release headers/source titles from visible notes and keep only concise sourced facts."
     if classification == "fragmented_sentence":
         return "Review the parser extraction boundary and rebuild a complete sentence before rendering."
+    if classification == "unresolved_template_token":
+        return "Resolve the template token before the text can enter a visible workbook cell."
+    if classification == "internal_implementation_language":
+        return "Rewrite as investor-facing business language and keep implementation details in audit-only data."
+    if classification == "mechanical_fact_read_boilerplate":
+        return "Remove mechanical Fact/Read prefixes and retain a concise source-backed statement."
     if classification == "too_long_unstructured":
         return "Condense to a concise source-backed visible summary or demote to audit-only evidence."
     return "Require manual review before rendering this text visibly."

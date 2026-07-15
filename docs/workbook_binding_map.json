@@ -189,47 +189,50 @@
       "shell_zone": "summary_segment_model_values",
       "anchor_label": "Operating model per segment",
       "row_family": "summary_overview_text_rows",
-      "normalized_field": "segments.items.0.revenue",
+      "normalized_field": "company_profile.operating_model_rows",
       "value_shape": "table_rows",
       "required": false,
       "source_policy": "source-backed",
-      "missing_source_behavior": "blank segment rows until source-backed segment labels and values exist",
+      "missing_source_behavior": "blank typed operating-model rows until source-backed descriptions exist",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "A13:F15",
+      "planner_target": "A13:B15",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "segments.items"
+        "source_path": "company_profile.operating_model_rows"
       },
       "row_key": [
-        "period",
-        "dimension",
-        "member",
-        "metric"
+        "member"
       ],
       "sort_order": [
-        "period:asc",
-        "dimension:asc",
-        "member:asc",
-        "metric:asc"
+        "display_order:asc",
+        "member:asc"
       ],
       "capacity": 3,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "revenue"
+        "member",
+        "description"
       ],
       "target_columns": [
         {
-          "column_id": "value",
-          "source_field": "revenue",
-          "target_column": "A"
+          "column_id": "member",
+          "source_field": "member",
+          "target_column": "A",
+          "target_type": "text"
+        },
+        {
+          "column_id": "description",
+          "source_field": "description",
+          "target_column": "B",
+          "target_type": "text"
         }
       ],
       "source_ref_required": true,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Segment summary requires a typed summary collection, not a revenue scalar from the first segment item."
+      "source_ref_field": "description",
+      "planning_state": "active"
     },
     {
       "binding_id": "summary_key_risks",
@@ -239,10 +242,10 @@
       "shell_zone": "summary_key_dependencies_values",
       "anchor_label": "Key dependencies (3-5)",
       "row_family": "summary_overview_text_rows",
-      "normalized_field": "company_profile.key_risks",
+      "normalized_field": "company_profile.key_dependencies",
       "value_shape": "table_rows",
       "required": false,
-      "source_policy": "profile-backed",
+      "source_policy": "source-backed",
       "missing_source_behavior": "optional blank with manual_review flag only if promotion asks for full thesis",
       "promotion_requirement": "manual_review",
       "validation_rule": "unsupported_sector_specific_leakage",
@@ -251,27 +254,31 @@
       "planner_target": "A17:F21",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "company_profile.key_risks"
+        "source_path": "company_profile.key_dependencies"
       },
       "row_key": [
-        "normalized_field"
+        "business_key"
       ],
-      "sort_order": [],
+      "sort_order": [
+        "display_order:asc",
+        "business_key:asc"
+      ],
       "capacity": 5,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "value"
+        "text"
       ],
       "target_columns": [
         {
-          "column_id": "value",
-          "source_field": "value",
-          "target_column": "A"
+          "column_id": "text",
+          "source_field": "text",
+          "target_column": "A",
+          "target_type": "text"
         }
       ],
-      "source_ref_required": false,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Key risks must be a typed list before it can consume a row family."
+      "source_ref_required": true,
+      "source_ref_field": "text",
+      "planning_state": "active"
     },
     {
       "binding_id": "summary_wrong_if",
@@ -281,10 +288,10 @@
       "shell_zone": "summary_wrong_if_values",
       "anchor_label": "What would make me wrong",
       "row_family": "summary_overview_text_rows",
-      "normalized_field": "investment_case.key_debate",
+      "normalized_field": "investment_case.invalidators",
       "value_shape": "table_rows",
       "required": false,
-      "source_policy": "manual",
+      "source_policy": "source-backed",
       "missing_source_behavior": "optional blank with manual_review flag only if promotion asks for full thesis",
       "promotion_requirement": "manual_review",
       "validation_rule": "placeholder_investment_case",
@@ -293,27 +300,31 @@
       "planner_target": "A23:F24",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "investment_case.key_debate"
+        "source_path": "investment_case.invalidators"
       },
       "row_key": [
-        "normalized_field"
+        "business_key"
       ],
-      "sort_order": [],
+      "sort_order": [
+        "display_order:asc",
+        "business_key:asc"
+      ],
       "capacity": 2,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "value"
+        "text"
       ],
       "target_columns": [
         {
-          "column_id": "value",
-          "source_field": "value",
-          "target_column": "A"
+          "column_id": "text",
+          "source_field": "text",
+          "target_column": "A",
+          "target_type": "text"
         }
       ],
-      "source_ref_required": false,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "What-would-make-me-wrong requires typed debate items, not one key_debate text field."
+      "source_ref_required": true,
+      "source_ref_field": "text",
+      "planning_state": "active"
     },
     {
       "binding_id": "summary_as_of_quarter",
@@ -1744,6 +1755,138 @@
       "rowset_id": "current_operating_driver_watchlist"
     },
     {
+      "binding_id": "od_current_actual_read",
+      "sheet": "Operating_Drivers",
+      "section": "Current actual period",
+      "target": "B13",
+      "shell_zone": "od_topic_current_read_values",
+      "anchor_label": "Current actual period",
+      "row_family": "operating_driver_outlook_rows",
+      "normalized_field": "operating_drivers.current_outlook.current_actual_read",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank with explicit review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B13",
+      "source_path": "operating_drivers.current_outlook.current_actual_read",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "od_current_actual_use",
+      "sheet": "Operating_Drivers",
+      "section": "Current actual use",
+      "target": "H13",
+      "shell_zone": "od_topic_current_read_values",
+      "anchor_label": "Current actual period",
+      "row_family": "operating_driver_outlook_rows",
+      "normalized_field": "operating_drivers.current_outlook.current_actual_use",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank with explicit review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "H13",
+      "source_path": "operating_drivers.current_outlook.current_actual_use",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "od_current_guidance_read",
+      "sheet": "Operating_Drivers",
+      "section": "Current guidance period",
+      "target": "B14",
+      "shell_zone": "od_topic_current_read_values",
+      "anchor_label": "Current guidance period",
+      "row_family": "operating_driver_outlook_rows",
+      "normalized_field": "operating_drivers.current_outlook.current_guidance_read",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank with explicit review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B14",
+      "source_path": "operating_drivers.current_outlook.current_guidance_read",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "od_current_guidance_use",
+      "sheet": "Operating_Drivers",
+      "section": "Current guidance use",
+      "target": "H14",
+      "shell_zone": "od_topic_current_read_values",
+      "anchor_label": "Current guidance period",
+      "row_family": "operating_driver_outlook_rows",
+      "normalized_field": "operating_drivers.current_outlook.current_guidance_use",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank with explicit review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "H14",
+      "source_path": "operating_drivers.current_outlook.current_guidance_use",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "od_margin_bridge_read",
+      "sheet": "Operating_Drivers",
+      "section": "Margin bridge",
+      "target": "B15",
+      "shell_zone": "od_topic_current_read_values",
+      "anchor_label": "Margin bridge",
+      "row_family": "operating_driver_outlook_rows",
+      "normalized_field": "operating_drivers.current_outlook.margin_bridge_read",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank with explicit review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B15",
+      "source_path": "operating_drivers.current_outlook.margin_bridge_read",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "od_margin_bridge_use",
+      "sheet": "Operating_Drivers",
+      "section": "Margin bridge use",
+      "target": "H15",
+      "shell_zone": "od_topic_current_read_values",
+      "anchor_label": "Margin bridge",
+      "row_family": "operating_driver_outlook_rows",
+      "normalized_field": "operating_drivers.current_outlook.margin_bridge_use",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank with explicit review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "H15",
+      "source_path": "operating_drivers.current_outlook.margin_bridge_use",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
       "binding_id": "od_topic_current_read_rows",
       "sheet": "Operating_Drivers",
       "section": "Topic current read",
@@ -1976,6 +2119,116 @@
       "planning_mode": "text_block",
       "planner_target": "B7",
       "source_path": "investment_case.key_debate",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "ic_why_it_can_work",
+      "sheet": "{ticker}_Investment_Case",
+      "section": "Why it can work",
+      "target": "B6:K6",
+      "shell_zone": "ic_snapshot_values",
+      "anchor_label": "Why it can work",
+      "row_family": "investment_case_snapshot_text_rows",
+      "normalized_field": "investment_case.why_it_can_work",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and retain a structured review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B6",
+      "source_path": "investment_case.why_it_can_work",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "ic_upside_factors",
+      "sheet": "{ticker}_Investment_Case",
+      "section": "Upside factors",
+      "target": "B8:K8",
+      "shell_zone": "ic_snapshot_values",
+      "anchor_label": "Upside factors",
+      "row_family": "investment_case_snapshot_text_rows",
+      "normalized_field": "investment_case.upside_factors",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and retain a structured review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B8",
+      "source_path": "investment_case.upside_factors",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "ic_downside_factors",
+      "sheet": "{ticker}_Investment_Case",
+      "section": "Downside factors",
+      "target": "B9:K9",
+      "shell_zone": "ic_snapshot_values",
+      "anchor_label": "Downside factors",
+      "row_family": "investment_case_snapshot_text_rows",
+      "normalized_field": "investment_case.downside_factors",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and retain a structured review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B9",
+      "source_path": "investment_case.downside_factors",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "ic_watch_next",
+      "sheet": "{ticker}_Investment_Case",
+      "section": "Watch next",
+      "target": "B10:K10",
+      "shell_zone": "ic_snapshot_values",
+      "anchor_label": "Watch next",
+      "row_family": "investment_case_snapshot_text_rows",
+      "normalized_field": "investment_case.watch_next",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and retain a structured review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B10",
+      "source_path": "investment_case.watch_next",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "ic_current_stance",
+      "sheet": "{ticker}_Investment_Case",
+      "section": "Current stance",
+      "target": "B11:K11",
+      "shell_zone": "ic_snapshot_values",
+      "anchor_label": "Current stance",
+      "row_family": "investment_case_snapshot_text_rows",
+      "normalized_field": "investment_case.current_stance",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "manual",
+      "missing_source_behavior": "leave blank and retain a structured review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B11",
+      "source_path": "investment_case.current_stance",
       "target_type": "text",
       "planning_state": "active"
     },
@@ -2352,14 +2605,20 @@
           "missing_behavior": "leave blank and emit manual review if required"
         },
         {
+          "column_id": "why_it_matters",
+          "source_field": "why_it_matters",
+          "target_column": "F",
+          "missing_behavior": "leave blank and emit manual review if required"
+        },
+        {
           "column_id": "model_implication",
           "source_field": "model_implication",
           "target_column": "H",
           "missing_behavior": "leave blank when implication is not normalized"
         },
         {
-          "column_id": "source",
-          "source_field": "source",
+          "column_id": "source_display",
+          "source_field": "source_display",
           "target_column": "M",
           "missing_behavior": "leave blank and preserve row for review"
         }
@@ -2399,8 +2658,9 @@
       "required_columns": [
         "theme",
         "commentary",
+        "why_it_matters",
         "model_implication",
-        "source"
+        "source_display"
       ],
       "target_columns": [
         {
@@ -2416,16 +2676,22 @@
           "target_type": "text"
         },
         {
+          "column_id": "why_it_matters",
+          "source_field": "why_it_matters",
+          "target_column": "F",
+          "target_type": "text"
+        },
+        {
           "column_id": "model_implication",
           "source_field": "model_implication",
           "target_column": "H",
           "target_type": "text"
         },
         {
-          "column_id": "source",
-          "source_field": "source",
+          "column_id": "source_display",
+          "source_field": "source_display",
           "target_column": "M",
-          "target_type": "source_ref"
+          "target_type": "text"
         }
       ],
       "source_ref_required": true,
@@ -2437,54 +2703,88 @@
       "binding_id": "qn_quarter_summary_rows",
       "sheet": "Quarter_Notes_UI",
       "section": "Quarter read summary",
-      "target": "B3:O6",
+      "target": "B3",
       "shell_zone": "qn_quarter_summary_values",
       "anchor_label": "Quarter read",
       "row_family": "quarter_notes_summary_rows",
-      "normalized_field": "quarter_notes.items.commentary",
-      "value_shape": "quarterly_series",
+      "normalized_field": "quarter_notes.summary.model_read",
+      "value_shape": "text_block",
       "required": false,
       "source_policy": "source-backed",
       "missing_source_behavior": "blank summary rows until source-backed quarter narrative exists",
       "promotion_requirement": "manual_review",
-      "validation_rule": "parser_noise_snippet",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
       "writable": true,
-      "planning_mode": "series",
+      "planning_mode": "text_block",
       "planner_target": "B3",
-      "target_axis": "columns",
+      "source_path": "quarter_notes.summary.model_read",
       "target_type": "text",
-      "row_selector": {
-        "source_path": "quarter_notes.items",
-        "pick": "first",
-        "pick_exclusion_disposition": "expected_priority_selection",
-        "filters": [
-          {
-            "field": "display_role",
-            "equals": "current_note"
-          }
-        ]
-      },
-      "row_key": [
-        "quarter",
-        "theme",
-        "metric",
-        "evidence_key"
-      ],
-      "sort_order": [
-        "display_priority:asc",
-        "quarter:desc",
-        "metric:asc",
-        "evidence_key:asc"
-      ],
-      "capacity": 1,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "commentary"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "commentary",
-      "source_ref_field": "commentary",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "qn_quarter_summary_what_changed",
+      "sheet": "Quarter_Notes_UI",
+      "section": "What changed",
+      "target": "B4",
+      "shell_zone": "qn_quarter_summary_values",
+      "anchor_label": "What changed",
+      "row_family": "quarter_notes_summary_rows",
+      "normalized_field": "quarter_notes.summary.what_changed",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank with explicit review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B4",
+      "source_path": "quarter_notes.summary.what_changed",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "qn_quarter_summary_watch_next",
+      "sheet": "Quarter_Notes_UI",
+      "section": "Watch next",
+      "target": "B5",
+      "shell_zone": "qn_quarter_summary_values",
+      "anchor_label": "Watch next",
+      "row_family": "quarter_notes_summary_rows",
+      "normalized_field": "quarter_notes.summary.watch_next",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank with explicit review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B5",
+      "source_path": "quarter_notes.summary.watch_next",
+      "target_type": "text",
+      "planning_state": "active"
+    },
+    {
+      "binding_id": "qn_quarter_summary_key_caveat",
+      "sheet": "Quarter_Notes_UI",
+      "section": "Key caveat",
+      "target": "B6",
+      "shell_zone": "qn_quarter_summary_values",
+      "anchor_label": "Key caveat",
+      "row_family": "quarter_notes_summary_rows",
+      "normalized_field": "quarter_notes.summary.key_caveat",
+      "value_shape": "text_block",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank with explicit review disposition",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "visible_narrative_missing_evidence_refs",
+      "writable": true,
+      "planning_mode": "text_block",
+      "planner_target": "B6",
+      "source_path": "quarter_notes.summary.key_caveat",
+      "target_type": "text",
       "planning_state": "active"
     },
     {
@@ -2589,7 +2889,7 @@
       "binding_id": "pp_annual_guidance_rows",
       "sheet": "Promise_Progress_UI",
       "section": "Annual guidance progression block 1",
-      "target": "B13:O22",
+      "target": "A13:I20",
       "shell_zone": "pp_annual_guidance_values",
       "anchor_label": "Guidance progression - period block 1",
       "row_family": "promise_annual_guidance_rows_block_1",
@@ -2659,7 +2959,7 @@
       "validation_rule": "guidance_metric_misclassification",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "B13:O22",
+      "planner_target": "A13:I20",
       "target_type": "table_row",
       "row_selector": {
         "source_path": "normalized_guidance.items"
@@ -2734,7 +3034,7 @@
       "binding_id": "pp_annual_guidance_rows_block_2",
       "sheet": "Promise_Progress_UI",
       "section": "Annual guidance progression block 2",
-      "target": "B24:O28",
+      "target": "A24:I27",
       "shell_zone": "pp_annual_guidance_values_block_2",
       "anchor_label": "Guidance progression - period block 2",
       "row_family": "promise_annual_guidance_rows_block_2",
@@ -2747,7 +3047,7 @@
       "validation_rule": "guidance_metric_misclassification",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "B24:O28",
+      "planner_target": "A24:I27",
       "target_type": "table_row",
       "row_selector": {
         "source_path": "normalized_guidance.items"
@@ -2782,7 +3082,7 @@
       "binding_id": "pp_annual_guidance_rows_block_3",
       "sheet": "Promise_Progress_UI",
       "section": "Annual guidance progression block 3",
-      "target": "B30:O33",
+      "target": "A30:I32",
       "shell_zone": "pp_annual_guidance_values_block_3",
       "anchor_label": "Guidance progression - period block 3",
       "row_family": "promise_annual_guidance_rows_block_3",
@@ -2795,7 +3095,7 @@
       "validation_rule": "guidance_metric_misclassification",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "B30:O33",
+      "planner_target": "A30:I32",
       "target_type": "table_row",
       "row_selector": {
         "source_path": "normalized_guidance.items"
@@ -2830,7 +3130,7 @@
       "binding_id": "pp_annual_guidance_rows_block_4",
       "sheet": "Promise_Progress_UI",
       "section": "Annual guidance progression block 4",
-      "target": "B35:O35",
+      "target": "A35:I36",
       "shell_zone": "pp_annual_guidance_values_block_4",
       "anchor_label": "Guidance progression - period block 4",
       "row_family": "promise_annual_guidance_rows_block_4",
@@ -2843,7 +3143,7 @@
       "validation_rule": "guidance_metric_misclassification",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "B35:O35",
+      "planner_target": "A35:I36",
       "target_type": "table_row",
       "row_selector": {
         "source_path": "normalized_guidance.items"
@@ -2878,7 +3178,7 @@
       "binding_id": "pp_open_guidance_rows",
       "sheet": "Promise_Progress_UI",
       "section": "Open guidance",
-      "target": "B39:O59",
+      "target": "A39:E58",
       "shell_zone": "pp_open_guidance_values",
       "anchor_label": "Open guidance",
       "row_family": "promise_open_guidance_rows",
@@ -2948,7 +3248,7 @@
       "validation_rule": "guidance_metric_misclassification",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "B39:O59",
+      "planner_target": "A39:E58",
       "target_type": "table_row",
       "row_selector": {
         "source_path": "normalized_guidance.items"
@@ -3018,6 +3318,175 @@
       "source_ref_required": true,
       "planning_state": "inactive_legacy_contract",
       "planning_block_reason": "Promise open-guidance block needs declared independent cell slots and horizon selector."
+    },
+    {
+      "binding_id": "pp_progress_fy2025_rows",
+      "sheet": "Promise_Progress_UI",
+      "section": "FY2025 guidance progression",
+      "target": "A13:I20",
+      "shell_zone": "pp_annual_guidance_values",
+      "anchor_label": "Guidance progression - period block 1",
+      "row_family": "promise_annual_guidance_rows_block_1",
+      "normalized_field": "promise_progress.items",
+      "value_shape": "table_rows",
+      "row_source": "promise_progress.items",
+      "row_schema": [
+        {"column_id": "metric", "source_field": "display_metric", "target_column": "A"},
+        {"column_id": "initial_guide", "source_field": "original_commitment", "target_column": "B"},
+        {"column_id": "q1_update", "source_field": "q1_update", "target_column": "C"},
+        {"column_id": "q2_update", "source_field": "q2_update", "target_column": "D"},
+        {"column_id": "q3_update", "source_field": "q3_update", "target_column": "E"},
+        {"column_id": "q4_update", "source_field": "q4_update", "target_column": "F"},
+        {"column_id": "actual", "source_field": "actual", "target_column": "G"},
+        {"column_id": "status", "source_field": "progress_status", "target_column": "H"},
+        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "I"}
+      ],
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave unsupported progression cells blank and retain exact review detail",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "guidance_metric_misclassification",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A13:I20",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "promise_progress.items",
+        "filters": [
+          {"field": "display_block", "equals": "fy2025"},
+          {"field": "display_role", "equals": "historical_progression"}
+        ]
+      },
+      "row_key": ["metric", "horizon", "evidence_key"],
+      "sort_order": ["display_priority:asc", "metric:asc", "evidence_key:asc"],
+      "capacity": 8,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": ["display_metric", "original_commitment", "current_guidance", "notes_source"],
+      "row_key_only_columns": ["current_guidance"],
+      "target_columns": [
+        {"column_id": "metric", "source_field": "display_metric", "target_column": "A", "target_type": "text"},
+        {"column_id": "initial_guide", "source_field": "original_commitment", "target_column": "B", "target_type": "text"},
+        {"column_id": "q1_update", "source_field": "q1_update", "target_column": "C", "target_type": "text"},
+        {"column_id": "q2_update", "source_field": "q2_update", "target_column": "D", "target_type": "text"},
+        {"column_id": "q3_update", "source_field": "q3_update", "target_column": "E", "target_type": "text"},
+        {"column_id": "q4_update", "source_field": "q4_update", "target_column": "F", "target_type": "text"},
+        {"column_id": "actual", "source_field": "actual", "target_column": "G", "target_type": "value"},
+        {"column_id": "status", "source_field": "progress_status", "target_column": "H", "target_type": "status"},
+        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "I", "target_type": "text"}
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "current_guidance",
+      "planning_state": "active",
+      "rowset_id": "promise_progress_fy2025"
+    },
+    {
+      "binding_id": "pp_progress_fy2024_rows",
+      "sheet": "Promise_Progress_UI",
+      "section": "FY2024 guidance progression",
+      "target": "A24:I27",
+      "shell_zone": "pp_annual_guidance_values_block_2",
+      "anchor_label": "Guidance progression - period block 2",
+      "row_family": "promise_annual_guidance_rows_block_2",
+      "normalized_field": "promise_progress.items",
+      "value_shape": "table_rows",
+      "row_source": "promise_progress.items",
+      "row_schema": [
+        {"column_id": "metric", "source_field": "display_metric", "target_column": "A"},
+        {"column_id": "initial_guide", "source_field": "original_commitment", "target_column": "B"},
+        {"column_id": "q1_update", "source_field": "q1_update", "target_column": "C"},
+        {"column_id": "q2_update", "source_field": "q2_update", "target_column": "D"},
+        {"column_id": "q3_update", "source_field": "q3_update", "target_column": "E"},
+        {"column_id": "q4_update", "source_field": "q4_update", "target_column": "F"},
+        {"column_id": "actual", "source_field": "actual", "target_column": "G"},
+        {"column_id": "status", "source_field": "progress_status", "target_column": "H"},
+        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "I"}
+      ],
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave unsupported progression cells blank and retain exact review detail",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "guidance_metric_misclassification",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A24:I27",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "promise_progress.items",
+        "filters": [
+          {"field": "display_block", "equals": "fy2024"},
+          {"field": "display_role", "equals": "historical_progression"}
+        ]
+      },
+      "row_key": ["metric", "horizon", "evidence_key"],
+      "sort_order": ["display_priority:asc", "metric:asc", "evidence_key:asc"],
+      "capacity": 4,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": ["display_metric", "original_commitment", "current_guidance", "notes_source"],
+      "row_key_only_columns": ["current_guidance"],
+      "target_columns": [
+        {"column_id": "metric", "source_field": "display_metric", "target_column": "A", "target_type": "text"},
+        {"column_id": "initial_guide", "source_field": "original_commitment", "target_column": "B", "target_type": "text"},
+        {"column_id": "q1_update", "source_field": "q1_update", "target_column": "C", "target_type": "text"},
+        {"column_id": "q2_update", "source_field": "q2_update", "target_column": "D", "target_type": "text"},
+        {"column_id": "q3_update", "source_field": "q3_update", "target_column": "E", "target_type": "text"},
+        {"column_id": "q4_update", "source_field": "q4_update", "target_column": "F", "target_type": "text"},
+        {"column_id": "actual", "source_field": "actual", "target_column": "G", "target_type": "value"},
+        {"column_id": "status", "source_field": "progress_status", "target_column": "H", "target_type": "status"},
+        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "I", "target_type": "text"}
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "current_guidance",
+      "planning_state": "active",
+      "rowset_id": "promise_progress_fy2024"
+    },
+    {
+      "binding_id": "pp_current_secondary_guidance_rows",
+      "sheet": "Promise_Progress_UI",
+      "section": "Current secondary guidance",
+      "target": "A39:E58",
+      "shell_zone": "pp_open_guidance_values",
+      "anchor_label": "Current open guidance",
+      "row_family": "promise_open_guidance_rows",
+      "normalized_field": "normalized_guidance.items",
+      "value_shape": "table_rows",
+      "row_source": "normalized_guidance.items",
+      "row_schema": [
+        {"column_id": "metric", "source_field": "metric", "target_column": "A"},
+        {"column_id": "current_guide", "source_field": "value", "target_column": "B"},
+        {"column_id": "horizon", "source_field": "horizon", "target_column": "C"},
+        {"column_id": "status", "source_field": "progress_status", "target_column": "D"},
+        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "E"}
+      ],
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave unsupported cells blank and retain exact review detail",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "guidance_metric_misclassification",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A39:E58",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "normalized_guidance.items",
+        "filters": [{"field": "display_role", "equals": "current_secondary"}]
+      },
+      "row_key": ["metric", "horizon", "publication_date", "evidence_key"],
+      "sort_order": ["display_priority:asc", "metric:asc", "publication_date:desc", "evidence_key:asc"],
+      "capacity": 20,
+      "overflow_behavior": "mapping_gap",
+      "required_columns": ["metric", "value", "horizon", "publication_date", "notes_source"],
+      "row_key_only_columns": ["publication_date"],
+      "target_columns": [
+        {"column_id": "metric", "source_field": "metric", "target_column": "A", "target_type": "text"},
+        {"column_id": "current_guide", "source_field": "value", "target_column": "B", "target_type": "text"},
+        {"column_id": "horizon", "source_field": "horizon", "target_column": "C", "target_type": "horizon"},
+        {"column_id": "status", "source_field": "progress_status", "target_column": "D", "target_type": "status"},
+        {"column_id": "notes_source", "source_field": "notes_source", "target_column": "E", "target_type": "text"}
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "value",
+      "planning_state": "active",
+      "rowset_id": "current_secondary_guidance"
     },
     {
       "binding_id": "pp_guidance_timeline_rows",

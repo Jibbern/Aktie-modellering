@@ -13,6 +13,7 @@
     "debt_liquidity",
     "capital_returns",
     "normalized_guidance",
+    "promise_progress",
     "segments",
     "operating_drivers",
     "quarter_notes",
@@ -44,6 +45,8 @@
     "company_profile.revenue_mix_label",
     "company_profile.key_advantages",
     "company_profile.key_risks",
+    "company_profile.operating_model_rows",
+    "company_profile.key_dependencies",
     "company_profile.allowed_sector_terms",
     "quarterly_financials.rows.period",
     "quarterly_financials.rows.revenue",
@@ -72,6 +75,7 @@
     "quarterly_financials.rows.marketable_securities",
     "quarterly_financials.rows.revolver_availability",
     "calculation_history.quarterly_items.period",
+    "calculation_history.quarterly_items",
     "calculation_history.quarterly_items.period_ordinal",
     "calculation_history.quarterly_items.metric",
     "calculation_history.quarterly_items.value",
@@ -133,6 +137,7 @@
     "normalized_guidance.items.stated_in_period",
     "normalized_guidance.items.classification",
     "normalized_guidance.items.evidence_key",
+    "promise_progress.items",
     "segments.items.dimension",
     "segments.items.member",
     "segments.items.metric",
@@ -158,11 +163,19 @@
     "quarter_notes.items.note",
     "quarter_notes.items.commentary",
     "quarter_notes.items.model_implication",
+    "quarter_notes.items.why_it_matters",
+    "quarter_notes.items.source_display",
     "quarter_notes.items.valuation_implication",
     "quarter_notes.items.source",
     "quarter_notes.items.evidence_key",
     "investment_case.summary",
     "investment_case.key_debate",
+    "investment_case.why_it_can_work",
+    "investment_case.upside_factors",
+    "investment_case.downside_factors",
+    "investment_case.watch_next",
+    "investment_case.current_stance",
+    "investment_case.invalidators",
     "investment_case.bull_case",
     "investment_case.base_case",
     "investment_case.bear_case",
@@ -277,6 +290,14 @@
         },
         "key_risks": {
           "$ref": "#/$defs/normalizedField"
+        },
+        "operating_model_rows": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/narrativeDimensionRow"}
+        },
+        "key_dependencies": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/narrativeListRow"}
         },
         "allowed_sector_terms": {
           "type": "array",
@@ -462,6 +483,9 @@
         }
       }
     },
+    "promise_progress": {
+      "$ref": "#/$defs/promiseProgressSection"
+    },
     "segments": {
       "$ref": "#/$defs/segmentsSection"
     },
@@ -484,6 +508,25 @@
         },
         "key_debate": {
           "$ref": "#/$defs/normalizedField"
+        },
+        "why_it_can_work": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "upside_factors": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "downside_factors": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "watch_next": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "current_stance": {
+          "$ref": "#/$defs/normalizedField"
+        },
+        "invalidators": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/narrativeListRow"}
         },
         "bull_case": {
           "$ref": "#/$defs/normalizedField"
@@ -598,6 +641,25 @@
         },
         "definition": {
           "type": "string"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "evidence_classification": {
+          "type": "string",
+          "enum": [
+            "source_backed_fact",
+            "source_backed_calculation",
+            "evidence_backed_synthesis",
+            "analyst_interpretation_requiring_review",
+            "unavailable"
+          ]
+        },
+        "review_state": {
+          "type": "string",
+          "enum": ["accepted", "manual_review_required", "rejected"]
         }
       }
     },
@@ -649,6 +711,187 @@
         "display_order": {
           "type": "integer"
         }
+      }
+    },
+    "narrativeDimensionRow": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["member", "description", "display_order"],
+      "properties": {
+        "member": {"type": "string", "minLength": 1},
+        "description": {"$ref": "#/$defs/normalizedField"},
+        "display_order": {"type": "integer", "minimum": 1}
+      }
+    },
+    "narrativeListRow": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["business_key", "text", "display_order"],
+      "properties": {
+        "business_key": {"type": "string", "minLength": 1},
+        "text": {"$ref": "#/$defs/normalizedField"},
+        "display_order": {"type": "integer", "minimum": 1}
+      }
+    },
+    "promiseProgressSection": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["items", "scorecard_items", "scorecard_disposition"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/promiseProgressItem"}
+        },
+        "historical_evidence_items": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/promiseHistoricalEvidenceDisposition"}
+        },
+        "historical_evidence_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["business_key_count", "occurrence_count", "disposition_counts"],
+          "properties": {
+            "business_key_count": {"type": "integer", "minimum": 0},
+            "occurrence_count": {"type": "integer", "minimum": 0},
+            "disposition_counts": {
+              "type": "object",
+              "additionalProperties": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "scorecard_items": {
+          "type": "array",
+          "items": {"type": "object", "additionalProperties": true}
+        },
+        "scorecard_disposition": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "promiseProgressItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "metric",
+        "display_metric",
+        "original_commitment",
+        "prior_update",
+        "current_guidance",
+        "q1_update",
+        "q2_update",
+        "q3_update",
+        "q4_update",
+        "actual",
+        "progress_status",
+        "status_rule_id",
+        "why_it_matters",
+        "horizon",
+        "reporting_period",
+        "publication_date",
+        "notes_source",
+        "evidence_refs",
+        "evidence_key",
+        "display_block",
+        "display_role",
+        "display_priority",
+        "visibility_disposition",
+        "review_state"
+      ],
+      "properties": {
+        "metric": {"$ref": "#/$defs/normalizedField"},
+        "display_metric": {"$ref": "#/$defs/normalizedField"},
+        "original_commitment": {"$ref": "#/$defs/normalizedField"},
+        "prior_update": {"$ref": "#/$defs/normalizedField"},
+        "current_guidance": {"$ref": "#/$defs/normalizedField"},
+        "q1_update": {"$ref": "#/$defs/normalizedField"},
+        "q2_update": {"$ref": "#/$defs/normalizedField"},
+        "q3_update": {"$ref": "#/$defs/normalizedField"},
+        "q4_update": {"$ref": "#/$defs/normalizedField"},
+        "actual": {"$ref": "#/$defs/normalizedField"},
+        "progress_status": {"$ref": "#/$defs/normalizedField"},
+        "status_rule_id": {"type": "string"},
+        "status_comparison": {
+          "oneOf": [
+            {"$ref": "#/$defs/guidanceComparisonContract"},
+            {"type": "object", "maxProperties": 0}
+          ]
+        },
+        "why_it_matters": {"$ref": "#/$defs/normalizedField"},
+        "horizon": {"$ref": "#/$defs/normalizedField"},
+        "reporting_period": {"type": "string", "minLength": 1},
+        "publication_date": {"type": "string", "format": "date"},
+        "notes_source": {"$ref": "#/$defs/normalizedField"},
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "evidence_key": {"type": "string", "minLength": 8},
+        "display_block": {"type": "string", "minLength": 1},
+        "display_role": {"enum": ["historical_progression", "audit_only"]},
+        "display_priority": {"type": "integer", "minimum": 1},
+        "visibility_disposition": {"enum": ["visible", "audit_only", "rejected", "unavailable"]},
+        "review_state": {"enum": ["accepted", "manual_review_required", "rejected"]}
+      }
+    },
+    "promiseHistoricalEvidenceDisposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "business_key",
+        "promise_id",
+        "metric",
+        "horizon",
+        "legacy_evidence_date",
+        "target_value",
+        "source_ref",
+        "source_refs",
+        "source_document",
+        "source_excerpt",
+        "source_evidence",
+        "legacy_row_number",
+        "disposition",
+        "disposition_reason",
+        "related_promise_id",
+        "supports_claimed_business_meaning",
+        "visibility_disposition",
+        "review_state",
+        "evidence_key"
+      ],
+      "properties": {
+        "business_key": {"type": "string", "minLength": 1},
+        "promise_id": {"type": "string", "minLength": 1},
+        "metric": {"type": "string", "minLength": 1},
+        "horizon": {"type": "string", "pattern": "^FY20\\d{2}$"},
+        "legacy_evidence_date": {"type": "string", "format": "date"},
+        "target_value": {"type": "string", "minLength": 1},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "source_document": {"type": "string"},
+        "source_excerpt": {"type": "string"},
+        "source_evidence": {"type": "object"},
+        "legacy_row_number": {"type": "integer", "minimum": 2},
+        "disposition": {
+          "enum": [
+            "audit_only_historical_evidence",
+            "duplicate_or_superseded_evidence",
+            "rejected_with_evidence",
+            "unavailable_without_adequate_evidence"
+          ]
+        },
+        "disposition_reason": {"type": "string", "minLength": 1},
+        "related_promise_id": {"type": "string"},
+        "supports_claimed_business_meaning": {"type": "boolean"},
+        "visibility_disposition": {"enum": ["audit_only", "rejected", "unavailable"]},
+        "review_state": {"enum": ["accepted", "manual_review_required", "rejected"]},
+        "evidence_key": {"type": "string", "minLength": 8}
       }
     },
     "financialRow": {
@@ -780,6 +1023,15 @@
         "value": {
           "$ref": "#/$defs/normalizedField"
         },
+        "comparison_contract": {
+          "oneOf": [
+            {"$ref": "#/$defs/guidanceComparisonContract"},
+            {"type": "null"}
+          ]
+        },
+        "comparison_contract_disposition": {
+          "enum": ["typed_single_metric_range", "manual_review_required_no_compatible_typed_range"]
+        },
         "horizon": {
           "$ref": "#/$defs/normalizedField"
         },
@@ -833,7 +1085,7 @@
         },
         "display_role": {
           "type": "string",
-          "enum": ["current_primary", "current_secondary", "history", "audit_only"]
+          "enum": ["current_primary", "current_secondary", "history", "superseded", "audit_only"]
         },
         "display_priority": {
           "type": "integer",
@@ -851,7 +1103,34 @@
         "superseded_by_evidence_key": {
           "type": "string",
           "minLength": 8
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "visibility_disposition": {
+          "type": "string",
+          "enum": ["visible", "historical", "superseded", "audit_only", "rejected"]
+        },
+        "review_state": {
+          "type": "string",
+          "enum": ["accepted", "manual_review_required", "rejected"]
         }
+      }
+    },
+    "guidanceComparisonContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["comparison_type", "metric", "low", "high", "unit", "horizon", "source_ref"],
+      "properties": {
+        "comparison_type": {"const": "range"},
+        "metric": {"type": "string", "minLength": 1},
+        "low": {"type": "number"},
+        "high": {"type": "number"},
+        "unit": {"type": "string", "minLength": 1},
+        "horizon": {"type": "string", "minLength": 1},
+        "source_ref": {"type": "string", "minLength": 1}
       }
     },
     "segmentsSection": {
@@ -940,6 +1219,26 @@
         "items"
       ],
       "properties": {
+        "current_outlook": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "current_actual_read",
+            "current_actual_use",
+            "current_guidance_read",
+            "current_guidance_use",
+            "margin_bridge_read",
+            "margin_bridge_use"
+          ],
+          "properties": {
+            "current_actual_read": {"$ref": "#/$defs/normalizedField"},
+            "current_actual_use": {"$ref": "#/$defs/normalizedField"},
+            "current_guidance_read": {"$ref": "#/$defs/normalizedField"},
+            "current_guidance_use": {"$ref": "#/$defs/normalizedField"},
+            "margin_bridge_read": {"$ref": "#/$defs/normalizedField"},
+            "margin_bridge_use": {"$ref": "#/$defs/normalizedField"}
+          }
+        },
         "items": {
           "type": "array",
           "items": {
@@ -1021,6 +1320,17 @@
         "items"
       ],
       "properties": {
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model_read", "what_changed", "watch_next", "key_caveat"],
+          "properties": {
+            "model_read": {"$ref": "#/$defs/normalizedField"},
+            "what_changed": {"$ref": "#/$defs/normalizedField"},
+            "watch_next": {"$ref": "#/$defs/normalizedField"},
+            "key_caveat": {"$ref": "#/$defs/normalizedField"}
+          }
+        },
         "items": {
           "type": "array",
           "items": {
@@ -1056,7 +1366,13 @@
               "model_implication": {
                 "$ref": "#/$defs/normalizedField"
               },
+              "why_it_matters": {
+                "$ref": "#/$defs/normalizedField"
+              },
               "valuation_implication": {
+                "$ref": "#/$defs/normalizedField"
+              },
+              "source_display": {
                 "$ref": "#/$defs/normalizedField"
               },
               "source": {
@@ -1073,6 +1389,15 @@
               "display_priority": {
                 "type": "integer",
                 "minimum": 1
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {"type": "string", "minLength": 1},
+                "uniqueItems": true
+              },
+              "review_state": {
+                "type": "string",
+                "enum": ["accepted", "manual_review_required", "rejected"]
               }
             }
           }

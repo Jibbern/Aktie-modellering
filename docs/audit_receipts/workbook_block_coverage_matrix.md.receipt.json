@@ -15,11 +15,11 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "4f37b041712c16b2568403cdbcbf0614ebdf4834f3564a843d90cdda227de3ee"
+      "sha256": "d56fca7e920a52595551542cac18fb7f8ba21157bed4aabfe344d5d6e7d54ed1"
     },
     {
       "path": "docs/workbook_binding_map.json",
-      "sha256": "38aeb3ba4ea10b17a33dfa2a75d1784a90f524d9f087de387859e7bd5f1cc7ec"
+      "sha256": "5e18ba698aaeb81a7088ba73df2fa7e6fa4b1d22fa4183156bd01b486546e5f5"
     },
     {
       "path": "docs/sheet_data_flow_map.json",
@@ -56,28 +56,28 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "8f04a7f18476506794d4b6f13bcad96855b29fbb91def5f19f4984d01aeeadf8",
+    "run_generation_id": "e2a4e5c729f3c1a3cb82534fe06929edfdfe294bf4d805e31b7d41bd30e81b41",
     "generated_outputs": [
       {
-        "canonical_content_sha256": "dee017fb0b805ec305c846d3481538b7399abb970375352fd66db4b3a7af4e4c",
+        "canonical_content_sha256": "a729ae46d8816b9b89d5bb7101eabb504c4085785dc35f2a8275fc14a28ed54e",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_architecture.json",
-        "sha256": "64bb055f19ec524f513f53f97a7297ace8400e61e479e69ab675481f0849db47"
+        "sha256": "cce7bdd1005fd6a47e9985f5933fed5b7562b0fe4e966f348616bec32d4d052e"
       },
       {
-        "canonical_content_sha256": "b248f01c9ea61b6ebb03fc3500655a1ad4bf2337c75b38ff81c77fa2897864ec",
+        "canonical_content_sha256": "008e0bacce5a37ff6231ef34bbe72b7ffe4380c1c05ae1e594bbd83c526894e9",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/workbook_block_architecture.md",
-        "sha256": "17d0ab9385096165a2929ff9d1c886eb6f1761877982e97e6801c49d5befb648"
+        "sha256": "5df7086bad8664d99e45c9570f70375b55220f1124830fb85277e4e878ddf764"
       },
       {
-        "canonical_content_sha256": "824c94927b0c3c39a84b56206b516f6020553258465708383719652579fb60cf",
+        "canonical_content_sha256": "8ac5ed065feff3ee8f7dc533bc74e322e04777a6fa9145688bdd30058ae69ed0",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_coverage_matrix.json",
-        "sha256": "059dab883e2f212a0cb3972a6e8bf59896e54770b18e48c285d6286c9bdc9fed"
+        "sha256": "b78c27793744f02d92bcddc618c5504150626bd19f63c692d721c6649b0dca5b"
       },
       {
         "canonical_content_sha256": "1043e4455da8d8e59b088cd24a2dbdea54149c29cc7cdb06c85957cc041fe549",
@@ -88,6 +88,6 @@
       }
     ]
   },
-  "generated_at_utc": "2026-07-14T16:44:37+00:00",
-  "generation_id": "7b7b0d99a49f31d0ffd6eca9ebc4e103cec3c6559a4f1382b2e5a9c90ad12daa"
+  "generated_at_utc": "2026-07-14T20:44:00+00:00",
+  "generation_id": "16af4c51fe9b47d682c67071f9fb537efc8013d1c3687ca79a2c7a590dee3fb7"
 }

@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-14T16:44:35+00:00",
+  "generated_at": "2026-07-14T20:43:58+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -292,7 +292,7 @@
       "freeze_pane_similarity": "same",
       "row_height_similarity": "different",
       "populated_field_families": [
-        "segments"
+        "company_profile"
       ],
       "support_sheet_dependencies": [
         "Debt_Tranches_Q",
@@ -6455,38 +6455,38 @@
       "ANF": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B13:O22",
-        "nonempty_cells": 62,
+        "range": "A13:I20",
+        "nonempty_cells": 70,
         "formula_cells": 0,
-        "merge_count": 9,
+        "merge_count": 8,
         "freeze_panes": "A2",
         "max_row": 102,
         "max_column": 15,
-        "average_row_height": 23.2
+        "average_row_height": 24.0
       },
       "PBI": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B13:O22",
-        "nonempty_cells": 54,
+        "range": "A13:I20",
+        "nonempty_cells": 58,
         "formula_cells": 0,
-        "merge_count": 10,
+        "merge_count": 8,
         "freeze_panes": "A2",
         "max_row": 79,
         "max_column": 15,
-        "average_row_height": 23.2
+        "average_row_height": 23.5
       },
       "GPRE": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B13:O22",
-        "nonempty_cells": 35,
+        "range": "A13:I20",
+        "nonempty_cells": 31,
         "formula_cells": 0,
-        "merge_count": 9,
+        "merge_count": 7,
         "freeze_panes": "A2",
         "max_row": 51,
         "max_column": 15,
-        "average_row_height": 23.0
+        "average_row_height": 22.75
       },
       "range_similarity": "same",
       "style_similarity": "similar",
@@ -6494,7 +6494,8 @@
       "freeze_pane_similarity": "same",
       "row_height_similarity": "similar",
       "populated_field_families": [
-        "normalized_guidance"
+        "normalized_guidance",
+        "promise_progress"
       ],
       "support_sheet_dependencies": [
         "Guidance_Normalized",
@@ -6513,22 +6514,22 @@
       "ANF": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B24:O28",
-        "nonempty_cells": 17,
+        "range": "A24:I27",
+        "nonempty_cells": 20,
         "formula_cells": 0,
-        "merge_count": 4,
+        "merge_count": 3,
         "freeze_panes": "A2",
         "max_row": 102,
         "max_column": 15,
-        "average_row_height": 22.4
+        "average_row_height": 22.5
       },
       "PBI": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B24:O28",
-        "nonempty_cells": 24,
+        "range": "A24:I27",
+        "nonempty_cells": 20,
         "formula_cells": 0,
-        "merge_count": 5,
+        "merge_count": 4,
         "freeze_panes": "A2",
         "max_row": 79,
         "max_column": 15,
@@ -6537,14 +6538,14 @@
       "GPRE": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B24:O28",
-        "nonempty_cells": 21,
+        "range": "A24:I27",
+        "nonempty_cells": 11,
         "formula_cells": 0,
-        "merge_count": 3,
+        "merge_count": 2,
         "freeze_panes": "A2",
         "max_row": 51,
         "max_column": 15,
-        "average_row_height": 21.6
+        "average_row_height": 21.0
       },
       "range_similarity": "same",
       "style_similarity": "similar",
@@ -6552,7 +6553,8 @@
       "freeze_pane_similarity": "same",
       "row_height_similarity": "similar",
       "populated_field_families": [
-        "normalized_guidance"
+        "normalized_guidance",
+        "promise_progress"
       ],
       "support_sheet_dependencies": [
         "Guidance_Normalized",
@@ -6571,10 +6573,10 @@
       "ANF": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B30:O33",
-        "nonempty_cells": 8,
+        "range": "A30:I32",
+        "nonempty_cells": 10,
         "formula_cells": 0,
-        "merge_count": 3,
+        "merge_count": 2,
         "freeze_panes": "A2",
         "max_row": 102,
         "max_column": 15,
@@ -6583,26 +6585,26 @@
       "PBI": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B30:O33",
-        "nonempty_cells": 21,
+        "range": "A30:I32",
+        "nonempty_cells": 11,
         "formula_cells": 0,
-        "merge_count": 3,
+        "merge_count": 2,
         "freeze_panes": "A2",
         "max_row": 79,
         "max_column": 15,
-        "average_row_height": 22.5
+        "average_row_height": 22.0
       },
       "GPRE": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B30:O33",
-        "nonempty_cells": 19,
+        "range": "A30:I32",
+        "nonempty_cells": 8,
         "formula_cells": 0,
-        "merge_count": 2,
+        "merge_count": 1,
         "freeze_panes": "A2",
         "max_row": 51,
         "max_column": 15,
-        "average_row_height": 21.5
+        "average_row_height": 21.33
       },
       "range_similarity": "same",
       "style_similarity": "similar",
@@ -6629,20 +6631,20 @@
       "ANF": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B35:O35",
-        "nonempty_cells": 7,
+        "range": "A35:I36",
+        "nonempty_cells": 8,
         "formula_cells": 0,
         "merge_count": 1,
         "freeze_panes": "A2",
         "max_row": 102,
         "max_column": 15,
-        "average_row_height": 24.0
+        "average_row_height": 21.0
       },
       "PBI": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B35:O35",
-        "nonempty_cells": 11,
+        "range": "A35:I36",
+        "nonempty_cells": 18,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
@@ -6653,20 +6655,20 @@
       "GPRE": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B35:O35",
-        "nonempty_cells": 10,
+        "range": "A35:I36",
+        "nonempty_cells": 8,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
         "max_row": 51,
         "max_column": 15,
-        "average_row_height": 24.0
+        "average_row_height": 21.0
       },
       "range_similarity": "same",
       "style_similarity": "similar",
       "merge_similarity": "similar",
       "freeze_pane_similarity": "same",
-      "row_height_similarity": "same",
+      "row_height_similarity": "similar",
       "populated_field_families": [
         "normalized_guidance"
       ],
@@ -6687,34 +6689,34 @@
       "ANF": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B39:O59",
-        "nonempty_cells": 68,
+        "range": "A39:E58",
+        "nonempty_cells": 86,
         "formula_cells": 0,
-        "merge_count": 19,
+        "merge_count": 18,
         "freeze_panes": "A2",
         "max_row": 102,
         "max_column": 15,
-        "average_row_height": 23.24
+        "average_row_height": 23.3
       },
       "PBI": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B39:O59",
-        "nonempty_cells": 162,
+        "range": "A39:E58",
+        "nonempty_cells": 78,
         "formula_cells": 0,
-        "merge_count": 6,
+        "merge_count": 3,
         "freeze_panes": "A2",
         "max_row": 79,
         "max_column": 15,
-        "average_row_height": 22.57
+        "average_row_height": 22.8
       },
       "GPRE": {
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
-        "range": "B39:O59",
-        "nonempty_cells": 100,
+        "range": "A39:E58",
+        "nonempty_cells": 48,
         "formula_cells": 0,
-        "merge_count": 6,
+        "merge_count": 3,
         "freeze_panes": "A2",
         "max_row": 51,
         "max_column": 15,

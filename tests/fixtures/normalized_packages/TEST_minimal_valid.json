@@ -121,6 +121,8 @@
       "source_ref": "synthetic_fixture:profile",
       "core": false
     },
+    "operating_model_rows": [],
+    "key_dependencies": [],
     "allowed_sector_terms": []
   },
   "quarterly_financials": {
@@ -579,6 +581,11 @@
       }
     ]
   },
+  "promise_progress": {
+    "items": [],
+    "scorecard_items": [],
+    "scorecard_disposition": "No source-backed scorecard is available in this synthetic fixture."
+  },
   "segments": {
     "items": [
       {
@@ -682,6 +689,32 @@
     ]
   },
   "quarter_notes": {
+    "summary": {
+      "model_read": {
+        "value": "Recurring software demand supports the current operating read.",
+        "status": "populated",
+        "source_ref": "synthetic_fixture:quarter_notes",
+        "core": false
+      },
+      "what_changed": {
+        "value": "Implementation conversion remained on schedule during the quarter.",
+        "status": "populated",
+        "source_ref": "synthetic_fixture:quarter_notes",
+        "core": false
+      },
+      "watch_next": {
+        "value": "Watch renewal rates and implementation velocity.",
+        "status": "populated",
+        "source_ref": "synthetic_fixture:quarter_notes",
+        "core": false
+      },
+      "key_caveat": {
+        "value": "Customer budget deferrals could delay conversion.",
+        "status": "populated",
+        "source_ref": "synthetic_fixture:quarter_notes",
+        "core": false
+      }
+    },
     "items": [
       {
         "evidence_key": "test-quarter-note-2026q1",
@@ -719,6 +752,18 @@
         },
         "commentary": {
           "value": "Recurring software demand supported revenue growth during the quarter.",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarter_notes",
+          "core": false
+        },
+        "why_it_matters": {
+          "value": "Recurring demand supports confidence in the forward revenue base.",
+          "status": "populated",
+          "source_ref": "synthetic_fixture:quarter_notes",
+          "core": false
+        },
+        "source_display": {
+          "value": "Synthetic quarterly evidence",
           "status": "populated",
           "source_ref": "synthetic_fixture:quarter_notes",
           "core": false
@@ -763,7 +808,8 @@
       "status": "populated",
       "source_ref": "synthetic_fixture:investment_case",
       "core": false
-    }
+    },
+    "invalidators": []
   },
   "valuation_inputs": {
     "price": {

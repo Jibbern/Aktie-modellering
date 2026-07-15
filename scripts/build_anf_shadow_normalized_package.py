@@ -31,6 +31,10 @@ from pbi_xbrl.normalized_company_data_validation import (  # noqa: E402
     validate_normalized_company_data,
 )
 from pbi_xbrl.json_schema_validation import load_json_strict  # noqa: E402
+from pbi_xbrl.new_ticker_guidance_scope import (  # noqa: E402
+    guidance_scope_key,
+    normalize_guidance_scope,
+)
 from pbi_xbrl.new_ticker_binding_planner import (  # noqa: E402
     DEFAULT_MANIFEST,
     DEFAULT_SHELL,
@@ -50,6 +54,7 @@ REQUIRED_SECTIONS = [
     "debt_liquidity",
     "capital_returns",
     "normalized_guidance",
+    "promise_progress",
     "segments",
     "operating_drivers",
     "quarter_notes",
@@ -80,6 +85,43 @@ _NORMALIZED_UNITS = {
     "$/share", "m shares", "shares", "count", "days", "quarters", "pts",
     "ratio", "stores", "visits", "m visits", "units",
 }
+
+_LEGACY_PROMISE_AUDIT_ONLY_KEYS = {
+    ("capital_expenditures", 2020),
+    ("capital_expenditures", 2022),
+    ("capital_expenditures", 2023),
+}
+
+_LEGACY_PROMISE_REJECTION_REASONS = {
+    ("revenue", 2019): (
+        "The cited 1% is the fiscal-2018 calendar/foreign-currency impact on reported sales, "
+        "not fiscal-2019 revenue guidance."
+    ),
+    ("tariffs", 2019): (
+        "The cited basis points describe gross-margin movement or a combined foreign-currency and tariff effect, "
+        "not a definition-compatible standalone tariff promise."
+    ),
+    ("revenue", 2020): (
+        "The cited 80% is reopened-store sales productivity versus the prior year, not fiscal-2020 revenue guidance."
+    ),
+    ("tariffs", 2020): (
+        "The cited source is a fiscal-2019 outlook and describes a combined foreign-currency and tariff effect; "
+        "it does not support a fiscal-2020 tariff promise."
+    ),
+    ("revenue", 2022): (
+        "The cited percentages describe inventory attributes or operating-margin outlook, not fiscal-2022 revenue guidance."
+    ),
+}
+
+_ANF_FY2025_PRE_RELEASE_FULL_YEAR_ROWS = {
+    185: ("Revenue", "at least 6%"),
+    186: ("Operating margin", "around 13%"),
+    190: ("Diluted shares", "around 48 million"),
+    191: ("Capex", "~ $245 million"),
+    192: ("Real estate activity", "~40 net store openings"),
+}
+_ANF_FY2025_PRE_RELEASE_DOCUMENT = "ANF_2026-01-12_press_release_business_update.pdf"
+_ANF_FY2025_PRE_RELEASE_CONTEXT = "Full Year Fiscal 2025 Outlook"
 
 _LEGACY_REPORT_PLACEHOLDER_ROWS = {
     "total_debt": ("REPORT_BS_Q", "Total debt"),
@@ -202,6 +244,9 @@ def _field(
     period: str = "",
     confidence: str = "legacy_artifact_backed",
     definition: str = "",
+    evidence_refs: Sequence[str] = (),
+    evidence_classification: str = "",
+    review_state: str = "",
 ) -> dict[str, Any]:
     out: dict[str, Any] = {
         "value": value,
@@ -223,6 +268,13 @@ def _field(
         out["confidence"] = confidence
     if definition:
         out["definition"] = definition
+    normalized_refs = list(dict.fromkeys(str(ref).strip() for ref in evidence_refs if str(ref).strip()))
+    if normalized_refs:
+        out["evidence_refs"] = normalized_refs
+    if evidence_classification:
+        out["evidence_classification"] = evidence_classification
+    if review_state:
+        out["review_state"] = review_state
     return out
 
 
@@ -880,71 +932,219 @@ def _read_cell(workbook_path: Path, sheet_name: str, cell_ref: str) -> Any:
         wb.close()
 
 
-def _build_legacy_visible_operating_drivers(workbook_path: Path, period: str) -> list[dict[str, Any]]:
-    wb = load_workbook(workbook_path, read_only=True, data_only=True)
-    try:
-        ws = wb["Operating_Drivers"]
-        items: list[dict[str, Any]] = []
-        for priority, row_number in enumerate(range(6, 10), start=1):
-            topic = _clean_text(ws.cell(row_number, 1).value, limit=120)
-            current_read = _clean_text(ws.cell(row_number, 2).value, limit=260)
-            why = _clean_text(ws.cell(row_number, 8).value, limit=260)
-            source_ref = f"{workbook_path.name}!Operating_Drivers!row:{row_number}"
-            if not topic or not current_read or not why:
-                continue
-            items.append(
-                {
-                    "topic": _field(topic, source_ref=source_ref, core=True),
-                    "driver": _field(topic, source_ref=source_ref, core=True),
-                    "current_read": _field(current_read, source_ref=source_ref, core=True),
-                    "metric_value": _missing("The curated legacy watchlist row is qualitative.", source_ref=source_ref),
-                    "source": source_ref,
-                    "why_it_matters": _field(why, source_ref=source_ref, core=True),
-                    "quality": "legacy_curated_visible_ui",
-                    "period": period,
-                    "driver_type": _driver_type(topic, current_read),
-                    "evidence_key": _evidence_key(source_ref, topic, current_read, why),
-                    "display_role": "current_watchlist",
-                    "display_priority": priority,
-                }
-            )
-        return items
-    finally:
-        wb.close()
+def _anf_transcript_ref(start_line: int, end_line: int | None = None) -> str:
+    suffix = f"L{start_line}" if end_line is None or end_line == start_line else f"L{start_line}-L{end_line}"
+    return f"tickers/ANF/earnings_transcripts/ANF_Q4_2025_transcript.txt#{suffix}"
 
 
-def _build_legacy_visible_quarter_notes(workbook_path: Path, period: str) -> list[dict[str, Any]]:
-    wb = load_workbook(workbook_path, read_only=True, data_only=True)
-    try:
-        ws = wb["Quarter_Notes_UI"]
-        items: list[dict[str, Any]] = []
-        for priority, row_number in enumerate(range(10, 16), start=1):
-            theme = _clean_text(ws.cell(row_number, 1).value, limit=120)
-            commentary = _clean_text(ws.cell(row_number, 3).value, limit=300)
-            implication = _clean_text(ws.cell(row_number, 8).value, limit=300)
-            visible_source = _clean_text(ws.cell(row_number, 13).value, limit=220)
-            source_ref = f"{workbook_path.name}!Quarter_Notes_UI!row:{row_number}"
-            if not theme or not commentary or not implication:
-                continue
-            items.append(
-                {
-                    "theme": _field(theme, source_ref=source_ref),
-                    "quarter": _field(period, source_ref=source_ref),
-                    "metric": _field(theme, source_ref=source_ref),
-                    "note": _field(commentary, source_ref=source_ref, core=True),
-                    "commentary": _field(commentary, source_ref=source_ref, core=True),
-                    "model_implication": _field(implication, source_ref=source_ref, core=True),
-                    "valuation_implication": _field(implication, source_ref=source_ref),
-                    "source": visible_source or source_ref,
-                    "confidence": "legacy_curated_visible_ui",
-                    "evidence_key": _evidence_key(source_ref, period, theme, commentary),
-                    "display_role": "current_note",
-                    "display_priority": priority,
-                }
-            )
-        return items
-    finally:
-        wb.close()
+def _anf_annual_report_ref(page: int) -> str:
+    return f"tickers/ANF/annual_reports/ANF_2025_annual_report.pdf#page={page}"
+
+
+def _narrative_field(
+    value: str,
+    evidence_refs: Sequence[str],
+    *,
+    classification: str,
+    core: bool = False,
+    review_state: str = "accepted",
+) -> dict[str, Any]:
+    refs = list(dict.fromkeys(ref for ref in evidence_refs if ref))
+    return _field(
+        value,
+        source_ref=refs[0] if refs else "",
+        core=core,
+        evidence_refs=refs,
+        evidence_classification=classification,
+        review_state=review_state,
+    )
+
+
+def _build_anf_source_backed_operating_drivers(period: str) -> dict[str, Any]:
+    specs = (
+        (
+            "Sales execution",
+            "Management guides to 3%-5% sales growth in 2026 and says product execution, marketing and store experience determine the range of outcomes.",
+            "The growth case depends on both brands converting traffic into demand while lapping stronger prior-year comparisons.",
+            (_anf_transcript_ref(52, 52), _anf_transcript_ref(313, 319)),
+            "demand",
+        ),
+        (
+            "Margin durability",
+            "The 2026 operating-margin guide is 12.0%-12.5%; tariffs, ERP and marketing are partly offset by freight and modest AUR improvement.",
+            "Margin delivery is the central test of whether recent profitability is durable rather than peak-cycle.",
+            (_anf_transcript_ref(54, 60), _anf_transcript_ref(290, 292)),
+            "margin",
+        ),
+        (
+            "Inventory quality",
+            "Year-end inventory units were up 5%, including about 3 points of ERP prebuild; management said underlying units were up about 2% and both brands were in chase position.",
+            "A clean chase position lowers markdown risk, while ERP timing and tariff costs still need monitoring.",
+            (_anf_transcript_ref(42, 42), _anf_transcript_ref(303, 305)),
+            "operational",
+        ),
+        (
+            "Capital returns",
+            "Fiscal 2025 free cash flow was $378 million versus $450 million of repurchases, and management targets about $450 million of repurchases in 2026.",
+            "Repurchases support per-share results, but spending above free cash flow makes liquidity discipline an explicit watch item.",
+            (_anf_transcript_ref(48, 48), _anf_transcript_ref(56, 58)),
+            "capital_allocation",
+        ),
+    )
+    items: list[dict[str, Any]] = []
+    for priority, (topic, current_read, why, refs, driver_type) in enumerate(specs, start=1):
+        items.append(
+            {
+                "topic": _narrative_field(topic, refs, classification="source_backed_fact", core=True),
+                "driver": _narrative_field(topic, refs, classification="source_backed_fact", core=True),
+                "current_read": _narrative_field(current_read, refs, classification="evidence_backed_synthesis", core=True),
+                "metric_value": _missing("The visible watchlist is a qualitative evidence synthesis.", source_ref=refs[0]),
+                "source": refs[0],
+                "why_it_matters": _narrative_field(why, refs, classification="evidence_backed_synthesis", core=True),
+                "quality": "source_backed_curated_narrative",
+                "period": period,
+                "horizon": "2026-FY",
+                "driver_type": driver_type,
+                "evidence_key": _evidence_key("anf_driver", topic, *refs),
+                "evidence_refs": list(refs),
+                "review_state": "accepted",
+                "display_role": "current_watchlist",
+                "display_priority": priority,
+            }
+        )
+
+    current_outlook = {
+        "current_actual_read": _narrative_field(
+            "Q4 sales grew 5%, operating margin was 14.1% and diluted EPS was $3.68.",
+            (_anf_transcript_ref(14, 16),),
+            classification="source_backed_fact",
+        ),
+        "current_actual_use": _narrative_field(
+            "Use Q4 2025 as the latest reported baseline for sales, margin and earnings momentum.",
+            (_anf_transcript_ref(14, 16),),
+            classification="evidence_backed_synthesis",
+        ),
+        "current_guidance_read": _narrative_field(
+            "For 2026, management guides to 3%-5% sales growth, 12.0%-12.5% operating margin and adjusted EPS of $10.20-$11.00.",
+            (_anf_transcript_ref(52, 56),),
+            classification="source_backed_fact",
+        ),
+        "current_guidance_use": _narrative_field(
+            "Track brand growth and margin delivery against the full-year ranges without mixing them with Q1 guidance.",
+            (_anf_transcript_ref(52, 62),),
+            classification="evidence_backed_synthesis",
+        ),
+        "margin_bridge_read": _narrative_field(
+            "Q1 includes about 290 bps of tariff pressure, more than 100 bps of ERP impact and 50 bps of marketing, partly offset by roughly 160 bps of freight benefit and modest AUR improvement.",
+            (_anf_transcript_ref(58, 62), _anf_transcript_ref(290, 292)),
+            classification="source_backed_fact",
+        ),
+        "margin_bridge_use": _narrative_field(
+            "The quarter tests whether freight, pricing and sourcing mitigation can offset temporary and structural cost pressure.",
+            (_anf_transcript_ref(54, 60), _anf_transcript_ref(290, 292)),
+            classification="evidence_backed_synthesis",
+        ),
+    }
+    return {"items": items, "current_outlook": current_outlook}
+
+
+def _build_anf_source_backed_quarter_notes(period: str) -> dict[str, Any]:
+    specs = (
+        (
+            "Q4 results",
+            "Q4 sales grew 5%; operating margin was 14.1% despite 360 bps of tariff pressure, and diluted EPS reached $3.68.",
+            "The quarter finished at the high end of the January update and showed balanced growth across brands and regions.",
+            "Treat the quarter as a strong actual baseline, while separating reported profitability from the lower 2026 margin guide.",
+            (_anf_transcript_ref(14, 16), _anf_transcript_ref(36, 42)),
+        ),
+        (
+            "Brand mix",
+            "Hollister grew 6% in Q4 and 15% for the year; Abercrombie returned to 4% Q4 growth after declining 1% for the full year.",
+            "Hollister remains the growth engine, while Abercrombie's return to growth broadens the earnings setup.",
+            "Watch whether Abercrombie sustains growth as Hollister laps two years of strong expansion.",
+            (_anf_transcript_ref(22, 24), _anf_transcript_ref(38, 44)),
+        ),
+        (
+            "Inventory",
+            "Inventory cost and units ended 5% higher, with about 3 points tied to tariffs and the ERP prebuild; underlying units were about 2% higher.",
+            "Management described both brands as being in chase position, which is more constructive than broad excess inventory.",
+            "Monitor markdowns and AUR after the ERP-related inventory timing normalizes.",
+            (_anf_transcript_ref(42, 42), _anf_transcript_ref(303, 305)),
+        ),
+        (
+            "2026 margin bridge",
+            "The 2026 operating-margin guide is 12.0%-12.5%; Q1 includes tariff, ERP and marketing headwinds partly offset by freight and modest AUR improvement.",
+            "The bridge explains why guided margins step down even though management still expects double-digit profitability.",
+            "Margin delivery is the clearest near-term proof point for valuation and earnings durability.",
+            (_anf_transcript_ref(54, 62), _anf_transcript_ref(290, 292)),
+        ),
+        (
+            "Capital allocation",
+            "Fiscal 2025 free cash flow was $378 million, repurchases were $450 million and year-end liquidity was about $1.2 billion; the 2026 repurchase target is about $450 million.",
+            "Buybacks support per-share results but exceeded annual free cash flow, increasing the importance of cash-generation discipline.",
+            "Track free cash flow and liquidity rather than assuming unsupported debt or net-debt values.",
+            (_anf_transcript_ref(48, 48), _anf_transcript_ref(56, 58)),
+        ),
+        (
+            "Growth channels",
+            "Digital represented 44% of 2025 sales, the company exceeded one billion digital visits and delivered 120 new store experiences.",
+            "Stores, digital and third-party channels give the company several growth paths beyond comparable sales alone.",
+            "Watch APAC capital efficiency and whether channel expansion supports the 3%-5% 2026 sales range.",
+            (_anf_transcript_ref(26, 28), _anf_transcript_ref(50, 52)),
+        ),
+    )
+    items: list[dict[str, Any]] = []
+    for priority, (theme, commentary, why, implication, refs) in enumerate(specs, start=1):
+        source_display = _narrative_field(
+            "Q4 2025 earnings call",
+            refs,
+            classification="source_backed_fact",
+        )
+        items.append(
+            {
+                "theme": _narrative_field(theme, refs, classification="source_backed_fact"),
+                "quarter": _field(period, source_ref=refs[0], evidence_refs=refs),
+                "metric": _narrative_field(theme, refs, classification="source_backed_fact"),
+                "note": _narrative_field(commentary, refs, classification="source_backed_fact", core=True),
+                "commentary": _narrative_field(commentary, refs, classification="source_backed_fact", core=True),
+                "why_it_matters": _narrative_field(why, refs, classification="evidence_backed_synthesis", core=True),
+                "model_implication": _narrative_field(implication, refs, classification="evidence_backed_synthesis", core=True),
+                "valuation_implication": _narrative_field(implication, refs, classification="evidence_backed_synthesis"),
+                "source": refs[0],
+                "source_display": source_display,
+                "confidence": "source_backed_with_reviewed_synthesis",
+                "review_state": "accepted",
+                "evidence_refs": list(refs),
+                "evidence_key": _evidence_key("anf_quarter_note", period, theme, *refs),
+                "display_role": "current_note",
+                "display_priority": priority,
+            }
+        )
+
+    summary = {
+        "model_read": _narrative_field(
+            "ANF exits 2025 with balanced growth and strong cash generation, while 2026 depends on sustaining double-digit margins through tariff and ERP pressure.",
+            (_anf_transcript_ref(14, 20), _anf_transcript_ref(52, 62)),
+            classification="evidence_backed_synthesis",
+        ),
+        "what_changed": _narrative_field(
+            "Abercrombie returned to Q4 growth, Hollister remained strong and management introduced 2026 guidance for 3%-5% sales growth and 12.0%-12.5% operating margin.",
+            (_anf_transcript_ref(22, 24), _anf_transcript_ref(52, 56)),
+            classification="evidence_backed_synthesis",
+        ),
+        "watch_next": _narrative_field(
+            "Watch the Q1 tariff, ERP, freight and marketing bridge together with brand-level sales execution.",
+            (_anf_transcript_ref(58, 62), _anf_transcript_ref(290, 292)),
+            classification="analyst_interpretation_requiring_review",
+            review_state="manual_review_required",
+        ),
+        "key_caveat": _narrative_field(
+            "The 2026 margin guide is below 2025 adjusted performance and assumes successful mitigation of meaningful cost pressure.",
+            (_anf_transcript_ref(46, 46), _anf_transcript_ref(54, 60)),
+            classification="evidence_backed_synthesis",
+        ),
+    }
+    return {"items": items, "summary": summary}
 
 
 def _source_ref(sheet: str, row: Mapping[str, Any] | None = None, *, workbook_path: Path) -> str:
@@ -2148,11 +2348,84 @@ def _ttm_component_field(
     return field
 
 
+def _typed_guidance_comparison_contract(
+    row: Mapping[str, Any],
+    *,
+    metric: str,
+    horizon: str,
+    unit: str,
+    source_ref: str,
+) -> dict[str, Any] | None:
+    """Return only an explicit single-metric range contract from structured fields."""
+
+    low = row.get("low")
+    high = row.get("high")
+    if (
+        not isinstance(low, (int, float))
+        or isinstance(low, bool)
+        or not isinstance(high, (int, float))
+        or isinstance(high, bool)
+        or float(low) > float(high)
+        or not metric
+        or not horizon
+        or unit not in _NORMALIZED_UNITS
+    ):
+        return None
+    scope = normalize_guidance_scope(
+        {
+            "metric": {"value": metric},
+            "horizon": {"value": horizon},
+            "value": {"unit": unit},
+        }
+    )
+    if not scope.metric or not scope.horizon:
+        return None
+    return {
+        "comparison_type": "range",
+        "metric": scope.metric,
+        "low": float(low),
+        "high": float(high),
+        "unit": unit,
+        "horizon": scope.horizon,
+        "source_ref": source_ref,
+    }
+
+
+def _anf_legacy_guidance_horizon(
+    *,
+    row_number: int,
+    document: str,
+    page: Any,
+    metric: str,
+    numbers: str,
+    legacy_horizon: str,
+) -> tuple[str, str]:
+    """Correct five mislabelled FY2025 rows in the read-only ANF fixture."""
+
+    expected = _ANF_FY2025_PRE_RELEASE_FULL_YEAR_ROWS.get(row_number)
+    if expected is None:
+        return legacy_horizon, ""
+
+    try:
+        source_page = int(page)
+    except (TypeError, ValueError):
+        source_page = 0
+    observed = (Path(document).name, source_page, metric, numbers)
+    required = (_ANF_FY2025_PRE_RELEASE_DOCUMENT, 1, *expected)
+    if observed != required:
+        raise ValueError(
+            f"ANF Guidance_Normalized row {row_number} no longer matches the reviewed "
+            f"FY2025 pre-release fixture contract: expected {required!r}, got {observed!r}."
+        )
+    return "FY2025", _ANF_FY2025_PRE_RELEASE_CONTEXT
+
+
 def _build_guidance_items(
     guidance_rows: Sequence[Mapping[str, Any]],
     promise_rows: Sequence[Mapping[str, Any]],
     workbook_path: Path,
     demotions: list[dict[str, Any]],
+    routing_reviews: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     clean_rows = [row for row in guidance_rows if _is_present(row.get("metric_hint")) and _is_present(row.get("numbers"))]
     clean_rows.sort(key=lambda row: (_to_iso(row.get("quarter")), str(row.get("metric_hint")), str(row.get("period_label"))))
@@ -2164,9 +2437,19 @@ def _build_guidance_items(
     items: list[dict[str, Any]] = []
     for row in clean_rows:
         metric = str(row.get("metric") or row.get("metric_hint") or "").strip()
-        horizon = str(row.get("horizon_label") or row.get("period_label") or "").strip()
+        legacy_horizon = str(row.get("horizon_label") or row.get("period_label") or "").strip()
+        horizon, source_table_context = _anf_legacy_guidance_horizon(
+            row_number=int(row.get("_row_number") or 0),
+            document=str(row.get("doc") or ""),
+            page=row.get("page"),
+            metric=metric,
+            numbers=str(row.get("numbers") or "").strip(),
+            legacy_horizon=legacy_horizon,
+        )
         progress = progress_by_key.get((f"{metric} guidance", horizon)) or progress_by_key.get((metric, horizon)) or {}
-        source_ref = str(row.get("doc") or _source_ref("Guidance_Normalized", row, workbook_path=workbook_path))
+        source_document = str(row.get("doc") or "").strip()
+        legacy_row_ref = _source_ref("Guidance_Normalized", row, workbook_path=workbook_path)
+        source_ref = f"{source_document}#{legacy_row_ref}" if source_document else legacy_row_ref
         publication_date = _publication_date_from_source(source_ref, row.get("source_date") or row.get("quarter"))
         value_text = str(row.get("numbers") or row.get("value") or "").strip()
         legacy_stated_in = str(row.get("stated_in_label") or "").strip()
@@ -2193,11 +2476,24 @@ def _build_guidance_items(
             source_ref=_source_ref("Promise_Progress", progress, workbook_path=workbook_path) if progress else source_ref,
             demotions=demotions,
         )
-        items.append(
-            {
+        unit = str(row.get("unit") or "")
+        comparison_contract = _typed_guidance_comparison_contract(
+            row,
+            metric=metric,
+            horizon=horizon,
+            unit=unit,
+            source_ref=source_ref,
+        )
+        item = {
                 "metric": _field(metric, source_ref=source_ref, core=True),
-                "value": _field(value_text, source_ref=source_ref, core=True, unit=str(row.get("unit") or "")),
+                "value": _field(value_text, source_ref=source_ref, core=True, unit=unit),
                 "horizon": _field(horizon, source_ref=source_ref, core=True),
+                "comparison_contract": comparison_contract,
+                "comparison_contract_disposition": (
+                    "typed_single_metric_range"
+                    if comparison_contract is not None
+                    else "manual_review_required_no_compatible_typed_range"
+                ),
                 "source_excerpt": source_line,
                 "source_date": source_date,
                 "publication_date": publication_date,
@@ -2205,6 +2501,7 @@ def _build_guidance_items(
                 "legacy_stated_in_label": legacy_stated_in,
                 "classification": str(row.get("source_context") or "normalized_outlook"),
                 "evidence_key": _evidence_key(source_ref, metric, horizon, value_text, source_line_raw),
+                "evidence_refs": [source_ref],
                 "initial_guide": _missing("No distinct earlier guide was normalized for this evidence row.", source_ref=source_ref),
                 "q1_update": _field("", status="missing_source", source_ref=source_ref, reason="Progression update columns are not normalized from legacy artifacts yet."),
                 "q2_update": _field("", status="missing_source", source_ref=source_ref, reason="Progression update columns are not normalized from legacy artifacts yet."),
@@ -2216,57 +2513,174 @@ def _build_guidance_items(
                 "update_stage": "initial" if publication_date[5:7] in {"02", "03"} else "update",
                 "display_role": "history",
                 "display_priority": 999,
-            }
-        )
-    if items:
-        latest_publication = max(str(item["publication_date"]) for item in items)
-        current_year = latest_publication[:4]
-        pair_priority = {
-            ("Revenue", f"{current_year} year"): 1,
-            ("Revenue", f"{current_year}-Q1"): 2,
-            ("Operating margin", f"{current_year} year"): 3,
-            ("Operating margin", f"{current_year}-Q1"): 4,
-            ("Adj EPS", f"{current_year} year"): 5,
-            ("Adj EPS", f"{current_year}-Q1"): 6,
-            ("Real estate activity", f"{current_year} year"): 7,
         }
-        current_items = [
-            item
-            for item in items
-            if item["publication_date"] == latest_publication
-            and str(item["horizon"].get("value") or "").startswith(current_year)
-        ]
-        current_items.sort(
-            key=lambda item: (
-                str(item["metric"].get("value") or ""),
-                str(item["horizon"].get("value") or ""),
-                str(item["evidence_key"]),
+        if source_table_context:
+            item["source_table_context"] = source_table_context
+        items.append(item)
+    return _route_guidance_items(items, routing_reviews=routing_reviews)
+
+
+def _guidance_source_rank(source_ref: str) -> tuple[int, str]:
+    lowered = source_ref.casefold()
+    if any(marker in lowered for marker in (".htm#", ".html#")) or lowered.endswith((".htm", ".html")):
+        return (0, lowered)
+    if ".pdf#" in lowered or lowered.endswith(".pdf"):
+        return (1, lowered)
+    return (2, lowered)
+
+
+def _guidance_value_signature(item: Mapping[str, Any]) -> tuple[Any, ...]:
+    scope = normalize_guidance_scope(item)
+    value = str((item.get("value") or {}).get("value") or "") if isinstance(item.get("value"), Mapping) else str(item.get("value") or "")
+    return (
+        scope.scope_key,
+        str(item.get("publication_date") or ""),
+        str(item.get("source_date") or ""),
+        str(item.get("stated_in_period") or ""),
+        re.sub(r"\s+", " ", value.strip().casefold()),
+    )
+
+
+def _route_guidance_items(
+    raw_items: Sequence[dict[str, Any]],
+    *,
+    routing_reviews: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Deduplicate evidence and route guidance by business scope and publication."""
+
+    exact_groups: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
+    for item in raw_items:
+        exact_groups[_guidance_value_signature(item)].append(item)
+
+    items: list[dict[str, Any]] = []
+    for signature, rows in sorted(exact_groups.items(), key=lambda pair: str(pair[0])):
+        ordered = sorted(rows, key=lambda row: _guidance_source_rank(str((row.get("value") or {}).get("source_ref") or "")))
+        retained = ordered[0]
+        evidence_refs = list(
+            dict.fromkeys(
+                str((row.get("value") or {}).get("source_ref") or "")
+                for row in ordered
+                if str((row.get("value") or {}).get("source_ref") or "")
             )
         )
-        for secondary_priority, item in enumerate(current_items, start=100):
-            item["display_role"] = "current_secondary"
-            item["display_priority"] = secondary_priority
-        candidates = [
-            item
-            for item in current_items
-            if (str(item["metric"].get("value") or ""), str(item["horizon"].get("value") or "")) in pair_priority
-        ]
-        candidates.sort(
-            key=lambda item: (
-                pair_priority[(str(item["metric"].get("value") or ""), str(item["horizon"].get("value") or ""))],
-                str(item["evidence_key"]),
+        retained["evidence_refs"] = evidence_refs
+        retained["duplicate_evidence_count"] = len(ordered)
+        retained["evidence_key"] = _evidence_key("guidance_semantic", *signature)
+        if len(ordered) > 1:
+            retained["duplicate_evidence_disposition"] = "collapsed_with_all_source_refs_retained"
+        items.append(retained)
+
+    scope_groups: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
+    for item in items:
+        scope_groups[guidance_scope_key(item)].append(item)
+
+    for scoped_rows in scope_groups.values():
+        scoped_rows.sort(key=lambda row: (str(row.get("publication_date") or ""), str(row.get("evidence_key") or "")))
+        first = scoped_rows[0]
+        first_value = first.get("value") if isinstance(first.get("value"), Mapping) else _missing("Initial guidance value is unavailable.")
+        previous: dict[str, Any] | None = None
+        for item in scoped_rows:
+            source_ref = str((item.get("value") or {}).get("source_ref") or "")
+            item["display_role"] = "history"
+            item["visibility_disposition"] = "historical"
+            item["initial_guide"] = dict(first_value)
+            item["update_stage"] = "initial" if previous is None else (
+                "reaffirmed"
+                if str((previous.get("value") or {}).get("value") or "") == str((item.get("value") or {}).get("value") or "")
+                else "update"
             )
+            if previous is not None:
+                previous["superseded_by_evidence_key"] = item["evidence_key"]
+                item["supersedes_evidence_keys"] = [previous["evidence_key"]]
+                previous["display_role"] = "superseded"
+                previous["visibility_disposition"] = "superseded"
+                previous["disposition_reason"] = "superseded_by_later_same_scope_update"
+            item["notes_source"] = (
+                f"Published {item.get('publication_date')}; stated in {item.get('stated_in_period')}."
+            )
+            item["review_state"] = "accepted"
+            item["source_ref"] = source_ref
+            previous = item
+
+    conflicts: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
+    for item in items:
+        conflicts[(*guidance_scope_key(item), str(item.get("publication_date") or ""))].append(item)
+    for scoped_rows in conflicts.values():
+        values = {
+            re.sub(r"\s+", " ", str((item.get("value") or {}).get("value") or "").strip().casefold())
+            for item in scoped_rows
+        }
+        if len(values) <= 1:
+            continue
+        for item in scoped_rows:
+            item["display_role"] = "audit_only"
+            item["visibility_disposition"] = "audit_only"
+            item["disposition_reason"] = "conflicting_values_for_same_scope_and_publication"
+            item["review_state"] = "manual_review_required"
+            routing_reviews.append(
+                {
+                    "severity": "P2",
+                    "rule_id": "guidance_same_publication_conflict",
+                    "field": f"normalized_guidance.items.{item.get('evidence_key')}",
+                    "message": "Conflicting guidance values share one normalized scope and publication date; all remain audit-only.",
+                    "source_ref": str((item.get("value") or {}).get("source_ref") or ""),
+                    "suggested_action": "Resolve the source context before promoting one value to visible guidance.",
+                    "section": "normalized_guidance",
+                    "classification": "manual_review_required",
+                }
+            )
+
+    if not items:
+        return []
+    latest_publication = max(str(item.get("publication_date") or "") for item in items)
+    current_year = latest_publication[:4]
+    current_items = [
+        item
+        for item in items
+        if item.get("display_role") != "audit_only"
+        and str(item.get("publication_date") or "") == latest_publication
+        and normalize_guidance_scope(item).fiscal_year == int(current_year)
+    ]
+    current_items.sort(
+        key=lambda item: (
+            normalize_guidance_scope(item).metric,
+            normalize_guidance_scope(item).horizon,
+            str(item.get("evidence_key") or ""),
         )
-        seen_keys: set[tuple[str, str]] = set()
-        selected = 0
-        for item in candidates:
-            key = (str(item["metric"].get("value") or ""), str(item["horizon"].get("value") or ""))
-            if key in seen_keys or selected >= 7:
-                continue
-            seen_keys.add(key)
-            selected += 1
-            item["display_role"] = "current_primary"
-            item["display_priority"] = pair_priority[key]
+    )
+    for priority, item in enumerate(current_items, start=100):
+        item["display_role"] = "current_secondary"
+        item["display_priority"] = priority
+        item["visibility_disposition"] = "visible"
+        item["disposition_reason"] = "latest_current_scope_secondary"
+
+    pair_priority = {
+        ("revenue", f"FY{current_year}"): 1,
+        ("revenue", f"{current_year}-Q1"): 2,
+        ("operating_margin", f"FY{current_year}"): 3,
+        ("operating_margin", f"{current_year}-Q1"): 4,
+        ("adjusted_eps", f"FY{current_year}"): 5,
+        ("adjusted_eps", f"{current_year}-Q1"): 6,
+        ("real_estate_activity", f"FY{current_year}"): 7,
+    }
+    for item in current_items:
+        scope = normalize_guidance_scope(item)
+        priority = pair_priority.get((scope.metric, scope.horizon))
+        if priority is None:
+            continue
+        item["display_role"] = "current_primary"
+        item["display_priority"] = priority
+        item["visibility_disposition"] = "visible"
+        item["disposition_reason"] = "latest_current_scope_primary"
+
+    items.sort(
+        key=lambda item: (
+            str(item.get("publication_date") or ""),
+            normalize_guidance_scope(item).metric,
+            normalize_guidance_scope(item).horizon,
+            str(item.get("evidence_key") or ""),
+        )
+    )
     return items
 
 
@@ -2542,26 +2956,537 @@ def _build_quarter_notes(
     return {"items": items}
 
 
-def _build_investment_case(workbook_path: Path) -> dict[str, Any]:
-    summary = _clean_text(_read_cell(workbook_path, "ANF_Investment_Case", "B5"), limit=700)
-    driver_points = [
-        _clean_text(_read_cell(workbook_path, "SUMMARY", cell), limit=180)
-        for cell in ("A17", "A18", "A19", "A20", "A21")
-        if _clean_text(_read_cell(workbook_path, "SUMMARY", cell), limit=180)
+def _build_anf_company_profile(workbook_path: Path, latest_annual_period: str) -> dict[str, Any]:
+    description_refs = (_anf_annual_report_ref(6),)
+    strategy_refs = (_anf_transcript_ref(30, 32), _anf_transcript_ref(52, 62))
+    advantage_refs = (_anf_transcript_ref(26, 30), _anf_transcript_ref(313, 319))
+    operating_model_rows = [
+        {
+            "member": "Americas",
+            "description": _narrative_field(
+                "Fiscal 2025 sales grew 7%, supported by cross-channel traffic, marketing and store expansion.",
+                (_anf_transcript_ref(20, 20),),
+                classification="source_backed_fact",
+            ),
+            "display_order": 1,
+        },
+        {
+            "member": "EMEA",
+            "description": _narrative_field(
+                "Fiscal 2025 sales grew 6%, led by double-digit growth in the U.K. and growth in the Middle East.",
+                (_anf_transcript_ref(20, 20),),
+                classification="source_backed_fact",
+            ),
+            "display_order": 2,
+        },
+        {
+            "member": "APAC",
+            "description": _narrative_field(
+                "Fiscal 2025 sales grew 5%; management is reviewing strategic alternatives because returns have not fully reflected investment.",
+                (_anf_transcript_ref(20, 20), _anf_transcript_ref(52, 52)),
+                classification="evidence_backed_synthesis",
+            ),
+            "display_order": 3,
+        },
     ]
-    key_debate = _clean_text(_read_cell(workbook_path, "ANF_Investment_Case", "B7"), limit=700)
-    source_ref = f"{workbook_path.name}!ANF_Investment_Case"
+    dependency_specs = (
+        (
+            "Product execution and resonant marketing must sustain traffic and convert demand across both brands.",
+            (_anf_transcript_ref(313, 319),),
+        ),
+        (
+            "Tariff mitigation, freight, pricing and sourcing must support the 12.0%-12.5% operating-margin guide.",
+            (_anf_transcript_ref(54, 60), _anf_transcript_ref(290, 292)),
+        ),
+        (
+            "The merchandising ERP implementation must remain temporary and avoid lasting sales or inventory disruption.",
+            (_anf_transcript_ref(58, 60),),
+        ),
+        (
+            "The read-and-react inventory model must preserve chase capacity and healthy AUR without excess markdown risk.",
+            (_anf_transcript_ref(28, 28), _anf_transcript_ref(303, 305)),
+        ),
+        (
+            "Free cash flow and liquidity must support repurchases without weakening financial flexibility.",
+            (_anf_transcript_ref(48, 48), _anf_transcript_ref(56, 58)),
+        ),
+    )
+    key_dependencies = [
+        {
+            "business_key": f"dependency-{index}",
+            "text": _narrative_field(text, refs, classification="evidence_backed_synthesis"),
+            "display_order": index,
+        }
+        for index, (text, refs) in enumerate(dependency_specs, start=1)
+    ]
+    source_ref = f"{workbook_path.name}!SUMMARY"
     return {
-        "summary": _field(summary, source_ref=source_ref, core=True),
-        "key_debate": _field(key_debate, source_ref=source_ref, core=True),
-        "bull_case": _field("", status="manual_review_required", source_ref=source_ref, reason="Bull/base/bear framing is not yet normalized from a source-backed legacy artifact."),
-        "base_case": _field("", status="manual_review_required", source_ref=source_ref, reason="Bull/base/bear framing is not yet normalized from a source-backed legacy artifact."),
-        "bear_case": _field("", status="manual_review_required", source_ref=source_ref, reason="Bull/base/bear framing is not yet normalized from a source-backed legacy artifact."),
-        "scenario_drivers": _field(" ".join(driver_points), source_ref=source_ref),
+        "company_name": _field("Abercrombie & Fitch Co.", source_ref=source_ref, core=True),
+        "sector": _field("Consumer Discretionary", source_ref=source_ref, core=True),
+        "industry": _field("Specialty apparel retail", source_ref=source_ref, core=True),
+        "business_description": _narrative_field(
+            "Abercrombie & Fitch is a global omnichannel specialty retailer operating the Abercrombie and Hollister brand families through stores, digital channels and third-party partnerships.",
+            description_refs,
+            classification="source_backed_fact",
+            core=True,
+        ),
+        "strategic_context": _narrative_field(
+            "ANF enters 2026 from record 2025 sales with both brands expected to grow, while management works through tariff pressure, an ERP launch and a lower operating-margin guide.",
+            strategy_refs,
+            classification="evidence_backed_synthesis",
+            core=True,
+        ),
+        "revenue_model": _narrative_field(
+            "Revenue is generated across two brand families, owned stores, digital channels, geographic regions and growing third-party partnerships.",
+            (_anf_transcript_ref(26, 30), _anf_transcript_ref(52, 52)),
+            classification="evidence_backed_synthesis",
+            core=True,
+        ),
+        "revenue_mix_label": _field(
+            "Revenue mix by geography (% of revenue)",
+            source_ref=f"{workbook_path.name}!SUMMARY!A8",
+            core=True,
+        ),
+        "revenue_streams": _build_revenue_stream_rows(workbook_path, period=latest_annual_period),
+        "key_advantages": _narrative_field(
+            "Two scaled brands, profitable stores and digital channels, direct customer reach and a read-and-react inventory model support agile demand response.",
+            advantage_refs,
+            classification="evidence_backed_synthesis",
+        ),
+        "key_risks": _narrative_field(
+            "Execution risk centers on fashion demand, brand momentum, tariffs, inventory quality, ERP disruption and disciplined capital allocation.",
+            (_anf_transcript_ref(28, 32), _anf_transcript_ref(54, 62)),
+            classification="evidence_backed_synthesis",
+        ),
+        "operating_model_rows": operating_model_rows,
+        "key_dependencies": key_dependencies,
+        "allowed_sector_terms": ["Abercrombie", "Hollister", "APAC", "EMEA", "Americas"],
+    }
+
+
+def _build_investment_case() -> dict[str, Any]:
+    model_refs = (_anf_transcript_ref(14, 32), _anf_transcript_ref(52, 62), _anf_transcript_ref(374, 378))
+    summary = _narrative_field(
+        "ANF combines balanced brand and regional growth with strong cash generation; the investment case now depends on proving that double-digit margins can persist through 2026 cost pressure.",
+        model_refs,
+        classification="evidence_backed_synthesis",
+        core=True,
+    )
+    key_debate = _narrative_field(
+        "Can ANF sustain structurally higher margins and earnings while absorbing tariffs, ERP disruption and tougher comparisons?",
+        (_anf_transcript_ref(54, 62), _anf_transcript_ref(370, 378)),
+        classification="analyst_interpretation_requiring_review",
+        core=True,
+        review_state="manual_review_required",
+    )
+    invalidators = [
+        {
+            "business_key": "sales-execution-breaks",
+            "text": _narrative_field(
+                "The thesis weakens if product and marketing execution fail to keep sales within the 2026 growth range across both brands.",
+                (_anf_transcript_ref(52, 52), _anf_transcript_ref(313, 319)),
+                classification="analyst_interpretation_requiring_review",
+                review_state="manual_review_required",
+            ),
+            "display_order": 1,
+        },
+        {
+            "business_key": "margin-durability-breaks",
+            "text": _narrative_field(
+                "The thesis weakens if tariff and ERP mitigation fail and operating margin falls materially below the 2026 range.",
+                (_anf_transcript_ref(54, 60), _anf_transcript_ref(290, 292)),
+                classification="analyst_interpretation_requiring_review",
+                review_state="manual_review_required",
+            ),
+            "display_order": 2,
+        },
+    ]
+    return {
+        "summary": summary,
+        "why_it_can_work": _narrative_field(
+            "Both brands ended Q4 at record sales, digital reached 44% of annual sales and management describes stores and digital as highly profitable.",
+            (_anf_transcript_ref(14, 26), _anf_transcript_ref(50, 50)),
+            classification="source_backed_fact",
+        ),
+        "key_debate": key_debate,
+        "upside_factors": _narrative_field(
+            "Upside requires product execution to keep both brands growing while freight, pricing and sourcing offset more of the tariff burden than assumed.",
+            (_anf_transcript_ref(290, 292), _anf_transcript_ref(313, 319)),
+            classification="analyst_interpretation_requiring_review",
+            review_state="manual_review_required",
+        ),
+        "downside_factors": _narrative_field(
+            "Downside centers on weaker demand, persistent tariff costs, ERP disruption or inventory pressure that pushes margins below guidance.",
+            (_anf_transcript_ref(54, 62), _anf_transcript_ref(303, 305)),
+            classification="analyst_interpretation_requiring_review",
+            review_state="manual_review_required",
+        ),
+        "watch_next": _narrative_field(
+            "Watch Q1 brand growth, the tariff-freight-ERP margin bridge, inventory units after the prebuild and free-cash-flow coverage of buybacks.",
+            (_anf_transcript_ref(58, 62), _anf_transcript_ref(303, 305), _anf_transcript_ref(48, 48)),
+            classification="analyst_interpretation_requiring_review",
+            review_state="manual_review_required",
+        ),
+        "current_stance": _narrative_field(
+            "Constructive on the operating model and cash generation, but margin-sensitive until 2026 mitigation is demonstrated.",
+            model_refs,
+            classification="analyst_interpretation_requiring_review",
+            review_state="manual_review_required",
+        ),
+        "bull_case": _missing("No source-backed bull-case valuation assumption is available.", source_ref=model_refs[0]),
+        "base_case": _missing("No source-backed base-case valuation assumption is available.", source_ref=model_refs[0]),
+        "bear_case": _missing("No source-backed bear-case valuation assumption is available.", source_ref=model_refs[0]),
+        "scenario_drivers": _narrative_field(
+            "Brand growth, margin mitigation, inventory discipline, free cash flow and repurchase pacing are the principal scenario variables.",
+            model_refs,
+            classification="evidence_backed_synthesis",
+        ),
+        "invalidators": invalidators,
         "source_evidence": [
-            {"source_ref": source_ref, "section": "SUMMARY"},
-            {"source_ref": f"{workbook_path.name}!ANF_Investment_Case_Data", "section": "legacy investment-case support"},
+            {"source_ref": ref, "section": "Q4 2025 earnings call"}
+            for ref in model_refs
         ],
+    }
+
+
+def _legacy_promise_scope(row: Mapping[str, Any]) -> tuple[str, int] | None:
+    metric_text = str(row.get("metric_display") or row.get("metric_ref") or "").strip()
+    metric_text = re.sub(r"\s+guidance$", "", metric_text, flags=re.I)
+    metric_text = {
+        "eps": "Adj EPS",
+        "diluted-share": "Diluted shares",
+        "real-estate": "Real estate activity",
+        "tariff-impact": "Tariffs",
+    }.get(metric_text.casefold(), metric_text)
+    horizon = str(row.get("target_period_label") or row.get("target_period_norm") or "").strip()
+    scope = normalize_guidance_scope(
+        {
+            "metric": {"value": metric_text},
+            "horizon": {"value": horizon},
+            "value": {"unit": ""},
+        }
+    )
+    if not scope.metric or scope.fiscal_year is None or scope.horizon_type != "FY":
+        return None
+    return scope.metric, int(scope.fiscal_year)
+
+
+def _legacy_promise_evidence_dispositions(
+    promise_rows: Sequence[Mapping[str, Any]],
+    *,
+    represented_keys: set[tuple[str, int]],
+    workbook_path: Path,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Preserve every source-evidenced legacy Promise occurrence outside active routes."""
+
+    dispositions: list[dict[str, Any]] = []
+    first_by_signature: dict[tuple[tuple[str, int], str, str, str], str] = {}
+    for row in promise_rows:
+        scope_key = _legacy_promise_scope(row)
+        if scope_key is None or scope_key in represented_keys:
+            continue
+        metric, fiscal_year = scope_key
+        try:
+            evidence = json.loads(str(row.get("source_evidence_json") or "{}"))
+        except json.JSONDecodeError:
+            evidence = {}
+        if not isinstance(evidence, Mapping):
+            evidence = {}
+
+        legacy_ref = _source_ref("Promise_Progress", row, workbook_path=workbook_path)
+        source_document = str(evidence.get("doc") or "").strip()
+        source_ref = f"{source_document}#{legacy_ref}" if source_document else legacy_ref
+        source_excerpt = _clean_text(evidence.get("line"), limit=500)
+        target_value = str(row.get("target_display") or row.get("target") or "").strip()
+        promise_id = str(row.get("promise_id") or f"{metric}:FY{fiscal_year}:row:{row.get('_row_number')}")
+        business_key = f"{metric}:FY{fiscal_year}"
+        source_exists = bool(source_document and Path(source_document).is_file())
+        signature = (scope_key, source_document, source_excerpt, target_value)
+        related_promise_id = ""
+
+        if not source_exists or not source_excerpt:
+            disposition = "unavailable_without_adequate_evidence"
+            reason = "The legacy Promise row lacks a resolvable source document or source excerpt for the claimed business meaning."
+            supports_claim = False
+            review_state = "manual_review_required"
+        elif scope_key in _LEGACY_PROMISE_REJECTION_REASONS:
+            disposition = "rejected_with_evidence"
+            reason = _LEGACY_PROMISE_REJECTION_REASONS[scope_key]
+            supports_claim = False
+            review_state = "rejected"
+        elif scope_key == ("operating_margin", 2023):
+            disposition = "duplicate_or_superseded_evidence"
+            reason = (
+                "The source identifies 8%-9% as the previous fiscal-2023 operating-margin outlook and replaces it "
+                "with around 10%; the prior range is retained as superseded evidence only."
+            )
+            supports_claim = True
+            review_state = "accepted"
+        elif scope_key in _LEGACY_PROMISE_AUDIT_ONLY_KEYS:
+            related_promise_id = first_by_signature.get(signature, "")
+            if related_promise_id:
+                disposition = "duplicate_or_superseded_evidence"
+                reason = "The same source document, excerpt and historical Promise value are already retained by another occurrence."
+            else:
+                disposition = "audit_only_historical_evidence"
+                reason = (
+                    "The source supports this historical Promise value, but it predates the visible progression blocks "
+                    "and is retained in JSON audit history rather than duplicated in the workbook."
+                )
+                first_by_signature[signature] = promise_id
+            supports_claim = True
+            review_state = "accepted"
+        else:
+            disposition = "rejected_with_evidence"
+            reason = (
+                "Source evidence exists, but no definition-compatible metric and horizon route has been established; "
+                "the occurrence is retained and rejected from visible Promise content."
+            )
+            supports_claim = False
+            review_state = "rejected"
+
+        dispositions.append(
+            {
+                "business_key": business_key,
+                "promise_id": promise_id,
+                "metric": metric,
+                "horizon": f"FY{fiscal_year}",
+                "legacy_evidence_date": _to_iso(
+                    row.get("last_seen_evidence_quarter")
+                    or row.get("first_seen_evidence_quarter")
+                    or row.get("quarter")
+                ),
+                "target_value": target_value,
+                "source_ref": source_ref,
+                "source_refs": [source_ref],
+                "source_document": source_document,
+                "source_excerpt": source_excerpt,
+                "source_evidence": dict(evidence),
+                "legacy_row_number": int(row.get("_row_number") or 0),
+                "disposition": disposition,
+                "disposition_reason": reason,
+                "related_promise_id": related_promise_id,
+                "supports_claimed_business_meaning": supports_claim,
+                "visibility_disposition": (
+                    "audit_only"
+                    if disposition in {"audit_only_historical_evidence", "duplicate_or_superseded_evidence"}
+                    else "rejected"
+                    if disposition == "rejected_with_evidence"
+                    else "unavailable"
+                ),
+                "review_state": review_state,
+                "evidence_key": _evidence_key("legacy_promise_disposition", promise_id, source_ref, source_excerpt),
+            }
+        )
+
+    counts: dict[str, int] = defaultdict(int)
+    for row in dispositions:
+        counts[str(row["disposition"])] += 1
+    summary = {
+        "business_key_count": len({row["business_key"] for row in dispositions}),
+        "occurrence_count": len(dispositions),
+        "disposition_counts": dict(sorted(counts.items())),
+    }
+    return dispositions, summary
+
+
+def _progress_actual(
+    *,
+    fiscal_year: int,
+    metric: str,
+    annual_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    result: dict[str, Any]
+    if fiscal_year == 2025 and metric == "Revenue":
+        result = _field(6.0, source_ref=_anf_transcript_ref(16, 18), unit="%", period="2025-FY", evidence_refs=(_anf_transcript_ref(16, 18),))
+    elif fiscal_year == 2025 and metric == "Adj EPS":
+        result = _field(9.86, source_ref=_anf_transcript_ref(48, 48), unit="$/share", period="2025-FY", evidence_refs=(_anf_transcript_ref(48, 48),))
+    elif fiscal_year == 2025 and metric == "Real estate activity":
+        result = _field(40.0, source_ref=_anf_transcript_ref(50, 50), unit="stores", period="2025-FY", evidence_refs=(_anf_transcript_ref(50, 50),), definition="Net store openings derived as 62 openings less 22 closures.")
+    else:
+        annual = next((row for row in annual_rows if str(row.get("period") or "") == f"{fiscal_year}-FY"), None)
+        field_name = {"Capex": "capital_expenditures", "Share repurchases": "buybacks_cash"}.get(metric)
+        if annual is not None and field_name and isinstance(annual.get(field_name), Mapping):
+            field = annual[field_name]
+            if field.get("status") == "populated" and field.get("value") not in (None, ""):
+                result = dict(field)
+            else:
+                result = _missing(
+                    "No definition-compatible source-backed annual actual is available for this guidance progression row.",
+                    source_ref=f"promise_progress:{fiscal_year}:{metric}",
+                )
+        else:
+            result = _missing(
+                "No definition-compatible source-backed annual actual is available for this guidance progression row.",
+                source_ref=f"promise_progress:{fiscal_year}:{metric}",
+            )
+    result["comparison_metric"] = normalize_guidance_scope(
+        {"metric": {"value": metric}, "horizon": {"value": f"FY{fiscal_year}"}, "value": {"unit": str(result.get("unit") or "")}}
+    ).metric
+    result["comparison_horizon"] = f"FY{fiscal_year}"
+    return result
+
+
+def _progress_status(guidance_item: Mapping[str, Any], actual: Mapping[str, Any]) -> tuple[dict[str, Any], str]:
+    current_guide = guidance_item.get("value") if isinstance(guidance_item.get("value"), Mapping) else {}
+    source_ref = str(current_guide.get("source_ref") or "")
+    evidence_refs = tuple(guidance_item.get("evidence_refs") or current_guide.get("evidence_refs") or ())
+    if actual.get("status") != "populated" or actual.get("value") in (None, ""):
+        return (
+            _field(None, status="manual_review_required", source_ref=source_ref, reason="Status requires a definition-compatible actual value.", confidence=""),
+            "",
+        )
+    contract = guidance_item.get("comparison_contract")
+    if isinstance(contract, Mapping) and contract.get("comparison_type") == "range":
+        low, high = contract.get("low"), contract.get("high")
+        actual_value = actual.get("value")
+        contract_scope = normalize_guidance_scope(
+            {
+                "metric": {"value": contract.get("metric")},
+                "horizon": {"value": contract.get("horizon")},
+                "value": {"unit": contract.get("unit")},
+            }
+        )
+        actual_scope = normalize_guidance_scope(
+            {
+                "metric": {"value": actual.get("comparison_metric")},
+                "horizon": {"value": actual.get("comparison_horizon")},
+                "value": {"unit": actual.get("unit")},
+            }
+        )
+        compatible = (
+            isinstance(low, (int, float))
+            and not isinstance(low, bool)
+            and isinstance(high, (int, float))
+            and not isinstance(high, bool)
+            and isinstance(actual_value, (int, float))
+            and not isinstance(actual_value, bool)
+            and float(low) <= float(high)
+            and contract_scope.metric == actual_scope.metric
+            and contract_scope.horizon == actual_scope.horizon
+            and bool(contract_scope.unit)
+            and contract_scope.unit == actual_scope.unit
+        )
+        if compatible:
+            value = "Within range" if float(low) <= float(actual_value) <= float(high) else "Outside range"
+            return (
+                _field(value, source_ref=source_ref, evidence_refs=evidence_refs),
+                "actual_within_published_range",
+            )
+    return (
+        _field(
+            None,
+            status="manual_review_required",
+            source_ref=source_ref,
+            reason="Status requires an explicit same-metric, same-unit, same-horizon typed comparison contract.",
+            confidence="",
+            evidence_refs=evidence_refs,
+        ),
+        "",
+    )
+
+
+def _build_promise_progress(
+    guidance_items: Sequence[Mapping[str, Any]],
+    annual_rows: Sequence[Mapping[str, Any]],
+    promise_rows: Sequence[Mapping[str, Any]],
+    workbook_path: Path,
+) -> dict[str, Any]:
+    capacities = {2025: 8, 2024: 4, 2023: 3}
+    metric_priority = {
+        "Revenue": 1,
+        "Operating margin": 2,
+        "Adj EPS": 3,
+        "Share repurchases": 4,
+        "Diluted shares": 5,
+        "Capex": 6,
+        "Real estate activity": 7,
+        "Tariffs": 8,
+    }
+    grouped: dict[tuple[int, str], list[Mapping[str, Any]]] = defaultdict(list)
+    for item in guidance_items:
+        scope = normalize_guidance_scope(item)
+        if scope.horizon_type != "FY" or scope.fiscal_year not in capacities:
+            continue
+        if str(item.get("display_role") or "") == "audit_only":
+            continue
+        metric = str((item.get("metric") or {}).get("value") or "")
+        grouped[(int(scope.fiscal_year), metric)].append(item)
+
+    rows: list[dict[str, Any]] = []
+    for (fiscal_year, metric), updates in sorted(grouped.items()):
+        updates = sorted(updates, key=lambda item: (str(item.get("publication_date") or ""), str(item.get("evidence_key") or "")))
+        first, latest = updates[0], updates[-1]
+        refs = list(dict.fromkeys(ref for item in updates for ref in (item.get("evidence_refs") or []) if ref))
+        by_reporting_quarter: dict[str, Mapping[str, Any]] = {}
+        for item in updates:
+            by_reporting_quarter[str(item.get("stated_in_period") or "")] = item
+
+        def update_field(quarter: int) -> dict[str, Any]:
+            item = by_reporting_quarter.get(f"{fiscal_year}-Q{quarter}")
+            return dict(item["value"]) if item and isinstance(item.get("value"), Mapping) else _missing(
+                f"No source-backed Q{quarter} update was normalized for FY{fiscal_year} {metric}.",
+                source_ref=refs[0] if refs else "",
+            )
+
+        actual = _progress_actual(fiscal_year=fiscal_year, metric=metric, annual_rows=annual_rows)
+        status, status_rule_id = _progress_status(latest, actual)
+        priority = metric_priority.get(metric, 999)
+        visible = priority <= capacities[fiscal_year]
+        rows.append(
+            {
+                "metric": dict(first["metric"]),
+                "display_metric": _field(f"FY{fiscal_year} {metric}", source_ref=refs[0] if refs else "", evidence_refs=refs),
+                "original_commitment": dict(first["value"]),
+                "prior_update": dict(updates[-2]["value"]) if len(updates) > 1 else _missing("No prior update exists before the latest value.", source_ref=refs[0] if refs else ""),
+                "current_guidance": dict(latest["value"]),
+                "q1_update": update_field(1),
+                "q2_update": update_field(2),
+                "q3_update": update_field(3),
+                "q4_update": update_field(4),
+                "actual": actual,
+                "progress_status": status,
+                "status_rule_id": status_rule_id,
+                "status_comparison": dict(latest.get("comparison_contract") or {}),
+                "why_it_matters": _narrative_field(
+                    "This row preserves the published guidance path and separates factual progression from any unsupported performance judgment.",
+                    refs,
+                    classification="evidence_backed_synthesis",
+                ),
+                "horizon": _field(f"FY{fiscal_year}", source_ref=refs[0] if refs else "", evidence_refs=refs),
+                "reporting_period": str(latest.get("stated_in_period") or ""),
+                "publication_date": str(latest.get("publication_date") or ""),
+                "notes_source": _field(
+                    f"{len(updates)} source-backed guidance update(s); status uses only an explicit comparison rule.",
+                    source_ref=refs[0] if refs else "",
+                    evidence_refs=refs,
+                ),
+                "evidence_refs": refs,
+                "evidence_key": _evidence_key("promise_progress", fiscal_year, metric, *refs),
+                "display_block": f"fy{fiscal_year}",
+                "display_role": "historical_progression" if visible else "audit_only",
+                "display_priority": priority,
+                "visibility_disposition": "visible" if visible else "audit_only",
+                "disposition_reason": "selected_for_historical_progression" if visible else "historical_progression_outside_visible_priority",
+                "review_state": "accepted" if status.get("status") == "populated" else "manual_review_required",
+            }
+        )
+    represented_keys: set[tuple[str, int]] = set()
+    for item in guidance_items:
+        scope = normalize_guidance_scope(item)
+        if scope.fiscal_year is not None and scope.horizon_type == "FY":
+            represented_keys.add((scope.metric, int(scope.fiscal_year)))
+    historical_evidence, historical_summary = _legacy_promise_evidence_dispositions(
+        promise_rows,
+        represented_keys=represented_keys,
+        workbook_path=workbook_path,
+    )
+    return {
+        "items": rows,
+        "historical_evidence_items": historical_evidence,
+        "historical_evidence_summary": historical_summary,
+        "scorecard_items": [],
+        "scorecard_disposition": "No source-backed or deterministic generic credibility score is available; the scorecard remains blank.",
     }
 
 
@@ -2599,6 +3524,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
     driver_rows = _read_sheet_rows(workbook_path, "operating_drivers_raw")
     quarter_note_rows = _read_sheet_rows(workbook_path, "Quarter_Notes")
     text_quality_demotions: list[dict[str, Any]] = []
+    guidance_routing_reviews: list[dict[str, Any]] = []
     adapter_review_flags: list[dict[str, Any]] = []
     adapter_truncations: list[dict[str, Any]] = []
     adapter_deduplications: list[dict[str, Any]] = []
@@ -2643,20 +3569,14 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
         workbook_path,
         review_flags=adapter_review_flags,
     )
-    guidance_candidates = _dedupe_legacy_adapter_rows(
-        _build_guidance_items(guidance_rows, promise_rows, workbook_path, text_quality_demotions),
-        collection_path="normalized_guidance.items",
-        workbook_path=workbook_path,
-        deduplications=adapter_deduplications,
-        review_flags=adapter_review_flags,
-    )
-    guidance_items = _limit_legacy_adapter_rows(
-        guidance_candidates,
-        limit=30,
-        collection_path="normalized_guidance.items",
-        workbook_path=workbook_path,
-        truncations=adapter_truncations,
-        review_flags=adapter_review_flags,
+    # Guidance remains a complete routed history. Exact duplicate source copies
+    # collapse into one semantic row with every source reference retained.
+    guidance_items = _build_guidance_items(
+        guidance_rows,
+        promise_rows,
+        workbook_path,
+        text_quality_demotions,
+        guidance_routing_reviews,
     )
     # The visible legacy segment matrix is itself the migration oracle.  A
     # generic tail limit used here previously discarded annual and older
@@ -2686,7 +3606,8 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
     for item in driver_items:
         item["display_role"] = "history"
         item["display_priority"] = 999
-    driver_items.extend(_build_legacy_visible_operating_drivers(workbook_path, latest_source_period))
+    curated_drivers = _build_anf_source_backed_operating_drivers(latest_source_period)
+    driver_items.extend(curated_drivers["items"])
     quarter_note_candidates = _dedupe_legacy_adapter_rows(
         _build_quarter_notes(
             quarter_note_rows,
@@ -2707,12 +3628,13 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
         truncations=adapter_truncations,
         review_flags=adapter_review_flags,
     )
-    quarter_note_items.extend(_build_legacy_visible_quarter_notes(workbook_path, latest_source_period))
+    curated_quarter_notes = _build_anf_source_backed_quarter_notes(latest_source_period)
+    quarter_note_items.extend(curated_quarter_notes["items"])
 
     source_ref = f"{workbook_path.name}!SUMMARY"
     latest_annual_period = str(annual_financials[-1].get("period") or "") if annual_financials else ""
     package = {
-        "package_version": "0.2.0-anf-shadow",
+        "package_version": "0.3.0-anf-shadow",
         "generated_at_utc": _now(),
         "stress_test": True,
         "shadow_package": True,
@@ -2724,25 +3646,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
             "reporting_currency": _field("USD", source_ref=source_ref, core=True),
             "investment_case_title": _field("ANF Investment Case", source_ref="ticker_metadata.ticker", core=True),
         },
-        "company_profile": {
-            "company_name": _field("Abercrombie & Fitch Co.", source_ref=source_ref, core=True),
-            "sector": _field("Consumer Discretionary", source_ref=source_ref, core=True),
-            "industry": _field("Specialty apparel retail", source_ref=source_ref, core=True),
-            "business_description": _field(_clean_text(_read_cell(workbook_path, "SUMMARY", "A3"), limit=600), source_ref=source_ref, core=True),
-            "strategic_context": _field(_clean_text(_read_cell(workbook_path, "SUMMARY", "A5"), limit=800), source_ref=f"{workbook_path.name}!SUMMARY!A5", core=True),
-            "revenue_model": _field("Global omnichannel apparel sales through Abercrombie and Hollister brand families, stores, digital channels, and geographic regions.", source_ref=source_ref, core=True),
-            "revenue_mix_label": _field("Revenue mix by geography (% of revenue)", source_ref=f"{workbook_path.name}!SUMMARY!A8", core=True),
-            "revenue_streams": _build_revenue_stream_rows(workbook_path, period=latest_annual_period),
-            "key_advantages": _field(_clean_text(_read_cell(workbook_path, "SUMMARY", "A7"), limit=500), source_ref=source_ref),
-            "key_risks": _field("Fashion demand, merchandise execution, tariffs, inventory/markdown risk, ERP execution, and tougher comparable-sales laps.", source_ref=source_ref),
-            "allowed_sector_terms": [
-                "Abercrombie",
-                "Hollister",
-                "APAC",
-                "EMEA",
-                "Americas",
-            ],
-        },
+        "company_profile": _build_anf_company_profile(workbook_path, latest_annual_period),
         "quarterly_financials": {"rows": quarterly_financials},
         "calculation_history": calculation_history,
         "annual_financials": {
@@ -2752,15 +3656,21 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
         "debt_liquidity": debt_liquidity,
         "capital_returns": _build_capital_returns(history_rows, workbook_path),
         "normalized_guidance": {"items": guidance_items},
+        "promise_progress": _build_promise_progress(
+            guidance_items,
+            annual_financials,
+            promise_rows,
+            workbook_path,
+        ),
         "segments": {"items": segment_items},
-        "operating_drivers": {"items": driver_items},
-        "quarter_notes": {"items": quarter_note_items},
-        "investment_case": _build_investment_case(workbook_path),
+        "operating_drivers": {"items": driver_items, "current_outlook": curated_drivers["current_outlook"]},
+        "quarter_notes": {"items": quarter_note_items, "summary": curated_quarter_notes["summary"]},
+        "investment_case": _build_investment_case(),
         "valuation_inputs": valuation_inputs,
         "valuation_outputs": {"items": []},
         "source_coverage": source_coverage,
         "mapping_gaps": [],
-        "manual_review_flags": list(text_quality_demotions) + adapter_review_flags,
+        "manual_review_flags": list(text_quality_demotions) + guidance_routing_reviews + adapter_review_flags,
     }
     unit_reviews = _collect_legacy_unit_reviews(package)
     package["manual_review_flags"].extend(unit_reviews)
@@ -2769,6 +3679,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
     package["source_coverage"]["legacy_unit_normalizations"] = unit_reviews
     package["source_coverage"]["text_quality_demotions"] = text_quality_demotions
     package["source_coverage"]["text_quality_summary"] = _text_quality_demotion_summary(text_quality_demotions)
+    package["source_coverage"]["guidance_routing_reviews"] = guidance_routing_reviews
     return package
 
 
@@ -3043,6 +3954,7 @@ def build_source_audit(package: Mapping[str, Any], *, data_root: Path, workbook_
         "debt_liquidity": ["ANF_model.xlsx!Leverage_Liquidity", "ANF_model.xlsx!History_Q", "ANF_model.xlsx!Slides_Debt_Profile"],
         "capital_returns": ["ANF_model.xlsx!History_Q", "earnings release capital allocation text"],
         "normalized_guidance": ["ANF_model.xlsx!Guidance_Normalized", "ANF_model.xlsx!Promise_Progress", "earnings releases", "transcripts"],
+        "promise_progress": ["ANF_model.xlsx!Guidance_Normalized", "ANF_model.xlsx!Promise_Progress", "annual reports", "earnings releases", "transcripts"],
         "segments": ["ANF_model.xlsx!Slides_Segments", "earnings release segment tables", "presentation tables"],
         "operating_drivers": ["ANF_model.xlsx!operating_drivers_raw", "transcripts", "earnings presentations"],
         "quarter_notes": ["ANF_model.xlsx!Quarter_Notes", "ANF_model.xlsx!Quarter_Notes_Evidence"],
