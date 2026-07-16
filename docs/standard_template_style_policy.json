@@ -1,0 +1,2570 @@
+{
+  "$schema": "https://local.stockmodel/standard_template_style_policy.schema.json",
+  "version": "1.1.0",
+  "style_plan_contract_version": "1.0.0",
+  "description": "Ticker-neutral exact-cell signal-fill policies for activated standard-template modules. The contract owns thresholds, polarity, comparison basis and palette; formula economics remain owned by the generic formula contracts.",
+  "palette_tokens": {
+    "strong_negative": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "A63A00"
+      }
+    },
+    "negative": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "D55E00"
+      }
+    },
+    "neutral": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "DDDDDD"
+      }
+    },
+    "positive": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "9BD3F5"
+      }
+    },
+    "strong_positive": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "2F80ED"
+      }
+    }
+  },
+  "threshold_sets": [
+    {
+      "threshold_set_id": "legacy_five_band_change",
+      "bands": [
+        {
+          "band_id": "strong_negative",
+          "overlay_token": "strong_negative",
+          "maximum": -0.15,
+          "maximum_inclusive": true
+        },
+        {
+          "band_id": "negative",
+          "overlay_token": "negative",
+          "minimum": -0.15,
+          "minimum_inclusive": false,
+          "maximum": -0.05,
+          "maximum_inclusive": true
+        },
+        {
+          "band_id": "neutral",
+          "overlay_token": "neutral",
+          "minimum": -0.05,
+          "minimum_inclusive": false,
+          "maximum": 0.05,
+          "maximum_inclusive": false
+        },
+        {
+          "band_id": "positive",
+          "overlay_token": "positive",
+          "minimum": 0.05,
+          "minimum_inclusive": true,
+          "maximum": 0.15,
+          "maximum_inclusive": false
+        },
+        {
+          "band_id": "strong_positive",
+          "overlay_token": "strong_positive",
+          "minimum": 0.15,
+          "minimum_inclusive": true
+        }
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "policy_id": "valuation_core_raw_yoy_higher",
+      "owner_module_id": "core_financial_history",
+      "owned_style_ids": [
+        "valuation_income_history_style",
+        "valuation_operating_history_style",
+        "valuation_share_history_style"
+      ],
+      "metric_family": "core_financials",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "$/share"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring._quarterly_row_color_policy: default YoY, higher-better result metrics",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_revenue_series",
+          "metric_id": "revenue"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_ebitda_series",
+          "metric_id": "base_ebitda"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_operating_income_series",
+          "metric_id": "operating_income"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_net_income_series",
+          "metric_id": "net_income"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_eps_series",
+          "metric_id": "eps"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_core_raw_yoy_lower",
+      "owner_module_id": "core_financial_history",
+      "owned_style_ids": [
+        "valuation_share_history_style"
+      ],
+      "metric_family": "share_count",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "m shares"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring._quarterly_color_directionality_for_label: share counts are lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_diluted_shares_series",
+          "metric_id": "diluted_shares"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_shares_outstanding_series",
+          "metric_id": "shares_outstanding"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_core_formula_yoy_direct",
+      "owner_module_id": "core_financial_history",
+      "owned_style_ids": [
+        "valuation_income_history_style",
+        "valuation_operating_history_style",
+        "valuation_share_history_style"
+      ],
+      "metric_family": "growth_rate",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "direct_value",
+      "comparison_lag": 0,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring._quarterly_color_basis_for_label: YoY percent rows are direct percentage-point signals",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "revenue_yoy",
+          "metric_id": "revenue_yoy"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "ebitda_yoy",
+          "metric_id": "ebitda_yoy"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "net_income_yoy",
+          "metric_id": "net_income_yoy"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "gaap_eps_yoy",
+          "metric_id": "gaap_eps_yoy"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_core_formula_ttm",
+      "owner_module_id": "core_financial_history",
+      "owned_style_ids": [
+        "valuation_income_history_style",
+        "valuation_operating_history_style",
+        "valuation_share_history_style"
+      ],
+      "metric_family": "trailing_financials",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_ttm",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "$/share"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring._quarterly_color_basis_for_label: TTM versus prior TTM",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "revenue_ttm",
+          "metric_id": "revenue_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "ebitda_ttm",
+          "metric_id": "ebitda_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "operating_income_ttm",
+          "metric_id": "operating_income_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "net_income_ttm",
+          "metric_id": "net_income_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "gaap_eps_ttm",
+          "metric_id": "gaap_eps_ttm"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_share_delta_direct_lower",
+      "owner_module_id": "core_financial_history",
+      "owned_style_ids": [
+        "valuation_share_history_style"
+      ],
+      "metric_family": "share_count_delta",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "direct_value",
+      "comparison_lag": 0,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "m shares"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: already-calculated diluted-share QoQ and YoY deltas are direct lower-better signals",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "diluted_shares_qoq",
+          "metric_id": "diluted_shares_qoq"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "diluted_shares_yoy",
+          "metric_id": "diluted_shares_yoy"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_core_formula_margin",
+      "owner_module_id": "core_financial_history",
+      "owned_style_ids": [
+        "valuation_income_history_style",
+        "valuation_operating_history_style"
+      ],
+      "metric_family": "margin",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: higher-better margin rows compared with prior-year quarter",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "gross_margin",
+          "metric_id": "gross_margin"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "operating_margin",
+          "metric_id": "operating_margin"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "ebitda_margin",
+          "metric_id": "ebitda_margin"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "operating_income_margin",
+          "metric_id": "operating_income_margin"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "net_margin",
+          "metric_id": "net_margin"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_core_formula_ttm_margin",
+      "owner_module_id": "core_financial_history",
+      "owned_style_ids": [
+        "valuation_income_history_style",
+        "valuation_operating_history_style"
+      ],
+      "metric_family": "trailing_margin",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_ttm",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: TTM margin compared with prior TTM margin",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "operating_margin_ttm",
+          "metric_id": "operating_margin_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "ebitda_margin_ttm",
+          "metric_id": "ebitda_margin_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "operating_income_margin_ttm",
+          "metric_id": "operating_income_margin_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "net_margin_ttm",
+          "metric_id": "net_margin_ttm"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_adjusted_raw_yoy",
+      "owner_module_id": "non_gaap_adjustments",
+      "owned_style_ids": [
+        "adjusted_ebitda_style",
+        "adjusted_eps_style"
+      ],
+      "metric_family": "adjusted_metric",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "$/share"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: adjusted result metrics are higher-better",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_adjusted_ebitda_series",
+          "metric_id": "adjusted_ebitda"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_adjusted_eps_series",
+          "metric_id": "adjusted_eps"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_adjusted_formula_yoy",
+      "owner_module_id": "non_gaap_adjustments",
+      "owned_style_ids": [
+        "adjusted_ebitda_style"
+      ],
+      "metric_family": "adjusted_growth",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "direct_value",
+      "comparison_lag": 0,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: adjusted EBITDA YoY is a direct percent signal",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "adjusted_ebitda_yoy",
+          "metric_id": "adjusted_ebitda_yoy"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_adjusted_formula_ttm",
+      "owner_module_id": "non_gaap_adjustments",
+      "owned_style_ids": [
+        "adjusted_ebitda_style",
+        "adjusted_eps_style"
+      ],
+      "metric_family": "adjusted_trailing_metric",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_ttm",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "$/share"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: adjusted TTM metrics versus prior TTM",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "adjusted_ebitda_ttm",
+          "metric_id": "adjusted_ebitda_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "adjusted_eps_ttm",
+          "metric_id": "adjusted_eps_ttm"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_adjusted_formula_margin",
+      "owner_module_id": "non_gaap_adjustments",
+      "owned_style_ids": [
+        "adjusted_ebitda_style"
+      ],
+      "metric_family": "adjusted_margin",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: adjusted margin is higher-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "adjusted_ebitda_margin",
+          "metric_id": "adjusted_ebitda_margin"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_adjusted_formula_ttm_margin",
+      "owner_module_id": "non_gaap_adjustments",
+      "owned_style_ids": [
+        "adjusted_ebitda_style"
+      ],
+      "metric_family": "adjusted_trailing_margin",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_ttm",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: adjusted TTM margin versus prior TTM",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "adjusted_ebitda_margin_ttm",
+          "metric_id": "adjusted_ebitda_margin_ttm"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_adjusted_delta_disabled",
+      "owner_module_id": "non_gaap_adjustments",
+      "owned_style_ids": [
+        "adjusted_ebitda_style"
+      ],
+      "metric_family": "adjustment_bridge",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "disabled",
+      "comparison_lag": 0,
+      "polarity": "disabled",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Legacy adjustment bridge is informational and deliberately receives no signal",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "adjusted_ebitda_delta",
+          "metric_id": "adjusted_ebitda_delta"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_cash_flow_raw_higher",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_cash_flow_style"
+      ],
+      "metric_family": "cash_generation",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: CFO, cash and short-term investments are higher-better",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_operating_cash_flow_series",
+          "metric_id": "operating_cash_flow"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_liquidity_raw_higher",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "valuation_debt_style"
+      ],
+      "metric_family": "liquidity_assets",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "disabled",
+      "comparison_lag": 0,
+      "polarity": "disabled",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Legacy Valuation cash and marketable-securities rows deliberately retain their neutral base style.",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_cash_series",
+          "metric_id": "cash"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_marketable_securities_series",
+          "metric_id": "marketable_securities"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_capex_raw_lower",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_cash_flow_style"
+      ],
+      "metric_family": "capital_expenditure",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: positive-outflow capex is lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_capital_expenditures_series",
+          "metric_id": "capital_expenditures"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_buybacks_raw_qoq",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_capital_returns_style"
+      ],
+      "metric_family": "capital_return",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_quarter",
+      "comparison_lag": 1,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: buybacks cash is the accepted quarter-native QoQ exception",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_buybacks_cash_series",
+          "metric_id": "buybacks_cash"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_cash_flow_formula_yoy",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_cash_flow_style"
+      ],
+      "metric_family": "free_cash_flow",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: FCF is higher-better versus prior-year quarter",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "free_cash_flow",
+          "metric_id": "free_cash_flow"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_cash_flow_formula_ttm",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_cash_flow_style",
+        "valuation_capital_returns_style",
+        "valuation_formula_helpers_style"
+      ],
+      "metric_family": "trailing_cash_flow",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_ttm",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: trailing cash-flow and capital-return metrics versus prior TTM",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "free_cash_flow_ttm",
+          "metric_id": "free_cash_flow_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "operating_cash_flow_ttm",
+          "metric_id": "operating_cash_flow_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "buybacks_ttm",
+          "metric_id": "buybacks_ttm"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "dividends_ttm",
+          "metric_id": "dividends_ttm"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_cash_flow_delta_direct",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_cash_flow_style"
+      ],
+      "metric_family": "free_cash_flow_delta",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "direct_value",
+      "comparison_lag": 0,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: already-calculated FCF YoY and TTM YoY deltas are direct higher-better signals",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "free_cash_flow_yoy_delta",
+          "metric_id": "free_cash_flow_yoy_delta"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "free_cash_flow_ttm_yoy_delta",
+          "metric_id": "free_cash_flow_ttm_yoy_delta"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_cash_flow_margin",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_cash_flow_style"
+      ],
+      "metric_family": "cash_flow_margin",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: FCF margin is higher-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "free_cash_flow_margin",
+          "metric_id": "free_cash_flow_margin"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_cash_flow_ttm_margin",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_cash_flow_style"
+      ],
+      "metric_family": "trailing_cash_flow_margin",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_ttm",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: TTM FCF margin versus prior TTM",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "free_cash_flow_margin_ttm",
+          "metric_id": "free_cash_flow_margin_ttm"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_capex_formula_lower",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_cash_flow_style"
+      ],
+      "metric_family": "capital_intensity",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: capex as percent of revenue is lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "capex_margin",
+          "metric_id": "capex_margin"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_capex_ttm_formula_lower",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_cash_flow_style"
+      ],
+      "metric_family": "trailing_capital_intensity",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_ttm",
+      "comparison_lag": 4,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: TTM capex intensity is lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "capex_margin_ttm",
+          "metric_id": "capex_margin_ttm"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_per_share_formula_higher",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_per_share_style"
+      ],
+      "metric_family": "per_share_value",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$/share"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: book-value per-share metrics are higher-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "book_value_per_share",
+          "metric_id": "book_value_per_share"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "tangible_book_value_per_share",
+          "metric_id": "tangible_book_value_per_share"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_fcf_per_share_ttm",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "valuation_per_share_style"
+      ],
+      "metric_family": "trailing_per_share_cash_flow",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_ttm",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$/share"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: TTM FCF per share versus prior TTM",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "free_cash_flow_per_share",
+          "metric_id": "free_cash_flow_per_share"
+        }
+      ]
+    },
+    {
+      "policy_id": "bs_raw_higher_yoy",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "balance_history_style"
+      ],
+      "metric_family": "balance_strength",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: cash, investments and equity are higher-better",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "bs_cash_series",
+          "metric_id": "cash"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_restricted_cash_series",
+          "metric_id": "restricted_cash"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_marketable_securities_series",
+          "metric_id": "marketable_securities"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_total_equity_series",
+          "metric_id": "total_equity"
+        }
+      ]
+    },
+    {
+      "policy_id": "bs_raw_lower_yoy",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "balance_history_style"
+      ],
+      "metric_family": "balance_obligation",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "m shares"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: liabilities and share counts are lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "bs_accounts_payable_series",
+          "metric_id": "accounts_payable"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_accrued_liabilities_series",
+          "metric_id": "accrued_liabilities"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_current_liabilities_series",
+          "metric_id": "current_liabilities"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_other_liabilities_noncurrent_series",
+          "metric_id": "other_liabilities_noncurrent"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_total_liabilities_series",
+          "metric_id": "total_liabilities"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_shares_outstanding_series",
+          "metric_id": "shares_outstanding"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_diluted_shares_series",
+          "metric_id": "diluted_shares"
+        }
+      ]
+    },
+    {
+      "policy_id": "bs_raw_neutral_disabled",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "balance_history_style"
+      ],
+      "metric_family": "neutral_balance_level",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "disabled",
+      "comparison_lag": 0,
+      "polarity": "disabled",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Legacy neutral rows deliberately receive no comparison signal",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "bs_accounts_receivable_series",
+          "metric_id": "accounts_receivable"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_inventory_series",
+          "metric_id": "inventory"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_current_assets_series",
+          "metric_id": "current_assets"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_property_plant_equipment_net_series",
+          "metric_id": "property_plant_equipment_net"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_goodwill_series",
+          "metric_id": "goodwill"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_intangibles_series",
+          "metric_id": "intangibles"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_other_assets_noncurrent_series",
+          "metric_id": "other_assets_noncurrent"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_total_assets_series",
+          "metric_id": "total_assets"
+        }
+      ]
+    },
+    {
+      "policy_id": "bs_formula_higher_yoy",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "balance_history_style"
+      ],
+      "metric_family": "balance_formula",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: cash, working capital, liquidity ratios and net cash are higher-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "bs_cash_including_restricted",
+          "metric_id": "bs_cash_including_restricted"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "bs_working_capital",
+          "metric_id": "bs_working_capital"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "bs_current_ratio",
+          "metric_id": "bs_current_ratio"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "bs_quick_ratio",
+          "metric_id": "bs_quick_ratio"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "bs_core_net_cash",
+          "metric_id": "bs_core_net_cash"
+        }
+      ]
+    },
+    {
+      "policy_id": "bs_formula_direct_higher",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "balance_history_style"
+      ],
+      "metric_family": "balance_change",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "direct_value",
+      "comparison_lag": 0,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: explicit QoQ and YoY delta rows use their calculated value",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "bs_cash_qoq",
+          "metric_id": "bs_cash_qoq"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "bs_working_capital_qoq",
+          "metric_id": "bs_working_capital_qoq"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "bs_revenue_yoy",
+          "metric_id": "bs_revenue_yoy"
+        }
+      ]
+    },
+    {
+      "policy_id": "bs_formula_direct_lower",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "balance_history_style"
+      ],
+      "metric_family": "balance_reduction",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "direct_value",
+      "comparison_lag": 0,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: diluted-share growth is lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "bs_diluted_shares_yoy",
+          "metric_id": "bs_diluted_shares_yoy"
+        }
+      ]
+    },
+    {
+      "policy_id": "bs_formula_lower_yoy",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "balance_history_style"
+      ],
+      "metric_family": "asset_intensity",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: goodwill as a share of assets is lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "bs_goodwill_assets_ratio",
+          "metric_id": "bs_goodwill_assets_ratio"
+        }
+      ]
+    },
+    {
+      "policy_id": "bs_formula_neutral_disabled",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "balance_history_style"
+      ],
+      "metric_family": "neutral_balance_formula",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "disabled",
+      "comparison_lag": 0,
+      "polarity": "disabled",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Legacy informational formulas are deliberately uncolored",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "bs_inventory_yoy",
+          "metric_id": "bs_inventory_yoy"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "bs_inventory_vs_revenue_growth",
+          "metric_id": "bs_inventory_vs_revenue_growth"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "bs_total_lease_liabilities",
+          "metric_id": "bs_total_lease_liabilities"
+        }
+      ]
+    },
+    {
+      "policy_id": "annual_raw_higher",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "annual_financial_header_style",
+        "annual_cash_flow_balance_style"
+      ],
+      "metric_family": "annual_financial",
+      "period_type": "fiscal_year",
+      "period_axis_id": "bs_annual_financial_periods",
+      "comparison_basis": "prior_fiscal_year",
+      "comparison_lag": 1,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "$/share"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Annual result metrics compare with the immediately preceding fiscal year",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_revenue_series",
+          "metric_id": "revenue"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_gross_profit_series",
+          "metric_id": "gross_profit"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_operating_income_series",
+          "metric_id": "operating_income"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_base_ebitda_series",
+          "metric_id": "base_ebitda"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_net_income_series",
+          "metric_id": "net_income"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_operating_cash_flow_series",
+          "metric_id": "operating_cash_flow"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_eps_series",
+          "metric_id": "eps"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_total_equity_series",
+          "metric_id": "total_equity"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_cash_series",
+          "metric_id": "cash"
+        }
+      ]
+    },
+    {
+      "policy_id": "annual_raw_lower",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "annual_cash_flow_balance_style"
+      ],
+      "metric_family": "annual_outflow",
+      "period_type": "fiscal_year",
+      "period_axis_id": "bs_annual_financial_periods",
+      "comparison_basis": "prior_fiscal_year",
+      "comparison_lag": 1,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "m shares"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Annual capex and share counts are lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_capital_expenditures_series",
+          "metric_id": "capital_expenditures"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_shares_outstanding_series",
+          "metric_id": "shares_outstanding"
+        }
+      ]
+    },
+    {
+      "policy_id": "annual_formula_higher",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "annual_financial_header_style",
+        "annual_cash_flow_balance_style"
+      ],
+      "metric_family": "annual_formula",
+      "period_type": "fiscal_year",
+      "period_axis_id": "bs_annual_financial_periods",
+      "comparison_basis": "prior_fiscal_year",
+      "comparison_lag": 1,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "%",
+        "$/share"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Annual formulas compare with lag one fiscal year; no quarterly lag is permitted",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "annual_gross_margin",
+          "metric_id": "annual_gross_margin"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "annual_operating_margin",
+          "metric_id": "annual_operating_margin"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "annual_ebitda_margin",
+          "metric_id": "annual_ebitda_margin"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "annual_net_margin",
+          "metric_id": "annual_net_margin"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "annual_free_cash_flow",
+          "metric_id": "annual_free_cash_flow"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "annual_free_cash_flow_margin",
+          "metric_id": "annual_free_cash_flow_margin"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "annual_book_value_per_share",
+          "metric_id": "annual_book_value_per_share"
+        }
+      ]
+    },
+    {
+      "policy_id": "annual_adjusted_raw_higher",
+      "owner_module_id": "non_gaap_adjustments",
+      "owned_style_ids": [
+        "annual_adjusted_ebitda_style"
+      ],
+      "metric_family": "annual_adjusted_metric",
+      "period_type": "fiscal_year",
+      "period_axis_id": "bs_annual_financial_periods",
+      "comparison_basis": "prior_fiscal_year",
+      "comparison_lag": 1,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Annual adjusted EBITDA compares with the immediately preceding fiscal year",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_adjusted_ebitda_series",
+          "metric_id": "adjusted_ebitda"
+        }
+      ]
+    },
+    {
+      "policy_id": "annual_adjusted_formula_higher",
+      "owner_module_id": "non_gaap_adjustments",
+      "owned_style_ids": [
+        "annual_adjusted_ebitda_style"
+      ],
+      "metric_family": "annual_adjusted_margin",
+      "period_type": "fiscal_year",
+      "period_axis_id": "bs_annual_financial_periods",
+      "comparison_basis": "prior_fiscal_year",
+      "comparison_lag": 1,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Annual adjusted margin compares with the immediately preceding fiscal year",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "annual_adjusted_ebitda_margin",
+          "metric_id": "annual_adjusted_ebitda_margin"
+        }
+      ]
+    },
+    {
+      "policy_id": "segment_quarterly_revenue",
+      "owner_module_id": "segments_dimensions",
+      "owned_style_ids": [
+        "segment_history_style"
+      ],
+      "metric_family": "segment_revenue",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Legacy quarterly segment result rows use prior-year-quarter comparison",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "bs_segment_quarterly_rows",
+          "metric_id": "revenue"
+        }
+      ]
+    },
+    {
+      "policy_id": "segment_annual_revenue",
+      "owner_module_id": "segments_dimensions",
+      "owned_style_ids": [
+        "segment_history_style"
+      ],
+      "metric_family": "segment_revenue",
+      "period_type": "fiscal_year",
+      "period_axis_id": "bs_annual_periods",
+      "comparison_basis": "prior_fiscal_year",
+      "comparison_lag": 1,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Corrected annual segment comparison uses lag one fiscal year, not four columns",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "bs_segment_annual_rows",
+          "metric_id": "annual_revenue"
+        }
+      ]
+    },
+    {
+      "policy_id": "debt_raw_lower_yoy",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "valuation_cash_interest_style",
+        "valuation_debt_style"
+      ],
+      "metric_family": "debt_obligation",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: debt, interest and pension obligations are lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_interest_paid_series",
+          "metric_id": "interest_paid"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_debt_core_series",
+          "metric_id": "debt_core"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_lease_liabilities_series",
+          "metric_id": "lease_liabilities"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_pension_obligation_net_series",
+          "metric_id": "pension_obligation_net"
+        }
+      ]
+    },
+    {
+      "policy_id": "debt_revolver_raw_higher",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "valuation_debt_style"
+      ],
+      "metric_family": "liquidity_capacity",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: revolver availability is higher-better",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "valuation_revolver_availability_series",
+          "metric_id": "revolver_availability"
+        }
+      ]
+    },
+    {
+      "policy_id": "bs_debt_raw_lower_yoy",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "balance_history_style"
+      ],
+      "metric_family": "debt_obligation",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: debt and lease obligations are lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "bs_short_term_borrowings_series",
+          "metric_id": "short_term_borrowings"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_debt_current_series",
+          "metric_id": "debt_current"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_lease_liabilities_current_series",
+          "metric_id": "lease_liabilities_current"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_debt_core_series",
+          "metric_id": "debt_core"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_lease_liabilities_noncurrent_series",
+          "metric_id": "lease_liabilities_noncurrent"
+        },
+        {
+          "selector_type": "binding",
+          "target_id": "bs_pension_obligation_net_series",
+          "metric_id": "pension_obligation_net"
+        }
+      ]
+    },
+    {
+      "policy_id": "bs_debt_formula_direct_lower",
+      "owner_module_id": "balance_cash_flow",
+      "owned_style_ids": [
+        "balance_history_style"
+      ],
+      "metric_family": "debt_change",
+      "period_type": "quarter",
+      "period_axis_id": "bs_quarterly_periods",
+      "comparison_basis": "direct_value",
+      "comparison_lag": 0,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: explicit debt QoQ delta is lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "bs_debt_qoq",
+          "metric_id": "bs_debt_qoq"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_debt_formula_lower",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "valuation_debt_style"
+      ],
+      "metric_family": "net_debt",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "x"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: net debt and leverage are lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "net_debt",
+          "metric_id": "net_debt"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "lease_adjusted_net_debt",
+          "metric_id": "lease_adjusted_net_debt"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "lease_adjusted_net_debt_with_securities",
+          "metric_id": "lease_adjusted_net_debt_with_securities"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "net_leverage",
+          "metric_id": "net_leverage"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "adjusted_net_leverage",
+          "metric_id": "adjusted_net_leverage"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_debt_formula_direct_lower",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "valuation_debt_style"
+      ],
+      "metric_family": "net_debt_change",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "direct_value",
+      "comparison_lag": 0,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: explicit net-debt changes are lower-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "net_debt_qoq",
+          "metric_id": "net_debt_qoq"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "net_debt_yoy",
+          "metric_id": "net_debt_yoy"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_debt_formula_higher",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "valuation_debt_style"
+      ],
+      "metric_family": "liquidity_and_coverage",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_year_quarter",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m",
+        "x",
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: net cash and coverage are higher-better",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "core_net_cash",
+          "metric_id": "core_net_cash"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "net_cash_with_securities",
+          "metric_id": "net_cash_with_securities"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "interest_coverage",
+          "metric_id": "interest_coverage"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "cash_interest_coverage",
+          "metric_id": "cash_interest_coverage"
+        }
+      ]
+    },
+    {
+      "policy_id": "annual_debt_raw_lower",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "annual_debt_style"
+      ],
+      "metric_family": "annual_debt",
+      "period_type": "fiscal_year",
+      "period_axis_id": "bs_annual_financial_periods",
+      "comparison_basis": "prior_fiscal_year",
+      "comparison_lag": 1,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "raw"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Annual debt compares with the immediately preceding fiscal year",
+      "target_selectors": [
+        {
+          "selector_type": "binding",
+          "target_id": "bs_annual_financial_debt_core_series",
+          "metric_id": "debt_core"
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_fcf_conversion_ttm",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "valuation_debt_style"
+      ],
+      "metric_family": "cash_conversion",
+      "period_type": "quarter",
+      "period_axis_id": "valuation_quarterly_periods",
+      "comparison_basis": "prior_ttm",
+      "comparison_lag": 4,
+      "polarity": "higher_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "%"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "excel_writer_coloring: FCF conversion TTM is higher-better versus prior TTM",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "fcf_conversion",
+          "metric_id": "fcf_conversion"
+        }
+      ]
+    },
+    {
+      "policy_id": "annual_debt_formula_lower",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "annual_debt_style"
+      ],
+      "metric_family": "annual_net_debt",
+      "period_type": "fiscal_year",
+      "period_axis_id": "bs_annual_financial_periods",
+      "comparison_basis": "prior_fiscal_year",
+      "comparison_lag": 1,
+      "polarity": "lower_is_better",
+      "threshold_set_id": "legacy_five_band_change",
+      "accepted_units": [
+        "$m"
+      ],
+      "applies_to": [
+        "formula"
+      ],
+      "missing_value_behavior": "no_style",
+      "comparator_missing_behavior": "no_style",
+      "status_exclusions": [
+        "missing_source",
+        "manual_review_required",
+        "not_populated",
+        "invalid",
+        "conflict"
+      ],
+      "legacy_reference": "Annual net debt compares with lag one fiscal year",
+      "target_selectors": [
+        {
+          "selector_type": "formula",
+          "target_id": "annual_net_debt",
+          "metric_id": "annual_net_debt"
+        }
+      ]
+    }
+  ],
+  "style_disabled": [
+    {
+      "formula_id": "acquisitions_ttm",
+      "sheet": "Valuation",
+      "target": "B65:M65",
+      "owner_module_id": "balance_cash_flow",
+      "economic_reason": "Acquisition cash outflow has no universally favorable direction without transaction context.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "debt_repayment_ttm",
+      "sheet": "Valuation",
+      "target": "B66:M66",
+      "owner_module_id": "balance_cash_flow",
+      "economic_reason": "Gross debt repayment is not a universal performance signal without financing and liquidity context.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "debt_issuance_ttm",
+      "sheet": "Valuation",
+      "target": "B67:M67",
+      "owner_module_id": "balance_cash_flow",
+      "economic_reason": "Gross debt issuance is not a universal performance signal without financing and liquidity context.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "ebitda_ttm_copy",
+      "sheet": "Valuation",
+      "target": "B84:M84",
+      "owner_module_id": "debt_liquidity",
+      "economic_reason": "This debt-panel copy duplicates the canonical EBITDA TTM signal already styled in operating history.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "adjusted_ebitda_ttm_copy",
+      "sheet": "Valuation",
+      "target": "B85:M85",
+      "owner_module_id": "debt_liquidity",
+      "economic_reason": "This debt-panel copy duplicates the canonical adjusted EBITDA TTM signal already styled above.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_output_formulas",
+      "sheet": "Valuation",
+      "target": "N194:N210",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Valuation outputs are scenario results with dedicated output styling rather than period-comparison heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_sidecar_formulas",
+      "sheet": "Valuation",
+      "target": "U64:U70",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Sidecar outputs use dedicated scenario semantics and are not period-comparison heatmap cells.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_sidecar_formulas",
+      "sheet": "Valuation",
+      "target": "U72:U75",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Sidecar outputs use dedicated scenario semantics and are not period-comparison heatmap cells.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "J218",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Scenario setup cells use dedicated input and output styling, not historical comparison heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "Q219:Q221",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Scenario setup cells use dedicated input and output styling, not historical comparison heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "J222:J223",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Scenario setup cells use dedicated input and output styling, not historical comparison heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "H227:L234",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Scenario grids own their own comparison presentation and are not historical period heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "F236",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Scenario summary output has dedicated output styling and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "E241:E244",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Scenario summary outputs have dedicated output styling and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "E259:E261",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Scenario summary outputs have dedicated output styling and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A161:A163",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A172:A174",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A178:A180",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "hidden_value_issue_anchor",
+      "sheet": "Valuation",
+      "target": "AI139",
+      "owner_module_id": "hidden_value_signals",
+      "economic_reason": "The hidden issue anchor is a support formula and must never display a heatmap signal.",
+      "expected_empty_behavior": "no_style"
+    }
+  ]
+}

@@ -29,7 +29,13 @@ from pbi_xbrl.standard_template_shell_identity import (
 )
 from pbi_xbrl.new_ticker_binding_planner import (
     BindingPlanReproductionError,
-    reproduce_binding_plan,
+)
+from pbi_xbrl.new_ticker_style_planner import (
+    DEFAULT_MODULE_MANIFEST,
+    DEFAULT_STYLE_POLICY,
+    StylePlanningError,
+    load_style_policy_contract,
+    reproduce_style_plan,
 )
 from pbi_xbrl.json_schema_validation import load_json_strict
 from pbi_xbrl.workbook_modules import (
@@ -486,6 +492,8 @@ def validate_shell(
     template_path: Path = DEFAULT_TEMPLATE,
     manifest_path: Path = DEFAULT_MANIFEST,
     binding_map_path: Path = DEFAULT_BINDING_MAP,
+    module_manifest_path: Path = DEFAULT_MODULE_MANIFEST,
+    style_policy_path: Path = DEFAULT_STYLE_POLICY,
     allow_filled_values: bool = False,
     approved_shell_path: Path = DEFAULT_TEMPLATE,
     approved_plan_path: Path | None = None,
@@ -528,6 +536,16 @@ def validate_shell(
     manifest = _load_json(manifest_path)
     binding_payload = _load_json(binding_map_path)
     bindings = list(binding_payload.get("bindings") or [])
+    module_payload = _load_json(module_manifest_path)
+    try:
+        style_contract = load_style_policy_contract(
+            style_policy_path,
+            module_payload=module_payload,
+            binding_payload=binding_payload,
+        )
+    except StylePlanningError as exc:
+        style_contract = None
+        issues.append(_issue("style_policy_contract", str(exc), target=str(style_policy_path)))
     identity_report: dict[str, Any] = {}
     if not allow_filled_values:
         verified_identity = verify_shell_identity(
@@ -548,6 +566,7 @@ def validate_shell(
         approved_plan = _load_json(approved_plan_path) if approved_plan_path is not None else None
         normalized_package = _load_json(normalized_package_path) if normalized_package_path is not None else None
         reproduced_plan = None
+        reproduced_style_plan = None
         if approved_plan is None or normalized_package is None:
             issues.append(
                 _issue(
@@ -557,18 +576,20 @@ def validate_shell(
             )
         else:
             try:
-                reproduced_plan = reproduce_binding_plan(
+                reproduced_plan, reproduced_style_plan = reproduce_style_plan(
                     normalized_package,
                     binding_payload=binding_payload,
                     manifest=manifest,
                     shell_path=approved_shell_path,
-                    expected_plan=approved_plan,
+                    module_payload=module_payload,
+                    style_contract=style_contract,
+                    expected_binding_plan=approved_plan,
                 )
                 approved_planned_values = {
                     (str(write["target_sheet"]), str(write["target_cell"])): write.get("value")
                     for write in reproduced_plan.to_dict().get("planned_writes") or []
                 }
-            except BindingPlanReproductionError as exc:
+            except (BindingPlanReproductionError, StylePlanningError) as exc:
                 issues.append(_issue("post_fill_plan_reproduction_failed", str(exc)))
         post_fill_identity = verify_post_fill_structural_identity(
             template_path,
@@ -577,6 +598,9 @@ def validate_shell(
             binding_payload=binding_payload,
             approved_plan=reproduced_plan,
             normalized_package=normalized_package,
+            module_payload=module_payload,
+            style_contract=style_contract,
+            approved_style_plan=reproduced_style_plan,
         )
         identity_report = post_fill_identity
         for identity_issue in post_fill_identity.get("issues") or []:
@@ -1089,6 +1113,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--binding-map", type=Path, default=DEFAULT_BINDING_MAP)
+    parser.add_argument("--module-manifest", type=Path, default=DEFAULT_MODULE_MANIFEST)
+    parser.add_argument("--style-policy", type=Path, default=DEFAULT_STYLE_POLICY)
     parser.add_argument("--approved-shell", type=Path, default=DEFAULT_TEMPLATE)
     parser.add_argument("--binding-plan", type=Path, help="Exact PASS binding plan required when filled writable values differ from the shell.")
     parser.add_argument("--normalized-package", type=Path, help="Normalized package used to reproduce and authenticate the binding plan.")
@@ -1100,6 +1126,8 @@ def main(argv: list[str] | None = None) -> int:
         template_path=args.template.expanduser().resolve(),
         manifest_path=args.manifest.expanduser().resolve(),
         binding_map_path=args.binding_map.expanduser().resolve(),
+        module_manifest_path=args.module_manifest.expanduser().resolve(),
+        style_policy_path=args.style_policy.expanduser().resolve(),
         allow_filled_values=args.allow_filled_values,
         approved_shell_path=args.approved_shell.expanduser().resolve(),
         approved_plan_path=args.binding_plan.expanduser().resolve() if args.binding_plan else None,

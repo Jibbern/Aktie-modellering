@@ -8,6 +8,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
+from openpyxl.styles import PatternFill
 from openpyxl.utils import column_index_from_string, range_boundaries
 import pytest
 
@@ -31,12 +32,26 @@ DATA_ROOT = next(
     if (ancestor / "StockModelData").exists()
 )
 PACKAGE = DATA_ROOT / "outputs" / "stress_tests" / "ANF_new_ticker_engine" / "ANF_normalized_data_package.json"
-CACHED_PLAN = DATA_ROOT / "outputs" / "stress_tests" / "ANF_new_ticker_engine" / "ANF_binding_plan.json"
 LEGACY_ANF = DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _reproduced_plan_payload() -> dict[str, Any]:
+    return reproduce_binding_plan(
+        _load_json(PACKAGE),
+        manifest=_load_json(MANIFEST),
+        binding_payload=_load_json(BINDING_MAP),
+        shell_path=TEMPLATE,
+        ticker_override="ANF",
+    ).to_dict()
+
+
+def _write_reproduced_plan(path: Path) -> Path:
+    path.write_text(json.dumps(_reproduced_plan_payload(), indent=2) + "\n", encoding="utf-8")
+    return path
 
 
 def _strict_post_fill_report(workbook_path: Path, plan_path: Path) -> dict[str, Any]:
@@ -54,12 +69,16 @@ def _strict_post_fill_report(workbook_path: Path, plan_path: Path) -> dict[str, 
 @pytest.fixture(scope="module")
 def anf_shadow_artifacts(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     output_dir = tmp_path_factory.mktemp("anf-shadow-e2e") / "ANF_new_ticker_engine"
-    return run_anf_shadow_workbook_fill(
+    output_dir.mkdir(parents=True)
+    cached_plan_path = _write_reproduced_plan(output_dir.parent / "current-binding-plan.json")
+    paths = run_anf_shadow_workbook_fill(
         package_path=PACKAGE,
         output_dir=output_dir,
         legacy_workbook_path=LEGACY_ANF,
-        cached_plan_path=CACHED_PLAN,
+        cached_plan_path=cached_plan_path,
     )
+    paths["test_cached_plan"] = cached_plan_path
+    return paths
 
 
 def _find_unplanned_owned_cell(workbook_path: Path, plan: dict[str, Any]) -> tuple[str, str]:
@@ -127,7 +146,7 @@ def test_anf_shadow_fill_uses_reproduced_plan_and_strict_post_fill_validation(
     manifest = _load_json(MANIFEST)
     binding_payload = _load_json(BINDING_MAP)
     plan = _load_json(paths["plan_json"])
-    cached_plan = _load_json(CACHED_PLAN)
+    cached_plan = _load_json(paths["test_cached_plan"])
     reproduced = reproduce_binding_plan(
         package,
         manifest=manifest,
@@ -155,6 +174,7 @@ def test_anf_shadow_fill_uses_reproduced_plan_and_strict_post_fill_validation(
     assert postfill["status"] == "PASS"
     assert postfill["strict_post_fill_validation"]["status"] == "PASS"
     assert postfill["strict_post_fill_validation"]["issue_count"] == 0
+    assert shell_report["shell_identity"]["reproduced_style_action_count"] == 824
     assert postfill["approved_plan_status"] == "PASS"
     assert postfill["approved_plan_write_count"] == plan["planned_write_count"]
     assert postfill["layout_signature_unchanged"] is True
@@ -217,7 +237,7 @@ def test_anf_strict_post_fill_requires_reproduction_inputs(anf_shadow_artifacts:
 
 
 def test_anf_shadow_workflow_rejects_stale_cached_plan_before_workbook_copy(tmp_path: Path) -> None:
-    stale = deepcopy(_load_json(CACHED_PLAN))
+    stale = deepcopy(_reproduced_plan_payload())
     stale["planned_writes"][0]["value"] = "STALE CACHED VALUE"
     stale_path = tmp_path / "stale-plan.json"
     stale_path.write_text(json.dumps(stale), encoding="utf-8")
@@ -238,7 +258,7 @@ def test_anf_unchanged_shell_rejects_fabricated_plan() -> None:
     package = _load_json(PACKAGE)
     manifest = _load_json(MANIFEST)
     binding_payload = _load_json(BINDING_MAP)
-    fabricated = deepcopy(_load_json(CACHED_PLAN))
+    fabricated = deepcopy(_reproduced_plan_payload())
     fabricated["planned_writes"][0].update(
         {
             "target_sheet": "SUMMARY",
@@ -278,6 +298,24 @@ def test_anf_strict_post_fill_rejects_non_writable_drift(
         wb.close()
 
     report = _strict_post_fill_report(drifted, anf_shadow_artifacts["plan_json"])
+    assert report["status"] == "FAIL"
+    assert "post_fill_protected_cell_drift" in {issue["rule_id"] for issue in report["issues"]}
+
+
+def test_anf_strict_post_fill_rejects_unplanned_heatmap_fill(
+    anf_shadow_artifacts: dict[str, Path], tmp_path: Path
+) -> None:
+    drifted = tmp_path / "unplanned-style.xlsx"
+    shutil.copyfile(anf_shadow_artifacts["workbook"], drifted)
+    wb = load_workbook(drifted, data_only=False, read_only=False)
+    try:
+        wb["Valuation"]["B9"].fill = PatternFill(fill_type="solid", fgColor="FFFFFF")
+        wb.save(drifted)
+    finally:
+        wb.close()
+
+    report = _strict_post_fill_report(drifted, anf_shadow_artifacts["plan_json"])
+
     assert report["status"] == "FAIL"
     assert "post_fill_protected_cell_drift" in {issue["rule_id"] for issue in report["issues"]}
 
@@ -412,13 +450,14 @@ def test_shadow_validation_failure_cleans_candidate_and_preserves_final_output(
             "shell_identity": {},
         },
     )
+    cached_plan_path = _write_reproduced_plan(tmp_path / "current-binding-plan.json")
 
     with pytest.raises(RuntimeError, match="strict post-fill validation failed"):
         shadow_workflow.run_anf_shadow_workbook_fill(
             package_path=PACKAGE,
             output_dir=output_dir,
             legacy_workbook_path=LEGACY_ANF,
-            cached_plan_path=CACHED_PLAN,
+            cached_plan_path=cached_plan_path,
         )
 
     assert _candidate_workbooks(output_dir) == []

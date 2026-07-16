@@ -20,7 +20,13 @@ from pbi_xbrl.json_schema_validation import load_json_strict
 from pbi_xbrl.new_ticker_binding_planner import (
     BindingPlan,
     BindingPlanReproductionError,
-    reproduce_binding_plan,
+)
+from pbi_xbrl.new_ticker_style_application import StyleApplicationError, apply_style_plan
+from pbi_xbrl.new_ticker_style_planner import (
+    DEFAULT_MODULE_MANIFEST,
+    DEFAULT_STYLE_POLICY,
+    StylePlanningError,
+    reproduce_style_plan,
 )
 from pbi_xbrl.normalized_company_data_validation import NormalizedDataIssue
 
@@ -54,6 +60,7 @@ class FillResult:
     ticker: str
     output_path: Path
     written_cell_count: int
+    styled_cell_count: int
     validation_issue_count: int
     mapping_gap_count: int
     manual_review_count: int
@@ -67,6 +74,8 @@ def fill_standard_template_from_package(
     template_path: Path | str = DEFAULT_TEMPLATE,
     manifest_path: Path | str = DEFAULT_MANIFEST,
     binding_map_path: Path | str = DEFAULT_BINDING_MAP,
+    module_manifest_path: Path | str = DEFAULT_MODULE_MANIFEST,
+    style_policy_path: Path | str = DEFAULT_STYLE_POLICY,
     promotion_requested: bool = False,
     expected_plan: Mapping[str, Any] | BindingPlan | None = None,
 ) -> FillResult:
@@ -86,20 +95,28 @@ def fill_standard_template_from_package(
 
     _validate_binding_contract(manifest, bindings)
     try:
-        plan = reproduce_binding_plan(
+        plan, style_plan = reproduce_style_plan(
             package,
             binding_payload=binding_payload,
             manifest=manifest,
             shell_path=Path(template_path),
+            module_payload=_load_json(Path(module_manifest_path)),
+            style_contract=_load_json(Path(style_policy_path)),
             ticker_override=ticker,
             promotion_requested=promotion_requested,
-            expected_plan=expected_plan,
+            expected_binding_plan=expected_plan,
         )
     except BindingPlanReproductionError as exc:
         if exc.plan is not None and exc.plan.has_blockers:
             raise NormalizedDataValidationError(exc.plan.blocking_issues()) from exc
         raise BindingContractError(str(exc)) from exc
+    except StylePlanningError as exc:
+        raise BindingContractError(str(exc)) from exc
 
+    if ticker != plan.ticker:
+        raise BindingContractError(
+            f"Ticker override {ticker!r} differs from independently reproduced plan ticker {plan.ticker!r}."
+        )
     out_path = Path(output_path)
     if out_path.suffix.lower() != ".xlsx":
         raise NewTickerValueFillerError("Output path must be a macro-free .xlsx file.")
@@ -110,7 +127,10 @@ def fill_standard_template_from_package(
     try:
         _resolve_ticker_sheet(wb, ticker)
         written = _execute_binding_plan(wb, plan)
+        styled = apply_style_plan(wb, style_plan).applied_action_count
         wb.save(out_path)
+    except StyleApplicationError as exc:
+        raise BindingContractError(str(exc)) from exc
     finally:
         wb.close()
 
@@ -118,6 +138,7 @@ def fill_standard_template_from_package(
         ticker=ticker,
         output_path=out_path,
         written_cell_count=written,
+        styled_cell_count=styled,
         validation_issue_count=len(plan.issues),
         mapping_gap_count=len(plan.mapping_gaps),
         manual_review_count=len(plan.manual_review_flags),

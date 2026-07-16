@@ -15,7 +15,7 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "43c4ab329acc26a671a3165da1dff70c63e72353b5c2676d76dfb8529acc8bea"
+      "sha256": "42212207df3b4e5eb421ff1ff43a3b90f062eaaeb4c6ee18872c1b42a9357ed5"
     },
     {
       "path": "docs/workbook_binding_map.json",
@@ -35,7 +35,7 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "f7f312f82bc0caff74bd106183849fd5e79c88b4779aad797c12cac40c4662db",
+    "run_generation_id": "b8c9c238d7e0cde22998032ff4d2cde895032bbdde9a08af43e6936ce6c33319",
     "generated_outputs": [
       {
         "canonical_content_sha256": "7fab36972da3f012d5e57b61a74ae9999fb39b3182e2e4e5f9f982db50538daa",
@@ -53,6 +53,6 @@
       }
     ]
   },
-  "generated_at_utc": "2026-07-15T21:22:52+00:00",
-  "generation_id": "e7365e5481e023ff50f230caae25afa2c0902ca0c62607a31ddc456160eb9468"
+  "generated_at_utc": "2026-07-16T00:07:21+00:00",
+  "generation_id": "83a096d8645d6dc830f3bb262b328f37cca0dcc730e50c5387dd9a6227d42cd0"
 }

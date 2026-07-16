@@ -518,6 +518,9 @@ def verify_post_fill_structural_identity(
     binding_payload: Mapping[str, Any] | Sequence[Mapping[str, Any]],
     approved_plan: Any = None,
     normalized_package: Mapping[str, Any] | None = None,
+    module_payload: Mapping[str, Any] | None = None,
+    style_contract: Mapping[str, Any] | None = None,
+    approved_style_plan: Any = None,
 ) -> dict[str, Any]:
     """Verify a filled workbook against an exact, approved source shell.
 
@@ -541,10 +544,73 @@ def verify_post_fill_structural_identity(
         )
         return {"status": "FAIL", "issues": issues, "source_identity": source_token.to_dict()}
 
+    reproduced_plan = None
+    reproduced_style_plan = None
+    plan_participates = normalized_package is not None or approved_plan is not None
+    if plan_participates:
+        if normalized_package is None:
+            issues.append(
+                {
+                    "rule_id": "post_fill_normalized_package_required",
+                    "message": "Post-fill validation requires the normalized package for independent plan reproduction.",
+                }
+            )
+        else:
+            style_mode = module_payload is not None or style_contract is not None or (
+                isinstance(binding_payload, Mapping) and binding_payload.get("module_profile_id")
+            )
+            if style_mode:
+                from pbi_xbrl.new_ticker_binding_planner import BindingPlanReproductionError
+                from pbi_xbrl.new_ticker_style_planner import StylePlanningError, reproduce_style_plan
+
+                try:
+                    reproduced_plan, reproduced_style_plan = reproduce_style_plan(
+                        normalized_package,
+                        manifest=manifest,
+                        binding_payload=binding_payload,
+                        shell_path=approved_shell_path,
+                        module_payload=module_payload,
+                        style_contract=style_contract,
+                        expected_binding_plan=approved_plan,
+                        expected_style_plan=approved_style_plan,
+                    )
+                except (BindingPlanReproductionError, StylePlanningError) as exc:
+                    issues.append(
+                        {
+                            "rule_id": "post_fill_binding_plan_reproduction_failed",
+                            "message": str(exc),
+                        }
+                    )
+            else:
+                from pbi_xbrl.new_ticker_binding_planner import (
+                    BindingPlanReproductionError,
+                    reproduce_binding_plan,
+                )
+
+                try:
+                    reproduced_plan = reproduce_binding_plan(
+                        normalized_package,
+                        manifest=manifest,
+                        binding_payload=binding_payload,
+                        shell_path=approved_shell_path,
+                        expected_plan=approved_plan,
+                    )
+                except BindingPlanReproductionError as exc:
+                    issues.append(
+                        {
+                            "rule_id": "post_fill_binding_plan_reproduction_failed",
+                            "message": str(exc),
+                        }
+                    )
+
     source_wb = load_workbook(Path(approved_shell_path), read_only=False, data_only=False)
     owns_filled = isinstance(filled_workbook, (str, Path))
     target_wb = load_workbook(Path(filled_workbook), read_only=False, data_only=False) if owns_filled else filled_workbook
     try:
+        if reproduced_style_plan is not None:
+            from pbi_xbrl.new_ticker_style_application import apply_style_plan
+
+            apply_style_plan(source_wb, reproduced_style_plan)
         bindings = list(binding_payload.get("bindings") or []) if isinstance(binding_payload, Mapping) else list(binding_payload)
         allowed_cells = _exact_writable_cells(bindings)
         source_payload = _post_fill_structural_payload(source_wb, allowed_cells=allowed_cells)
@@ -582,68 +648,48 @@ def verify_post_fill_structural_identity(
         for key in sorted(set(source_values) | set(target_values))
         if _contract_value(source_values.get(key)) != _contract_value(target_values.get(key))
     }
-    plan_participates = normalized_package is not None or approved_plan is not None or bool(changed_values)
+    plan_participates = plan_participates or bool(changed_values)
     if plan_participates:
         if normalized_package is None:
-            issues.append(
-                {
-                    "rule_id": "post_fill_normalized_package_required",
-                    "message": "Post-fill validation requires the normalized package for independent plan reproduction.",
-                }
-            )
-        else:
-            from pbi_xbrl.new_ticker_binding_planner import (
-                BindingPlanReproductionError,
-                reproduce_binding_plan,
-            )
-
-            try:
-                reproduced_plan = reproduce_binding_plan(
-                    normalized_package,
-                    manifest=manifest,
-                    binding_payload=binding_payload,
-                    shell_path=approved_shell_path,
-                    expected_plan=approved_plan,
-                )
-            except BindingPlanReproductionError as exc:
+            if not any(issue.get("rule_id") == "post_fill_normalized_package_required" for issue in issues):
                 issues.append(
                     {
-                        "rule_id": "post_fill_binding_plan_reproduction_failed",
-                        "message": str(exc),
+                        "rule_id": "post_fill_normalized_package_required",
+                        "message": "Post-fill validation requires the normalized package for independent plan reproduction.",
                     }
                 )
-            else:
-                plan_payload = reproduced_plan.to_dict()
-                planned_values = _planned_value_map(plan_payload)
-                allowed_keys = {f"{sheet}!{cell}" for sheet, cells in allowed_cells.items() for cell in cells}
-                unauthorized_plan_targets = sorted(set(planned_values) - allowed_keys)
-                if unauthorized_plan_targets:
-                    issues.append(
-                        {
-                            "rule_id": "post_fill_plan_target_not_owned",
-                            "message": f"Plan contains {len(unauthorized_plan_targets)} target(s) outside exact active binding ownership.",
-                        }
-                    )
-                unauthorized_changes = sorted(set(changed_values) - set(planned_values))
-                if unauthorized_changes:
-                    issues.append(
-                        {
-                            "rule_id": "post_fill_unplanned_value_change",
-                            "message": f"Filled workbook contains {len(unauthorized_changes)} changed writable cell(s) absent from the approved plan.",
-                        }
-                    )
-                mismatches = [
-                    key
-                    for key, value in planned_values.items()
-                    if not _planned_cell_values_equal(target_values.get(key), value)
-                ]
-                if mismatches:
-                    issues.append(
-                        {
-                            "rule_id": "post_fill_planned_value_mismatch",
-                            "message": f"Filled workbook does not match {len(mismatches)} approved planned value(s).",
-                        }
-                    )
+        elif reproduced_plan is not None:
+            plan_payload = reproduced_plan.to_dict()
+            planned_values = _planned_value_map(plan_payload)
+            allowed_keys = {f"{sheet}!{cell}" for sheet, cells in allowed_cells.items() for cell in cells}
+            unauthorized_plan_targets = sorted(set(planned_values) - allowed_keys)
+            if unauthorized_plan_targets:
+                issues.append(
+                    {
+                        "rule_id": "post_fill_plan_target_not_owned",
+                        "message": f"Plan contains {len(unauthorized_plan_targets)} target(s) outside exact active binding ownership.",
+                    }
+                )
+            unauthorized_changes = sorted(set(changed_values) - set(planned_values))
+            if unauthorized_changes:
+                issues.append(
+                    {
+                        "rule_id": "post_fill_unplanned_value_change",
+                        "message": f"Filled workbook contains {len(unauthorized_changes)} changed writable cell(s) absent from the approved plan.",
+                    }
+                )
+            mismatches = [
+                key
+                for key, value in planned_values.items()
+                if not _planned_cell_values_equal(target_values.get(key), value)
+            ]
+            if mismatches:
+                issues.append(
+                    {
+                        "rule_id": "post_fill_planned_value_mismatch",
+                        "message": f"Filled workbook does not match {len(mismatches)} approved planned value(s).",
+                    }
+                )
     return {
         "status": "PASS" if not issues else "FAIL",
         "issues": issues,
@@ -651,6 +697,9 @@ def verify_post_fill_structural_identity(
         "source_structural_signatures": source_signatures,
         "filled_structural_signatures": target_signatures,
         "changed_writable_cell_count": len(changed_values),
+        "reproduced_style_action_count": (
+            len(reproduced_style_plan.actions) if reproduced_style_plan is not None else 0
+        ),
     }
 
 

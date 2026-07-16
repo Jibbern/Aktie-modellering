@@ -4,7 +4,7 @@
   "reason": "",
   "artifact": {
     "path": "docs/support_sheet_lifecycle_contract.json",
-    "sha256": "659270fdf6c22850b8b5703656d401de58a3f4f3b071a8891a4049e6fd8fa490",
+    "sha256": "8c40ef25b52bfa39bef27007bd8b6bb38f5bc4d7e255e94a3df861b144191a92",
     "output_schema": "json",
     "output_version": "0.1.0"
   },
@@ -15,7 +15,7 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "43c4ab329acc26a671a3165da1dff70c63e72353b5c2676d76dfb8529acc8bea"
+      "sha256": "42212207df3b4e5eb421ff1ff43a3b90f062eaaeb4c6ee18872c1b42a9357ed5"
     },
     {
       "path": "docs/workbook_binding_map.json",
@@ -60,14 +60,14 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "b25ad6151e33c47fa06c1984299a443c14a29e4ffa8a5f3bf2f66ff822c1c004",
+    "run_generation_id": "939a0afcf8e0f960fc7581a88011594049793175bcfd8c302b6bd852e10c68fb",
     "generated_outputs": [
       {
         "canonical_content_sha256": "f2d6cdfd16733bcf7b5d18cf8ad7f3bff21b9af7d8eebcbe02d7079e43e38e63",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/standard_template_sheet_inventory.json",
-        "sha256": "d057d9595a08451d7acf059d60d6af080ef2b994b57bc43896a7587a239e2b26"
+        "sha256": "a3e5d597fca7e4d266e158c425f1b8ef643727362535dd9e33a07415fbe6504a"
       },
       {
         "canonical_content_sha256": "f169b7e3b0e911d0ce14a72fbf26842f5c9f073e9e54f77e4028e0ddec9c425b",
@@ -81,7 +81,7 @@
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/support_sheet_lifecycle_contract.json",
-        "sha256": "659270fdf6c22850b8b5703656d401de58a3f4f3b071a8891a4049e6fd8fa490"
+        "sha256": "8c40ef25b52bfa39bef27007bd8b6bb38f5bc4d7e255e94a3df861b144191a92"
       },
       {
         "canonical_content_sha256": "ece9665408f5ae4175154f5a0895e3ccb46d5aebd90792f6a75679ceab5fb083",
@@ -92,6 +92,6 @@
       }
     ]
   },
-  "generated_at_utc": "2026-07-15T21:23:19+00:00",
-  "generation_id": "806854a5af751fbb0f4ee66107d9b591ac6f307a8ed2652d29073cf8de0f18a7"
+  "generated_at_utc": "2026-07-16T00:07:36+00:00",
+  "generation_id": "29b97a0fb0612ba954762180e051a5748e1dc747065dd96752fa5148ea83902c"
 }

@@ -25,6 +25,8 @@ from pbi_xbrl.standard_template_shell_identity import (
 )
 from pbi_xbrl.new_ticker_binding_planner import reproduce_binding_plan_snapshot
 from pbi_xbrl.new_ticker_value_filler import _execute_binding_plan, _resolve_ticker_sheet
+from pbi_xbrl.new_ticker_style_application import apply_style_plan
+from pbi_xbrl.new_ticker_style_planner import reproduce_style_plan
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -226,6 +228,14 @@ def test_post_fill_structural_identity_allows_only_approved_value_changes_in_mem
     try:
         _resolve_ticker_sheet(wb, "TEST")
         _execute_binding_plan(wb, plan)
+        _value_plan, style_plan = reproduce_style_plan(
+            package,
+            manifest=manifest,
+            binding_payload=bindings,
+            shell_path=SHELL,
+            expected_binding_plan=plan,
+        )
+        apply_style_plan(wb, style_plan)
         report = verify_post_fill_structural_identity(
             wb,
             approved_shell_path=SHELL,

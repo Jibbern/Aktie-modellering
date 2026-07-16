@@ -31,6 +31,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--template", type=Path, default=ROOT / "templates" / "standard_stock_model_template.xlsx")
     parser.add_argument("--manifest", type=Path, default=ROOT / "docs" / "standard_template_shell_manifest.json")
     parser.add_argument("--binding-map", type=Path, default=ROOT / "docs" / "workbook_binding_map.json")
+    parser.add_argument("--module-manifest", type=Path, default=ROOT / "docs" / "workbook_module_manifest.json")
+    parser.add_argument("--style-policy", type=Path, default=ROOT / "docs" / "standard_template_style_policy.json")
     parser.add_argument("--promotion-requested", action="store_true", help="Apply promotion-only normalized-data checks.")
     args = parser.parse_args(argv)
 
@@ -42,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
             template_path=args.template,
             manifest_path=args.manifest,
             binding_map_path=args.binding_map,
+            module_manifest_path=args.module_manifest,
+            style_policy_path=args.style_policy,
             promotion_requested=args.promotion_requested,
         )
     except NormalizedDataValidationError as exc:
@@ -67,6 +71,7 @@ def main(argv: list[str] | None = None) -> int:
                 "ticker": result.ticker,
                 "output_path": str(result.output_path),
                 "written_cell_count": result.written_cell_count,
+                "styled_cell_count": result.styled_cell_count,
                 "validation_issue_count": result.validation_issue_count,
                 "mapping_gap_count": result.mapping_gap_count,
                 "manual_review_count": result.manual_review_count,
