@@ -179,7 +179,8 @@
     "investment_case.bull_case",
     "investment_case.base_case",
     "investment_case.bear_case",
-    "investment_case.scenario_drivers",
+    "investment_case.scenario_items",
+    "investment_case.scenario_driver_bridge",
     "valuation_inputs.as_of_date",
     "valuation_inputs.shares_outstanding",
     "valuation_inputs.diluted_shares",
@@ -500,7 +501,9 @@
       "additionalProperties": true,
       "required": [
         "summary",
-        "key_debate"
+        "key_debate",
+        "scenario_items",
+        "scenario_driver_bridge"
       ],
       "properties": {
         "summary": {
@@ -537,8 +540,15 @@
         "bear_case": {
           "$ref": "#/$defs/normalizedField"
         },
-        "scenario_drivers": {
-          "$ref": "#/$defs/normalizedField"
+        "scenario_items": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/scenarioItem"},
+          "uniqueItems": true
+        },
+        "scenario_driver_bridge": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/scenarioDriverBridge"},
+          "uniqueItems": true
         },
         "source_evidence": {
           "type": "array",
@@ -661,6 +671,111 @@
           "type": "string",
           "enum": ["accepted", "manual_review_required", "rejected"]
         }
+      }
+    },
+    "scenarioValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": {"type": ["number", "null"]},
+        "maximum": {"type": ["number", "null"]}
+      }
+    },
+    "scenarioItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "assumption_id",
+        "metric",
+        "value_kind",
+        "value",
+        "low_value",
+        "high_value",
+        "unit",
+        "horizon",
+        "dimension_id",
+        "member",
+        "profile_pack_id",
+        "as_of_date",
+        "source_classification",
+        "validation",
+        "propagation_rule",
+        "status",
+        "source_ref",
+        "source_refs",
+        "reason"
+      ],
+      "properties": {
+        "scenario_id": {"enum": ["common", "bear", "base", "bull", "custom"]},
+        "assumption_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "metric": {"type": "string", "minLength": 1},
+        "value_kind": {"enum": ["point", "range", "minimum", "maximum", "route", "unavailable"]},
+        "value": {"type": ["number", "string", "null"]},
+        "low_value": {"type": ["number", "null"]},
+        "high_value": {"type": ["number", "null"]},
+        "unit": {"type": "string", "minLength": 1},
+        "horizon": {"type": "string", "pattern": "^(FY[0-9]{4}|[0-9]{4}-Q[1-4]|TTM|as_of)$"},
+        "dimension_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "member": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "profile_pack_id": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$"},
+        "as_of_date": {"type": ["string", "null"], "format": "date"},
+        "source_classification": {"enum": ["source_actual", "source_guidance", "user_input", "derived_assumption", "unavailable"]},
+        "validation": {"$ref": "#/$defs/scenarioValidation"},
+        "propagation_rule": {"enum": ["shared_actual", "scenario_specific", "selected_growth_route", "profile_driver_bridge", "no_propagation"]},
+        "status": {"$ref": "#/$defs/fieldStatus"},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "publication_date": {"type": ["string", "null"], "format": "date"},
+        "reporting_period": {"type": ["string", "null"]},
+        "reason": {"type": "string"}
+      }
+    },
+    "scenarioDriverBridge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "driver_id",
+        "profile_pack_id",
+        "driver_type",
+        "metric",
+        "impact_metric",
+        "value",
+        "unit",
+        "horizon",
+        "dimension_id",
+        "member",
+        "source_classification",
+        "tax_treatment",
+        "cash_classification",
+        "propagation_rule",
+        "status",
+        "source_ref",
+        "source_refs",
+        "reason"
+      ],
+      "properties": {
+        "scenario_id": {"enum": ["common", "bear", "base", "bull", "custom"]},
+        "driver_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "profile_pack_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "driver_type": {"enum": ["revenue_volume", "margin_ebitda", "cash_flow_capex", "capital_structure_interest", "share_count_buyback", "tax_credit_subsidy", "manual_incremental"]},
+        "metric": {"type": "string", "minLength": 1},
+        "impact_metric": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "value": {"type": ["number", "null"]},
+        "unit": {"type": "string", "minLength": 1},
+        "horizon": {"type": "string", "pattern": "^(FY[0-9]{4}|[0-9]{4}-Q[1-4]|TTM|as_of)$"},
+        "dimension_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "member": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "source_classification": {"enum": ["source_actual", "source_guidance", "user_input", "derived_assumption", "unavailable"]},
+        "tax_treatment": {"enum": ["taxable", "non_taxable", "non_taxable_credit", "cash_only", "no_eps_impact", "direct_eps", "manual_review_required"]},
+        "cash_classification": {"enum": ["operating", "investing", "financing", "non_cash", "manual_review_required"]},
+        "propagation_rule": {"enum": ["shared_actual", "scenario_specific", "selected_growth_route", "profile_driver_bridge", "no_propagation"]},
+        "status": {"$ref": "#/$defs/fieldStatus"},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "reason": {"type": "string"}
       }
     },
     "calculationHistoryItem": {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from html import unescape
 import re
 from collections import Counter
@@ -15,6 +16,11 @@ from scripts.build_anf_shadow_normalized_package import build_anf_normalized_pac
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _canonical_digest(value: object) -> str:
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _data_root() -> Path:
@@ -391,11 +397,51 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "BS_Segments",
         "Operating_Drivers",
         "ANF_Investment_Case",
+        "ANF_Investment_Case_Data",
         "Quarter_Notes_UI",
-            "Promise_Progress_UI",
-            "History_Q",
-        }
+        "Promise_Progress_UI",
+        "History_Q",
+        "Scenario_Driver_Assumptions",
+    }
     by_binding = Counter(write.binding_id for write in business_writes)
+    assert {
+        binding_id: by_binding[binding_id]
+        for binding_id in (
+            "ic_bull_base_bear_rows",
+            "ic_scenario_bridge_rows",
+            "valuation_input_net_income_ttm",
+        )
+    } == {
+        "ic_bull_base_bear_rows": 220,
+        "ic_scenario_bridge_rows": 102,
+        "valuation_input_net_income_ttm": 1,
+    }
+    payload = plan.to_dict()
+    scenario_binding_ids = {
+        "ic_bull_base_bear_rows",
+        "ic_scenario_bridge_rows",
+        "valuation_input_net_income_ttm",
+    }
+    non_scenario_writes = [
+        write
+        for write in payload["planned_writes"]
+        if write.get("binding_id") not in scenario_binding_ids
+    ]
+    non_scenario_binding_reports = [
+        report
+        for report in payload["bindings"]
+        if report.get("binding_id") not in scenario_binding_ids
+    ]
+    assert len(non_scenario_writes) == 20_518
+    assert _canonical_digest(non_scenario_writes) == "a12bfba291dd696763854ad7901cd00303d0ffde18d3bd3b7ae51ab24bf15368"
+    assert len(non_scenario_binding_reports) == 157
+    assert _canonical_digest(non_scenario_binding_reports) == "ac8c9c68c05cf1312a9b1641807c0467926425afc3339ecbb2a740ce2407d91e"
+    assert _canonical_digest(payload["period_axes"]) == "53112b2358281b91062347f86582cd489237d6e8aaf48506d2b2ef395f4a1b79"
+    assert _canonical_digest(payload["issue_ledger"]) == "0d0b35dbe5e912088590bece30aa60196ac26933492de5adb420dd9b6e67c9aa"
+    assert _canonical_digest(payload["issue_ledger"]["issues"]) == "b8751170197c8c0decbb91f55c2049ba78d9ece122d9ae3e24c6f2695cb83e4d"
+    assert _canonical_digest(payload["issue_ledger"]["occurrences"]) == "ffb3ad0d017f335d04bb125ff498f3f7d2d5c2ab2e4a616e89a5eca65116103d"
+    assert _canonical_digest(payload["mapping_gaps"]) == "d1bdc4ec12dde8e5bf66e0279fa6e7d2e326035ea6bec4f883eed4be6ce8a9f9"
+    assert _canonical_digest(payload["manual_review_flags"]) == "be52e1510ee9fd6a64388dd66f80f192b4c0c8a03879015e97df9babbab4cf9b"
     assert by_binding["valuation_period_headers"] == 12
     assert by_binding["valuation_revenue_series"] == 12
     assert by_binding["valuation_net_income_series"] == 12

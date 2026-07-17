@@ -4,22 +4,22 @@
   "reason": "",
   "artifact": {
     "path": "docs/standard_template_shell_neutrality_audit.json",
-    "sha256": "bfb5a31afdf426ab9cc26992029692101dc1e873ace3b0c00e3c28b055864808",
+    "sha256": "601166ef98c76796eb6d8eddf0febd3cf1e5c672a860e307d58bfc53ae7044a8",
     "output_schema": "json",
     "output_version": "0.1.0"
   },
   "authoritative_inputs": [
     {
       "path": "templates/standard_stock_model_template.xlsx",
-      "sha256": "1a03e543d13b4ce7c5ab8c07cd11b3635197b806eb547bb8dd2ed962159d91b6"
+      "sha256": "e17acab3071094ec4f2b2e416b8363ec8078ad816c64ac96bf36d2a3f464f2b8"
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "42212207df3b4e5eb421ff1ff43a3b90f062eaaeb4c6ee18872c1b42a9357ed5"
+      "sha256": "b57a3afe3b5dc4dfaf68bb67769fc58f33224a64703fb4e784ad091fa430e7c6"
     },
     {
       "path": "docs/workbook_module_manifest.json",
-      "sha256": "cb1084b170f5d724b22e72aec4c037a4034f89520ca0be15fd8acca30d4cf73f"
+      "sha256": "3a77ab0e918155484f90f17572cbb0574833f191bcb1669e66bb2f3c6c10ae10"
     }
   ],
   "generator": {
@@ -27,7 +27,7 @@
     "dependencies": [
       {
         "path": "pbi_xbrl/workbook_modules.py",
-        "sha256": "53460f877d441ebc64a762af19cd07b74468479397f5802f2411596cd7225f77"
+        "sha256": "3a931ca6e91df371793b0deac9712bcd67ab871f1f113bec6c943f9e781b4596"
       },
       {
         "path": "pbi_xbrl/json_schema_validation.py",
@@ -44,24 +44,24 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "1ed2b64cfc14ab6c952e36d538f53e301501b5c7989821bd7c10661100b58ca6",
+    "run_generation_id": "7fd52910b0b0aa99c675e52ecf561a3c465d95e0e037ab21e26a66d60cdc7cde",
     "generated_outputs": [
       {
-        "canonical_content_sha256": "e14713b969650fe2218be88184ae0954afd61967b39f731c69df3c835e936077",
+        "canonical_content_sha256": "ebe8fe49df23da78a236770cc8b0e2c953b43cc1c35112e690b10dfbc324d4b9",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/standard_template_shell_neutrality_audit.json",
-        "sha256": "bfb5a31afdf426ab9cc26992029692101dc1e873ace3b0c00e3c28b055864808"
+        "sha256": "601166ef98c76796eb6d8eddf0febd3cf1e5c672a860e307d58bfc53ae7044a8"
       },
       {
-        "canonical_content_sha256": "2c69d5c3eb2053ef9913af5a18389e7131daae90526cdc273d98448bbee0cb89",
+        "canonical_content_sha256": "6340923695ab25ed39df0170fc0bc2cd12914a0f72643fe40765dd4b5848852e",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/standard_template_shell_neutrality_audit.md",
-        "sha256": "d533ef801eaf1877e16d37c8801c0e60c5eb17ce7315b13bbf054dec9f594f27"
+        "sha256": "ffcc2130de882bf2564baa19b8e4cc5b2c32f7d8d570171c43e1b04dcc2293e9"
       }
     ]
   },
-  "generated_at_utc": "2026-07-16T00:07:55+00:00",
-  "generation_id": "c1c3b408e7593f5d37cd6e795728f0f9a7952c9eac908291beec98595af3acb8"
+  "generated_at_utc": "2026-07-16T22:02:25+00:00",
+  "generation_id": "402678cf7cc5129e5471e2d49957ed0d307b2db2cc90edbf3a0393cda17cfc98"
 }

@@ -10,11 +10,39 @@ from copy import copy
 from dataclasses import dataclass
 from typing import Any, Collection
 
+from openpyxl.cell.cell import MergedCell
 from openpyxl.styles import Protection
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import get_column_letter, quote_sheetname
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.workbook.defined_name import DefinedName
+
+from pbi_xbrl.valuation_scenario_economics import (
+    CANONICAL_DIRECT_REVENUE_PROPAGATION,
+    CANONICAL_DIRECT_ROUTE_VALUE_KIND,
+    CANONICAL_POPULATED_STATUS,
+    CANONICAL_PROFILE_REVENUE_PROPAGATION,
+    CANONICAL_PROFILE_ROUTE_VALUE_KIND,
+    CANONICAL_REVENUE_OUTPUT_METRIC,
+    CANONICAL_REVENUE_UNIT,
+    CANONICAL_TOTAL_COMPANY_TOKEN,
+)
 
 
-FORMULA_CONTRACT_VERSION = "1.2.0"
+FORMULA_CONTRACT_VERSION = "1.6.0"
+
+INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES = (
+    "B23:D42",
+    "B160:D160",
+    "A161:A163",
+    "B171:D171",
+    "A172:A174",
+    "B177:D177",
+    "A178:A180",
+)
+
+INVESTMENT_CASE_SCENARIO_OWNED_RANGES = (
+    "A13:K180",
+)
 FIRST_QUARTER_COLUMN = 2
 LAST_QUARTER_COLUMN = 13
 FIRST_ANNUAL_COLUMN = 2
@@ -250,12 +278,43 @@ def formula_target_contracts() -> tuple[FormulaTargetContract, ...]:
             FormulaTargetContract(
                 "valuation_scenario_formulas",
                 "Valuation",
-                ("J218", "Q219:Q221", "J222:J223", "H227:L234", "F236", "E241:E244", "E259:E261"),
+                (
+                    "Q219:Q221",
+                    "J222:J223",
+                    "H227:L234",
+                    "F236",
+                    "E241:E244",
+                    "E259:E261",
+                    "J259:J261",
+                    "N236:N244",
+                    "N259:N261",
+                    "R259:R261",
+                ),
+            ),
+            FormulaTargetContract(
+                "scenario_revenue_route_formulas",
+                "Valuation_Summary",
+                ("H2:K2",),
+            ),
+            FormulaTargetContract(
+                "investment_case_scenario_formulas",
+                "{ticker}_Investment_Case",
+                ("B15:D22", "B50:D53", "B56:D58", "B62:B68", "B85:J87"),
             ),
             FormulaTargetContract(
                 "investment_case_sensitivity_formulas",
                 "{ticker}_Investment_Case",
-                ("A161:A163", "A172:A174", "A178:A180"),
+                ("B161:D163", "B172:D174", "B178:D180"),
+            ),
+            FormulaTargetContract(
+                "valuation_summary_formulas",
+                "Valuation_Summary",
+                ("B2:B20", "D2:D20", "F2:F20"),
+            ),
+            FormulaTargetContract(
+                "valuation_grid_formulas",
+                "Valuation_Grid",
+                ("A2:A42", "B2:B42", "C2:C42", "E2:F42"),
             ),
             FormulaTargetContract("hidden_value_issue_anchor", "Valuation", ("AI139",)),
         )
@@ -291,8 +350,87 @@ def apply_standard_formula_contracts(
     _apply_annual_financial_block(bs, enabled)
     _apply_valuation_input_outputs(valuation, enabled)
     _apply_valuation_sidecar_outputs(valuation, enabled)
+    if "{ticker}_Investment_Case" in workbook.sheetnames:
+        _apply_investment_case_scenario_formulas(workbook["{ticker}_Investment_Case"], enabled)
+    if "Valuation_Summary" in workbook.sheetnames:
+        _apply_valuation_summary_formulas(workbook["Valuation_Summary"], enabled)
+    if "Valuation_Grid" in workbook.sheetnames:
+        _apply_valuation_grid_formulas(workbook["Valuation_Grid"], enabled)
+    _apply_scenario_defined_names(workbook, enabled)
 
 
+def apply_standard_support_formula_contracts(
+    workbook: Any,
+    *,
+    enabled_formula_ids: Collection[str] | None = None,
+) -> None:
+    """Apply formula-owned projections after hidden support sheets are rebuilt."""
+
+    all_formula_ids = {contract.formula_id for contract in formula_target_contracts()}
+    enabled = all_formula_ids if enabled_formula_ids is None else {str(value) for value in enabled_formula_ids}
+    unknown = sorted(enabled - all_formula_ids)
+    if unknown:
+        raise ValueError(f"Unknown standard-template formula contracts: {unknown!r}.")
+    if "Valuation_Summary" in workbook.sheetnames:
+        _apply_valuation_summary_formulas(workbook["Valuation_Summary"], enabled)
+    if "Valuation_Grid" in workbook.sheetnames:
+        _apply_valuation_grid_formulas(workbook["Valuation_Grid"], enabled)
+    _apply_scenario_revenue_route_formulas(workbook, enabled)
+
+
+def _apply_scenario_revenue_route_formulas(workbook: Any, enabled_formula_ids: set[str]) -> None:
+    if "Scenario_Driver_Assumptions" in workbook.sheetnames:
+        for coordinate in ("R2", "S2", "T2", "U2"):
+            workbook["Scenario_Driver_Assumptions"][coordinate].value = None
+    if "Valuation_Summary" not in workbook.sheetnames:
+        return
+    ws = workbook["Valuation_Summary"]
+    targets = {
+        "H2": ("bear", "'{ticker}_Investment_Case'!$B$24", "'{ticker}_Investment_Case'!$B$23"),
+        "I2": ("base", "'{ticker}_Investment_Case'!$C$24", "'{ticker}_Investment_Case'!$C$23"),
+        "J2": ("bull", "'{ticker}_Investment_Case'!$D$24", "'{ticker}_Investment_Case'!$D$23"),
+        "K2": ("custom", "ScenarioGrowth", "ScenarioHorizon"),
+    }
+    if "scenario_revenue_route_formulas" not in enabled_formula_ids:
+        for coordinate in targets:
+            ws[coordinate].value = None
+        return
+    for coordinate, (scenario_id, user_growth, scenario_horizon) in targets.items():
+        _set_formula(
+            ws[coordinate],
+            _scenario_revenue_route_formula(
+                scenario_id=scenario_id,
+                user_growth=user_growth,
+                scenario_horizon=scenario_horizon,
+            ),
+            "0.0%;[Red]-0.0%",
+        )
+
+
+def _scenario_revenue_route_formula(*, scenario_id: str, user_growth: str, scenario_horizon: str) -> str:
+    assumptions = quote_sheetname("Scenario_Driver_Assumptions")
+    bridges = quote_sheetname("{ticker}_Investment_Case_Data")
+    item = {column: f"{assumptions}!${column}$2:${column}$201" for column in "ABCDEFGHIJKLMNOPQ"}
+    bridge = {column: f"{bridges}!${column}$2:${column}$201" for column in "ABCDEFGHIJKLMNOPQR"}
+    item_dimension = f'--({item["J"]}="{CANONICAL_TOTAL_COMPANY_TOKEN}")'
+    item_member = f'--({item["K"]}="{CANONICAL_TOTAL_COMPANY_TOKEN}")'
+    bridge_dimension = f'--({bridge["J"]}="{CANONICAL_TOTAL_COMPANY_TOKEN}")'
+    bridge_member = f'--({bridge["K"]}="{CANONICAL_TOTAL_COMPANY_TOKEN}")'
+    return (
+        "=LET("
+        f'scenarioKey,"{scenario_id}",userGrowth,{user_growth},scenarioHorizon,{scenario_horizon},'
+        f"itemDimension,{item_dimension},itemMember,{item_member},"
+        f'directMask,--({item["A"]}=scenarioKey)*--({item["B"]}="{CANONICAL_REVENUE_OUTPUT_METRIC}")*--({item["D"]}="{CANONICAL_DIRECT_ROUTE_VALUE_KIND}")*--({item["H"]}="{CANONICAL_REVENUE_UNIT}")*--({item["I"]}=scenarioHorizon)*itemDimension*itemMember*--({item["M"]}="{CANONICAL_DIRECT_REVENUE_PROPAGATION}")*--({item["N"]}="{CANONICAL_POPULATED_STATUS}")*--({item["Q"]}=""),'
+        f'profileMask,--({item["A"]}=scenarioKey)*--({item["B"]}="{CANONICAL_REVENUE_OUTPUT_METRIC}")*--({item["D"]}="{CANONICAL_PROFILE_ROUTE_VALUE_KIND}")*--({item["E"]}="")*--({item["H"]}="{CANONICAL_REVENUE_UNIT}")*--({item["I"]}=scenarioHorizon)*itemDimension*itemMember*--({item["M"]}="{CANONICAL_PROFILE_REVENUE_PROPAGATION}")*--({item["N"]}="{CANONICAL_POPULATED_STATUS}")*--({item["Q"]}<>""),'
+        "directCount,SUMPRODUCT(directMask),profileCount,SUMPRODUCT(profileMask),"
+        f'directValue,SUMPRODUCT(directMask,{item["E"]}),profilePack,IF(profileCount=1,IFERROR(LOOKUP(2,1/profileMask,{item["Q"]}),""),""),'
+        f"bridgeDimension,{bridge_dimension},bridgeMember,{bridge_member},"
+        f'bridgeImpact,--({bridge["F"]}="{CANONICAL_REVENUE_OUTPUT_METRIC}"),'
+        f'bridgeMask,--({bridge["A"]}=scenarioKey)*--({bridge["C"]}=profilePack)*bridgeImpact*--({bridge["H"]}="{CANONICAL_REVENUE_UNIT}")*--({bridge["I"]}=scenarioHorizon)*bridgeDimension*bridgeMember*--({bridge["O"]}="{CANONICAL_PROFILE_REVENUE_PROPAGATION}")*--({bridge["P"]}="{CANONICAL_POPULATED_STATUS}"),'
+        f'bridgeCount,SUMPRODUCT(bridgeMask),bridgeValue,SUMPRODUCT(bridgeMask,{bridge["G"]}),userCount,--(userGrowth<>""),'
+        'IF(OR(scenarioHorizon="",directCount+profileCount+userCount<>1),"",'
+        'IF(directCount=1,directValue,IF(profileCount=1,IF(bridgeCount=1,bridgeValue,""),IF(ISNUMBER(userGrowth),userGrowth,"")))))'
+    )
 def _clear_disabled_formula_targets(workbook: Any, enabled_formula_ids: set[str]) -> None:
     from openpyxl.utils.cell import range_boundaries
 
@@ -301,10 +439,12 @@ def _clear_disabled_formula_targets(workbook: Any, enabled_formula_ids: set[str]
             continue
         ws = workbook[contract.sheet]
         for target in contract.targets:
-            min_col, min_row, max_col, max_row = range_boundaries(target)
-            for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
-                for cell in row:
-                    cell.value = None
+                min_col, min_row, max_col, max_row = range_boundaries(target)
+                for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
+                    for cell in row:
+                        if isinstance(cell, MergedCell):
+                            continue
+                        cell.value = None
 
 
 def _prepare_raw_targets(valuation: Any, bs: Any) -> None:
@@ -623,6 +763,7 @@ def _apply_valuation_input_outputs(ws: Any, enabled_formula_ids: set[str]) -> No
         "B207": "Tangible book value/share",
         "K206": "P/E (GAAP, TTM)",
         "K207": "P/E (adjusted, TTM)",
+        "F210": "Enter a decimal percentage (for example, 10%); values above 100% are invalid.",
     }
     for coordinate, label in labels.items():
         ws[coordinate] = label
@@ -648,7 +789,7 @@ def _apply_valuation_input_outputs(ws: Any, enabled_formula_ids: set[str]) -> No
         "N202": '=IF(OR(OwnerEarnings_TTM="",EV="",EV=0),"",OwnerEarnings_TTM/EV)',
         "N203": f'=IF(OR(Target_EV_AdjEBITDA="",Adj_EBITDA="",NetDebt="",{denominator}="",{denominator}=0),"",(Target_EV_AdjEBITDA*Adj_EBITDA-NetDebt)/{denominator})',
         "N204": f'=IF(OR(Target_EV_EBITDA="",Base_EBITDA="",NetDebt="",{denominator}="",{denominator}=0),"",(Target_EV_EBITDA*Base_EBITDA-NetDebt)/{denominator})',
-        "N205": f'=IF(OR(Target_EV_Yield="",Target_EV_Yield<=0,FCFF_Proxy_TTM="",NetDebt="",{denominator}="",{denominator}=0),"",(FCFF_Proxy_TTM/IF(Target_EV_Yield>1,Target_EV_Yield/100,Target_EV_Yield)-NetDebt)/{denominator})',
+        "N205": f'=IF(OR(Target_EV_Yield="",Target_EV_Yield<=0,Target_EV_Yield>1,FCFF_Proxy_TTM="",NetDebt="",{denominator}="",{denominator}=0),"",(FCFF_Proxy_TTM/Target_EV_Yield-NetDebt)/{denominator})',
         "N206": '=IF(OR(Price="",EPS_TTM="",EPS_TTM=0),"",Price/EPS_TTM)',
         "N207": '=IF(OR(Price="",Adj_EPS_TTM="",Adj_EPS_TTM=0),"",Price/Adj_EPS_TTM)',
         "N208": '=IF(OR(EV="",Revenue_TTM="",Revenue_TTM=0),"",EV/Revenue_TTM)',
@@ -660,13 +801,199 @@ def _apply_valuation_input_outputs(ws: Any, enabled_formula_ids: set[str]) -> No
             number_format = "0.00x" if coordinate in {"N196", "N197", "N206", "N207", "N208", "N209", "N210"} else ("0.0%" if coordinate in {"N199", "N200", "N202"} else "#,##0.0")
             _set_formula(ws[coordinate], formula, number_format)
 
-    # Scenario assumptions are intentionally empty user inputs.  The legacy
-    # workbook's company-specific presets must never be frozen into the shell.
-    for coordinate in ("E236", "E237", "E238", "E239", "E240"):
+    _apply_valuation_scenario_inputs_and_outputs(ws, enabled_formula_ids)
+
+
+def _apply_valuation_scenario_inputs_and_outputs(ws: Any, enabled_formula_ids: set[str]) -> None:
+    _prepare_valuation_scenario_layout(ws)
+    labels = {
+        "B217": "Net income TTM ($m)",
+        "B218": "Target EV/Revenue (x)",
+        "B219": "Target P/E (x)",
+        "B220": "DCF horizon (years)",
+        "G218": "Starting FCFF ($m)",
+        "G219": "Growth (projection period)",
+        "G220": "Terminal growth",
+        "G221": "WACC",
+        "G225": "DCF sensitivity ($/share)",
+        "G226": "WACC / terminal growth",
+        "B235": "Scenario economics",
+        "B236": "Scenario label",
+        "B237": "Revenue growth",
+        "B238": "Base EBITDA margin",
+        "B239": "Adjusted EBITDA margin",
+        "B240": "Tax rate",
+        "H236": "Scenario horizon",
+        "B241": "Scenario revenue ($m)",
+        "B242": "Scenario EBITDA (base, $m)",
+        "B243": "Scenario adjusted EBITDA ($m)",
+        "B244": "Scenario FCF ($m)",
+        "B246": "Explicit scenario bridge inputs",
+        "B247": "Pre-tax earnings bridge ($m)",
+        "B248": "Cash-interest change ($m)",
+        "B249": "Capex change ($m, positive outflow)",
+        "B250": "Working-capital adjustment ($m, positive source)",
+        "B252": "Capital allocation inputs",
+        "B253": "Buyback cash ($m)",
+        "B254": "Buyback execution price ($/share)",
+        "B255": "Share issuance (m shares)",
+        "B256": "Debt paydown ($m)",
+        "B258": "Scenario outputs",
+        "B259": "Scenario shares (m)",
+        "B260": "Scenario net debt ($m)",
+        "B261": "Scenario EPS ($/share)",
+        "H259": "Scenario enterprise value ($m)",
+        "H260": "Scenario equity value ($m)",
+        "H261": "Scenario implied price ($/share)",
+        "L236": "Market cap ($m)",
+        "L237": "Enterprise value ($m)",
+        "L238": "Required revenue @ target EV/Revenue ($m)",
+        "L239": "Required adjusted EBITDA @ target multiple ($m)",
+        "L240": "Implied adjusted EBITDA margin",
+        "L241": "Implied revenue growth",
+        "L242": "Required FCFF @ target yield ($m)",
+        "L243": "Required EPS @ target P/E ($/share)",
+        "L244": "Implied terminal growth (perpetuity)",
+        "M259": "Upside / downside",
+        "M260": "Scenario P/E",
+        "M261": "Scenario FCF yield",
+        "Q259": "Scenario EV/Revenue",
+        "Q260": "Scenario EV/EBITDA (base)",
+        "Q261": "Scenario EV/Adjusted EBITDA",
+    }
+    for coordinate, label in labels.items():
+        ws[coordinate] = label
+
+    user_inputs = (
+        "D218", "D219", "D220", "J218", "J219", "J220", "J221",
+        "E236", "E237", "E238", "E239", "E240", "J236", "D247", "E247",
+        "D248", "E248", "D249", "D250", "D253", "D254", "D255", "D256",
+    )
+    sensitivity_inputs = tuple(f"{column}226" for column in "HIJKL") + tuple(f"G{row}" for row in range(227, 235))
+    for coordinate in ("D217",) + user_inputs + sensitivity_inputs:
         ws[coordinate] = None
         ws[coordinate].protection = Protection(locked=False)
-    if "valuation_scenario_formulas" in enabled_formula_ids:
-        ws["F236"] = '=IF(E236="","",IF(OR(E236="Base",E236="Bull",E236="Bear"),"Preset selected","Custom"))'
+
+    _apply_scenario_data_validations(ws)
+    if "valuation_scenario_formulas" not in enabled_formula_ids:
+        return
+
+    denominator = _per_share_denominator_formula()
+    dcf_ev = (
+        "DCF_FCFF*(1+DCF_Growth)/(DCF_WACC-DCF_Growth)*"
+        "(1-((1+DCF_Growth)/(1+DCF_WACC))^DCF_Horizon)+"
+        "DCF_FCFF*(1+DCF_Growth)^DCF_Horizon*(1+DCF_TerminalGrowth)/"
+        "(DCF_WACC-DCF_TerminalGrowth)/(1+DCF_WACC)^DCF_Horizon"
+    )
+    _set_formula(
+        ws["J222"],
+        '=IF(OR(DCF_FCFF="",DCF_FCFF<=0,DCF_Growth="",DCF_TerminalGrowth="",DCF_WACC="",DCF_Horizon="",DCF_Horizon<1,DCF_WACC<=DCF_Growth,DCF_WACC<=DCF_TerminalGrowth),"",'
+        + dcf_ev
+        + ")",
+        "#,##0.0;[Red]-#,##0.0",
+    )
+    _set_formula(
+        ws["J223"],
+        f'=IF(OR(DCF_EV="",NetDebt="",{denominator}="",{denominator}<=0),"",(DCF_EV-NetDebt)/{denominator})',
+        "$#,##0.00;[Red]-$#,##0.00",
+    )
+    _set_formula(ws["Q219"], '=IF(DCF_EV="","",DCF_EV)', "#,##0.0;[Red]-#,##0.0")
+    _set_formula(ws["Q220"], '=IF(DCF_WACC="","",DCF_WACC)', "0.0%")
+    _set_formula(ws["Q221"], '=IF(DCF_TerminalGrowth="","",DCF_TerminalGrowth)', "0.0%")
+
+    for row in range(227, 235):
+        for column in range(8, 13):
+            coordinate = f"{get_column_letter(column)}{row}"
+            wacc = f"$G${row}"
+            terminal = f"${get_column_letter(column)}$226"
+            grid_ev = (
+                f"DCF_FCFF*(1+DCF_Growth)/({wacc}-DCF_Growth)*(1-((1+DCF_Growth)/(1+{wacc}))^DCF_Horizon)+"
+                f"DCF_FCFF*(1+DCF_Growth)^DCF_Horizon*(1+{terminal})/({wacc}-{terminal})/(1+{wacc})^DCF_Horizon"
+            )
+            _set_formula(
+                ws[coordinate],
+                f'=IF(OR(DCF_FCFF="",DCF_FCFF<=0,DCF_Growth="",DCF_Horizon="",DCF_Horizon<1,{wacc}="",{terminal}="",{wacc}<=DCF_Growth,{wacc}<={terminal},NetDebt="",{denominator}="",{denominator}<=0),"",({grid_ev}-NetDebt)/{denominator})',
+                "$#,##0.00;[Red]-$#,##0.00",
+            )
+
+    requirements = (
+        'ScenarioHorizon="",ResolvedRevenueGrowth_Custom="",ScenarioBaseMargin="",ScenarioAdjustedMargin="",ScenarioTaxRate="",'
+        'ScenarioPreTaxBridge="",ScenarioTaxTreatment="",ScenarioCashInterestChange="",'
+        'ScenarioInterestTaxTreatment="",ScenarioCapexChange="",ScenarioWCAdjustment="",'
+        'ScenarioBuybackCash="",ScenarioShareIssuance="",ScenarioDebtPaydown="",Revenue_TTM="",'
+        f'FCF_TTM="",NetIncome_TTM="",NetDebt="",{denominator}="",'
+        'AND(ScenarioBuybackCash<>0,OR(ScenarioBuybackPrice="",ScenarioBuybackPrice<=0))'
+    )
+    _set_formula(ws["F236"], f'=IF(ScenarioProfile="","",IF(OR({requirements}),"Incomplete","Ready"))', "General")
+    _set_formula(ws["E241"], '=IF(OR(Revenue_TTM="",ResolvedRevenueGrowth_Custom=""),"",Revenue_TTM*(1+ResolvedRevenueGrowth_Custom))', "#,##0.0;[Red]-#,##0.0")
+    _set_formula(ws["E242"], '=IF(OR(ScenarioRevenue="",ScenarioBaseMargin=""),"",ScenarioRevenue*ScenarioBaseMargin)', "#,##0.0;[Red]-#,##0.0")
+    _set_formula(ws["E243"], '=IF(OR(ScenarioRevenue="",ScenarioAdjustedMargin=""),"",ScenarioRevenue*ScenarioAdjustedMargin)', "#,##0.0;[Red]-#,##0.0")
+
+    fcf_bridge = _scenario_after_tax_bridge_formula(cash_view=True)
+    eps_bridge = _scenario_after_tax_bridge_formula(cash_view=False)
+    interest_bridge = _scenario_interest_after_tax_formula()
+    _set_formula(
+        ws["E244"],
+        f'=IF(OR(FCF_TTM="",ScenarioPreTaxBridge="",ScenarioTaxTreatment="",ScenarioTaxRate="",ScenarioCashInterestChange="",ScenarioInterestTaxTreatment="",ScenarioCapexChange="",ScenarioWCAdjustment=""),"",FCF_TTM+{fcf_bridge}-{interest_bridge}-ScenarioCapexChange+ScenarioWCAdjustment)',
+        "#,##0.0;[Red]-#,##0.0",
+    )
+    _set_formula(
+        ws["E259"],
+        f'=IF(OR({denominator}="",ScenarioBuybackCash="",ScenarioShareIssuance="",AND(ScenarioBuybackCash<>0,OR(ScenarioBuybackPrice="",ScenarioBuybackPrice<=0))),"",IF({denominator}-IF(ScenarioBuybackCash=0,0,ScenarioBuybackCash/ScenarioBuybackPrice)+ScenarioShareIssuance<=0,"",{denominator}-IF(ScenarioBuybackCash=0,0,ScenarioBuybackCash/ScenarioBuybackPrice)+ScenarioShareIssuance))',
+        "#,##0.000;[Red]-#,##0.000",
+    )
+    _set_formula(ws["E260"], '=IF(OR(NetDebt="",ScenarioBuybackCash="",ScenarioDebtPaydown=""),"",NetDebt+ScenarioBuybackCash-ScenarioDebtPaydown)', "#,##0.0;[Red]-#,##0.0")
+    _set_formula(
+        ws["E261"],
+        f'=IF(OR(NetIncome_TTM="",ScenarioShares="",ScenarioShares<=0,ScenarioPreTaxBridge="",ScenarioTaxTreatment="",ScenarioTaxRate="",ScenarioCashInterestChange="",ScenarioInterestTaxTreatment=""),"",(NetIncome_TTM+{eps_bridge}-{interest_bridge})/ScenarioShares)',
+        "$0.00;[Red]-$0.00",
+    )
+    _set_formula(ws["J259"], '=IF(OR(Target_EV_AdjEBITDA="",ScenarioAdjustedEBITDA=""),"",Target_EV_AdjEBITDA*ScenarioAdjustedEBITDA)', "#,##0.0;[Red]-#,##0.0")
+    _set_formula(ws["J260"], '=IF(OR(ScenarioEV="",ScenarioNetDebt=""),"",ScenarioEV-ScenarioNetDebt)', "#,##0.0;[Red]-#,##0.0")
+    _set_formula(ws["J261"], '=IF(OR(ScenarioEquityValue="",ScenarioShares="",ScenarioShares<=0),"",ScenarioEquityValue/ScenarioShares)', "$#,##0.00;[Red]-$#,##0.00")
+    _set_formula(ws["N259"], '=IF(OR(ScenarioImpliedPrice="",Price="",Price<=0),"",ScenarioImpliedPrice/Price-1)', "0.0%;[Red]-0.0%")
+    _set_formula(ws["N260"], '=IF(OR(ScenarioImpliedPrice="",ScenarioEPS="",ScenarioEPS=0),"",ScenarioImpliedPrice/ScenarioEPS)', "0.00x")
+    _set_formula(ws["N261"], '=IF(OR(ScenarioFCF="",ScenarioImpliedPrice="",ScenarioShares="",ScenarioImpliedPrice*ScenarioShares=0),"",ScenarioFCF/(ScenarioImpliedPrice*ScenarioShares))', "0.0%")
+    _set_formula(ws["R259"], '=IF(OR(ScenarioEV="",ScenarioRevenue="",ScenarioRevenue=0),"",ScenarioEV/ScenarioRevenue)', "0.00x")
+    _set_formula(ws["R260"], '=IF(OR(ScenarioEV="",ScenarioBaseEBITDA="",ScenarioBaseEBITDA=0),"",ScenarioEV/ScenarioBaseEBITDA)', "0.00x")
+    _set_formula(ws["R261"], '=IF(OR(ScenarioEV="",ScenarioAdjustedEBITDA="",ScenarioAdjustedEBITDA=0),"",ScenarioEV/ScenarioAdjustedEBITDA)', "0.00x")
+
+    market_formulas = {
+        "N236": f'=IF(OR(Price="",{denominator}=""),"",Price*{denominator})',
+        "N237": '=IF(OR(N236="",NetDebt=""),"",N236+NetDebt)',
+        "N238": '=IF(OR(N237="",Target_EV_Revenue="",Target_EV_Revenue<=0),"",N237/Target_EV_Revenue)',
+        "N239": '=IF(OR(N237="",Target_EV_AdjEBITDA="",Target_EV_AdjEBITDA<=0),"",N237/Target_EV_AdjEBITDA)',
+        "N240": '=IF(OR(N238="",N239="",N238=0),"",N239/N238)',
+        "N241": '=IF(OR(N238="",Revenue_TTM="",Revenue_TTM=0),"",N238/Revenue_TTM-1)',
+        "N242": '=IF(OR(N237="",Target_EV_Yield="",Target_EV_Yield<=0),"",N237*Target_EV_Yield)',
+        "N243": '=IF(OR(Price="",Target_PE="",Target_PE<=0),"",Price/Target_PE)',
+        "N244": '=IF(OR(N237="",DCF_WACC="",DCF_FCFF="",N237+DCF_FCFF=0),"",(N237*DCF_WACC-DCF_FCFF)/(N237+DCF_FCFF))',
+    }
+    for coordinate, formula in market_formulas.items():
+        number_format = "0.0%" if coordinate in {"N240", "N241", "N244"} else ("$0.00" if coordinate == "N243" else "#,##0.0")
+        _set_formula(ws[coordinate], formula, number_format)
+
+
+def _scenario_after_tax_bridge_formula(*, cash_view: bool) -> str:
+    if cash_view:
+        full_value_treatments = 'OR(ScenarioTaxTreatment="non_taxable",ScenarioTaxTreatment="non_taxable_credit",ScenarioTaxTreatment="cash_only",ScenarioTaxTreatment="no_eps_impact")'
+        zero_value = "ScenarioPreTaxBridge"
+    else:
+        full_value_treatments = 'OR(ScenarioTaxTreatment="non_taxable",ScenarioTaxTreatment="non_taxable_credit")'
+        zero_value = "0"
+    return (
+        'IF(ScenarioTaxTreatment="taxable",ScenarioPreTaxBridge*(1-ScenarioTaxRate),'
+        f'IF({full_value_treatments},ScenarioPreTaxBridge,'
+        f'IF(OR(ScenarioTaxTreatment="cash_only",ScenarioTaxTreatment="no_eps_impact"),{zero_value},"")))'
+    )
+
+
+def _scenario_interest_after_tax_formula() -> str:
+    return 'IF(ScenarioInterestTaxTreatment="taxable",ScenarioCashInterestChange*(1-ScenarioTaxRate),IF(ScenarioInterestTaxTreatment="non_taxable",ScenarioCashInterestChange,""))'
+
+
+def _per_share_denominator_formula() -> str:
+    return 'IF(PerShareMode="Outstanding",Shares,IF(PerShareMode="Diluted",SharesDiluted,""))'
 
 
 def _apply_valuation_sidecar_outputs(ws: Any, enabled_formula_ids: set[str]) -> None:
@@ -702,6 +1029,454 @@ def _apply_valuation_sidecar_outputs(ws: Any, enabled_formula_ids: set[str]) -> 
         ws.cell(row, 15).value = label
         if row in formulas:
             _set_formula(ws.cell(row, 21), formulas[row], "$#,##0.00;[Red]-$#,##0.00" if row >= 73 else "#,##0.0;[Red]-#,##0.0")
+
+
+def _prepare_valuation_scenario_layout(ws: Any) -> None:
+    from openpyxl.utils.cell import range_boundaries
+
+    exact_surfaces = (
+        "B217:E220",
+        "G218:J223",
+        "L236:O244",
+        "H236:J236",
+        "B247:K250",
+        "B253:D256",
+        "F259:K261",
+        "N259:N261",
+        "R259:R261",
+    )
+    owned = [range_boundaries(target) for target in exact_surfaces]
+    for merged in tuple(ws.merged_cells.ranges):
+        bounds = (merged.min_col, merged.min_row, merged.max_col, merged.max_row)
+        if any(_bounds_overlap(bounds, target) for target in owned):
+            ws.unmerge_cells(str(merged))
+
+
+def _apply_investment_case_scenario_formulas(ws: Any, enabled_formula_ids: set[str]) -> None:
+    _prepare_investment_case_scenario_layout(ws)
+    labels = {
+        13: "Typed Scenario Inputs",
+        14: "Input / assumption",
+        15: "Current share price",
+        16: "Base shares (selected denominator)",
+        17: "Net debt",
+        18: "Revenue TTM",
+        19: "Net income TTM",
+        20: "EBITDA (base, TTM)",
+        21: "Adjusted EBITDA (TTM)",
+        22: "FCF TTM",
+        23: "Fiscal horizon",
+        24: "Revenue growth",
+        25: "Base EBITDA margin",
+        26: "Adjusted EBITDA margin",
+        27: "Pre-tax earnings bridge ($m)",
+        28: "Tax rate",
+        29: "Earnings-bridge tax treatment",
+        30: "Cash-interest change ($m)",
+        31: "Cash-interest tax treatment",
+        32: "Capex change ($m, positive outflow)",
+        33: "Working-capital adjustment ($m, positive source)",
+        34: "Buyback cash ($m)",
+        35: "Buyback execution price ($/share)",
+        36: "Share issuance (m shares)",
+        37: "Debt paydown ($m)",
+        38: "Target EV/Adjusted EBITDA (x)",
+        39: "Target EV/EBITDA (base, x)",
+        40: "Target EV/Revenue (x)",
+        41: "Target P/E (x)",
+        42: "Target FCF yield",
+        47: "Typed Scenario Driver Bridge",
+        48: "Only explicit typed assumptions affect scenario economics; source guidance remains separate until selected.",
+        49: "Bridge output",
+        50: "After-tax earnings bridge ($m)",
+        51: "After-tax cash-interest change ($m)",
+        52: "Net FCF bridge ($m)",
+        53: "Net share-count change (m)",
+        55: "Scenario output",
+        56: "Scenario EPS ($/share)",
+        57: "Scenario adjusted EBITDA ($m)",
+        58: "Scenario FCF ($m)",
+        60: "What Market Is Pricing",
+        61: "Metric",
+        62: "Market price",
+        63: "Market capitalization ($m)",
+        64: "Enterprise value ($m)",
+        65: "Required revenue @ target EV/Revenue ($m)",
+        66: "Required adjusted EBITDA @ target multiple ($m)",
+        67: "Required FCFF @ target yield ($m)",
+        68: "Implied terminal growth (perpetuity)",
+        83: "Bear / Base / Bull Scenario",
+        84: "Scenario",
+        85: "Bear",
+        86: "Base",
+        87: "Bull",
+        159: "P/E Sensitivity ($/share)",
+        160: "EPS / P-E multiple",
+        170: "EV/Adjusted EBITDA Sensitivity ($/share)",
+        171: "Adjusted EBITDA / multiple",
+        176: "FCF Yield Sensitivity ($/share)",
+        177: "FCF / yield",
+    }
+    for row, label in labels.items():
+        ws.cell(row, 1).value = label
+    for column, scenario in zip(range(2, 5), ("Bear", "Base", "Bull"), strict=True):
+        ws.cell(14, column).value = scenario
+        ws.cell(49, column).value = scenario
+        ws.cell(55, column).value = scenario
+    for column, label in enumerate(
+        ("Revenue", "Base EBITDA", "Adjusted EBITDA", "FCF", "EPS", "Shares", "Net debt", "Implied price", "Upside / downside"),
+        start=2,
+    ):
+        ws.cell(84, column).value = label
+
+    for range_ref in INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES:
+        _clear_and_unlock_range(ws, range_ref)
+    _apply_investment_case_data_validations(ws)
+
+    if "investment_case_scenario_formulas" in enabled_formula_ids:
+        actuals = {
+            15: ("Price", "$#,##0.00;[Red]-$#,##0.00"),
+            16: (_per_share_denominator_formula(), "#,##0.000;[Red]-#,##0.000"),
+            17: ("NetDebt", "#,##0.0;[Red]-#,##0.0"),
+            18: ("Revenue_TTM", "#,##0.0;[Red]-#,##0.0"),
+            19: ("NetIncome_TTM", "#,##0.0;[Red]-#,##0.0"),
+            20: ("Base_EBITDA", "#,##0.0;[Red]-#,##0.0"),
+            21: ("Adj_EBITDA", "#,##0.0;[Red]-#,##0.0"),
+            22: ("FCF_TTM", "#,##0.0;[Red]-#,##0.0"),
+        }
+        for row, (name_or_formula, number_format) in actuals.items():
+            for column in range(2, 5):
+                expression = name_or_formula
+                _set_formula(ws.cell(row, column), f'=IF({expression}="","",{expression})', number_format)
+
+        for input_column, output_row, resolved_growth_name in zip(
+            "BCD",
+            range(85, 88),
+            ("ResolvedRevenueGrowth_Bear", "ResolvedRevenueGrowth_Base", "ResolvedRevenueGrowth_Bull"),
+            strict=True,
+        ):
+            cash_bridge = _cell_scenario_bridge_formula(input_column, cash_view=True)
+            eps_bridge = _cell_scenario_bridge_formula(input_column, cash_view=False)
+            interest_bridge = _cell_interest_bridge_formula(input_column)
+            _set_formula(ws[f"{input_column}50"], f'=IF(OR({input_column}27="",{input_column}28="",{input_column}29=""),"",{eps_bridge})', "#,##0.0;[Red]-#,##0.0")
+            _set_formula(ws[f"{input_column}51"], f'=IF(OR({input_column}28="",{input_column}30="",{input_column}31=""),"",{interest_bridge})', "#,##0.0;[Red]-#,##0.0")
+            _set_formula(ws[f"{input_column}52"], f'=IF(OR({input_column}27="",{input_column}28="",{input_column}29="",{input_column}30="",{input_column}31="",{input_column}32="",{input_column}33=""),"",{cash_bridge}-{interest_bridge}-{input_column}32+{input_column}33)', "#,##0.0;[Red]-#,##0.0")
+            _set_formula(ws[f"{input_column}53"], f'=IF(OR({input_column}34="",{input_column}36="",AND({input_column}34<>0,OR({input_column}35="",{input_column}35<=0))),"",-IF({input_column}34=0,0,{input_column}34/{input_column}35)+{input_column}36)', "#,##0.000;[Red]-#,##0.000")
+
+            _set_formula(ws[f"B{output_row}"], f'=IF(OR({input_column}18="",{resolved_growth_name}=""),"",{input_column}18*(1+{resolved_growth_name}))', "#,##0.0;[Red]-#,##0.0")
+            _set_formula(ws[f"C{output_row}"], f'=IF(OR(B{output_row}="",{input_column}25=""),"",B{output_row}*{input_column}25)', "#,##0.0;[Red]-#,##0.0")
+            _set_formula(ws[f"D{output_row}"], f'=IF(OR(B{output_row}="",{input_column}26=""),"",B{output_row}*{input_column}26)', "#,##0.0;[Red]-#,##0.0")
+            _set_formula(ws[f"E{output_row}"], f'=IF(OR({input_column}22="",{input_column}52=""),"",{input_column}22+{input_column}52)', "#,##0.0;[Red]-#,##0.0")
+            _set_formula(ws[f"G{output_row}"], f'=IF(OR({input_column}16="",{input_column}53=""),"",IF({input_column}16+{input_column}53<=0,"",{input_column}16+{input_column}53))', "#,##0.000;[Red]-#,##0.000")
+            _set_formula(ws[f"H{output_row}"], f'=IF(OR({input_column}17="",{input_column}34="",{input_column}37=""),"",{input_column}17+{input_column}34-{input_column}37)', "#,##0.0;[Red]-#,##0.0")
+            _set_formula(ws[f"F{output_row}"], f'=IF(OR({input_column}19="",{input_column}50="",{input_column}51="",G{output_row}="",G{output_row}<=0),"",({input_column}19+{input_column}50-{input_column}51)/G{output_row})', "$0.00;[Red]-$0.00")
+            _set_formula(ws[f"I{output_row}"], f'=IF(OR(D{output_row}="",{input_column}38="",H{output_row}="",G{output_row}="",G{output_row}<=0),"",(D{output_row}*{input_column}38-H{output_row})/G{output_row})', "$#,##0.00;[Red]-$#,##0.00")
+            _set_formula(ws[f"J{output_row}"], f'=IF(OR(I{output_row}="",{input_column}15="",{input_column}15<=0),"",I{output_row}/{input_column}15-1)', "0.0%;[Red]-0.0%")
+
+        for column, output_row in zip("BCD", range(85, 88), strict=True):
+            _set_formula(ws[f"{column}56"], f'=IF(F{output_row}="","",F{output_row})', "$0.00;[Red]-$0.00")
+            _set_formula(ws[f"{column}57"], f'=IF(D{output_row}="","",D{output_row})', "#,##0.0;[Red]-#,##0.0")
+            _set_formula(ws[f"{column}58"], f'=IF(E{output_row}="","",E{output_row})', "#,##0.0;[Red]-#,##0.0")
+
+        market_links = {
+            62: ("Price", "$#,##0.00;[Red]-$#,##0.00"),
+            63: ("N236", "#,##0.0;[Red]-#,##0.0"),
+            64: ("N237", "#,##0.0;[Red]-#,##0.0"),
+            65: ("N238", "#,##0.0;[Red]-#,##0.0"),
+            66: ("N239", "#,##0.0;[Red]-#,##0.0"),
+            67: ("N242", "#,##0.0;[Red]-#,##0.0"),
+            68: ("N244", "0.0%;[Red]-0.0%"),
+        }
+        for row, (source, number_format) in market_links.items():
+            _set_formula(ws[f"B{row}"], f"=IF('Valuation'!{source}=\"\",\"\",'Valuation'!{source})" if source.startswith("N") else f'=IF({source}="","",{source})', number_format)
+
+    if "investment_case_sensitivity_formulas" in enabled_formula_ids:
+        denominator = _per_share_denominator_formula()
+        for row in range(161, 164):
+            for column in range(2, 5):
+                col = get_column_letter(column)
+                _set_formula(ws.cell(row, column), f'=IF(OR($A{row}="",{col}$160=""),"",$A{row}*{col}$160)', "$#,##0.00;[Red]-$#,##0.00")
+        for row in range(172, 175):
+            for column in range(2, 5):
+                col = get_column_letter(column)
+                _set_formula(ws.cell(row, column), f'=IF(OR($A{row}="",{col}$171="",NetDebt="",{denominator}="",{denominator}<=0),"",($A{row}*{col}$171-NetDebt)/{denominator})', "$#,##0.00;[Red]-$#,##0.00")
+        for row in range(178, 181):
+            for column in range(2, 5):
+                col = get_column_letter(column)
+                _set_formula(ws.cell(row, column), f'=IF(OR($A{row}="",{col}$177="",{col}$177<=0,{denominator}="",{denominator}<=0),"",$A{row}/{col}$177/{denominator})', "$#,##0.00;[Red]-$#,##0.00")
+
+
+def _apply_valuation_summary_formulas(ws: Any, enabled_formula_ids: set[str]) -> None:
+    if "valuation_summary_formulas" not in enabled_formula_ids:
+        return
+
+    projections = (
+        ("price", "Price", "$/share", "$#,##0.00;[Red]-$#,##0.00", "Observed or explicit user price."),
+        ("market_cap", "MarketCap", "$m", "#,##0.0;[Red]-#,##0.0", "Price multiplied by the selected share denominator."),
+        ("enterprise_value", "EV", "$m", "#,##0.0;[Red]-#,##0.0", "Market capitalization plus available net debt."),
+        ("implied_ev_adjusted_ebitda", "Implied_EV_AdjEBITDA", "x", "0.00x", "Enterprise value divided by adjusted EBITDA TTM."),
+        ("implied_ev_base_ebitda", "Implied_EV_EBITDA", "x", "0.00x", "Enterprise value divided by base EBITDA TTM."),
+        ("implied_ev_revenue", "'Valuation'!N208", "x", "0.00x", "Enterprise value divided by revenue TTM."),
+        ("equity_fcf_yield", "Equity_FCF_Yield", "%", "0.0%", "FCF TTM divided by market capitalization."),
+        ("dcf_enterprise_value", "DCF_EV", "$m", "#,##0.0;[Red]-#,##0.0", "DCF enterprise value from explicit user assumptions."),
+        ("dcf_implied_price", "DCF_ImpliedPrice", "$/share", "$#,##0.00;[Red]-$#,##0.00", "DCF equity value divided by the selected share denominator."),
+        ("scenario_revenue", "ScenarioRevenue", "$m", "#,##0.0;[Red]-#,##0.0", "Revenue under the selected typed scenario."),
+        ("scenario_base_ebitda", "ScenarioBaseEBITDA", "$m", "#,##0.0;[Red]-#,##0.0", "Base EBITDA under the selected typed scenario."),
+        ("scenario_adjusted_ebitda", "ScenarioAdjustedEBITDA", "$m", "#,##0.0;[Red]-#,##0.0", "Adjusted EBITDA under the selected typed scenario."),
+        ("scenario_fcf", "ScenarioFCF", "$m", "#,##0.0;[Red]-#,##0.0", "FCF under explicit bridge and cash classifications."),
+        ("scenario_shares", "ScenarioShares", "m shares", "#,##0.000;[Red]-#,##0.000", "Selected base shares less repurchased shares plus issuance."),
+        ("scenario_net_debt", "ScenarioNetDebt", "$m", "#,##0.0;[Red]-#,##0.0", "Available net debt plus buyback cash less debt paydown."),
+        ("scenario_eps", "ScenarioEPS", "$/share", "$0.00;[Red]-$0.00", "Scenario net income divided by scenario shares."),
+        ("scenario_enterprise_value", "ScenarioEV", "$m", "#,##0.0;[Red]-#,##0.0", "Scenario adjusted EBITDA multiplied by the explicit target multiple."),
+        ("scenario_implied_price", "ScenarioImpliedPrice", "$/share", "$#,##0.00;[Red]-$#,##0.00", "Scenario equity value divided by scenario shares."),
+        ("scenario_upside", "ScenarioUpside", "%", "0.0%;[Red]-0.0%", "Scenario implied price relative to current price."),
+    )
+    for row, (metric, expression, unit, number_format, definition) in enumerate(projections, start=2):
+        ws.cell(row, 1).value = metric
+        _set_formula(ws.cell(row, 2), f'=IF({expression}="","",{expression})', number_format)
+        ws.cell(row, 3).value = unit
+        _set_formula(ws.cell(row, 4), '=IF(AsOfQuarter="","",AsOfQuarter)', "General")
+        ws.cell(row, 5).value = f"formula:{expression}"
+        _set_formula(ws.cell(row, 6), f'=IF(B{row}="","unavailable","calculated")', "General")
+        ws.cell(row, 7).value = definition
+
+
+def _apply_valuation_grid_formulas(ws: Any, enabled_formula_ids: set[str]) -> None:
+    if "valuation_grid_formulas" not in enabled_formula_ids:
+        return
+
+    row = 2
+    for valuation_row in range(227, 235):
+        for valuation_column in range(8, 13):
+            column = get_column_letter(valuation_column)
+            _set_formula(ws.cell(row, 1), '="dcf"', "General")
+            _set_formula(ws.cell(row, 2), f'=IF(\'Valuation\'!$G${valuation_row}="","",\'Valuation\'!$G${valuation_row})', "0.0%")
+            _set_formula(ws.cell(row, 3), f'=IF(\'Valuation\'!${column}$226="","",\'Valuation\'!${column}$226)', "0.0%")
+            ws.cell(row, 4).value = "implied_price"
+            _set_formula(ws.cell(row, 5), f'=IF(\'Valuation\'!${column}${valuation_row}="","",\'Valuation\'!${column}${valuation_row})', "$#,##0.00;[Red]-$#,##0.00")
+            _set_formula(ws.cell(row, 6), f'=IF(E{row}="","unavailable","calculated")', "General")
+            row += 1
+
+    _set_formula(ws.cell(row, 1), '=IF(ScenarioProfile="","",ScenarioProfile)', "General")
+    _set_formula(ws.cell(row, 2), '=IF(ScenarioProfile="","","selected_scenario")', "General")
+    _set_formula(ws.cell(row, 3), '=IF(AsOfQuarter="","",AsOfQuarter)', "General")
+    ws.cell(row, 4).value = "scenario_implied_price"
+    _set_formula(ws.cell(row, 5), '=IF(ScenarioImpliedPrice="","",ScenarioImpliedPrice)', "$#,##0.00;[Red]-$#,##0.00")
+    _set_formula(ws.cell(row, 6), f'=IF(E{row}="","unavailable","calculated")', "General")
+
+
+def _cell_scenario_bridge_formula(column: str, *, cash_view: bool) -> str:
+    if cash_view:
+        full_treatments = f'OR({column}29="non_taxable",{column}29="non_taxable_credit",{column}29="cash_only",{column}29="no_eps_impact")'
+        zero_value = f"{column}27"
+    else:
+        full_treatments = f'OR({column}29="non_taxable",{column}29="non_taxable_credit")'
+        zero_value = "0"
+    return (
+        f'IF({column}29="taxable",{column}27*(1-{column}28),'
+        f'IF({full_treatments},{column}27,'
+        f'IF(OR({column}29="cash_only",{column}29="no_eps_impact"),{zero_value},"")))'
+    )
+
+
+def _cell_interest_bridge_formula(column: str) -> str:
+    return f'IF({column}31="taxable",{column}30*(1-{column}28),IF({column}31="non_taxable",{column}30,""))'
+
+
+def _apply_scenario_defined_names(workbook: Any, enabled_formula_ids: set[str]) -> None:
+    obsolete = {
+        "ScenarioMargin", "ScenarioBuyback", "ScenarioRefiNorm", "ScenarioOwnerEarnings",
+        "ScenarioAdjEBITDA", "ScenarioEqShare_EVAdj", "ScenarioEqShare_Yield",
+    }
+    for name in obsolete:
+        if name in workbook.defined_names:
+            del workbook.defined_names[name]
+    route_names = {
+        "ResolvedRevenueGrowth_Bear": "H2",
+        "ResolvedRevenueGrowth_Base": "I2",
+        "ResolvedRevenueGrowth_Bull": "J2",
+        "ResolvedRevenueGrowth_Custom": "K2",
+    }
+    for name in route_names:
+        if name in workbook.defined_names:
+            del workbook.defined_names[name]
+    if "scenario_revenue_route_formulas" in enabled_formula_ids and "Valuation_Summary" in workbook.sheetnames:
+        route_sheet = quote_sheetname("Valuation_Summary")
+        for name, coordinate in route_names.items():
+            workbook.defined_names.add(DefinedName(name, attr_text=f"{route_sheet}!${coordinate[0]}${coordinate[1:]}"))
+    if "valuation_scenario_formulas" not in enabled_formula_ids:
+        return
+    cells = {
+        "NetIncome_TTM": "D217",
+        "Target_EV_Revenue": "D218",
+        "Target_PE": "D219",
+        "DCF_Horizon": "D220",
+        "DCF_FCFF": "J218",
+        "DCF_Growth": "J219",
+        "DCF_TerminalGrowth": "J220",
+        "DCF_WACC": "J221",
+        "DCF_EV": "J222",
+        "DCF_ImpliedPrice": "J223",
+        "ScenarioProfile": "E236",
+        "ScenarioHorizon": "J236",
+        "ScenarioGrowth": "E237",
+        "ScenarioBaseMargin": "E238",
+        "ScenarioAdjustedMargin": "E239",
+        "ScenarioTaxRate": "E240",
+        "ScenarioPreTaxBridge": "D247",
+        "ScenarioTaxTreatment": "E247",
+        "ScenarioCashInterestChange": "D248",
+        "ScenarioInterestTaxTreatment": "E248",
+        "ScenarioCapexChange": "D249",
+        "ScenarioWCAdjustment": "D250",
+        "ScenarioBuybackCash": "D253",
+        "ScenarioBuybackPrice": "D254",
+        "ScenarioShareIssuance": "D255",
+        "ScenarioDebtPaydown": "D256",
+        "ScenarioRevenue": "E241",
+        "ScenarioBaseEBITDA": "E242",
+        "ScenarioAdjustedEBITDA": "E243",
+        "ScenarioFCF": "E244",
+        "ScenarioShares": "E259",
+        "ScenarioNetDebt": "E260",
+        "ScenarioEPS": "E261",
+        "ScenarioEV": "J259",
+        "ScenarioEquityValue": "J260",
+        "ScenarioImpliedPrice": "J261",
+        "ScenarioUpside": "N259",
+        "ScenarioPE": "N260",
+        "ScenarioFCFYield": "N261",
+        "ScenarioEVRevenue": "R259",
+        "ScenarioEVBaseEBITDA": "R260",
+        "ScenarioEVAdjustedEBITDA": "R261",
+    }
+    sheet = quote_sheetname("Valuation")
+    for name, coordinate in cells.items():
+        if name in workbook.defined_names:
+            del workbook.defined_names[name]
+        workbook.defined_names.add(DefinedName(name, attr_text=f"{sheet}!${coordinate[0]}${coordinate[1:]}"))
+
+
+def _apply_scenario_data_validations(ws: Any) -> None:
+    owned = (
+        "D194", "D208:D210", "D213:D216", "D218:D220", "J218:J221",
+        "H226:L226", "G227:G234", "E236:E240", "J236", "D247:E250", "D253:D256",
+    )
+    _remove_data_validations_overlapping(ws, owned)
+    _add_validation(ws, "list", "D216", formula1='"Outstanding,Diluted"')
+    _add_validation(ws, "list", "E236", formula1='"Bear,Base,Bull,Custom"')
+    _add_validation(ws, "custom", "J236", formula1='=OR(J236="",AND(LEFT(J236,2)="FY",LEN(J236)=6,ISNUMBER(VALUE(RIGHT(J236,4)))),AND(LEN(J236)=7,MID(J236,5,2)="-Q",ISNUMBER(VALUE(LEFT(J236,4))),VALUE(RIGHT(J236,1))>=1,VALUE(RIGHT(J236,1))<=4))')
+    _add_validation(ws, "list", "E247", formula1='"taxable,non_taxable,non_taxable_credit,cash_only,no_eps_impact"')
+    _add_validation(ws, "list", "E248", formula1='"taxable,non_taxable"')
+    _add_validation(ws, "decimal", "D194", operator="greaterThan", formula1="0")
+    _add_validation(ws, "decimal", "D208:D209", operator="greaterThan", formula1="0")
+    _add_validation(ws, "decimal", "D210", operator="between", formula1="0.000001", formula2="1")
+    _add_validation(ws, "decimal", "D213", operator="between", formula1="0", formula2="1")
+    _add_validation(ws, "decimal", "D218:D219", operator="greaterThan", formula1="0")
+    _add_validation(ws, "whole", "D220", operator="between", formula1="1", formula2="20")
+    _add_validation(ws, "decimal", "J218", operator="greaterThan", formula1="0")
+    _add_validation(ws, "decimal", "J219:J220", operator="between", formula1="-1", formula2="1")
+    _add_validation(ws, "decimal", "J221", operator="between", formula1="0.000001", formula2="1")
+    _add_validation(ws, "decimal", "H226:L226", operator="between", formula1="-1", formula2="1")
+    _add_validation(ws, "decimal", "G227:G234", operator="between", formula1="0.000001", formula2="1")
+    _add_validation(ws, "decimal", "E237:E239", operator="between", formula1="-1", formula2="1")
+    _add_validation(ws, "decimal", "E240", operator="between", formula1="0", formula2="1")
+    _add_validation(ws, "decimal", "D253", operator="greaterThanOrEqual", formula1="0")
+    _add_validation(ws, "decimal", "D254", operator="greaterThan", formula1="0")
+    _add_validation(ws, "decimal", "D255:D256", operator="greaterThanOrEqual", formula1="0")
+
+
+def _apply_investment_case_data_validations(ws: Any) -> None:
+    _remove_data_validations_overlapping(ws, INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES)
+    _add_validation(ws, "custom", "B23:D23", formula1='=OR(B23="",AND(LEFT(B23,2)="FY",LEN(B23)=6,ISNUMBER(VALUE(RIGHT(B23,4)))))')
+    _add_validation(ws, "decimal", "B24:D26", operator="between", formula1="-1", formula2="1")
+    _add_validation(ws, "decimal", "B28:D28", operator="between", formula1="0", formula2="1")
+    _add_validation(ws, "list", "B29:D29", formula1='"taxable,non_taxable,non_taxable_credit,cash_only,no_eps_impact"')
+    _add_validation(ws, "list", "B31:D31", formula1='"taxable,non_taxable"')
+    _add_validation(ws, "decimal", "B34:D34", operator="greaterThanOrEqual", formula1="0")
+    _add_validation(ws, "decimal", "B35:D35", operator="greaterThan", formula1="0")
+    _add_validation(ws, "decimal", "B36:D37", operator="greaterThanOrEqual", formula1="0")
+    _add_validation(ws, "decimal", "B38:D41", operator="greaterThan", formula1="0")
+    _add_validation(ws, "decimal", "B42:D42", operator="between", formula1="0.000001", formula2="1")
+    _add_validation(ws, "decimal", "B160:D160", operator="greaterThan", formula1="0")
+    _add_validation(ws, "decimal", "B171:D171", operator="greaterThan", formula1="0")
+    _add_validation(ws, "decimal", "B177:D177", operator="between", formula1="0.000001", formula2="1")
+
+
+def _add_validation(
+    ws: Any,
+    validation_type: str,
+    target: str,
+    *,
+    operator: str | None = None,
+    formula1: str | None = None,
+    formula2: str | None = None,
+) -> None:
+    validation = DataValidation(
+        type=validation_type,
+        operator=operator,
+        formula1=formula1,
+        formula2=formula2,
+        allow_blank=True,
+    )
+    validation.errorTitle = "Invalid scenario input"
+    validation.error = "Enter a value compatible with the declared scenario contract."
+    validation.errorStyle = "stop"
+    validation.showErrorMessage = True
+    ws.add_data_validation(validation)
+    validation.add(target)
+
+
+def _remove_data_validations_overlapping(ws: Any, targets: Collection[str]) -> None:
+    from openpyxl.utils.cell import range_boundaries
+
+    owned = [range_boundaries(target) for target in targets]
+    retained = []
+    for validation in ws.data_validations.dataValidation:
+        ranges = [range_boundaries(str(cell_range)) for cell_range in validation.ranges.ranges]
+        if any(_bounds_overlap(candidate, target) for candidate in ranges for target in owned):
+            continue
+        retained.append(validation)
+    ws.data_validations.dataValidation = retained
+
+
+def _bounds_overlap(left: tuple[int, int, int, int], right: tuple[int, int, int, int]) -> bool:
+    return not (left[2] < right[0] or right[2] < left[0] or left[3] < right[1] or right[3] < left[1])
+
+
+def _clear_and_unlock_range(ws: Any, range_ref: str) -> None:
+    from openpyxl.utils.cell import range_boundaries
+
+    min_col, min_row, max_col, max_row = range_boundaries(range_ref)
+    for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
+        for cell in row:
+            if isinstance(cell, MergedCell):
+                continue
+            cell.value = None
+            cell.protection = Protection(locked=False)
+
+
+def _prepare_investment_case_scenario_layout(ws: Any) -> None:
+    from openpyxl.utils.cell import range_boundaries
+
+    exact_surfaces = (
+        "B15:D42",
+        "B50:D53",
+        "B55:D58",
+        "B62:B68",
+        "B84:J87",
+        "B160:D160",
+        "A161:D163",
+        "B171:D171",
+        "A172:D174",
+        "B177:D177",
+        "A178:D180",
+    )
+    owned = [range_boundaries(target) for target in exact_surfaces]
+    for merged in tuple(ws.merged_cells.ranges):
+        bounds = (merged.min_col, merged.min_row, merged.max_col, merged.max_row)
+        if any(_bounds_overlap(bounds, target) for target in owned):
+            ws.unmerge_cells(str(merged))
 
 
 def _set_formula(cell: Any, formula: str, number_format: str) -> None:

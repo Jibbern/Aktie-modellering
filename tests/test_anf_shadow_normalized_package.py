@@ -127,6 +127,30 @@ def test_anf_shadow_package_reports_are_built_from_read_only_legacy_artifacts(tm
     assert len(package["segments"]["items"]) >= 6
     assert len(package["operating_drivers"]["items"]) >= 4
     assert len(package["quarter_notes"]["items"]) == 6
+    assert "scenario_drivers" not in package["investment_case"]
+    scenario_items = package["investment_case"]["scenario_items"]
+    scenario_bridges = package["investment_case"]["scenario_driver_bridge"]
+    assert scenario_items
+    assert scenario_bridges
+    assert all(row["member"] == "total_company" for row in scenario_items + scenario_bridges)
+    assert all(row["source_ref"] and row["source_refs"] for row in scenario_items + scenario_bridges)
+    assert all("profile_pack_id" in row and "as_of_date" in row for row in scenario_items)
+    actuals = {
+        row["assumption_id"]: row
+        for row in scenario_items
+        if row["scenario_id"] == "common" and row["source_classification"] in {"source_actual", "unavailable"}
+    }
+    assert actuals["revenue_ttm"]["horizon"] == "TTM"
+    assert actuals["base_ebitda_ttm"]["horizon"] == "TTM"
+    assert actuals["adjusted_ebitda_ttm"]["horizon"] == "TTM"
+    assert actuals["fcf_ttm"]["horizon"] == "TTM"
+    assert actuals["net_income_ttm"]["horizon"] == "TTM"
+    assert actuals["diluted_shares"]["horizon"] == "2026-Q1"
+    for assumption_id in ("price", "shares_outstanding", "net_debt"):
+        assert actuals[assumption_id]["horizon"] == "as_of"
+        assert actuals[assumption_id]["as_of_date"] == "2026-05-02"
+    assert all(row["profile_pack_id"] == "retail_operating_pack" for row in scenario_bridges)
+    assert all(row["propagation_rule"] == "no_propagation" for row in scenario_bridges)
     assert package["source_coverage"]["sources"]
     latest_guidance = [
         item
@@ -170,6 +194,9 @@ def test_anf_shadow_package_reports_are_built_from_read_only_legacy_artifacts(tm
     }
     assert binding_ids == expected_binding_ids
     assert any(row["would_write_useful_output"] for row in coverage["bindings"])
+    coverage_by_id = {row["binding_id"]: row for row in coverage["bindings"]}
+    assert coverage_by_id["ic_bull_base_bear_rows"]["planner_planned_write_count"] > 0
+    assert coverage_by_id["ic_scenario_bridge_rows"]["planner_planned_write_count"] > 0
     assert text_quality["non_clean_visible_count"] == 0
     assert not (output_dir / "ANF_model.xlsx").exists()
 

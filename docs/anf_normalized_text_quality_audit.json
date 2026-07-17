@@ -1,9 +1,9 @@
 {
   "version": "0.1.0",
-  "row_count": 704,
+  "row_count": 703,
   "non_clean_visible_count": 0,
   "classification_counts": {
-    "clean_visible_ui": 233,
+    "clean_visible_ui": 232,
     "clean_audit_only": 471
   },
   "section_classification_counts": {
@@ -29,7 +29,7 @@
       "clean_visible_ui": 26
     },
     "investment_case": {
-      "clean_visible_ui": 10,
+      "clean_visible_ui": 9,
       "clean_audit_only": 6
     }
   },
@@ -7680,17 +7680,6 @@
       "suggested_action": "No action required."
     },
     {
-      "field": "investment_case.scenario_drivers",
-      "section": "investment_case",
-      "visible_ui": true,
-      "classification": "clean_visible_ui",
-      "is_clean_visible": true,
-      "text_length": 129,
-      "text_excerpt": "Brand growth, margin mitigation, inventory discipline, free cash flow and repurchase pacing are the principal scenario variables.",
-      "source_ref": "tickers/ANF/earnings_transcripts/ANF_Q4_2025_transcript.txt#L14-L32",
-      "suggested_action": "No action required."
-    },
-    {
       "field": "investment_case.invalidators.0.text",
       "section": "investment_case",
       "visible_ui": true,
@@ -7781,8 +7770,8 @@
   ],
   "ticker": "ANF",
   "generator_version": "anf_legacy_adapter_audits/0.2.0",
-  "source_package_content_sha256": "4895d50f6b30b682de8e5f6a917e8c994b82274559afe2b5f7ec52ea5f011411",
-  "generated_at_utc": "2026-07-15T11:58:36+00:00",
+  "source_package_content_sha256": "14470e47944a136c3f1118b1296bedf1e294bc422cf2d21fdbe6e1d570c21929",
+  "generated_at_utc": "2026-07-16T22:00:08+00:00",
   "demotion_summary": {
     "total_demoted": 1325,
     "by_section": {
@@ -7808,8 +7797,8 @@
       "demoted_before_render": 0
     },
     "investment_case": {
-      "candidate_rows_before_filter": 10,
-      "visible_clean_after_filter": 10,
+      "candidate_rows_before_filter": 9,
+      "visible_clean_after_filter": 9,
       "visible_non_clean_after_filter": 0,
       "demoted_before_render": 0
     },

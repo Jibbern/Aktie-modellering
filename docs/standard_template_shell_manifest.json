@@ -2633,6 +2633,19 @@
       ]
     },
     {
+      "contract_id": "valuation_input_net_income_ttm",
+      "sheet": "Valuation",
+      "target": "D217",
+      "writable": true,
+      "target_role": "valuation_input_net_income_ttm",
+      "allowed_binding_ids": [
+        "valuation_input_net_income_ttm"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
       "contract_id": "bs_annual_financial_period_headers",
       "sheet": "BS_Segments",
       "target": "B82:I82",
@@ -2900,6 +2913,461 @@
       "target_role": "calculation_history_quarterly_rows.status",
       "allowed_binding_ids": [
         "calculation_history_quarterly_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_scenario_id",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "A2:A201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.scenario_id",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_assumption_id",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "B2:B201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.assumption_id",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_metric",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "C2:C201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.metric",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_value_kind",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "D2:D201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.value_kind",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_value",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "E2:E201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.value",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "value"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_low_value",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "F2:F201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.low_value",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_high_value",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "G2:G201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.high_value",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_unit",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "H2:H201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.unit",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_horizon",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "I2:I201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.horizon",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_dimension_id",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "J2:J201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.dimension_id",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_member",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "K2:K201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.member",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_source_classification",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "L2:L201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.source_classification",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_propagation_rule",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "M2:M201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.propagation_rule",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_status",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "N2:N201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.status",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_source_ref",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "O2:O201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.source_ref",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_reason",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "P2:P201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.reason",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_scenario_id",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "A2:A201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.scenario_id",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_driver_id",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "B2:B201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.driver_id",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_profile_pack_id",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "C2:C201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.profile_pack_id",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_driver_type",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "D2:D201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.driver_type",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_metric",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "E2:E201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.metric",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_impact_metric",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "F2:F201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.impact_metric",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_value",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "G2:G201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.value",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_unit",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "H2:H201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.unit",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_horizon",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "I2:I201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.horizon",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_dimension_id",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "J2:J201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.dimension_id",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_member",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "K2:K201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.member",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_source_classification",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "L2:L201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.source_classification",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_tax_treatment",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "M2:M201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.tax_treatment",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_cash_classification",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "N2:N201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.cash_classification",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_propagation_rule",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "O2:O201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.propagation_rule",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_status",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "P2:P201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.status",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_source_ref",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "Q2:Q201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.source_ref",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_scenario_bridge_rows_reason",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "R2:R201",
+      "writable": true,
+      "target_role": "ic_scenario_bridge_rows.reason",
+      "allowed_binding_ids": [
+        "ic_scenario_bridge_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_bull_base_bear_rows_profile_pack_id",
+      "sheet": "Scenario_Driver_Assumptions",
+      "target": "Q2:Q201",
+      "writable": true,
+      "target_role": "ic_bull_base_bear_rows.profile_pack_id",
+      "allowed_binding_ids": [
+        "ic_bull_base_bear_rows"
       ],
       "allowed_target_types": [
         "text"
@@ -3508,7 +3976,7 @@
         },
         {
           "zone_id": "valuation_input_values",
-          "target": "D194:D216",
+          "target": "D194:D217",
           "anchor_label": "Inputs",
           "value_shapes": [
             "scalar"
@@ -3860,8 +4328,13 @@
         },
         {
           "zone_id": "valuation_lower_formula_bands_tail",
-          "target": "A217:AI261",
-          "reason": "Formula/static region below the explicit valuation input block."
+          "target": "A217:C261",
+          "reason": "Formula/static region left of the source-backed net-income input."
+        },
+        {
+          "zone_id": "valuation_lower_formula_bands_tail_right",
+          "target": "D218:AI261",
+          "reason": "Formula/static and explicit user-input region below the source-backed net-income input."
         },
         {
           "zone_id": "valuation_secondary_title_row",
@@ -4781,38 +5254,11 @@
       "writable_zones": [
         {
           "zone_id": "ic_snapshot_values",
-          "target": "B5:K30",
+          "target": "B5:B11",
           "anchor_label": "Investment Snapshot",
           "value_shapes": [
             "text_block",
             "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_key_debate_values",
-          "target": "B31:K80",
-          "anchor_label": "Key Debate",
-          "value_shapes": [
-            "text_block",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_manual_input_values",
-          "target": "B81:K130",
-          "anchor_label": "Manual Market / Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_bridge_values",
-          "target": "B131:K190",
-          "anchor_label": "Scenario Driver Bridge",
-          "value_shapes": [
-            "table_rows",
-            "scalar"
           ]
         },
         {
@@ -4866,6 +5312,636 @@
           "value_shapes": [
             "text_block"
           ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
         }
       ],
       "non_writable_zones": [
@@ -4875,14 +5951,189 @@
           "reason": "Subtitle and static shell header rows below the runtime-resolved title."
         },
         {
-          "zone_id": "ic_static_label_column",
-          "target": "A5:A184",
-          "reason": "Static thesis/scenario labels next to writable value zones."
-        },
-        {
           "zone_id": "ic_lower_static_label_column",
           "target": "A192:A233",
           "reason": "Reusable lower-block section and row labels; value cells are writable."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
         }
       ],
       "formulas_static_labels": [
@@ -5449,21 +6700,12 @@
     {
       "sheet": "Valuation_Summary",
       "static_layout_owner": "frozen_template_shell",
-      "writable_zones": [
-        {
-          "zone_id": "module_valuation_scenarios_valuation_summary_rows",
-          "target": "A2:G1000",
-          "anchor_label": "metric",
-          "value_shapes": [
-            "table_rows"
-          ]
-        }
-      ],
+      "writable_zones": [],
       "non_writable_zones": [
         {
           "zone_id": "module_valuation_scenarios_valuation_summary_headers",
-          "target": "A1:G1",
-          "reason": "Neutral module support headers owned by the frozen shell."
+          "target": "A1:K1000",
+          "reason": "Formula-owned support surface; values are never written by bindings."
         }
       ],
       "formulas_static_labels": [
@@ -5471,9 +6713,13 @@
         "value",
         "unit",
         "as_of",
-        "source_ref",
+        "lineage_ref",
         "status",
-        "definition"
+        "definition",
+        "resolved_revenue_growth_bear",
+        "resolved_revenue_growth_base",
+        "resolved_revenue_growth_bull",
+        "resolved_revenue_growth_custom"
       ],
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
@@ -5584,7 +6830,6 @@
     },
     {
       "sheet": "History_Q",
-      "state": "hidden",
       "static_layout_owner": "frozen_template_shell",
       "writable_zones": [
         {
@@ -5598,9 +6843,9 @@
       ],
       "non_writable_zones": [
         {
-          "zone_id": "calculation_history_headers",
+          "zone_id": "module_core_financial_history_history_q_headers",
           "target": "A1:G1",
-          "reason": "Static hidden formula-input projection headers."
+          "reason": "Neutral module support headers owned by the frozen shell."
         }
       ],
       "formulas_static_labels": [
@@ -5614,7 +6859,8 @@
       ],
       "module_id": "core_financial_history",
       "module_role": "hidden_support",
-      "legacy_class": "B"
+      "legacy_class": "B",
+      "state": "hidden"
     },
     {
       "sheet": "operating_drivers_raw",
@@ -6099,8 +7345,8 @@
       "writable_zones": [
         {
           "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_rows",
-          "target": "A2:G5000",
-          "anchor_label": "section",
+          "target": "A2:R5000",
+          "anchor_label": "scenario_id",
           "value_shapes": [
             "table_rows"
           ]
@@ -6109,18 +7355,29 @@
       "non_writable_zones": [
         {
           "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_headers",
-          "target": "A1:G1",
+          "target": "A1:R1",
           "reason": "Neutral module support headers owned by the frozen shell."
         }
       ],
       "formulas_static_labels": [
-        "section",
-        "item_key",
+        "scenario_id",
+        "driver_id",
+        "profile_pack_id",
+        "driver_type",
+        "metric",
+        "impact_metric",
         "value",
         "unit",
-        "period",
+        "horizon",
+        "dimension_id",
+        "member",
+        "source_classification",
+        "tax_treatment",
+        "cash_classification",
+        "propagation_rule",
+        "status",
         "source_ref",
-        "status"
+        "reason"
       ],
       "module_id": "investment_case_market_implied",
       "module_role": "hidden_support",
@@ -6167,7 +7424,7 @@
       "writable_zones": [
         {
           "zone_id": "module_valuation_scenarios_scenario_driver_assumptions_rows",
-          "target": "A2:G1000",
+          "target": "A2:Q1000",
           "anchor_label": "scenario_id",
           "value_shapes": [
             "table_rows"
@@ -6177,18 +7434,28 @@
       "non_writable_zones": [
         {
           "zone_id": "module_valuation_scenarios_scenario_driver_assumptions_headers",
-          "target": "A1:G1",
+          "target": "A1:Q1",
           "reason": "Neutral module support headers owned by the frozen shell."
         }
       ],
       "formulas_static_labels": [
         "scenario_id",
-        "driver",
+        "assumption_id",
+        "metric",
+        "value_kind",
         "value",
+        "low_value",
+        "high_value",
         "unit",
-        "source_ref",
+        "horizon",
+        "dimension_id",
+        "member",
+        "source_classification",
+        "propagation_rule",
         "status",
-        "definition"
+        "source_ref",
+        "reason",
+        "profile_pack_id"
       ],
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
@@ -6335,21 +7602,12 @@
     {
       "sheet": "Valuation_Grid",
       "static_layout_owner": "frozen_template_shell",
-      "writable_zones": [
-        {
-          "zone_id": "module_valuation_scenarios_valuation_grid_rows",
-          "target": "A2:F1000",
-          "anchor_label": "scenario_id",
-          "value_shapes": [
-            "table_rows"
-          ]
-        }
-      ],
+      "writable_zones": [],
       "non_writable_zones": [
         {
           "zone_id": "module_valuation_scenarios_valuation_grid_headers",
-          "target": "A1:F1",
-          "reason": "Neutral module support headers owned by the frozen shell."
+          "target": "A1:F1000",
+          "reason": "Formula-owned support surface; values are never written by bindings."
         }
       ],
       "formulas_static_labels": [
@@ -6361,7 +7619,7 @@
         "status"
       ],
       "module_id": "valuation_scenarios",
-      "module_role": "module_capacity",
+      "module_role": "hidden_support",
       "legacy_class": "E",
       "state": "hidden"
     },
@@ -6666,7 +7924,7 @@
     {
       "sheet": "Valuation_Grid",
       "module_id": "valuation_scenarios",
-      "module_role": "module_capacity",
+      "module_role": "hidden_support",
       "state": "hidden"
     },
     {
@@ -6688,30 +7946,30 @@
       "state": "hidden"
     }
   ],
-  "semantic_contract_version": "1.3.0",
+  "semantic_contract_version": "1.6.0",
   "shell_identity": {
-    "semantic_contract_version": "1.3.0",
-    "workbook_sha256": "1a03e543d13b4ce7c5ab8c07cd11b3635197b806eb547bb8dd2ed962159d91b6",
-    "manifest_contract_signature": "739400cd8ca9b13756e509b2d1e1f4890086e858c0d0f20ee33238b320f780af",
+    "semantic_contract_version": "1.6.0",
+    "workbook_sha256": "e17acab3071094ec4f2b2e416b8363ec8078ad816c64ac96bf36d2a3f464f2b8",
+    "manifest_contract_signature": "2dc52fb248abbc33eb62665277fb642fd3b0fdf2682e78c9afedc7b0cd298e06",
     "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
     "sheet_view_signature": "05ae7b3677f3e327032c0dbbd0953f8c059c7d333d84c0fb7ed8662a9d00fd6c",
-    "merge_signature": "417d308565b3d649f9fe6eda6dfe3bb7b5957c324378558462f8b191287b65b7",
-    "defined_name_signature": "5de1eee0b83fd586e92fa73a46ef86003190b944d83f47f4de852788e5d1b98b",
-    "writable_target_signature": "46383f5c318385176c39b0f176f85f85499841b5a5fdf4e41622f3ffd217d6cf",
-    "binding_contract_signature": "0cc1d6c6e3029325848e404a4db88800ad84645fa9bbecb2e3b897a97e408b6a",
-    "formula_static_zone_signature": "51cebf59aeb2c34ccf1ff7acbed039236b5e7aa6de330eec732b255d99732b8a",
+    "merge_signature": "4ac1bc41152d136823fd8d1f6bdeda8970f8dd04181262b4ce44a468a2319f2c",
+    "defined_name_signature": "c7711e6ac250414a2f9577782f4b0e56cec5ef7bceab3a425bcb65283b959397",
+    "writable_target_signature": "a6c5c4c04b6fcef7edc1d2d46b22d9ff76a9cb5800e8efa17e2bfd411d6cfac4",
+    "binding_contract_signature": "50706f229017edce31fe9a1b5ab1c8b170db72721d50bc6c90b20e62638c5c8a",
+    "formula_static_zone_signature": "919264e3b4dbde5ccd502340f4d0207fb656768d9e965869ae3ce050c40b01cf",
     "counts": {
       "sheets": 46,
       "sheet_views": 46,
-      "merges": 1884,
-      "defined_names": 202,
-      "writable_targets": 348,
-      "binding_contracts": 160,
-      "formula_cells": 1016,
-      "static_cells": 1441
+      "merges": 1830,
+      "defined_names": 242,
+      "writable_targets": 387,
+      "binding_contracts": 161,
+      "formula_cells": 1396,
+      "static_cells": 1594
     }
   },
-  "formula_contract_version": "1.2.0",
+  "formula_contract_version": "1.6.0",
   "union_sheet_order": [
     "SUMMARY",
     "Valuation",
@@ -6763,8 +8021,8 @@
   "module_manifest": {
     "path": "docs/workbook_module_manifest.json",
     "version": "1.0.0",
-    "module_contract_version": "1.0.0",
-    "signature": "a5b7f43dc41422e9f70d04f32ae08d944e7f8603e23c22f285f3b4063b41663b"
+    "module_contract_version": "1.1.0",
+    "signature": "5b6c57e24e785b86599e6d4e4b5e6f8fadd7ce6163fc64d4f321c5eda03a2243"
   },
   "module_profile": {
     "profile_id": "full_union",
@@ -6918,6 +8176,7 @@
       "gross_margin",
       "hidden_value_issue_anchor",
       "interest_coverage",
+      "investment_case_scenario_formulas",
       "investment_case_sensitivity_formulas",
       "lease_adjusted_net_debt",
       "lease_adjusted_net_debt_with_securities",
@@ -6938,10 +8197,13 @@
       "operating_margin_ttm",
       "revenue_ttm",
       "revenue_yoy",
+      "scenario_revenue_route_formulas",
       "tangible_book_value_per_share",
+      "valuation_grid_formulas",
       "valuation_output_formulas",
       "valuation_scenario_formulas",
-      "valuation_sidecar_formulas"
+      "valuation_sidecar_formulas",
+      "valuation_summary_formulas"
     ],
     "enabled_defined_name_ids": [
       "Adj_EBITDA",
@@ -6954,6 +8216,13 @@
       "Capex_TTM",
       "CompanyOperatingMargin_Latest",
       "CompanyOperatingMargin_TTM",
+      "DCF_EV",
+      "DCF_FCFF",
+      "DCF_Growth",
+      "DCF_Horizon",
+      "DCF_ImpliedPrice",
+      "DCF_TerminalGrowth",
+      "DCF_WACC",
       "EPS_TTM",
       "EV",
       "EqShare_Target_Adj",
@@ -6974,6 +8243,7 @@
       "MaintCapexRatio",
       "MarketCap",
       "NetDebt",
+      "NetIncome_TTM",
       "OperatingMargin_Latest",
       "OwnerEarnings_TTM",
       "OwnerEarnings_Yield",
@@ -6981,22 +8251,51 @@
       "Pos_FCF_Ratio",
       "Price",
       "RecurringCashCosts",
+      "ResolvedRevenueGrowth_Base",
+      "ResolvedRevenueGrowth_Bear",
+      "ResolvedRevenueGrowth_Bull",
+      "ResolvedRevenueGrowth_Custom",
       "Revenue_TTM",
-      "ScenarioAdjEBITDA",
-      "ScenarioBuyback",
-      "ScenarioEqShare_EVAdj",
-      "ScenarioEqShare_Yield",
+      "ScenarioAdjustedEBITDA",
+      "ScenarioAdjustedMargin",
+      "ScenarioBaseEBITDA",
+      "ScenarioBaseMargin",
+      "ScenarioBuybackCash",
+      "ScenarioBuybackPrice",
+      "ScenarioCapexChange",
+      "ScenarioCashInterestChange",
+      "ScenarioDebtPaydown",
+      "ScenarioEPS",
+      "ScenarioEV",
+      "ScenarioEVAdjustedEBITDA",
+      "ScenarioEVBaseEBITDA",
+      "ScenarioEVRevenue",
+      "ScenarioEquityValue",
+      "ScenarioFCF",
+      "ScenarioFCFYield",
       "ScenarioGrowth",
-      "ScenarioMargin",
-      "ScenarioOwnerEarnings",
+      "ScenarioHorizon",
+      "ScenarioImpliedPrice",
+      "ScenarioInterestTaxTreatment",
+      "ScenarioNetDebt",
+      "ScenarioPE",
+      "ScenarioPreTaxBridge",
       "ScenarioProfile",
-      "ScenarioRefiNorm",
+      "ScenarioRevenue",
+      "ScenarioShareIssuance",
+      "ScenarioShares",
+      "ScenarioTaxRate",
+      "ScenarioTaxTreatment",
+      "ScenarioUpside",
+      "ScenarioWCAdjustment",
       "Shares",
       "SharesDiluted",
       "TBV_PerShare",
       "Target_EV_AdjEBITDA",
       "Target_EV_EBITDA",
+      "Target_EV_Revenue",
       "Target_EV_Yield",
+      "Target_PE",
       "WCNormalization",
       "bs_liquidity_anchor",
       "investment_key_debate_anchor",

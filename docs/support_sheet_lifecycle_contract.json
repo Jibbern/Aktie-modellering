@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-16T00:07:36+00:00",
+  "generated_at": "2026-07-16T22:02:18+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "support_sheets": [
     {
@@ -1012,15 +1012,25 @@
       "neutral_shell_required": true,
       "headers_required": [
         "scenario_id",
-        "driver",
+        "assumption_id",
+        "metric",
+        "value_kind",
         "value",
+        "low_value",
+        "high_value",
         "unit",
-        "source_ref",
+        "horizon",
+        "dimension_id",
+        "member",
+        "source_classification",
+        "propagation_rule",
         "status",
-        "definition"
+        "source_ref",
+        "reason",
+        "profile_pack_id"
       ],
       "allowed_writable_zones": [
-        "A2:G1000"
+        "A2:Q1000"
       ],
       "source_of_data": "normalized company data package through module-owned exact-cell bindings",
       "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
@@ -1098,12 +1108,16 @@
         "value",
         "unit",
         "as_of",
-        "source_ref",
+        "lineage_ref",
         "status",
-        "definition"
+        "definition",
+        "resolved_revenue_growth_bear",
+        "resolved_revenue_growth_base",
+        "resolved_revenue_growth_bull",
+        "resolved_revenue_growth_custom"
       ],
       "allowed_writable_zones": [
-        "A2:G1000"
+        "A2:K1000"
       ],
       "source_of_data": "normalized company data package through module-owned exact-cell bindings",
       "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
@@ -1170,16 +1184,27 @@
       "lifecycle": "static_template",
       "neutral_shell_required": true,
       "headers_required": [
-        "section",
-        "item_key",
+        "scenario_id",
+        "driver_id",
+        "profile_pack_id",
+        "driver_type",
+        "metric",
+        "impact_metric",
         "value",
         "unit",
-        "period",
+        "horizon",
+        "dimension_id",
+        "member",
+        "source_classification",
+        "tax_treatment",
+        "cash_classification",
+        "propagation_rule",
+        "status",
         "source_ref",
-        "status"
+        "reason"
       ],
       "allowed_writable_zones": [
-        "A2:G5000"
+        "A2:R5000"
       ],
       "source_of_data": "normalized company data package through module-owned exact-cell bindings",
       "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",

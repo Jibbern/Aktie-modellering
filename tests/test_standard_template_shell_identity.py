@@ -522,7 +522,25 @@ def test_company_specific_labels_and_constant_defined_name_are_absent() -> None:
         assert "ThesisBaseAdjEBITDA_FY" not in wb.defined_names
         assert wb["{ticker}_Investment_Case"]["A193"].value == "Business Health"
         assert wb["{ticker}_Investment_Case"]["A211"].value == "Asset Productivity / Capacity Returns"
-        assert not wb["{ticker}_Investment_Case"].data_validations.dataValidation
+        investment_case_validation_targets = {
+            str(validation.sqref)
+            for validation in wb["{ticker}_Investment_Case"].data_validations.dataValidation
+        }
+        assert investment_case_validation_targets == {
+            "B23:D23",
+            "B24:D26",
+            "B28:D28",
+            "B29:D29",
+            "B31:D31",
+            "B34:D34",
+            "B35:D35",
+            "B36:D37",
+            "B38:D41",
+            "B42:D42",
+            "B160:D160",
+            "B171:D171",
+            "B177:D177",
+        }
         assert wb.defined_names["valuation_share_count_anchor"].attr_text == "'Valuation'!$A$102"
         assert wb.defined_names["investment_key_debate_anchor"].attr_text == "'{ticker}_Investment_Case'!$A$7"
     finally:

@@ -803,12 +803,8 @@
       "source_ref": "synthetic_fixture:investment_case",
       "core": false
     },
-    "scenario_drivers": {
-      "value": "Retention, implementation velocity, and cost discipline drive the scenarios.",
-      "status": "populated",
-      "source_ref": "synthetic_fixture:investment_case",
-      "core": false
-    },
+    "scenario_items": [],
+    "scenario_driver_bridge": [],
     "invalidators": []
   },
   "valuation_inputs": {

@@ -97,6 +97,23 @@ def test_profiles_are_explicit_dependency_closed_and_pack_declarative() -> None:
     assert resolve_module_profile(payload, "anf").profile_pack_ids == ("retail_operating_pack",)
     assert resolve_module_profile(payload, "pbi").profile_pack_ids == ("shipping_mail_pack", "bank_pack")
     assert resolve_module_profile(payload, "gpre").profile_pack_ids == ("commodity_ethanol_pack",)
+    bindings = load_json_strict(BINDING_MAP)
+    anf_binding = build_profile_binding_payload(bindings, payload, resolve_module_profile(payload, "anf"))
+    anf_scenario_packs = {row["profile_pack_id"]: row["scenario_driver_ids"] for row in anf_binding["scenario_profile_packs"]}
+    assert set(anf_scenario_packs) == {"retail_operating_pack"}
+    assert {
+        "revenue_growth",
+        "comparable_sales",
+        "store_openings",
+        "store_closures",
+        "store_remodels",
+        "aur_pricing",
+        "inventory_change",
+        "tariff_impact",
+        "operating_margin_guidance",
+        "capital_expenditures_guidance",
+        "adjusted_eps_guidance",
+    } == set(anf_scenario_packs["retail_operating_pack"])
 
     profiles = {row["profile_id"]: row for row in payload["profiles"]}
     modules = {row["module_id"]: row for row in payload["modules"]}
@@ -153,6 +170,10 @@ def test_formula_name_block_pack_and_dimension_ownership_fail_closed() -> None:
     invalid_host["profile_packs"][0]["host_module_id"] = "core_financial_history"
     assert any("is not a profile_pack_host" in issue for issue in validate_workbook_module_manifest(invalid_host))
 
+    duplicate_driver = deepcopy(payload)
+    duplicate_driver["profile_packs"][0]["scenario_driver_ids"].append("revenue_growth")
+    assert any("Duplicate scenario_driver_id" in issue for issue in validate_workbook_module_manifest(duplicate_driver))
+
     invalid_dimensions = deepcopy(payload)
     core_profile = next(row for row in invalid_dimensions["profiles"] if row["profile_id"] == "core_only")
     core_profile["dimensions"].extend(
@@ -204,6 +225,42 @@ def test_module_manifest_and_profile_digests_are_contract_inputs() -> None:
     assert canonical_json_sha256(mutated) != derived["module_manifest"]["signature"]
 
 
+def test_hidden_support_projection_refreshes_capacity_without_renaming_shell_zone() -> None:
+    payload = _payload()
+    manifest = load_json_strict(SHELL_MANIFEST)
+    history = next(row for row in manifest["sheets"] if row["sheet"] == "History_Q")
+    history["writable_zones"][0]["zone_id"] = "established_history_contract"
+
+    derived = build_profile_shell_manifest(manifest, payload, resolve_module_profile(payload, "full_union"))
+    projected = next(row for row in derived["sheets"] if row["sheet"] == "History_Q")
+
+    assert projected["writable_zones"][0]["zone_id"] == "established_history_contract"
+    assert projected["writable_zones"][0]["target"] == "A2:G1000"
+    assert projected["formulas_static_labels"] == [
+        "period", "period_ordinal", "metric", "value", "unit", "source_ref", "status"
+    ]
+
+
+def test_formula_output_support_surfaces_are_never_binding_writable() -> None:
+    payload = _payload()
+    manifest = load_json_strict(SHELL_MANIFEST)
+    derived = build_profile_shell_manifest(manifest, payload, resolve_module_profile(payload, "full_union"))
+    sheets = {row["sheet"]: row for row in derived["sheets"]}
+
+    for sheet_name in ("Valuation_Summary", "Valuation_Grid"):
+        assert sheets[sheet_name]["writable_zones"] == []
+        assert sheets[sheet_name]["non_writable_zones"][0]["target"].startswith("A1:")
+
+    invalid = deepcopy(payload)
+    valuation_module = next(row for row in invalid["modules"] if row["module_id"] == "valuation_scenarios")
+    formula_sheet = next(row for row in valuation_module["sheets"] if row["sheet"] == "Valuation_Summary")
+    formula_sheet.pop("formula_owner")
+    assert any(
+        "Valuation_Summary" in issue and "requires a formula_owner" in issue
+        for issue in validate_workbook_module_manifest(invalid)
+    )
+
+
 def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path) -> None:
     shell = tmp_path / "core-shell.xlsx"
     manifest_path = tmp_path / "core-manifest.json"
@@ -227,6 +284,18 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
     wb = load_workbook(shell, read_only=False, data_only=False)
     try:
         assert report.status == "PASS", report.issues
+        scenario_contracts = {
+            binding_id: [
+                row
+                for row in manifest["planner_cell_contracts"]
+                if binding_id in row.get("allowed_binding_ids", [])
+            ]
+            for binding_id in ("ic_bull_base_bear_rows", "ic_scenario_bridge_rows")
+        }
+        assert len(scenario_contracts["ic_bull_base_bear_rows"]) == 17
+        assert len(scenario_contracts["ic_scenario_bridge_rows"]) == 18
+        history_contract = next(row for row in manifest["sheets"] if row["sheet"] == "History_Q")
+        assert history_contract["writable_zones"][0]["zone_id"] == "calculation_history_quarterly_rows"
         assert wb.sheetnames == manifest["union_sheet_order"]
         assert [ws.title for ws in wb.worksheets if ws.sheet_state == "visible"] == manifest["visible_sheet_order"]
         assert len(wb.sheetnames) == 46
@@ -255,6 +324,10 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
             cell = wb[sheet_name][coordinate]
             assert cell.value is None, f"{sheet_name}!{coordinate} retained {cell.value!r}"
             assert cell.style_id == 0, f"{sheet_name}!{coordinate} retained style {cell.style_id}"
+        assert wb["Valuation_Summary"]["B2"].value is None
+        assert wb["Valuation_Grid"]["E2"].value is None
+        for name in ("ScenarioProfile", "ScenarioImpliedPrice", "DCF_Horizon"):
+            assert name not in wb.defined_names
     finally:
         wb.close()
 

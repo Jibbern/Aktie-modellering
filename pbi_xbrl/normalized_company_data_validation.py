@@ -5,6 +5,7 @@ the normalized data package before any Excel shell/fill step can run.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -18,6 +19,10 @@ from pbi_xbrl.new_ticker_guidance_scope import (
     guidance_scope_key,
     latest_scope_publications,
     normalize_guidance_scope,
+)
+from pbi_xbrl.valuation_scenario_economics import (
+    canonicalize_scenario_contract,
+    validate_scenario_contract,
 )
 
 
@@ -136,7 +141,7 @@ _VISIBLE_TEXT_FIELD_SPECS = (
     ("promise_progress.items", ("display_metric", "why_it_matters", "notes_source"), True),
     ("segments.items", ("note",), True),
     ("normalized_guidance.items", ("source_excerpt", "notes_source"), True),
-    ("investment_case", ("summary", "why_it_can_work", "key_debate", "upside_factors", "downside_factors", "watch_next", "current_stance", "scenario_drivers"), True),
+    ("investment_case", ("summary", "why_it_can_work", "key_debate", "upside_factors", "downside_factors", "watch_next", "current_stance"), True),
     ("investment_case.invalidators", ("text",), True),
     ("investment_case.source_evidence", ("source_ref", "section"), False),
 )
@@ -323,17 +328,63 @@ def validate_normalized_company_data_schema(
         for field, keyword, message in failures
     ]
 
+
+def canonicalize_normalized_scenario_tokens(
+    package: Mapping[str, Any],
+    *,
+    allowed_profile_pack_ids: set[str] | None = None,
+    allowed_scenario_driver_ids: set[str] | None = None,
+    allowed_dimension_ids: set[str] | None = None,
+) -> tuple[dict[str, Any], List[NormalizedDataIssue]]:
+    """Return a package whose scenario support tokens are canonical exactly once."""
+
+    normalized = deepcopy(dict(package))
+    investment_case = package.get("investment_case") if isinstance(package, Mapping) else None
+    if not isinstance(investment_case, Mapping):
+        return normalized, []
+    canonical_case, token_issues = canonicalize_scenario_contract(
+        investment_case,
+        allowed_profile_pack_ids=allowed_profile_pack_ids,
+        allowed_scenario_driver_ids=allowed_scenario_driver_ids,
+        allowed_dimension_ids=allowed_dimension_ids,
+    )
+    normalized["investment_case"] = canonical_case
+    return normalized, [
+        NormalizedDataIssue(
+            severity="P1",
+            rule_id=issue.rule_id,
+            field=issue.field,
+            message=issue.message,
+            suggested_action="Use a declared canonical route token or one of its bounded aliases before planning.",
+        )
+        for issue in token_issues
+    ]
+
+
 def validate_normalized_company_data(
     package: Mapping[str, Any],
     *,
     binding_map: Optional[Sequence[Mapping[str, Any]]] = None,
+    allowed_profile_pack_ids: set[str] | None = None,
+    allowed_scenario_driver_ids: set[str] | None = None,
+    allowed_scenario_driver_map: Mapping[str, set[str]] | None = None,
+    allowed_dimension_ids: set[str] | None = None,
     promotion_requested: bool = False,
     validate_schema: bool = True,
+    scenario_tokens_canonicalized: bool = False,
 ) -> List[NormalizedDataIssue]:
     """Return structured pre-render validation issues for a normalized package."""
 
     bindings = list(binding_map or ())
-    issues: List[NormalizedDataIssue] = []
+    token_issues: List[NormalizedDataIssue] = []
+    if not scenario_tokens_canonicalized:
+        package, token_issues = canonicalize_normalized_scenario_tokens(
+            package,
+            allowed_profile_pack_ids=allowed_profile_pack_ids,
+            allowed_scenario_driver_ids=allowed_scenario_driver_ids,
+            allowed_dimension_ids=allowed_dimension_ids,
+        )
+    issues: List[NormalizedDataIssue] = list(token_issues)
     # Shape must be established before semantic rules inspect individual fields.
     if validate_schema:
         issues.extend(validate_normalized_company_data_schema(package))
@@ -342,6 +393,16 @@ def validate_normalized_company_data(
     issues.extend(_validate_calculation_history(package))
     issues.extend(_validate_collection_business_keys(package))
     issues.extend(_validate_company_profile_semantics(package))
+    issues.extend(
+        _validate_typed_scenario_semantics(
+            package,
+            allowed_profile_pack_ids=allowed_profile_pack_ids,
+            allowed_scenario_driver_ids=allowed_scenario_driver_ids,
+            allowed_scenario_driver_map=allowed_scenario_driver_map,
+            allowed_dimension_ids=allowed_dimension_ids,
+            scenario_tokens_canonicalized=True,
+        )
+    )
     issues.extend(_validate_debt_liquidity_semantics(package))
     issues.extend(_validate_source_backed_core_field_lineage(package, bindings))
     issues.extend(_validate_guidance(package))
@@ -356,6 +417,45 @@ def validate_normalized_company_data(
         issues.extend(_validate_investment_case_for_promotion(package))
     issues.extend(_validate_sector_leakage(package))
     return _dedupe_issues(issues)
+
+
+def _validate_typed_scenario_semantics(
+    package: Mapping[str, Any],
+    *,
+    allowed_profile_pack_ids: set[str] | None = None,
+    allowed_scenario_driver_ids: set[str] | None = None,
+    allowed_scenario_driver_map: Mapping[str, set[str]] | None = None,
+    allowed_dimension_ids: set[str] | None = None,
+    scenario_tokens_canonicalized: bool = False,
+) -> List[NormalizedDataIssue]:
+    investment_case = package.get("investment_case") if isinstance(package, Mapping) else None
+    if not isinstance(investment_case, Mapping):
+        return []
+    valuation_inputs = package.get("valuation_inputs") if isinstance(package, Mapping) else None
+    as_of_field = valuation_inputs.get("as_of_date") if isinstance(valuation_inputs, Mapping) else None
+    authoritative_as_of_date = (
+        str(as_of_field.get("value") or "")
+        if isinstance(as_of_field, Mapping) and str(as_of_field.get("status") or "") == "populated"
+        else None
+    )
+    return [
+        NormalizedDataIssue(
+            severity="P1",
+            rule_id=issue.rule_id,
+            field=issue.field,
+            message=issue.message,
+            suggested_action="Correct the typed scenario item or driver bridge before planning.",
+        )
+        for issue in validate_scenario_contract(
+            investment_case,
+            allowed_profile_pack_ids=allowed_profile_pack_ids,
+            allowed_scenario_driver_ids=allowed_scenario_driver_ids,
+            allowed_scenario_driver_map=allowed_scenario_driver_map,
+            allowed_dimension_ids=allowed_dimension_ids,
+            authoritative_as_of_date=authoritative_as_of_date,
+            tokens_are_canonical=scenario_tokens_canonicalized,
+        )
+    ]
 
 
 def _validate_financial_row_domains(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:

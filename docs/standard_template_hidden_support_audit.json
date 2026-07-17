@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-16T00:08:42+00:00",
+  "generated_at": "2026-07-16T22:02:59+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "lab_source_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\lab\\ANF_template_lab.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
@@ -169,25 +169,25 @@
     },
     "Valuation_Summary": {
       "classification": "keep_neutral_helper_shell",
-      "reason": "Header-only formula/output projection.",
+      "reason": "Formula-owned outputs remain blank until their exact inputs are complete.",
       "module_id": "valuation_scenarios",
       "legacy_class": "B"
     },
     "Scenario_Driver_Assumptions": {
       "classification": "keep_optional_runtime_output_shell",
-      "reason": "Header-only assumptions; no legacy defaults are copied.",
+      "reason": "Header-only typed assumptions; no legacy defaults are copied.",
       "module_id": "valuation_scenarios",
       "legacy_class": "C"
     },
     "Valuation_Grid": {
       "classification": "keep_optional_runtime_output_shell",
-      "reason": "Reserved hidden scenario-grid capacity; no static outputs.",
+      "reason": "Formula-owned grid outputs remain blank until explicit axes and inputs are complete.",
       "module_id": "valuation_scenarios",
       "legacy_class": "E"
     },
     "{ticker}_Investment_Case_Data": {
       "classification": "keep_optional_runtime_output_shell",
-      "reason": "Header-only typed investment-case support projection.",
+      "reason": "Header-only typed investment-case driver projection.",
       "module_id": "investment_case_market_implied",
       "legacy_class": "C"
     },
@@ -1599,24 +1599,32 @@
       "sheet_name": "Scenario_Driver_Assumptions",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:G1",
-      "non_empty_cells": 7,
+      "used_range": "A1:Q1",
+      "non_empty_cells": 17,
       "formula_count": 0,
       "table_count": 0,
-      "defined_name_references": [],
+      "defined_name_references": [
+        "ic_bull_base_bear_rows: 'Scenario_Driver_Assumptions'!$A$2"
+      ],
       "visible_formula_references": [],
-      "hidden_formula_references": [],
+      "hidden_formula_references": [
+        "Valuation_Summary!H2==LET(scenarioKey,\"bear\",userGrowth,'{ticker}_Investment_Case'!$B$24,scenarioHorizon,'{ticker}_Investment_Case'!$B$23,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"tot",
+        "Valuation_Summary!I2==LET(scenarioKey,\"base\",userGrowth,'{ticker}_Investment_Case'!$C$24,scenarioHorizon,'{ticker}_Investment_Case'!$C$23,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"tot",
+        "Valuation_Summary!J2==LET(scenarioKey,\"bull\",userGrowth,'{ticker}_Investment_Case'!$D$24,scenarioHorizon,'{ticker}_Investment_Case'!$D$23,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"tot",
+        "Valuation_Summary!K2==LET(scenarioKey,\"custom\",userGrowth,ScenarioGrowth,scenarioHorizon,ScenarioHorizon,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"total_company\"),itemMember,--('Scena"
+      ],
       "data_validation_references": [],
       "contains_company_source_text": false,
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
       "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 1,
+      "source_raw_audit_cells": 2,
       "source_raw_audit_samples": [
-        "E1=source_ref"
+        "L1=source_classification",
+        "O1=source_ref"
       ],
-      "classification": "keep_optional_runtime_output_shell",
-      "reason": "Header-only assumptions; no legacy defaults are copied."
+      "classification": "keep_formula_dependency",
+      "reason": "Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it."
     },
     {
       "sheet_name": "Slides_Debt_Profile",
@@ -1739,9 +1747,9 @@
       "sheet_name": "Valuation_Grid",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:F1",
-      "non_empty_cells": 6,
-      "formula_count": 0,
+      "used_range": "A1:F42",
+      "non_empty_cells": 252,
+      "formula_count": 205,
       "table_count": 0,
       "defined_name_references": [],
       "visible_formula_references": [],
@@ -1754,30 +1762,33 @@
       "source_raw_audit_cells": 0,
       "source_raw_audit_samples": [],
       "classification": "keep_optional_runtime_output_shell",
-      "reason": "Reserved hidden scenario-grid capacity; no static outputs."
+      "reason": "Formula-owned grid outputs remain blank until explicit axes and inputs are complete."
     },
     {
       "sheet_name": "Valuation_Summary",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:G1",
-      "non_empty_cells": 7,
-      "formula_count": 0,
+      "used_range": "A1:K20",
+      "non_empty_cells": 148,
+      "formula_count": 61,
       "table_count": 0,
-      "defined_name_references": [],
+      "defined_name_references": [
+        "ResolvedRevenueGrowth_Bear: 'Valuation_Summary'!$H$2",
+        "ResolvedRevenueGrowth_Base: 'Valuation_Summary'!$I$2",
+        "ResolvedRevenueGrowth_Bull: 'Valuation_Summary'!$J$2",
+        "ResolvedRevenueGrowth_Custom: 'Valuation_Summary'!$K$2"
+      ],
       "visible_formula_references": [],
       "hidden_formula_references": [],
       "data_validation_references": [],
       "contains_company_source_text": false,
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
-      "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 1,
-      "source_raw_audit_samples": [
-        "E1=source_ref"
-      ],
-      "classification": "keep_neutral_helper_shell",
-      "reason": "Header-only formula/output projection."
+      "contains_source_raw_audit_data": false,
+      "source_raw_audit_cells": 0,
+      "source_raw_audit_samples": [],
+      "classification": "keep_formula_dependency",
+      "reason": "Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it."
     },
     {
       "sheet_name": "operating_drivers_raw",
@@ -1806,24 +1817,32 @@
       "sheet_name": "{ticker}_Investment_Case_Data",
       "present_in_shell": true,
       "hidden_state": "hidden",
-      "used_range": "A1:G1",
-      "non_empty_cells": 7,
+      "used_range": "A1:R1",
+      "non_empty_cells": 18,
       "formula_count": 0,
       "table_count": 0,
-      "defined_name_references": [],
+      "defined_name_references": [
+        "ic_scenario_bridge_rows: '{ticker}_Investment_Case_Data'!$A$2"
+      ],
       "visible_formula_references": [],
-      "hidden_formula_references": [],
+      "hidden_formula_references": [
+        "Valuation_Summary!H2==LET(scenarioKey,\"bear\",userGrowth,'{ticker}_Investment_Case'!$B$24,scenarioHorizon,'{ticker}_Investment_Case'!$B$23,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"tot",
+        "Valuation_Summary!I2==LET(scenarioKey,\"base\",userGrowth,'{ticker}_Investment_Case'!$C$24,scenarioHorizon,'{ticker}_Investment_Case'!$C$23,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"tot",
+        "Valuation_Summary!J2==LET(scenarioKey,\"bull\",userGrowth,'{ticker}_Investment_Case'!$D$24,scenarioHorizon,'{ticker}_Investment_Case'!$D$23,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"tot",
+        "Valuation_Summary!K2==LET(scenarioKey,\"custom\",userGrowth,ScenarioGrowth,scenarioHorizon,ScenarioHorizon,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"total_company\"),itemMember,--('Scena"
+      ],
       "data_validation_references": [],
       "contains_company_source_text": false,
       "company_source_leakage_cells": 0,
       "company_source_leakage_samples": [],
       "contains_source_raw_audit_data": true,
-      "source_raw_audit_cells": 1,
+      "source_raw_audit_cells": 2,
       "source_raw_audit_samples": [
-        "F1=source_ref"
+        "L1=source_classification",
+        "Q1=source_ref"
       ],
-      "classification": "keep_optional_runtime_output_shell",
-      "reason": "Header-only typed investment-case support projection."
+      "classification": "keep_formula_dependency",
+      "reason": "Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it."
     }
   ]
 }

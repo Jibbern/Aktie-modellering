@@ -13,15 +13,16 @@
     "module_profile_signature",
     "enabled_modules",
     "profile_pack_ids",
+    "scenario_profile_packs",
     "bindings"
   ],
   "properties": {
     "$schema": {"type": "string", "format": "uri"},
     "version": {"type": "string", "const": "0.3.0"},
     "description": {"type": "string"},
-    "binding_planner_contract_version": {"type": "string", "const": "1.2.0"},
+    "binding_planner_contract_version": {"type": "string", "const": "1.3.0"},
     "module_manifest_version": {"type": "string", "const": "1.0.0"},
-    "module_contract_version": {"type": "string", "const": "1.0.0"},
+    "module_contract_version": {"type": "string", "const": "1.1.0"},
     "module_profile_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
     "module_manifest_signature": {"$ref": "#/$defs/sha256"},
     "module_profile_signature": {"$ref": "#/$defs/sha256"},
@@ -36,6 +37,11 @@
       "uniqueItems": true,
       "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
     },
+    "scenario_profile_packs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/scenarioProfilePack"}
+    },
     "binding_planner_policy": {"type": "object"},
     "financial_field_dispositions": {
       "type": "array",
@@ -45,6 +51,20 @@
     "bindings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/binding"}}
   },
   "$defs": {
+    "scenarioProfilePack": {
+      "type": "object",
+      "required": ["profile_pack_id", "scenario_driver_ids"],
+      "properties": {
+        "profile_pack_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "scenario_driver_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+        }
+      },
+      "additionalProperties": false
+    },
     "financialFieldDisposition": {
       "type": "object",
       "required": ["section", "field", "disposition", "reason"],

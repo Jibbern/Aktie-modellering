@@ -2,12 +2,12 @@
   "audit_version": "1.0.0",
   "status": "PASS",
   "authoritative_contract": "docs/standard_template_style_policy.json",
-  "authoritative_contract_digest": "56062d31e8b474b317a8e79439a221c690b445e57c92f003a2c7b9589788b506",
-  "module_manifest_digest": "a5b7f43dc41422e9f70d04f32ae08d944e7f8603e23c22f285f3b4063b41663b",
-  "binding_contract_digest": "0cc1d6c6e3029325848e404a4db88800ad84645fa9bbecb2e3b897a97e408b6a",
+  "authoritative_contract_digest": "223ab04faa4d72723ec177f18d8a6e583858c0ddea6552da5a4c1db0ca30e22a",
+  "module_manifest_digest": "5b6c57e24e785b86599e6d4e4b5e6f8fadd7ce6163fc64d4f321c5eda03a2243",
+  "binding_contract_digest": "50706f229017edce31fe9a1b5ab1c8b170db72721d50bc6c90b20e62638c5c8a",
   "policy_count": 51,
   "selector_count": 134,
-  "style_disabled_count": 19,
+  "style_disabled_count": 27,
   "palette_tokens": {
     "strong_negative": {
       "fill": {
@@ -111,8 +111,8 @@
     "balance_cash_flow": 3,
     "debt_liquidity": 2,
     "hidden_value_signals": 1,
-    "investment_case_market_implied": 3,
-    "valuation_scenarios": 10
+    "investment_case_market_implied": 8,
+    "valuation_scenarios": 13
   },
   "selector_completeness_contract": {
     "status": "PASS",

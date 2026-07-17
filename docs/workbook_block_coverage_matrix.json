@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-16T00:08:25+00:00",
+  "generated_at": "2026-07-16T22:02:47+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -1012,10 +1012,10 @@
       "ANF": {
         "block_exists": true,
         "resolved_sheet": "Valuation",
-        "range": "D194:D216",
+        "range": "D194:D217",
         "nonempty_cells": 19,
         "formula_cells": 0,
-        "merge_count": 0,
+        "merge_count": 1,
         "freeze_panes": "B7",
         "max_row": 261,
         "max_column": 35,
@@ -1024,10 +1024,10 @@
       "PBI": {
         "block_exists": true,
         "resolved_sheet": "Valuation",
-        "range": "D194:D216",
+        "range": "D194:D217",
         "nonempty_cells": 21,
         "formula_cells": 0,
-        "merge_count": 0,
+        "merge_count": 1,
         "freeze_panes": "B7",
         "max_row": 261,
         "max_column": 35,
@@ -1036,10 +1036,10 @@
       "GPRE": {
         "block_exists": true,
         "resolved_sheet": "Valuation",
-        "range": "D194:D216",
+        "range": "D194:D217",
         "nonempty_cells": 19,
         "formula_cells": 0,
-        "merge_count": 0,
+        "merge_count": 1,
         "freeze_panes": "B7",
         "max_row": 261,
         "max_column": 35,
@@ -5698,44 +5698,44 @@
       "ANF": {
         "block_exists": true,
         "resolved_sheet": "ANF_Investment_Case",
-        "range": "B5:K30",
-        "nonempty_cells": 110,
-        "formula_cells": 75,
-        "merge_count": 25,
+        "range": "B5:B11",
+        "nonempty_cells": 7,
+        "formula_cells": 0,
+        "merge_count": 7,
         "freeze_panes": "A4",
         "max_row": 233,
         "max_column": 11,
-        "average_row_height": 21.81
+        "average_row_height": 24.0
       },
       "PBI": {
         "block_exists": true,
         "resolved_sheet": "PBI_Investment_Case",
-        "range": "B5:K30",
-        "nonempty_cells": 110,
-        "formula_cells": 73,
-        "merge_count": 25,
+        "range": "B5:B11",
+        "nonempty_cells": 7,
+        "formula_cells": 0,
+        "merge_count": 7,
         "freeze_panes": "A4",
         "max_row": 180,
         "max_column": 10,
-        "average_row_height": 21.58
+        "average_row_height": 24.0
       },
       "GPRE": {
         "block_exists": true,
         "resolved_sheet": "GPRE_Investment_Case",
-        "range": "B5:K30",
-        "nonempty_cells": 110,
-        "formula_cells": 77,
-        "merge_count": 25,
+        "range": "B5:B11",
+        "nonempty_cells": 7,
+        "formula_cells": 0,
+        "merge_count": 7,
         "freeze_panes": "A4",
         "max_row": 188,
         "max_column": 10,
-        "average_row_height": 21.58
+        "average_row_height": 24.0
       },
       "range_similarity": "same",
       "style_similarity": "similar",
       "merge_similarity": "same",
       "freeze_pane_similarity": "same",
-      "row_height_similarity": "similar",
+      "row_height_similarity": "same",
       "populated_field_families": [
         "investment_case"
       ],
@@ -5751,133 +5751,6 @@
         "{ticker}_Investment_Case_Data"
       ],
       "ticker_specific_differences": [],
-      "include_in_standard_template": true,
-      "exclusion_reason": ""
-    },
-    {
-      "block_id": "ic_manual_input_values",
-      "sheet": "{ticker}_Investment_Case",
-      "ANF": {
-        "block_exists": true,
-        "resolved_sheet": "ANF_Investment_Case",
-        "range": "B81:K130",
-        "nonempty_cells": 104,
-        "formula_cells": 21,
-        "merge_count": 79,
-        "freeze_panes": "A4",
-        "max_row": 233,
-        "max_column": 11,
-        "average_row_height": 21.79
-      },
-      "PBI": {
-        "block_exists": true,
-        "resolved_sheet": "PBI_Investment_Case",
-        "range": "B81:K130",
-        "nonempty_cells": 80,
-        "formula_cells": 0,
-        "merge_count": 82,
-        "freeze_panes": "A4",
-        "max_row": 180,
-        "max_column": 10,
-        "average_row_height": 20.52
-      },
-      "GPRE": {
-        "block_exists": true,
-        "resolved_sheet": "GPRE_Investment_Case",
-        "range": "B81:K130",
-        "nonempty_cells": 78,
-        "formula_cells": 0,
-        "merge_count": 84,
-        "freeze_panes": "A4",
-        "max_row": 188,
-        "max_column": 10,
-        "average_row_height": 20.4
-      },
-      "range_similarity": "same",
-      "style_similarity": "similar",
-      "merge_similarity": "similar",
-      "freeze_pane_similarity": "same",
-      "row_height_similarity": "similar",
-      "populated_field_families": [
-        "investment_case"
-      ],
-      "support_sheet_dependencies": [
-        "Guidance_Normalized",
-        "History_Q",
-        "Promise_Progress",
-        "Quarter_Notes",
-        "Scenario_Bridge_Tax_Treatment",
-        "Scenario_Driver_Assumptions",
-        "Slides_Guidance",
-        "Slides_Segments",
-        "{ticker}_Investment_Case_Data"
-      ],
-      "ticker_specific_differences": [],
-      "include_in_standard_template": true,
-      "exclusion_reason": ""
-    },
-    {
-      "block_id": "ic_scenario_bridge_values",
-      "sheet": "{ticker}_Investment_Case",
-      "ANF": {
-        "block_exists": true,
-        "resolved_sheet": "ANF_Investment_Case",
-        "range": "B131:K190",
-        "nonempty_cells": 165,
-        "formula_cells": 36,
-        "merge_count": 62,
-        "freeze_panes": "A4",
-        "max_row": 233,
-        "max_column": 11,
-        "average_row_height": 21.0
-      },
-      "PBI": {
-        "block_exists": true,
-        "resolved_sheet": "PBI_Investment_Case",
-        "range": "B131:K190",
-        "nonempty_cells": 94,
-        "formula_cells": 36,
-        "merge_count": 53,
-        "freeze_panes": "A4",
-        "max_row": 180,
-        "max_column": 10,
-        "average_row_height": 20.04
-      },
-      "GPRE": {
-        "block_exists": true,
-        "resolved_sheet": "GPRE_Investment_Case",
-        "range": "B131:K190",
-        "nonempty_cells": 106,
-        "formula_cells": 36,
-        "merge_count": 66,
-        "freeze_panes": "A4",
-        "max_row": 188,
-        "max_column": 10,
-        "average_row_height": 20.07
-      },
-      "range_similarity": "same",
-      "style_similarity": "similar",
-      "merge_similarity": "similar",
-      "freeze_pane_similarity": "same",
-      "row_height_similarity": "similar",
-      "populated_field_families": [
-        "segments"
-      ],
-      "support_sheet_dependencies": [
-        "Guidance_Normalized",
-        "History_Q",
-        "Promise_Progress",
-        "Quarter_Notes",
-        "Scenario_Bridge_Tax_Treatment",
-        "Scenario_Driver_Assumptions",
-        "Slides_Guidance",
-        "Slides_Segments",
-        "{ticker}_Investment_Case_Data"
-      ],
-      "ticker_specific_differences": [
-        "PBI: source sheet shorter than block range",
-        "GPRE: source sheet shorter than block range"
-      ],
       "include_in_standard_template": true,
       "exclusion_reason": ""
     },

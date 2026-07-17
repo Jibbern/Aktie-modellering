@@ -43,6 +43,7 @@ from pbi_xbrl.new_ticker_binding_planner import (  # noqa: E402
     inspect_binding_eligibility,
     reproduce_binding_plan,
 )
+from pbi_xbrl.valuation_scenario_economics import canonicalize_scenario_contract  # noqa: E402
 
 
 REQUIRED_SECTIONS = [
@@ -3093,7 +3094,203 @@ def _build_anf_company_profile(workbook_path: Path, latest_annual_period: str) -
     }
 
 
-def _build_investment_case() -> dict[str, Any]:
+def _scenario_source_refs(source_ref: str, evidence_refs: Sequence[Any] = ()) -> list[str]:
+    refs = [str(value) for value in evidence_refs if str(value)]
+    if source_ref and source_ref not in refs:
+        refs.insert(0, source_ref)
+    return refs or ["unavailable_source_reference"]
+
+
+def _build_typed_scenario_contract(
+    valuation_inputs: Mapping[str, Any],
+    guidance_items: Sequence[Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    as_of_field = valuation_inputs.get("as_of_date") if isinstance(valuation_inputs.get("as_of_date"), Mapping) else {}
+    authoritative_as_of_date = (
+        str(as_of_field.get("value") or "")
+        if str(as_of_field.get("status") or "") == "populated"
+        else None
+    )
+    actual_specs = (
+        ("price", "price", "Current share price", "$/share", "as_of", 0.0, None),
+        ("shares_outstanding", "shares_outstanding", "Shares outstanding", "m shares", "as_of", 0.0, None),
+        ("diluted_shares", "diluted_shares", "Diluted shares", "m shares", "reported_period", 0.0, None),
+        ("net_debt", "net_debt", "Net debt", "$m", "as_of", None, None),
+        ("revenue_ttm", "revenue_ttm", "Revenue TTM", "$m", "TTM", 0.0, None),
+        ("base_ebitda_ttm", "base_ebitda_ttm", "EBITDA (base, TTM)", "$m", "TTM", None, None),
+        ("adjusted_ebitda_ttm", "adjusted_ebitda_ttm", "Adjusted EBITDA TTM", "$m", "TTM", None, None),
+        ("free_cash_flow_ttm", "fcf_ttm", "Free cash flow TTM", "$m", "TTM", None, None),
+        ("net_income_ttm", "net_income_ttm", "Net income TTM", "$m", "TTM", None, None),
+    )
+    items: list[dict[str, Any]] = []
+    for field_name, assumption_id, metric, unit, default_horizon, minimum, maximum in actual_specs:
+        field = valuation_inputs.get(field_name) if isinstance(valuation_inputs.get(field_name), Mapping) else {}
+        status = str(field.get("status") or "missing_source")
+        value = field.get("value") if status == "populated" else None
+        source_ref = str(field.get("source_ref") or f"valuation_inputs.{field_name}")
+        horizon = (
+            str(field.get("period") or "")
+            if default_horizon == "reported_period"
+            else default_horizon
+        )
+        if not horizon:
+            horizon = "TTM" if default_horizon == "reported_period" else default_horizon
+        items.append(
+            {
+                "scenario_id": "common",
+                "assumption_id": assumption_id,
+                "metric": metric,
+                "value_kind": "point" if status == "populated" else "unavailable",
+                "value": value,
+                "low_value": None,
+                "high_value": None,
+                "unit": str(field.get("unit") or unit),
+                "horizon": horizon,
+                "dimension_id": "total_company",
+                "member": "total_company",
+                "profile_pack_id": None,
+                "as_of_date": authoritative_as_of_date if horizon == "as_of" else None,
+                "source_classification": "source_actual" if status == "populated" else "unavailable",
+                "validation": {"minimum": minimum, "maximum": maximum},
+                "propagation_rule": "shared_actual" if status == "populated" else "no_propagation",
+                "status": status,
+                "source_ref": source_ref,
+                "source_refs": _scenario_source_refs(source_ref, field.get("evidence_refs") or ()),
+                "reason": str(field.get("reason") or ""),
+            }
+        )
+
+    denominator = valuation_inputs.get("per_share_denominator") if isinstance(valuation_inputs.get("per_share_denominator"), Mapping) else {}
+    denominator_ref = str(denominator.get("source_ref") or "user_input")
+    items.append(
+        {
+            "scenario_id": "common",
+            "assumption_id": "per_share_mode",
+            "metric": "Per-share denominator mode",
+            "value_kind": "unavailable",
+            "value": None,
+            "low_value": None,
+            "high_value": None,
+            "unit": "classification",
+            "horizon": "as_of",
+            "dimension_id": "total_company",
+            "member": "total_company",
+            "profile_pack_id": None,
+            "as_of_date": None,
+            "source_classification": "user_input",
+            "validation": {"minimum": None, "maximum": None},
+            "propagation_rule": "scenario_specific",
+            "status": "missing_source",
+            "source_ref": denominator_ref,
+            "source_refs": [denominator_ref],
+            "reason": "Outstanding or Diluted must be selected explicitly; no denominator fallback is permitted.",
+        }
+    )
+
+    guidance_specs = {
+        "adjusted_eps": ("adjusted_eps_guidance", "Adjusted diluted EPS guidance", "adjusted_eps", "manual_incremental", "direct_eps", "non_cash"),
+        "capital_expenditures": ("capital_expenditures_guidance", "Capital expenditures guidance", "capital_expenditures", "cash_flow_capex", "cash_only", "investing"),
+        "operating_margin": ("operating_margin_guidance", "Operating margin guidance", "operating_margin", "margin_ebitda", "manual_review_required", "manual_review_required"),
+        "revenue": ("revenue_growth", "Revenue growth guidance", "revenue", "revenue_volume", "manual_review_required", "operating"),
+    }
+    bridges: list[dict[str, Any]] = []
+    seen_guidance: set[tuple[str, str, str]] = set()
+    for row in guidance_items:
+        if str(row.get("display_role") or "") not in {"current_primary", "current_secondary"}:
+            continue
+        comparison = row.get("comparison_contract")
+        if not isinstance(comparison, Mapping):
+            continue
+        metric_id = str(comparison.get("metric") or "")
+        spec = guidance_specs.get(metric_id)
+        if spec is None:
+            continue
+        assumption_id, display_metric, impact_metric, driver_type, tax_treatment, cash_classification = spec
+        horizon = str(comparison.get("horizon") or "")
+        key = (assumption_id, horizon, str(row.get("publication_date") or ""))
+        if key in seen_guidance:
+            continue
+        seen_guidance.add(key)
+        comparison_type = str(comparison.get("comparison_type") or "")
+        unit = str(comparison.get("unit") or "")
+        scale = 0.01 if unit == "%" else 1.0
+        point = comparison.get("value")
+        low = comparison.get("low")
+        high = comparison.get("high")
+        value_kind = comparison_type if comparison_type in {"range", "minimum", "maximum"} else "point"
+        value = float(point) * scale if isinstance(point, (int, float)) else None
+        low_value = float(low) * scale if isinstance(low, (int, float)) else None
+        high_value = float(high) * scale if isinstance(high, (int, float)) else None
+        source_ref = str(comparison.get("source_ref") or row.get("source_ref") or "")
+        source_refs = _scenario_source_refs(source_ref, row.get("evidence_refs") or ())
+        items.append(
+            {
+                "scenario_id": "common",
+                "assumption_id": assumption_id,
+                "metric": display_metric,
+                "value_kind": value_kind,
+                "value": value,
+                "low_value": low_value,
+                "high_value": high_value,
+                "unit": unit,
+                "horizon": horizon,
+                "dimension_id": "total_company",
+                "member": "total_company",
+                "profile_pack_id": None,
+                "as_of_date": None,
+                "source_classification": "source_guidance",
+                "validation": {"minimum": None, "maximum": None},
+                "propagation_rule": "no_propagation",
+                "status": "populated",
+                "source_ref": source_ref,
+                "source_refs": source_refs,
+                "publication_date": row.get("publication_date"),
+                "reporting_period": row.get("stated_in_period"),
+                "reason": "A source range or threshold is preserved but not converted into an unsupported scenario point.",
+            }
+        )
+        bridge_value = value if value_kind in {"point", "minimum", "maximum"} else None
+        bridges.append(
+            {
+                "scenario_id": "common",
+                "driver_id": assumption_id,
+                "profile_pack_id": "retail_operating_pack",
+                "driver_type": driver_type,
+                "metric": display_metric,
+                "impact_metric": impact_metric,
+                "value": bridge_value,
+                "unit": unit,
+                "horizon": horizon,
+                "dimension_id": "total_company",
+                "member": "total_company",
+                "source_classification": "source_guidance",
+                "tax_treatment": tax_treatment,
+                "cash_classification": cash_classification,
+                "propagation_rule": "no_propagation",
+                "status": "populated" if bridge_value is not None else "manual_review_required",
+                "source_ref": source_ref,
+                "source_refs": source_refs,
+                "reason": "Range guidance requires an explicit user-selected scenario point before it can affect formulas." if bridge_value is None else "Typed threshold is retained for review and is not auto-propagated.",
+            }
+        )
+    canonical, token_issues = canonicalize_scenario_contract(
+        {"scenario_items": items, "scenario_driver_bridge": bridges},
+        allowed_profile_pack_ids={"retail_operating_pack"},
+        allowed_scenario_driver_ids={str(row.get("driver_id") or "") for row in bridges},
+        allowed_dimension_ids={"total_company"},
+    )
+    if token_issues:
+        raise ValueError(
+            "ANF scenario token normalization failed: "
+            + "; ".join(f"{issue.field}: {issue.message}" for issue in token_issues)
+        )
+    return canonical["scenario_items"], canonical["scenario_driver_bridge"]
+
+
+def _build_investment_case(
+    valuation_inputs: Mapping[str, Any],
+    guidance_items: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
     model_refs = (_anf_transcript_ref(14, 32), _anf_transcript_ref(52, 62), _anf_transcript_ref(374, 378))
     summary = _narrative_field(
         "ANF combines balanced brand and regional growth with strong cash generation; the investment case now depends on proving that double-digit margins can persist through 2026 cost pressure.",
@@ -3130,6 +3327,7 @@ def _build_investment_case() -> dict[str, Any]:
             "display_order": 2,
         },
     ]
+    scenario_items, scenario_driver_bridge = _build_typed_scenario_contract(valuation_inputs, guidance_items)
     return {
         "summary": summary,
         "why_it_can_work": _narrative_field(
@@ -3165,11 +3363,8 @@ def _build_investment_case() -> dict[str, Any]:
         "bull_case": _missing("No source-backed bull-case valuation assumption is available.", source_ref=model_refs[0]),
         "base_case": _missing("No source-backed base-case valuation assumption is available.", source_ref=model_refs[0]),
         "bear_case": _missing("No source-backed bear-case valuation assumption is available.", source_ref=model_refs[0]),
-        "scenario_drivers": _narrative_field(
-            "Brand growth, margin mitigation, inventory discipline, free cash flow and repurchase pacing are the principal scenario variables.",
-            model_refs,
-            classification="evidence_backed_synthesis",
-        ),
+        "scenario_items": scenario_items,
+        "scenario_driver_bridge": scenario_driver_bridge,
         "invalidators": invalidators,
         "source_evidence": [
             {"source_ref": ref, "section": "Q4 2025 earnings call"}
@@ -3694,7 +3889,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
         "segments": {"items": segment_items},
         "operating_drivers": {"items": driver_items, "current_outlook": curated_drivers["current_outlook"]},
         "quarter_notes": {"items": quarter_note_items, "summary": curated_quarter_notes["summary"]},
-        "investment_case": _build_investment_case(),
+        "investment_case": _build_investment_case(valuation_inputs, guidance_items),
         "valuation_inputs": valuation_inputs,
         "valuation_outputs": {"items": []},
         "source_coverage": source_coverage,

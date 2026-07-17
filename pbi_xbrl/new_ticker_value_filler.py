@@ -204,14 +204,18 @@ def _ticker(package: Mapping[str, Any], override: str | None = None) -> str:
 
 
 def _resolve_ticker_sheet(wb: Any, ticker: str) -> None:
-    token_sheet = "{ticker}_Investment_Case"
-    resolved = f"{ticker}_Investment_Case"
-    if token_sheet not in wb.sheetnames:
-        if resolved in wb.sheetnames:
-            return
+    token_sheets = [name for name in wb.sheetnames if "{ticker}" in name]
+    required_sheet = "{ticker}_Investment_Case"
+    resolved_required = required_sheet.replace("{ticker}", ticker)
+    if required_sheet not in token_sheets and resolved_required not in wb.sheetnames:
         raise NewTickerValueFillerError("Tokenized investment-case sheet is missing from the frozen shell.")
-    wb[token_sheet].title = resolved
-    _replace_defined_name_sheet_token(wb, token_sheet, resolved)
+    for token_sheet in token_sheets:
+        resolved = token_sheet.replace("{ticker}", ticker)
+        if resolved in wb.sheetnames:
+            raise NewTickerValueFillerError(f"Resolved ticker sheet already exists: {resolved!r}.")
+        wb[token_sheet].title = resolved
+        _replace_defined_name_sheet_token(wb, token_sheet, resolved)
+        _replace_formula_sheet_token(wb, token_sheet, resolved)
 
 
 def _replace_defined_name_sheet_token(wb: Any, token_sheet: str, resolved_sheet: str) -> None:
@@ -223,6 +227,22 @@ def _replace_defined_name_sheet_token(wb: Any, token_sheet: str, resolved_sheet:
         if not isinstance(attr_text, str) or token_sheet not in attr_text:
             continue
         defined_name.attr_text = attr_text.replace(quoted_token, quoted_resolved).replace(token_sheet, resolved_sheet)
+
+
+def _replace_formula_sheet_token(wb: Any, token_sheet: str, resolved_sheet: str) -> None:
+    """Resolve only explicit sheet-name tokens inside formula-owned cells."""
+
+    quoted_token = f"'{token_sheet}'"
+    quoted_resolved = f"'{resolved_sheet}'"
+    for ws in wb.worksheets:
+        # Iterating the rectangular used range materializes blank cells in
+        # openpyxl. Restrict token replacement to cells already present in the
+        # shell so ticker resolution cannot alter the structural cell surface.
+        for cell in tuple(ws._cells.values()):
+            value = cell.value
+            if not isinstance(value, str) or not value.startswith("=") or token_sheet not in value:
+                continue
+            cell.value = value.replace(quoted_token, quoted_resolved).replace(token_sheet, resolved_sheet)
 
 
 def _validate_binding_contract(manifest: Mapping[str, Any], bindings: Sequence[Mapping[str, Any]]) -> None:

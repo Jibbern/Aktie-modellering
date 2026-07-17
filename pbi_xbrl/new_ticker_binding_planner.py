@@ -16,6 +16,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 from pbi_xbrl.normalized_company_data_validation import (
     NormalizedDataIssue,
+    canonicalize_normalized_scenario_tokens,
     validate_normalized_company_data,
     validate_normalized_company_data_schema,
 )
@@ -231,6 +232,35 @@ def plan_standard_template_writes(
     """
 
     bindings = _bindings_from_payload(binding_payload)
+    binding_contract = binding_payload if isinstance(binding_payload, Mapping) else {}
+    raw_scenario_profiles = binding_contract.get("scenario_profile_packs")
+    scenario_driver_map = (
+        {
+            str(row.get("profile_pack_id") or ""): {
+                str(value) for value in row.get("scenario_driver_ids") or []
+            }
+            for row in raw_scenario_profiles
+            if isinstance(row, Mapping) and str(row.get("profile_pack_id") or "")
+        }
+        if isinstance(raw_scenario_profiles, list)
+        else None
+    )
+    allowed_profile_packs = set(scenario_driver_map) if scenario_driver_map is not None else None
+    allowed_scenario_drivers = (
+        set().union(*scenario_driver_map.values()) if scenario_driver_map else (set() if scenario_driver_map == {} else None)
+    )
+    module_profile = manifest.get("module_profile") if isinstance(manifest.get("module_profile"), Mapping) else {}
+    allowed_dimensions = {
+        str(row.get("dimension_id") or "")
+        for row in module_profile.get("dimensions") or []
+        if isinstance(row, Mapping) and str(row.get("dimension_id") or "")
+    }
+    package, token_issues = canonicalize_normalized_scenario_tokens(
+        package,
+        allowed_profile_pack_ids=allowed_profile_packs,
+        allowed_scenario_driver_ids=allowed_scenario_drivers,
+        allowed_dimension_ids=allowed_dimensions or None,
+    )
     ticker = _ticker(package, ticker_override)
     plan = BindingPlan(ticker=ticker)
     if is_verified_shell_identity(shell_identity_report):
@@ -238,12 +268,18 @@ def plan_standard_template_writes(
     plan.mapping_gaps.extend(_normalize_mapping_gaps(_path_get(package, "mapping_gaps")))
     plan.manual_review_flags.extend(_normalize_manual_review_flags(_path_get(package, "manual_review_flags")))
     plan.schema_issues.extend(validate_normalized_company_data_schema(package))
+    plan.semantic_issues.extend(token_issues)
     plan.semantic_issues.extend(
         validate_normalized_company_data(
             package,
             binding_map=bindings,
+            allowed_profile_pack_ids=allowed_profile_packs,
+            allowed_scenario_driver_ids=allowed_scenario_drivers,
+            allowed_scenario_driver_map=scenario_driver_map,
+            allowed_dimension_ids=allowed_dimensions or None,
             promotion_requested=promotion_requested,
             validate_schema=False,
+            scenario_tokens_canonicalized=True,
         )
     )
     plan.planner_issues.extend(_validate_manifest_and_binding_contracts(manifest, bindings))

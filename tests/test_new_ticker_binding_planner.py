@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+import pbi_xbrl.new_ticker_binding_planner as planner_module
+import pbi_xbrl.normalized_company_data_validation as validation_module
 from pbi_xbrl.new_ticker_binding_planner import (
     BindingPlan,
     BindingPlanReproductionError,
@@ -76,6 +78,127 @@ def test_real_manifest_requires_shell_identity_verification() -> None:
 
     assert plan.status == "FAIL"
     assert "shell_identity_not_verified" in _rule_ids(plan)
+
+
+def test_unknown_scenario_route_alias_blocks_before_any_binding_is_planned() -> None:
+    package = _package()
+    package["investment_case"]["scenario_items"] = [
+        {
+            "scenario_id": "base",
+            "assumption_id": "Revenue Momentum",
+            "metric": "Revenue growth",
+            "value_kind": "point",
+            "value": 0.10,
+            "low_value": None,
+            "high_value": None,
+            "unit": "%",
+            "horizon": "FY2026",
+            "dimension_id": "total_company",
+            "member": "total_company",
+            "profile_pack_id": None,
+            "as_of_date": None,
+            "source_classification": "user_input",
+            "validation": {"minimum": None, "maximum": None},
+            "propagation_rule": "selected_growth_route",
+            "status": "populated",
+            "source_ref": "fixture:unknown-route-alias",
+            "source_refs": ["fixture:unknown-route-alias"],
+            "reason": "",
+        }
+    ]
+
+    plan = _plan(package)
+
+    assert plan.status == "FAIL"
+    assert not plan.planned_writes
+    assert "scenario_route_token_unknown" in _rule_ids(plan)
+
+
+def test_accepted_route_aliases_are_canonical_before_support_binding_planning() -> None:
+    package = _package()
+    package["investment_case"]["scenario_items"] = [
+        {
+            "scenario_id": "Base",
+            "assumption_id": "Revenue Growth",
+            "metric": "Revenue growth",
+            "value_kind": "point",
+            "value": 0.10,
+            "low_value": None,
+            "high_value": None,
+            "unit": "percent",
+            "horizon": "FY-2026",
+            "dimension_id": "Total Company",
+            "member": "",
+            "profile_pack_id": None,
+            "as_of_date": None,
+            "source_classification": "user_input",
+            "validation": {"minimum": None, "maximum": None},
+            "propagation_rule": "Selected Growth Route",
+            "status": "populated",
+            "source_ref": "fixture:accepted-route-alias",
+            "source_refs": ["fixture:accepted-route-alias"],
+            "reason": "",
+        }
+    ]
+
+    plan = _plan(package)
+
+    assert plan.status == "PASS"
+    writes = {
+        write.target_cell: write.value
+        for write in plan.planned_writes
+        if write.binding_id == "ic_bull_base_bear_rows"
+    }
+    assert writes["A2"] == "base"
+    assert writes["B2"] == "revenue_growth"
+    assert writes["H2"] == "%"
+    assert writes["I2"] == "FY2026"
+    assert writes["J2"] == "total_company"
+    assert writes["K2"] == "total_company"
+    assert writes["M2"] == "selected_growth_route"
+
+
+def test_planner_canonicalizes_scenario_route_tokens_exactly_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    package = _package()
+    package["investment_case"]["scenario_items"] = [
+        {
+            "scenario_id": "Base",
+            "assumption_id": "Revenue Growth",
+            "metric": "Revenue growth",
+            "value_kind": "point",
+            "value": 0.10,
+            "low_value": None,
+            "high_value": None,
+            "unit": "percent",
+            "horizon": "FY-2026",
+            "dimension_id": "Total Company",
+            "member": "default",
+            "profile_pack_id": None,
+            "as_of_date": None,
+            "source_classification": "user_input",
+            "validation": {"minimum": None, "maximum": None},
+            "propagation_rule": "Selected Growth Route",
+            "status": "populated",
+            "source_ref": "fixture:single-boundary",
+            "source_refs": ["fixture:single-boundary"],
+            "reason": "",
+        }
+    ]
+    original = validation_module.canonicalize_normalized_scenario_tokens
+    calls = 0
+
+    def counted(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(planner_module, "canonicalize_normalized_scenario_tokens", counted)
+    monkeypatch.setattr(validation_module, "canonicalize_normalized_scenario_tokens", counted)
+
+    plan = _plan(package)
+
+    assert plan.status == "PASS"
+    assert calls == 1
 
 
 def test_manifest_without_shell_identity_cannot_bypass_verification() -> None:

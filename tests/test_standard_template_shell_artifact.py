@@ -81,6 +81,12 @@ ALLOWED_HIDDEN_SHELL_SHEETS = {
     if sheet["role"] != "visible_product"
 }
 REQUIRED_SUPPORT_SHELL_SHEETS = set(ALLOWED_HIDDEN_SHELL_SHEETS)
+FORMULA_OUTPUT_SUPPORT_SHEETS = {
+    sheet["sheet"]
+    for module in MODULE_MANIFEST_PAYLOAD["modules"]
+    for sheet in module["sheets"]
+    if sheet.get("data_surface") == "formula_output"
+}
 REQUIRED_PROMISE_ANNUAL_HEADERS = [
     "Metric",
     "Initial guide",
@@ -743,7 +749,17 @@ def test_standard_template_shell_required_support_sheets_are_neutral_shells() ->
             ws = wb[sheet_name]
             assert ws.sheet_state != "visible"
             assert any(ws.cell(1, col).value not in (None, "") for col in range(1, min(ws.max_column, 12) + 1))
-            assert _nonempty_count(ws, f"A2:{ws.cell(max(ws.max_row, 2), max(ws.max_column, 1)).coordinate}") == 0
+            if sheet_name in FORMULA_OUTPUT_SUPPORT_SHEETS:
+                formulas = [
+                    cell
+                    for row in ws.iter_rows(min_row=2)
+                    for cell in row
+                    if isinstance(cell.value, str) and cell.value.startswith("=")
+                ]
+                assert formulas
+                assert all(cell.protection.locked for cell in formulas)
+            else:
+                assert _nonempty_count(ws, f"A2:{ws.cell(max(ws.max_row, 2), max(ws.max_column, 1)).coordinate}") == 0
     finally:
         wb.close()
 

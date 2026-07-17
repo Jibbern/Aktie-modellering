@@ -21,9 +21,9 @@ from openpyxl.utils import range_boundaries
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 
 
-SHELL_SEMANTIC_CONTRACT_VERSION = "1.3.0"
+SHELL_SEMANTIC_CONTRACT_VERSION = "1.6.0"
 SHEET_VIEW_IDENTITY_CONTRACT_VERSION = "1.0.0"
-BINDING_PLANNER_CONTRACT_VERSION = "1.2.0"
+BINDING_PLANNER_CONTRACT_VERSION = "1.3.0"
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_SCHEMA_PATH = ROOT / "docs" / "standard_template_shell_manifest.schema.json"
 BINDING_SCHEMA_PATH = ROOT / "docs" / "workbook_binding_map.schema.json"
@@ -883,18 +883,14 @@ def _quantize_dimension(value: Any, *, step: str) -> float | None:
 
 
 def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[str]]) -> dict[str, Any]:
-    resolved_ticker_sheet = _resolved_ticker_sheet_name(wb)
-    sheet_name_map = {
-        ws.title: "{ticker}_Investment_Case" if ws.title == resolved_ticker_sheet else ws.title
-        for ws in wb.worksheets
-    }
+    resolved_ticker_sheets = _resolved_ticker_sheet_names(wb)
+    token_by_actual = {actual: token for token, actual in resolved_ticker_sheets.items()}
+    sheet_name_map = {ws.title: token_by_actual.get(ws.title, ws.title) for ws in wb.worksheets}
 
     def normalized_text(value: Any) -> Any:
-        if isinstance(value, str) and resolved_ticker_sheet:
-            return value.replace(f"'{resolved_ticker_sheet}'", "'{ticker}_Investment_Case'").replace(
-                resolved_ticker_sheet,
-                "{ticker}_Investment_Case",
-            )
+        if isinstance(value, str):
+            for token, actual in sorted(resolved_ticker_sheets.items(), key=lambda item: len(item[1]), reverse=True):
+                value = value.replace(f"'{actual}'", f"'{token}'").replace(actual, token)
         return value
 
     sheets = [{"sheet": sheet_name_map[ws.title], "state": ws.sheet_state} for ws in wb.worksheets]
@@ -1033,10 +1029,10 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
 
 
 def _writable_value_map(wb: Any, *, allowed_cells: Mapping[str, set[str]]) -> dict[str, Any]:
-    resolved = _resolved_ticker_sheet_name(wb)
+    resolved = _resolved_ticker_sheet_names(wb)
     result: dict[str, Any] = {}
     for template_sheet, cells in allowed_cells.items():
-        actual_sheet = resolved if template_sheet == "{ticker}_Investment_Case" else template_sheet
+        actual_sheet = resolved.get(template_sheet, template_sheet)
         if actual_sheet not in wb.sheetnames:
             continue
         ws = wb[actual_sheet]
@@ -1051,7 +1047,9 @@ def _planned_value_map(plan: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(write, Mapping):
             continue
         sheet = str(write.get("target_sheet") or "")
-        if sheet.endswith("_Investment_Case"):
+        if sheet.endswith("_Investment_Case_Data"):
+            sheet = "{ticker}_Investment_Case_Data"
+        elif sheet.endswith("_Investment_Case"):
             sheet = "{ticker}_Investment_Case"
         key = f"{sheet}!{write.get('target_cell') or ''}"
         result[key] = write.get("value")
@@ -1077,11 +1075,20 @@ def _validate_plan_shell_identity(
 
 
 def _resolved_ticker_sheet_name(wb: Any) -> str:
-    token = "{ticker}_Investment_Case"
-    if token in wb.sheetnames:
-        return token
-    candidates = [name for name in wb.sheetnames if name.endswith("_Investment_Case")]
-    return candidates[0] if len(candidates) == 1 else ""
+    return _resolved_ticker_sheet_names(wb).get("{ticker}_Investment_Case", "")
+
+
+def _resolved_ticker_sheet_names(wb: Any) -> dict[str, str]:
+    resolved: dict[str, str] = {}
+    for token in ("{ticker}_Investment_Case", "{ticker}_Investment_Case_Data"):
+        if token in wb.sheetnames:
+            resolved[token] = token
+            continue
+        suffix = token.replace("{ticker}", "")
+        candidates = [name for name in wb.sheetnames if name.endswith(suffix)]
+        if len(candidates) == 1:
+            resolved[token] = candidates[0]
+    return resolved
 
 
 def _coordinate(column: int, row: int) -> str:

@@ -57,7 +57,7 @@ def test_source_backed_targets_are_blank_and_unlocked() -> None:
                 cell = valuation.cell(row, column)
                 assert cell.value is None
                 assert cell.protection.locked is False
-        for row in range(194, 217):
+        for row in range(194, 218):
             assert valuation.cell(row, 4).value is None
             assert valuation.cell(row, 4).protection.locked is False
 
@@ -153,9 +153,106 @@ def test_visible_metric_labels_are_concise_without_losing_definition() -> None:
 
 def test_formula_contract_contains_no_ticker_specific_content() -> None:
     source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
-    assert FORMULA_CONTRACT_VERSION == "1.2.0"
+    assert FORMULA_CONTRACT_VERSION == "1.6.0"
     for forbidden in ("Abercrombie", "Hollister", "ANF_model", "A&F"):
         assert forbidden not in source
+
+
+def test_typed_scenario_formulas_have_exact_ownership_and_no_unsafe_defaults() -> None:
+    wb = load_workbook(SHELL, data_only=False, read_only=False)
+    try:
+        valuation = wb["Valuation"]
+        investment_case = wb["{ticker}_Investment_Case"]
+
+        for coordinate in ("D218", "D219", "D220", "J218", "J219", "J220", "J221", "E237", "J236", "D247", "D253", "D254"):
+            assert valuation[coordinate].value is None
+            assert valuation[coordinate].protection.locked is False
+        for coordinate in ("J222", "J223", "E241", "E244", "E259", "E260", "E261", "J259", "J261", "N238", "N244", "R261"):
+            assert isinstance(valuation[coordinate].value, str) and valuation[coordinate].value.startswith("=")
+            assert valuation[coordinate].protection.locked is True
+
+        assert "DCF_Horizon" in str(valuation["J222"].value)
+        assert "ScenarioBuybackCash/ScenarioBuybackPrice" in str(valuation["E259"].value)
+        assert "NetDebt+ScenarioBuybackCash-ScenarioDebtPaydown" in str(valuation["E260"].value)
+        assert "NetIncome_TTM" in str(valuation["E261"].value)
+        assert "Adj_EBITDA" not in str(valuation["E242"].value)
+        assert "ScenarioAdjustedMargin" in str(valuation["E243"].value)
+        assert "ResolvedRevenueGrowth_Custom" in str(valuation["E241"].value)
+        assert "ScenarioGrowth" not in str(valuation["E241"].value)
+
+        assert "ResolvedRevenueGrowth_Bear" in str(investment_case["B85"].value)
+        assert "ResolvedRevenueGrowth_Base" in str(investment_case["B86"].value)
+        assert "ResolvedRevenueGrowth_Bull" in str(investment_case["B87"].value)
+
+        source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
+        assert "MAX(0.001" not in source
+        assert "ScenarioBuyback_m" not in source
+        assert "0.10,0.11,0.12" not in source
+
+        for coordinate in ("B23", "D42", "B160", "A161", "B171", "A172", "B177", "A178"):
+            assert investment_case[coordinate].value is None
+            assert investment_case[coordinate].protection.locked is False
+        for coordinate in ("B15", "D22", "B50", "D53", "B56", "D58", "B85", "J87", "B161", "D180"):
+            assert isinstance(investment_case[coordinate].value, str) and investment_case[coordinate].value.startswith("=")
+            assert investment_case[coordinate].protection.locked is True
+    finally:
+        wb.close()
+
+
+def test_scenario_defined_names_validations_and_support_projections_are_complete() -> None:
+    wb = load_workbook(SHELL, data_only=False, read_only=False)
+    try:
+        expected_names = {
+            "NetIncome_TTM": "'Valuation'!$D$217",
+            "DCF_Horizon": "'Valuation'!$D$220",
+            "ScenarioTaxTreatment": "'Valuation'!$E$247",
+            "ScenarioHorizon": "'Valuation'!$J$236",
+            "ScenarioInterestTaxTreatment": "'Valuation'!$E$248",
+            "ScenarioBuybackCash": "'Valuation'!$D$253",
+            "ScenarioShares": "'Valuation'!$E$259",
+            "ScenarioNetDebt": "'Valuation'!$E$260",
+            "ScenarioImpliedPrice": "'Valuation'!$J$261",
+            "ResolvedRevenueGrowth_Bear": "'Valuation_Summary'!$H$2",
+            "ResolvedRevenueGrowth_Base": "'Valuation_Summary'!$I$2",
+            "ResolvedRevenueGrowth_Bull": "'Valuation_Summary'!$J$2",
+            "ResolvedRevenueGrowth_Custom": "'Valuation_Summary'!$K$2",
+        }
+        for name, target in expected_names.items():
+            assert wb.defined_names[name].attr_text == target
+
+        route_support = wb["Valuation_Summary"]
+        for coordinate in ("H2", "I2", "J2", "K2"):
+            formula = str(route_support[coordinate].value or "")
+            assert formula.startswith("=LET(")
+            assert "selected_growth_route" in formula
+            assert "profile_driver_bridge" in formula
+            assert '=\"revenue_growth\"' in formula
+            assert formula.count('=\"total_company\"') == 4
+            assert "LOWER(" not in formula
+            assert "SUBSTITUTE(" not in formula
+            assert "TRIM(" not in formula
+            assert "directCount+profileCount+userCount<>1" in formula
+            assert "bridgeCount=1" in formula
+            assert route_support[coordinate].protection.locked is True
+        assert "retail_operating_pack" not in str(route_support["I2"].value)
+
+        valuation = wb["Valuation"]
+        validation_targets = {str(validation.sqref) for validation in valuation.data_validations.dataValidation}
+        assert {"D216", "D218:D219", "D220", "J218", "J219:J220", "J221", "E236", "J236", "E247", "E248", "D253", "D254", "D255:D256"} <= validation_targets
+
+        summary = wb["Valuation_Summary"]
+        assert summary["A2"].value == "price"
+        assert summary["B20"].value == '=IF(ScenarioUpside="","",ScenarioUpside)'
+        assert summary["F20"].value == '=IF(B20="","unavailable","calculated")'
+        assert summary["B20"].protection.locked is True
+
+        grid = wb["Valuation_Grid"]
+        assert grid["A2"].value == '="dcf"'
+        assert "'Valuation'!$H$227" in str(grid["E2"].value)
+        assert grid["D42"].value == "scenario_implied_price"
+        assert grid["E42"].value == '=IF(ScenarioImpliedPrice="","",ScenarioImpliedPrice)'
+    finally:
+        wb.close()
 
 
 def test_calculation_history_is_a_hidden_source_backed_formula_input_projection() -> None:

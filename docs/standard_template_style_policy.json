@@ -2481,14 +2481,6 @@
     {
       "formula_id": "valuation_scenario_formulas",
       "sheet": "Valuation",
-      "target": "J218",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Scenario setup cells use dedicated input and output styling, not historical comparison heatmaps.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
       "target": "Q219:Q221",
       "owner_module_id": "valuation_scenarios",
       "economic_reason": "Scenario setup cells use dedicated input and output styling, not historical comparison heatmaps.",
@@ -2535,9 +2527,81 @@
       "expected_empty_behavior": "no_style"
     },
     {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "J259:J261",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Scenario valuation outputs use dedicated output styling and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "N236:N244",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Market-implied outputs use dedicated output styling and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "N259:N261",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Scenario valuation ratios use dedicated output styling and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "valuation_scenario_formulas",
+      "sheet": "Valuation",
+      "target": "R259:R261",
+      "owner_module_id": "valuation_scenarios",
+      "economic_reason": "Scenario valuation multiples use dedicated output styling and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B15:D22",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case source-input projections use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B50:D53",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case bridge outputs have explicit scenario semantics and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B56:D58",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case scenario outputs have dedicated output styling and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B62:B68",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case market-implied outputs have dedicated output styling and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B85:J87",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Bear, base and bull outputs have explicit scenario semantics and no historical comparator axis.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
       "formula_id": "investment_case_sensitivity_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "A161:A163",
+      "target": "B161:D163",
       "owner_module_id": "investment_case_market_implied",
       "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"
@@ -2545,7 +2609,7 @@
     {
       "formula_id": "investment_case_sensitivity_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "A172:A174",
+      "target": "B172:D174",
       "owner_module_id": "investment_case_market_implied",
       "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"
@@ -2553,7 +2617,7 @@
     {
       "formula_id": "investment_case_sensitivity_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "A178:A180",
+      "target": "B178:D180",
       "owner_module_id": "investment_case_market_implied",
       "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"

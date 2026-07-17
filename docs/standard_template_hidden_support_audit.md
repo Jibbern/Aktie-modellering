@@ -1,6 +1,6 @@
 # Standard Template Hidden Support Audit
 
-Generated at: 2026-07-16T00:08:42+00:00
+Generated at: 2026-07-16T22:02:59+00:00
 Template: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\standard_stock_model_template.xlsx`
 ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\lab\ANF_template_lab.xlsx`
 
@@ -57,11 +57,11 @@ ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-templ
 | Revolver_History | yes | keep_optional_runtime_output_shell | 7 | 0 | 0 | 0 | Header-only until source-backed revolver facts exist. |
 | SEC_Audit_Log | no | delete_from_shell | 25779 | 0 | 1 | 162 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
 | Scenario_Bridge_Tax_Treatment | yes | keep_optional_runtime_output_shell | 7 | 0 | 0 | 0 | Header-only until scenario adjustments have explicit tax treatment. |
-| Scenario_Driver_Assumptions | yes | keep_optional_runtime_output_shell | 7 | 0 | 0 | 0 | Header-only assumptions; no legacy defaults are copied. |
+| Scenario_Driver_Assumptions | yes | keep_formula_dependency | 17 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | Slides_Debt_Profile | no | delete_from_shell | 92 | 0 | 1 | 9 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
 | Slides_Guidance | no | delete_from_shell | 3239 | 0 | 1 | 196 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
 | Slides_Segments | no | delete_from_shell | 8951 | 0 | 1 | 2213 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
-| Valuation_Grid | yes | keep_optional_runtime_output_shell | 6 | 0 | 0 | 0 | Reserved hidden scenario-grid capacity; no static outputs. |
-| Valuation_Summary | yes | keep_neutral_helper_shell | 7 | 0 | 0 | 0 | Header-only formula/output projection. |
+| Valuation_Grid | yes | keep_optional_runtime_output_shell | 252 | 205 | 0 | 0 | Formula-owned grid outputs remain blank until explicit axes and inputs are complete. |
+| Valuation_Summary | yes | keep_formula_dependency | 148 | 61 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | operating_drivers_raw | yes | keep_neutral_helper_shell | 7 | 0 | 0 | 0 | Header-only normalized driver projection. |
-| {ticker}_Investment_Case_Data | yes | keep_optional_runtime_output_shell | 7 | 0 | 0 | 0 | Header-only typed investment-case support projection. |
+| {ticker}_Investment_Case_Data | yes | keep_formula_dependency | 18 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |

@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODULE_MANIFEST = ROOT / "docs" / "workbook_module_manifest.json"
 MODULE_MANIFEST_SCHEMA = ROOT / "docs" / "workbook_module_manifest.schema.json"
 MODULE_MANIFEST_VERSION = "1.0.0"
-MODULE_CONTRACT_VERSION = "1.0.0"
+MODULE_CONTRACT_VERSION = "1.1.0"
 
 
 @dataclass(frozen=True)
@@ -102,6 +102,11 @@ def validate_workbook_module_manifest(payload: Mapping[str, Any]) -> list[str]:
                 sheet_contracts[sheet_name] = module_id
             if str(sheet.get("role") or "") != "visible_product" and not list(sheet.get("headers") or []):
                 issues.append(f"Hidden/module-capacity sheet {sheet_name!r} requires neutral headers.")
+            if str(sheet.get("data_surface") or "binding_rows") == "formula_output":
+                if str(sheet.get("role") or "") == "visible_product":
+                    issues.append(f"Formula-output sheet {sheet_name!r} must be a hidden support surface.")
+                if not str(sheet.get("formula_owner") or ""):
+                    issues.append(f"Formula-output sheet {sheet_name!r} requires a formula_owner.")
         for binding_id in module.get("binding_ids") or []:
             binding_id = str(binding_id)
             if binding_id in binding_owners:
@@ -201,6 +206,11 @@ def validate_workbook_module_manifest(payload: Mapping[str, Any]) -> list[str]:
             issues.append(f"Profile pack {pack_id!r} has unknown host module {host!r}.")
         elif str(module_by_id[host].get("module_type") or "") != "profile_pack_host":
             issues.append(f"Profile pack {pack_id!r} host {host!r} is not a profile_pack_host module.")
+        driver_ids = [str(value) for value in pack.get("scenario_driver_ids") or []]
+        issues.extend(
+            f"Profile pack {pack_id!r}: {issue}"
+            for issue in _duplicate_issues(driver_ids, "scenario_driver_id")
+        )
 
     profile_by_id = {str(row.get("profile_id") or ""): row for row in profiles}
     union_profile = str(payload.get("union_shell_profile_id") or "")
@@ -546,10 +556,32 @@ def build_profile_binding_payload(
     result["module_profile_id"] = resolved.profile_id
     result["enabled_modules"] = list(resolved.enabled_modules)
     result["profile_pack_ids"] = list(resolved.profile_pack_ids)
+    result["scenario_profile_packs"] = scenario_profile_pack_contracts(module_payload, resolved)
     result["module_manifest_signature"] = canonical_json_sha256(module_payload)
     result["module_profile_signature"] = canonical_json_sha256(resolved.to_dict())
     result["bindings"] = resolved_bindings
     return result
+
+
+def scenario_profile_pack_contracts(
+    module_payload: Mapping[str, Any],
+    resolved: ResolvedModuleProfile,
+) -> list[dict[str, Any]]:
+    """Project the exact pack-to-driver vocabulary allowed by a resolved profile."""
+
+    _require_authoritative_resolution(module_payload, resolved)
+    if resolved.profile_id == str(module_payload.get("union_shell_profile_id") or ""):
+        selected = {str(pack.get("pack_id") or "") for pack in module_payload.get("profile_packs") or []}
+    else:
+        selected = set(resolved.profile_pack_ids)
+    return [
+        {
+            "profile_pack_id": str(pack.get("pack_id") or ""),
+            "scenario_driver_ids": sorted(str(driver_id) for driver_id in pack.get("scenario_driver_ids") or []),
+        }
+        for pack in module_payload.get("profile_packs") or []
+        if isinstance(pack, Mapping) and str(pack.get("pack_id") or "") in selected
+    ]
 
 
 def build_profile_shell_manifest(
@@ -565,7 +597,10 @@ def build_profile_shell_manifest(
     for sheet_name in module_payload.get("union_sheet_order") or []:
         sheet_name = str(sheet_name)
         contract = contracts[sheet_name]
-        row = existing.get(sheet_name) or _reserved_sheet_manifest(contract)
+        if str(contract["role"]) == "visible_product":
+            row = existing.get(sheet_name) or _reserved_sheet_manifest(contract)
+        else:
+            row = _project_hidden_support_manifest(contract, existing.get(sheet_name))
         row["module_id"] = str(contract["module_id"])
         row["module_role"] = str(contract["role"])
         row["legacy_class"] = str(contract["legacy_class"])
@@ -620,6 +655,20 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
     max_row = int(contract.get("capacity_rows") or 5000)
     last_column = get_column_letter(max_column)
     sheet_name = str(contract["sheet"])
+    if str(contract.get("data_surface") or "binding_rows") == "formula_output":
+        return {
+            "sheet": sheet_name,
+            "static_layout_owner": "frozen_template_shell",
+            "writable_zones": [],
+            "non_writable_zones": [
+                {
+                    "zone_id": f"module_{str(contract['module_id'])}_{_safe_id(sheet_name)}_formula_surface",
+                    "target": f"A1:{last_column}{max_row}",
+                    "reason": "Formula-owned support surface; values are never written by bindings.",
+                }
+            ],
+            "formulas_static_labels": headers,
+        }
     return {
         "sheet": sheet_name,
         "static_layout_owner": "frozen_template_shell",
@@ -640,6 +689,23 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
         ],
         "formulas_static_labels": headers,
     }
+
+
+def _project_hidden_support_manifest(
+    contract: Mapping[str, Any],
+    existing: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Refresh support capacity while preserving established shell-zone IDs."""
+
+    projected = _reserved_sheet_manifest(contract)
+    if not existing:
+        return projected
+    for zone_key in ("writable_zones", "non_writable_zones"):
+        old_zones = [row for row in existing.get(zone_key) or [] if isinstance(row, Mapping)]
+        new_zones = projected[zone_key]
+        if len(old_zones) == len(new_zones) == 1 and str(old_zones[0].get("zone_id") or ""):
+            new_zones[0]["zone_id"] = str(old_zones[0]["zone_id"])
+    return projected
 
 
 def _dependency_cycle_issues(modules: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -714,12 +780,29 @@ def _range_contains(container: str, target: str) -> bool:
 
 
 def _range_is_owned(payload: Mapping[str, Any], owner: str, sheet: str, target: str) -> bool:
-    return any(
+    if any(
         block.owner_id == owner
         and block.sheet == sheet
         and _range_contains(block.target, target)
         for block in visible_block_contracts(payload)
-    )
+    ):
+        return True
+    for module in payload.get("modules") or []:
+        if str(module.get("module_id") or "") != owner:
+            continue
+        for sheet_contract in module.get("sheets") or []:
+            if str(sheet_contract.get("sheet") or "") != sheet:
+                continue
+            if str(sheet_contract.get("role") or "") == "visible_product":
+                return False
+            min_col, min_row, max_col, max_row = range_boundaries(target)
+            return (
+                min_col >= 1
+                and min_row >= 1
+                and max_col <= int(sheet_contract.get("capacity_columns") or 0)
+                and max_row <= int(sheet_contract.get("capacity_rows") or 0)
+            )
+    return False
 
 
 def _duplicate_issues(values: Sequence[str], label: str) -> list[str]:

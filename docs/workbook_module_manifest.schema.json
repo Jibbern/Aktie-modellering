@@ -18,7 +18,7 @@
   "properties": {
     "$schema": {"type": "string", "format": "uri"},
     "version": {"type": "string", "const": "1.0.0"},
-    "module_contract_version": {"type": "string", "const": "1.0.0"},
+    "module_contract_version": {"type": "string", "const": "1.1.0"},
     "description": {"type": "string", "minLength": 1},
     "union_shell_profile_id": {"type": "string", "minLength": 1},
     "union_sheet_order": {
@@ -91,7 +91,8 @@
         "headers": {"$ref": "#/$defs/stringList"},
         "empty_state": {"type": "string", "minLength": 1},
         "style_owner": {"type": "string", "minLength": 1},
-        "formula_owner": {"type": "string", "minLength": 1}
+        "formula_owner": {"type": "string", "minLength": 1},
+        "data_surface": {"enum": ["binding_rows", "formula_output"]}
       },
       "additionalProperties": false
     },
@@ -176,12 +177,13 @@
     },
     "profilePack": {
       "type": "object",
-      "required": ["pack_id", "display_name", "host_module_id", "normalized_contracts", "visible_blocks", "activation_mode"],
+      "required": ["pack_id", "display_name", "host_module_id", "normalized_contracts", "scenario_driver_ids", "visible_blocks", "activation_mode"],
       "properties": {
         "pack_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
         "display_name": {"type": "string", "minLength": 1},
         "host_module_id": {"type": "string", "minLength": 1},
         "normalized_contracts": {"$ref": "#/$defs/stringList"},
+        "scenario_driver_ids": {"$ref": "#/$defs/stringList"},
         "visible_blocks": {"type": "array", "items": {"$ref": "#/$defs/visibleBlock"}},
         "activation_mode": {"const": "explicit_profile_only"}
       },

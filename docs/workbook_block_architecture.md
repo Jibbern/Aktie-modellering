@@ -43,7 +43,7 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | valuation_operating_driver_values | Valuation | O39:AA47 | operating_drivers.items.0.driver | source-backed | standard |
 | valuation_thesis_bridge_values | Valuation | O51:AA62 | investment_case.key_debate | manual | standard |
 | valuation_guidance_status_values_lower | Valuation | X29:AA36 | normalized_guidance.items.0.horizon | source-backed | standard |
-| valuation_input_values | Valuation | D194:D216 | valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, +11 more | source-backed | standard |
+| valuation_input_values | Valuation | D194:D217 | valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, +12 more | source-backed | standard |
 | valuation_period_headers | Valuation | B6:M6 | quarterly_financials.rows.period | source-backed | standard |
 | valuation_raw_revenue | Valuation | B9:M9 | quarterly_financials.rows.revenue | source-backed | standard |
 | valuation_raw_base_ebitda | Valuation | B18:M18 | quarterly_financials.rows.base_ebitda | source-backed | standard |
@@ -121,9 +121,7 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | od_horizon_commentary_values | Operating_Drivers | B20:N30 | operating_drivers.items.0.driver | source-backed | standard |
 | od_current_outlook_values | Operating_Drivers | B31:N55 | operating_drivers.items.0.driver | source-backed | standard |
 | od_driver_actuals_values | Operating_Drivers | B56:N125 | operating_drivers.items.0.metric_value | source-backed | standard |
-| ic_snapshot_values | {ticker}_Investment_Case | B5:K30 | investment_case.current_stance, investment_case.downside_factors, investment_case.key_debate, investment_case.summary, +3 more | mixed | standard |
-| ic_manual_input_values | {ticker}_Investment_Case | B81:K130 | investment_case.scenario_drivers | manual | standard |
-| ic_scenario_bridge_values | {ticker}_Investment_Case | B131:K190 | segments.items.0.revenue | derived | standard |
+| ic_snapshot_values | {ticker}_Investment_Case | B5:B11 | investment_case.current_stance, investment_case.downside_factors, investment_case.key_debate, investment_case.summary, +3 more | mixed | standard |
 | ic_lower_comp_history_labels | {ticker}_Investment_Case | A185:K191 | operating_drivers.items.0.driver | source-backed | standard |
 | ic_lower_business_health_values | {ticker}_Investment_Case | B194:K199 | operating_drivers.items.0.current_read | source-backed | standard |
 | ic_lower_inventory_values | {ticker}_Investment_Case | B202:K209 | operating_drivers.items.0.metric_value | source-backed | standard |
@@ -290,13 +288,13 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Missing data: blank lower guidance status rows until realized/status evidence exists
   - Validation: boilerplate_guidance
 
-- `valuation_input_values` `D194:D216`
-  - Normalized fields: valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, valuation_inputs.book_value_per_share, valuation_inputs.capex_ttm, valuation_inputs.diluted_shares, valuation_inputs.eps_ttm, +7 more
+- `valuation_input_values` `D194:D217`
+  - Normalized fields: valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, valuation_inputs.book_value_per_share, valuation_inputs.capex_ttm, valuation_inputs.diluted_shares, valuation_inputs.eps_ttm, +8 more
   - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
   - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: leave blank and emit a structured mapping gap | leave blank and emit a structured mapping gap; point-in-time shares outstanding must not be replaced by diluted weighted-average shares
-  - Validation: unexplained_empty_core_field
+  - Missing data: leave blank and emit a structured mapping gap | leave blank and emit a structured mapping gap; point-in-time shares outstanding must not be replaced by diluted weighted-average shares | leave blank and emit a structured mapping gap; scenario EPS must not be reconstructed from a mismatched share denominator
+  - Validation: optional_source_backed_scenario_input, unexplained_empty_core_field
 
 - `valuation_period_headers` `B6:M6`
   - Normalized fields: quarterly_financials.rows.period
@@ -920,29 +918,13 @@ The standard shell keeps generic block slots only. Sector/company member names f
 
 ### {ticker}_Investment_Case
 
-- `ic_snapshot_values` `B5:K30`
+- `ic_snapshot_values` `B5:B11`
   - Normalized fields: investment_case.current_stance, investment_case.downside_factors, investment_case.key_debate, investment_case.summary, investment_case.upside_factors, investment_case.watch_next, investment_case.why_it_can_work
   - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
   - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py
   - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
   - Missing data: block promotion; emit manual review flag | leave blank and retain a structured review disposition
   - Validation: placeholder_investment_case, visible_narrative_missing_evidence_refs
-
-- `ic_manual_input_values` `B81:K130`
-  - Normalized fields: investment_case.scenario_drivers
-  - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
-  - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py
-  - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
-  - Missing data: keep manual shell inputs blank; emit review flag if promotion requires scenario detail
-  - Validation: placeholder_investment_case
-
-- `ic_scenario_bridge_values` `B131:K190`
-  - Normalized fields: segments.items.0.revenue
-  - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
-  - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py
-  - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
-  - Missing data: do not fabricate segment bridge rows; emit mapping gap only if promotion requires it
-  - Validation: valuation_core_mapping_gap
 
 - `ic_lower_comp_history_labels` `A185:K191`
   - Normalized fields: operating_drivers.items.0.driver

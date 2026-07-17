@@ -211,7 +211,7 @@ EXPECTED_STATIC_LABELS_BY_SHEET = {
     "{ticker}_Investment_Case": [
         "Investment Snapshot",
         "Key Debate",
-        "Manual Market / Scenario Inputs",
+        "Typed Scenario Inputs",
         "Scenario Driver Bridge",
     ],
     "Quarter_Notes_UI": [

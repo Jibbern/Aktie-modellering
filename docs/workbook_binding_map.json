@@ -2175,7 +2175,7 @@
       "binding_id": "ic_investment_summary",
       "sheet": "{ticker}_Investment_Case",
       "section": "Investment Snapshot",
-      "target": "B5:K30",
+      "target": "B5",
       "shell_zone": "ic_snapshot_values",
       "anchor_label": "Investment Snapshot",
       "row_family": "investment_case_snapshot_text_rows",
@@ -2198,7 +2198,7 @@
       "binding_id": "ic_key_debate",
       "sheet": "{ticker}_Investment_Case",
       "section": "Key Debate",
-      "target": "B7:J7",
+      "target": "B7",
       "shell_zone": "ic_snapshot_values",
       "anchor_label": "Key Debate",
       "row_family": "investment_case_debate_text_rows",
@@ -2221,7 +2221,7 @@
       "binding_id": "ic_why_it_can_work",
       "sheet": "{ticker}_Investment_Case",
       "section": "Why it can work",
-      "target": "B6:K6",
+      "target": "B6",
       "shell_zone": "ic_snapshot_values",
       "anchor_label": "Why it can work",
       "row_family": "investment_case_snapshot_text_rows",
@@ -2244,7 +2244,7 @@
       "binding_id": "ic_upside_factors",
       "sheet": "{ticker}_Investment_Case",
       "section": "Upside factors",
-      "target": "B8:K8",
+      "target": "B8",
       "shell_zone": "ic_snapshot_values",
       "anchor_label": "Upside factors",
       "row_family": "investment_case_snapshot_text_rows",
@@ -2267,7 +2267,7 @@
       "binding_id": "ic_downside_factors",
       "sheet": "{ticker}_Investment_Case",
       "section": "Downside factors",
-      "target": "B9:K9",
+      "target": "B9",
       "shell_zone": "ic_snapshot_values",
       "anchor_label": "Downside factors",
       "row_family": "investment_case_snapshot_text_rows",
@@ -2290,7 +2290,7 @@
       "binding_id": "ic_watch_next",
       "sheet": "{ticker}_Investment_Case",
       "section": "Watch next",
-      "target": "B10:K10",
+      "target": "B10",
       "shell_zone": "ic_snapshot_values",
       "anchor_label": "Watch next",
       "row_family": "investment_case_snapshot_text_rows",
@@ -2313,7 +2313,7 @@
       "binding_id": "ic_current_stance",
       "sheet": "{ticker}_Investment_Case",
       "section": "Current stance",
-      "target": "B11:K11",
+      "target": "B11",
       "shell_zone": "ic_snapshot_values",
       "anchor_label": "Current stance",
       "row_family": "investment_case_snapshot_text_rows",
@@ -2334,96 +2334,371 @@
     },
     {
       "binding_id": "ic_bull_base_bear_rows",
-      "sheet": "{ticker}_Investment_Case",
-      "section": "Scenario inputs",
-      "target": "B81:K130",
-      "shell_zone": "ic_manual_input_values",
-      "anchor_label": "Manual Market / Scenario Inputs",
-      "row_family": "investment_case_manual_scenario_inputs",
-      "normalized_field": "investment_case.scenario_drivers",
+      "sheet": "Scenario_Driver_Assumptions",
+      "section": "Typed scenario assumptions",
+      "target": "A2:Q201",
+      "shell_zone": "module_valuation_scenarios_scenario_driver_assumptions_rows",
+      "anchor_label": "scenario_id",
+      "row_family": "typed_scenario_assumptions",
+      "normalized_field": "investment_case.scenario_items",
       "value_shape": "table_rows",
       "required": false,
-      "source_policy": "manual",
-      "missing_source_behavior": "keep manual shell inputs blank; emit review flag if promotion requires scenario detail",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "placeholder_investment_case",
+      "source_policy": "source-backed",
+      "missing_source_behavior": "retain explicit unavailable rows; never synthesize scenario assumptions",
+      "promotion_requirement": "optional",
+      "validation_rule": "typed_scenario_contract",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "B81:K130",
+      "planner_target": "A2:Q201",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "investment_case.scenario_drivers"
+        "source_path": "investment_case.scenario_items",
+        "pick": "all"
       },
       "row_key": [
-        "normalized_field"
+        "scenario_id",
+        "assumption_id",
+        "horizon",
+        "dimension_id",
+        "member",
+        "propagation_rule"
       ],
-      "sort_order": [],
-      "capacity": 50,
+      "sort_order": [
+        "scenario_id:asc",
+        "assumption_id:asc",
+        "horizon:asc",
+        "dimension_id:asc",
+        "member:asc",
+        "propagation_rule:asc"
+      ],
+      "capacity": 200,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "value"
+        "scenario_id",
+        "assumption_id",
+        "metric",
+        "value_kind",
+        "unit",
+        "horizon",
+        "source_classification",
+        "propagation_rule",
+        "status",
+        "source_ref"
       ],
       "target_columns": [
+        {
+          "column_id": "scenario_id",
+          "source_field": "scenario_id",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.scenario_id"
+        },
+        {
+          "column_id": "assumption_id",
+          "source_field": "assumption_id",
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.assumption_id"
+        },
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "C",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.metric"
+        },
+        {
+          "column_id": "value_kind",
+          "source_field": "value_kind",
+          "target_column": "D",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.value_kind"
+        },
         {
           "column_id": "value",
           "source_field": "value",
-          "target_column": "B"
+          "target_column": "E",
+          "target_type": "value",
+          "target_role": "ic_bull_base_bear_rows.value"
+        },
+        {
+          "column_id": "low_value",
+          "source_field": "low_value",
+          "target_column": "F",
+          "target_type": "number",
+          "target_role": "ic_bull_base_bear_rows.low_value"
+        },
+        {
+          "column_id": "high_value",
+          "source_field": "high_value",
+          "target_column": "G",
+          "target_type": "number",
+          "target_role": "ic_bull_base_bear_rows.high_value"
+        },
+        {
+          "column_id": "unit",
+          "source_field": "unit",
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.unit"
+        },
+        {
+          "column_id": "horizon",
+          "source_field": "horizon",
+          "target_column": "I",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.horizon"
+        },
+        {
+          "column_id": "dimension_id",
+          "source_field": "dimension_id",
+          "target_column": "J",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.dimension_id"
+        },
+        {
+          "column_id": "member",
+          "source_field": "member",
+          "target_column": "K",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.member"
+        },
+        {
+          "column_id": "source_classification",
+          "source_field": "source_classification",
+          "target_column": "L",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.source_classification"
+        },
+        {
+          "column_id": "propagation_rule",
+          "source_field": "propagation_rule",
+          "target_column": "M",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.propagation_rule"
+        },
+        {
+          "column_id": "status",
+          "source_field": "status",
+          "target_column": "N",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.status"
+        },
+        {
+          "column_id": "source_ref",
+          "source_field": "source_ref",
+          "target_column": "O",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.source_ref"
+        },
+        {
+          "column_id": "reason",
+          "source_field": "reason",
+          "target_column": "P",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.reason"
+        },
+        {
+          "column_id": "profile_pack_id",
+          "source_field": "profile_pack_id",
+          "target_column": "Q",
+          "target_type": "text",
+          "target_role": "ic_bull_base_bear_rows.profile_pack_id"
         }
       ],
-      "source_ref_required": false,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Scenario rows need a typed investment_case.scenario_items collection.",
-      "module_id": "investment_case_market_implied"
+      "source_ref_field": "source_ref",
+      "source_ref_required": true,
+      "planning_state": "active",
+      "module_id": "valuation_scenarios"
     },
     {
       "binding_id": "ic_scenario_bridge_rows",
-      "sheet": "{ticker}_Investment_Case",
-      "section": "Scenario Driver Bridge",
-      "target": "B131:K190",
-      "shell_zone": "ic_scenario_bridge_values",
-      "anchor_label": "Scenario Driver Bridge",
-      "row_family": "investment_case_scenario_bridge_rows",
-      "normalized_field": "segments.items.0.revenue",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "section": "Typed scenario driver bridge",
+      "target": "A2:R201",
+      "shell_zone": "module_investment_case_market_implied_ticker__investment_case_data_rows",
+      "anchor_label": "scenario_id",
+      "row_family": "typed_scenario_driver_bridge",
+      "normalized_field": "investment_case.scenario_driver_bridge",
       "value_shape": "table_rows",
       "required": false,
-      "source_policy": "derived",
-      "missing_source_behavior": "do not fabricate segment bridge rows; emit mapping gap only if promotion requires it",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "valuation_core_mapping_gap",
+      "source_policy": "source-backed",
+      "missing_source_behavior": "retain explicit unavailable bridge rows; never infer a numeric scenario impact",
+      "promotion_requirement": "optional",
+      "validation_rule": "typed_scenario_contract",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "B131:K190",
+      "planner_target": "A2:R201",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "segments.items"
+        "source_path": "investment_case.scenario_driver_bridge",
+        "pick": "all"
       },
       "row_key": [
-        "period",
-        "dimension",
+        "scenario_id",
+        "driver_id",
+        "horizon",
+        "dimension_id",
         "member",
-        "metric"
+        "impact_metric"
       ],
       "sort_order": [
-        "period:asc",
-        "dimension:asc",
+        "scenario_id:asc",
+        "driver_id:asc",
+        "horizon:asc",
+        "dimension_id:asc",
         "member:asc",
-        "metric:asc"
+        "impact_metric:asc"
       ],
-      "capacity": 60,
+      "capacity": 200,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "revenue"
+        "scenario_id",
+        "driver_id",
+        "profile_pack_id",
+        "driver_type",
+        "metric",
+        "impact_metric",
+        "unit",
+        "horizon",
+        "source_classification",
+        "tax_treatment",
+        "cash_classification",
+        "propagation_rule",
+        "status",
+        "source_ref"
       ],
       "target_columns": [
         {
+          "column_id": "scenario_id",
+          "source_field": "scenario_id",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.scenario_id"
+        },
+        {
+          "column_id": "driver_id",
+          "source_field": "driver_id",
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.driver_id"
+        },
+        {
+          "column_id": "profile_pack_id",
+          "source_field": "profile_pack_id",
+          "target_column": "C",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.profile_pack_id"
+        },
+        {
+          "column_id": "driver_type",
+          "source_field": "driver_type",
+          "target_column": "D",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.driver_type"
+        },
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "E",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.metric"
+        },
+        {
+          "column_id": "impact_metric",
+          "source_field": "impact_metric",
+          "target_column": "F",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.impact_metric"
+        },
+        {
           "column_id": "value",
-          "source_field": "revenue",
-          "target_column": "B"
+          "source_field": "value",
+          "target_column": "G",
+          "target_type": "number",
+          "target_role": "ic_scenario_bridge_rows.value"
+        },
+        {
+          "column_id": "unit",
+          "source_field": "unit",
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.unit"
+        },
+        {
+          "column_id": "horizon",
+          "source_field": "horizon",
+          "target_column": "I",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.horizon"
+        },
+        {
+          "column_id": "dimension_id",
+          "source_field": "dimension_id",
+          "target_column": "J",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.dimension_id"
+        },
+        {
+          "column_id": "member",
+          "source_field": "member",
+          "target_column": "K",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.member"
+        },
+        {
+          "column_id": "source_classification",
+          "source_field": "source_classification",
+          "target_column": "L",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.source_classification"
+        },
+        {
+          "column_id": "tax_treatment",
+          "source_field": "tax_treatment",
+          "target_column": "M",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.tax_treatment"
+        },
+        {
+          "column_id": "cash_classification",
+          "source_field": "cash_classification",
+          "target_column": "N",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.cash_classification"
+        },
+        {
+          "column_id": "propagation_rule",
+          "source_field": "propagation_rule",
+          "target_column": "O",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.propagation_rule"
+        },
+        {
+          "column_id": "status",
+          "source_field": "status",
+          "target_column": "P",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.status"
+        },
+        {
+          "column_id": "source_ref",
+          "source_field": "source_ref",
+          "target_column": "Q",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.source_ref"
+        },
+        {
+          "column_id": "reason",
+          "source_field": "reason",
+          "target_column": "R",
+          "target_type": "text",
+          "target_role": "ic_scenario_bridge_rows.reason"
         }
       ],
-      "source_ref_required": false,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Scenario bridge rows need a typed valuation/investment-case bridge collection.",
+      "source_ref_field": "source_ref",
+      "source_ref_required": true,
+      "planning_state": "active",
       "module_id": "investment_case_market_implied"
     },
     {
@@ -7970,6 +8245,30 @@
       "planning_state": "active",
       "named_range": "valuation_input_interest_paid_ttm",
       "module_id": "debt_liquidity"
+    },
+    {
+      "binding_id": "valuation_input_net_income_ttm",
+      "sheet": "Valuation",
+      "section": "Valuation inputs",
+      "target": "D217",
+      "shell_zone": "valuation_input_values",
+      "anchor_label": "",
+      "row_family": "scalar_values",
+      "normalized_field": "valuation_inputs.net_income_ttm",
+      "value_shape": "scalar",
+      "required": false,
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave blank and emit a structured mapping gap; scenario EPS must not be reconstructed from a mismatched share denominator",
+      "promotion_requirement": "manual_review",
+      "validation_rule": "optional_source_backed_scenario_input",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D217",
+      "source_path": "valuation_inputs.net_income_ttm",
+      "target_type": "number",
+      "planning_state": "active",
+      "named_range": "valuation_input_net_income_ttm",
+      "module_id": "valuation_scenarios"
     }
   ],
   "financial_field_dispositions": [
@@ -8195,7 +8494,7 @@
       "reason": "Historical fiscal-Q4 debt evidence remains in JSON for audit and does not establish current-period net debt without matching current source-backed debt and cash."
     }
   ],
-  "binding_planner_contract_version": "1.2.0",
+  "binding_planner_contract_version": "1.3.0",
   "binding_planner_policy": {
     "planner_opens_workbooks": false,
     "sequential_range_dumping": "forbidden",
@@ -8218,7 +8517,7 @@
     ]
   },
   "module_manifest_version": "1.0.0",
-  "module_contract_version": "1.0.0",
+  "module_contract_version": "1.1.0",
   "module_profile_id": "full_union",
   "enabled_modules": [
     "core_financial_history",
@@ -8236,6 +8535,63 @@
     "profile_packs"
   ],
   "profile_pack_ids": [],
-  "module_manifest_signature": "a5b7f43dc41422e9f70d04f32ae08d944e7f8603e23c22f285f3b4063b41663b",
+  "scenario_profile_packs": [
+    {
+      "profile_pack_id": "retail_operating_pack",
+      "scenario_driver_ids": [
+        "adjusted_eps_guidance",
+        "aur_pricing",
+        "capital_expenditures_guidance",
+        "comparable_sales",
+        "inventory_change",
+        "operating_margin_guidance",
+        "revenue_growth",
+        "store_closures",
+        "store_openings",
+        "store_remodels",
+        "tariff_impact"
+      ]
+    },
+    {
+      "profile_pack_id": "shipping_mail_pack",
+      "scenario_driver_ids": [
+        "cost_savings",
+        "mail_volume",
+        "pricing",
+        "refinancing",
+        "shipping_volume"
+      ]
+    },
+    {
+      "profile_pack_id": "commodity_ethanol_pack",
+      "scenario_driver_ids": [
+        "capital_expenditures_guidance",
+        "commodity_bridge",
+        "credits_45z",
+        "crush_margin",
+        "policy_assumption"
+      ]
+    },
+    {
+      "profile_pack_id": "auto_supplier_pack",
+      "scenario_driver_ids": [
+        "customer_mix",
+        "platform_mix",
+        "powertrain_mix",
+        "production_volume"
+      ]
+    },
+    {
+      "profile_pack_id": "bank_pack",
+      "scenario_driver_ids": [
+        "cost_savings",
+        "deposit_volume",
+        "pricing",
+        "refinancing",
+        "trapped_capital"
+      ]
+    }
+  ],
+  "module_manifest_signature": "5b6c57e24e785b86599e6d4e4b5e6f8fadd7ce6163fc64d4f321c5eda03a2243",
   "module_profile_signature": "e792faf8030f6035e44d1ba547cb5e44a7f269f5b4beb088814196bf01567f8b"
 }

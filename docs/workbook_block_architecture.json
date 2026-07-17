@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-16T00:08:25+00:00",
+  "generated_at": "2026-07-16T22:02:47+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -2682,7 +2682,7 @@
       "block_id": "valuation_input_values",
       "sheet": "Valuation",
       "resolved_lab_sheet": "Valuation",
-      "range": "D194:D216",
+      "range": "D194:D217",
       "title_header_cells": [
         {
           "cell": "D193",
@@ -2776,6 +2776,11 @@
         {
           "binding_id": "valuation_input_interest_paid_ttm",
           "target": "D212",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_input_net_income_ttm",
+          "target": "D217",
           "value_shape": "scalar"
         }
       ],
@@ -2989,6 +2994,16 @@
           "numeric_count": 0,
           "text_count": 0,
           "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_input_net_income_ttm",
+          "target": "D217",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
         }
       ],
       "company_specific_example_cells": [],
@@ -3007,6 +3022,7 @@
         "valuation_inputs.free_cash_flow_ttm",
         "valuation_inputs.interest_paid_ttm",
         "valuation_inputs.net_debt",
+        "valuation_inputs.net_income_ttm",
         "valuation_inputs.operating_cash_flow_ttm",
         "valuation_inputs.revenue_ttm",
         "valuation_inputs.shares_outstanding",
@@ -3047,12 +3063,14 @@
         "valuation_inputs.book_value_per_share",
         "valuation_inputs.interest_paid_ttm",
         "valuation_inputs.net_debt",
+        "valuation_inputs.net_income_ttm",
         "valuation_inputs.shares_outstanding",
         "valuation_inputs.tangible_book_value_per_share"
       ],
       "source_policy": "source-backed",
-      "missing_data_behavior": "leave blank and emit a structured mapping gap | leave blank and emit a structured mapping gap; point-in-time shares outstanding must not be replaced by diluted weighted-average shares",
+      "missing_data_behavior": "leave blank and emit a structured mapping gap | leave blank and emit a structured mapping gap; point-in-time shares outstanding must not be replaced by diluted weighted-average shares | leave blank and emit a structured mapping gap; scenario EPS must not be reconstructed from a mismatched share denominator",
       "validation_rules": [
+        "optional_source_backed_scenario_input",
         "unexplained_empty_core_field"
       ],
       "standardization_status": "standard",
@@ -3206,6 +3224,16 @@
           "source_policy": "source-backed",
           "missing_source_behavior": "leave blank and emit a structured mapping gap",
           "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_input_net_income_ttm",
+          "target": "D217",
+          "normalized_field": "valuation_inputs.net_income_ttm",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave blank and emit a structured mapping gap; scenario EPS must not be reconstructed from a mismatched share denominator",
+          "validation_rule": "optional_source_backed_scenario_input"
         }
       ],
       "notes": [
@@ -14437,7 +14465,7 @@
       "block_id": "ic_snapshot_values",
       "sheet": "{ticker}_Investment_Case",
       "resolved_lab_sheet": "ANF_Investment_Case",
-      "range": "B5:K30",
+      "range": "B5:B11",
       "title_header_cells": [
         {
           "cell": "A4",
@@ -14510,78 +14538,6 @@
         {
           "cell": "A11",
           "value": "Current stance"
-        },
-        {
-          "cell": "A13",
-          "value": "Manual Market / Scenario Inputs"
-        },
-        {
-          "cell": "A14",
-          "value": "Input"
-        },
-        {
-          "cell": "A15",
-          "value": "Current share price"
-        },
-        {
-          "cell": "A16",
-          "value": "Diluted shares"
-        },
-        {
-          "cell": "A17",
-          "value": "Net debt / net cash"
-        },
-        {
-          "cell": "A18",
-          "value": "Forward revenue"
-        },
-        {
-          "cell": "A19",
-          "value": "Forward EPS"
-        },
-        {
-          "cell": "A20",
-          "value": "Forward Adj EBITDA"
-        },
-        {
-          "cell": "A21",
-          "value": "Forward FCF"
-        },
-        {
-          "cell": "A22",
-          "value": "Capex"
-        },
-        {
-          "cell": "A23",
-          "value": "P/E multiple"
-        },
-        {
-          "cell": "A24",
-          "value": "EV/Adj EBITDA multiple"
-        },
-        {
-          "cell": "A25",
-          "value": "FCF yield"
-        },
-        {
-          "cell": "A26",
-          "value": "Sales growth"
-        },
-        {
-          "cell": "A27",
-          "value": "Operating margin"
-        },
-        {
-          "cell": "A28",
-          "value": "Buyback amount"
-        },
-        {
-          "cell": "A29",
-          "value": "Buyback-adjusted shares"
-        },
-        {
-          "cell": "A30",
-          "value": "Tariff impact (bps)"
         }
       ],
       "static_label_cells": [
@@ -14632,164 +14588,64 @@
         {
           "cell": "A11",
           "value": "Current stance"
-        },
-        {
-          "cell": "A13",
-          "value": "Manual Market / Scenario Inputs"
-        },
-        {
-          "cell": "A14",
-          "value": "Input"
-        },
-        {
-          "cell": "A15",
-          "value": "Current share price"
-        },
-        {
-          "cell": "A16",
-          "value": "Diluted shares"
-        },
-        {
-          "cell": "A17",
-          "value": "Net debt / net cash"
-        },
-        {
-          "cell": "A18",
-          "value": "Forward revenue"
-        },
-        {
-          "cell": "A19",
-          "value": "Forward EPS"
-        },
-        {
-          "cell": "A20",
-          "value": "Forward Adj EBITDA"
-        },
-        {
-          "cell": "A21",
-          "value": "Forward FCF"
-        },
-        {
-          "cell": "A22",
-          "value": "Capex"
-        },
-        {
-          "cell": "A23",
-          "value": "P/E multiple"
-        },
-        {
-          "cell": "A24",
-          "value": "EV/Adj EBITDA multiple"
-        },
-        {
-          "cell": "A25",
-          "value": "FCF yield"
-        },
-        {
-          "cell": "A26",
-          "value": "Sales growth"
-        },
-        {
-          "cell": "A27",
-          "value": "Operating margin"
-        },
-        {
-          "cell": "A28",
-          "value": "Buyback amount"
-        },
-        {
-          "cell": "A29",
-          "value": "Buyback-adjusted shares"
-        },
-        {
-          "cell": "A30",
-          "value": "Tariff impact (bps)"
         }
       ],
       "writable_value_cells": [
         {
           "binding_id": "ic_investment_summary",
-          "target": "B5:K30",
+          "target": "B5",
           "value_shape": "text_block"
         },
         {
           "binding_id": "ic_key_debate",
-          "target": "B7:J7",
+          "target": "B7",
           "value_shape": "text_block"
         },
         {
           "binding_id": "ic_why_it_can_work",
-          "target": "B6:K6",
+          "target": "B6",
           "value_shape": "text_block"
         },
         {
           "binding_id": "ic_upside_factors",
-          "target": "B8:K8",
+          "target": "B8",
           "value_shape": "text_block"
         },
         {
           "binding_id": "ic_downside_factors",
-          "target": "B9:K9",
+          "target": "B9",
           "value_shape": "text_block"
         },
         {
           "binding_id": "ic_watch_next",
-          "target": "B10:K10",
+          "target": "B10",
           "value_shape": "text_block"
         },
         {
           "binding_id": "ic_current_stance",
-          "target": "B11:K11",
+          "target": "B11",
           "value_shape": "text_block"
         }
       ],
       "writable_example_cells": [
         {
           "binding_id": "ic_investment_summary",
-          "target": "B5:K30",
+          "target": "B5",
           "value_shape": "text_block",
-          "nonempty_count": 110,
-          "formula_count": 75,
-          "numeric_count": 5,
-          "text_count": 30,
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 1,
           "sample_cells": [
             {
               "cell": "B5",
               "value": "Constructive but margin-sensitive."
-            },
-            {
-              "cell": "B6",
-              "value": "Net cash, strong FCF, buyback capacity, Hollister momentum, digital scale and EPS support from lower share count."
-            },
-            {
-              "cell": "B7",
-              "value": "Can ANF sustain high margins and EPS after the turnaround despite tougher comps, tariffs, ERP disruption and margin normalization?"
-            },
-            {
-              "cell": "B8",
-              "value": "Sales guide holds, Hollister stays strong, Abercrombie stabilizes, inventory remains clean and tariff mitigation protects margins."
-            },
-            {
-              "cell": "B9",
-              "value": "Hollister slows, Abercrombie weakens again, inventory turns into markdown risk or tariff/ERP costs normalize margins below guide."
-            },
-            {
-              "cell": "B10",
-              "value": "2026-Q1 comps, gross margin bridge, inventory units, tariff mitigation, buyback pace and 2026 EPS guidance revisions."
-            },
-            {
-              "cell": "B11",
-              "value": "The case works if 2026 EPS stays above $10 and the market credits 12.0-12.5% margin durability; buybacks help, but margin proof matters most."
-            },
-            {
-              "cell": "B14",
-              "value": "Model default (2025 year)"
             }
           ]
         },
         {
           "binding_id": "ic_key_debate",
-          "target": "B7:J7",
+          "target": "B7",
           "value_shape": "text_block",
           "nonempty_count": 1,
           "formula_count": 0,
@@ -14804,7 +14660,7 @@
         },
         {
           "binding_id": "ic_why_it_can_work",
-          "target": "B6:K6",
+          "target": "B6",
           "value_shape": "text_block",
           "nonempty_count": 1,
           "formula_count": 0,
@@ -14819,7 +14675,7 @@
         },
         {
           "binding_id": "ic_upside_factors",
-          "target": "B8:K8",
+          "target": "B8",
           "value_shape": "text_block",
           "nonempty_count": 1,
           "formula_count": 0,
@@ -14834,7 +14690,7 @@
         },
         {
           "binding_id": "ic_downside_factors",
-          "target": "B9:K9",
+          "target": "B9",
           "value_shape": "text_block",
           "nonempty_count": 1,
           "formula_count": 0,
@@ -14849,7 +14705,7 @@
         },
         {
           "binding_id": "ic_watch_next",
-          "target": "B10:K10",
+          "target": "B10",
           "value_shape": "text_block",
           "nonempty_count": 1,
           "formula_count": 0,
@@ -14864,7 +14720,7 @@
         },
         {
           "binding_id": "ic_current_stance",
-          "target": "B11:K11",
+          "target": "B11",
           "value_shape": "text_block",
           "nonempty_count": 1,
           "formula_count": 0,
@@ -14896,218 +14752,9 @@
         {
           "cell": "B10",
           "value": "2026-Q1 comps, gross margin bridge, inventory units, tariff mitigation, buyback pace and 2026 EPS guidance revisions."
-        },
-        {
-          "cell": "D14",
-          "value": "Guidance (2026 year)"
-        },
-        {
-          "cell": "E14",
-          "value": "Guidance (2026-Q1)"
         }
       ],
-      "formula_cells": [
-        {
-          "cell": "B15",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "C15",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "D15",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "E15",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G15",
-          "formula": "=IF(F15<>\"\",F15,\"\")"
-        },
-        {
-          "cell": "B16",
-          "formula": "=IFERROR(IF(SharesDiluted<>\"\",SharesDiluted,Shares),\"\")"
-        },
-        {
-          "cell": "C16",
-          "formula": "=IFERROR(IF(SharesDiluted<>\"\",SharesDiluted,Shares),\"\")"
-        },
-        {
-          "cell": "D16",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "E16",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G16",
-          "formula": "=IF(F16<>\"\",F16,IF(C16<>\"\",C16,IF(B16<>\"\",B16,IF(D16<>\"\",D16,E16))))"
-        },
-        {
-          "cell": "B17",
-          "formula": "=IFERROR(NetDebt,\"\")"
-        },
-        {
-          "cell": "C17",
-          "formula": "=IFERROR(NetDebt,\"\")"
-        },
-        {
-          "cell": "D17",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "E17",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G17",
-          "formula": "=IF(F17<>\"\",F17,IF(C17<>\"\",C17,IF(B17<>\"\",B17,IF(D17<>\"\",D17,E17))))"
-        },
-        {
-          "cell": "B18",
-          "formula": "=IFERROR(SUMIFS(INDEX(History_Q!$A:$ZZ,0,MATCH(\"revenue\",History_Q!$1:$1,0)),INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_year\",History_Q!$1:$1,0)),2025,INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_quarter\",Hi..."
-        },
-        {
-          "cell": "C18",
-          "formula": "=IFERROR(Revenue_TTM,\"\")"
-        },
-        {
-          "cell": "D18",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "E18",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G18",
-          "formula": "=IF(F18<>\"\",F18,IF(C18<>\"\",C18,IF(B18<>\"\",B18,IF(D18<>\"\",D18,E18))))"
-        },
-        {
-          "cell": "B19",
-          "formula": "=IFERROR((SUMIFS(INDEX(History_Q!$A:$ZZ,0,MATCH(\"net_income\",History_Q!$1:$1,0)),INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_year\",History_Q!$1:$1,0)),2025,INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_quarter..."
-        },
-        {
-          "cell": "C19",
-          "formula": "=IFERROR(IF(Adj_EPS_TTM<>\"\",Adj_EPS_TTM,EPS_TTM),\"\")"
-        },
-        {
-          "cell": "D19",
-          "formula": "=10.6"
-        },
-        {
-          "cell": "E19",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G19",
-          "formula": "=IF(F19<>\"\",F19,IF(C19<>\"\",C19,IF(B19<>\"\",B19,IF(D19<>\"\",D19,E19))))"
-        },
-        {
-          "cell": "B20",
-          "formula": "=IFERROR(SUMIFS(INDEX(History_Q!$A:$ZZ,0,MATCH(\"ebitda\",History_Q!$1:$1,0)),INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_year\",History_Q!$1:$1,0)),2025,INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_quarter\",His..."
-        },
-        {
-          "cell": "C20",
-          "formula": "=IFERROR(IF(ThesisBaseAdjEBITDA_FY<>\"\",ThesisBaseAdjEBITDA_FY,Adj_EBITDA),\"\")"
-        },
-        {
-          "cell": "D20",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "E20",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G20",
-          "formula": "=IF(F20<>\"\",F20,IF(C20<>\"\",C20,IF(B20<>\"\",B20,IF(D20<>\"\",D20,E20))))"
-        },
-        {
-          "cell": "B21",
-          "formula": "=IFERROR((SUMIFS(INDEX(History_Q!$A:$ZZ,0,MATCH(\"cfo\",History_Q!$1:$1,0)),INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_year\",History_Q!$1:$1,0)),2025,INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_quarter\",Histo..."
-        },
-        {
-          "cell": "C21",
-          "formula": "=IFERROR(IF(Adj_FCF_TTM<>\"\",Adj_FCF_TTM,FCF_TTM),\"\")"
-        },
-        {
-          "cell": "D21",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "E21",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G21",
-          "formula": "=IF(F21<>\"\",F21,IF(C21<>\"\",C21,IF(B21<>\"\",B21,IF(D21<>\"\",D21,E21))))"
-        },
-        {
-          "cell": "B22",
-          "formula": "=IFERROR(ABS(SUMIFS(INDEX(History_Q!$A:$ZZ,0,MATCH(\"capex\",History_Q!$1:$1,0)),INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_year\",History_Q!$1:$1,0)),2025,INDEX(History_Q!$A:$ZZ,0,MATCH(\"fiscal_quarter\",..."
-        },
-        {
-          "cell": "C22",
-          "formula": "=IFERROR(Capex_TTM,\"\")"
-        },
-        {
-          "cell": "E22",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G22",
-          "formula": "=IF(F22<>\"\",F22,IF(D22<>\"\",D22,IF(C22<>\"\",C22,IF(B22<>\"\",B22,E22))))"
-        },
-        {
-          "cell": "B23",
-          "formula": "=IFERROR(IF(Target_PE<>\"\",Target_PE,13),13)"
-        },
-        {
-          "cell": "C23",
-          "formula": "=IFERROR(IF(Target_PE<>\"\",Target_PE,13),13)"
-        },
-        {
-          "cell": "D23",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "E23",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G23",
-          "formula": "=IF(F23<>\"\",F23,IF(C23<>\"\",C23,IF(B23<>\"\",B23,IF(D23<>\"\",D23,E23))))"
-        },
-        {
-          "cell": "B24",
-          "formula": "=IFERROR(IF(Target_EV_AdjEBITDA<>\"\",Target_EV_AdjEBITDA,8),8)"
-        },
-        {
-          "cell": "C24",
-          "formula": "=IFERROR(IF(Target_EV_AdjEBITDA<>\"\",Target_EV_AdjEBITDA,8),8)"
-        },
-        {
-          "cell": "D24",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "E24",
-          "formula": "=\"\""
-        },
-        {
-          "cell": "G24",
-          "formula": "=IF(F24<>\"\",F24,IF(C24<>\"\",C24,IF(B24<>\"\",B24,IF(D24<>\"\",D24,E24))))"
-        },
-        {
-          "cell": "B25",
-          "formula": "=IFERROR(IF(Target_EV_Yield>1,Target_EV_Yield/100,Target_EV_Yield),0.07)"
-        }
-      ],
+      "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
         "investment_case.current_stance",
@@ -15159,7 +14806,7 @@
       "bindings": [
         {
           "binding_id": "ic_investment_summary",
-          "target": "B5:K30",
+          "target": "B5",
           "normalized_field": "investment_case.summary",
           "required": true,
           "value_shape": "text_block",
@@ -15169,7 +14816,7 @@
         },
         {
           "binding_id": "ic_key_debate",
-          "target": "B7:J7",
+          "target": "B7",
           "normalized_field": "investment_case.key_debate",
           "required": true,
           "value_shape": "text_block",
@@ -15179,7 +14826,7 @@
         },
         {
           "binding_id": "ic_why_it_can_work",
-          "target": "B6:K6",
+          "target": "B6",
           "normalized_field": "investment_case.why_it_can_work",
           "required": false,
           "value_shape": "text_block",
@@ -15189,7 +14836,7 @@
         },
         {
           "binding_id": "ic_upside_factors",
-          "target": "B8:K8",
+          "target": "B8",
           "normalized_field": "investment_case.upside_factors",
           "required": false,
           "value_shape": "text_block",
@@ -15199,7 +14846,7 @@
         },
         {
           "binding_id": "ic_downside_factors",
-          "target": "B9:K9",
+          "target": "B9",
           "normalized_field": "investment_case.downside_factors",
           "required": false,
           "value_shape": "text_block",
@@ -15209,7 +14856,7 @@
         },
         {
           "binding_id": "ic_watch_next",
-          "target": "B10:K10",
+          "target": "B10",
           "normalized_field": "investment_case.watch_next",
           "required": false,
           "value_shape": "text_block",
@@ -15219,1320 +14866,13 @@
         },
         {
           "binding_id": "ic_current_stance",
-          "target": "B11:K11",
+          "target": "B11",
           "normalized_field": "investment_case.current_stance",
           "required": false,
           "value_shape": "text_block",
           "source_policy": "manual",
           "missing_source_behavior": "leave blank and retain a structured review disposition",
           "validation_rule": "visible_narrative_missing_evidence_refs"
-        }
-      ],
-      "notes": [
-        "Block is derived from manifest writable zone and current binding map.",
-        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
-      ]
-    },
-    {
-      "block_id": "ic_manual_input_values",
-      "sheet": "{ticker}_Investment_Case",
-      "resolved_lab_sheet": "ANF_Investment_Case",
-      "range": "B81:K130",
-      "title_header_cells": [
-        {
-          "cell": "A79",
-          "value": "Buybacks vs FCF | Current read: Positive EPS support, but a watch item."
-        },
-        {
-          "cell": "A80",
-          "value": "Bull evidence"
-        },
-        {
-          "cell": "B80",
-          "value": "2025 buybacks were about $450m / 5.4m shares and net cash remains strong."
-        },
-        {
-          "cell": "F80",
-          "value": "Bear evidence"
-        },
-        {
-          "cell": "G80",
-          "value": "Buybacks exceeded FCF, so capital returns should stay disciplined."
-        },
-        {
-          "cell": "A81",
-          "value": "Next proof point"
-        },
-        {
-          "cell": "A83",
-          "value": "Bear / Base / Bull Scenario"
-        },
-        {
-          "cell": "A84",
-          "value": "Scenario"
-        }
-      ],
-      "template_label_cells": [
-        {
-          "cell": "A79",
-          "value": "Buybacks vs FCF | Current read: Positive EPS support, but a watch item."
-        },
-        {
-          "cell": "A80",
-          "value": "Bull evidence"
-        },
-        {
-          "cell": "B80",
-          "value": "2025 buybacks were about $450m / 5.4m shares and net cash remains strong."
-        },
-        {
-          "cell": "F80",
-          "value": "Bear evidence"
-        },
-        {
-          "cell": "G80",
-          "value": "Buybacks exceeded FCF, so capital returns should stay disciplined."
-        },
-        {
-          "cell": "A81",
-          "value": "Next proof point"
-        },
-        {
-          "cell": "A83",
-          "value": "Bear / Base / Bull Scenario"
-        },
-        {
-          "cell": "A84",
-          "value": "Scenario"
-        }
-      ],
-      "row_label_cells": [
-        {
-          "cell": "A81",
-          "value": "Next proof point"
-        },
-        {
-          "cell": "A83",
-          "value": "Bear / Base / Bull Scenario"
-        },
-        {
-          "cell": "A84",
-          "value": "Scenario"
-        },
-        {
-          "cell": "A85",
-          "value": "Bear"
-        },
-        {
-          "cell": "A86",
-          "value": "Base"
-        },
-        {
-          "cell": "A87",
-          "value": "Bull"
-        },
-        {
-          "cell": "A88",
-          "value": "Uses Investment_Case manual inputs; may differ from Valuation Thesis Bridge."
-        },
-        {
-          "cell": "A90",
-          "value": "Quality of Earnings"
-        },
-        {
-          "cell": "A91",
-          "value": "Item"
-        },
-        {
-          "cell": "A92",
-          "value": "Buybacks vs FCF"
-        },
-        {
-          "cell": "A93",
-          "value": "Inventory"
-        },
-        {
-          "cell": "A94",
-          "value": "Tariffs"
-        },
-        {
-          "cell": "A95",
-          "value": "ERP disruption"
-        },
-        {
-          "cell": "A96",
-          "value": "Marketing"
-        },
-        {
-          "cell": "A98",
-          "value": "What Needs To Happen For The Stock To Work"
-        },
-        {
-          "cell": "A99",
-          "value": "Condition"
-        },
-        {
-          "cell": "A100",
-          "value": "Sales guide must hold"
-        },
-        {
-          "cell": "A101",
-          "value": "Margins must stabilize"
-        },
-        {
-          "cell": "A102",
-          "value": "Inventory must stay clean"
-        },
-        {
-          "cell": "A103",
-          "value": "Buybacks must support EPS"
-        },
-        {
-          "cell": "A104",
-          "value": "Market must believe durability"
-        },
-        {
-          "cell": "A106",
-          "value": "Tariff / Margin Bridge"
-        },
-        {
-          "cell": "A107",
-          "value": "Bridge item"
-        },
-        {
-          "cell": "A108",
-          "value": "2025 op margin"
-        },
-        {
-          "cell": "A109",
-          "value": "2026 op margin guide"
-        },
-        {
-          "cell": "A110",
-          "value": "Implied decline"
-        },
-        {
-          "cell": "A111",
-          "value": "Tariff headwind"
-        },
-        {
-          "cell": "A112",
-          "value": "Freight tailwind"
-        },
-        {
-          "cell": "A115",
-          "value": "AUR / pricing"
-        },
-        {
-          "cell": "A116",
-          "value": "Sourcing / supplier mitigation"
-        },
-        {
-          "cell": "A117",
-          "value": "Bridge read"
-        },
-        {
-          "cell": "A119",
-          "value": "EPS Bridge"
-        },
-        {
-          "cell": "A121",
-          "value": "2025 adjusted EPS"
-        },
-        {
-          "cell": "A122",
-          "value": "Sales growth"
-        },
-        {
-          "cell": "A123",
-          "value": "Margin / tariff / freight / AUR"
-        },
-        {
-          "cell": "A124",
-          "value": "SG&A leverage / deleverage"
-        },
-        {
-          "cell": "A125",
-          "value": "Buyback / share count reduction"
-        },
-        {
-          "cell": "A126",
-          "value": "2026 guided EPS"
-        },
-        {
-          "cell": "A129",
-          "value": "Metric"
-        },
-        {
-          "cell": "A130",
-          "value": "FCF TTM"
-        }
-      ],
-      "static_label_cells": [
-        {
-          "cell": "A79",
-          "value": "Buybacks vs FCF | Current read: Positive EPS support, but a watch item."
-        },
-        {
-          "cell": "A80",
-          "value": "Bull evidence"
-        },
-        {
-          "cell": "B80",
-          "value": "2025 buybacks were about $450m / 5.4m shares and net cash remains strong."
-        },
-        {
-          "cell": "F80",
-          "value": "Bear evidence"
-        },
-        {
-          "cell": "G80",
-          "value": "Buybacks exceeded FCF, so capital returns should stay disciplined."
-        },
-        {
-          "cell": "A81",
-          "value": "Next proof point"
-        },
-        {
-          "cell": "A83",
-          "value": "Bear / Base / Bull Scenario"
-        },
-        {
-          "cell": "A84",
-          "value": "Scenario"
-        },
-        {
-          "cell": "A81",
-          "value": "Next proof point"
-        },
-        {
-          "cell": "A83",
-          "value": "Bear / Base / Bull Scenario"
-        },
-        {
-          "cell": "A84",
-          "value": "Scenario"
-        },
-        {
-          "cell": "A85",
-          "value": "Bear"
-        },
-        {
-          "cell": "A86",
-          "value": "Base"
-        },
-        {
-          "cell": "A87",
-          "value": "Bull"
-        },
-        {
-          "cell": "A88",
-          "value": "Uses Investment_Case manual inputs; may differ from Valuation Thesis Bridge."
-        },
-        {
-          "cell": "A90",
-          "value": "Quality of Earnings"
-        },
-        {
-          "cell": "A91",
-          "value": "Item"
-        },
-        {
-          "cell": "A92",
-          "value": "Buybacks vs FCF"
-        },
-        {
-          "cell": "A93",
-          "value": "Inventory"
-        },
-        {
-          "cell": "A94",
-          "value": "Tariffs"
-        },
-        {
-          "cell": "A95",
-          "value": "ERP disruption"
-        },
-        {
-          "cell": "A96",
-          "value": "Marketing"
-        },
-        {
-          "cell": "A98",
-          "value": "What Needs To Happen For The Stock To Work"
-        },
-        {
-          "cell": "A99",
-          "value": "Condition"
-        },
-        {
-          "cell": "A100",
-          "value": "Sales guide must hold"
-        },
-        {
-          "cell": "A101",
-          "value": "Margins must stabilize"
-        },
-        {
-          "cell": "A102",
-          "value": "Inventory must stay clean"
-        },
-        {
-          "cell": "A103",
-          "value": "Buybacks must support EPS"
-        },
-        {
-          "cell": "A104",
-          "value": "Market must believe durability"
-        },
-        {
-          "cell": "A106",
-          "value": "Tariff / Margin Bridge"
-        },
-        {
-          "cell": "A107",
-          "value": "Bridge item"
-        },
-        {
-          "cell": "A108",
-          "value": "2025 op margin"
-        },
-        {
-          "cell": "A109",
-          "value": "2026 op margin guide"
-        },
-        {
-          "cell": "A110",
-          "value": "Implied decline"
-        },
-        {
-          "cell": "A111",
-          "value": "Tariff headwind"
-        },
-        {
-          "cell": "A112",
-          "value": "Freight tailwind"
-        },
-        {
-          "cell": "A115",
-          "value": "AUR / pricing"
-        },
-        {
-          "cell": "A116",
-          "value": "Sourcing / supplier mitigation"
-        },
-        {
-          "cell": "A117",
-          "value": "Bridge read"
-        },
-        {
-          "cell": "A119",
-          "value": "EPS Bridge"
-        },
-        {
-          "cell": "A121",
-          "value": "2025 adjusted EPS"
-        },
-        {
-          "cell": "A122",
-          "value": "Sales growth"
-        },
-        {
-          "cell": "A123",
-          "value": "Margin / tariff / freight / AUR"
-        },
-        {
-          "cell": "A124",
-          "value": "SG&A leverage / deleverage"
-        },
-        {
-          "cell": "A125",
-          "value": "Buyback / share count reduction"
-        },
-        {
-          "cell": "A126",
-          "value": "2026 guided EPS"
-        },
-        {
-          "cell": "A129",
-          "value": "Metric"
-        },
-        {
-          "cell": "A130",
-          "value": "FCF TTM"
-        }
-      ],
-      "writable_value_cells": [
-        {
-          "binding_id": "ic_bull_base_bear_rows",
-          "target": "B81:K130",
-          "value_shape": "table_rows"
-        }
-      ],
-      "writable_example_cells": [
-        {
-          "binding_id": "ic_bull_base_bear_rows",
-          "target": "B81:K130",
-          "value_shape": "table_rows",
-          "nonempty_count": 104,
-          "formula_count": 21,
-          "numeric_count": 1,
-          "text_count": 82,
-          "sample_cells": [
-            {
-              "cell": "B81",
-              "value": "2026 buyback pace, FCF and net cash trend."
-            },
-            {
-              "cell": "B84",
-              "value": "Key assumptions"
-            },
-            {
-              "cell": "D84",
-              "value": "EPS"
-            },
-            {
-              "cell": "E84",
-              "value": "Adj EBITDA"
-            },
-            {
-              "cell": "F84",
-              "value": "FCF"
-            },
-            {
-              "cell": "G84",
-              "value": "Value/share @ P/E"
-            },
-            {
-              "cell": "H84",
-              "value": "Value/share @ EV/Adj EBITDA"
-            },
-            {
-              "cell": "I84",
-              "value": "Value/share @ FCF yield"
-            }
-          ]
-        }
-      ],
-      "company_specific_example_cells": [
-        {
-          "cell": "E91",
-          "value": "Recurring?"
-        },
-        {
-          "cell": "E93",
-          "value": "Recurring"
-        },
-        {
-          "cell": "E96",
-          "value": "Recurring/strategic"
-        }
-      ],
-      "source_specific_example_cells": [],
-      "formula_cells": [
-        {
-          "cell": "D85",
-          "formula": "=IFERROR(IF($F$56=\"\",\"\",$F$56*0.9),\"\")"
-        },
-        {
-          "cell": "E85",
-          "formula": "=IFERROR(IF($F$57=\"\",\"\",$F$57*0.9),\"\")"
-        },
-        {
-          "cell": "F85",
-          "formula": "=IFERROR(IF($F$58=\"\",\"\",$F$58*0.85),\"\")"
-        },
-        {
-          "cell": "G85",
-          "formula": "=IFERROR(IF(OR(D85=\"\",D85<=0,$G$23=\"\"),\"N/M\",D85*$G$23*0.9),\"N/M\")"
-        },
-        {
-          "cell": "H85",
-          "formula": "=IFERROR(IF(OR(E85=\"\",$G$24=\"\",$G$16=\"\",$G$16=0),\"\",(E85*$G$24*0.9-$G$17)/$G$16),\"\")"
-        },
-        {
-          "cell": "I85",
-          "formula": "=IFERROR(IF(OR(F85=\"\",$G$25=\"\",$G$16=\"\",$G$16=0),\"\",(F85/((IF($G$25>1,$G$25/100,$G$25))*1.15))/$G$16),\"\")"
-        },
-        {
-          "cell": "J85",
-          "formula": "=IFERROR(IF(COUNT(G85:I85)=0,\"\",\"$\"&FIXED(MIN(G85:I85),2,TRUE)&\"-$\"&FIXED(MAX(G85:I85),2,TRUE)),\"\")"
-        },
-        {
-          "cell": "D86",
-          "formula": "=IFERROR(IF($F$56=\"\",\"\",$F$56*1.0),\"\")"
-        },
-        {
-          "cell": "E86",
-          "formula": "=IFERROR(IF($F$57=\"\",\"\",$F$57*1.0),\"\")"
-        },
-        {
-          "cell": "F86",
-          "formula": "=IFERROR(IF($F$58=\"\",\"\",$F$58*1.0),\"\")"
-        },
-        {
-          "cell": "G86",
-          "formula": "=IFERROR(IF(OR(D86=\"\",D86<=0,$G$23=\"\"),\"N/M\",D86*$G$23*1.0),\"N/M\")"
-        },
-        {
-          "cell": "H86",
-          "formula": "=IFERROR(IF(OR(E86=\"\",$G$24=\"\",$G$16=\"\",$G$16=0),\"\",(E86*$G$24*1.0-$G$17)/$G$16),\"\")"
-        },
-        {
-          "cell": "I86",
-          "formula": "=IFERROR(IF(OR(F86=\"\",$G$25=\"\",$G$16=\"\",$G$16=0),\"\",(F86/((IF($G$25>1,$G$25/100,$G$25))*1.0))/$G$16),\"\")"
-        },
-        {
-          "cell": "J86",
-          "formula": "=IFERROR(IF(COUNT(G86:I86)=0,\"\",\"$\"&FIXED(MIN(G86:I86),2,TRUE)&\"-$\"&FIXED(MAX(G86:I86),2,TRUE)),\"\")"
-        },
-        {
-          "cell": "D87",
-          "formula": "=IFERROR(IF($F$56=\"\",\"\",$F$56*1.1),\"\")"
-        },
-        {
-          "cell": "E87",
-          "formula": "=IFERROR(IF($F$57=\"\",\"\",$F$57*1.1),\"\")"
-        },
-        {
-          "cell": "F87",
-          "formula": "=IFERROR(IF($F$58=\"\",\"\",$F$58*1.15),\"\")"
-        },
-        {
-          "cell": "G87",
-          "formula": "=IFERROR(IF(OR(D87=\"\",D87<=0,$G$23=\"\"),\"N/M\",D87*$G$23*1.15),\"N/M\")"
-        },
-        {
-          "cell": "H87",
-          "formula": "=IFERROR(IF(OR(E87=\"\",$G$24=\"\",$G$16=\"\",$G$16=0),\"\",(E87*$G$24*1.15-$G$17)/$G$16),\"\")"
-        },
-        {
-          "cell": "I87",
-          "formula": "=IFERROR(IF(OR(F87=\"\",$G$25=\"\",$G$16=\"\",$G$16=0),\"\",(F87/((IF($G$25>1,$G$25/100,$G$25))*0.85))/$G$16),\"\")"
-        },
-        {
-          "cell": "J87",
-          "formula": "=IFERROR(IF(COUNT(G87:I87)=0,\"\",\"$\"&FIXED(MIN(G87:I87),2,TRUE)&\"-$\"&FIXED(MAX(G87:I87),2,TRUE)),\"\")"
-        }
-      ],
-      "hidden_helper_cells": [],
-      "normalized_fields": [
-        "investment_case.scenario_drivers"
-      ],
-      "support_sheets_used": [
-        "Guidance_Normalized",
-        "History_Q",
-        "Promise_Progress",
-        "Quarter_Notes",
-        "Scenario_Bridge_Tax_Treatment",
-        "Scenario_Driver_Assumptions",
-        "Slides_Guidance",
-        "Slides_Segments",
-        "{ticker}_Investment_Case_Data"
-      ],
-      "current_code_owner": [
-        "pbi_xbrl/excel_writer_sector_investment_case.py",
-        "pbi_xbrl/excel_writer_investment_case_support.py",
-        "pbi_xbrl/excel_writer_anf_investment_case.py"
-      ],
-      "future_intended_owner": [
-        "future investment_case normalizer/review workflow",
-        "docs/workbook_binding_map.json"
-      ],
-      "required_fields": [],
-      "optional_fields": [
-        "investment_case.scenario_drivers"
-      ],
-      "source_policy": "manual",
-      "missing_data_behavior": "keep manual shell inputs blank; emit review flag if promotion requires scenario detail",
-      "validation_rules": [
-        "placeholder_investment_case"
-      ],
-      "standardization_status": "standard",
-      "bindings": [
-        {
-          "binding_id": "ic_bull_base_bear_rows",
-          "target": "B81:K130",
-          "normalized_field": "investment_case.scenario_drivers",
-          "required": false,
-          "value_shape": "table_rows",
-          "source_policy": "manual",
-          "missing_source_behavior": "keep manual shell inputs blank; emit review flag if promotion requires scenario detail",
-          "validation_rule": "placeholder_investment_case"
-        }
-      ],
-      "notes": [
-        "Block is derived from manifest writable zone and current binding map.",
-        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
-      ]
-    },
-    {
-      "block_id": "ic_scenario_bridge_values",
-      "sheet": "{ticker}_Investment_Case",
-      "resolved_lab_sheet": "ANF_Investment_Case",
-      "range": "B131:K190",
-      "title_header_cells": [
-        {
-          "cell": "A129",
-          "value": "Metric"
-        },
-        {
-          "cell": "A130",
-          "value": "FCF TTM"
-        },
-        {
-          "cell": "A131",
-          "value": "Buybacks"
-        },
-        {
-          "cell": "A132",
-          "value": "2025 buybacks"
-        },
-        {
-          "cell": "A133",
-          "value": "Shares repurchased"
-        }
-      ],
-      "template_label_cells": [
-        {
-          "cell": "A129",
-          "value": "Metric"
-        },
-        {
-          "cell": "A130",
-          "value": "FCF TTM"
-        },
-        {
-          "cell": "A131",
-          "value": "Buybacks"
-        },
-        {
-          "cell": "A132",
-          "value": "2025 buybacks"
-        },
-        {
-          "cell": "A133",
-          "value": "Shares repurchased"
-        }
-      ],
-      "row_label_cells": [
-        {
-          "cell": "A131",
-          "value": "Buybacks"
-        },
-        {
-          "cell": "A132",
-          "value": "2025 buybacks"
-        },
-        {
-          "cell": "A133",
-          "value": "Shares repurchased"
-        },
-        {
-          "cell": "A134",
-          "value": "Buyback spread vs FCF"
-        },
-        {
-          "cell": "A135",
-          "value": "Net cash context"
-        },
-        {
-          "cell": "A136",
-          "value": "Investment read"
-        },
-        {
-          "cell": "A138",
-          "value": "2026 Guide → Implied Earnings"
-        },
-        {
-          "cell": "A139",
-          "value": "Bridge line"
-        },
-        {
-          "cell": "A140",
-          "value": "2025 revenue"
-        },
-        {
-          "cell": "A141",
-          "value": "2026 revenue growth guide"
-        },
-        {
-          "cell": "A142",
-          "value": "Implied 2026 revenue"
-        },
-        {
-          "cell": "A143",
-          "value": "Operating margin guide"
-        },
-        {
-          "cell": "A144",
-          "value": "Implied EBIT"
-        },
-        {
-          "cell": "A145",
-          "value": "Tax / interest assumptions"
-        },
-        {
-          "cell": "A146",
-          "value": "Diluted shares guide"
-        },
-        {
-          "cell": "A147",
-          "value": "Implied EPS low/high"
-        },
-        {
-          "cell": "A148",
-          "value": "Company EPS guide"
-        },
-        {
-          "cell": "A149",
-          "value": "Model vs guide check"
-        },
-        {
-          "cell": "A151",
-          "value": "What Moves EPS"
-        },
-        {
-          "cell": "A152",
-          "value": "Sensitivity"
-        },
-        {
-          "cell": "A153",
-          "value": "+100 bps operating margin"
-        },
-        {
-          "cell": "A154",
-          "value": "+100 bps gross margin"
-        },
-        {
-          "cell": "A155",
-          "value": "+1% sales growth"
-        },
-        {
-          "cell": "A156",
-          "value": "$100m buybacks"
-        },
-        {
-          "cell": "A157",
-          "value": "Roughly +$1 EPS equals"
-        },
-        {
-          "cell": "A159",
-          "value": "Valuation Sensitivity"
-        },
-        {
-          "cell": "A160",
-          "value": "EPS"
-        },
-        {
-          "cell": "A165",
-          "value": "Scenario"
-        },
-        {
-          "cell": "A166",
-          "value": "Bear"
-        },
-        {
-          "cell": "A167",
-          "value": "Base"
-        },
-        {
-          "cell": "A168",
-          "value": "Bull"
-        },
-        {
-          "cell": "A170",
-          "value": "Adj EBITDA x EV/EBITDA"
-        },
-        {
-          "cell": "A171",
-          "value": "Multiple"
-        },
-        {
-          "cell": "A176",
-          "value": "FCF Yield Implied Equity Value"
-        },
-        {
-          "cell": "A177",
-          "value": "Yield"
-        },
-        {
-          "cell": "A182",
-          "value": "Comp Stack / Lapping Risk"
-        },
-        {
-          "cell": "A183",
-          "value": "Quarter"
-        },
-        {
-          "cell": "A184",
-          "value": "2024-Q1"
-        }
-      ],
-      "static_label_cells": [
-        {
-          "cell": "A129",
-          "value": "Metric"
-        },
-        {
-          "cell": "A130",
-          "value": "FCF TTM"
-        },
-        {
-          "cell": "A131",
-          "value": "Buybacks"
-        },
-        {
-          "cell": "A132",
-          "value": "2025 buybacks"
-        },
-        {
-          "cell": "A133",
-          "value": "Shares repurchased"
-        },
-        {
-          "cell": "A131",
-          "value": "Buybacks"
-        },
-        {
-          "cell": "A132",
-          "value": "2025 buybacks"
-        },
-        {
-          "cell": "A133",
-          "value": "Shares repurchased"
-        },
-        {
-          "cell": "A134",
-          "value": "Buyback spread vs FCF"
-        },
-        {
-          "cell": "A135",
-          "value": "Net cash context"
-        },
-        {
-          "cell": "A136",
-          "value": "Investment read"
-        },
-        {
-          "cell": "A138",
-          "value": "2026 Guide → Implied Earnings"
-        },
-        {
-          "cell": "A139",
-          "value": "Bridge line"
-        },
-        {
-          "cell": "A140",
-          "value": "2025 revenue"
-        },
-        {
-          "cell": "A141",
-          "value": "2026 revenue growth guide"
-        },
-        {
-          "cell": "A142",
-          "value": "Implied 2026 revenue"
-        },
-        {
-          "cell": "A143",
-          "value": "Operating margin guide"
-        },
-        {
-          "cell": "A144",
-          "value": "Implied EBIT"
-        },
-        {
-          "cell": "A145",
-          "value": "Tax / interest assumptions"
-        },
-        {
-          "cell": "A146",
-          "value": "Diluted shares guide"
-        },
-        {
-          "cell": "A147",
-          "value": "Implied EPS low/high"
-        },
-        {
-          "cell": "A148",
-          "value": "Company EPS guide"
-        },
-        {
-          "cell": "A149",
-          "value": "Model vs guide check"
-        },
-        {
-          "cell": "A151",
-          "value": "What Moves EPS"
-        },
-        {
-          "cell": "A152",
-          "value": "Sensitivity"
-        },
-        {
-          "cell": "A153",
-          "value": "+100 bps operating margin"
-        },
-        {
-          "cell": "A154",
-          "value": "+100 bps gross margin"
-        },
-        {
-          "cell": "A155",
-          "value": "+1% sales growth"
-        },
-        {
-          "cell": "A156",
-          "value": "$100m buybacks"
-        },
-        {
-          "cell": "A157",
-          "value": "Roughly +$1 EPS equals"
-        },
-        {
-          "cell": "A159",
-          "value": "Valuation Sensitivity"
-        },
-        {
-          "cell": "A160",
-          "value": "EPS"
-        },
-        {
-          "cell": "A165",
-          "value": "Scenario"
-        },
-        {
-          "cell": "A166",
-          "value": "Bear"
-        },
-        {
-          "cell": "A167",
-          "value": "Base"
-        },
-        {
-          "cell": "A168",
-          "value": "Bull"
-        },
-        {
-          "cell": "A170",
-          "value": "Adj EBITDA x EV/EBITDA"
-        },
-        {
-          "cell": "A171",
-          "value": "Multiple"
-        },
-        {
-          "cell": "A176",
-          "value": "FCF Yield Implied Equity Value"
-        },
-        {
-          "cell": "A177",
-          "value": "Yield"
-        },
-        {
-          "cell": "A182",
-          "value": "Comp Stack / Lapping Risk"
-        },
-        {
-          "cell": "A183",
-          "value": "Quarter"
-        },
-        {
-          "cell": "A184",
-          "value": "2024-Q1"
-        }
-      ],
-      "writable_value_cells": [
-        {
-          "binding_id": "ic_scenario_bridge_rows",
-          "target": "B131:K190",
-          "value_shape": "table_rows"
-        }
-      ],
-      "writable_example_cells": [
-        {
-          "binding_id": "ic_scenario_bridge_rows",
-          "target": "B131:K190",
-          "value_shape": "table_rows",
-          "nonempty_count": 165,
-          "formula_count": 36,
-          "numeric_count": 49,
-          "text_count": 80,
-          "sample_cells": [
-            {
-              "cell": "B131",
-              "value": "~$450m"
-            },
-            {
-              "cell": "C131",
-              "value": "2025 year / TTM actual share repurchases."
-            },
-            {
-              "cell": "B132",
-              "value": "~$450m"
-            },
-            {
-              "cell": "C132",
-              "value": "Alias row for audit: 2025 year / TTM actual share repurchases."
-            },
-            {
-              "cell": "B133",
-              "value": "5.4m"
-            },
-            {
-              "cell": "C133",
-              "value": "2025 year / TTM shares repurchased."
-            },
-            {
-              "cell": "B134",
-              "value": "$71.6m above FCF"
-            },
-            {
-              "cell": "C134",
-              "value": "Positive means buybacks exceeded FCF and used some net cash."
-            }
-          ]
-        }
-      ],
-      "company_specific_example_cells": [
-        {
-          "cell": "D183",
-          "value": "Abercrombie comp"
-        },
-        {
-          "cell": "E183",
-          "value": "Hollister comp"
-        }
-      ],
-      "source_specific_example_cells": [
-        {
-          "cell": "B135",
-          "value": "$784.6m net cash incl. securities"
-        },
-        {
-          "cell": "D139",
-          "value": "Source / note"
-        },
-        {
-          "cell": "F153",
-          "value": "ANF parsed sources"
-        },
-        {
-          "cell": "F154",
-          "value": "ANF parsed sources"
-        },
-        {
-          "cell": "F155",
-          "value": "ANF parsed sources"
-        },
-        {
-          "cell": "F156",
-          "value": "ANF parsed sources"
-        },
-        {
-          "cell": "F157",
-          "value": "ANF parsed sources"
-        },
-        {
-          "cell": "E171",
-          "value": "Source / investment read"
-        },
-        {
-          "cell": "D177",
-          "value": "Source / note"
-        }
-      ],
-      "formula_cells": [
-        {
-          "cell": "B161",
-          "formula": "=$A161*10"
-        },
-        {
-          "cell": "C161",
-          "formula": "=$A161*12"
-        },
-        {
-          "cell": "D161",
-          "formula": "=$A161*14"
-        },
-        {
-          "cell": "E161",
-          "formula": "=$A161*16"
-        },
-        {
-          "cell": "B162",
-          "formula": "=$A162*10"
-        },
-        {
-          "cell": "C162",
-          "formula": "=$A162*12"
-        },
-        {
-          "cell": "D162",
-          "formula": "=$A162*14"
-        },
-        {
-          "cell": "E162",
-          "formula": "=$A162*16"
-        },
-        {
-          "cell": "B163",
-          "formula": "=$A163*10"
-        },
-        {
-          "cell": "C163",
-          "formula": "=$A163*12"
-        },
-        {
-          "cell": "D163",
-          "formula": "=$A163*14"
-        },
-        {
-          "cell": "E163",
-          "formula": "=$A163*16"
-        },
-        {
-          "cell": "B166",
-          "formula": "=IFERROR(IF($F$56=\"\",\"\",$F$56*0.9),\"\")"
-        },
-        {
-          "cell": "C166",
-          "formula": "=IFERROR($G$23*0.9,\"\")"
-        },
-        {
-          "cell": "D166",
-          "formula": "=IFERROR(B166*C166,\"\")"
-        },
-        {
-          "cell": "B167",
-          "formula": "=IFERROR(IF($F$56=\"\",\"\",$F$56*1.0),\"\")"
-        },
-        {
-          "cell": "C167",
-          "formula": "=IFERROR($G$23*1.0,\"\")"
-        },
-        {
-          "cell": "D167",
-          "formula": "=IFERROR(B167*C167,\"\")"
-        },
-        {
-          "cell": "B168",
-          "formula": "=IFERROR(IF($F$56=\"\",\"\",$F$56*1.1),\"\")"
-        },
-        {
-          "cell": "C168",
-          "formula": "=IFERROR($G$23*1.15,\"\")"
-        },
-        {
-          "cell": "D168",
-          "formula": "=IFERROR(B168*C168,\"\")"
-        },
-        {
-          "cell": "B172",
-          "formula": "=IFERROR(A172*$F$57,\"\")"
-        },
-        {
-          "cell": "C172",
-          "formula": "=IFERROR(B172-$G$17,\"\")"
-        },
-        {
-          "cell": "D172",
-          "formula": "=IFERROR(C172/$G$16,\"\")"
-        },
-        {
-          "cell": "B173",
-          "formula": "=IFERROR(A173*$F$57,\"\")"
-        },
-        {
-          "cell": "C173",
-          "formula": "=IFERROR(B173-$G$17,\"\")"
-        },
-        {
-          "cell": "D173",
-          "formula": "=IFERROR(C173/$G$16,\"\")"
-        },
-        {
-          "cell": "B174",
-          "formula": "=IFERROR(A174*$F$57,\"\")"
-        },
-        {
-          "cell": "C174",
-          "formula": "=IFERROR(B174-$G$17,\"\")"
-        },
-        {
-          "cell": "D174",
-          "formula": "=IFERROR(C174/$G$16,\"\")"
-        },
-        {
-          "cell": "B178",
-          "formula": "=IFERROR($F$58/A178,\"\")"
-        },
-        {
-          "cell": "C178",
-          "formula": "=IFERROR(B178/$G$16,\"\")"
-        },
-        {
-          "cell": "B179",
-          "formula": "=IFERROR($F$58/A179,\"\")"
-        },
-        {
-          "cell": "C179",
-          "formula": "=IFERROR(B179/$G$16,\"\")"
-        },
-        {
-          "cell": "B180",
-          "formula": "=IFERROR($F$58/A180,\"\")"
-        },
-        {
-          "cell": "C180",
-          "formula": "=IFERROR(B180/$G$16,\"\")"
-        }
-      ],
-      "hidden_helper_cells": [],
-      "normalized_fields": [
-        "segments.items.0.revenue"
-      ],
-      "support_sheets_used": [
-        "Guidance_Normalized",
-        "History_Q",
-        "Promise_Progress",
-        "Quarter_Notes",
-        "Scenario_Bridge_Tax_Treatment",
-        "Scenario_Driver_Assumptions",
-        "Slides_Guidance",
-        "Slides_Segments",
-        "{ticker}_Investment_Case_Data"
-      ],
-      "current_code_owner": [
-        "pbi_xbrl/excel_writer_sector_investment_case.py",
-        "pbi_xbrl/excel_writer_investment_case_support.py",
-        "pbi_xbrl/excel_writer_anf_investment_case.py"
-      ],
-      "future_intended_owner": [
-        "future investment_case normalizer/review workflow",
-        "docs/workbook_binding_map.json"
-      ],
-      "required_fields": [],
-      "optional_fields": [
-        "segments.items.0.revenue"
-      ],
-      "source_policy": "derived",
-      "missing_data_behavior": "do not fabricate segment bridge rows; emit mapping gap only if promotion requires it",
-      "validation_rules": [
-        "valuation_core_mapping_gap"
-      ],
-      "standardization_status": "standard",
-      "bindings": [
-        {
-          "binding_id": "ic_scenario_bridge_rows",
-          "target": "B131:K190",
-          "normalized_field": "segments.items.0.revenue",
-          "required": false,
-          "value_shape": "table_rows",
-          "source_policy": "derived",
-          "missing_source_behavior": "do not fabricate segment bridge rows; emit mapping gap only if promotion requires it",
-          "validation_rule": "valuation_core_mapping_gap"
         }
       ],
       "notes": [
@@ -16551,8 +14891,36 @@
           "value": "Quarter"
         },
         {
+          "cell": "B183",
+          "value": "Total comp"
+        },
+        {
+          "cell": "C183",
+          "value": "2Y stack"
+        },
+        {
+          "cell": "F183",
+          "value": "Americas"
+        },
+        {
+          "cell": "G183",
+          "value": "EMEA"
+        },
+        {
+          "cell": "H183",
+          "value": "APAC"
+        },
+        {
+          "cell": "I183",
+          "value": "Read"
+        },
+        {
           "cell": "A184",
           "value": "2024-Q1"
+        },
+        {
+          "cell": "I184",
+          "value": "Strong two-year stack; watch lapping risk."
         }
       ],
       "template_label_cells": [
@@ -16561,8 +14929,36 @@
           "value": "Quarter"
         },
         {
+          "cell": "B183",
+          "value": "Total comp"
+        },
+        {
+          "cell": "C183",
+          "value": "2Y stack"
+        },
+        {
+          "cell": "F183",
+          "value": "Americas"
+        },
+        {
+          "cell": "G183",
+          "value": "EMEA"
+        },
+        {
+          "cell": "H183",
+          "value": "APAC"
+        },
+        {
+          "cell": "I183",
+          "value": "Read"
+        },
+        {
           "cell": "A184",
           "value": "2024-Q1"
+        },
+        {
+          "cell": "I184",
+          "value": "Strong two-year stack; watch lapping risk."
         }
       ],
       "row_label_cells": [],
@@ -16572,8 +14968,36 @@
           "value": "Quarter"
         },
         {
+          "cell": "B183",
+          "value": "Total comp"
+        },
+        {
+          "cell": "C183",
+          "value": "2Y stack"
+        },
+        {
+          "cell": "F183",
+          "value": "Americas"
+        },
+        {
+          "cell": "G183",
+          "value": "EMEA"
+        },
+        {
+          "cell": "H183",
+          "value": "APAC"
+        },
+        {
+          "cell": "I183",
+          "value": "Read"
+        },
+        {
           "cell": "A184",
           "value": "2024-Q1"
+        },
+        {
+          "cell": "I184",
+          "value": "Strong two-year stack; watch lapping risk."
         }
       ],
       "writable_value_cells": [

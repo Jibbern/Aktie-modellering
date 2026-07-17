@@ -33,7 +33,13 @@ from pbi_xbrl.standard_template_shell_identity import (
     compute_shell_identity,
     normalize_xlsx_package,
 )
-from pbi_xbrl.standard_template_formula_contract import apply_standard_formula_contracts
+from pbi_xbrl.standard_template_formula_contract import (
+    FORMULA_CONTRACT_VERSION,
+    INVESTMENT_CASE_SCENARIO_OWNED_RANGES,
+    INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES,
+    apply_standard_formula_contracts,
+    apply_standard_support_formula_contracts,
+)
 from pbi_xbrl.json_schema_validation import load_json_strict
 from pbi_xbrl.standard_template_audit_freshness import write_audit_freshness
 from pbi_xbrl.workbook_modules import (
@@ -493,6 +499,48 @@ def _max_manifest_bounds(sheet_def: dict[str, Any]) -> tuple[int, int]:
     return max_col, max_row
 
 
+def _configure_investment_case_ownership_zones(manifest: dict[str, Any]) -> None:
+    sheet = next(
+        (row for row in manifest.get("sheets") or [] if row.get("sheet") == "{ticker}_Investment_Case"),
+        None,
+    )
+    if not isinstance(sheet, dict):
+        return
+    retained = [
+        zone
+        for zone in sheet.get("writable_zones") or []
+        if str(zone.get("zone_id") or "")
+        not in {"ic_key_debate_values", "ic_manual_input_values", "ic_scenario_bridge_values"}
+    ]
+    snapshot = next((zone for zone in retained if zone.get("zone_id") == "ic_snapshot_values"), None)
+    if snapshot is not None:
+        snapshot["target"] = "B5:B11"
+    scenario_inputs = [
+        {
+            "zone_id": f"ic_scenario_user_input_{index}",
+            "target": target,
+            "anchor_label": "Typed Scenario Inputs",
+            "value_shapes": ["scalar", "table_rows"],
+        }
+        for index, target in enumerate(INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES, start=1)
+    ]
+    sheet["writable_zones"] = [*retained, *scenario_inputs]
+    non_writable = [
+        zone
+        for zone in sheet.get("non_writable_zones") or []
+        if str(zone.get("zone_id") or "") != "ic_static_label_column"
+    ]
+    non_writable.extend(
+        {
+            "zone_id": f"ic_static_label_column_{index}",
+            "target": target,
+            "reason": "Static thesis/scenario labels next to exact writable inputs.",
+        }
+        for index, target in enumerate(("A5:A160", "A164:A171", "A175:A177", "A181:A184"), start=1)
+    )
+    sheet["non_writable_zones"] = non_writable
+
+
 def _ranges_for(sheet_def: dict[str, Any], zone_type: str) -> list[str]:
     return [str(zone["target"]) for zone in sheet_def.get(zone_type, [])]
 
@@ -743,6 +791,21 @@ def _clear_visible_source_values_and_notes(wb: Workbook, manifest: dict[str, Any
                     cell.value = None
 
 
+def _clear_investment_case_scenario_surfaces(wb: Workbook) -> None:
+    sheet_name = "{ticker}_Investment_Case"
+    if sheet_name not in wb.sheetnames:
+        return
+    ws = wb[sheet_name]
+    for range_ref in INVESTMENT_CASE_SCENARIO_OWNED_RANGES:
+        for row in ws[range_ref]:
+            for cell in row:
+                if isinstance(cell, MergedCell):
+                    continue
+                cell.value = None
+                cell.comment = None
+                cell.hyperlink = None
+
+
 def _neutralize_quarter_notes_history(wb: Workbook) -> None:
     """Keep reusable history-block headers while removing inherited evidence."""
 
@@ -880,20 +943,6 @@ def _clear_valuation_runtime_value_constants(wb: Workbook) -> None:
                 if isinstance(cell.value, str) and cell.value.startswith("="):
                     continue
                 cell.value = None
-
-
-def _guard_valuation_scenario_formulas_until_input(wb: Workbook) -> None:
-    if "Valuation" not in wb.sheetnames:
-        return
-    ws = wb["Valuation"]
-    formulas = {
-        "E237": '=IF(E236="","",IF(E236="Bull",0.141711,IF(E236="Bear",0.054169,IF(E236="Base",0.071283,0.071283))))',
-        "E238": '=IF(E236="","",IF(E236="Bull",0.184811,IF(E236="Bear",0.128800,IF(E236="Base",0.167782,0.167782))))',
-        "E239": '=IF(E236="","",IF(E236="Bull",15,IF(E236="Bear",-10,0)))',
-        "E240": '=IF(E236="","",IF(E236="Bull",2,IF(E236="Bear",-1,0)))',
-    }
-    for coord, formula in formulas.items():
-        ws[coord] = formula
 
 
 def _neutralize_writable_data_like_fills(wb: Workbook, manifest: dict[str, Any]) -> None:
@@ -1669,11 +1718,11 @@ def _materialize_rich_shell(
     _clear_source_specific_visible_text(wb, manifest)
     _genericize_sector_specific_visible_text(wb, manifest)
     _clear_writable_zones(wb, manifest)
+    _clear_investment_case_scenario_surfaces(wb)
     _neutralize_quarter_notes_history(wb)
     _clear_visible_source_values_and_notes(wb, manifest)
     _clear_valuation_numeric_constants(wb)
     _clear_valuation_runtime_value_constants(wb)
-    _guard_valuation_scenario_formulas_until_input(wb)
     _neutralize_writable_data_like_fills(wb, manifest)
     _neutralize_visible_blank_gray_fills(wb)
     _neutralize_valuation_signal_fills(wb)
@@ -1700,6 +1749,10 @@ def _materialize_rich_shell(
     _apply_module_profile_boundaries(wb, module_payload, resolved_profile)
     _remove_company_specific_defined_names(wb)
     _neutralize_hidden_support_sheets(wb, manifest)
+    apply_standard_support_formula_contracts(
+        wb,
+        enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
+    )
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _ensure_qa_headers(wb)
     _remove_qa_excel_tables(wb)
@@ -1738,9 +1791,12 @@ def materialize_shell(
     module_payload = load_workbook_module_manifest(module_manifest_path)
     resolved_profile = resolve_module_profile(module_payload, module_profile_id)
     manifest = build_profile_shell_manifest(base_manifest, module_payload, resolved_profile)
+    _configure_investment_case_ownership_zones(manifest)
     binding_payload = build_profile_binding_payload(base_binding_payload, module_payload, resolved_profile)
+    _ensure_hidden_support_planner_contracts(manifest, binding_payload)
     manifest["version"] = "0.3.0"
     manifest["semantic_contract_version"] = SHELL_SEMANTIC_CONTRACT_VERSION
+    manifest["formula_contract_version"] = FORMULA_CONTRACT_VERSION
     manifest["optional_support_sheets"] = [
         {
             "sheet": str(row["sheet"]),
@@ -1807,6 +1863,10 @@ def materialize_shell(
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
     )
     _apply_module_profile_boundaries(wb, module_payload, resolved_profile)
+    apply_standard_support_formula_contracts(
+        wb,
+        enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
+    )
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _configure_calculation(wb)
     _configure_deterministic_properties(wb)
@@ -1831,6 +1891,90 @@ def materialize_shell(
             binding_output_path=binding_output,
         )
     return output_path
+
+
+def _range_contains(container: str, target: str) -> bool:
+    left, top, right, bottom = range_boundaries(container)
+    target_left, target_top, target_right, target_bottom = range_boundaries(target)
+    return left <= target_left and top <= target_top and right >= target_right and bottom >= target_bottom
+
+
+def _ensure_hidden_support_planner_contracts(
+    manifest: dict[str, Any],
+    binding_payload: dict[str, Any],
+) -> None:
+    """Add exact contracts for active table bindings on declared support capacity."""
+
+    support_rows = {
+        str(row.get("sheet") or ""): row
+        for row in manifest.get("sheets") or []
+        if str(row.get("module_role") or "") != "visible_product"
+    }
+    support_sheets = set(support_rows)
+    zone_ids_by_sheet: dict[str, set[str]] = {}
+    for binding in binding_payload.get("bindings") or []:
+        sheet = str(binding.get("sheet") or "")
+        if (
+            sheet in support_sheets
+            and str(binding.get("planning_state") or "active") == "active"
+            and binding.get("writable") is True
+        ):
+            zone_ids_by_sheet.setdefault(sheet, set()).add(str(binding.get("shell_zone") or ""))
+    for sheet, zone_ids in zone_ids_by_sheet.items():
+        if len(zone_ids) != 1 or "" in zone_ids:
+            raise ValueError(f"{sheet}: active support bindings require one shared non-empty shell zone.")
+        writable_zones = support_rows[sheet].get("writable_zones") or []
+        if len(writable_zones) != 1:
+            raise ValueError(f"{sheet}: support binding requires exactly one writable shell zone.")
+        writable_zones[0]["zone_id"] = next(iter(zone_ids))
+    contracts = list(manifest.get("planner_cell_contracts") or [])
+    for binding in binding_payload.get("bindings") or []:
+        if (
+            str(binding.get("sheet") or "") not in support_sheets
+            or str(binding.get("planning_state") or "active") != "active"
+            or binding.get("writable") is not True
+            or str(binding.get("planning_mode") or "") not in {"table_rows", "validation_rows"}
+        ):
+            continue
+        binding_id = str(binding.get("binding_id") or "")
+        sheet = str(binding.get("sheet") or "")
+        planner_target = str(binding.get("planner_target") or binding.get("target") or "")
+        left, top, right, bottom = range_boundaries(planner_target)
+        for column in binding.get("target_columns") or []:
+            target_column = str(column.get("target_column") or "").upper()
+            role = str(column.get("target_role") or "")
+            target_type = str(column.get("target_type") or "")
+            if not role or not target_type:
+                raise ValueError(f"{binding_id}: support target {target_column} requires target_role and target_type.")
+            column_index = range_boundaries(f"{target_column}1")[0]
+            if column_index < left or column_index > right:
+                raise ValueError(f"{binding_id}: target column {target_column} is outside {planner_target}.")
+            target = f"{target_column}{top}:{target_column}{bottom}"
+            same_sheet = [row for row in contracts if str(row.get("sheet") or "") == sheet]
+            matches = [row for row in same_sheet if _range_contains(str(row.get("target") or ""), target)]
+            if len(matches) == 1 and str(matches[0].get("contract_id") or "").startswith("support_"):
+                matches[0]["target_role"] = role
+                matches[0]["allowed_binding_ids"] = [binding_id]
+                matches[0]["allowed_target_types"] = [target_type]
+                continue
+            if matches:
+                continue
+            overlaps = [row for row in same_sheet if _ranges_overlap(str(row.get("target") or ""), target)]
+            if overlaps:
+                raise ValueError(f"{binding_id}: planner target {sheet}!{target} overlaps an existing cell contract.")
+            token = re.sub(r"[^a-z0-9]+", "_", f"{binding_id}_{column.get('column_id') or target_column}".lower()).strip("_")
+            contracts.append(
+                {
+                    "contract_id": f"support_{token}",
+                    "sheet": sheet,
+                    "target": target,
+                    "writable": True,
+                    "target_role": role,
+                    "allowed_binding_ids": [binding_id],
+                    "allowed_target_types": [target_type],
+                }
+            )
+    manifest["planner_cell_contracts"] = contracts
 
 
 def _update_manifest_identity(

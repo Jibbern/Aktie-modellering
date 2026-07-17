@@ -2,9 +2,9 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-15T11:58:36+00:00`
-- Bindings with populated data: `75` / `160`
-- Bindings that would write useful output: `103`
+- Generated: `2026-07-16T22:00:08+00:00`
+- Bindings with populated data: `76` / `161`
+- Bindings that would write useful output: `106`
 
 | Binding | Sheet | Field | Values | Rows | Would write | Reason if blank |
 | --- | --- | --- | ---: | ---: | --- | --- |
@@ -53,15 +53,15 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `od_horizon_commentary_rows` | `Operating_Drivers` | `operating_drivers.items.0.driver` | 34 | 34/11 | False | binding planning_state is inactive_legacy_contract |
 | `od_current_outlook_rows` | `Operating_Drivers` | `operating_drivers.items.0.driver` | 34 | 34/25 | False | binding planning_state is inactive_legacy_contract |
 | `od_driver_actuals_rows` | `Operating_Drivers` | `operating_drivers.items.0.metric_value` | 19 | 19/70 | False | binding planning_state is inactive_legacy_contract |
-| `ic_investment_summary` | `{ticker}_Investment_Case` | `investment_case.summary` | 1 | 1/26 | True |  |
+| `ic_investment_summary` | `{ticker}_Investment_Case` | `investment_case.summary` | 1 | 1/1 | True |  |
 | `ic_key_debate` | `{ticker}_Investment_Case` | `investment_case.key_debate` | 1 | 1/1 | True |  |
 | `ic_why_it_can_work` | `{ticker}_Investment_Case` | `investment_case.why_it_can_work` | 1 | 1/1 | True |  |
 | `ic_upside_factors` | `{ticker}_Investment_Case` | `investment_case.upside_factors` | 1 | 1/1 | True |  |
 | `ic_downside_factors` | `{ticker}_Investment_Case` | `investment_case.downside_factors` | 1 | 1/1 | True |  |
 | `ic_watch_next` | `{ticker}_Investment_Case` | `investment_case.watch_next` | 1 | 1/1 | True |  |
 | `ic_current_stance` | `{ticker}_Investment_Case` | `investment_case.current_stance` | 1 | 1/1 | True |  |
-| `ic_bull_base_bear_rows` | `{ticker}_Investment_Case` | `investment_case.scenario_drivers` | 1 | 1/50 | False | binding planning_state is inactive_legacy_contract |
-| `ic_scenario_bridge_rows` | `{ticker}_Investment_Case` | `segments.items.0.revenue` | 105 | 105/60 | False | binding planning_state is inactive_legacy_contract |
+| `ic_bull_base_bear_rows` | `Scenario_Driver_Assumptions` | `investment_case.scenario_items` | 16 | 16/200 | True |  |
+| `ic_scenario_bridge_rows` | `{ticker}_Investment_Case_Data` | `investment_case.scenario_driver_bridge` | 6 | 6/200 | True |  |
 | `ic_lower_comp_history_labels` | `{ticker}_Investment_Case` | `operating_drivers.items.0.driver` | 34 | 34/7 | False | binding planning_state is inactive_legacy_contract |
 | `ic_lower_business_health_rows` | `{ticker}_Investment_Case` | `operating_drivers.items.0.current_read` | 34 | 34/6 | False | binding planning_state is inactive_legacy_contract |
 | `ic_lower_inventory_rows` | `{ticker}_Investment_Case` | `operating_drivers.items.0.metric_value` | 19 | 19/8 | False | binding planning_state is inactive_legacy_contract |
@@ -168,6 +168,7 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `valuation_input_tangible_book_value_per_share` | `Valuation` | `valuation_inputs.tangible_book_value_per_share` | 0 | 0/1 | False | normalized field is absent or not populated |
 | `valuation_input_capex_ttm` | `Valuation` | `valuation_inputs.capex_ttm` | 1 | 1/1 | True |  |
 | `valuation_input_interest_paid_ttm` | `Valuation` | `valuation_inputs.interest_paid_ttm` | 0 | 0/1 | False | normalized field is absent or not populated |
+| `valuation_input_net_income_ttm` | `Valuation` | `valuation_inputs.net_income_ttm` | 1 | 1/1 | True |  |
 
 ## Row Schema Observation
 

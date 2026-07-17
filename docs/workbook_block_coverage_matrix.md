@@ -102,8 +102,6 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | od_current_outlook_values | Operating_Drivers | yes | same | similar | different | same | GPRE has separate sector overlays that are excluded from standard blocks |
 | od_driver_actuals_values | Operating_Drivers | yes | same | similar | different | same | ANF: source sheet shorter than block range, PBI: source sheet shorter than block range, GPRE: source sheet shorter than block range, +1 more |
 | ic_snapshot_values | {ticker}_Investment_Case | yes | same | similar | same | same | - |
-| ic_manual_input_values | {ticker}_Investment_Case | yes | same | similar | similar | same | - |
-| ic_scenario_bridge_values | {ticker}_Investment_Case | yes | same | similar | similar | same | PBI: source sheet shorter than block range, GPRE: source sheet shorter than block range |
 | ic_lower_comp_history_labels | {ticker}_Investment_Case | yes | missing | similar | different | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: source sheet shorter than block range |
 | ic_lower_business_health_values | {ticker}_Investment_Case | yes | missing | similar | similar | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
 | ic_lower_inventory_values | {ticker}_Investment_Case | yes | missing | similar | different | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |

@@ -2,7 +2,7 @@
 
 Read-only audit for the ANF shadow normalized-data package. This document does not define workbook rendering behavior.
 
-- Generated: `2026-07-15T11:58:33+00:00`
+- Generated: `2026-07-16T22:00:05+00:00`
 - Legacy workbook: `C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models\ANF_model.xlsx`
 
 | Section | Classification | Source candidates | Populated fields |
@@ -19,7 +19,7 @@ Read-only audit for the ANF shadow normalized-data package. This document does n
 | `segments` | source-backed available, legacy-workbook-derived available, missing source, manual review required | ANF_model.xlsx!Slides_Segments; earnings release segment tables; presentation tables | 1121 |
 | `operating_drivers` | source-backed available, legacy-workbook-derived available, missing source, manual review required | ANF_model.xlsx!operating_drivers_raw; transcripts; earnings presentations | 161 |
 | `quarter_notes` | source-backed available, legacy-workbook-derived available, manual review required | ANF_model.xlsx!Quarter_Notes; ANF_model.xlsx!Quarter_Notes_Evidence | 58 |
-| `investment_case` | source-backed available, profile-backed available, legacy-workbook-derived available, missing source | ANF_model.xlsx!SUMMARY; ANF_model.xlsx!ANF_Investment_Case_Data | 10 |
+| `investment_case` | source-backed available, profile-backed available, legacy-workbook-derived available, missing source, manual review required | ANF_model.xlsx!SUMMARY; ANF_model.xlsx!ANF_Investment_Case_Data | 15 |
 | `valuation_outputs` | missing source | explicit normalized valuation output builder (not available in the ANF legacy adapter fixture) | 0 |
 | `source_coverage` | missing source | StockModelData/tickers/ANF; StockModelData/sec_cache/ANF | 0 |
 | `mapping_gaps` | none | docs/workbook_binding_map.json; normalized package | 0 |
