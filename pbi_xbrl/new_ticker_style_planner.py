@@ -937,6 +937,50 @@ class _FormulaEvaluator:
         return None
 
 
+class FormulaEconomicLookup:
+    """Read-only access to accepted source and formula economic projections.
+
+    Deterministic downstream planners can reuse the formula contract without
+    depending on Excel caches or recreating financial calculations.  The facade
+    does not expose the evaluator's cache or permit callers to add formulas.
+    """
+
+    def __init__(self, package: Mapping[str, Any]) -> None:
+        histories, conflicts, _ = _build_histories(package)
+        self._histories = histories
+        self._evaluator = _FormulaEvaluator(histories, conflicts)
+
+    def formula_point(self, formula_id: str, period: str) -> tuple[EconomicPoint | None, str]:
+        return self._evaluator.evaluate(formula_id, period)
+
+    def formula_lineage(self, formula_id: str) -> tuple[str, ...]:
+        result: set[str] = set()
+
+        def collect(identifier: str) -> None:
+            if identifier in result:
+                return
+            spec = FORMULA_ECONOMIC_SPECS.get(identifier)
+            if spec is None:
+                return
+            result.add(identifier)
+            for ref in spec.inputs:
+                kind, _, dependency = ref.partition(":")
+                if kind == "formula":
+                    collect(dependency)
+
+        collect(formula_id)
+        return tuple(sorted(result))
+
+    def periods(self, *, period_type: str = "quarter") -> tuple[str, ...]:
+        values = {
+            period
+            for series in (self._histories.get(period_type) or {}).values()
+            for period in series
+            if _period_matches(period, period_type)
+        }
+        return tuple(sorted(values))
+
+
 def _combine_points(
     operation: str,
     points: Sequence[EconomicPoint],

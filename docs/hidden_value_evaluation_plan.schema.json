@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hidden_value_evaluation_plan.schema.json",
+  "title": "Hidden Value evaluation plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plan_version",
+    "status",
+    "ticker",
+    "profile_id",
+    "as_of_period",
+    "contract_digest",
+    "candidate_count",
+    "state_counts",
+    "candidates",
+    "projections"
+  ],
+  "properties": {
+    "plan_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "status": {"const": "PASS"},
+    "ticker": {"type": "string"},
+    "profile_id": {"type": "string", "minLength": 1},
+    "as_of_period": {"type": "string"},
+    "contract_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "candidate_count": {"type": "integer", "minimum": 0},
+    "state_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "candidates": {"type": "array", "items": {"$ref": "#/$defs/candidate"}},
+    "projections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base", "audit", "recompute", "flags"],
+      "properties": {
+        "base": {"type": "array", "items": {"$ref": "#/$defs/resolvedMetric"}},
+        "audit": {"type": "array", "items": {"$ref": "#/$defs/auditRow"}},
+        "recompute": {"type": "array", "items": {"oneOf": [{"$ref": "#/$defs/recomputePredicate"}, {"$ref": "#/$defs/recomputeComponent"}]}},
+        "flags": {"type": "array", "items": {"$ref": "#/$defs/flagRow"}}
+      }
+    }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_key",
+        "signal_id",
+        "display_name",
+        "profile_id",
+        "as_of_period",
+        "state",
+        "triggered",
+        "score",
+        "score_denominator",
+        "severity",
+        "priority",
+        "reasons",
+        "evidence_ids",
+        "source_refs",
+        "resolved_inputs",
+        "predicate_results",
+        "component_scores"
+      ],
+      "properties": {
+        "candidate_key": {"type": "string", "minLength": 1},
+        "signal_id": {"type": "string", "minLength": 1},
+        "display_name": {"type": "string", "minLength": 1},
+        "profile_id": {"type": "string", "minLength": 1},
+        "as_of_period": {"type": "string"},
+        "state": {
+          "enum": [
+            "triggered",
+            "near_miss",
+            "not_triggered",
+            "unavailable",
+            "insufficient_evidence",
+            "invalid_input"
+          ]
+        },
+        "triggered": {"type": "boolean"},
+        "score": {"type": ["number", "null"]},
+        "score_denominator": {"type": "number", "minimum": 0},
+        "severity": {"type": ["string", "null"]},
+        "priority": {"type": "integer", "minimum": 1},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "source_refs": {"type": "array", "items": {"type": "string"}},
+        "resolved_inputs": {"type": "array", "items": {"$ref": "#/$defs/resolvedMetric"}},
+        "predicate_results": {"type": "array", "items": {"$ref": "#/$defs/predicateResult"}},
+        "component_scores": {"type": "array", "items": {"$ref": "#/$defs/componentScore"}}
+      }
+    },
+    "resolvedMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric_id", "value", "unit", "period", "period_role", "dimension_id", "member", "status", "reason", "evidence_ids", "source_refs", "formula_ids"],
+      "properties": {
+        "metric_id": {"type": "string", "minLength": 1},
+        "value": {"type": ["number", "null"]},
+        "unit": {"type": "string"},
+        "period": {"type": "string"},
+        "period_role": {"type": "string", "minLength": 1},
+        "dimension_id": {"type": "string", "minLength": 1},
+        "member": {"type": "string", "minLength": 1},
+        "status": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "source_refs": {"type": "array", "items": {"type": "string"}},
+        "formula_ids": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "predicateResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "predicate_id", "metric_id", "operator", "value", "comparison_value", "comparison_metric_id", "passed", "reason"],
+      "properties": {
+        "stage": {"enum": ["eligibility", "trigger", "near_miss"]},
+        "predicate_id": {"type": "string", "minLength": 1},
+        "metric_id": {"type": "string", "minLength": 1},
+        "operator": {"enum": ["gt", "gte", "lt", "lte"]},
+        "value": {"type": ["number", "null"]},
+        "comparison_value": {"type": ["number", "null"]},
+        "comparison_metric_id": {"type": ["string", "null"]},
+        "passed": {"type": ["boolean", "null"]},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "componentScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component_id", "metric_id", "value", "weight", "included_weight", "normalized_score", "weighted_score", "status", "reason"],
+      "properties": {
+        "component_id": {"type": "string", "minLength": 1},
+        "metric_id": {"type": "string", "minLength": 1},
+        "value": {"type": ["number", "null"]},
+        "weight": {"type": "number", "minimum": 0},
+        "included_weight": {"type": "number", "minimum": 0},
+        "normalized_score": {"type": ["number", "null"]},
+        "weighted_score": {"type": ["number", "null"]},
+        "status": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "auditRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_key", "signal_id", "state", "triggered", "score", "score_denominator", "severity", "reasons", "evidence_ids", "source_refs"],
+      "properties": {
+        "candidate_key": {"type": "string", "minLength": 1},
+        "signal_id": {"type": "string", "minLength": 1},
+        "state": {"type": "string", "minLength": 1},
+        "triggered": {"type": "boolean"},
+        "score": {"type": ["number", "null"]},
+        "score_denominator": {"type": "number", "minimum": 0},
+        "severity": {"type": ["string", "null"]},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "source_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "recomputePredicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_key", "record_type", "stage", "predicate_id", "metric_id", "operator", "value", "comparison_value", "comparison_metric_id", "passed", "reason"],
+      "properties": {
+        "candidate_key": {"type": "string", "minLength": 1},
+        "record_type": {"const": "predicate"},
+        "stage": {"enum": ["eligibility", "trigger", "near_miss"]},
+        "predicate_id": {"type": "string", "minLength": 1},
+        "metric_id": {"type": "string", "minLength": 1},
+        "operator": {"enum": ["gt", "gte", "lt", "lte"]},
+        "value": {"type": ["number", "null"]},
+        "comparison_value": {"type": ["number", "null"]},
+        "comparison_metric_id": {"type": ["string", "null"]},
+        "passed": {"type": ["boolean", "null"]},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "recomputeComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_key", "record_type", "component_id", "metric_id", "value", "weight", "included_weight", "normalized_score", "weighted_score", "status", "reason"],
+      "properties": {
+        "candidate_key": {"type": "string", "minLength": 1},
+        "record_type": {"const": "score_component"},
+        "component_id": {"type": "string", "minLength": 1},
+        "metric_id": {"type": "string", "minLength": 1},
+        "value": {"type": ["number", "null"]},
+        "weight": {"type": "number", "minimum": 0},
+        "included_weight": {"type": "number", "minimum": 0},
+        "normalized_score": {"type": ["number", "null"]},
+        "weighted_score": {"type": ["number", "null"]},
+        "status": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "flagRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_key", "signal_id", "display_name", "score", "triggered", "state", "severity", "as_of_period", "reason", "evidence_ids"],
+      "properties": {
+        "candidate_key": {"type": "string", "minLength": 1},
+        "signal_id": {"type": "string", "minLength": 1},
+        "display_name": {"type": "string", "minLength": 1},
+        "score": {"type": "number"},
+        "triggered": {"const": true},
+        "state": {"const": "triggered"},
+        "severity": {"type": "string", "minLength": 1},
+        "as_of_period": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

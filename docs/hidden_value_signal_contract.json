@@ -1,0 +1,323 @@
+{
+  "$schema": "hidden_value_signal_contract.schema.json",
+  "contract_version": "1.0.0",
+  "plan_version": "1.0.0",
+  "owner_module_id": "hidden_value_signals",
+  "trusted_statuses": ["populated", "source_backed"],
+  "states": [
+    "triggered",
+    "near_miss",
+    "not_triggered",
+    "unavailable",
+    "insufficient_evidence",
+    "invalid_input"
+  ],
+  "severity_bands": [
+    {"severity": "high", "minimum_score": 70},
+    {"severity": "medium", "minimum_score": 40},
+    {"severity": "low", "minimum_score": 0}
+  ],
+  "metric_resolvers": [
+    {"metric_id": "ebit_ttm", "unit": "$m", "period_role": "ttm", "resolver": {"kind": "formula", "formula_id": "operating_income_ttm"}},
+    {"metric_id": "ebit_ttm_prior_yoy", "unit": "$m", "period_role": "ttm", "resolver": {"kind": "lagged", "input_metric_id": "ebit_ttm", "lag": 4}},
+    {"metric_id": "ebit_growth_yoy", "unit": "%", "period_role": "derived", "resolver": {"kind": "relative_change", "current_metric_id": "ebit_ttm", "prior_metric_id": "ebit_ttm_prior_yoy", "denominator_rule": "nonzero"}},
+    {"metric_id": "base_ebitda_ttm", "unit": "$m", "period_role": "ttm", "resolver": {"kind": "formula", "formula_id": "ebitda_ttm"}},
+    {"metric_id": "base_ebitda_ttm_prior_yoy", "unit": "$m", "period_role": "ttm", "resolver": {"kind": "lagged", "input_metric_id": "base_ebitda_ttm", "lag": 4}},
+    {"metric_id": "base_ebitda_growth_yoy", "unit": "%", "period_role": "derived", "resolver": {"kind": "relative_change", "current_metric_id": "base_ebitda_ttm", "prior_metric_id": "base_ebitda_ttm_prior_yoy", "denominator_rule": "nonzero"}},
+    {"metric_id": "revenue_ttm", "unit": "$m", "period_role": "ttm", "resolver": {"kind": "formula", "formula_id": "revenue_ttm"}},
+    {"metric_id": "revenue_ttm_prior_yoy", "unit": "$m", "period_role": "ttm", "resolver": {"kind": "lagged", "input_metric_id": "revenue_ttm", "lag": 4}},
+    {"metric_id": "growth_base_minimum", "unit": "$m", "period_role": "derived", "resolver": {"kind": "max_constant_scaled", "scaled_metric_id": "revenue_ttm_prior_yoy", "constant": 10.0, "scale": 0.002}},
+    {"metric_id": "shares_outstanding", "unit": "m shares", "period_role": "point_in_time", "resolver": {"kind": "source_metric", "source_metric_ids": ["shares_outstanding"], "disposition_path": "valuation_inputs.shares_outstanding"}},
+    {"metric_id": "shares_outstanding_prior_yoy", "unit": "m shares", "period_role": "point_in_time", "resolver": {"kind": "lagged", "input_metric_id": "shares_outstanding", "lag": 4}},
+    {"metric_id": "shares_outstanding_yoy", "unit": "%", "period_role": "derived", "resolver": {"kind": "relative_change", "current_metric_id": "shares_outstanding", "prior_metric_id": "shares_outstanding_prior_yoy", "denominator_rule": "positive"}},
+    {"metric_id": "adjusted_ebitda_ttm", "unit": "$m", "period_role": "ttm", "resolver": {"kind": "formula", "formula_id": "adjusted_ebitda_ttm"}},
+    {"metric_id": "adjusted_ebitda_margin_ttm", "unit": "%", "period_role": "ttm", "resolver": {"kind": "formula", "formula_id": "adjusted_ebitda_margin_ttm"}},
+    {"metric_id": "adjusted_ebitda_margin_ttm_prior_yoy", "unit": "%", "period_role": "ttm", "resolver": {"kind": "lagged", "input_metric_id": "adjusted_ebitda_margin_ttm", "lag": 4}},
+    {"metric_id": "adjusted_ebitda_margin_yoy_bps", "unit": "bps", "period_role": "derived", "resolver": {"kind": "scaled_change", "current_metric_id": "adjusted_ebitda_margin_ttm", "prior_metric_id": "adjusted_ebitda_margin_ttm_prior_yoy", "scale": 10000}},
+    {"metric_id": "adjusted_ebitda_margin_streak", "unit": "quarters", "period_role": "derived", "resolver": {"kind": "nondecreasing_streak", "input_metric_id": "adjusted_ebitda_margin_ttm", "max_periods": 20}},
+    {"metric_id": "free_cash_flow_ttm", "unit": "$m", "period_role": "ttm", "resolver": {"kind": "formula", "formula_id": "free_cash_flow_ttm"}},
+    {"metric_id": "positive_fcf_ttm_observations", "unit": "observations", "period_role": "derived", "resolver": {"kind": "positive_window_count", "input_metric_id": "free_cash_flow_ttm", "window": 4}},
+    {"metric_id": "fcf_to_ebit", "unit": "x", "period_role": "derived", "resolver": {"kind": "ratio", "numerator_metric_id": "free_cash_flow_ttm", "denominator_metric_id": "ebit_ttm", "denominator_rule": "positive"}},
+    {"metric_id": "share_price", "unit": "$/share", "period_role": "point_in_time", "resolver": {"kind": "package_point", "path": "valuation_inputs.price", "period_path": "valuation_inputs.price.period"}},
+    {"metric_id": "market_cap_explicit", "unit": "$m", "period_role": "point_in_time", "resolver": {"kind": "source_metric", "source_metric_ids": ["market_cap"]}},
+    {"metric_id": "market_cap", "unit": "$m", "period_role": "point_in_time", "resolver": {"kind": "market_cap", "explicit_metric_id": "market_cap_explicit", "price_metric_id": "share_price", "shares_metric_id": "shares_outstanding", "allow_explicit_or_derived": true}},
+    {"metric_id": "fcf_yield", "unit": "%", "period_role": "derived", "resolver": {"kind": "ratio", "numerator_metric_id": "free_cash_flow_ttm", "denominator_metric_id": "market_cap", "denominator_rule": "positive"}},
+    {"metric_id": "net_debt", "unit": "$m", "period_role": "point_in_time", "resolver": {"kind": "source_metric", "source_metric_ids": ["net_debt"], "disposition_path": "debt_liquidity.net_debt"}},
+    {"metric_id": "net_debt_prior_yoy", "unit": "$m", "period_role": "point_in_time", "resolver": {"kind": "lagged", "input_metric_id": "net_debt", "lag": 4}},
+    {"metric_id": "net_debt_reduction", "unit": "%", "period_role": "derived", "resolver": {"kind": "relative_change", "current_metric_id": "net_debt", "prior_metric_id": "net_debt_prior_yoy", "denominator_rule": "prior_positive", "scale": -1}},
+    {"metric_id": "net_leverage", "unit": "x", "period_role": "derived", "resolver": {"kind": "ratio", "numerator_metric_id": "net_debt", "denominator_metric_id": "base_ebitda_ttm", "denominator_rule": "positive"}},
+    {"metric_id": "interest_expense_ttm", "unit": "$m", "period_role": "ttm", "resolver": {"kind": "formula", "formula_id": "_interest_expense_ttm"}},
+    {"metric_id": "interest_coverage", "unit": "x", "period_role": "derived", "resolver": {"kind": "ratio", "numerator_metric_id": "ebit_ttm", "denominator_metric_id": "interest_expense_ttm", "denominator_rule": "positive"}},
+    {"metric_id": "free_cash_flow_per_share", "unit": "$/share", "period_role": "derived", "resolver": {"kind": "ratio", "numerator_metric_id": "free_cash_flow_ttm", "denominator_metric_id": "shares_outstanding", "denominator_rule": "positive"}},
+    {"metric_id": "free_cash_flow_per_share_prior_yoy", "unit": "$/share", "period_role": "derived", "resolver": {"kind": "lagged", "input_metric_id": "free_cash_flow_per_share", "lag": 4}},
+    {"metric_id": "free_cash_flow_per_share_yoy", "unit": "%", "period_role": "derived", "resolver": {"kind": "relative_change", "current_metric_id": "free_cash_flow_per_share", "prior_metric_id": "free_cash_flow_per_share_prior_yoy", "denominator_rule": "nonzero"}},
+    {"metric_id": "dividend_per_share", "unit": "$/share", "period_role": "quarter", "resolver": {"kind": "source_metric", "source_metric_ids": ["dividend_per_share"], "disposition_path": "capital_returns.dividends"}},
+    {"metric_id": "dividend_per_share_prior_qoq", "unit": "$/share", "period_role": "quarter", "resolver": {"kind": "lagged", "input_metric_id": "dividend_per_share", "lag": 1}},
+    {"metric_id": "dividend_per_share_prior_yoy", "unit": "$/share", "period_role": "quarter", "resolver": {"kind": "lagged", "input_metric_id": "dividend_per_share", "lag": 4}},
+    {"metric_id": "dividend_per_share_qoq", "unit": "%", "period_role": "derived", "resolver": {"kind": "relative_change", "current_metric_id": "dividend_per_share", "prior_metric_id": "dividend_per_share_prior_qoq", "denominator_rule": "nonzero"}},
+    {"metric_id": "dividend_per_share_yoy", "unit": "%", "period_role": "derived", "resolver": {"kind": "relative_change", "current_metric_id": "dividend_per_share", "prior_metric_id": "dividend_per_share_prior_yoy", "denominator_rule": "nonzero"}},
+    {"metric_id": "dividend_per_share_ttm", "unit": "$/share", "period_role": "ttm", "resolver": {"kind": "rolling_sum", "input_metric_id": "dividend_per_share", "window": 4}},
+    {"metric_id": "dividend_yield", "unit": "%", "period_role": "derived", "resolver": {"kind": "ratio", "numerator_metric_id": "dividend_per_share_ttm", "denominator_metric_id": "share_price", "denominator_rule": "positive"}}
+  ],
+  "signals": [
+    {
+      "signal_id": "A",
+      "owner_module_id": "hidden_value_signals",
+      "profile_pack_ids": [],
+      "display_name": "EBIT and EBITDA growth with shrinking share count",
+      "description": "Strong base operating growth supported by a declining point-in-time share count.",
+      "required_modules": ["core_financial_history", "balance_cash_flow"],
+      "required_metric_ids": ["ebit_growth_yoy", "base_ebitda_growth_yoy", "shares_outstanding_yoy", "ebit_ttm_prior_yoy", "base_ebitda_ttm_prior_yoy", "growth_base_minimum"],
+      "optional_metric_ids": [],
+      "eligibility": {"mode": "all", "predicates": [
+        {"predicate_id": "prior_ebit_material", "metric_id": "ebit_ttm_prior_yoy", "operator": "gt", "right_metric_id": "growth_base_minimum"},
+        {"predicate_id": "prior_ebitda_material", "metric_id": "base_ebitda_ttm_prior_yoy", "operator": "gt", "right_metric_id": "growth_base_minimum"}
+      ]},
+      "trigger": {"mode": "all", "predicates": [
+        {"predicate_id": "ebit_growth", "metric_id": "ebit_growth_yoy", "operator": "gt", "threshold": 0.25},
+        {"predicate_id": "ebitda_growth", "metric_id": "base_ebitda_growth_yoy", "operator": "gt", "threshold": 0.20},
+        {"predicate_id": "share_reduction", "metric_id": "shares_outstanding_yoy", "operator": "lte", "threshold": -0.02}
+      ]},
+      "near_miss": {"mode": "all", "minimum_trigger_predicates": 2, "predicates": [
+        {"predicate_id": "ebit_growth_near", "metric_id": "ebit_growth_yoy", "operator": "gte", "threshold": 0.20},
+        {"predicate_id": "ebitda_growth_near", "metric_id": "base_ebitda_growth_yoy", "operator": "gte", "threshold": 0.15},
+        {"predicate_id": "share_reduction_near", "metric_id": "shares_outstanding_yoy", "operator": "lte", "threshold": -0.01}
+      ]},
+      "score_components": [
+        {"component_id": "ebit_growth_score", "metric_id": "ebit_growth_yoy", "weight": 40, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.25, "span": 0.50, "base": 0.30}},
+        {"component_id": "ebitda_growth_score", "metric_id": "base_ebitda_growth_yoy", "weight": 40, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.20, "span": 0.40, "base": 0.30}},
+        {"component_id": "share_reduction_score", "metric_id": "shares_outstanding_yoy", "weight": 20, "required": true, "normalization": {"method": "linear_clamped", "direction": "lower", "threshold": -0.02, "span": 0.05, "base": 0.20}}
+      ],
+      "reweight_available_components": false,
+      "severity": "score_band",
+      "missing_behavior": "insufficient_evidence",
+      "unavailable_behavior": "unavailable",
+      "priority": 10,
+      "deduplication_fields": ["signal_id", "profile_id", "as_of_period"],
+      "visible_display_policy": "triggered_only",
+      "audit_policy": "all_candidates",
+      "style_policy_id": "hidden_value_signal_triggered",
+      "evidence_requirements": {"exact_source_refs": true, "formula_lineage": true, "trusted_status_only": true}
+    },
+    {
+      "signal_id": "B",
+      "owner_module_id": "hidden_value_signals",
+      "profile_pack_ids": [],
+      "display_name": "Adjusted margin expansion with streak",
+      "description": "Source-backed adjusted EBITDA margin is high, expanding and nondecreasing.",
+      "required_modules": ["core_financial_history", "non_gaap_adjustments"],
+      "required_metric_ids": ["adjusted_ebitda_ttm", "adjusted_ebitda_margin_ttm", "adjusted_ebitda_margin_yoy_bps", "adjusted_ebitda_margin_streak", "revenue_ttm"],
+      "optional_metric_ids": [],
+      "eligibility": {"mode": "all", "predicates": [
+        {"predicate_id": "positive_revenue", "metric_id": "revenue_ttm", "operator": "gt", "threshold": 0},
+        {"predicate_id": "adjusted_metric_present", "metric_id": "adjusted_ebitda_ttm", "operator": "gt", "threshold": -1000000000}
+      ]},
+      "trigger": {"mode": "all", "predicates": [
+        {"predicate_id": "margin_level", "metric_id": "adjusted_ebitda_margin_ttm", "operator": "gte", "threshold": 0.20},
+        {"predicate_id": "margin_expansion", "metric_id": "adjusted_ebitda_margin_yoy_bps", "operator": "gte", "threshold": 200},
+        {"predicate_id": "margin_streak", "metric_id": "adjusted_ebitda_margin_streak", "operator": "gte", "threshold": 2}
+      ]},
+      "near_miss": {"mode": "all", "predicates": [
+        {"predicate_id": "margin_level_near", "metric_id": "adjusted_ebitda_margin_ttm", "operator": "gte", "threshold": 0.18},
+        {"predicate_id": "margin_expansion_near", "metric_id": "adjusted_ebitda_margin_yoy_bps", "operator": "gte", "threshold": 150},
+        {"predicate_id": "margin_streak_near", "metric_id": "adjusted_ebitda_margin_streak", "operator": "gte", "threshold": 1}
+      ]},
+      "score_components": [
+        {"component_id": "margin_level_score", "metric_id": "adjusted_ebitda_margin_ttm", "weight": 40, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.20, "span": 0.15, "base": 0.30}},
+        {"component_id": "margin_expansion_score", "metric_id": "adjusted_ebitda_margin_yoy_bps", "weight": 35, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 200, "span": 500, "base": 0.30}},
+        {"component_id": "margin_streak_score", "metric_id": "adjusted_ebitda_margin_streak", "weight": 25, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 2, "span": 4, "base": 0.25}}
+      ],
+      "reweight_available_components": false,
+      "severity": "score_band",
+      "missing_behavior": "insufficient_evidence",
+      "unavailable_behavior": "unavailable",
+      "priority": 20,
+      "deduplication_fields": ["signal_id", "profile_id", "as_of_period"],
+      "visible_display_policy": "triggered_only",
+      "audit_policy": "all_candidates",
+      "style_policy_id": "hidden_value_signal_triggered",
+      "evidence_requirements": {"exact_source_refs": true, "formula_lineage": true, "trusted_status_only": true}
+    },
+    {
+      "signal_id": "C",
+      "owner_module_id": "hidden_value_signals",
+      "profile_pack_ids": [],
+      "display_name": "Cash-flow quality and yield support",
+      "description": "Positive trailing FCF, cash conversion and market yield jointly support value.",
+      "required_modules": ["core_financial_history", "balance_cash_flow"],
+      "required_metric_ids": ["positive_fcf_ttm_observations", "fcf_to_ebit", "fcf_yield", "ebit_ttm", "market_cap"],
+      "optional_metric_ids": [],
+      "eligibility": {"mode": "all", "predicates": [
+        {"predicate_id": "positive_ebit", "metric_id": "ebit_ttm", "operator": "gt", "threshold": 0},
+        {"predicate_id": "positive_market_cap", "metric_id": "market_cap", "operator": "gt", "threshold": 0}
+      ]},
+      "trigger": {"mode": "all", "predicates": [
+        {"predicate_id": "positive_observation", "metric_id": "positive_fcf_ttm_observations", "operator": "gte", "threshold": 1},
+        {"predicate_id": "fcf_to_ebit", "metric_id": "fcf_to_ebit", "operator": "gte", "threshold": 0.75},
+        {"predicate_id": "fcf_yield", "metric_id": "fcf_yield", "operator": "gte", "threshold": 0.15}
+      ]},
+      "near_miss": {"mode": "all", "predicates": [
+        {"predicate_id": "positive_observation_near", "metric_id": "positive_fcf_ttm_observations", "operator": "gte", "threshold": 1},
+        {"predicate_id": "fcf_to_ebit_near", "metric_id": "fcf_to_ebit", "operator": "gte", "threshold": 0.65},
+        {"predicate_id": "fcf_yield_near", "metric_id": "fcf_yield", "operator": "gte", "threshold": 0.12}
+      ]},
+      "score_components": [
+        {"component_id": "positive_observation_score", "metric_id": "positive_fcf_ttm_observations", "weight": 30, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 1, "span": 3, "base": 0.25}},
+        {"component_id": "fcf_to_ebit_score", "metric_id": "fcf_to_ebit", "weight": 35, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.75, "span": 0.75, "base": 0.25}},
+        {"component_id": "fcf_yield_score", "metric_id": "fcf_yield", "weight": 35, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.15, "span": 0.25, "base": 0.25}}
+      ],
+      "reweight_available_components": false,
+      "severity": "score_band",
+      "missing_behavior": "insufficient_evidence",
+      "unavailable_behavior": "unavailable",
+      "priority": 30,
+      "deduplication_fields": ["signal_id", "profile_id", "as_of_period"],
+      "visible_display_policy": "triggered_only",
+      "audit_policy": "all_candidates",
+      "style_policy_id": "hidden_value_signal_triggered",
+      "evidence_requirements": {"exact_source_refs": true, "formula_lineage": true, "trusted_status_only": true}
+    },
+    {
+      "signal_id": "D",
+      "owner_module_id": "hidden_value_signals",
+      "profile_pack_ids": [],
+      "display_name": "Deleveraging with acceptable leverage",
+      "description": "Source-backed net debt falls while current leverage remains acceptable.",
+      "required_modules": ["core_financial_history", "balance_cash_flow", "debt_liquidity"],
+      "required_metric_ids": ["net_debt", "net_debt_prior_yoy", "net_debt_reduction", "net_leverage", "base_ebitda_ttm"],
+      "optional_metric_ids": [],
+      "eligibility": {"mode": "all", "predicates": [
+        {"predicate_id": "prior_net_debt_positive", "metric_id": "net_debt_prior_yoy", "operator": "gt", "threshold": 0},
+        {"predicate_id": "positive_base_ebitda", "metric_id": "base_ebitda_ttm", "operator": "gt", "threshold": 0}
+      ]},
+      "trigger": {"mode": "all", "predicates": [
+        {"predicate_id": "net_debt_reduction", "metric_id": "net_debt_reduction", "operator": "gte", "threshold": 0.10},
+        {"predicate_id": "net_leverage", "metric_id": "net_leverage", "operator": "lte", "threshold": 3.0}
+      ]},
+      "near_miss": {"mode": "all", "predicates": [
+        {"predicate_id": "net_debt_reduction_near", "metric_id": "net_debt_reduction", "operator": "gte", "threshold": 0.05},
+        {"predicate_id": "net_leverage_near", "metric_id": "net_leverage", "operator": "lte", "threshold": 3.5}
+      ]},
+      "score_components": [
+        {"component_id": "net_debt_reduction_score", "metric_id": "net_debt_reduction", "weight": 50, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.10, "span": 0.25, "base": 0.25}},
+        {"component_id": "net_leverage_score", "metric_id": "net_leverage", "weight": 50, "required": true, "normalization": {"method": "linear_clamped", "direction": "lower", "threshold": 3.0, "span": 2.0, "base": 0.25}}
+      ],
+      "reweight_available_components": false,
+      "severity": "score_band",
+      "missing_behavior": "insufficient_evidence",
+      "unavailable_behavior": "unavailable",
+      "priority": 40,
+      "deduplication_fields": ["signal_id", "profile_id", "as_of_period"],
+      "visible_display_policy": "triggered_only",
+      "audit_policy": "all_candidates",
+      "style_policy_id": "hidden_value_signal_triggered",
+      "evidence_requirements": {"exact_source_refs": true, "formula_lineage": true, "trusted_status_only": true}
+    },
+    {
+      "signal_id": "E",
+      "owner_module_id": "hidden_value_signals",
+      "profile_pack_ids": [],
+      "display_name": "Coverage strength with cheap cash flow",
+      "description": "P&L interest coverage and market FCF yield jointly support value.",
+      "required_modules": ["core_financial_history", "balance_cash_flow"],
+      "required_metric_ids": ["interest_coverage", "fcf_yield", "interest_expense_ttm", "market_cap"],
+      "optional_metric_ids": [],
+      "eligibility": {"mode": "all", "predicates": [
+        {"predicate_id": "positive_interest_expense", "metric_id": "interest_expense_ttm", "operator": "gt", "threshold": 0},
+        {"predicate_id": "positive_market_cap", "metric_id": "market_cap", "operator": "gt", "threshold": 0}
+      ]},
+      "trigger": {"mode": "all", "predicates": [
+        {"predicate_id": "interest_coverage", "metric_id": "interest_coverage", "operator": "gte", "threshold": 3.0},
+        {"predicate_id": "fcf_yield", "metric_id": "fcf_yield", "operator": "gte", "threshold": 0.20}
+      ]},
+      "near_miss": {"mode": "all", "predicates": [
+        {"predicate_id": "interest_coverage_near", "metric_id": "interest_coverage", "operator": "gte", "threshold": 2.5},
+        {"predicate_id": "fcf_yield_near", "metric_id": "fcf_yield", "operator": "gte", "threshold": 0.15}
+      ]},
+      "score_components": [
+        {"component_id": "interest_coverage_score", "metric_id": "interest_coverage", "weight": 50, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 3.0, "span": 3.0, "base": 0.25}},
+        {"component_id": "fcf_yield_score", "metric_id": "fcf_yield", "weight": 50, "required": true, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.20, "span": 0.30, "base": 0.25}}
+      ],
+      "reweight_available_components": false,
+      "severity": "score_band",
+      "missing_behavior": "insufficient_evidence",
+      "unavailable_behavior": "unavailable",
+      "priority": 50,
+      "deduplication_fields": ["signal_id", "profile_id", "as_of_period"],
+      "visible_display_policy": "triggered_only",
+      "audit_policy": "all_candidates",
+      "style_policy_id": "hidden_value_signal_triggered",
+      "evidence_requirements": {"exact_source_refs": true, "formula_lineage": true, "trusted_status_only": true}
+    },
+    {
+      "signal_id": "F",
+      "owner_module_id": "hidden_value_signals",
+      "profile_pack_ids": [],
+      "display_name": "Share-count reduction",
+      "description": "Point-in-time shares outstanding decline, with optional FCF-per-share support.",
+      "required_modules": ["core_financial_history", "balance_cash_flow"],
+      "required_metric_ids": ["shares_outstanding", "shares_outstanding_yoy"],
+      "optional_metric_ids": ["free_cash_flow_per_share_yoy"],
+      "eligibility": {"mode": "all", "predicates": [
+        {"predicate_id": "positive_shares", "metric_id": "shares_outstanding", "operator": "gt", "threshold": 0}
+      ]},
+      "trigger": {"mode": "all", "predicates": [
+        {"predicate_id": "share_reduction", "metric_id": "shares_outstanding_yoy", "operator": "lte", "threshold": -0.02}
+      ]},
+      "near_miss": {"mode": "all", "predicates": [
+        {"predicate_id": "share_reduction_near", "metric_id": "shares_outstanding_yoy", "operator": "lte", "threshold": -0.01}
+      ]},
+      "score_components": [
+        {"component_id": "share_reduction_score", "metric_id": "shares_outstanding_yoy", "weight": 70, "required": true, "normalization": {"method": "linear_clamped", "direction": "lower", "threshold": -0.02, "span": 0.08, "base": 0.15}},
+        {"component_id": "fcf_per_share_score", "metric_id": "free_cash_flow_per_share_yoy", "weight": 30, "required": false, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.0, "span": 0.25, "base": 0.20}}
+      ],
+      "reweight_available_components": true,
+      "severity": "score_band",
+      "missing_behavior": "insufficient_evidence",
+      "unavailable_behavior": "unavailable",
+      "priority": 60,
+      "deduplication_fields": ["signal_id", "profile_id", "as_of_period"],
+      "visible_display_policy": "triggered_only",
+      "audit_policy": "all_candidates",
+      "style_policy_id": "hidden_value_signal_triggered",
+      "evidence_requirements": {"exact_source_refs": true, "formula_lineage": true, "trusted_status_only": true}
+    },
+    {
+      "signal_id": "G",
+      "owner_module_id": "hidden_value_signals",
+      "profile_pack_ids": [],
+      "display_name": "Dividend support",
+      "description": "Source-backed dividend yield or dividend-per-share growth supports value.",
+      "required_modules": ["core_financial_history", "balance_cash_flow"],
+      "required_metric_ids": ["dividend_per_share"],
+      "optional_metric_ids": ["dividend_yield", "dividend_per_share_yoy", "dividend_per_share_qoq"],
+      "eligibility": {"mode": "all", "predicates": [
+        {"predicate_id": "nonnegative_dividend", "metric_id": "dividend_per_share", "operator": "gte", "threshold": 0}
+      ]},
+      "trigger": {"mode": "any", "predicates": [
+        {"predicate_id": "dividend_yield", "metric_id": "dividend_yield", "operator": "gte", "threshold": 0.03},
+        {"predicate_id": "dividend_yoy", "metric_id": "dividend_per_share_yoy", "operator": "gt", "threshold": 0},
+        {"predicate_id": "dividend_qoq", "metric_id": "dividend_per_share_qoq", "operator": "gt", "threshold": 0}
+      ]},
+      "near_miss": {"mode": "all", "predicates": [
+        {"predicate_id": "dividend_yield_near_floor", "metric_id": "dividend_yield", "operator": "gte", "threshold": 0.025},
+        {"predicate_id": "dividend_yield_near_ceiling", "metric_id": "dividend_yield", "operator": "lt", "threshold": 0.03}
+      ]},
+      "score_components": [
+        {"component_id": "dividend_yield_score", "metric_id": "dividend_yield", "weight": 40, "required": false, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.02, "span": 0.05, "base": 0.25}},
+        {"component_id": "dividend_yoy_score", "metric_id": "dividend_per_share_yoy", "weight": 35, "required": false, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.0, "span": 0.15, "base": 0.25}},
+        {"component_id": "dividend_qoq_score", "metric_id": "dividend_per_share_qoq", "weight": 25, "required": false, "normalization": {"method": "linear_clamped", "direction": "higher", "threshold": 0.0, "span": 0.08, "base": 0.25}}
+      ],
+      "reweight_available_components": true,
+      "severity": "score_band",
+      "missing_behavior": "insufficient_evidence",
+      "unavailable_behavior": "unavailable",
+      "priority": 70,
+      "deduplication_fields": ["signal_id", "profile_id", "as_of_period"],
+      "visible_display_policy": "triggered_only",
+      "audit_policy": "all_candidates",
+      "style_policy_id": "hidden_value_signal_triggered",
+      "evidence_requirements": {"exact_source_refs": true, "formula_lineage": true, "trusted_status_only": true}
+    }
+  ]
+}

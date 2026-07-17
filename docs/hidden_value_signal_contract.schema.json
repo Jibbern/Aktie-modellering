@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hidden_value_signal_contract.schema.json",
+  "title": "Hidden Value signal contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "plan_version",
+    "owner_module_id",
+    "trusted_statuses",
+    "states",
+    "severity_bands",
+    "metric_resolvers",
+    "signals"
+  ],
+  "properties": {
+    "$schema": {"type": "string", "minLength": 1},
+    "contract_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "plan_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "owner_module_id": {"type": "string", "minLength": 1},
+    "trusted_statuses": {"const": ["populated", "source_backed"]},
+    "states": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "triggered",
+          "near_miss",
+          "not_triggered",
+          "unavailable",
+          "insufficient_evidence",
+          "invalid_input"
+        ]
+      }
+    },
+    "severity_bands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "minimum_score"],
+        "properties": {
+          "severity": {"type": "string", "minLength": 1},
+          "minimum_score": {"type": "number", "minimum": 0, "maximum": 100}
+        }
+      }
+    },
+    "metric_resolvers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/metricResolver"}
+    },
+    "signals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/signal"}
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {"type": "string", "minLength": 1},
+    "metricResolver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric_id", "unit", "period_role", "resolver"],
+      "properties": {
+        "metric_id": {"$ref": "#/$defs/nonEmptyString"},
+        "unit": {"$ref": "#/$defs/nonEmptyString"},
+        "period_role": {"enum": ["quarter", "ttm", "point_in_time", "derived"]},
+        "resolver": {"$ref": "#/$defs/resolver"}
+      }
+    },
+    "resolver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "formula",
+            "source_metric",
+            "package_point",
+            "lagged",
+            "relative_change",
+            "scaled_change",
+            "ratio",
+            "rolling_sum",
+            "positive_window_count",
+            "nondecreasing_streak",
+            "max_constant_scaled",
+            "market_cap"
+          ]
+        },
+        "formula_id": {"type": "string"},
+        "source_metric_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "path": {"type": "string"},
+        "period_path": {"type": "string"},
+        "disposition_path": {"type": "string"},
+        "input_metric_id": {"type": "string"},
+        "current_metric_id": {"type": "string"},
+        "prior_metric_id": {"type": "string"},
+        "numerator_metric_id": {"type": "string"},
+        "denominator_metric_id": {"type": "string"},
+        "explicit_metric_id": {"type": "string"},
+        "price_metric_id": {"type": "string"},
+        "shares_metric_id": {"type": "string"},
+        "scaled_metric_id": {"type": "string"},
+        "lag": {"type": "integer", "minimum": 1},
+        "window": {"type": "integer", "minimum": 1},
+        "max_periods": {"type": "integer", "minimum": 1},
+        "scale": {"type": "number"},
+        "constant": {"type": "number"},
+        "denominator_rule": {"enum": ["nonzero", "positive", "prior_positive"]},
+        "allow_explicit_or_derived": {"type": "boolean"}
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predicate_id", "metric_id", "operator"],
+      "properties": {
+        "predicate_id": {"$ref": "#/$defs/nonEmptyString"},
+        "metric_id": {"$ref": "#/$defs/nonEmptyString"},
+        "operator": {"enum": ["gt", "gte", "lt", "lte"]},
+        "threshold": {"type": "number"},
+        "right_metric_id": {"type": "string"}
+      },
+      "oneOf": [
+        {"required": ["threshold"]},
+        {"required": ["right_metric_id"]}
+      ]
+    },
+    "predicateSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "predicates"],
+      "properties": {
+        "mode": {"enum": ["all", "any"]},
+        "predicates": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/predicate"}},
+        "minimum_trigger_predicates": {"type": "integer", "minimum": 0}
+      }
+    },
+    "scoreComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component_id", "metric_id", "weight", "required", "normalization"],
+      "properties": {
+        "component_id": {"$ref": "#/$defs/nonEmptyString"},
+        "metric_id": {"$ref": "#/$defs/nonEmptyString"},
+        "weight": {"type": "number", "exclusiveMinimum": 0},
+        "required": {"type": "boolean"},
+        "normalization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "direction", "threshold", "span", "base"],
+          "properties": {
+            "method": {"const": "linear_clamped"},
+            "direction": {"enum": ["higher", "lower"]},
+            "threshold": {"type": "number"},
+            "span": {"type": "number", "exclusiveMinimum": 0},
+            "base": {"type": "number"}
+          }
+        }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal_id",
+        "owner_module_id",
+        "profile_pack_ids",
+        "display_name",
+        "description",
+        "required_modules",
+        "required_metric_ids",
+        "optional_metric_ids",
+        "eligibility",
+        "trigger",
+        "near_miss",
+        "score_components",
+        "reweight_available_components",
+        "severity",
+        "missing_behavior",
+        "unavailable_behavior",
+        "priority",
+        "deduplication_fields",
+        "visible_display_policy",
+        "audit_policy",
+        "style_policy_id",
+        "evidence_requirements"
+      ],
+      "properties": {
+        "signal_id": {"$ref": "#/$defs/nonEmptyString"},
+        "owner_module_id": {"$ref": "#/$defs/nonEmptyString"},
+        "profile_pack_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "display_name": {"$ref": "#/$defs/nonEmptyString"},
+        "description": {"$ref": "#/$defs/nonEmptyString"},
+        "required_modules": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "required_metric_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "optional_metric_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "eligibility": {"$ref": "#/$defs/predicateSet"},
+        "trigger": {"$ref": "#/$defs/predicateSet"},
+        "near_miss": {"$ref": "#/$defs/predicateSet"},
+        "score_components": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/scoreComponent"}},
+        "reweight_available_components": {"type": "boolean"},
+        "severity": {"const": "score_band"},
+        "missing_behavior": {"enum": ["insufficient_evidence"]},
+        "unavailable_behavior": {"enum": ["unavailable"]},
+        "priority": {"type": "integer", "minimum": 1},
+        "deduplication_fields": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "visible_display_policy": {"enum": ["triggered_only"]},
+        "audit_policy": {"enum": ["all_candidates"]},
+        "style_policy_id": {"$ref": "#/$defs/nonEmptyString"},
+        "evidence_requirements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exact_source_refs", "formula_lineage", "trusted_status_only"],
+          "properties": {
+            "exact_source_refs": {"const": true},
+            "formula_lineage": {"const": true},
+            "trusted_status_only": {"const": true}
+          }
+        }
+      }
+    }
+  }
+}

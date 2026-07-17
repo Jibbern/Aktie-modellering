@@ -379,7 +379,7 @@
       "module_id": "hidden_value_signals",
       "display_name": "Hidden-value flags and signals",
       "module_type": "reusable_optional",
-      "dependencies": ["core_financial_history", "balance_cash_flow", "debt_liquidity"],
+      "dependencies": ["core_financial_history", "balance_cash_flow", "qa_lineage"],
       "sheets": [
         {"sheet": "Hidden_Value_Flags", "role": "hidden_support", "legacy_class": "C", "default_state": "hidden", "active_state": "hidden", "inactive_state": "hidden", "capacity_rows": 1000, "capacity_columns": 12, "headers": ["field", "display_name", "metric_type", "source_policy", "status", "reason", "sheet", "target", "binding_id", "review_status", "reserved", "has_hidden_value_issue"], "empty_state": "Header-only flag projection; no precomputed signal.", "style_owner": "frozen_shell", "formula_owner": "future_hidden_value_module"},
         {"sheet": "Hidden_Value_Audit", "role": "hidden_support", "legacy_class": "C", "default_state": "hidden", "active_state": "hidden", "inactive_state": "hidden", "capacity_rows": 5000, "capacity_columns": 6, "headers": ["flag_id", "metric", "period", "status", "reason", "source_ref"], "empty_state": "Header-only signal audit projection.", "style_owner": "frozen_shell", "formula_owner": "future_hidden_value_module"},

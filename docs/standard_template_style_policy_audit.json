@@ -3,7 +3,7 @@
   "status": "PASS",
   "authoritative_contract": "docs/standard_template_style_policy.json",
   "authoritative_contract_digest": "223ab04faa4d72723ec177f18d8a6e583858c0ddea6552da5a4c1db0ca30e22a",
-  "module_manifest_digest": "5b6c57e24e785b86599e6d4e4b5e6f8fadd7ce6163fc64d4f321c5eda03a2243",
+  "module_manifest_digest": "7ede4e5747bb386ec1d570cc76c97ed35c4486104cca65c5fe2923b1b755c327",
   "binding_contract_digest": "50706f229017edce31fe9a1b5ab1c8b170db72721d50bc6c90b20e62638c5c8a",
   "policy_count": 51,
   "selector_count": 134,
