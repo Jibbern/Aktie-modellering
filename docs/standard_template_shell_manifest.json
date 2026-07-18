@@ -4784,7 +4784,8 @@
       "module_id": "core_financial_history",
       "module_role": "visible_product",
       "legacy_class": "A",
-      "state": "visible"
+      "state": "visible",
+      "worksheet_protection": true
     },
     {
       "sheet": "Valuation",
@@ -5583,7 +5584,8 @@
       "module_id": "core_financial_history",
       "module_role": "visible_product",
       "legacy_class": "A",
-      "state": "visible"
+      "state": "visible",
+      "worksheet_protection": true
     },
     {
       "sheet": "BS_Segments",
@@ -6091,7 +6093,8 @@
       "module_id": "balance_cash_flow",
       "module_role": "visible_product",
       "legacy_class": "A",
-      "state": "visible"
+      "state": "visible",
+      "worksheet_protection": true
     },
     {
       "sheet": "Operating_Drivers",
@@ -6178,7 +6181,8 @@
       "module_id": "operating_drivers",
       "module_role": "visible_product",
       "legacy_class": "A",
-      "state": "visible"
+      "state": "visible",
+      "worksheet_protection": true
     },
     {
       "sheet": "{ticker}_Investment_Case",
@@ -6307,1077 +6311,6 @@
             "scalar",
             "table_rows"
           ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
-          "anchor_label": "Typed Scenario Inputs",
-          "value_shapes": [
-            "scalar",
-            "table_rows"
-          ]
         }
       ],
       "non_writable_zones": [
@@ -7410,326 +6343,6 @@
           "zone_id": "ic_static_label_column_4",
           "target": "A181:A184",
           "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
         }
       ],
       "formulas_static_labels": [
@@ -7741,7 +6354,8 @@
       "module_id": "investment_case_market_implied",
       "module_role": "visible_product",
       "legacy_class": "A",
-      "state": "visible"
+      "state": "visible",
+      "worksheet_protection": true
     },
     {
       "sheet": "Quarter_Notes_UI",
@@ -7801,7 +6415,8 @@
       "module_id": "quarter_notes_evidence",
       "module_role": "visible_product",
       "legacy_class": "A",
-      "state": "visible"
+      "state": "visible",
+      "worksheet_protection": true
     },
     {
       "sheet": "Promise_Progress_UI",
@@ -8006,7 +6621,8 @@
       "module_id": "guidance_promises",
       "module_role": "visible_product",
       "legacy_class": "A",
-      "state": "visible"
+      "state": "visible",
+      "worksheet_protection": true
     },
     {
       "sheet": "QA_Log",
@@ -8034,7 +6650,8 @@
       "module_id": "qa_lineage",
       "module_role": "visible_product",
       "legacy_class": "A",
-      "state": "visible"
+      "state": "visible",
+      "worksheet_protection": true
     },
     {
       "sheet": "Needs_Review",
@@ -8062,7 +6679,8 @@
       "module_id": "qa_lineage",
       "module_role": "visible_product",
       "legacy_class": "A",
-      "state": "visible"
+      "state": "visible",
+      "worksheet_protection": true
     },
     {
       "sheet": "QA_Checks",
@@ -8090,7 +6708,8 @@
       "module_id": "qa_lineage",
       "module_role": "visible_product",
       "legacy_class": "A",
-      "state": "visible"
+      "state": "visible",
+      "worksheet_protection": true
     },
     {
       "sheet": "REPORT_IS_Q",
@@ -8121,7 +6740,7 @@
         "status",
         "definition"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "core_financial_history",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8156,7 +6775,7 @@
         "status",
         "definition"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "balance_cash_flow",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8191,7 +6810,7 @@
         "status",
         "definition"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "balance_cash_flow",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8225,7 +6844,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "quarter_notes_evidence",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8259,7 +6878,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "quarter_notes_evidence",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8293,7 +6912,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "quarter_notes_evidence",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8323,7 +6942,7 @@
         "resolved_revenue_growth_bull",
         "resolved_revenue_growth_custom"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8357,7 +6976,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "guidance_promises",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8392,7 +7011,7 @@
         "status",
         "source_ref"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "guidance_promises",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8428,7 +7047,7 @@
         "source_ref",
         "notes"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "guidance_promises",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8463,7 +7082,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "core_financial_history",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8498,7 +7117,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "operating_drivers",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8532,7 +7151,7 @@
         "fiscal_quarter",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "core_financial_history",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -8802,7 +7421,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -8837,7 +7456,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -8871,7 +7490,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -8905,7 +7524,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -8941,7 +7560,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -8977,7 +7596,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -9012,7 +7631,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -9047,7 +7666,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -9093,7 +7712,7 @@
         "source_ref",
         "reason"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "investment_case_market_implied",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -9128,7 +7747,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -9173,7 +7792,7 @@
         "reason",
         "profile_pack_id"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -9208,7 +7827,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -9242,7 +7861,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -9278,7 +7897,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -9314,7 +7933,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -9339,7 +7958,7 @@
         "value",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
       "legacy_class": "E",
@@ -9375,7 +7994,7 @@
         "status",
         "source_ref"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "guidance_promises",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -9412,7 +8031,7 @@
         "source_ref",
         "status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "non_gaap_adjustments",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -9446,7 +8065,7 @@
         "parser_status",
         "review_status"
       ],
-      "worksheet_protection": false,
+      "worksheet_protection": true,
       "module_id": "qa_lineage",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -9671,18 +8290,20 @@
       "state": "hidden"
     }
   ],
-  "semantic_contract_version": "1.7.0",
+  "semantic_contract_version": "1.8.0",
   "shell_identity": {
-    "semantic_contract_version": "1.7.0",
-    "workbook_sha256": "03a2c2c3d8e55cb3a0e1ddca7905ffe132220743763ce691ca69dbe5418650a5",
-    "manifest_contract_signature": "3f00dd242718f873f0c78234b2bd21d984b0d3c81705cf1d47f05addf1688ee9",
+    "semantic_contract_version": "1.8.0",
+    "workbook_sha256": "30f07aa8b9a972ae1223a5341004514ace8d0a072eafbd183c228c6d8d3a1c5b",
+    "manifest_contract_signature": "e511b99d35aae807a8d6b3f0f3f2e45e1c4c43af2112916ce75d75dd0cf6617a",
     "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
     "sheet_view_signature": "05ae7b3677f3e327032c0dbbd0953f8c059c7d333d84c0fb7ed8662a9d00fd6c",
     "merge_signature": "4ac1bc41152d136823fd8d1f6bdeda8970f8dd04181262b4ce44a468a2319f2c",
     "defined_name_signature": "adf860a13bda06380e2996c7ad72c69e639c96c529f2ed64f749dace870ae449",
     "writable_target_signature": "55b257e9ad6b3e29b5116a31a9f351727652edcfedb02ab27acfd7251ecab6a5",
-    "binding_contract_signature": "d0772aa4307b64b356e351de5484f0079f9a172607aacc8f02ca86910905cdb4",
-    "formula_static_zone_signature": "2c1ec4775cbb7a2adaf71d140253715fc7e6b3fcb17486e1e7c0539a0286cab2",
+    "binding_contract_signature": "878120038514a0bc622128693d05d01fb76f3e2761ab59f9588c588debc447bd",
+    "formula_static_zone_signature": "a91371e521830a28ece4fd4cae8ac9e8a03549d4e953274b028457e2b47c901d",
+    "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
+    "editable_surface_signature": "29b6308c01ee5961305a12fac0b20ab202f4edae22390e5a07cf27be48d94732",
     "counts": {
       "sheets": 46,
       "sheet_views": 46,
@@ -9691,10 +8312,12 @@
       "writable_targets": 463,
       "binding_contracts": 166,
       "formula_cells": 2205,
-      "static_cells": 1662
+      "static_cells": 1662,
+      "protected_worksheets": 46,
+      "editable_cells": 122
     }
   },
-  "formula_contract_version": "1.8.0",
+  "formula_contract_version": "1.9.0",
   "union_sheet_order": [
     "SUMMARY",
     "Valuation",
@@ -9747,7 +8370,7 @@
     "path": "docs/workbook_module_manifest.json",
     "version": "1.0.0",
     "module_contract_version": "1.1.0",
-    "signature": "4b907ad08bd766b3ca4654119c84d9224ebbcc8667fac84019923ea5c54965e8"
+    "signature": "c70d0e759188247e610418f7af832382ca9365f89db74924b0bea2d70197c9c9"
   },
   "module_profile": {
     "profile_id": "full_union",

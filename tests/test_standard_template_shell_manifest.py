@@ -63,8 +63,8 @@ def test_standard_template_shell_manifest_defines_visible_shell_contract() -> No
     assert manifest["file_type"] == ".xlsx"
     assert manifest["visible_sheet_order"] == VISIBLE_SHEET_ORDER
     assert manifest["version"] == "0.3.0"
-    assert manifest["semantic_contract_version"] == "1.7.0"
-    assert manifest["formula_contract_version"] == "1.8.0"
+    assert manifest["semantic_contract_version"] == "1.8.0"
+    assert manifest["formula_contract_version"] == "1.9.0"
     assert manifest["union_sheet_order"] == _module_manifest()["union_sheet_order"]
     assert manifest["module_profile"]["profile_id"] == "full_union"
     assert manifest["ticker_sheet_token_rule"]["template"] == "{ticker}_Investment_Case"
@@ -84,6 +84,7 @@ def test_standard_template_shell_manifest_defines_visible_shell_contract() -> No
         assert sheet["module_role"] in {"visible_product", "hidden_support", "module_capacity"}
         assert sheet["legacy_class"] in {"A", "B", "C", "E"}
         assert sheet["state"] in {"visible", "hidden", "veryHidden"}
+        assert sheet["worksheet_protection"] is True
     investment_case = sheets_by_name["{ticker}_Investment_Case"]
     writable = {zone["zone_id"]: zone["target"] for zone in investment_case["writable_zones"]}
     assert writable["ic_snapshot_values"] == "B5:B11"

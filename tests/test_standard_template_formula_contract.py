@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.utils import range_boundaries
 
 from pbi_xbrl.standard_template_formula_contract import (
     ANNUAL_FORMULA_ROWS,
@@ -10,6 +11,7 @@ from pbi_xbrl.standard_template_formula_contract import (
     BS_RAW_ROWS,
     FORMULA_CONTRACT_VERSION,
     FORMULA_ROWS,
+    USER_INPUT_CONTRACTS,
     VALUATION_HELPER_ROWS,
     VALUATION_RAW_ROWS,
 )
@@ -48,7 +50,7 @@ def test_quarterly_formula_contract_has_blank_guards_and_protected_outputs() -> 
         wb.close()
 
 
-def test_source_backed_targets_are_blank_and_unlocked() -> None:
+def test_source_backed_targets_are_blank_and_locked() -> None:
     wb = load_workbook(SHELL, data_only=False, read_only=False)
     try:
         valuation = wb["Valuation"]
@@ -56,20 +58,17 @@ def test_source_backed_targets_are_blank_and_unlocked() -> None:
             for column in range(2, 14):
                 cell = valuation.cell(row, column)
                 assert cell.value is None
-                assert cell.protection.locked is False
-        for row in range(194, 218):
-            assert valuation.cell(row, 4).value is None
-            assert valuation.cell(row, 4).protection.locked is False
+                assert cell.protection.locked is True
 
         bs = wb["BS_Segments"]
         for row in BS_RAW_ROWS.values():
             for column in range(2, 14):
                 assert bs.cell(row, column).value is None
-                assert bs.cell(row, column).protection.locked is False
+                assert bs.cell(row, column).protection.locked is True
         for row in ANNUAL_RAW_ROWS.values():
             for column in range(2, 10):
                 assert bs.cell(row, column).value is None
-                assert bs.cell(row, column).protection.locked is False
+                assert bs.cell(row, column).protection.locked is True
     finally:
         wb.close()
 
@@ -87,9 +86,9 @@ def test_annual_formula_contract_is_generic_and_exact() -> None:
                 assert cell.protection.locked is True
         assert ws["B96"].value == '=IF(OR(B94="",B95=""),"",B94-B95)'
         assert ws["B98"].value is None
-        assert ws["B98"].protection.locked is False
+        assert ws["B98"].protection.locked is True
         assert ws["B99"].value is None
-        assert ws["B99"].protection.locked is False
+        assert ws["B99"].protection.locked is True
         assert ws["B101"].value == '=IF(OR(B100="",B98="",B98=0),"",B100/B98)'
         assert ws["B104"].value == '=IF(OR(B103="",B102=""),"",B103-B102)'
     finally:
@@ -153,7 +152,7 @@ def test_visible_metric_labels_are_concise_without_losing_definition() -> None:
 
 def test_formula_contract_contains_no_ticker_specific_content() -> None:
     source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
-    assert FORMULA_CONTRACT_VERSION == "1.8.0"
+    assert FORMULA_CONTRACT_VERSION == "1.9.0"
     for forbidden in ("Abercrombie", "Hollister", "ANF_model", "A&F"):
         assert forbidden not in source
 
@@ -223,7 +222,7 @@ def test_scenario_defined_names_validations_and_support_projections_are_complete
         route_support = wb["Valuation_Summary"]
         for coordinate in ("H2", "I2", "J2", "K2"):
             formula = str(route_support[coordinate].value or "")
-            assert formula.startswith("=LET(")
+            assert formula.startswith("=_xlfn.LET(")
             assert "selected_growth_route" in formula
             assert "profile_driver_bridge" in formula
             assert '=\"revenue_growth\"' in formula
@@ -231,14 +230,14 @@ def test_scenario_defined_names_validations_and_support_projections_are_complete
             assert "LOWER(" not in formula
             assert "SUBSTITUTE(" not in formula
             assert "TRIM(" not in formula
-            assert "directCount+profileCount+userCount<>1" in formula
-            assert "bridgeCount=1" in formula
+            assert "_xlpm.directCount+_xlpm.profileCount+_xlpm.userCount<>1" in formula
+            assert "_xlpm.bridgeCount=1" in formula
             assert route_support[coordinate].protection.locked is True
         assert "retail_operating_pack" not in str(route_support["I2"].value)
 
         valuation = wb["Valuation"]
         validation_targets = {str(validation.sqref) for validation in valuation.data_validations.dataValidation}
-        assert {"D216", "D218:D219", "D220", "J218", "J219:J220", "J221", "E236", "J236", "E247", "E248", "D253", "D254", "D255:D256"} <= validation_targets
+        assert {"D194", "D208:D209", "D210", "D213", "D214", "D215", "D216", "D218:D219", "D220", "J218", "J219:J220", "J221", "H226:L226", "G227:G234", "E236", "E237:E239", "E240", "J236", "D247", "E247", "D248", "E248", "D249:D250", "D253", "D254", "D255:D256"} == validation_targets
 
         summary = wb["Valuation_Summary"]
         assert summary["A2"].value == "price"
@@ -272,6 +271,38 @@ def test_calculation_history_is_a_hidden_source_backed_formula_input_projection(
         for row in (2, 500, 1000):
             for column in range(1, 8):
                 assert ws.cell(row, column).value is None
-                assert ws.cell(row, column).protection.locked is False
+                assert ws.cell(row, column).protection.locked is True
+    finally:
+        wb.close()
+
+
+def test_user_input_contract_is_the_exact_visible_edit_surface() -> None:
+    wb = load_workbook(SHELL, data_only=False, read_only=False)
+    try:
+        editable = {
+            (ws.title, cell.coordinate)
+            for ws in wb.worksheets
+            if ws.sheet_state == "visible"
+            for cell in ws._cells.values()
+            if cell.protection.locked is False
+        }
+        expected = set()
+        for contract in USER_INPUT_CONTRACTS:
+            min_col, min_row, max_col, max_row = range_boundaries(contract.target)
+            expected.update(
+                (contract.sheet, cell.coordinate)
+                for row in wb[contract.sheet].iter_rows(
+                    min_row=min_row,
+                    max_row=max_row,
+                    min_col=min_col,
+                    max_col=max_col,
+                )
+                for cell in row
+            )
+        assert editable == expected
+        assert sum(sheet == "Valuation" for sheet, _cell in editable) == 44
+        assert sum(sheet == "{ticker}_Investment_Case" for sheet, _cell in editable) == 78
+        assert len(editable) == 122
+        assert all(ws.protection.sheet for ws in wb.worksheets)
     finally:
         wb.close()

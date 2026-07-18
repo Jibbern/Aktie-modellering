@@ -6,7 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from openpyxl import load_workbook
-from openpyxl.styles import PatternFill
+from openpyxl.styles import PatternFill, Protection
 from openpyxl.utils import absolute_coordinate, quote_sheetname, range_boundaries
 import pytest
 
@@ -25,8 +25,6 @@ from pbi_xbrl.standard_template_shell_identity import (
 )
 from pbi_xbrl.new_ticker_binding_planner import reproduce_binding_plan_snapshot
 from pbi_xbrl.new_ticker_value_filler import _execute_binding_plan, _resolve_ticker_sheet
-from pbi_xbrl.new_ticker_style_application import apply_style_plan
-from pbi_xbrl.new_ticker_style_planner import reproduce_style_plan
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -102,6 +100,21 @@ def test_merge_and_defined_name_drift_are_detected_in_identity_contract() -> Non
     rules = {issue["rule_id"] for issue in report["issues"]}
     assert "shell_merge_drift" in rules
     assert "shell_defined_name_drift" in rules
+
+
+def test_sheet_protection_and_editable_surface_drift_are_detected_in_identity_contract() -> None:
+    manifest, bindings = _contracts()
+    actual = compute_shell_identity(SHELL, manifest=manifest, binding_payload=bindings)
+    drifted = deepcopy(manifest)
+    drifted["shell_identity"] = dict(actual)
+    drifted["shell_identity"]["worksheet_protection_signature"] = "0" * 64
+    drifted["shell_identity"]["editable_surface_signature"] = "1" * 64
+
+    report = verify_shell_identity(SHELL, manifest=drifted, binding_payload=bindings)
+
+    rules = {issue["rule_id"] for issue in report["issues"]}
+    assert "shell_worksheet_protection_drift" in rules
+    assert "shell_editable_surface_drift" in rules
 
 
 def test_sheet_view_contract_and_signature_are_manifest_owned() -> None:
@@ -228,14 +241,6 @@ def test_post_fill_structural_identity_allows_only_approved_value_changes_in_mem
     try:
         _resolve_ticker_sheet(wb, "TEST")
         _execute_binding_plan(wb, plan)
-        _value_plan, style_plan = reproduce_style_plan(
-            package,
-            manifest=manifest,
-            binding_payload=bindings,
-            shell_path=SHELL,
-            expected_binding_plan=plan,
-        )
-        apply_style_plan(wb, style_plan)
         report = verify_post_fill_structural_identity(
             wb,
             approved_shell_path=SHELL,
@@ -431,6 +436,57 @@ def test_post_fill_structural_identity_rejects_merge_name_and_protected_cell_dri
 
 
 @pytest.mark.parametrize(
+    ("mutation", "expected_rule"),
+    [
+        ("remove_sheet_protection", "worksheet_protection_missing"),
+        ("fabricated_unlock", "unexpected_editable_cell"),
+        ("locked_declared_input", "declared_user_input_locked"),
+        ("missing_validation", "user_input_validation_missing"),
+        ("unprefixed_future_function", "formula_future_function_unprefixed"),
+        ("malformed_let_local", "formula_serialization_not_canonical"),
+        ("unsupported_function", "formula_function_unsupported"),
+    ],
+)
+def test_post_fill_rejects_formula_and_protection_contract_mutations(
+    mutation: str,
+    expected_rule: str,
+) -> None:
+    manifest, bindings = _contracts()
+    wb = load_workbook(SHELL, read_only=False, data_only=False)
+    try:
+        if mutation == "remove_sheet_protection":
+            wb["Valuation"].protection.sheet = False
+        elif mutation == "fabricated_unlock":
+            wb["Valuation"]["B9"].protection = Protection(locked=False)
+        elif mutation == "locked_declared_input":
+            wb["Valuation"]["D194"].protection = Protection(locked=True)
+        elif mutation == "missing_validation":
+            ws = wb["Valuation"]
+            ws.data_validations.dataValidation = [
+                validation
+                for validation in ws.data_validations.dataValidation
+                if str(validation.sqref) != "D194"
+            ]
+        elif mutation == "unprefixed_future_function":
+            wb["Valuation"]["B10"] = str(wb["Valuation"]["B10"].value).replace("_xlfn.MAXIFS", "MAXIFS", 1)
+        elif mutation == "malformed_let_local":
+            wb["Valuation_Summary"]["H2"] = str(wb["Valuation_Summary"]["H2"].value).replace("_xlpm.scenarioKey", "scenarioKey", 1)
+        elif mutation == "unsupported_function":
+            wb["Valuation"]["B10"] = "=XLOOKUP(1,A1:A2,B1:B2)"
+        report = verify_post_fill_structural_identity(
+            wb,
+            approved_shell_path=SHELL,
+            manifest=manifest,
+            binding_payload=bindings,
+        )
+    finally:
+        wb.close()
+
+    assert report["status"] == "FAIL"
+    assert expected_rule in {row["rule_id"] for row in report["issues"]}
+
+
+@pytest.mark.parametrize(
     ("attribute", "value"),
     [
         ("zoomScale", 175),
@@ -527,11 +583,17 @@ def test_company_specific_labels_and_constant_defined_name_are_absent() -> None:
             for validation in wb["{ticker}_Investment_Case"].data_validations.dataValidation
         }
         assert investment_case_validation_targets == {
+            "A161:A163",
+            "A172:A174",
+            "A178:A180",
             "B23:D23",
             "B24:D26",
+            "B27:D27",
             "B28:D28",
             "B29:D29",
+            "B30:D30",
             "B31:D31",
+            "B32:D33",
             "B34:D34",
             "B35:D35",
             "B36:D37",

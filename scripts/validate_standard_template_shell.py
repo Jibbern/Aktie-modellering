@@ -38,6 +38,11 @@ from pbi_xbrl.new_ticker_style_planner import (
     reproduce_style_plan,
 )
 from pbi_xbrl.json_schema_validation import load_json_strict
+from pbi_xbrl.excel_formula_serialization import (
+    validate_workbook_formula_compatibility,
+    validate_xlsx_formula_compatibility,
+)
+from pbi_xbrl.standard_template_formula_contract import validate_workbook_protection_contract
 from pbi_xbrl.workbook_modules import (
     load_workbook_module_manifest,
     resolve_module_profile,
@@ -655,6 +660,39 @@ def validate_shell(
             "template_path": str(template_path),
             "issues": [issue.to_dict() for issue in [*issues, _issue("template_load_failed", str(exc))]],
         }
+
+    enabled_formula_ids = (
+        manifest.get("module_profile", {}).get("enabled_formula_ids", ())
+        if isinstance(manifest.get("module_profile"), dict)
+        else ()
+    )
+    for compatibility_issue in validate_workbook_formula_compatibility(wb):
+        issues.append(
+            _issue(
+                str(compatibility_issue.get("rule_id") or "formula_compatibility_failure"),
+                str(compatibility_issue.get("message") or "Workbook formula compatibility failed."),
+            )
+        )
+    try:
+        xml_formula_issues = validate_xlsx_formula_compatibility(template_path)
+    except Exception as exc:
+        xml_formula_issues = [{"rule_id": "formula_xml_inventory_unavailable", "message": str(exc)}]
+    for compatibility_issue in xml_formula_issues:
+        issues.append(
+            _issue(
+                str(compatibility_issue.get("rule_id") or "formula_xml_compatibility_failure"),
+                str(compatibility_issue.get("message") or "Workbook XML formula compatibility failed."),
+            )
+        )
+    for protection_issue in validate_workbook_protection_contract(wb, enabled_formula_ids):
+        issues.append(
+            _issue(
+                str(protection_issue.get("rule_id") or "workbook_protection_failure"),
+                str(protection_issue.get("message") or "Workbook protection contract failed."),
+                sheet=str(protection_issue.get("sheet") or ""),
+                target=str(protection_issue.get("target") or ""),
+            )
+        )
 
     expected_visible = _expected_visible_sheets(wb, list(manifest["visible_sheet_order"]), allow_filled_values=allow_filled_values)
     actual_visible = _visible_sheet_names(wb)

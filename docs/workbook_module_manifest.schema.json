@@ -77,7 +77,8 @@
         "capacity_rows",
         "capacity_columns",
         "headers",
-        "empty_state"
+        "empty_state",
+        "worksheet_protection"
       ],
       "properties": {
         "sheet": {"type": "string", "minLength": 1, "maxLength": 31},
@@ -92,7 +93,7 @@
         "empty_state": {"type": "string", "minLength": 1},
         "style_owner": {"type": "string", "minLength": 1},
         "formula_owner": {"type": "string", "minLength": 1},
-        "worksheet_protection": {"type": "boolean"},
+        "worksheet_protection": {"const": true},
         "data_surface": {"enum": ["binding_rows", "formula_output"]},
         "binding_owned_ranges": {"$ref": "#/$defs/stringList"},
         "formula_owned_ranges": {"$ref": "#/$defs/stringList"},

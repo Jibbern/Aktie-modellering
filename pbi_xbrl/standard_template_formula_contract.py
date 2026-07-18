@@ -9,11 +9,12 @@ from __future__ import annotations
 from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Collection
+from typing import Any, Collection, Mapping
 
 from openpyxl.cell.cell import MergedCell
+from openpyxl.formula.translate import Translator
 from openpyxl.styles import Alignment, Protection
-from openpyxl.utils import get_column_letter, quote_sheetname
+from openpyxl.utils import get_column_letter, quote_sheetname, range_boundaries
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.workbook.defined_name import DefinedName
 
@@ -31,22 +32,12 @@ from pbi_xbrl.valuation_scenario_economics import (
 )
 
 
-FORMULA_CONTRACT_VERSION = "1.8.0"
+FORMULA_CONTRACT_VERSION = "1.9.0"
 ROOT = Path(__file__).resolve().parents[1]
 HIDDEN_VALUE_SIGNAL_CONTRACT = ROOT / "docs" / "hidden_value_signal_contract.json"
 HIDDEN_VALUE_DETAIL_FIRST_ROW = 2
 HIDDEN_VALUE_CANDIDATE_FIRST_ROW = 2
 HIDDEN_VALUE_BASE_LAST_ROW = 5001
-
-INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES = (
-    "B23:D42",
-    "B160:D160",
-    "A161:A163",
-    "B171:D171",
-    "A172:A174",
-    "B177:D177",
-    "A178:A180",
-)
 
 INVESTMENT_CASE_SCENARIO_OWNED_RANGES = (
     "A13:K180",
@@ -84,6 +75,71 @@ class FormulaTargetContract:
     formula_id: str
     sheet: str
     targets: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class UserInputContract:
+    """One authoritative editable surface and its Excel validation."""
+
+    input_id: str
+    sheet: str
+    target: str
+    surface_id: str
+    surface_target: str
+    required_formula_ids: tuple[str, ...]
+    validation_type: str
+    operator: str | None = None
+    formula1: str | None = None
+    formula2: str | None = None
+
+
+USER_INPUT_CONTRACTS = (
+    UserInputContract("valuation_price", "Valuation", "D194", "valuation_price", "D194", ("valuation_output_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("valuation_target_multiples", "Valuation", "D208:D209", "valuation_targets", "D208:D210", ("valuation_output_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("valuation_target_yield", "Valuation", "D210", "valuation_targets", "D208:D210", ("valuation_output_formulas",), "decimal", "between", "0.000001", "1"),
+    UserInputContract("valuation_maintenance_capex_ratio", "Valuation", "D213", "valuation_normalization", "D213:D216", ("valuation_output_formulas",), "decimal", "between", "0", "1"),
+    UserInputContract("valuation_recurring_cash_costs", "Valuation", "D214", "valuation_normalization", "D213:D216", ("valuation_output_formulas",), "custom", formula1='=OR(D214="",ISNUMBER(D214))'),
+    UserInputContract("valuation_working_capital_normalization", "Valuation", "D215", "valuation_normalization", "D213:D216", ("valuation_output_formulas",), "custom", formula1='=OR(D215="",ISNUMBER(D215))'),
+    UserInputContract("valuation_per_share_mode", "Valuation", "D216", "valuation_normalization", "D213:D216", ("valuation_output_formulas",), "list", formula1='"Outstanding,Diluted"'),
+    UserInputContract("valuation_scenario_targets", "Valuation", "D218:D219", "valuation_scenario_targets", "D218:D220", ("valuation_scenario_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("valuation_dcf_horizon", "Valuation", "D220", "valuation_scenario_targets", "D218:D220", ("valuation_scenario_formulas",), "whole", "between", "1", "20"),
+    UserInputContract("valuation_dcf_fcff", "Valuation", "J218", "valuation_dcf_inputs", "J218:J221", ("valuation_scenario_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("valuation_dcf_growth", "Valuation", "J219:J220", "valuation_dcf_inputs", "J218:J221", ("valuation_scenario_formulas",), "decimal", "between", "-1", "1"),
+    UserInputContract("valuation_dcf_wacc", "Valuation", "J221", "valuation_dcf_inputs", "J218:J221", ("valuation_scenario_formulas",), "decimal", "between", "0.000001", "1"),
+    UserInputContract("valuation_terminal_growth_axis", "Valuation", "H226:L226", "valuation_terminal_growth_axis", "H226:L226", ("valuation_scenario_formulas",), "decimal", "between", "-1", "1"),
+    UserInputContract("valuation_wacc_axis", "Valuation", "G227:G234", "valuation_wacc_axis", "G227:G234", ("valuation_scenario_formulas",), "decimal", "between", "0.000001", "1"),
+    UserInputContract("valuation_scenario_profile", "Valuation", "E236", "valuation_scenario_assumptions", "E236:E240", ("valuation_scenario_formulas",), "list", formula1='"Bear,Base,Bull,Custom"'),
+    UserInputContract("valuation_scenario_growth_margins", "Valuation", "E237:E239", "valuation_scenario_assumptions", "E236:E240", ("valuation_scenario_formulas",), "decimal", "between", "-1", "1"),
+    UserInputContract("valuation_scenario_tax_rate", "Valuation", "E240", "valuation_scenario_assumptions", "E236:E240", ("valuation_scenario_formulas",), "decimal", "between", "0", "1"),
+    UserInputContract("valuation_scenario_horizon", "Valuation", "J236", "valuation_scenario_horizon", "J236", ("valuation_scenario_formulas",), "custom", formula1='=OR(J236="",AND(LEFT(J236,2)="FY",LEN(J236)=6,ISNUMBER(VALUE(RIGHT(J236,4)))),AND(LEN(J236)=7,MID(J236,5,2)="-Q",ISNUMBER(VALUE(LEFT(J236,4))),VALUE(RIGHT(J236,1))>=1,VALUE(RIGHT(J236,1))<=4))'),
+    UserInputContract("valuation_pretax_bridge", "Valuation", "D247", "valuation_tax_bridges", "D247:E248", ("valuation_scenario_formulas",), "custom", formula1='=OR(D247="",ISNUMBER(D247))'),
+    UserInputContract("valuation_pretax_bridge_tax", "Valuation", "E247", "valuation_tax_bridges", "D247:E248", ("valuation_scenario_formulas",), "list", formula1='"taxable,non_taxable,non_taxable_credit,cash_only,no_eps_impact"'),
+    UserInputContract("valuation_interest_bridge", "Valuation", "D248", "valuation_tax_bridges", "D247:E248", ("valuation_scenario_formulas",), "custom", formula1='=OR(D248="",ISNUMBER(D248))'),
+    UserInputContract("valuation_interest_bridge_tax", "Valuation", "E248", "valuation_tax_bridges", "D247:E248", ("valuation_scenario_formulas",), "list", formula1='"taxable,non_taxable"'),
+    UserInputContract("valuation_cash_normalization_bridges", "Valuation", "D249:D250", "valuation_cash_normalization", "D249:D250", ("valuation_scenario_formulas",), "custom", formula1='=OR(D249="",ISNUMBER(D249))'),
+    UserInputContract("valuation_buyback_cash", "Valuation", "D253", "valuation_capital_allocation", "D253:D256", ("valuation_scenario_formulas",), "decimal", "greaterThanOrEqual", "0"),
+    UserInputContract("valuation_buyback_price", "Valuation", "D254", "valuation_capital_allocation", "D253:D256", ("valuation_scenario_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("valuation_issuance_debt_paydown", "Valuation", "D255:D256", "valuation_capital_allocation", "D253:D256", ("valuation_scenario_formulas",), "decimal", "greaterThanOrEqual", "0"),
+    UserInputContract("investment_case_horizon", "{ticker}_Investment_Case", "B23:D23", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "custom", formula1='=OR(B23="",AND(LEFT(B23,2)="FY",LEN(B23)=6,ISNUMBER(VALUE(RIGHT(B23,4)))))'),
+    UserInputContract("investment_case_growth_margins", "{ticker}_Investment_Case", "B24:D26", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "between", "-1", "1"),
+    UserInputContract("investment_case_pretax_bridge", "{ticker}_Investment_Case", "B27:D27", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "custom", formula1='=OR(B27="",ISNUMBER(B27))'),
+    UserInputContract("investment_case_tax_rate", "{ticker}_Investment_Case", "B28:D28", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "between", "0", "1"),
+    UserInputContract("investment_case_bridge_tax", "{ticker}_Investment_Case", "B29:D29", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "list", formula1='"taxable,non_taxable,non_taxable_credit,cash_only,no_eps_impact"'),
+    UserInputContract("investment_case_interest_bridge", "{ticker}_Investment_Case", "B30:D30", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "custom", formula1='=OR(B30="",ISNUMBER(B30))'),
+    UserInputContract("investment_case_interest_tax", "{ticker}_Investment_Case", "B31:D31", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "list", formula1='"taxable,non_taxable"'),
+    UserInputContract("investment_case_cash_bridges", "{ticker}_Investment_Case", "B32:D33", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "custom", formula1='=OR(B32="",ISNUMBER(B32))'),
+    UserInputContract("investment_case_buyback_cash", "{ticker}_Investment_Case", "B34:D34", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "greaterThanOrEqual", "0"),
+    UserInputContract("investment_case_buyback_price", "{ticker}_Investment_Case", "B35:D35", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("investment_case_issuance_paydown", "{ticker}_Investment_Case", "B36:D37", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "greaterThanOrEqual", "0"),
+    UserInputContract("investment_case_target_multiples", "{ticker}_Investment_Case", "B38:D41", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("investment_case_target_yield", "{ticker}_Investment_Case", "B42:D42", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "between", "0.000001", "1"),
+    UserInputContract("investment_case_eps_axis", "{ticker}_Investment_Case", "B160:D160", "investment_case_eps_axis", "B160:D160", ("investment_case_sensitivity_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("investment_case_pe_axis", "{ticker}_Investment_Case", "A161:A163", "investment_case_pe_axis", "A161:A163", ("investment_case_sensitivity_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("investment_case_adjusted_ebitda_axis", "{ticker}_Investment_Case", "B171:D171", "investment_case_adjusted_ebitda_axis", "B171:D171", ("investment_case_sensitivity_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("investment_case_ev_multiple_axis", "{ticker}_Investment_Case", "A172:A174", "investment_case_ev_multiple_axis", "A172:A174", ("investment_case_sensitivity_formulas",), "decimal", "greaterThan", "0"),
+    UserInputContract("investment_case_fcf_yield_axis", "{ticker}_Investment_Case", "B177:D177", "investment_case_fcf_yield_axis", "B177:D177", ("investment_case_sensitivity_formulas",), "decimal", "between", "0.000001", "1"),
+    UserInputContract("investment_case_fcf_axis", "{ticker}_Investment_Case", "A178:A180", "investment_case_fcf_axis", "A178:A180", ("investment_case_sensitivity_formulas",), "decimal", "greaterThan", "0"),
+)
 
 
 VALUATION_RAW_ROWS = {
@@ -349,6 +405,294 @@ def formula_target_contracts() -> tuple[FormulaTargetContract, ...]:
     return tuple(contracts)
 
 
+def active_user_input_contracts(enabled_formula_ids: Collection[str]) -> tuple[UserInputContract, ...]:
+    enabled = {str(value) for value in enabled_formula_ids}
+    return tuple(
+        contract
+        for contract in USER_INPUT_CONTRACTS
+        if set(contract.required_formula_ids) <= enabled
+    )
+
+
+def user_input_surface_targets(sheet: str) -> tuple[str, ...]:
+    """Return broad shell ownership ranges projected from the input authority."""
+
+    return tuple(
+        dict.fromkeys(
+            contract.surface_target
+            for contract in USER_INPUT_CONTRACTS
+            if contract.sheet == sheet
+        )
+    )
+
+
+def _resolved_contract_sheet(workbook: Any, sheet_name: str) -> str | None:
+    if sheet_name in workbook.sheetnames:
+        return sheet_name
+    if "{ticker}" not in sheet_name:
+        return None
+    suffix = sheet_name.replace("{ticker}", "")
+    candidates = [name for name in workbook.sheetnames if name.endswith(suffix) and "{ticker}" not in name]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def _cells_for_target(ws: Any, target: str) -> tuple[Any, ...]:
+    min_col, min_row, max_col, max_row = range_boundaries(target)
+    return tuple(
+        cell
+        for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col)
+        for cell in row
+        if not isinstance(cell, MergedCell)
+    )
+
+
+def apply_workbook_protection_contract(workbook: Any, enabled_formula_ids: Collection[str]) -> None:
+    """Lock the workbook and expose only declared, validated user inputs."""
+
+    active = active_user_input_contracts(enabled_formula_ids)
+    contract_sheets = {contract.sheet for contract in USER_INPUT_CONTRACTS}
+    for ws in workbook.worksheets:
+        for cell in tuple(ws._cells.values()):
+            protection = copy(cell.protection)
+            protection.locked = True
+            cell.protection = protection
+        ws.protection.sheet = True
+        ws.protection.objects = True
+        ws.protection.scenarios = True
+        ws.protection.selectLockedCells = False
+        ws.protection.selectUnlockedCells = False
+
+    for sheet_name in contract_sheets:
+        resolved = _resolved_contract_sheet(workbook, sheet_name)
+        if resolved is None:
+            continue
+        ws = workbook[resolved]
+        _remove_data_validations_overlapping(
+            ws,
+            tuple(contract.target for contract in USER_INPUT_CONTRACTS if contract.sheet == sheet_name),
+        )
+
+    for contract in active:
+        resolved = _resolved_contract_sheet(workbook, contract.sheet)
+        if resolved is None:
+            raise ValueError(f"Active user-input contract requires missing sheet {contract.sheet!r}.")
+        ws = workbook[resolved]
+        for cell in _cells_for_target(ws, contract.target):
+            protection = copy(cell.protection)
+            protection.locked = False
+            cell.protection = protection
+        _add_validation(
+            ws,
+            contract.validation_type,
+            contract.target,
+            operator=contract.operator,
+            formula1=contract.formula1,
+            formula2=contract.formula2,
+        )
+
+
+def workbook_protection_payload(workbook: Any) -> dict[str, Any]:
+    worksheets = []
+    editable_cells = []
+    for ws in workbook.worksheets:
+        protection = ws.protection
+        worksheets.append(
+            {
+                "sheet": ws.title,
+                "state": ws.sheet_state,
+                "sheet_protected": bool(protection.sheet),
+                "objects": bool(protection.objects),
+                "scenarios": bool(protection.scenarios),
+                "select_locked_cells": bool(protection.selectLockedCells),
+                "select_unlocked_cells": bool(protection.selectUnlockedCells),
+            }
+        )
+        editable_cells.extend(
+            {"sheet": ws.title, "cell": cell.coordinate}
+            for cell in tuple(ws._cells.values())
+            if not bool(True if cell.protection.locked is None else cell.protection.locked)
+        )
+    return {
+        "worksheets": worksheets,
+        "editable_cells": sorted(editable_cells, key=lambda row: (row["sheet"], row["cell"])),
+    }
+
+
+def _validation_formula_at_cell(value: Any, *, origin: str, target: str) -> str:
+    raw = str(value or "")
+    if not raw:
+        return ""
+    expression = raw if raw.startswith("=") else f"={raw}"
+    try:
+        translated = Translator(expression, origin=origin).translate_formula(target)
+    except Exception:
+        translated = expression
+    return translated[1:] if translated.startswith("=") else translated
+
+
+def _validation_operator(validation_type: str, operator: Any, formula2: Any) -> str:
+    value = str(operator or "")
+    if not value and validation_type in {"decimal", "whole", "date", "time", "textLength"} and formula2 not in (None, ""):
+        return "between"
+    return value
+
+
+def canonical_data_validation_cells(worksheet: Any) -> list[dict[str, str]]:
+    """Expand Excel-grouped validations to one semantic contract per cell."""
+
+    result: list[dict[str, str]] = []
+    for validation in worksheet.data_validations.dataValidation:
+        serialized_ranges = str(validation.sqref).split()
+        if not serialized_ranges:
+            continue
+        first_min_col, first_min_row, _first_max_col, _first_max_row = range_boundaries(serialized_ranges[0])
+        origin = f"{get_column_letter(first_min_col)}{first_min_row}"
+        validation_type = str(validation.type or "")
+        operator = _validation_operator(validation_type, validation.operator, validation.formula2)
+        for target_range in serialized_ranges:
+            min_col, min_row, max_col, max_row = range_boundaries(target_range)
+            for row in range(min_row, max_row + 1):
+                for column in range(min_col, max_col + 1):
+                    coordinate = f"{get_column_letter(column)}{row}"
+                    result.append(
+                        {
+                            "cell": coordinate,
+                            "type": validation_type,
+                            "operator": operator,
+                            "formula1": _validation_formula_at_cell(
+                                validation.formula1,
+                                origin=origin,
+                                target=coordinate,
+                            ),
+                            "formula2": _validation_formula_at_cell(
+                                validation.formula2,
+                                origin=origin,
+                                target=coordinate,
+                            ),
+                        }
+                    )
+    return sorted(
+        result,
+        key=lambda row: (row["cell"], row["type"], row["operator"], row["formula1"], row["formula2"]),
+    )
+
+
+def validate_workbook_protection_contract(
+    workbook: Any,
+    enabled_formula_ids: Collection[str],
+) -> list[dict[str, str]]:
+    """Validate exact editability, validation, visibility and sheet protection."""
+
+    active = active_user_input_contracts(enabled_formula_ids)
+    expected_editable: set[tuple[str, str]] = set()
+    issues: list[dict[str, str]] = []
+    validations_by_sheet = {
+        ws.title: canonical_data_validation_cells(ws)
+        for ws in workbook.worksheets
+    }
+    for ws in workbook.worksheets:
+        if not ws.protection.sheet:
+            issues.append(
+                {
+                    "rule_id": "worksheet_protection_missing",
+                    "message": f"Worksheet {ws.title!r} is not protected.",
+                    "sheet": ws.title,
+                    "target": "",
+                }
+            )
+    for contract in active:
+        resolved = _resolved_contract_sheet(workbook, contract.sheet)
+        if resolved is None:
+            issues.append(
+                {
+                    "rule_id": "user_input_sheet_missing",
+                    "message": f"Active user input {contract.input_id!r} requires missing sheet {contract.sheet!r}.",
+                    "sheet": contract.sheet,
+                    "target": contract.target,
+                }
+            )
+            continue
+        ws = workbook[resolved]
+        contract_cells = tuple(_cells_for_target(ws, contract.target))
+        expected_editable.update((resolved, cell.coordinate) for cell in contract_cells)
+        min_col, min_row, _max_col, _max_row = range_boundaries(contract.target)
+        origin = f"{get_column_letter(min_col)}{min_row}"
+        actual_validations = validations_by_sheet[resolved]
+        missing_cells: list[str] = []
+        duplicate_cells: list[str] = []
+        for cell in contract_cells:
+            expected_validation = {
+                "cell": cell.coordinate,
+                "type": contract.validation_type,
+                "operator": _validation_operator(contract.validation_type, contract.operator, contract.formula2),
+                "formula1": _validation_formula_at_cell(
+                    contract.formula1,
+                    origin=origin,
+                    target=cell.coordinate,
+                ),
+                "formula2": _validation_formula_at_cell(
+                    contract.formula2,
+                    origin=origin,
+                    target=cell.coordinate,
+                ),
+            }
+            matches = [row for row in actual_validations if row == expected_validation]
+            if not matches:
+                missing_cells.append(cell.coordinate)
+            elif len(matches) > 1:
+                duplicate_cells.append(cell.coordinate)
+        if missing_cells:
+            issues.append(
+                {
+                    "rule_id": "user_input_validation_missing",
+                    "message": (
+                        f"User input {contract.input_id!r} lacks its exact validation contract at "
+                        f"{', '.join(missing_cells[:8])}."
+                    ),
+                    "sheet": resolved,
+                    "target": contract.target,
+                }
+            )
+        if duplicate_cells:
+            issues.append(
+                {
+                    "rule_id": "user_input_validation_duplicate",
+                    "message": (
+                        f"User input {contract.input_id!r} has duplicate validation coverage at "
+                        f"{', '.join(duplicate_cells[:8])}."
+                    ),
+                    "sheet": resolved,
+                    "target": contract.target,
+                }
+            )
+
+    actual_editable = {
+        (ws.title, cell.coordinate)
+        for ws in workbook.worksheets
+        for cell in tuple(ws._cells.values())
+        if not bool(True if cell.protection.locked is None else cell.protection.locked)
+    }
+    for sheet, cell in sorted(actual_editable - expected_editable):
+        issues.append(
+            {
+                "rule_id": "unexpected_editable_cell",
+                "message": "Cell is editable but has no active UserInputContract.",
+                "sheet": sheet,
+                "target": cell,
+            }
+        )
+    for sheet, cell in sorted(expected_editable - actual_editable):
+        issues.append(
+            {
+                "rule_id": "declared_user_input_locked",
+                "message": "Declared user input is locked.",
+                "sheet": sheet,
+                "target": cell,
+            }
+        )
+    return issues
+
+
 def apply_standard_formula_contracts(
     workbook: Any,
     *,
@@ -481,24 +825,16 @@ def _prepare_raw_targets(valuation: Any, bs: Any) -> None:
         for column in range(FIRST_QUARTER_COLUMN, LAST_QUARTER_COLUMN + 1):
             cell = valuation.cell(row, column)
             cell.value = None
-            protection = copy(cell.protection)
-            protection.locked = False
-            cell.protection = protection
+            cell.protection = Protection(locked=True)
     for column in range(FIRST_QUARTER_COLUMN, LAST_QUARTER_COLUMN + 1):
-        protection = copy(valuation.cell(6, column).protection)
-        protection.locked = False
-        valuation.cell(6, column).protection = protection
+        valuation.cell(6, column).protection = Protection(locked=True)
     for row in BS_RAW_ROWS.values():
         for column in range(FIRST_QUARTER_COLUMN, LAST_QUARTER_COLUMN + 1):
             cell = bs.cell(row, column)
             cell.value = None
-            protection = copy(cell.protection)
-            protection.locked = False
-            cell.protection = protection
+            cell.protection = Protection(locked=True)
     for column in range(FIRST_QUARTER_COLUMN, LAST_QUARTER_COLUMN + 1):
-        protection = copy(bs.cell(7, column).protection)
-        protection.locked = False
-        bs.cell(7, column).protection = protection
+        bs.cell(7, column).protection = Protection(locked=True)
 
 
 def _prepare_calculation_history_sheet(workbook: Any) -> None:
@@ -511,7 +847,7 @@ def _prepare_calculation_history_sheet(workbook: Any) -> None:
         for column in range(1, len(headers) + 1):
             cell = ws.cell(row, column)
             cell.value = None
-            cell.protection = Protection(locked=False)
+            cell.protection = Protection(locked=True)
     ws.sheet_state = "hidden"
 
 
@@ -637,7 +973,7 @@ def _apply_hidden_helpers(ws: Any) -> None:
             cell = ws.cell(row, column)
             cell.value = None
             cell.number_format = "#,##0.0;[Red]-#,##0.0"
-            cell.protection = Protection(locked=False)
+            cell.protection = Protection(locked=True)
 
 
 def _apply_hidden_formula_helpers(ws: Any) -> None:
@@ -795,11 +1131,11 @@ def _apply_annual_financial_block(ws: Any, enabled_formula_ids: set[str]) -> Non
         col = get_column_letter(column)
         header = ws.cell(82, column)
         header.value = None
-        header.protection = Protection(locked=False)
+        header.protection = Protection(locked=True)
         for row in ANNUAL_RAW_ROWS.values():
             cell = ws.cell(row, column)
             cell.value = None
-            cell.protection = Protection(locked=False)
+            cell.protection = Protection(locked=True)
             cell.number_format = "$0.00;[Red]-$0.00" if row == 99 else "#,##0.0;[Red]-#,##0.0"
         formulas = {
             85: _ratio(f"{col}84", f"{col}83"),
@@ -836,14 +1172,6 @@ def _apply_valuation_input_outputs(ws: Any, enabled_formula_ids: set[str]) -> No
     }
     for coordinate, label in labels.items():
         ws[coordinate] = label
-
-    # Source-backed actuals and user assumptions share the visible input
-    # surface.  The binding plan owns only declared source-backed cells; the
-    # remaining unlocked cells are intentionally available for user inputs.
-    for row in range(194, 217):
-        protection = copy(ws.cell(row, 4).protection)
-        protection.locked = False
-        ws.cell(row, 4).protection = protection
 
     denominator = 'IF(PerShareMode="Outstanding",Shares,IF(PerShareMode="Diluted",SharesDiluted,""))'
     output_formulas = {
@@ -941,9 +1269,7 @@ def _apply_valuation_scenario_inputs_and_outputs(ws: Any, enabled_formula_ids: s
     sensitivity_inputs = tuple(f"{column}226" for column in "HIJKL") + tuple(f"G{row}" for row in range(227, 235))
     for coordinate in ("D217",) + user_inputs + sensitivity_inputs:
         ws[coordinate] = None
-        ws[coordinate].protection = Protection(locked=False)
-
-    _apply_scenario_data_validations(ws)
+        ws[coordinate].protection = Protection(locked=True)
     if "valuation_scenario_formulas" not in enabled_formula_ids:
         return
 
@@ -1198,9 +1524,8 @@ def _apply_investment_case_scenario_formulas(ws: Any, enabled_formula_ids: set[s
     ):
         ws.cell(84, column).value = label
 
-    for range_ref in INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES:
-        _clear_and_unlock_range(ws, range_ref)
-    _apply_investment_case_data_validations(ws)
+    for range_ref in user_input_surface_targets("{ticker}_Investment_Case"):
+        _clear_range(ws, range_ref)
 
     if "investment_case_scenario_formulas" in enabled_formula_ids:
         actuals = {
@@ -1426,52 +1751,6 @@ def _apply_scenario_defined_names(workbook: Any, enabled_formula_ids: set[str]) 
         workbook.defined_names.add(DefinedName(name, attr_text=f"{sheet}!${coordinate[0]}${coordinate[1:]}"))
 
 
-def _apply_scenario_data_validations(ws: Any) -> None:
-    owned = (
-        "D194", "D208:D210", "D213:D216", "D218:D220", "J218:J221",
-        "H226:L226", "G227:G234", "E236:E240", "J236", "D247:E250", "D253:D256",
-    )
-    _remove_data_validations_overlapping(ws, owned)
-    _add_validation(ws, "list", "D216", formula1='"Outstanding,Diluted"')
-    _add_validation(ws, "list", "E236", formula1='"Bear,Base,Bull,Custom"')
-    _add_validation(ws, "custom", "J236", formula1='=OR(J236="",AND(LEFT(J236,2)="FY",LEN(J236)=6,ISNUMBER(VALUE(RIGHT(J236,4)))),AND(LEN(J236)=7,MID(J236,5,2)="-Q",ISNUMBER(VALUE(LEFT(J236,4))),VALUE(RIGHT(J236,1))>=1,VALUE(RIGHT(J236,1))<=4))')
-    _add_validation(ws, "list", "E247", formula1='"taxable,non_taxable,non_taxable_credit,cash_only,no_eps_impact"')
-    _add_validation(ws, "list", "E248", formula1='"taxable,non_taxable"')
-    _add_validation(ws, "decimal", "D194", operator="greaterThan", formula1="0")
-    _add_validation(ws, "decimal", "D208:D209", operator="greaterThan", formula1="0")
-    _add_validation(ws, "decimal", "D210", operator="between", formula1="0.000001", formula2="1")
-    _add_validation(ws, "decimal", "D213", operator="between", formula1="0", formula2="1")
-    _add_validation(ws, "decimal", "D218:D219", operator="greaterThan", formula1="0")
-    _add_validation(ws, "whole", "D220", operator="between", formula1="1", formula2="20")
-    _add_validation(ws, "decimal", "J218", operator="greaterThan", formula1="0")
-    _add_validation(ws, "decimal", "J219:J220", operator="between", formula1="-1", formula2="1")
-    _add_validation(ws, "decimal", "J221", operator="between", formula1="0.000001", formula2="1")
-    _add_validation(ws, "decimal", "H226:L226", operator="between", formula1="-1", formula2="1")
-    _add_validation(ws, "decimal", "G227:G234", operator="between", formula1="0.000001", formula2="1")
-    _add_validation(ws, "decimal", "E237:E239", operator="between", formula1="-1", formula2="1")
-    _add_validation(ws, "decimal", "E240", operator="between", formula1="0", formula2="1")
-    _add_validation(ws, "decimal", "D253", operator="greaterThanOrEqual", formula1="0")
-    _add_validation(ws, "decimal", "D254", operator="greaterThan", formula1="0")
-    _add_validation(ws, "decimal", "D255:D256", operator="greaterThanOrEqual", formula1="0")
-
-
-def _apply_investment_case_data_validations(ws: Any) -> None:
-    _remove_data_validations_overlapping(ws, INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES)
-    _add_validation(ws, "custom", "B23:D23", formula1='=OR(B23="",AND(LEFT(B23,2)="FY",LEN(B23)=6,ISNUMBER(VALUE(RIGHT(B23,4)))))')
-    _add_validation(ws, "decimal", "B24:D26", operator="between", formula1="-1", formula2="1")
-    _add_validation(ws, "decimal", "B28:D28", operator="between", formula1="0", formula2="1")
-    _add_validation(ws, "list", "B29:D29", formula1='"taxable,non_taxable,non_taxable_credit,cash_only,no_eps_impact"')
-    _add_validation(ws, "list", "B31:D31", formula1='"taxable,non_taxable"')
-    _add_validation(ws, "decimal", "B34:D34", operator="greaterThanOrEqual", formula1="0")
-    _add_validation(ws, "decimal", "B35:D35", operator="greaterThan", formula1="0")
-    _add_validation(ws, "decimal", "B36:D37", operator="greaterThanOrEqual", formula1="0")
-    _add_validation(ws, "decimal", "B38:D41", operator="greaterThan", formula1="0")
-    _add_validation(ws, "decimal", "B42:D42", operator="between", formula1="0.000001", formula2="1")
-    _add_validation(ws, "decimal", "B160:D160", operator="greaterThan", formula1="0")
-    _add_validation(ws, "decimal", "B171:D171", operator="greaterThan", formula1="0")
-    _add_validation(ws, "decimal", "B177:D177", operator="between", formula1="0.000001", formula2="1")
-
-
 def _add_validation(
     ws: Any,
     validation_type: str,
@@ -1513,16 +1792,14 @@ def _bounds_overlap(left: tuple[int, int, int, int], right: tuple[int, int, int,
     return not (left[2] < right[0] or right[2] < left[0] or left[3] < right[1] or right[3] < left[1])
 
 
-def _clear_and_unlock_range(ws: Any, range_ref: str) -> None:
-    from openpyxl.utils.cell import range_boundaries
-
+def _clear_range(ws: Any, range_ref: str) -> None:
     min_col, min_row, max_col, max_row = range_boundaries(range_ref)
     for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
         for cell in row:
             if isinstance(cell, MergedCell):
                 continue
             cell.value = None
-            cell.protection = Protection(locked=False)
+            cell.protection = Protection(locked=True)
 
 
 def _prepare_investment_case_scenario_layout(ws: Any) -> None:

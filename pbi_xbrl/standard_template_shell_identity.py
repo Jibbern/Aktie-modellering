@@ -19,9 +19,18 @@ from openpyxl.formula import Tokenizer
 from openpyxl.utils import range_boundaries
 
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
+from pbi_xbrl.excel_formula_serialization import (
+    validate_workbook_formula_compatibility,
+    validate_xlsx_formula_compatibility,
+)
+from pbi_xbrl.standard_template_formula_contract import (
+    canonical_data_validation_cells,
+    validate_workbook_protection_contract,
+    workbook_protection_payload,
+)
 
 
-SHELL_SEMANTIC_CONTRACT_VERSION = "1.7.0"
+SHELL_SEMANTIC_CONTRACT_VERSION = "1.8.0"
 SHEET_VIEW_IDENTITY_CONTRACT_VERSION = "1.0.0"
 BINDING_PLANNER_CONTRACT_VERSION = "1.3.0"
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +47,8 @@ IDENTITY_FIELDS = (
     "writable_target_signature",
     "binding_contract_signature",
     "formula_static_zone_signature",
+    "worksheet_protection_signature",
+    "editable_surface_signature",
 )
 _FIXED_ZIP_TIMESTAMP = (2000, 1, 1, 0, 0, 0)
 _FIXED_CORE_TIMESTAMP = "2000-01-01T00:00:00Z"
@@ -285,6 +296,7 @@ def compute_shell_identity(
             key=lambda row: (row["name"], row["attr_text"], row["type"]),
         )
         writable_zones = _writable_zone_map(manifest)
+        protection_payload = workbook_protection_payload(wb)
         static_cells: list[dict[str, Any]] = []
         formula_cells: list[dict[str, Any]] = []
         for ws in wb.worksheets:
@@ -320,6 +332,8 @@ def compute_shell_identity(
         "writable_target_signature": _signature(target_contract),
         "binding_contract_signature": compute_binding_contract_signature(binding_payload),
         "formula_static_zone_signature": _signature(formula_static_payload),
+        "worksheet_protection_signature": _signature(protection_payload["worksheets"]),
+        "editable_surface_signature": _signature(protection_payload["editable_cells"]),
         "counts": {
             "sheets": len(sheets),
             "sheet_views": sum(len(row["views"]) for row in sheet_views["worksheets"]),
@@ -329,6 +343,8 @@ def compute_shell_identity(
             "binding_contracts": len(binding_contract),
             "formula_cells": len(formula_cells),
             "static_cells": len(static_cells),
+            "protected_worksheets": sum(1 for row in protection_payload["worksheets"] if row["sheet_protected"]),
+            "editable_cells": len(protection_payload["editable_cells"]),
         },
     }
 
@@ -454,6 +470,34 @@ def verify_shell_identity(
             "bindings": list(binding_payload),
         }
     issues.extend(_contract_schema_issues(binding_document, BINDING_SCHEMA_PATH, rule_prefix="shell_binding_schema"))
+    try:
+        issues.extend(validate_xlsx_formula_compatibility(workbook_path))
+    except Exception as exc:
+        issues.append(
+            {
+                "rule_id": "shell_formula_compatibility_unavailable",
+                "message": str(exc),
+            }
+        )
+    protection_wb = None
+    try:
+        protection_wb = load_workbook(Path(workbook_path), read_only=False, data_only=False)
+        enabled_formula_ids = (
+            manifest.get("module_profile", {}).get("enabled_formula_ids", ())
+            if isinstance(manifest.get("module_profile"), Mapping)
+            else ()
+        )
+        issues.extend(validate_workbook_protection_contract(protection_wb, enabled_formula_ids))
+    except Exception as exc:
+        issues.append(
+            {
+                "rule_id": "shell_protection_contract_unavailable",
+                "message": str(exc),
+            }
+        )
+    finally:
+        if protection_wb is not None:
+            protection_wb.close()
     if not expected:
         return _verified_result(
             status="FAIL",
@@ -521,6 +565,7 @@ def verify_post_fill_structural_identity(
     module_payload: Mapping[str, Any] | None = None,
     style_contract: Mapping[str, Any] | None = None,
     approved_style_plan: Any = None,
+    excel_native_roundtrip: bool = False,
 ) -> dict[str, Any]:
     """Verify a filled workbook against an exact, approved source shell.
 
@@ -556,8 +601,14 @@ def verify_post_fill_structural_identity(
                 }
             )
         else:
-            style_mode = module_payload is not None or style_contract is not None or (
-                isinstance(binding_payload, Mapping) and binding_payload.get("module_profile_id")
+            # Style reproduction is an explicit strict-validation surface. The
+            # production validator supplies all three contracts; value-only
+            # identity callers must not implicitly invent a style run from
+            # profile metadata alone.
+            style_mode = (
+                module_payload is not None
+                or style_contract is not None
+                or approved_style_plan is not None
             )
             if style_mode:
                 from pbi_xbrl.new_ticker_binding_planner import BindingPlanReproductionError
@@ -607,6 +658,15 @@ def verify_post_fill_structural_identity(
     owns_filled = isinstance(filled_workbook, (str, Path))
     target_wb = load_workbook(Path(filled_workbook), read_only=False, data_only=False) if owns_filled else filled_workbook
     try:
+        issues.extend(validate_workbook_formula_compatibility(target_wb))
+        if owns_filled:
+            issues.extend(validate_xlsx_formula_compatibility(Path(filled_workbook)))
+        enabled_formula_ids = (
+            manifest.get("module_profile", {}).get("enabled_formula_ids", ())
+            if isinstance(manifest.get("module_profile"), Mapping)
+            else ()
+        )
+        issues.extend(validate_workbook_protection_contract(target_wb, enabled_formula_ids))
         if reproduced_style_plan is not None:
             from pbi_xbrl.new_ticker_style_application import apply_style_plan
 
@@ -634,9 +694,20 @@ def verify_post_fill_structural_identity(
         "data_validations": "post_fill_data_validation_drift",
         "conditional_formatting": "post_fill_conditional_formatting_drift",
         "tables": "post_fill_table_drift",
+        "worksheet_protection": "post_fill_worksheet_protection_drift",
+        "editable_surface": "post_fill_editable_surface_drift",
     }
+    accepted_excel_normalizations: list[str] = []
     for section, source_signature in source_signatures.items():
         if target_signatures.get(section) != source_signature:
+            if excel_native_roundtrip and section == "layout":
+                # Desktop Excel rewrites row/column span records and computes
+                # font-dependent default heights during a save. Layout remains
+                # an exact blocking check in every production pre/post-fill
+                # path; only the isolated native round-trip test classifies
+                # this serialization-only section separately.
+                accepted_excel_normalizations.append(section)
+                continue
             issues.append(
                 {
                     "rule_id": rule_ids[section],
@@ -700,6 +771,7 @@ def verify_post_fill_structural_identity(
         "reproduced_style_action_count": (
             len(reproduced_style_plan.actions) if reproduced_style_plan is not None else 0
         ),
+        "accepted_excel_native_normalizations": accepted_excel_normalizations,
     }
 
 
@@ -742,20 +814,29 @@ def _exact_writable_cells(bindings: Sequence[Mapping[str, Any]]) -> dict[str, se
 def _canonical_color(color: Any) -> dict[str, Any] | None:
     if color is None:
         return None
+    color_type = str(getattr(color, "type", "") or "")
+    raw_rgb = str(getattr(color, "rgb", "") or "") if color_type == "rgb" else ""
+    rgb = raw_rgb[-6:].upper() if re.fullmatch(r"[0-9A-Fa-f]{8}", raw_rgb) else raw_rgb
+    indexed = getattr(color, "indexed", None) if color_type == "indexed" else None
+    theme = getattr(color, "theme", None) if color_type == "theme" else None
     return {
-        "type": str(getattr(color, "type", "") or ""),
-        "rgb": str(getattr(color, "rgb", "") or ""),
-        "indexed": getattr(color, "indexed", None),
-        "auto": bool(getattr(color, "auto", False)),
-        "theme": getattr(color, "theme", None),
+        "type": color_type,
+        "rgb": rgb,
+        "indexed": indexed if isinstance(indexed, int) else None,
+        "auto": bool(getattr(color, "auto", False)) if color_type == "auto" else False,
+        "theme": theme if isinstance(theme, int) else None,
         "tint": float(getattr(color, "tint", 0.0) or 0.0),
     }
 
 
 def _canonical_side(side: Any) -> dict[str, Any]:
+    style = str(getattr(side, "style", "") or "")
+    color = _canonical_color(getattr(side, "color", None)) if style else None
+    if color is not None and color["type"] == "auto":
+        color = None
     return {
-        "style": str(getattr(side, "style", "") or ""),
-        "color": _canonical_color(getattr(side, "color", None)),
+        "style": style,
+        "color": color,
     }
 
 
@@ -788,7 +869,7 @@ def _canonical_cell_style(cell: Any) -> dict[str, Any]:
     protection = cell.protection
     return {
         "font": {
-            "name": str(font.name or ""),
+            "name": str(font.name or "Calibri"),
             "size": float(font.sz) if font.sz is not None else None,
             "bold": bool(font.b),
             "italic": bool(font.i),
@@ -819,7 +900,7 @@ def _canonical_cell_style(cell: Any) -> dict[str, Any]:
         },
         "alignment": {
             "horizontal": str(alignment.horizontal or ""),
-            "vertical": str(alignment.vertical or ""),
+            "vertical": str(alignment.vertical or "bottom"),
             "text_rotation": int(alignment.textRotation or 0),
             "wrap_text": bool(alignment.wrapText),
             "shrink_to_fit": bool(alignment.shrinkToFit),
@@ -828,7 +909,13 @@ def _canonical_cell_style(cell: Any) -> dict[str, Any]:
             "justify_last_line": bool(alignment.justifyLastLine),
             "reading_order": float(alignment.readingOrder or 0.0),
         },
-        "number_format": str(cell.number_format or "General"),
+        "number_format": (
+            str(cell.number_format or "General")
+            .replace(r"\-", "-")
+            .replace(r"\$", "$")
+            .replace(r"\ ", " ")
+            .replace(r"\x", "x")
+        ),
         "protection": {
             "locked": True if protection.locked is None else bool(protection.locked),
             "hidden": bool(protection.hidden),
@@ -839,6 +926,7 @@ def _canonical_cell_style(cell: Any) -> dict[str, Any]:
 
 
 _SIMPLE_QUOTED_SHEET_RE = re.compile(r"'([A-Za-z_][A-Za-z0-9_.]*)'!")
+_TOKEN_QUOTED_SHEET_RE = re.compile(r"'(\{ticker\}_[^']+)'!")
 
 
 def _canonical_formula(value: Any) -> Any:
@@ -849,14 +937,17 @@ def _canonical_formula(value: Any) -> Any:
     try:
         tokens = Tokenizer(candidate).items
     except Exception:
-        return _SIMPLE_QUOTED_SHEET_RE.sub(r"\1!", value)
+        return _TOKEN_QUOTED_SHEET_RE.sub(r"\1!", _SIMPLE_QUOTED_SHEET_RE.sub(r"\1!", value))
     pieces: list[str] = []
     for token in tokens:
         token_value = str(token.value)
         if token.type == "OPERAND" and token.subtype == "NUMBER":
             token_value = _canonical_number_token(token_value)
         elif token.type == "OPERAND" and token.subtype == "RANGE":
-            token_value = _SIMPLE_QUOTED_SHEET_RE.sub(r"\1!", token_value)
+            token_value = _TOKEN_QUOTED_SHEET_RE.sub(
+                r"\1!",
+                _SIMPLE_QUOTED_SHEET_RE.sub(r"\1!", token_value),
+            )
         elif token.type == "FUNC" and token.subtype == "OPEN" and token_value.endswith("("):
             token_value = f"{token_value[:-1].upper()}("
         pieces.append(token_value)
@@ -915,8 +1006,21 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
     data_validations: list[dict[str, Any]] = []
     conditional_formatting: list[dict[str, Any]] = []
     tables: list[dict[str, Any]] = []
+    worksheet_protection: list[dict[str, Any]] = []
+    editable_surface: list[dict[str, str]] = []
     for ws in wb.worksheets:
         normalized_sheet = sheet_name_map[ws.title]
+        protection = ws.protection
+        worksheet_protection.append(
+            {
+                "sheet": normalized_sheet,
+                "sheet_protected": bool(protection.sheet),
+                "objects": bool(protection.objects),
+                "scenarios": bool(protection.scenarios),
+                "select_locked_cells": bool(protection.selectLockedCells),
+                "select_unlocked_cells": bool(protection.selectUnlockedCells),
+            }
+        )
         layout.append(
             {
                 "sheet": normalized_sheet,
@@ -956,6 +1060,8 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
         for cell in sorted(ws._cells.values(), key=lambda item: (item.row, item.column)):
             is_writable = cell.coordinate in allowed
             value = normalized_text(cell.value)
+            if not bool(True if cell.protection.locked is None else cell.protection.locked):
+                editable_surface.append({"sheet": normalized_sheet, "cell": cell.coordinate})
             cell_structure.append(
                 {
                     "sheet": normalized_sheet,
@@ -977,15 +1083,15 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
                     ),
                 }
             )
-        for validation in ws.data_validations.dataValidation:
+        for validation in canonical_data_validation_cells(ws):
             data_validations.append(
                 {
                     "sheet": normalized_sheet,
-                    "sqref": str(validation.sqref),
-                    "type": str(validation.type or ""),
-                    "operator": str(validation.operator or ""),
-                    "formula1": str(_canonical_formula(normalized_text(validation.formula1)) or ""),
-                    "formula2": str(_canonical_formula(normalized_text(validation.formula2)) or ""),
+                    "cell": str(validation["cell"]),
+                    "type": str(validation["type"]),
+                    "operator": str(validation["operator"]),
+                    "formula1": str(_canonical_formula(normalized_text(validation["formula1"])) or ""),
+                    "formula2": str(_canonical_formula(normalized_text(validation["formula2"])) or ""),
                 }
             )
         for conditional_range in ws.conditional_formatting:
@@ -1015,16 +1121,34 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
                     "ref": str(table.ref),
                 }
             )
+    sheet_views = _sheet_view_contract_payload(wb, sheet_name_map=sheet_name_map)
+    # Excel necessarily selects one active tab when it opens and saves a file.
+    # Tab selection is session state, not workbook business structure.
+    for worksheet in sheet_views["worksheets"]:
+        for view in worksheet["views"]:
+            view["tabSelected"] = False
     return {
         "sheets": sheets,
-        "sheet_views": _sheet_view_contract_payload(wb, sheet_name_map=sheet_name_map),
+        "sheet_views": sheet_views,
         "merges": merges,
         "defined_names": defined_names,
         "layout": layout,
         "cell_structure": cell_structure,
-        "data_validations": sorted(data_validations, key=lambda row: (row["sheet"], row["sqref"])),
+        "data_validations": sorted(
+            data_validations,
+            key=lambda row: (
+                row["sheet"],
+                row["cell"],
+                row["type"],
+                row["operator"],
+                row["formula1"],
+                row["formula2"],
+            ),
+        ),
         "conditional_formatting": sorted(conditional_formatting, key=lambda row: (row["sheet"], row["sqref"])),
         "tables": sorted(tables, key=lambda row: (row["sheet"], row["name"])),
+        "worksheet_protection": worksheet_protection,
+        "editable_surface": sorted(editable_surface, key=lambda row: (row["sheet"], row["cell"])),
     }
 
 
@@ -1232,6 +1356,8 @@ def _identity_rule_id(field: str) -> str:
         "writable_target_signature": "shell_writable_target_drift",
         "binding_contract_signature": "shell_binding_contract_drift",
         "formula_static_zone_signature": "shell_formula_static_zone_drift",
+        "worksheet_protection_signature": "shell_worksheet_protection_drift",
+        "editable_surface_signature": "shell_editable_surface_drift",
     }[field]
 
 

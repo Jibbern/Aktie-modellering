@@ -36,9 +36,16 @@ from pbi_xbrl.standard_template_shell_identity import (
 from pbi_xbrl.standard_template_formula_contract import (
     FORMULA_CONTRACT_VERSION,
     INVESTMENT_CASE_SCENARIO_OWNED_RANGES,
-    INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES,
     apply_standard_formula_contracts,
     apply_standard_support_formula_contracts,
+    apply_workbook_protection_contract,
+    user_input_surface_targets,
+    validate_workbook_protection_contract,
+)
+from pbi_xbrl.excel_formula_serialization import (
+    FormulaSerializationError,
+    serialize_workbook_formulas_for_ooxml,
+    validate_workbook_formula_compatibility,
 )
 from pbi_xbrl.json_schema_validation import load_json_strict
 from pbi_xbrl.standard_template_audit_freshness import write_audit_freshness
@@ -511,6 +518,7 @@ def _configure_investment_case_ownership_zones(manifest: dict[str, Any]) -> None
         for zone in sheet.get("writable_zones") or []
         if str(zone.get("zone_id") or "")
         not in {"ic_key_debate_values", "ic_manual_input_values", "ic_scenario_bridge_values"}
+        and not str(zone.get("zone_id") or "").startswith("ic_scenario_user_input_")
     ]
     snapshot = next((zone for zone in retained if zone.get("zone_id") == "ic_snapshot_values"), None)
     if snapshot is not None:
@@ -522,13 +530,14 @@ def _configure_investment_case_ownership_zones(manifest: dict[str, Any]) -> None
             "anchor_label": "Typed Scenario Inputs",
             "value_shapes": ["scalar", "table_rows"],
         }
-        for index, target in enumerate(INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES, start=1)
+        for index, target in enumerate(user_input_surface_targets("{ticker}_Investment_Case"), start=1)
     ]
     sheet["writable_zones"] = [*retained, *scenario_inputs]
     non_writable = [
         zone
         for zone in sheet.get("non_writable_zones") or []
         if str(zone.get("zone_id") or "") != "ic_static_label_column"
+        and not str(zone.get("zone_id") or "").startswith("ic_static_label_column_")
     ]
     non_writable.extend(
         {
@@ -1645,10 +1654,6 @@ def _neutralize_support_sheet(
     ws.row_dimensions[1].height = 20.0
     ws.freeze_panes = "A2"
     ws.sheet_view.showGridLines = False
-    if ws.title == "History_Q":
-        for row in range(2, 1001):
-            for column in range(1, len(headers) + 1):
-                ws.cell(row, column).protection = Protection(locked=False)
     ws.protection.sheet = protect
     ws.sheet_state = state
 
@@ -1772,6 +1777,18 @@ def _materialize_rich_shell(
     _ensure_freeze_panes(wb, manifest)
     _configure_calculation(wb)
     _configure_deterministic_properties(wb)
+    active_formula_ids = enabled_formula_ids(module_payload, resolved_profile)
+    apply_workbook_protection_contract(wb, active_formula_ids)
+    protection_issues = validate_workbook_protection_contract(wb, active_formula_ids)
+    if protection_issues:
+        raise ValueError("Invalid materialized workbook protection: " + "; ".join(row["message"] for row in protection_issues[:20]))
+    try:
+        serialize_workbook_formulas_for_ooxml(wb)
+    except FormulaSerializationError as exc:
+        raise ValueError(f"Formula serialization failed: {exc}") from exc
+    formula_issues = validate_workbook_formula_compatibility(wb)
+    if formula_issues:
+        raise ValueError("Invalid materialized formula serialization: " + "; ".join(row["message"] for row in formula_issues[:20]))
     ownership_issues = validate_workbook_execution_ownership(
         wb,
         module_payload,
@@ -1883,6 +1900,18 @@ def materialize_shell(
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _configure_calculation(wb)
     _configure_deterministic_properties(wb)
+    active_formula_ids = enabled_formula_ids(module_payload, resolved_profile)
+    apply_workbook_protection_contract(wb, active_formula_ids)
+    protection_issues = validate_workbook_protection_contract(wb, active_formula_ids)
+    if protection_issues:
+        raise ValueError("Invalid materialized workbook protection: " + "; ".join(row["message"] for row in protection_issues[:20]))
+    try:
+        serialize_workbook_formulas_for_ooxml(wb)
+    except FormulaSerializationError as exc:
+        raise ValueError(f"Formula serialization failed: {exc}") from exc
+    formula_issues = validate_workbook_formula_compatibility(wb)
+    if formula_issues:
+        raise ValueError("Invalid materialized formula serialization: " + "; ".join(row["message"] for row in formula_issues[:20]))
     ownership_issues = validate_workbook_execution_ownership(
         wb,
         module_payload,

@@ -27,6 +27,17 @@ The shell owns layout: sheet order, static labels, merged cells, formulas,
 styles, row heights, column widths, freeze panes, print/view settings, formulas,
 and protected/static areas.
 
+Logical invariant-English formulas remain authoritative in the formula contract.
+Immediately before each new-engine XLSX save, the bounded serializer converts
+approved future functions and LET-local names to their exact OOXML spellings.
+Unknown functions fail before the package is written.
+
+All worksheets are protected as an accidental-edit guard. Editability and data
+validation have one authority: the active `UserInputContract` rows selected by
+the resolved module profile. Source-backed facts, planner targets, formulas,
+inactive capacity, and narrative outputs remain locked; disabled modules expose
+no editable cells.
+
 The materialized shell is a neutral template. It uses PBI/GPRE/ANF saved
 workbooks as the standard layout family for broad dimensions/freeze-pane
 conventions, but writable zones are blank and company-specific values are not
@@ -137,9 +148,9 @@ filler to overwrite headers.
 
 ## Valuation And Operating Driver Sidecars
 
-The lower Valuation input block declares `D194:D216` as the
-`valuation_input_values` shell zone. Each active input has its own exact planner
-cell contract and semantic target role; adjacent labels, date/period headers,
+The lower Valuation block retains broad visual capacity, but only exact active
+`UserInputContract` cells are unlocked and validated. Each active input has its
+own semantic role; adjacent labels, date/period headers, source-backed values,
 formula outputs, and interpretation cells remain protected. The current
 guidance sidecar similarly separates guidance-value cells from status cells and
 keeps helper/formula columns non-writable.

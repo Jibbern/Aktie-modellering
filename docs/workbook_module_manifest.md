@@ -11,6 +11,11 @@ block ranges, executable formula IDs, defined names, style-owned ranges, and the
 eligible binding set. Disabled shared-sheet blocks are materialized blank and
 inactive; the planner and filler contain no ticker-specific branches.
 
+Every materialized worksheet is protected. The resolved profile also selects the
+single `UserInputContract` authority, so editability and data validation activate
+together with their owning formulas. `core_only` exposes no optional-module user
+inputs, while planner and source-history targets remain locked in every profile.
+
 ## Module Matrix
 
 | Module | Type | Owned sheets | Main dependencies |

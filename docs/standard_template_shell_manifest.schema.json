@@ -35,7 +35,7 @@
     "required_anchors": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/anchor"}},
     "sheets": {"type": "array", "minItems": 46, "items": {"$ref": "#/$defs/sheet"}},
     "optional_support_sheets": {"type": "array", "items": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "object"}]}},
-    "semantic_contract_version": {"type": "string", "const": "1.7.0"},
+    "semantic_contract_version": {"type": "string", "const": "1.8.0"},
     "shell_identity": {"$ref": "#/$defs/shellIdentity"}
   },
   "$defs": {
@@ -50,7 +50,7 @@
     },
     "sheet": {
       "type": "object",
-      "required": ["sheet", "module_id", "module_role", "legacy_class", "state", "writable_zones", "non_writable_zones"],
+      "required": ["sheet", "module_id", "module_role", "legacy_class", "state", "writable_zones", "non_writable_zones", "worksheet_protection"],
       "properties": {
         "sheet": {"type": "string", "minLength": 1},
         "module_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
@@ -58,7 +58,8 @@
         "legacy_class": {"enum": ["A", "B", "C", "E"]},
         "state": {"enum": ["visible", "hidden", "veryHidden"]},
         "writable_zones": {"type": "array", "items": {"$ref": "#/$defs/zone"}},
-        "non_writable_zones": {"type": "array", "items": {"$ref": "#/$defs/zone"}}
+        "non_writable_zones": {"type": "array", "items": {"$ref": "#/$defs/zone"}},
+        "worksheet_protection": {"const": true}
       },
       "additionalProperties": true
     },
@@ -133,10 +134,12 @@
         "defined_name_signature",
         "writable_target_signature",
         "binding_contract_signature",
-        "formula_static_zone_signature"
+        "formula_static_zone_signature",
+        "worksheet_protection_signature",
+        "editable_surface_signature"
       ],
       "properties": {
-        "semantic_contract_version": {"type": "string", "const": "1.7.0"},
+        "semantic_contract_version": {"type": "string", "const": "1.8.0"},
         "workbook_sha256": {"$ref": "#/$defs/sha256"},
         "manifest_contract_signature": {"$ref": "#/$defs/sha256"},
         "sheet_order_visibility_signature": {"$ref": "#/$defs/sha256"},
@@ -146,6 +149,8 @@
         "writable_target_signature": {"$ref": "#/$defs/sha256"},
         "binding_contract_signature": {"$ref": "#/$defs/sha256"},
         "formula_static_zone_signature": {"$ref": "#/$defs/sha256"},
+        "worksheet_protection_signature": {"$ref": "#/$defs/sha256"},
+        "editable_surface_signature": {"$ref": "#/$defs/sha256"},
         "counts": {"type": "object"}
       },
       "additionalProperties": false

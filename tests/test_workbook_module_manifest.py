@@ -25,6 +25,7 @@ from pbi_xbrl.workbook_modules import (
     validate_workbook_execution_ownership,
 )
 from scripts.materialize_standard_template_shell import materialize_shell
+from scripts.materialize_standard_template_shell import _configure_investment_case_ownership_zones
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -261,6 +262,27 @@ def test_formula_output_support_surfaces_are_never_binding_writable() -> None:
     )
 
 
+def test_user_input_zone_projection_is_idempotent() -> None:
+    manifest = load_json_strict(SHELL_MANIFEST)
+
+    _configure_investment_case_ownership_zones(manifest)
+    _configure_investment_case_ownership_zones(manifest)
+
+    investment_case = next(row for row in manifest["sheets"] if row["sheet"] == "{ticker}_Investment_Case")
+    scenario_zones = [
+        row for row in investment_case["writable_zones"]
+        if str(row["zone_id"]).startswith("ic_scenario_user_input_")
+    ]
+    label_zones = [
+        row for row in investment_case["non_writable_zones"]
+        if str(row["zone_id"]).startswith("ic_static_label_column_")
+    ]
+    assert len(scenario_zones) == 7
+    assert len({row["zone_id"] for row in scenario_zones}) == 7
+    assert len(label_zones) == 4
+    assert len({row["zone_id"] for row in label_zones}) == 4
+
+
 def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path) -> None:
     shell = tmp_path / "core-shell.xlsx"
     manifest_path = tmp_path / "core-manifest.json"
@@ -347,14 +369,11 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
             for cell in row
             if sheet_name != "Valuation" or 137 <= cell.row <= 143
         )
-        assert all(
-            wb[sheet_name].protection.sheet
-            for sheet_name in (
-                "Hidden_Value_Base",
-                "Hidden_Value_Audit",
-                "Hidden_Value_Recompute",
-                "Hidden_Value_Flags",
-            )
+        assert all(ws.protection.sheet for ws in wb.worksheets)
+        assert not any(
+            cell.protection.locked is False
+            for ws in wb.worksheets
+            for cell in ws._cells.values()
         )
         hidden_value_bindings = {
             "hidden_value_base_rows",

@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-18T07:48:49+00:00",
+  "generated_at": "2026-07-18T13:14:43+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "visible_sheets": [
@@ -19210,7 +19210,7 @@
     {
       "sheet": "Valuation_Summary",
       "cell": "H2",
-      "value": "=LET(scenarioKey,\"bear\",userGrowth,'{ticker}_Investment_Case'!$B$24,scenarioHorizon,'{ticker}_Investment_Case'!$B$23,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"total_company\"),itemMember,--('Scenario_Driver_Assumptions'!$K$",
+      "value": "=_xlfn.LET(_xlpm.scenarioKey,\"bear\",_xlpm.userGrowth,'{ticker}_Investment_Case'!$B$24,_xlpm.scenarioHorizon,'{ticker}_Investment_Case'!$B$23,_xlpm.itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"total_company\"),_xlpm.itemMember,",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -19218,7 +19218,7 @@
     {
       "sheet": "Valuation_Summary",
       "cell": "I2",
-      "value": "=LET(scenarioKey,\"base\",userGrowth,'{ticker}_Investment_Case'!$C$24,scenarioHorizon,'{ticker}_Investment_Case'!$C$23,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"total_company\"),itemMember,--('Scenario_Driver_Assumptions'!$K$",
+      "value": "=_xlfn.LET(_xlpm.scenarioKey,\"base\",_xlpm.userGrowth,'{ticker}_Investment_Case'!$C$24,_xlpm.scenarioHorizon,'{ticker}_Investment_Case'!$C$23,_xlpm.itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"total_company\"),_xlpm.itemMember,",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -19226,7 +19226,7 @@
     {
       "sheet": "Valuation_Summary",
       "cell": "J2",
-      "value": "=LET(scenarioKey,\"bull\",userGrowth,'{ticker}_Investment_Case'!$D$24,scenarioHorizon,'{ticker}_Investment_Case'!$D$23,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"total_company\"),itemMember,--('Scenario_Driver_Assumptions'!$K$",
+      "value": "=_xlfn.LET(_xlpm.scenarioKey,\"bull\",_xlpm.userGrowth,'{ticker}_Investment_Case'!$D$24,_xlpm.scenarioHorizon,'{ticker}_Investment_Case'!$D$23,_xlpm.itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"total_company\"),_xlpm.itemMember,",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -19234,7 +19234,7 @@
     {
       "sheet": "Valuation_Summary",
       "cell": "K2",
-      "value": "=LET(scenarioKey,\"custom\",userGrowth,ScenarioGrowth,scenarioHorizon,ScenarioHorizon,itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"total_company\"),itemMember,--('Scenario_Driver_Assumptions'!$K$2:$K$201=\"total_company\"),directM",
+      "value": "=_xlfn.LET(_xlpm.scenarioKey,\"custom\",_xlpm.userGrowth,ScenarioGrowth,_xlpm.scenarioHorizon,ScenarioHorizon,_xlpm.itemDimension,--('Scenario_Driver_Assumptions'!$J$2:$J$201=\"total_company\"),_xlpm.itemMember,--('Scenario_Driver_Assumptions'!",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"

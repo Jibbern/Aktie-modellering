@@ -632,6 +632,7 @@ def build_profile_shell_manifest(
         row["module_role"] = str(contract["role"])
         row["legacy_class"] = str(contract["legacy_class"])
         row["state"] = resolved.sheet_states[sheet_name]
+        row["worksheet_protection"] = bool(contract["worksheet_protection"])
         sheets.append(row)
     result["visible_sheet_order"] = list(resolved.visible_sheet_order)
     result["union_sheet_order"] = [str(value) for value in module_payload.get("union_sheet_order") or []]

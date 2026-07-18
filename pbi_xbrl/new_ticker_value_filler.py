@@ -29,6 +29,10 @@ from pbi_xbrl.new_ticker_style_planner import (
     reproduce_style_plan,
 )
 from pbi_xbrl.normalized_company_data_validation import NormalizedDataIssue
+from pbi_xbrl.excel_formula_serialization import (
+    FormulaSerializationError,
+    serialize_workbook_formulas_for_ooxml,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,8 +132,9 @@ def fill_standard_template_from_package(
         _resolve_ticker_sheet(wb, ticker)
         written = _execute_binding_plan(wb, plan)
         styled = apply_style_plan(wb, style_plan).applied_action_count
+        serialize_workbook_formulas_for_ooxml(wb)
         wb.save(out_path)
-    except StyleApplicationError as exc:
+    except (FormulaSerializationError, StyleApplicationError) as exc:
         raise BindingContractError(str(exc)) from exc
     finally:
         wb.close()
