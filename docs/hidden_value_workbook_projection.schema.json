@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hidden_value_workbook_projection.schema.json",
+  "title": "Hidden Value workbook projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "projection_version", "status", "ticker", "profile_id", "as_of_period",
+    "contract_digest", "evaluation_plan_digest", "base_rows", "audit_rows",
+    "recompute_rows", "flags_rows", "projection_digest"
+  ],
+  "properties": {
+    "projection_version": {"const": "1.0.0"},
+    "status": {"const": "PASS"},
+    "ticker": {"type": "string"},
+    "profile_id": {"type": "string", "minLength": 1},
+    "as_of_period": {"type": "string"},
+    "contract_digest": {"$ref": "#/$defs/digest"},
+    "evaluation_plan_digest": {"$ref": "#/$defs/digest"},
+    "projection_digest": {"$ref": "#/$defs/digest"},
+    "base_rows": {"type": "array", "items": {"$ref": "#/$defs/baseRow"}},
+    "audit_rows": {"type": "array", "maxItems": 7, "items": {"$ref": "#/$defs/auditRow"}},
+    "recompute_rows": {"type": "array", "items": {"$ref": "#/$defs/recomputeRow"}},
+    "flags_rows": {"type": "array", "maxItems": 7, "items": {"$ref": "#/$defs/flagRow"}}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nullableNumber": {"type": ["number", "null"]},
+    "nullableBoolean": {"type": ["boolean", "null"]},
+    "baseRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric_key", "metric_id", "value", "unit", "period", "period_role", "dimension_id", "member", "status", "reason", "evidence_ids", "source_refs", "formula_ids", "source_ref"],
+      "properties": {
+        "metric_key": {"type": "string", "minLength": 1},
+        "metric_id": {"type": "string", "minLength": 1},
+        "value": {"$ref": "#/$defs/nullableNumber"},
+        "unit": {"type": "string"},
+        "period": {"type": "string", "minLength": 1},
+        "period_role": {"type": "string"},
+        "dimension_id": {"type": "string"},
+        "member": {"type": "string"},
+        "status": {"type": "string", "minLength": 1},
+        "reason": {"type": "string"},
+        "evidence_ids": {"type": "string"},
+        "source_refs": {"type": "string"},
+        "formula_ids": {"type": "string"},
+        "source_ref": {"type": "string"}
+      }
+    },
+    "auditRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_key", "signal_id", "display_name", "profile_id", "as_of_period", "expected_state", "expected_triggered", "expected_score", "expected_score_denominator", "expected_severity", "priority", "reasons", "evidence_ids", "source_refs", "resolved_metric_keys", "recompute_record_keys", "module_eligible", "source_ref"],
+      "properties": {
+        "candidate_key": {"type": "string", "minLength": 1},
+        "signal_id": {"type": "string", "minLength": 1},
+        "display_name": {"type": "string"},
+        "profile_id": {"type": "string"},
+        "as_of_period": {"type": "string"},
+        "expected_state": {"type": "string"},
+        "expected_triggered": {"type": "boolean"},
+        "expected_score": {"type": ["integer", "null"], "minimum": 0, "maximum": 100},
+        "expected_score_denominator": {"type": "number", "minimum": 0},
+        "expected_severity": {"type": "string"},
+        "priority": {"type": "integer"},
+        "reasons": {"type": "string"},
+        "evidence_ids": {"type": "string"},
+        "source_refs": {"type": "string"},
+        "resolved_metric_keys": {"type": "string"},
+        "recompute_record_keys": {"type": "string"},
+        "module_eligible": {"type": "boolean"},
+        "source_ref": {"type": "string"}
+      }
+    },
+    "recomputeRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["record_order", "record_key", "candidate_key", "signal_id", "record_type", "stage", "item_id", "metric_key", "operator", "right_metric_key", "threshold", "required_component", "weight", "normalization_direction", "normalization_threshold", "normalization_span", "normalization_base", "expected_value", "expected_comparison", "expected_passed", "expected_included_weight", "expected_normalized_score", "expected_weighted_score", "expected_status", "source_ref"],
+      "properties": {
+        "record_order": {"type": "integer", "minimum": 1},
+        "record_key": {"type": "string", "minLength": 1},
+        "candidate_key": {"type": "string", "minLength": 1},
+        "signal_id": {"type": "string", "minLength": 1},
+        "record_type": {"enum": ["required_metric", "predicate", "score_component"]},
+        "stage": {"type": "string"},
+        "item_id": {"type": "string", "minLength": 1},
+        "metric_key": {"type": "string"},
+        "operator": {"type": "string"},
+        "right_metric_key": {"type": "string"},
+        "threshold": {"$ref": "#/$defs/nullableNumber"},
+        "required_component": {"type": "boolean"},
+        "weight": {"$ref": "#/$defs/nullableNumber"},
+        "normalization_direction": {"type": "string"},
+        "normalization_threshold": {"$ref": "#/$defs/nullableNumber"},
+        "normalization_span": {"$ref": "#/$defs/nullableNumber"},
+        "normalization_base": {"$ref": "#/$defs/nullableNumber"},
+        "expected_value": {"$ref": "#/$defs/nullableNumber"},
+        "expected_comparison": {"$ref": "#/$defs/nullableNumber"},
+        "expected_passed": {"$ref": "#/$defs/nullableBoolean"},
+        "expected_included_weight": {"$ref": "#/$defs/nullableNumber"},
+        "expected_normalized_score": {"$ref": "#/$defs/nullableNumber"},
+        "expected_weighted_score": {"$ref": "#/$defs/nullableNumber"},
+        "expected_status": {"type": "string"},
+        "source_ref": {"type": "string"}
+      }
+    },
+    "flagRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_rank", "candidate_key", "signal_id", "display_name", "score", "triggered", "state", "severity", "as_of_period", "reason", "evidence_ids", "source_refs", "audit_id", "source_ref"],
+      "properties": {
+        "display_rank": {"type": "integer", "minimum": 1},
+        "candidate_key": {"type": "string", "minLength": 1},
+        "signal_id": {"type": "string", "minLength": 1},
+        "display_name": {"type": "string"},
+        "score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "triggered": {"const": true},
+        "state": {"const": "triggered"},
+        "severity": {"type": "string"},
+        "as_of_period": {"type": "string"},
+        "reason": {"type": "string"},
+        "evidence_ids": {"type": "string"},
+        "source_refs": {"type": "string"},
+        "audit_id": {"type": "string"},
+        "source_ref": {"type": "string"}
+      }
+    }
+  }
+}

@@ -115,6 +115,7 @@ class BindingPlan:
     manual_review_flags: list[dict[str, Any]] = field(default_factory=list)
     issue_ledger: dict[str, Any] = field(default_factory=dict)
     period_axes: dict[str, dict[str, Any]] = field(default_factory=dict)
+    derived_plan_reports: list[dict[str, Any]] = field(default_factory=list)
     shell_identity_report: dict[str, Any] = field(default_factory=dict)
     qa_snapshot_status: str = "not_planned"
     planning_completed: bool = False
@@ -184,6 +185,7 @@ class BindingPlan:
             "manual_review_flags": self.manual_review_flags,
             "issue_ledger": self.issue_ledger,
             "period_axes": self.period_axes,
+            "derived_plans": self.derived_plan_reports,
             "shell_identity": self.shell_identity_report,
             "qa_snapshot_status": self.qa_snapshot_status,
         }
@@ -296,6 +298,52 @@ def plan_standard_template_writes(
         _add_blocking_reports(plan, bindings)
         return plan
 
+    planning_package: Mapping[str, Any] = package
+    profile_id = str(module_profile.get("profile_id") or "")
+    if profile_id:
+        try:
+            from pbi_xbrl.hidden_value_signal_economics import evaluate_hidden_value_signals
+            from pbi_xbrl.hidden_value_workbook_projection import build_hidden_value_workbook_projection
+
+            hidden_value_plan = evaluate_hidden_value_signals(
+                package,
+                profile_id=profile_id,
+                ticker=ticker,
+            )
+            hidden_value_projection = build_hidden_value_workbook_projection(hidden_value_plan)
+            projection_payload = hidden_value_projection.to_dict()
+            planning_package = dict(package)
+            planning_package["_derived_workbook"] = {"hidden_value": projection_payload}
+            plan.derived_plan_reports.append(
+                {
+                    "plan_id": "hidden_value_evaluation",
+                    "status": hidden_value_plan.status,
+                    "profile_id": hidden_value_plan.profile_id,
+                    "as_of_period": hidden_value_plan.as_of_period,
+                    "contract_digest": hidden_value_plan.contract_digest,
+                    "evaluation_plan_digest": hidden_value_projection.evaluation_plan_digest,
+                    "workbook_projection_digest": projection_payload["projection_digest"],
+                    "candidate_count": len(hidden_value_plan.candidates),
+                    "base_row_count": len(hidden_value_projection.base_rows),
+                    "audit_row_count": len(hidden_value_projection.audit_rows),
+                    "recompute_row_count": len(hidden_value_projection.recompute_rows),
+                    "flags_row_count": len(hidden_value_projection.flags_rows),
+                    "state_counts": hidden_value_plan.state_counts,
+                }
+            )
+        except Exception as exc:
+            plan.planner_issues.append(
+                _planner_issue(
+                    "P1",
+                    "hidden_value_workbook_projection_failed",
+                    "hidden_value_signals",
+                    str(exc),
+                )
+            )
+            _refresh_issue_ledger(plan)
+            _add_blocking_reports(plan, bindings)
+            return plan
+
     business_bindings = [
         binding
         for binding in bindings
@@ -307,7 +355,7 @@ def plan_standard_template_writes(
     ]
     for binding in ordered_bindings:
         report, writes, gaps, issues = _plan_binding(
-            package,
+            planning_package,
             binding,
             ticker=ticker,
             period_axes=plan.period_axes,

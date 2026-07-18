@@ -1607,7 +1607,13 @@ def _remove_defined_names_pointing_to_missing_sheets(wb: Workbook) -> None:
             del wb.defined_names[name]
 
 
-def _neutralize_support_sheet(ws: Any, headers: list[str], *, state: str = "hidden") -> None:
+def _neutralize_support_sheet(
+    ws: Any,
+    headers: list[str],
+    *,
+    state: str = "hidden",
+    protect: bool = False,
+) -> None:
     for table_name in list(ws.tables.keys()):
         del ws.tables[table_name]
     for merged_range in list(ws.merged_cells.ranges):
@@ -1643,6 +1649,7 @@ def _neutralize_support_sheet(ws: Any, headers: list[str], *, state: str = "hidd
         for row in range(2, 1001):
             for column in range(1, len(headers) + 1):
                 ws.cell(row, column).protection = Protection(locked=False)
+    ws.protection.sheet = protect
     ws.sheet_state = state
 
 
@@ -1670,7 +1677,12 @@ def _neutralize_hidden_support_sheets(wb: Workbook, manifest: dict[str, Any]) ->
             if str(row.get("sheet") or "") == sheet_name
         )
         headers = [str(value) for value in module_contract.get("formulas_static_labels") or []]
-        _neutralize_support_sheet(ws, headers, state=str(contract["state"]))
+        _neutralize_support_sheet(
+            ws,
+            headers,
+            state=str(contract["state"]),
+            protect=bool(module_contract.get("worksheet_protection")),
+        )
 
     wb._sheets = [wb[sheet_name] for sheet_name in union_order]  # type: ignore[attr-defined]
 
@@ -1850,6 +1862,7 @@ def materialize_shell(
                 ws,
                 [str(value) for value in sheet_def.get("formulas_static_labels") or []],
                 state=str(sheet_def["state"]),
+                protect=bool(sheet_def.get("worksheet_protection")),
             )
             continue
         sheet_bindings = [entry for entry in bindings if entry["sheet"] == sheet_name]

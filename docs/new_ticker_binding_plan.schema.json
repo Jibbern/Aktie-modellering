@@ -20,6 +20,7 @@
     "manual_review_flags": {"type": "array", "items": {"type": "object"}},
     "issue_ledger": {"type": "object"},
     "period_axes": {"type": "object"},
+    "derived_plans": {"type": "array", "items": {"type": "object"}},
     "shell_identity": {"type": "object"},
     "qa_snapshot_status": {"type": "string"}
   },

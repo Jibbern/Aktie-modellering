@@ -85,7 +85,7 @@ FORMULA_OUTPUT_SUPPORT_SHEETS = {
     sheet["sheet"]
     for module in MODULE_MANIFEST_PAYLOAD["modules"]
     for sheet in module["sheets"]
-    if sheet.get("data_surface") == "formula_output"
+    if sheet.get("data_surface") == "formula_output" or sheet.get("formula_owned_ranges")
 }
 REQUIRED_PROMISE_ANNUAL_HEADERS = [
     "Metric",
@@ -281,6 +281,26 @@ def test_standard_template_shell_validation_passes() -> None:
     assert report["status"] == "PASS", report
     assert report["issue_count"] == 0
     json.dumps(report)
+
+
+def test_filled_ticker_sheet_resolution_covers_visible_and_data_support_sheets() -> None:
+    validator = _load_validator()
+    workbook = load_workbook(TEMPLATE, data_only=False, read_only=False)
+    try:
+        workbook["{ticker}_Investment_Case"].title = "TEST_Investment_Case"
+        workbook["{ticker}_Investment_Case_Data"].title = "TEST_Investment_Case_Data"
+
+        assert validator._filled_ticker_sheet_names(workbook) == {
+            "{ticker}_Investment_Case": "TEST_Investment_Case",
+            "{ticker}_Investment_Case_Data": "TEST_Investment_Case_Data",
+        }
+        assert validator._workbook_sheet_name(
+            workbook,
+            "{ticker}_Investment_Case_Data",
+            allow_filled_values=True,
+        ) == "TEST_Investment_Case_Data"
+    finally:
+        workbook.close()
 
 
 def test_standard_template_shell_is_rich_visual_shell_not_wireframe() -> None:

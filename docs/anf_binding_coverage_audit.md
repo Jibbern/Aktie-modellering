@@ -2,9 +2,9 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-16T22:00:08+00:00`
-- Bindings with populated data: `76` / `161`
-- Bindings that would write useful output: `106`
+- Generated: `2026-07-18T00:57:07+00:00`
+- Bindings with populated data: `76` / `165`
+- Bindings that would write useful output: `109`
 
 | Binding | Sheet | Field | Values | Rows | Would write | Reason if blank |
 | --- | --- | --- | ---: | ---: | --- | --- |
@@ -88,6 +88,10 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `pp_guidance_timeline_rows_block_4` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 196 | 196/5 | False | binding planning_state is inactive_legacy_contract |
 | `pp_guidance_timeline_rows_block_5` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 196 | 196/6 | False | binding planning_state is inactive_legacy_contract |
 | `pp_guidance_timeline_rows_block_6` | `Promise_Progress_UI` | `normalized_guidance.items.0.horizon` | 196 | 196/17 | False | binding planning_state is inactive_legacy_contract |
+| `hidden_value_base_rows` | `Hidden_Value_Base` | `_derived_workbook.hidden_value.base_rows` | 0 | 0/5000 | True |  |
+| `hidden_value_audit_rows` | `Hidden_Value_Audit` | `_derived_workbook.hidden_value.audit_rows` | 0 | 0/7 | True |  |
+| `hidden_value_recompute_rows` | `Hidden_Value_Recompute` | `_derived_workbook.hidden_value.recompute_rows` | 0 | 0/91 | True |  |
+| `hidden_value_flags_rows` | `Hidden_Value_Flags` | `_derived_workbook.hidden_value.flags_rows` | 0 | 0/7 | False | normalized field is absent or not populated |
 | `qa_log_validation_rows` | `QA_Log` | `issue_ledger.qa_presentation.qa_log_rows` | 0 | 0/4999 | False | validation output binding |
 | `needs_review_validation_rows` | `Needs_Review` | `issue_ledger.qa_presentation.needs_review_rows` | 0 | 0/4999 | False | validation output binding |
 | `qa_checks_mapping_gap_rows` | `QA_Checks` | `issue_ledger.qa_presentation.qa_check_rows` | 0 | 0/4999 | False | validation output binding |

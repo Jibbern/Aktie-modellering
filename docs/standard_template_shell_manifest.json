@@ -3372,6 +3372,864 @@
       "allowed_target_types": [
         "text"
       ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_metric_key",
+      "sheet": "Hidden_Value_Base",
+      "target": "A2:A5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.metric_key",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_metric_id",
+      "sheet": "Hidden_Value_Base",
+      "target": "B2:B5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.metric_id",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_value",
+      "sheet": "Hidden_Value_Base",
+      "target": "C2:C5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.value",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_unit",
+      "sheet": "Hidden_Value_Base",
+      "target": "D2:D5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.unit",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_period",
+      "sheet": "Hidden_Value_Base",
+      "target": "E2:E5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.period",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_period_role",
+      "sheet": "Hidden_Value_Base",
+      "target": "F2:F5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.period_role",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_dimension_id",
+      "sheet": "Hidden_Value_Base",
+      "target": "G2:G5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.dimension_id",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_member",
+      "sheet": "Hidden_Value_Base",
+      "target": "H2:H5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.member",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_status",
+      "sheet": "Hidden_Value_Base",
+      "target": "I2:I5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.status",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_reason",
+      "sheet": "Hidden_Value_Base",
+      "target": "J2:J5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.reason",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_evidence_ids",
+      "sheet": "Hidden_Value_Base",
+      "target": "K2:K5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.evidence_ids",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_source_refs",
+      "sheet": "Hidden_Value_Base",
+      "target": "L2:L5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.source_refs",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_base_rows_formula_ids",
+      "sheet": "Hidden_Value_Base",
+      "target": "M2:M5001",
+      "writable": true,
+      "target_role": "hidden_value_base_rows.formula_ids",
+      "allowed_binding_ids": [
+        "hidden_value_base_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_candidate_key",
+      "sheet": "Hidden_Value_Audit",
+      "target": "A2:A8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.candidate_key",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_signal_id",
+      "sheet": "Hidden_Value_Audit",
+      "target": "B2:B8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.signal_id",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_display_name",
+      "sheet": "Hidden_Value_Audit",
+      "target": "C2:C8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.display_name",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_profile_id",
+      "sheet": "Hidden_Value_Audit",
+      "target": "D2:D8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.profile_id",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_as_of_period",
+      "sheet": "Hidden_Value_Audit",
+      "target": "E2:E8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.as_of_period",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_expected_state",
+      "sheet": "Hidden_Value_Audit",
+      "target": "F2:F8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.expected_state",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_expected_triggered",
+      "sheet": "Hidden_Value_Audit",
+      "target": "G2:G8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.expected_triggered",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "boolean"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_expected_score",
+      "sheet": "Hidden_Value_Audit",
+      "target": "H2:H8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.expected_score",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "integer"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_expected_score_denominator",
+      "sheet": "Hidden_Value_Audit",
+      "target": "I2:I8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.expected_score_denominator",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_expected_severity",
+      "sheet": "Hidden_Value_Audit",
+      "target": "J2:J8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.expected_severity",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_priority",
+      "sheet": "Hidden_Value_Audit",
+      "target": "K2:K8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.priority",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "integer"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_reasons",
+      "sheet": "Hidden_Value_Audit",
+      "target": "L2:L8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.reasons",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_evidence_ids",
+      "sheet": "Hidden_Value_Audit",
+      "target": "M2:M8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.evidence_ids",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_source_refs",
+      "sheet": "Hidden_Value_Audit",
+      "target": "N2:N8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.source_refs",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_resolved_metric_keys",
+      "sheet": "Hidden_Value_Audit",
+      "target": "O2:O8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.resolved_metric_keys",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_recompute_record_keys",
+      "sheet": "Hidden_Value_Audit",
+      "target": "P2:P8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.recompute_record_keys",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_audit_rows_module_eligible",
+      "sheet": "Hidden_Value_Audit",
+      "target": "Q2:Q8",
+      "writable": true,
+      "target_role": "hidden_value_audit_rows.module_eligible",
+      "allowed_binding_ids": [
+        "hidden_value_audit_rows"
+      ],
+      "allowed_target_types": [
+        "boolean"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_record_key",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "A2:A92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.record_key",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_candidate_key",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "B2:B92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.candidate_key",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_signal_id",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "C2:C92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.signal_id",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_record_type",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "D2:D92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.record_type",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_stage",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "E2:E92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.stage",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_item_id",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "F2:F92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.item_id",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_metric_key",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "G2:G92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.metric_key",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_operator",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "H2:H92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.operator",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_right_metric_key",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "I2:I92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.right_metric_key",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_threshold",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "J2:J92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.threshold",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_required_component",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "K2:K92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.required_component",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "boolean"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_weight",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "L2:L92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.weight",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_normalization_direction",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "M2:M92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.normalization_direction",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_normalization_threshold",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "N2:N92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.normalization_threshold",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_normalization_span",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "O2:O92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.normalization_span",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_normalization_base",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "P2:P92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.normalization_base",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_expected_value",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "Q2:Q92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.expected_value",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_expected_comparison",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "R2:R92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.expected_comparison",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_expected_passed",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "S2:S92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.expected_passed",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "boolean"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_expected_included_weight",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "T2:T92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.expected_included_weight",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_expected_normalized_score",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "U2:U92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.expected_normalized_score",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_expected_weighted_score",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "V2:V92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.expected_weighted_score",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_recompute_rows_expected_status",
+      "sheet": "Hidden_Value_Recompute",
+      "target": "W2:W92",
+      "writable": true,
+      "target_role": "hidden_value_recompute_rows.expected_status",
+      "allowed_binding_ids": [
+        "hidden_value_recompute_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_display_rank",
+      "sheet": "Hidden_Value_Flags",
+      "target": "A2:A8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.display_rank",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "integer"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_candidate_key",
+      "sheet": "Hidden_Value_Flags",
+      "target": "B2:B8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.candidate_key",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_signal_id",
+      "sheet": "Hidden_Value_Flags",
+      "target": "C2:C8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.signal_id",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_display_name",
+      "sheet": "Hidden_Value_Flags",
+      "target": "D2:D8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.display_name",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_score",
+      "sheet": "Hidden_Value_Flags",
+      "target": "E2:E8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.score",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "integer"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_triggered",
+      "sheet": "Hidden_Value_Flags",
+      "target": "F2:F8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.triggered",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "boolean"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_state",
+      "sheet": "Hidden_Value_Flags",
+      "target": "G2:G8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.state",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_severity",
+      "sheet": "Hidden_Value_Flags",
+      "target": "H2:H8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.severity",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_as_of_period",
+      "sheet": "Hidden_Value_Flags",
+      "target": "I2:I8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.as_of_period",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_reason",
+      "sheet": "Hidden_Value_Flags",
+      "target": "J2:J8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.reason",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_evidence_ids",
+      "sheet": "Hidden_Value_Flags",
+      "target": "K2:K8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.evidence_ids",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_source_refs",
+      "sheet": "Hidden_Value_Flags",
+      "target": "L2:L8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.source_refs",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_hidden_value_flags_rows_audit_id",
+      "sheet": "Hidden_Value_Flags",
+      "target": "M2:M8",
+      "writable": true,
+      "target_role": "hidden_value_flags_rows.audit_id",
+      "allowed_binding_ids": [
+        "hidden_value_flags_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
     }
   ],
   "planner_merge_families": [
@@ -5942,6 +6800,258 @@
             "scalar",
             "table_rows"
           ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_1",
+          "target": "B23:D42",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_2",
+          "target": "B160:D160",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_3",
+          "target": "A161:A163",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_4",
+          "target": "B171:D171",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_5",
+          "target": "A172:A174",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_6",
+          "target": "B177:D177",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_7",
+          "target": "A178:A180",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
         }
       ],
       "non_writable_zones": [
@@ -5954,6 +7064,86 @@
           "zone_id": "ic_lower_static_label_column",
           "target": "A192:A233",
           "reason": "Reusable lower-block section and row labels; value cells are writable."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_1",
+          "target": "A5:A160",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_2",
+          "target": "A164:A171",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_3",
+          "target": "A175:A177",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
+        },
+        {
+          "zone_id": "ic_static_label_column_4",
+          "target": "A181:A184",
+          "reason": "Static thesis/scenario labels next to exact writable inputs."
         },
         {
           "zone_id": "ic_static_label_column_1",
@@ -6525,6 +7715,7 @@
         "status",
         "definition"
       ],
+      "worksheet_protection": false,
       "module_id": "core_financial_history",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6559,6 +7750,7 @@
         "status",
         "definition"
       ],
+      "worksheet_protection": false,
       "module_id": "balance_cash_flow",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6593,6 +7785,7 @@
         "status",
         "definition"
       ],
+      "worksheet_protection": false,
       "module_id": "balance_cash_flow",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6626,6 +7819,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "quarter_notes_evidence",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6659,6 +7853,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "quarter_notes_evidence",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6692,6 +7887,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "quarter_notes_evidence",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6721,6 +7917,7 @@
         "resolved_revenue_growth_bull",
         "resolved_revenue_growth_custom"
       ],
+      "worksheet_protection": false,
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6754,6 +7951,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "guidance_promises",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6788,6 +7986,7 @@
         "status",
         "source_ref"
       ],
+      "worksheet_protection": false,
       "module_id": "guidance_promises",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6823,6 +8022,7 @@
         "source_ref",
         "notes"
       ],
+      "worksheet_protection": false,
       "module_id": "guidance_promises",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6857,6 +8057,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "core_financial_history",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6891,6 +8092,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "operating_drivers",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6924,6 +8126,7 @@
         "fiscal_quarter",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "core_financial_history",
       "module_role": "hidden_support",
       "legacy_class": "B",
@@ -6935,8 +8138,8 @@
       "writable_zones": [
         {
           "zone_id": "module_hidden_value_signals_hidden_value_flags_rows",
-          "target": "A2:L1000",
-          "anchor_label": "field",
+          "target": "A2:M8",
+          "anchor_label": "display_rank",
           "value_shapes": [
             "table_rows"
           ]
@@ -6945,24 +8148,26 @@
       "non_writable_zones": [
         {
           "zone_id": "module_hidden_value_signals_hidden_value_flags_headers",
-          "target": "A1:L1",
+          "target": "A1:M1",
           "reason": "Neutral module support headers owned by the frozen shell."
         }
       ],
       "formulas_static_labels": [
-        "field",
+        "display_rank",
+        "candidate_key",
+        "signal_id",
         "display_name",
-        "metric_type",
-        "source_policy",
-        "status",
+        "score",
+        "triggered",
+        "state",
+        "severity",
+        "as_of_period",
         "reason",
-        "sheet",
-        "target",
-        "binding_id",
-        "review_status",
-        "reserved",
-        "has_hidden_value_issue"
+        "evidence_ids",
+        "source_refs",
+        "audit_id"
       ],
+      "worksheet_protection": true,
       "module_id": "hidden_value_signals",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -6974,8 +8179,8 @@
       "writable_zones": [
         {
           "zone_id": "module_hidden_value_signals_hidden_value_audit_rows",
-          "target": "A2:F5000",
-          "anchor_label": "flag_id",
+          "target": "A2:Q8",
+          "anchor_label": "candidate_key",
           "value_shapes": [
             "table_rows"
           ]
@@ -6984,18 +8189,40 @@
       "non_writable_zones": [
         {
           "zone_id": "module_hidden_value_signals_hidden_value_audit_headers",
-          "target": "A1:F1",
+          "target": "A1:V1",
           "reason": "Neutral module support headers owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_audit_formula_1",
+          "target": "R2:V8",
+          "reason": "Formula-owned Hidden Value recomputation surface."
         }
       ],
       "formulas_static_labels": [
-        "flag_id",
-        "metric",
-        "period",
-        "status",
-        "reason",
-        "source_ref"
+        "candidate_key",
+        "signal_id",
+        "display_name",
+        "profile_id",
+        "as_of_period",
+        "expected_state",
+        "expected_triggered",
+        "expected_score",
+        "expected_score_denominator",
+        "expected_severity",
+        "priority",
+        "reasons",
+        "evidence_ids",
+        "source_refs",
+        "resolved_metric_keys",
+        "recompute_record_keys",
+        "module_eligible",
+        "recomputed_state",
+        "recomputed_triggered",
+        "recomputed_score",
+        "parity_status",
+        "discrepancy_reason"
       ],
+      "worksheet_protection": true,
       "module_id": "hidden_value_signals",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7007,8 +8234,8 @@
       "writable_zones": [
         {
           "zone_id": "module_hidden_value_signals_hidden_value_recompute_rows",
-          "target": "A2:F5000",
-          "anchor_label": "flag_id",
+          "target": "A2:W92",
+          "anchor_label": "record_key",
           "value_shapes": [
             "table_rows"
           ]
@@ -7017,18 +8244,83 @@
       "non_writable_zones": [
         {
           "zone_id": "module_hidden_value_signals_hidden_value_recompute_headers",
-          "target": "A1:F1",
+          "target": "A1:AX1",
           "reason": "Neutral module support headers owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_recompute_formula_1",
+          "target": "X2:AD92",
+          "reason": "Formula-owned Hidden Value recomputation surface."
+        },
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_recompute_formula_2",
+          "target": "AF2:AX8",
+          "reason": "Formula-owned Hidden Value recomputation surface."
+        },
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_recompute_reserved_1",
+          "target": "AE2:AE92",
+          "reason": "Reserved neutral support capacity; no binding or formula ownership."
+        },
+        {
+          "zone_id": "module_hidden_value_signals_hidden_value_recompute_reserved_2",
+          "target": "AF9:AX92",
+          "reason": "Reserved neutral support capacity; no binding or formula ownership."
         }
       ],
       "formulas_static_labels": [
-        "flag_id",
-        "input_key",
-        "value",
-        "unit",
-        "period",
-        "status"
+        "record_key",
+        "candidate_key",
+        "signal_id",
+        "record_type",
+        "stage",
+        "item_id",
+        "metric_key",
+        "operator",
+        "right_metric_key",
+        "threshold",
+        "required_component",
+        "weight",
+        "normalization_direction",
+        "normalization_threshold",
+        "normalization_span",
+        "normalization_base",
+        "expected_value",
+        "expected_comparison",
+        "expected_passed",
+        "expected_included_weight",
+        "expected_normalized_score",
+        "expected_weighted_score",
+        "expected_status",
+        "recomputed_value",
+        "recomputed_aux",
+        "recomputed_result",
+        "recomputed_included_weight",
+        "recomputed_normalized_score",
+        "recomputed_weighted_score",
+        "row_parity",
+        "reserved",
+        "summary_candidate_key",
+        "summary_signal_id",
+        "eligibility_mode",
+        "trigger_mode",
+        "near_miss_mode",
+        "minimum_trigger_predicates",
+        "reweight_available_components",
+        "expected_state",
+        "expected_triggered",
+        "expected_score",
+        "expected_score_denominator",
+        "recomputed_eligibility",
+        "recomputed_trigger",
+        "recomputed_near_miss",
+        "recomputed_score_denominator",
+        "recomputed_score",
+        "recomputed_state",
+        "recomputed_triggered",
+        "candidate_parity"
       ],
+      "worksheet_protection": true,
       "module_id": "hidden_value_signals",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7040,8 +8332,8 @@
       "writable_zones": [
         {
           "zone_id": "module_hidden_value_signals_hidden_value_base_rows",
-          "target": "A2:F5000",
-          "anchor_label": "metric",
+          "target": "A2:M5001",
+          "anchor_label": "metric_key",
           "value_shapes": [
             "table_rows"
           ]
@@ -7050,18 +8342,26 @@
       "non_writable_zones": [
         {
           "zone_id": "module_hidden_value_signals_hidden_value_base_headers",
-          "target": "A1:F1",
+          "target": "A1:M1",
           "reason": "Neutral module support headers owned by the frozen shell."
         }
       ],
       "formulas_static_labels": [
-        "metric",
-        "period",
+        "metric_key",
+        "metric_id",
         "value",
         "unit",
-        "source_ref",
-        "status"
+        "period",
+        "period_role",
+        "dimension_id",
+        "member",
+        "status",
+        "reason",
+        "evidence_ids",
+        "source_refs",
+        "formula_ids"
       ],
+      "worksheet_protection": true,
       "module_id": "hidden_value_signals",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7096,6 +8396,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7130,6 +8431,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7163,6 +8465,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7196,6 +8499,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7231,6 +8535,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7266,6 +8571,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7300,6 +8606,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7334,6 +8641,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7379,6 +8687,7 @@
         "source_ref",
         "reason"
       ],
+      "worksheet_protection": false,
       "module_id": "investment_case_market_implied",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7413,6 +8722,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7457,6 +8767,7 @@
         "reason",
         "profile_pack_id"
       ],
+      "worksheet_protection": false,
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
       "legacy_class": "C",
@@ -7491,6 +8802,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -7524,6 +8836,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -7559,6 +8872,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -7594,6 +8908,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -7618,6 +8933,7 @@
         "value",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
       "legacy_class": "E",
@@ -7653,6 +8969,7 @@
         "status",
         "source_ref"
       ],
+      "worksheet_protection": false,
       "module_id": "guidance_promises",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -7689,6 +9006,7 @@
         "source_ref",
         "status"
       ],
+      "worksheet_protection": false,
       "module_id": "non_gaap_adjustments",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -7722,6 +9040,7 @@
         "parser_status",
         "review_status"
       ],
+      "worksheet_protection": false,
       "module_id": "qa_lineage",
       "module_role": "module_capacity",
       "legacy_class": "E",
@@ -7949,27 +9268,27 @@
   "semantic_contract_version": "1.6.0",
   "shell_identity": {
     "semantic_contract_version": "1.6.0",
-    "workbook_sha256": "e17acab3071094ec4f2b2e416b8363ec8078ad816c64ac96bf36d2a3f464f2b8",
-    "manifest_contract_signature": "2dc52fb248abbc33eb62665277fb642fd3b0fdf2682e78c9afedc7b0cd298e06",
+    "workbook_sha256": "151ebe9533624d21a0db54b509cdbcdf246ac413159235eb7cf31b959ae8a850",
+    "manifest_contract_signature": "5a55b50af9846e742a8ccca94ddaf3c7a3a556ad91fd4e0aaf21d66ee86129fc",
     "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
     "sheet_view_signature": "05ae7b3677f3e327032c0dbbd0953f8c059c7d333d84c0fb7ed8662a9d00fd6c",
     "merge_signature": "4ac1bc41152d136823fd8d1f6bdeda8970f8dd04181262b4ce44a468a2319f2c",
-    "defined_name_signature": "c7711e6ac250414a2f9577782f4b0e56cec5ef7bceab3a425bcb65283b959397",
-    "writable_target_signature": "a6c5c4c04b6fcef7edc1d2d46b22d9ff76a9cb5800e8efa17e2bfd411d6cfac4",
-    "binding_contract_signature": "50706f229017edce31fe9a1b5ab1c8b170db72721d50bc6c90b20e62638c5c8a",
-    "formula_static_zone_signature": "919264e3b4dbde5ccd502340f4d0207fb656768d9e965869ae3ce050c40b01cf",
+    "defined_name_signature": "f06a45ae8c0aa2e9332d32489e4d2538e58e7556b2023735683dbc7e4b82fffa",
+    "writable_target_signature": "b76759a3b46de2cfe691deecc26b47516cb0bd60ec565d36ec17a10028848e53",
+    "binding_contract_signature": "e1c1e63a607ad0c35e80f6a7d0cdce95be34a75e520a4e0c8b7b1d821a3d8cc7",
+    "formula_static_zone_signature": "17f210d527b9fe47d98aea275ae824d73190d8818893d9b6764308029e2d20f6",
     "counts": {
       "sheets": 46,
       "sheet_views": 46,
       "merges": 1830,
-      "defined_names": 242,
-      "writable_targets": 387,
-      "binding_contracts": 161,
-      "formula_cells": 1396,
-      "static_cells": 1594
+      "defined_names": 252,
+      "writable_targets": 457,
+      "binding_contracts": 165,
+      "formula_cells": 2200,
+      "static_cells": 1662
     }
   },
-  "formula_contract_version": "1.6.0",
+  "formula_contract_version": "1.7.0",
   "union_sheet_order": [
     "SUMMARY",
     "Valuation",
@@ -8022,7 +9341,7 @@
     "path": "docs/workbook_module_manifest.json",
     "version": "1.0.0",
     "module_contract_version": "1.1.0",
-    "signature": "5b6c57e24e785b86599e6d4e4b5e6f8fadd7ce6163fc64d4f321c5eda03a2243"
+    "signature": "8823b77ffa7deb84f6b4f7814708c1533d1a3a5e0c4974bb8f498f2f497a0c44"
   },
   "module_profile": {
     "profile_id": "full_union",
@@ -8174,7 +9493,9 @@
       "gaap_eps_ttm",
       "gaap_eps_yoy",
       "gross_margin",
-      "hidden_value_issue_anchor",
+      "hidden_value_audit_parity_formulas",
+      "hidden_value_recompute_candidate_formulas",
+      "hidden_value_recompute_detail_formulas",
       "interest_coverage",
       "investment_case_scenario_formulas",
       "investment_case_sensitivity_formulas",
@@ -8231,7 +9552,15 @@
       "Equity_FCF_Yield",
       "FCFF_Proxy_TTM",
       "FCF_TTM",
-      "FCF_TTM_Pos_Years",
+      "HV_Base_MetricKey",
+      "HV_Base_Status",
+      "HV_Base_Value",
+      "HV_Flags_CandidateKey",
+      "HV_Flags_Score",
+      "HV_Flags_State",
+      "HV_Recompute_CandidateKey",
+      "HV_Recompute_CandidateParity",
+      "HV_Recompute_RowParity",
       "ImpliedGT_Output",
       "ImpliedGT_Status",
       "ImpliedGT_WACC",
@@ -8239,7 +9568,6 @@
       "Implied_EV_EBITDA",
       "Implied_FCFF_Yield",
       "InterestPaid_TTM",
-      "Interest_Coverage",
       "MaintCapexRatio",
       "MarketCap",
       "NetDebt",
@@ -8248,7 +9576,6 @@
       "OwnerEarnings_TTM",
       "OwnerEarnings_Yield",
       "PerShareMode",
-      "Pos_FCF_Ratio",
       "Price",
       "RecurringCashCosts",
       "ResolvedRevenueGrowth_Base",

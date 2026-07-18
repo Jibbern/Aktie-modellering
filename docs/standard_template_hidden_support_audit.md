@@ -1,6 +1,6 @@
 # Standard Template Hidden Support Audit
 
-Generated at: 2026-07-16T22:02:59+00:00
+Generated at: 2026-07-18T00:58:31+00:00
 Template: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\standard_stock_model_template.xlsx`
 ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\lab\ANF_template_lab.xlsx`
 
@@ -33,10 +33,10 @@ ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-templ
 | Debt_Tranches_Q | yes | keep_optional_runtime_output_shell | 8 | 0 | 0 | 0 | Reserved hidden capacity for period-keyed tranche history. |
 | Guidance_Normalized | yes | keep_neutral_helper_shell | 8 | 0 | 0 | 0 | Header-only normalized guidance projection. |
 | Guidance_Raw | no | delete_from_shell | 5410 | 0 | 1 | 531 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
-| Hidden_Value_Audit | yes | keep_optional_runtime_output_shell | 6 | 0 | 0 | 0 | Header-only signal audit projection. |
-| Hidden_Value_Base | yes | keep_formula_dependency | 6 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
-| Hidden_Value_Flags | yes | keep_formula_dependency | 12 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
-| Hidden_Value_Recompute | yes | keep_optional_runtime_output_shell | 6 | 0 | 0 | 0 | Header-only recomputation inputs. |
+| Hidden_Value_Audit | yes | keep_formula_dependency | 57 | 35 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
+| Hidden_Value_Base | yes | keep_formula_dependency | 13 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
+| Hidden_Value_Flags | yes | keep_formula_dependency | 13 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
+| Hidden_Value_Recompute | yes | keep_formula_dependency | 820 | 770 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | History_Q | yes | keep_formula_dependency | 7 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | Info_Log | no | delete_from_shell | 4367 | 0 | 1 | 713 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
 | Leverage_Liquidity | yes | keep_optional_runtime_output_shell | 8 | 0 | 0 | 0 | Header-only and fail-closed when debt evidence is unavailable. |

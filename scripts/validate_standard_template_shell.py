@@ -385,19 +385,31 @@ def _sheet_name(template: str, ticker: str = "ANF") -> str:
 
 
 def _filled_ticker_sheet_name(wb: Any) -> str | None:
+    return _filled_ticker_sheet_names(wb).get("{ticker}_Investment_Case")
+
+
+def _filled_ticker_sheet_names(wb: Any) -> dict[str, str]:
     candidates = [
         name
         for name in wb.sheetnames
-        if name.endswith("_Investment_Case") and name not in {"PBI_Investment_Case", "GPRE_Investment_Case", "GTX_Investment_Case"}
+        if name.endswith("_Investment_Case") and name != "{ticker}_Investment_Case"
     ]
-    return candidates[0] if len(candidates) == 1 else None
+    if len(candidates) != 1:
+        return {}
+    main = candidates[0]
+    ticker = main[: -len("_Investment_Case")]
+    resolved = {"{ticker}_Investment_Case": main}
+    data_sheet = f"{ticker}_Investment_Case_Data"
+    if data_sheet in wb.sheetnames:
+        resolved["{ticker}_Investment_Case_Data"] = data_sheet
+    return resolved
 
 
 def _workbook_sheet_name(wb: Any, template_sheet_name: str, *, allow_filled_values: bool) -> str:
     if template_sheet_name in wb.sheetnames:
         return template_sheet_name
-    if allow_filled_values and template_sheet_name == "{ticker}_Investment_Case":
-        resolved = _filled_ticker_sheet_name(wb)
+    if allow_filled_values:
+        resolved = _filled_ticker_sheet_names(wb).get(template_sheet_name)
         if resolved:
             return resolved
     return template_sheet_name

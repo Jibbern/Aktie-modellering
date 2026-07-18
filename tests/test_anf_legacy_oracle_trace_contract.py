@@ -390,7 +390,16 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     assert plan.qa_snapshot_status == "stable"
     assert not plan.has_blockers
     assert len({(write.target_sheet, write.target_cell) for write in business_writes}) == len(business_writes)
-    business_sheets = {write.target_sheet for write in business_writes}
+    hidden_value_binding_ids = {
+        "hidden_value_base_rows",
+        "hidden_value_audit_rows",
+        "hidden_value_recompute_rows",
+        "hidden_value_flags_rows",
+    }
+    accepted_business_writes = [
+        write for write in business_writes if write.binding_id not in hidden_value_binding_ids
+    ]
+    business_sheets = {write.target_sheet for write in accepted_business_writes}
     assert business_sheets == {
         "SUMMARY",
         "Valuation",
@@ -416,21 +425,32 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "ic_scenario_bridge_rows": 102,
         "valuation_input_net_income_ttm": 1,
     }
+    assert {
+        binding_id: by_binding[binding_id]
+        for binding_id in hidden_value_binding_ids
+    } == {
+        "hidden_value_base_rows": 700,
+        "hidden_value_audit_rows": 107,
+        "hidden_value_recompute_rows": 1_176,
+        "hidden_value_flags_rows": 0,
+    }
     payload = plan.to_dict()
     scenario_binding_ids = {
         "ic_bull_base_bear_rows",
         "ic_scenario_bridge_rows",
         "valuation_input_net_income_ttm",
     }
+    additive_binding_ids = scenario_binding_ids | hidden_value_binding_ids
+    assert len(payload["planned_writes"]) == 22_824
     non_scenario_writes = [
         write
         for write in payload["planned_writes"]
-        if write.get("binding_id") not in scenario_binding_ids
+        if write.get("binding_id") not in additive_binding_ids
     ]
     non_scenario_binding_reports = [
         report
         for report in payload["bindings"]
-        if report.get("binding_id") not in scenario_binding_ids
+        if report.get("binding_id") not in additive_binding_ids
     ]
     assert len(non_scenario_writes) == 20_518
     assert _canonical_digest(non_scenario_writes) == "a12bfba291dd696763854ad7901cd00303d0ffde18d3bd3b7ae51ab24bf15368"

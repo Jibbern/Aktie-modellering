@@ -2621,14 +2621,6 @@
       "owner_module_id": "investment_case_market_implied",
       "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "hidden_value_issue_anchor",
-      "sheet": "Valuation",
-      "target": "AI139",
-      "owner_module_id": "hidden_value_signals",
-      "economic_reason": "The hidden issue anchor is a support formula and must never display a heatmap signal.",
-      "expected_empty_behavior": "no_style"
     }
   ]
 }

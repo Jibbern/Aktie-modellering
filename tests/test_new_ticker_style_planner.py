@@ -128,7 +128,7 @@ def test_style_contract_schema_palette_and_authoritative_ownership() -> None:
     assert validate_style_policy_contract(contract, module_payload=modules, binding_payload=bindings) == []
     assert {key: row["fill"]["fg_color"] for key, row in contract["palette_tokens"].items()} == LEGACY_COLORS
     assert len(contract["policies"]) == 51
-    assert len(contract["style_disabled"]) == 27
+    assert len(contract["style_disabled"]) == 26
 
 
 def test_unknown_and_incompatible_period_axes_fail_closed_with_target_context() -> None:
@@ -395,8 +395,25 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         "ic_scenario_bridge_rows": 102,
         "valuation_input_net_income_ttm": 1,
     }
-    assert len(value_plan.planned_writes) - sum(additive_binding_counts.values()) == 20_518
-    assert len(value_plan.planned_writes) == 20_841
+    hidden_value_binding_counts = {
+        binding_id: sum(write.binding_id == binding_id for write in value_plan.planned_writes)
+        for binding_id in (
+            "hidden_value_base_rows",
+            "hidden_value_audit_rows",
+            "hidden_value_recompute_rows",
+            "hidden_value_flags_rows",
+        )
+    }
+    assert hidden_value_binding_counts == {
+        "hidden_value_base_rows": 700,
+        "hidden_value_audit_rows": 107,
+        "hidden_value_recompute_rows": 1_176,
+        "hidden_value_flags_rows": 0,
+    }
+    hidden_value_additions = sum(hidden_value_binding_counts.values())
+    assert len(value_plan.planned_writes) - hidden_value_additions - sum(additive_binding_counts.values()) == 20_518
+    assert len(value_plan.planned_writes) - hidden_value_additions == 20_841
+    assert len(value_plan.planned_writes) == 22_824
     assert len(style_plan.actions) == 824
     assert len(style_plan.decisions) == 1_372
     assert validate_json_schema(style_plan.to_dict(), load_json_strict(STYLE_PLAN_SCHEMA)) == []

@@ -4522,6 +4522,686 @@
       "module_id": "guidance_promises"
     },
     {
+      "binding_id": "hidden_value_base_rows",
+      "sheet": "Hidden_Value_Base",
+      "section": "Resolved Hidden Value metrics",
+      "target": "A2:M5001",
+      "shell_zone": "module_hidden_value_signals_hidden_value_base_rows",
+      "anchor_label": "metric_key",
+      "row_family": "hidden_value_base_rows",
+      "normalized_field": "_derived_workbook.hidden_value.base_rows",
+      "value_shape": "table_rows",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "retain explicit unavailable rows with blank value",
+      "promotion_requirement": "optional",
+      "validation_rule": "hidden_value_workbook_projection",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A2:M5001",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "_derived_workbook.hidden_value.base_rows",
+        "pick": "all"
+      },
+      "row_key": [
+        "metric_key"
+      ],
+      "sort_order": [
+        "metric_key:asc"
+      ],
+      "capacity": 5000,
+      "overflow_behavior": "mapping_gap",
+      "allow_empty": true,
+      "required_columns": [
+        "metric_key",
+        "metric_id",
+        "unit",
+        "period",
+        "period_role",
+        "dimension_id",
+        "member",
+        "status",
+        "evidence_ids",
+        "source_refs",
+        "formula_ids"
+      ],
+      "target_columns": [
+        {
+          "column_id": "metric_key",
+          "source_field": "metric_key",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.metric_key"
+        },
+        {
+          "column_id": "metric_id",
+          "source_field": "metric_id",
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.metric_id"
+        },
+        {
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "C",
+          "target_type": "number",
+          "target_role": "hidden_value_base_rows.value"
+        },
+        {
+          "column_id": "unit",
+          "source_field": "unit",
+          "target_column": "D",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.unit"
+        },
+        {
+          "column_id": "period",
+          "source_field": "period",
+          "target_column": "E",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.period"
+        },
+        {
+          "column_id": "period_role",
+          "source_field": "period_role",
+          "target_column": "F",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.period_role"
+        },
+        {
+          "column_id": "dimension_id",
+          "source_field": "dimension_id",
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.dimension_id"
+        },
+        {
+          "column_id": "member",
+          "source_field": "member",
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.member"
+        },
+        {
+          "column_id": "status",
+          "source_field": "status",
+          "target_column": "I",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.status"
+        },
+        {
+          "column_id": "reason",
+          "source_field": "reason",
+          "target_column": "J",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.reason"
+        },
+        {
+          "column_id": "evidence_ids",
+          "source_field": "evidence_ids",
+          "target_column": "K",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.evidence_ids"
+        },
+        {
+          "column_id": "source_refs",
+          "source_field": "source_refs",
+          "target_column": "L",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.source_refs"
+        },
+        {
+          "column_id": "formula_ids",
+          "source_field": "formula_ids",
+          "target_column": "M",
+          "target_type": "text",
+          "target_role": "hidden_value_base_rows.formula_ids"
+        }
+      ],
+      "source_ref_field": "source_ref",
+      "source_ref_required": false,
+      "planning_state": "active",
+      "module_id": "hidden_value_signals"
+    },
+    {
+      "binding_id": "hidden_value_audit_rows",
+      "sheet": "Hidden_Value_Audit",
+      "section": "Hidden Value candidate audit",
+      "target": "A2:Q8",
+      "shell_zone": "module_hidden_value_signals_hidden_value_audit_rows",
+      "anchor_label": "candidate_key",
+      "row_family": "hidden_value_audit_rows",
+      "normalized_field": "_derived_workbook.hidden_value.audit_rows",
+      "value_shape": "table_rows",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "one explicit audit candidate per contracted signal",
+      "promotion_requirement": "optional",
+      "validation_rule": "hidden_value_workbook_projection",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A2:Q8",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "_derived_workbook.hidden_value.audit_rows",
+        "pick": "all"
+      },
+      "row_key": [
+        "candidate_key"
+      ],
+      "sort_order": [
+        "priority:asc",
+        "signal_id:asc",
+        "candidate_key:asc"
+      ],
+      "capacity": 7,
+      "overflow_behavior": "mapping_gap",
+      "allow_empty": true,
+      "required_columns": [
+        "candidate_key",
+        "signal_id",
+        "display_name",
+        "profile_id",
+        "as_of_period",
+        "expected_state",
+        "expected_triggered",
+        "expected_score_denominator",
+        "priority",
+        "reasons",
+        "evidence_ids",
+        "source_refs",
+        "resolved_metric_keys",
+        "recompute_record_keys",
+        "module_eligible"
+      ],
+      "target_columns": [
+        {
+          "column_id": "candidate_key",
+          "source_field": "candidate_key",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.candidate_key"
+        },
+        {
+          "column_id": "signal_id",
+          "source_field": "signal_id",
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.signal_id"
+        },
+        {
+          "column_id": "display_name",
+          "source_field": "display_name",
+          "target_column": "C",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.display_name"
+        },
+        {
+          "column_id": "profile_id",
+          "source_field": "profile_id",
+          "target_column": "D",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.profile_id"
+        },
+        {
+          "column_id": "as_of_period",
+          "source_field": "as_of_period",
+          "target_column": "E",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.as_of_period"
+        },
+        {
+          "column_id": "expected_state",
+          "source_field": "expected_state",
+          "target_column": "F",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.expected_state"
+        },
+        {
+          "column_id": "expected_triggered",
+          "source_field": "expected_triggered",
+          "target_column": "G",
+          "target_type": "boolean",
+          "target_role": "hidden_value_audit_rows.expected_triggered"
+        },
+        {
+          "column_id": "expected_score",
+          "source_field": "expected_score",
+          "target_column": "H",
+          "target_type": "integer",
+          "target_role": "hidden_value_audit_rows.expected_score"
+        },
+        {
+          "column_id": "expected_score_denominator",
+          "source_field": "expected_score_denominator",
+          "target_column": "I",
+          "target_type": "number",
+          "target_role": "hidden_value_audit_rows.expected_score_denominator"
+        },
+        {
+          "column_id": "expected_severity",
+          "source_field": "expected_severity",
+          "target_column": "J",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.expected_severity"
+        },
+        {
+          "column_id": "priority",
+          "source_field": "priority",
+          "target_column": "K",
+          "target_type": "integer",
+          "target_role": "hidden_value_audit_rows.priority"
+        },
+        {
+          "column_id": "reasons",
+          "source_field": "reasons",
+          "target_column": "L",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.reasons"
+        },
+        {
+          "column_id": "evidence_ids",
+          "source_field": "evidence_ids",
+          "target_column": "M",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.evidence_ids"
+        },
+        {
+          "column_id": "source_refs",
+          "source_field": "source_refs",
+          "target_column": "N",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.source_refs"
+        },
+        {
+          "column_id": "resolved_metric_keys",
+          "source_field": "resolved_metric_keys",
+          "target_column": "O",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.resolved_metric_keys"
+        },
+        {
+          "column_id": "recompute_record_keys",
+          "source_field": "recompute_record_keys",
+          "target_column": "P",
+          "target_type": "text",
+          "target_role": "hidden_value_audit_rows.recompute_record_keys"
+        },
+        {
+          "column_id": "module_eligible",
+          "source_field": "module_eligible",
+          "target_column": "Q",
+          "target_type": "boolean",
+          "target_role": "hidden_value_audit_rows.module_eligible"
+        }
+      ],
+      "source_ref_field": "source_ref",
+      "source_ref_required": false,
+      "planning_state": "active",
+      "module_id": "hidden_value_signals"
+    },
+    {
+      "binding_id": "hidden_value_recompute_rows",
+      "sheet": "Hidden_Value_Recompute",
+      "section": "Hidden Value independent recomputation detail",
+      "target": "A2:W92",
+      "shell_zone": "module_hidden_value_signals_hidden_value_recompute_rows",
+      "anchor_label": "record_key",
+      "row_family": "hidden_value_recompute_rows",
+      "normalized_field": "_derived_workbook.hidden_value.recompute_rows",
+      "value_shape": "table_rows",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "retain explicit unavailable and noncalculable records",
+      "promotion_requirement": "optional",
+      "validation_rule": "hidden_value_workbook_projection",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A2:W92",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "_derived_workbook.hidden_value.recompute_rows",
+        "pick": "all"
+      },
+      "row_key": [
+        "record_key"
+      ],
+      "row_key_only_columns": [
+        "record_order"
+      ],
+      "sort_order": [
+        "record_order:asc"
+      ],
+      "capacity": 91,
+      "overflow_behavior": "mapping_gap",
+      "allow_empty": true,
+      "required_columns": [
+        "record_order",
+        "record_key",
+        "candidate_key",
+        "signal_id",
+        "record_type",
+        "stage",
+        "item_id",
+        "metric_key",
+        "required_component",
+        "expected_status"
+      ],
+      "target_columns": [
+        {
+          "column_id": "record_key",
+          "source_field": "record_key",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.record_key"
+        },
+        {
+          "column_id": "candidate_key",
+          "source_field": "candidate_key",
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.candidate_key"
+        },
+        {
+          "column_id": "signal_id",
+          "source_field": "signal_id",
+          "target_column": "C",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.signal_id"
+        },
+        {
+          "column_id": "record_type",
+          "source_field": "record_type",
+          "target_column": "D",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.record_type"
+        },
+        {
+          "column_id": "stage",
+          "source_field": "stage",
+          "target_column": "E",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.stage"
+        },
+        {
+          "column_id": "item_id",
+          "source_field": "item_id",
+          "target_column": "F",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.item_id"
+        },
+        {
+          "column_id": "metric_key",
+          "source_field": "metric_key",
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.metric_key"
+        },
+        {
+          "column_id": "operator",
+          "source_field": "operator",
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.operator"
+        },
+        {
+          "column_id": "right_metric_key",
+          "source_field": "right_metric_key",
+          "target_column": "I",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.right_metric_key"
+        },
+        {
+          "column_id": "threshold",
+          "source_field": "threshold",
+          "target_column": "J",
+          "target_type": "number",
+          "target_role": "hidden_value_recompute_rows.threshold"
+        },
+        {
+          "column_id": "required_component",
+          "source_field": "required_component",
+          "target_column": "K",
+          "target_type": "boolean",
+          "target_role": "hidden_value_recompute_rows.required_component"
+        },
+        {
+          "column_id": "weight",
+          "source_field": "weight",
+          "target_column": "L",
+          "target_type": "number",
+          "target_role": "hidden_value_recompute_rows.weight"
+        },
+        {
+          "column_id": "normalization_direction",
+          "source_field": "normalization_direction",
+          "target_column": "M",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.normalization_direction"
+        },
+        {
+          "column_id": "normalization_threshold",
+          "source_field": "normalization_threshold",
+          "target_column": "N",
+          "target_type": "number",
+          "target_role": "hidden_value_recompute_rows.normalization_threshold"
+        },
+        {
+          "column_id": "normalization_span",
+          "source_field": "normalization_span",
+          "target_column": "O",
+          "target_type": "number",
+          "target_role": "hidden_value_recompute_rows.normalization_span"
+        },
+        {
+          "column_id": "normalization_base",
+          "source_field": "normalization_base",
+          "target_column": "P",
+          "target_type": "number",
+          "target_role": "hidden_value_recompute_rows.normalization_base"
+        },
+        {
+          "column_id": "expected_value",
+          "source_field": "expected_value",
+          "target_column": "Q",
+          "target_type": "number",
+          "target_role": "hidden_value_recompute_rows.expected_value"
+        },
+        {
+          "column_id": "expected_comparison",
+          "source_field": "expected_comparison",
+          "target_column": "R",
+          "target_type": "number",
+          "target_role": "hidden_value_recompute_rows.expected_comparison"
+        },
+        {
+          "column_id": "expected_passed",
+          "source_field": "expected_passed",
+          "target_column": "S",
+          "target_type": "boolean",
+          "target_role": "hidden_value_recompute_rows.expected_passed"
+        },
+        {
+          "column_id": "expected_included_weight",
+          "source_field": "expected_included_weight",
+          "target_column": "T",
+          "target_type": "number",
+          "target_role": "hidden_value_recompute_rows.expected_included_weight"
+        },
+        {
+          "column_id": "expected_normalized_score",
+          "source_field": "expected_normalized_score",
+          "target_column": "U",
+          "target_type": "number",
+          "target_role": "hidden_value_recompute_rows.expected_normalized_score"
+        },
+        {
+          "column_id": "expected_weighted_score",
+          "source_field": "expected_weighted_score",
+          "target_column": "V",
+          "target_type": "number",
+          "target_role": "hidden_value_recompute_rows.expected_weighted_score"
+        },
+        {
+          "column_id": "expected_status",
+          "source_field": "expected_status",
+          "target_column": "W",
+          "target_type": "text",
+          "target_role": "hidden_value_recompute_rows.expected_status"
+        }
+      ],
+      "source_ref_field": "source_ref",
+      "source_ref_required": false,
+      "planning_state": "active",
+      "module_id": "hidden_value_signals"
+    },
+    {
+      "binding_id": "hidden_value_flags_rows",
+      "sheet": "Hidden_Value_Flags",
+      "section": "Triggered Hidden Value flags",
+      "target": "A2:M8",
+      "shell_zone": "module_hidden_value_signals_hidden_value_flags_rows",
+      "anchor_label": "display_rank",
+      "row_family": "hidden_value_flags_rows",
+      "normalized_field": "_derived_workbook.hidden_value.flags_rows",
+      "value_shape": "table_rows",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "empty when no candidate is explicitly triggered",
+      "promotion_requirement": "optional",
+      "validation_rule": "hidden_value_workbook_projection",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A2:M8",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "_derived_workbook.hidden_value.flags_rows",
+        "pick": "all"
+      },
+      "row_key": [
+        "candidate_key"
+      ],
+      "sort_order": [
+        "display_rank:asc"
+      ],
+      "capacity": 7,
+      "overflow_behavior": "mapping_gap",
+      "allow_empty": true,
+      "required_columns": [
+        "display_rank",
+        "candidate_key",
+        "signal_id",
+        "display_name",
+        "score",
+        "triggered",
+        "state",
+        "severity",
+        "as_of_period",
+        "reason",
+        "evidence_ids",
+        "source_refs",
+        "audit_id"
+      ],
+      "target_columns": [
+        {
+          "column_id": "display_rank",
+          "source_field": "display_rank",
+          "target_column": "A",
+          "target_type": "integer",
+          "target_role": "hidden_value_flags_rows.display_rank"
+        },
+        {
+          "column_id": "candidate_key",
+          "source_field": "candidate_key",
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "hidden_value_flags_rows.candidate_key"
+        },
+        {
+          "column_id": "signal_id",
+          "source_field": "signal_id",
+          "target_column": "C",
+          "target_type": "text",
+          "target_role": "hidden_value_flags_rows.signal_id"
+        },
+        {
+          "column_id": "display_name",
+          "source_field": "display_name",
+          "target_column": "D",
+          "target_type": "text",
+          "target_role": "hidden_value_flags_rows.display_name"
+        },
+        {
+          "column_id": "score",
+          "source_field": "score",
+          "target_column": "E",
+          "target_type": "integer",
+          "target_role": "hidden_value_flags_rows.score"
+        },
+        {
+          "column_id": "triggered",
+          "source_field": "triggered",
+          "target_column": "F",
+          "target_type": "boolean",
+          "target_role": "hidden_value_flags_rows.triggered"
+        },
+        {
+          "column_id": "state",
+          "source_field": "state",
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "hidden_value_flags_rows.state"
+        },
+        {
+          "column_id": "severity",
+          "source_field": "severity",
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "hidden_value_flags_rows.severity"
+        },
+        {
+          "column_id": "as_of_period",
+          "source_field": "as_of_period",
+          "target_column": "I",
+          "target_type": "text",
+          "target_role": "hidden_value_flags_rows.as_of_period"
+        },
+        {
+          "column_id": "reason",
+          "source_field": "reason",
+          "target_column": "J",
+          "target_type": "text",
+          "target_role": "hidden_value_flags_rows.reason"
+        },
+        {
+          "column_id": "evidence_ids",
+          "source_field": "evidence_ids",
+          "target_column": "K",
+          "target_type": "text",
+          "target_role": "hidden_value_flags_rows.evidence_ids"
+        },
+        {
+          "column_id": "source_refs",
+          "source_field": "source_refs",
+          "target_column": "L",
+          "target_type": "text",
+          "target_role": "hidden_value_flags_rows.source_refs"
+        },
+        {
+          "column_id": "audit_id",
+          "source_field": "audit_id",
+          "target_column": "M",
+          "target_type": "text",
+          "target_role": "hidden_value_flags_rows.audit_id"
+        }
+      ],
+      "source_ref_field": "source_ref",
+      "source_ref_required": false,
+      "planning_state": "active",
+      "module_id": "hidden_value_signals"
+    },
+    {
       "binding_id": "qa_log_validation_rows",
       "sheet": "QA_Log",
       "section": "Canonical issue summaries",
@@ -8592,6 +9272,6 @@
       ]
     }
   ],
-  "module_manifest_signature": "5b6c57e24e785b86599e6d4e4b5e6f8fadd7ce6163fc64d4f321c5eda03a2243",
+  "module_manifest_signature": "8823b77ffa7deb84f6b4f7814708c1533d1a3a5e0c4974bb8f498f2f497a0c44",
   "module_profile_signature": "e792faf8030f6035e44d1ba547cb5e44a7f269f5b4beb088814196bf01567f8b"
 }

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Collection
 
 from openpyxl.cell.cell import MergedCell
@@ -15,6 +16,8 @@ from openpyxl.styles import Protection
 from openpyxl.utils import get_column_letter, quote_sheetname
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.workbook.defined_name import DefinedName
+
+from pbi_xbrl.json_schema_validation import load_json_strict
 
 from pbi_xbrl.valuation_scenario_economics import (
     CANONICAL_DIRECT_REVENUE_PROPAGATION,
@@ -28,7 +31,12 @@ from pbi_xbrl.valuation_scenario_economics import (
 )
 
 
-FORMULA_CONTRACT_VERSION = "1.6.0"
+FORMULA_CONTRACT_VERSION = "1.7.0"
+ROOT = Path(__file__).resolve().parents[1]
+HIDDEN_VALUE_SIGNAL_CONTRACT = ROOT / "docs" / "hidden_value_signal_contract.json"
+HIDDEN_VALUE_DETAIL_FIRST_ROW = 2
+HIDDEN_VALUE_CANDIDATE_FIRST_ROW = 2
+HIDDEN_VALUE_BASE_LAST_ROW = 5001
 
 INVESTMENT_CASE_SCENARIO_USER_INPUT_RANGES = (
     "B23:D42",
@@ -316,7 +324,21 @@ def formula_target_contracts() -> tuple[FormulaTargetContract, ...]:
                 "Valuation_Grid",
                 ("A2:A42", "B2:B42", "C2:C42", "E2:F42"),
             ),
-            FormulaTargetContract("hidden_value_issue_anchor", "Valuation", ("AI139",)),
+            FormulaTargetContract(
+                "hidden_value_recompute_detail_formulas",
+                "Hidden_Value_Recompute",
+                ("X2:AD92",),
+            ),
+            FormulaTargetContract(
+                "hidden_value_recompute_candidate_formulas",
+                "Hidden_Value_Recompute",
+                ("AF2:AX8",),
+            ),
+            FormulaTargetContract(
+                "hidden_value_audit_parity_formulas",
+                "Hidden_Value_Audit",
+                ("R2:V8",),
+            ),
         )
     )
     return tuple(contracts)
@@ -376,6 +398,7 @@ def apply_standard_support_formula_contracts(
     if "Valuation_Grid" in workbook.sheetnames:
         _apply_valuation_grid_formulas(workbook["Valuation_Grid"], enabled)
     _apply_scenario_revenue_route_formulas(workbook, enabled)
+    _apply_hidden_value_support_formulas(workbook, enabled)
 
 
 def _apply_scenario_revenue_route_formulas(workbook: Any, enabled_formula_ids: set[str]) -> None:
@@ -1477,6 +1500,262 @@ def _prepare_investment_case_scenario_layout(ws: Any) -> None:
         bounds = (merged.min_col, merged.min_row, merged.max_col, merged.max_row)
         if any(_bounds_overlap(bounds, target) for target in owned):
             ws.unmerge_cells(str(merged))
+
+
+def _apply_hidden_value_support_formulas(workbook: Any, enabled_formula_ids: set[str]) -> None:
+    formula_ids = {
+        "hidden_value_recompute_detail_formulas",
+        "hidden_value_recompute_candidate_formulas",
+        "hidden_value_audit_parity_formulas",
+    }
+    if "Valuation" in workbook.sheetnames:
+        workbook["Valuation"]["AI139"].value = None
+    _remove_hidden_value_defined_names(workbook)
+    active = formula_ids & enabled_formula_ids
+    if active and active != formula_ids:
+        raise ValueError("Hidden Value workbook recomputation formula families must activate together.")
+    if not active:
+        return
+    required_sheets = {"Hidden_Value_Base", "Hidden_Value_Audit", "Hidden_Value_Recompute", "Hidden_Value_Flags"}
+    missing = sorted(required_sheets - set(workbook.sheetnames))
+    if missing:
+        raise ValueError(f"Hidden Value formula contract requires support sheets: {missing!r}.")
+
+    contract = load_json_strict(HIDDEN_VALUE_SIGNAL_CONTRACT)
+    signals = sorted(
+        (row for row in contract.get("signals") or [] if isinstance(row, dict)),
+        key=lambda row: (int(row.get("priority") or 0), str(row.get("signal_id") or "")),
+    )
+    detail_specs = _hidden_value_detail_specs(signals)
+    if len(signals) != 7 or len(detail_specs) != 91:
+        raise ValueError("Hidden Value workbook surfaces require seven signals and 91 contract-derived detail rows.")
+
+    recompute = workbook["Hidden_Value_Recompute"]
+    for row, spec in enumerate(detail_specs, start=HIDDEN_VALUE_DETAIL_FIRST_ROW):
+        _apply_hidden_value_detail_row(recompute, row, spec)
+    for row, signal in enumerate(signals, start=HIDDEN_VALUE_CANDIDATE_FIRST_ROW):
+        _apply_hidden_value_candidate_row(recompute, row, signal)
+
+    audit = workbook["Hidden_Value_Audit"]
+    for row in range(2, 9):
+        _apply_hidden_value_audit_row(audit, row)
+    _apply_hidden_value_defined_names(workbook)
+
+
+def _hidden_value_detail_specs(signals: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    specs: list[dict[str, Any]] = []
+    for signal in signals:
+        signal_id = str(signal.get("signal_id") or "")
+        for metric_id in map(str, signal.get("required_metric_ids") or []):
+            specs.append({"signal_id": signal_id, "record_type": "required_metric", "stage": "required", "item_id": metric_id})
+        for stage in ("eligibility", "trigger", "near_miss"):
+            for predicate in (signal.get(stage) or {}).get("predicates") or []:
+                specs.append({"signal_id": signal_id, "record_type": "predicate", "stage": stage, "item_id": str(predicate.get("predicate_id") or "")})
+        for component in signal.get("score_components") or []:
+            specs.append({"signal_id": signal_id, "record_type": "score_component", "stage": "score", "item_id": str(component.get("component_id") or "")})
+    return specs
+
+
+def _apply_hidden_value_detail_row(ws: Any, row: int, spec: dict[str, Any]) -> None:
+    record_type = str(spec["record_type"])
+    module_eligible = _hidden_value_module_eligible_formula(row)
+    metric_value = _hidden_value_metric_value_formula(f"$G{row}")
+    metric_status = _hidden_value_metric_status_formula(f"$G{row}")
+    value_formula = metric_value if record_type == "required_metric" else f'IF({module_eligible},{metric_value},"")'
+    _set_formula(ws[f"X{row}"], f"={value_formula}", "0.0000000000")
+
+    if record_type == "required_metric":
+        _set_formula(ws[f"Y{row}"], f"={metric_status}", "General")
+        _set_formula(ws[f"Z{row}"], f'=IF($G{row}="","",AND(ISNUMBER($X{row}),OR($Y{row}="source_backed",$Y{row}="formula_calculated",$Y{row}="derived_calculated")))', "General")
+        for column in ("AA", "AB", "AC"):
+            _set_formula(ws[f"{column}{row}"], '=""', "General")
+        parity = "AND(" + ",".join((
+            _hidden_value_equal_formula(f"$X{row}", f"$Q{row}"),
+            _hidden_value_equal_formula(f"$Y{row}", f"$W{row}"),
+            _hidden_value_equal_formula(f"$Z{row}", f"$S{row}"),
+        )) + ")"
+    elif record_type == "predicate":
+        comparison = f'IF(NOT({module_eligible}),"",IF($I{row}<>"",{_hidden_value_metric_value_formula(f"$I{row}")},IF($J{row}="","",$J{row})))'
+        _set_formula(ws[f"Y{row}"], f"={comparison}", "0.0000000000")
+        _set_formula(ws[f"Z{row}"], f'=IF(OR($X{row}="",$Y{row}=""),"",IF($H{row}="gt",$X{row}>$Y{row},IF($H{row}="gte",$X{row}>=$Y{row},IF($H{row}="lt",$X{row}<$Y{row},IF($H{row}="lte",$X{row}<=$Y{row},IF($H{row}="eq",$X{row}=$Y{row},FALSE))))))', "General")
+        for column in ("AA", "AB", "AC"):
+            _set_formula(ws[f"{column}{row}"], '=""', "General")
+        recomputed_reason = f'IF(NOT({module_eligible}),"module_or_profile_pack_disabled",IF($Z{row}="","predicate_input_unavailable",IF($Z{row},"passed","failed")))'
+        parity = "AND(" + ",".join((
+            _hidden_value_equal_formula(f"$X{row}", f"$Q{row}"),
+            _hidden_value_equal_formula(f"$Y{row}", f"$R{row}"),
+            _hidden_value_equal_formula(f"$Z{row}", f"$S{row}"),
+            f"({recomputed_reason}=$W{row})",
+        )) + ")"
+    else:
+        _set_formula(ws[f"Y{row}"], f'=IF({module_eligible},{metric_status},"unavailable")', "General")
+        _set_formula(ws[f"Z{row}"], f'=IF(NOT({module_eligible}),FALSE,AND(ISNUMBER($X{row}),OR($Y{row}="source_backed",$Y{row}="formula_calculated",$Y{row}="derived_calculated")))', "General")
+        _set_formula(ws[f"AA{row}"], f'=IF($Z{row},$L{row},0)', "0.0000000000")
+        _set_formula(ws[f"AB{row}"], f'=IF(NOT($Z{row}),"",MAX(0,MIN(1,IF($M{row}="lower",($N{row}-$X{row})/$O{row}+$P{row},($X{row}-$N{row})/$O{row}+$P{row}))))', "0.0000000000")
+        _set_formula(ws[f"AC{row}"], f'=IF($AB{row}="","",$AB{row}*$AA{row})', "0.0000000000")
+        recomputed_status = f'IF($Z{row},"calculated","unavailable")'
+        parity = "AND(" + ",".join((
+            _hidden_value_equal_formula(f"$X{row}", f"$Q{row}"),
+            _hidden_value_equal_formula(f"$AA{row}", f"$T{row}"),
+            _hidden_value_equal_formula(f"$AB{row}", f"$U{row}"),
+            _hidden_value_equal_formula(f"$AC{row}", f"$V{row}"),
+            f"({recomputed_status}=$W{row})",
+        )) + ")"
+    _set_formula(ws[f"AD{row}"], f'=IF({parity},"PASS","FAIL")', "General")
+
+
+def _apply_hidden_value_candidate_row(ws: Any, row: int, signal: dict[str, Any]) -> None:
+    audit_row = row
+    signal_id = str(signal.get("signal_id") or "")
+    eligibility_mode = str((signal.get("eligibility") or {}).get("mode") or "all")
+    trigger_mode = str((signal.get("trigger") or {}).get("mode") or "all")
+    near_mode = str((signal.get("near_miss") or {}).get("mode") or "all")
+    minimum = int((signal.get("near_miss") or {}).get("minimum_trigger_predicates") or 0)
+    reweight = bool(signal.get("reweight_available_components"))
+    formulas = {
+        "AF": f'=IF(\'Hidden_Value_Audit\'!A{audit_row}="","",\'Hidden_Value_Audit\'!A{audit_row})',
+        "AG": f'=IF($AF{row}="","","{signal_id}")',
+        "AH": f'=IF($AF{row}="","","{eligibility_mode}")',
+        "AI": f'=IF($AF{row}="","","{trigger_mode}")',
+        "AJ": f'=IF($AF{row}="","","{near_mode}")',
+        "AK": f'=IF($AF{row}="","",{minimum})',
+        "AL": f'=IF($AF{row}="","",{str(reweight).upper()})',
+        "AM": f'=IF($AF{row}="","",\'Hidden_Value_Audit\'!F{audit_row})',
+        "AN": f'=IF($AF{row}="","",\'Hidden_Value_Audit\'!G{audit_row})',
+        "AO": f'=IF(\'Hidden_Value_Audit\'!H{audit_row}="","",\'Hidden_Value_Audit\'!H{audit_row})',
+        "AP": f'=IF($AF{row}="","",\'Hidden_Value_Audit\'!I{audit_row})',
+    }
+    for column, formula in formulas.items():
+        _set_formula(ws[f"{column}{row}"], formula, "General")
+
+    eligibility = _hidden_value_group_formula(row, "eligibility", mode_ref=f"$AH{row}")
+    trigger = _hidden_value_group_formula(row, "trigger", mode_ref=f"$AI{row}")
+    near_raw = _hidden_value_group_formula(row, "near_miss", mode_ref=f"$AJ{row}")
+    trigger_true_count = _hidden_value_detail_count(row, record_type="predicate", stage="trigger", result=True)
+    near = f'AND({near_raw},{trigger_true_count}>=$AK{row})'
+    denominator = f'SUMIFS($AA$2:$AA$92,$B$2:$B$92,$AF{row},$D$2:$D$92,"score_component")'
+    required_missing = _hidden_value_detail_count(row, record_type="score_component", required=True, result=False)
+    weighted = f'SUMIFS($AC$2:$AC$92,$B$2:$B$92,$AF{row},$D$2:$D$92,"score_component")'
+    raw_score = f'MAX(0,MIN(100,{weighted}*100/$AT{row}))'
+    whole_score = f'INT({raw_score})'
+    score = (
+        f'IF(OR({required_missing}>0,$AT{row}<=0,AND(NOT($AL{row}),ABS($AT{row}-100)>1E-10)),"",'
+        f'IF(ABS({raw_score}-{whole_score}-0.5)<=1E-12,'
+        f'IF(MOD({whole_score},2)=0,{whole_score},{whole_score}+1),ROUND({raw_score},0)))'
+    )
+    required_invalid = _hidden_value_status_count(row, "invalid_input")
+    required_insufficient = _hidden_value_status_count(row, "insufficient_evidence")
+    required_unavailable = _hidden_value_detail_count(row, record_type="required_metric", result=False)
+    trigger_available = _hidden_value_detail_count(row, record_type="predicate", stage="trigger", result="nonblank")
+    module_eligible = f"'Hidden_Value_Audit'!$Q{audit_row}"
+    state = (
+        f'IF(NOT({module_eligible}),"unavailable",'
+        f'IF({required_invalid}>0,"invalid_input",IF({required_insufficient}>0,"insufficient_evidence",'
+        f'IF({required_unavailable}>0,"unavailable",IF(NOT($AQ{row}),"not_triggered",'
+        f'IF({trigger_available}=0,"insufficient_evidence",IF(AND($AR{row},$AU{row}=""),"insufficient_evidence",'
+        f'IF($AR{row},"triggered",IF($AS{row},"near_miss","not_triggered")))))))))'
+    )
+    detail_failures = f'COUNTIFS($B$2:$B$92,$AF{row},$AD$2:$AD$92,"<>PASS")'
+    parity = "AND(" + ",".join((
+        _hidden_value_equal_formula(f"$AV{row}", f"$AM{row}"),
+        _hidden_value_equal_formula(f"$AW{row}", f"$AN{row}"),
+        _hidden_value_equal_formula(f"$AU{row}", f"$AO{row}"),
+        _hidden_value_equal_formula(f"$AT{row}", f"$AP{row}"),
+        f"({detail_failures}=0)",
+    )) + ")"
+    _set_formula(ws[f"AQ{row}"], f'=IF($AF{row}="","",{eligibility})', "General")
+    _set_formula(ws[f"AR{row}"], f'=IF($AF{row}="","",{trigger})', "General")
+    _set_formula(ws[f"AS{row}"], f'=IF($AF{row}="","",{near})', "General")
+    _set_formula(ws[f"AT{row}"], f'=IF($AF{row}="","",{denominator})', "0.0000000000")
+    _set_formula(ws[f"AU{row}"], f'=IF($AF{row}="","",{score})', "0")
+    _set_formula(ws[f"AV{row}"], f'=IF($AF{row}="","",{state})', "General")
+    _set_formula(ws[f"AW{row}"], f'=IF($AF{row}="","",$AV{row}="triggered")', "General")
+    _set_formula(ws[f"AX{row}"], f'=IF($AF{row}="","",IF({parity},"PASS","FAIL"))', "General")
+
+
+def _apply_hidden_value_audit_row(ws: Any, row: int) -> None:
+    match = f'MATCH($A{row},\'Hidden_Value_Recompute\'!$AF$2:$AF$8,0)'
+    formulas = {
+        "R": f'=IF($A{row}="","",IFERROR(INDEX(\'Hidden_Value_Recompute\'!$AV$2:$AV$8,{match}),""))',
+        "S": f'=IF($A{row}="","",IFERROR(INDEX(\'Hidden_Value_Recompute\'!$AW$2:$AW$8,{match}),""))',
+        "T": f'=IF($A{row}="","",IFERROR(INDEX(\'Hidden_Value_Recompute\'!$AU$2:$AU$8,{match}),""))',
+        "U": f'=IF($A{row}="","",IFERROR(INDEX(\'Hidden_Value_Recompute\'!$AX$2:$AX$8,{match}),"FAIL"))',
+        "V": f'=IF($A{row}="","",IF($U{row}="PASS","","hidden_value_recompute_mismatch"))',
+    }
+    for column, formula in formulas.items():
+        _set_formula(ws[f"{column}{row}"], formula, "0" if column == "T" else "General")
+
+
+def _hidden_value_module_eligible_formula(detail_row: int) -> str:
+    return f'IFERROR(INDEX(\'Hidden_Value_Audit\'!$Q$2:$Q$8,MATCH($B{detail_row},\'Hidden_Value_Audit\'!$A$2:$A$8,0)),FALSE)'
+
+
+def _hidden_value_metric_status_formula(key_ref: str) -> str:
+    return f'IFERROR(INDEX(HV_Base_Status,MATCH({key_ref},HV_Base_MetricKey,0)),"")'
+
+
+def _hidden_value_metric_value_formula(key_ref: str) -> str:
+    status = _hidden_value_metric_status_formula(key_ref)
+    value = f'IFERROR(INDEX(HV_Base_Value,MATCH({key_ref},HV_Base_MetricKey,0)),"")'
+    return f'IF(OR({status}="source_backed",{status}="formula_calculated",{status}="derived_calculated"),{value},"")'
+
+
+def _hidden_value_group_formula(candidate_row: int, stage: str, *, mode_ref: str) -> str:
+    total = _hidden_value_detail_count(candidate_row, record_type="predicate", stage=stage)
+    passed = _hidden_value_detail_count(candidate_row, record_type="predicate", stage=stage, result=True)
+    return f'IF({mode_ref}="all",AND({total}>0,{passed}={total}),{passed}>0)'
+
+
+def _hidden_value_detail_count(candidate_row: int, *, record_type: str, stage: str | None = None, required: bool | None = None, result: bool | str | None = None) -> str:
+    criteria = [f'$B$2:$B$92,$AF{candidate_row}', f'$D$2:$D$92,"{record_type}"']
+    if stage is not None:
+        criteria.append(f'$E$2:$E$92,"{stage}"')
+    if required is not None:
+        criteria.append(f'$K$2:$K$92,{str(required).upper()}')
+    if result == "nonblank":
+        criteria.append('$Z$2:$Z$92,"<>"')
+    elif isinstance(result, bool):
+        criteria.append(f'$Z$2:$Z$92,{str(result).upper()}')
+    return f"COUNTIFS({','.join(criteria)})"
+
+
+def _hidden_value_status_count(candidate_row: int, status: str) -> str:
+    return f'COUNTIFS($B$2:$B$92,$AF{candidate_row},$D$2:$D$92,"required_metric",$Y$2:$Y$92,"{status}")'
+
+
+def _hidden_value_equal_formula(left: str, right: str) -> str:
+    return (
+        f'IF(OR({left}="",{right}=""),AND({left}="",{right}=""),'
+        f'IF(AND(ISNUMBER({left}),ISNUMBER({right})),ABS({left}-{right})<=1E-10,{left}={right}))'
+    )
+
+
+def _remove_hidden_value_defined_names(workbook: Any) -> None:
+    names = {
+        "FCF_TTM_Pos_Years", "Pos_FCF_Ratio", "Interest_Coverage",
+        "HV_Base_MetricKey", "HV_Base_Value", "HV_Base_Status",
+        "HV_Recompute_CandidateKey", "HV_Recompute_RowParity", "HV_Recompute_CandidateParity",
+        "HV_Flags_CandidateKey", "HV_Flags_Score", "HV_Flags_State",
+    }
+    for name in names:
+        if name in workbook.defined_names:
+            del workbook.defined_names[name]
+
+
+def _apply_hidden_value_defined_names(workbook: Any) -> None:
+    definitions = {
+        "HV_Base_MetricKey": "'Hidden_Value_Base'!$A$2:$A$5001",
+        "HV_Base_Value": "'Hidden_Value_Base'!$C$2:$C$5001",
+        "HV_Base_Status": "'Hidden_Value_Base'!$I$2:$I$5001",
+        "HV_Recompute_CandidateKey": "'Hidden_Value_Recompute'!$AF$2:$AF$8",
+        "HV_Recompute_RowParity": "'Hidden_Value_Recompute'!$AD$2:$AD$92",
+        "HV_Recompute_CandidateParity": "'Hidden_Value_Recompute'!$AX$2:$AX$8",
+        "HV_Flags_CandidateKey": "'Hidden_Value_Flags'!$B$2:$B$8",
+        "HV_Flags_Score": "'Hidden_Value_Flags'!$E$2:$E$8",
+        "HV_Flags_State": "'Hidden_Value_Flags'!$G$2:$G$8",
+    }
+    for name, attr_text in definitions.items():
+        workbook.defined_names.add(DefinedName(name, attr_text=attr_text))
 
 
 def _set_formula(cell: Any, formula: str, number_format: str) -> None:

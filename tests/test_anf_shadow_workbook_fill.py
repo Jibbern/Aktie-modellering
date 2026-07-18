@@ -339,6 +339,71 @@ def test_anf_strict_post_fill_rejects_missing_planned_value(
     assert "post_fill_planned_value_mismatch" in {issue["rule_id"] for issue in report["issues"]}
 
 
+def test_anf_strict_post_fill_rejects_hidden_value_base_mutation(
+    anf_shadow_artifacts: dict[str, Path], tmp_path: Path
+) -> None:
+    plan = _load_json(anf_shadow_artifacts["plan_json"])
+    write = next(
+        row
+        for row in plan["planned_writes"]
+        if row["binding_id"] == "hidden_value_base_rows"
+        and row["target_cell"].startswith("C")
+        and isinstance(row["value"], (int, float))
+    )
+    drifted = tmp_path / "hidden-value-base-drift.xlsx"
+    shutil.copyfile(anf_shadow_artifacts["workbook"], drifted)
+    workbook = load_workbook(drifted, data_only=False, read_only=False)
+    try:
+        workbook[write["target_sheet"]][write["target_cell"]] = float(write["value"]) + 1.0
+        workbook.save(drifted)
+    finally:
+        workbook.close()
+
+    report = _strict_post_fill_report(drifted, anf_shadow_artifacts["plan_json"])
+    assert report["status"] == "FAIL"
+    assert "post_fill_planned_value_mismatch" in {issue["rule_id"] for issue in report["issues"]}
+
+
+def test_anf_strict_post_fill_rejects_hidden_value_expected_state_mutation(
+    anf_shadow_artifacts: dict[str, Path], tmp_path: Path
+) -> None:
+    plan = _load_json(anf_shadow_artifacts["plan_json"])
+    write = next(
+        row
+        for row in plan["planned_writes"]
+        if row["binding_id"] == "hidden_value_audit_rows" and row["target_cell"].startswith("F")
+    )
+    drifted = tmp_path / "hidden-value-expected-state-drift.xlsx"
+    shutil.copyfile(anf_shadow_artifacts["workbook"], drifted)
+    workbook = load_workbook(drifted, data_only=False, read_only=False)
+    try:
+        workbook[write["target_sheet"]][write["target_cell"]] = "triggered"
+        workbook.save(drifted)
+    finally:
+        workbook.close()
+
+    report = _strict_post_fill_report(drifted, anf_shadow_artifacts["plan_json"])
+    assert report["status"] == "FAIL"
+    assert "post_fill_planned_value_mismatch" in {issue["rule_id"] for issue in report["issues"]}
+
+
+def test_anf_strict_post_fill_rejects_hidden_value_formula_mutation(
+    anf_shadow_artifacts: dict[str, Path], tmp_path: Path
+) -> None:
+    drifted = tmp_path / "hidden-value-formula-drift.xlsx"
+    shutil.copyfile(anf_shadow_artifacts["workbook"], drifted)
+    workbook = load_workbook(drifted, data_only=False, read_only=False)
+    try:
+        workbook["Hidden_Value_Recompute"]["AU2"] = "=0"
+        workbook.save(drifted)
+    finally:
+        workbook.close()
+
+    report = _strict_post_fill_report(drifted, anf_shadow_artifacts["plan_json"])
+    assert report["status"] == "FAIL"
+    assert "post_fill_protected_cell_drift" in {issue["rule_id"] for issue in report["issues"]}
+
+
 def test_anf_strict_post_fill_rejects_unplanned_writable_value(
     anf_shadow_artifacts: dict[str, Path], tmp_path: Path
 ) -> None:

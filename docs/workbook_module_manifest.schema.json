@@ -92,7 +92,11 @@
         "empty_state": {"type": "string", "minLength": 1},
         "style_owner": {"type": "string", "minLength": 1},
         "formula_owner": {"type": "string", "minLength": 1},
-        "data_surface": {"enum": ["binding_rows", "formula_output"]}
+        "worksheet_protection": {"type": "boolean"},
+        "data_surface": {"enum": ["binding_rows", "formula_output"]},
+        "binding_owned_ranges": {"$ref": "#/$defs/stringList"},
+        "formula_owned_ranges": {"$ref": "#/$defs/stringList"},
+        "reserved_ranges": {"$ref": "#/$defs/stringList"}
       },
       "additionalProperties": false
     },

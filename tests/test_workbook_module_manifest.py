@@ -328,6 +328,44 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
         assert wb["Valuation_Grid"]["E2"].value is None
         for name in ("ScenarioProfile", "ScenarioImpliedPrice", "DCF_Horizon"):
             assert name not in wb.defined_names
+        for name in (
+            "HV_Base_MetricKey",
+            "HV_Base_Value",
+            "HV_Base_Status",
+            "HV_Recompute_CandidateKey",
+            "HV_Recompute_RowParity",
+            "HV_Recompute_CandidateParity",
+            "HV_Flags_CandidateKey",
+            "HV_Flags_Score",
+            "HV_Flags_State",
+        ):
+            assert name not in wb.defined_names
+        assert not any(
+            isinstance(cell.value, str) and cell.value.startswith("=")
+            for sheet_name in ("Hidden_Value_Audit", "Hidden_Value_Recompute")
+            for row in wb[sheet_name].iter_rows(min_row=2)
+            for cell in row
+        )
+        assert all(
+            wb[sheet_name].protection.sheet
+            for sheet_name in (
+                "Hidden_Value_Base",
+                "Hidden_Value_Audit",
+                "Hidden_Value_Recompute",
+                "Hidden_Value_Flags",
+            )
+        )
+        hidden_value_bindings = {
+            "hidden_value_base_rows",
+            "hidden_value_audit_rows",
+            "hidden_value_recompute_rows",
+            "hidden_value_flags_rows",
+        }
+        assert all(
+            row.get("planning_state") != "active"
+            for row in bindings["bindings"]
+            if row["binding_id"] in hidden_value_bindings
+        )
     finally:
         wb.close()
 

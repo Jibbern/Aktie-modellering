@@ -2,11 +2,11 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 242,
+    "retained_count": 252,
     "classification_counts": {
-      "active_binding_anchor": 135,
-      "formula_dependency": 73,
-      "generic_named_range": 18,
+      "active_binding_anchor": 139,
+      "formula_dependency": 76,
+      "generic_named_range": 21,
       "required_shell_anchor": 16
     },
     "target_mismatch_count": 0,
@@ -222,8 +222,72 @@
       "company_specific": false
     },
     {
-      "name": "FCF_TTM_Pos_Years",
-      "attr_text": "'Hidden_Value_Base'!$BE$50",
+      "name": "HV_Base_MetricKey",
+      "attr_text": "'Hidden_Value_Base'!$A$2:$A$5001",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "HV_Base_Status",
+      "attr_text": "'Hidden_Value_Base'!$I$2:$I$5001",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "HV_Base_Value",
+      "attr_text": "'Hidden_Value_Base'!$C$2:$C$5001",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "HV_Flags_CandidateKey",
+      "attr_text": "'Hidden_Value_Flags'!$B$2:$B$8",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "HV_Flags_Score",
+      "attr_text": "'Hidden_Value_Flags'!$E$2:$E$8",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "HV_Flags_State",
+      "attr_text": "'Hidden_Value_Flags'!$G$2:$G$8",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "HV_Recompute_CandidateKey",
+      "attr_text": "'Hidden_Value_Recompute'!$AF$2:$AF$8",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "HV_Recompute_CandidateParity",
+      "attr_text": "'Hidden_Value_Recompute'!$AX$2:$AX$8",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "HV_Recompute_RowParity",
+      "attr_text": "'Hidden_Value_Recompute'!$AD$2:$AD$92",
       "classification": "generic_named_range",
       "expected_target": "",
       "target_matches": true,
@@ -281,14 +345,6 @@
       "name": "InterestPaid_TTM",
       "attr_text": "'Valuation'!$D$212",
       "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Interest_Coverage",
-      "attr_text": "'Hidden_Value_Base'!$AQ$50",
-      "classification": "generic_named_range",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -353,14 +409,6 @@
       "name": "PerShareMode",
       "attr_text": "'Valuation'!$D$216",
       "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Pos_FCF_Ratio",
-      "attr_text": "'Hidden_Value_Base'!$BD$50",
-      "classification": "generic_named_range",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -1114,6 +1162,38 @@
       "attr_text": "'History_Q'!$A$2",
       "classification": "active_binding_anchor",
       "expected_target": "'History_Q'!$A$2",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "hidden_value_audit_rows",
+      "attr_text": "'Hidden_Value_Audit'!$A$2",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Hidden_Value_Audit'!$A$2",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "hidden_value_base_rows",
+      "attr_text": "'Hidden_Value_Base'!$A$2",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Hidden_Value_Base'!$A$2",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "hidden_value_flags_rows",
+      "attr_text": "'Hidden_Value_Flags'!$A$2",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Hidden_Value_Flags'!$A$2",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "hidden_value_recompute_rows",
+      "attr_text": "'Hidden_Value_Recompute'!$A$2",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Hidden_Value_Recompute'!$A$2",
       "target_matches": true,
       "company_specific": false
     },

@@ -655,6 +655,53 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
     max_row = int(contract.get("capacity_rows") or 5000)
     last_column = get_column_letter(max_column)
     sheet_name = str(contract["sheet"])
+    binding_ranges = [str(value) for value in contract.get("binding_owned_ranges") or []]
+    formula_ranges = [str(value) for value in contract.get("formula_owned_ranges") or []]
+    reserved_ranges = [str(value) for value in contract.get("reserved_ranges") or []]
+    sheet_protection = bool(contract.get("worksheet_protection"))
+    if binding_ranges or formula_ranges or reserved_ranges:
+        module_token = str(contract["module_id"])
+        sheet_token = _safe_id(sheet_name)
+        writable_zones = [
+            {
+                "zone_id": f"module_{module_token}_{sheet_token}_rows" if index == 0 else f"module_{module_token}_{sheet_token}_rows_{index + 1}",
+                "target": target,
+                "anchor_label": headers[0] if headers else "field",
+                "value_shapes": ["table_rows"],
+            }
+            for index, target in enumerate(binding_ranges)
+        ]
+        non_writable_zones = [
+            {
+                "zone_id": f"module_{module_token}_{sheet_token}_headers",
+                "target": f"A1:{last_column}1",
+                "reason": "Neutral module support headers owned by the frozen shell.",
+            },
+            *[
+                {
+                    "zone_id": f"module_{module_token}_{sheet_token}_formula_{index + 1}",
+                    "target": target,
+                    "reason": "Formula-owned Hidden Value recomputation surface.",
+                }
+                for index, target in enumerate(formula_ranges)
+            ],
+            *[
+                {
+                    "zone_id": f"module_{module_token}_{sheet_token}_reserved_{index + 1}",
+                    "target": target,
+                    "reason": "Reserved neutral support capacity; no binding or formula ownership.",
+                }
+                for index, target in enumerate(reserved_ranges)
+            ],
+        ]
+        return {
+            "sheet": sheet_name,
+            "static_layout_owner": "frozen_template_shell",
+            "writable_zones": writable_zones,
+            "non_writable_zones": non_writable_zones,
+            "formulas_static_labels": headers,
+            "worksheet_protection": sheet_protection,
+        }
     if str(contract.get("data_surface") or "binding_rows") == "formula_output":
         return {
             "sheet": sheet_name,
@@ -668,6 +715,7 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
                 }
             ],
             "formulas_static_labels": headers,
+            "worksheet_protection": sheet_protection,
         }
     return {
         "sheet": sheet_name,
@@ -688,6 +736,7 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
             }
         ],
         "formulas_static_labels": headers,
+        "worksheet_protection": sheet_protection,
     }
 
 
