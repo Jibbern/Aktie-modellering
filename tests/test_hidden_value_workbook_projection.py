@@ -18,6 +18,7 @@ from pbi_xbrl.hidden_value_workbook_projection import (
 )
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 from pbi_xbrl.new_ticker_binding_planner import inspect_binding_eligibility, reproduce_binding_plan
+from pbi_xbrl.standard_template_formula_contract import _hidden_value_detail_specs
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -267,6 +268,18 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
     assert len(accepted_writes) == 20_841
     assert _digest(accepted_writes) == "11ad44f774f1d2ec2e40cfcaa694f0cba264389cb81bd586f83228d809d14a46"
     assert _digest(plan["issue_ledger"]) == "0d0b35dbe5e912088590bece30aa60196ac26933492de5adb420dd9b6e67c9aa"
+
+    recompute_writes = [row for row in hidden_writes if row["binding_id"] == "hidden_value_recompute_rows"]
+    recompute_by_cell = {row["target_cell"]: row["value"] for row in recompute_writes}
+    contract = json.loads((ROOT / "docs" / "hidden_value_signal_contract.json").read_text(encoding="utf-8"))
+    signals = sorted(contract["signals"], key=lambda row: (row["priority"], row["signal_id"]))
+    specs = _hidden_value_detail_specs(signals)
+    for excel_row, spec in enumerate(specs, start=2):
+        assert recompute_by_cell[f"C{excel_row}"] == spec["signal_id"]
+        assert recompute_by_cell[f"D{excel_row}"] == spec["record_type"]
+        assert recompute_by_cell[f"E{excel_row}"] == spec["stage"]
+        assert recompute_by_cell[f"F{excel_row}"] == spec["item_id"]
+
     assert len(plan["derived_plans"]) == 1
     report = plan["derived_plans"][0]
     assert report["plan_id"] == "hidden_value_evaluation"

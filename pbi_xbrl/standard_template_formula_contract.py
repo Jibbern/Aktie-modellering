@@ -32,7 +32,7 @@ from pbi_xbrl.valuation_scenario_economics import (
 )
 
 
-FORMULA_CONTRACT_VERSION = "1.9.0"
+FORMULA_CONTRACT_VERSION = "1.9.1"
 ROOT = Path(__file__).resolve().parents[1]
 HIDDEN_VALUE_SIGNAL_CONTRACT = ROOT / "docs" / "hidden_value_signal_contract.json"
 HIDDEN_VALUE_DETAIL_FIRST_ROW = 2
@@ -1348,7 +1348,11 @@ def _apply_valuation_scenario_inputs_and_outputs(ws: Any, enabled_formula_ids: s
     _set_formula(ws["J261"], '=IF(OR(ScenarioEquityValue="",ScenarioShares="",ScenarioShares<=0),"",ScenarioEquityValue/ScenarioShares)', "$#,##0.00;[Red]-$#,##0.00")
     _set_formula(ws["N259"], '=IF(OR(ScenarioImpliedPrice="",Price="",Price<=0),"",ScenarioImpliedPrice/Price-1)', "0.0%;[Red]-0.0%")
     _set_formula(ws["N260"], '=IF(OR(ScenarioImpliedPrice="",ScenarioEPS="",ScenarioEPS=0),"",ScenarioImpliedPrice/ScenarioEPS)', "0.00x")
-    _set_formula(ws["N261"], '=IF(OR(ScenarioFCF="",ScenarioImpliedPrice="",ScenarioShares="",ScenarioImpliedPrice*ScenarioShares=0),"",ScenarioFCF/(ScenarioImpliedPrice*ScenarioShares))', "0.0%")
+    _set_formula(
+        ws["N261"],
+        '=IF(OR(NOT(ISNUMBER(ScenarioFCF)),NOT(ISNUMBER(ScenarioImpliedPrice)),NOT(ISNUMBER(ScenarioShares)),ScenarioImpliedPrice<=0,ScenarioShares<=0),"",ScenarioFCF/(ScenarioImpliedPrice*ScenarioShares))',
+        "0.0%",
+    )
     _set_formula(ws["R259"], '=IF(OR(ScenarioEV="",ScenarioRevenue="",ScenarioRevenue=0),"",ScenarioEV/ScenarioRevenue)', "0.00x")
     _set_formula(ws["R260"], '=IF(OR(ScenarioEV="",ScenarioBaseEBITDA="",ScenarioBaseEBITDA=0),"",ScenarioEV/ScenarioBaseEBITDA)', "0.00x")
     _set_formula(ws["R261"], '=IF(OR(ScenarioEV="",ScenarioAdjustedEBITDA="",ScenarioAdjustedEBITDA=0),"",ScenarioEV/ScenarioAdjustedEBITDA)', "0.00x")
@@ -1362,7 +1366,7 @@ def _apply_valuation_scenario_inputs_and_outputs(ws: Any, enabled_formula_ids: s
         "N241": '=IF(OR(N238="",Revenue_TTM="",Revenue_TTM=0),"",N238/Revenue_TTM-1)',
         "N242": '=IF(OR(N237="",Target_EV_Yield="",Target_EV_Yield<=0),"",N237*Target_EV_Yield)',
         "N243": '=IF(OR(Price="",Target_PE="",Target_PE<=0),"",Price/Target_PE)',
-        "N244": '=IF(OR(N237="",DCF_WACC="",DCF_FCFF="",N237+DCF_FCFF=0),"",(N237*DCF_WACC-DCF_FCFF)/(N237+DCF_FCFF))',
+        "N244": '=IF(OR(NOT(ISNUMBER(N237)),NOT(ISNUMBER(DCF_WACC)),NOT(ISNUMBER(DCF_FCFF)),N237<=0,DCF_WACC<=0),"",IF(N237+DCF_FCFF=0,"",(N237*DCF_WACC-DCF_FCFF)/(N237+DCF_FCFF)))',
     }
     for coordinate, formula in market_formulas.items():
         number_format = "0.0%" if coordinate in {"N240", "N241", "N244"} else ("$0.00" if coordinate == "N243" else "#,##0.0")
@@ -1582,7 +1586,11 @@ def _apply_investment_case_scenario_formulas(ws: Any, enabled_formula_ids: set[s
             68: ("N244", "0.0%;[Red]-0.0%"),
         }
         for row, (source, number_format) in market_links.items():
-            _set_formula(ws[f"B{row}"], f"=IF('Valuation'!{source}=\"\",\"\",'Valuation'!{source})" if source.startswith("N") else f'=IF({source}="","",{source})', number_format)
+            if row == 68:
+                formula = f'=IF(ISNUMBER(\'Valuation\'!{source}),\'Valuation\'!{source},"")'
+            else:
+                formula = f"=IF('Valuation'!{source}=\"\",\"\",'Valuation'!{source})" if source.startswith("N") else f'=IF({source}="","",{source})'
+            _set_formula(ws[f"B{row}"], formula, number_format)
 
     if "investment_case_sensitivity_formulas" in enabled_formula_ids:
         denominator = _per_share_denominator_formula()
@@ -1933,7 +1941,11 @@ def _apply_hidden_value_detail_row(ws: Any, row: int, spec: dict[str, Any]) -> N
         _set_formula(ws[f"Y{row}"], f'=IF({module_eligible},{metric_status},"unavailable")', "General")
         _set_formula(ws[f"Z{row}"], f'=IF(NOT({module_eligible}),FALSE,AND(ISNUMBER($X{row}),OR($Y{row}="source_backed",$Y{row}="formula_calculated",$Y{row}="derived_calculated")))', "General")
         _set_formula(ws[f"AA{row}"], f'=IF($Z{row},$L{row},0)', "0.0000000000")
-        _set_formula(ws[f"AB{row}"], f'=IF(NOT($Z{row}),"",MAX(0,MIN(1,IF($M{row}="lower",($N{row}-$X{row})/$O{row}+$P{row},($X{row}-$N{row})/$O{row}+$P{row}))))', "0.0000000000")
+        _set_formula(
+            ws[f"AB{row}"],
+            f'=IF(NOT($Z{row}),"",IF(OR(NOT(ISNUMBER($N{row})),NOT(ISNUMBER($O{row})),$O{row}<=0,NOT(ISNUMBER($P{row})),AND($M{row}<>"higher",$M{row}<>"lower")),"",MAX(0,MIN(1,IF($M{row}="lower",($N{row}-$X{row})/$O{row}+$P{row},($X{row}-$N{row})/$O{row}+$P{row})))))',
+            "0.0000000000",
+        )
         _set_formula(ws[f"AC{row}"], f'=IF($AB{row}="","",$AB{row}*$AA{row})', "0.0000000000")
         recomputed_status = f'IF($Z{row},"calculated","unavailable")'
         parity = "AND(" + ",".join((

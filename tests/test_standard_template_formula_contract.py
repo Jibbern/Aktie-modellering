@@ -152,7 +152,7 @@ def test_visible_metric_labels_are_concise_without_losing_definition() -> None:
 
 def test_formula_contract_contains_no_ticker_specific_content() -> None:
     source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
-    assert FORMULA_CONTRACT_VERSION == "1.9.0"
+    assert FORMULA_CONTRACT_VERSION == "1.9.1"
     for forbidden in ("Abercrombie", "Hollister", "ANF_model", "A&F"):
         assert forbidden not in source
 
@@ -178,6 +178,23 @@ def test_typed_scenario_formulas_have_exact_ownership_and_no_unsafe_defaults() -
         assert "ScenarioAdjustedMargin" in str(valuation["E243"].value)
         assert "ResolvedRevenueGrowth_Custom" in str(valuation["E241"].value)
         assert "ScenarioGrowth" not in str(valuation["E241"].value)
+
+        n244 = str(valuation["N244"].value)
+        assert all(token in n244 for token in (
+            "NOT(ISNUMBER(N237))",
+            "NOT(ISNUMBER(DCF_WACC))",
+            "NOT(ISNUMBER(DCF_FCFF))",
+            'IF(N237+DCF_FCFF=0,""',
+        ))
+        n261 = str(valuation["N261"].value)
+        assert all(token in n261 for token in (
+            "NOT(ISNUMBER(ScenarioFCF))",
+            "NOT(ISNUMBER(ScenarioImpliedPrice))",
+            "NOT(ISNUMBER(ScenarioShares))",
+            "ScenarioImpliedPrice<=0",
+            "ScenarioShares<=0",
+        ))
+        assert str(investment_case["B68"].value) == '=IF(ISNUMBER(\'Valuation\'!N244),\'Valuation\'!N244,"")'
 
         assert "ResolvedRevenueGrowth_Bear" in str(investment_case["B85"].value)
         assert "ResolvedRevenueGrowth_Base" in str(investment_case["B86"].value)

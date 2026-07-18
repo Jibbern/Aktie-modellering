@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-18T13:14:43+00:00",
+  "generated_at": "2026-07-18T14:54:27+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "visible_sheets": [
@@ -9866,7 +9866,7 @@
     {
       "sheet": "Valuation",
       "cell": "N244",
-      "value": "=IF(OR(N237=\"\",DCF_WACC=\"\",DCF_FCFF=\"\",N237+DCF_FCFF=0),\"\",(N237*DCF_WACC-DCF_FCFF)/(N237+DCF_FCFF))",
+      "value": "=IF(OR(NOT(ISNUMBER(N237)),NOT(ISNUMBER(DCF_WACC)),NOT(ISNUMBER(DCF_FCFF)),N237<=0,DCF_WACC<=0),\"\",IF(N237+DCF_FCFF=0,\"\",(N237*DCF_WACC-DCF_FCFF)/(N237+DCF_FCFF)))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "visible"
@@ -10226,7 +10226,7 @@
     {
       "sheet": "Valuation",
       "cell": "N261",
-      "value": "=IF(OR(ScenarioFCF=\"\",ScenarioImpliedPrice=\"\",ScenarioShares=\"\",ScenarioImpliedPrice*ScenarioShares=0),\"\",ScenarioFCF/(ScenarioImpliedPrice*ScenarioShares))",
+      "value": "=IF(OR(NOT(ISNUMBER(ScenarioFCF)),NOT(ISNUMBER(ScenarioImpliedPrice)),NOT(ISNUMBER(ScenarioShares)),ScenarioImpliedPrice<=0,ScenarioShares<=0),\"\",ScenarioFCF/(ScenarioImpliedPrice*ScenarioShares))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "visible"
@@ -14362,7 +14362,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "B68",
-      "value": "=IF('Valuation'!N244=\"\",\"\",'Valuation'!N244)",
+      "value": "=IF(ISNUMBER('Valuation'!N244),'Valuation'!N244,\"\")",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "visible"
@@ -23418,7 +23418,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB16",
-      "value": "=IF(NOT($Z16),\"\",MAX(0,MIN(1,IF($M16=\"lower\",($N16-$X16)/$O16+$P16,($X16-$N16)/$O16+$P16))))",
+      "value": "=IF(NOT($Z16),\"\",IF(OR(NOT(ISNUMBER($N16)),NOT(ISNUMBER($O16)),$O16<=0,NOT(ISNUMBER($P16)),AND($M16<>\"higher\",$M16<>\"lower\")),\"\",MAX(0,MIN(1,IF($M16=\"lower\",($N16-$X16)/$O16+$P16,($X16-$N16)/$O16+$P16)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -23474,7 +23474,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB17",
-      "value": "=IF(NOT($Z17),\"\",MAX(0,MIN(1,IF($M17=\"lower\",($N17-$X17)/$O17+$P17,($X17-$N17)/$O17+$P17))))",
+      "value": "=IF(NOT($Z17),\"\",IF(OR(NOT(ISNUMBER($N17)),NOT(ISNUMBER($O17)),$O17<=0,NOT(ISNUMBER($P17)),AND($M17<>\"higher\",$M17<>\"lower\")),\"\",MAX(0,MIN(1,IF($M17=\"lower\",($N17-$X17)/$O17+$P17,($X17-$N17)/$O17+$P17)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -23530,7 +23530,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB18",
-      "value": "=IF(NOT($Z18),\"\",MAX(0,MIN(1,IF($M18=\"lower\",($N18-$X18)/$O18+$P18,($X18-$N18)/$O18+$P18))))",
+      "value": "=IF(NOT($Z18),\"\",IF(OR(NOT(ISNUMBER($N18)),NOT(ISNUMBER($O18)),$O18<=0,NOT(ISNUMBER($P18)),AND($M18<>\"higher\",$M18<>\"lower\")),\"\",MAX(0,MIN(1,IF($M18=\"lower\",($N18-$X18)/$O18+$P18,($X18-$N18)/$O18+$P18)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -24314,7 +24314,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB32",
-      "value": "=IF(NOT($Z32),\"\",MAX(0,MIN(1,IF($M32=\"lower\",($N32-$X32)/$O32+$P32,($X32-$N32)/$O32+$P32))))",
+      "value": "=IF(NOT($Z32),\"\",IF(OR(NOT(ISNUMBER($N32)),NOT(ISNUMBER($O32)),$O32<=0,NOT(ISNUMBER($P32)),AND($M32<>\"higher\",$M32<>\"lower\")),\"\",MAX(0,MIN(1,IF($M32=\"lower\",($N32-$X32)/$O32+$P32,($X32-$N32)/$O32+$P32)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -24370,7 +24370,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB33",
-      "value": "=IF(NOT($Z33),\"\",MAX(0,MIN(1,IF($M33=\"lower\",($N33-$X33)/$O33+$P33,($X33-$N33)/$O33+$P33))))",
+      "value": "=IF(NOT($Z33),\"\",IF(OR(NOT(ISNUMBER($N33)),NOT(ISNUMBER($O33)),$O33<=0,NOT(ISNUMBER($P33)),AND($M33<>\"higher\",$M33<>\"lower\")),\"\",MAX(0,MIN(1,IF($M33=\"lower\",($N33-$X33)/$O33+$P33,($X33-$N33)/$O33+$P33)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -24426,7 +24426,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB34",
-      "value": "=IF(NOT($Z34),\"\",MAX(0,MIN(1,IF($M34=\"lower\",($N34-$X34)/$O34+$P34,($X34-$N34)/$O34+$P34))))",
+      "value": "=IF(NOT($Z34),\"\",IF(OR(NOT(ISNUMBER($N34)),NOT(ISNUMBER($O34)),$O34<=0,NOT(ISNUMBER($P34)),AND($M34<>\"higher\",$M34<>\"lower\")),\"\",MAX(0,MIN(1,IF($M34=\"lower\",($N34-$X34)/$O34+$P34,($X34-$N34)/$O34+$P34)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -25210,7 +25210,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB48",
-      "value": "=IF(NOT($Z48),\"\",MAX(0,MIN(1,IF($M48=\"lower\",($N48-$X48)/$O48+$P48,($X48-$N48)/$O48+$P48))))",
+      "value": "=IF(NOT($Z48),\"\",IF(OR(NOT(ISNUMBER($N48)),NOT(ISNUMBER($O48)),$O48<=0,NOT(ISNUMBER($P48)),AND($M48<>\"higher\",$M48<>\"lower\")),\"\",MAX(0,MIN(1,IF($M48=\"lower\",($N48-$X48)/$O48+$P48,($X48-$N48)/$O48+$P48)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -25266,7 +25266,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB49",
-      "value": "=IF(NOT($Z49),\"\",MAX(0,MIN(1,IF($M49=\"lower\",($N49-$X49)/$O49+$P49,($X49-$N49)/$O49+$P49))))",
+      "value": "=IF(NOT($Z49),\"\",IF(OR(NOT(ISNUMBER($N49)),NOT(ISNUMBER($O49)),$O49<=0,NOT(ISNUMBER($P49)),AND($M49<>\"higher\",$M49<>\"lower\")),\"\",MAX(0,MIN(1,IF($M49=\"lower\",($N49-$X49)/$O49+$P49,($X49-$N49)/$O49+$P49)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -25322,7 +25322,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB50",
-      "value": "=IF(NOT($Z50),\"\",MAX(0,MIN(1,IF($M50=\"lower\",($N50-$X50)/$O50+$P50,($X50-$N50)/$O50+$P50))))",
+      "value": "=IF(NOT($Z50),\"\",IF(OR(NOT(ISNUMBER($N50)),NOT(ISNUMBER($O50)),$O50<=0,NOT(ISNUMBER($P50)),AND($M50<>\"higher\",$M50<>\"lower\")),\"\",MAX(0,MIN(1,IF($M50=\"lower\",($N50-$X50)/$O50+$P50,($X50-$N50)/$O50+$P50)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -25994,7 +25994,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB62",
-      "value": "=IF(NOT($Z62),\"\",MAX(0,MIN(1,IF($M62=\"lower\",($N62-$X62)/$O62+$P62,($X62-$N62)/$O62+$P62))))",
+      "value": "=IF(NOT($Z62),\"\",IF(OR(NOT(ISNUMBER($N62)),NOT(ISNUMBER($O62)),$O62<=0,NOT(ISNUMBER($P62)),AND($M62<>\"higher\",$M62<>\"lower\")),\"\",MAX(0,MIN(1,IF($M62=\"lower\",($N62-$X62)/$O62+$P62,($X62-$N62)/$O62+$P62)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -26050,7 +26050,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB63",
-      "value": "=IF(NOT($Z63),\"\",MAX(0,MIN(1,IF($M63=\"lower\",($N63-$X63)/$O63+$P63,($X63-$N63)/$O63+$P63))))",
+      "value": "=IF(NOT($Z63),\"\",IF(OR(NOT(ISNUMBER($N63)),NOT(ISNUMBER($O63)),$O63<=0,NOT(ISNUMBER($P63)),AND($M63<>\"higher\",$M63<>\"lower\")),\"\",MAX(0,MIN(1,IF($M63=\"lower\",($N63-$X63)/$O63+$P63,($X63-$N63)/$O63+$P63)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -26666,7 +26666,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB74",
-      "value": "=IF(NOT($Z74),\"\",MAX(0,MIN(1,IF($M74=\"lower\",($N74-$X74)/$O74+$P74,($X74-$N74)/$O74+$P74))))",
+      "value": "=IF(NOT($Z74),\"\",IF(OR(NOT(ISNUMBER($N74)),NOT(ISNUMBER($O74)),$O74<=0,NOT(ISNUMBER($P74)),AND($M74<>\"higher\",$M74<>\"lower\")),\"\",MAX(0,MIN(1,IF($M74=\"lower\",($N74-$X74)/$O74+$P74,($X74-$N74)/$O74+$P74)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -26722,7 +26722,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB75",
-      "value": "=IF(NOT($Z75),\"\",MAX(0,MIN(1,IF($M75=\"lower\",($N75-$X75)/$O75+$P75,($X75-$N75)/$O75+$P75))))",
+      "value": "=IF(NOT($Z75),\"\",IF(OR(NOT(ISNUMBER($N75)),NOT(ISNUMBER($O75)),$O75<=0,NOT(ISNUMBER($P75)),AND($M75<>\"higher\",$M75<>\"lower\")),\"\",MAX(0,MIN(1,IF($M75=\"lower\",($N75-$X75)/$O75+$P75,($X75-$N75)/$O75+$P75)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -27058,7 +27058,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB81",
-      "value": "=IF(NOT($Z81),\"\",MAX(0,MIN(1,IF($M81=\"lower\",($N81-$X81)/$O81+$P81,($X81-$N81)/$O81+$P81))))",
+      "value": "=IF(NOT($Z81),\"\",IF(OR(NOT(ISNUMBER($N81)),NOT(ISNUMBER($O81)),$O81<=0,NOT(ISNUMBER($P81)),AND($M81<>\"higher\",$M81<>\"lower\")),\"\",MAX(0,MIN(1,IF($M81=\"lower\",($N81-$X81)/$O81+$P81,($X81-$N81)/$O81+$P81)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -27114,7 +27114,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB82",
-      "value": "=IF(NOT($Z82),\"\",MAX(0,MIN(1,IF($M82=\"lower\",($N82-$X82)/$O82+$P82,($X82-$N82)/$O82+$P82))))",
+      "value": "=IF(NOT($Z82),\"\",IF(OR(NOT(ISNUMBER($N82)),NOT(ISNUMBER($O82)),$O82<=0,NOT(ISNUMBER($P82)),AND($M82<>\"higher\",$M82<>\"lower\")),\"\",MAX(0,MIN(1,IF($M82=\"lower\",($N82-$X82)/$O82+$P82,($X82-$N82)/$O82+$P82)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -27562,7 +27562,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB90",
-      "value": "=IF(NOT($Z90),\"\",MAX(0,MIN(1,IF($M90=\"lower\",($N90-$X90)/$O90+$P90,($X90-$N90)/$O90+$P90))))",
+      "value": "=IF(NOT($Z90),\"\",IF(OR(NOT(ISNUMBER($N90)),NOT(ISNUMBER($O90)),$O90<=0,NOT(ISNUMBER($P90)),AND($M90<>\"higher\",$M90<>\"lower\")),\"\",MAX(0,MIN(1,IF($M90=\"lower\",($N90-$X90)/$O90+$P90,($X90-$N90)/$O90+$P90)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -27618,7 +27618,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB91",
-      "value": "=IF(NOT($Z91),\"\",MAX(0,MIN(1,IF($M91=\"lower\",($N91-$X91)/$O91+$P91,($X91-$N91)/$O91+$P91))))",
+      "value": "=IF(NOT($Z91),\"\",IF(OR(NOT(ISNUMBER($N91)),NOT(ISNUMBER($O91)),$O91<=0,NOT(ISNUMBER($P91)),AND($M91<>\"higher\",$M91<>\"lower\")),\"\",MAX(0,MIN(1,IF($M91=\"lower\",($N91-$X91)/$O91+$P91,($X91-$N91)/$O91+$P91)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
@@ -27674,7 +27674,7 @@
     {
       "sheet": "Hidden_Value_Recompute",
       "cell": "AB92",
-      "value": "=IF(NOT($Z92),\"\",MAX(0,MIN(1,IF($M92=\"lower\",($N92-$X92)/$O92+$P92,($X92-$N92)/$O92+$P92))))",
+      "value": "=IF(NOT($Z92),\"\",IF(OR(NOT(ISNUMBER($N92)),NOT(ISNUMBER($O92)),$O92<=0,NOT(ISNUMBER($P92)),AND($M92<>\"higher\",$M92<>\"lower\")),\"\",MAX(0,MIN(1,IF($M92=\"lower\",($N92-$X92)/$O92+$P92,($X92-$N92)/$O92+$P92)))))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"

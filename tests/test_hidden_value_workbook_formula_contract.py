@@ -204,6 +204,21 @@ def test_hidden_value_formula_rows_are_compiled_from_the_authoritative_contract(
     assert "data_only" not in hidden_value_source
     assert "ANF" not in hidden_value_source and "PBI" not in hidden_value_source and "GPRE" not in hidden_value_source
 
+    workbook = load_workbook(SHELL, data_only=False, read_only=False)
+    try:
+        recompute = workbook["Hidden_Value_Recompute"]
+        for excel_row, spec in enumerate(specs, start=2):
+            normalized_formula = str(recompute[f"AB{excel_row}"].value)
+            if spec["record_type"] == "score_component":
+                assert f"NOT(ISNUMBER($O{excel_row}))" in normalized_formula
+                assert f"$O{excel_row}<=0" in normalized_formula
+                assert f'$M{excel_row}<>"higher"' in normalized_formula
+                assert f'$M{excel_row}<>"lower"' in normalized_formula
+            else:
+                assert normalized_formula == '=""'
+    finally:
+        workbook.close()
+
 
 def test_hidden_value_defined_names_are_neutral_exact_and_stale_names_are_absent() -> None:
     workbook = load_workbook(SHELL, data_only=False, read_only=False)

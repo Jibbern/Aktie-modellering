@@ -309,6 +309,26 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
         future_formula_errors.extend(_excel_range_errors(book.Worksheets("Valuation_Summary"), "H2:K2"))
         assert future_formula_errors == [], "\n".join(future_formula_errors)
 
+        fail_closed_errors = [
+            error
+            for sheet_name, target in (
+                ("Valuation", "N244"),
+                ("Valuation", "N261"),
+                ("ANF_Investment_Case", "B68"),
+                *(("Hidden_Value_Recompute", f"{column}{row}") for row in (16, 17, 18, 32, 34, 63, 90) for column in ("AB", "AC", "AD")),
+            )
+            for error in _excel_range_errors(book.Worksheets(sheet_name), target)
+        ]
+        assert fail_closed_errors == [], "\n".join(fail_closed_errors)
+        assert all(
+            book.Worksheets(sheet_name).Range(target).Value in (None, "")
+            for sheet_name, target in (
+                ("Valuation", "N244"),
+                ("Valuation", "N261"),
+                ("ANF_Investment_Case", "B68"),
+            )
+        )
+
         checked_sheets = (
             "Valuation",
             "ANF_Investment_Case",
@@ -342,6 +362,23 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             for row in (10, 15, 21, 25, 34, 39, 46, 49, 50, 63, 64, 65, 66, 67, 88, 89, 109, 111, 271)
         )
         assert _excel_range_errors(book.Worksheets("Valuation_Summary"), "H2:K2") == []
+        assert all(
+            _excel_range_errors(book.Worksheets(sheet_name), target) == []
+            for sheet_name, target in (
+                ("Valuation", "N244"),
+                ("Valuation", "N261"),
+                ("ANF_Investment_Case", "B68"),
+                *(("Hidden_Value_Recompute", f"{column}{row}") for row in (16, 17, 18, 32, 34, 63, 90) for column in ("AB", "AC", "AD")),
+            )
+        )
+        assert all(
+            book.Worksheets(sheet_name).Range(target).Value in (None, "")
+            for sheet_name, target in (
+                ("Valuation", "N244"),
+                ("Valuation", "N261"),
+                ("ANF_Investment_Case", "B68"),
+            )
+        )
         book.Save()
     finally:
         valuation = None

@@ -4,18 +4,18 @@
   "reason": "",
   "artifact": {
     "path": "docs/standard_template_shell_neutrality_audit.json",
-    "sha256": "b35b968db15c07084ef299ab80f8fab9d58625a5cff2c34994933e23163d06b1",
+    "sha256": "b5c806f6a8fa33284d9aae705bc7a4ad4c76b308363bd8890730d5d4dba7c67c",
     "output_schema": "json",
     "output_version": "0.1.0"
   },
   "authoritative_inputs": [
     {
       "path": "templates/standard_stock_model_template.xlsx",
-      "sha256": "30f07aa8b9a972ae1223a5341004514ace8d0a072eafbd183c228c6d8d3a1c5b"
+      "sha256": "aa077767454e311406a1e70ea88852287ca6b810636731b827106e405ee783b7"
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "2946fea1471fee36f4367bc64ac35937109dd8b45166bf56c28c8c5520467366"
+      "sha256": "2da50e5267d5745639d6adb8bb63b0e46afbf82bcdc6b9f7f83f40e36487dfd0"
     },
     {
       "path": "docs/workbook_module_manifest.json",
@@ -44,24 +44,24 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "5bfb911b678f9f8c1eab8449e1e823c49eadf95d5ac716cc90c3d739471304cb",
+    "run_generation_id": "fe889302cb39010c8ebf1847751b519f6f2c3ae25a14827038e5467e0fef7e8a",
     "generated_outputs": [
       {
-        "canonical_content_sha256": "a00e71abfce51ccbb34145ab82370d4e307d54501fca26a17ab99c8c7645bc50",
+        "canonical_content_sha256": "75c2e0af82658d886b7d5ab1409b856c13280014fd156d071110448ec5308cae",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/standard_template_shell_neutrality_audit.json",
-        "sha256": "b35b968db15c07084ef299ab80f8fab9d58625a5cff2c34994933e23163d06b1"
+        "sha256": "b5c806f6a8fa33284d9aae705bc7a4ad4c76b308363bd8890730d5d4dba7c67c"
       },
       {
         "canonical_content_sha256": "93411ca0835286d32bd1cfcb56a60b5dfbf280411c908ae5ce70a181c7cebeb7",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/standard_template_shell_neutrality_audit.md",
-        "sha256": "7a67de78d3c2bb959297740130709ad9214cd2b79bba568869797ec2e3180501"
+        "sha256": "c87464ec1bc1b0e79fb2081aa9cce8714c36328672ae6bf5fdc62ba17f190e3f"
       }
     ]
   },
-  "generated_at_utc": "2026-07-18T13:14:43+00:00",
-  "generation_id": "f96aecbae7e00f19b99240d9f387527f366252cf9082bddd7d542cc4f2227f37"
+  "generated_at_utc": "2026-07-18T14:54:27+00:00",
+  "generation_id": "50855493826a1d6280693cbc0232a3b84372dd2ce6e6e1080483ed31fbab123d"
 }

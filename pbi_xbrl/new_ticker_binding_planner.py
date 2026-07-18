@@ -2484,7 +2484,13 @@ def _sort_rows(rows: Sequence[Mapping[str, Any]], sort_order: Sequence[Any]) -> 
             descending = str(raw.get("direction") or "asc").lower() == "desc"
         else:
             continue
-        ordered.sort(key=lambda row: str(_read_row_field(row, field)[0] or ""), reverse=descending)
+        def sort_key(row: Mapping[str, Any]) -> tuple[int, float | str]:
+            value = _read_row_field(row, field)[0]
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                return (0, float(value))
+            return (1, str(value or ""))
+
+        ordered.sort(key=sort_key, reverse=descending)
     return ordered
 
 
