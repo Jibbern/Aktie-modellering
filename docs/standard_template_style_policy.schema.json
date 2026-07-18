@@ -10,11 +10,12 @@
     "palette_tokens",
     "threshold_sets",
     "policies",
+    "state_policies",
     "style_disabled"
   ],
   "properties": {
     "$schema": {"type": "string", "format": "uri"},
-    "version": {"type": "string", "const": "1.1.0"},
+    "version": {"type": "string", "const": "1.2.0"},
     "style_plan_contract_version": {"type": "string", "const": "1.0.0"},
     "description": {"type": "string", "minLength": 1},
     "palette_tokens": {
@@ -33,6 +34,11 @@
       "minItems": 1,
       "uniqueItems": true,
       "items": {"$ref": "#/$defs/policy"}
+    },
+    "state_policies": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/statePolicy"}
     },
     "style_disabled": {
       "type": "array",
@@ -104,6 +110,68 @@
         "selector_type": {"enum": ["binding", "formula"]},
         "target_id": {"$ref": "#/$defs/id"},
         "metric_id": {"$ref": "#/$defs/id"}
+      },
+      "additionalProperties": false
+    },
+    "stateTargetSelector": {
+      "type": "object",
+      "required": ["selector_type", "target_id", "state_field", "period_field", "target_fields"],
+      "properties": {
+        "selector_type": {"const": "binding_state"},
+        "target_id": {"$ref": "#/$defs/id"},
+        "state_field": {"$ref": "#/$defs/id"},
+        "period_field": {"$ref": "#/$defs/id"},
+        "target_fields": {"$ref": "#/$defs/stringList"}
+      },
+      "additionalProperties": false
+    },
+    "statePolicy": {
+      "type": "object",
+      "required": [
+        "policy_id",
+        "owner_module_id",
+        "owned_style_ids",
+        "state_overlays",
+        "no_style_states",
+        "target_selectors"
+      ],
+      "properties": {
+        "policy_id": {"$ref": "#/$defs/id"},
+        "owner_module_id": {"$ref": "#/$defs/id"},
+        "owned_style_ids": {"$ref": "#/$defs/stringList"},
+        "state_overlays": {
+          "type": "object",
+          "minProperties": 1,
+          "properties": {
+            "triggered": {"$ref": "#/$defs/id"},
+            "near_miss": {"$ref": "#/$defs/id"},
+            "invalid_input": {"$ref": "#/$defs/id"},
+            "unavailable": {"$ref": "#/$defs/id"},
+            "insufficient_evidence": {"$ref": "#/$defs/id"}
+          },
+          "additionalProperties": false
+        },
+        "no_style_states": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "triggered",
+              "near_miss",
+              "not_triggered",
+              "invalid_input",
+              "unavailable",
+              "insufficient_evidence"
+            ]
+          }
+        },
+        "target_selectors": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/stateTargetSelector"}
+        }
       },
       "additionalProperties": false
     },

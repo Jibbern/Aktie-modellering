@@ -2,8 +2,8 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-18T00:57:07+00:00`
-- Bindings with populated data: `76` / `165`
+- Generated: `2026-07-18T07:45:50+00:00`
+- Bindings with populated data: `76` / `166`
 - Bindings that would write useful output: `109`
 
 | Binding | Sheet | Field | Values | Rows | Would write | Reason if blank |
@@ -92,6 +92,7 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `hidden_value_audit_rows` | `Hidden_Value_Audit` | `_derived_workbook.hidden_value.audit_rows` | 0 | 0/7 | True |  |
 | `hidden_value_recompute_rows` | `Hidden_Value_Recompute` | `_derived_workbook.hidden_value.recompute_rows` | 0 | 0/91 | True |  |
 | `hidden_value_flags_rows` | `Hidden_Value_Flags` | `_derived_workbook.hidden_value.flags_rows` | 0 | 0/7 | False | normalized field is absent or not populated |
+| `hidden_value_valuation_rows` | `Valuation` | `_derived_workbook.hidden_value.flags_rows` | 0 | 0/5 | False | normalized field is absent or not populated |
 | `qa_log_validation_rows` | `QA_Log` | `issue_ledger.qa_presentation.qa_log_rows` | 0 | 0/4999 | False | validation output binding |
 | `needs_review_validation_rows` | `Needs_Review` | `issue_ledger.qa_presentation.needs_review_rows` | 0 | 0/4999 | False | validation output binding |
 | `qa_checks_mapping_gap_rows` | `QA_Checks` | `issue_ledger.qa_presentation.qa_check_rows` | 0 | 0/4999 | False | validation output binding |

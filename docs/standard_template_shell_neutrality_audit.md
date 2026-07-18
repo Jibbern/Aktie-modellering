@@ -3,7 +3,7 @@
 This audit scans the frozen standard shell for visible and retained-hidden content that would make the template company-specific or sector-specific.
 
 - Template: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\standard_stock_model_template.xlsx`
-- Generated at: `2026-07-18T00:57:46+00:00`
+- Generated at: `2026-07-18T07:48:49+00:00`
 - Visible sheets: SUMMARY, Valuation, BS_Segments, Operating_Drivers, {ticker}_Investment_Case, Quarter_Notes_UI, Promise_Progress_UI, QA_Log, Needs_Review, QA_Checks
 - Retained hidden sheets: REPORT_IS_Q, REPORT_BS_Q, REPORT_CF_Q, Quarter_Notes, Quarter_Notes_Evidence, Quarter_Narrative_Data, Valuation_Summary, Promise_Evidence, Promise_Progress, Guidance_Normalized, History_Q, operating_drivers_raw, DATA_Period_Index, Hidden_Value_Flags, Hidden_Value_Audit, Hidden_Value_Recompute, Hidden_Value_Base, Revolver_History, Debt_Tranches_Latest, Debt_Profile, Debt_Credit_Notes, Leverage_Liquidity, NonGAAP_Credibility, Adjusted_Metrics, NonGAAP_Bridge, {ticker}_Investment_Case_Data, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Debt_Maturity_Ladder, Debt_Buckets, Debt_Recon, Debt_Tranches_Q, Valuation_Grid, Promise_Tracker, Adjustments_Breakdown, OCR_Text_Log
 
@@ -33,10 +33,10 @@ This audit scans the frozen standard shell for visible and retained-hidden conte
 
 | Classification | Count |
 | --- | ---: |
-| `formula_static` | 2200 |
-| `generic_block_label` | 613 |
-| `row_label_generic` | 585 |
-| `universal_template_label` | 464 |
+| `formula_static` | 2205 |
+| `generic_block_label` | 612 |
+| `row_label_generic` | 584 |
+| `universal_template_label` | 466 |
 
 ## Remaining Non-Neutral Items
 

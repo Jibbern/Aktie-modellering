@@ -1,6 +1,6 @@
 {
   "$schema": "https://local.stockmodel/standard_template_style_policy.schema.json",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "style_plan_contract_version": "1.0.0",
   "description": "Ticker-neutral exact-cell signal-fill policies for activated standard-template modules. The contract owns thresholds, polarity, comparison basis and palette; formula economics remain owned by the generic formula contracts.",
   "palette_tokens": {
@@ -33,6 +33,34 @@
         "fill_type": "solid",
         "fg_color": "2F80ED"
       }
+    },
+    "hidden_value_triggered": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "C6EFCE"
+      },
+      "font_color": "006100"
+    },
+    "hidden_value_near_miss": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "FFEB9C"
+      },
+      "font_color": "9C6500"
+    },
+    "hidden_value_invalid": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "FFC7CE"
+      },
+      "font_color": "9C0006"
+    },
+    "hidden_value_unavailable": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "E7E6E6"
+      },
+      "font_color": "666666"
     }
   },
   "threshold_sets": [
@@ -2413,7 +2441,97 @@
       ]
     }
   ],
+  "state_policies": [
+    {
+      "policy_id": "hidden_value_valuation_triggered_state",
+      "owner_module_id": "hidden_value_signals",
+      "owned_style_ids": [
+        "valuation_hidden_value_style"
+      ],
+      "state_overlays": {
+        "triggered": "hidden_value_triggered"
+      },
+      "no_style_states": [
+        "not_triggered"
+      ],
+      "target_selectors": [
+        {
+          "selector_type": "binding_state",
+          "target_id": "hidden_value_valuation_rows",
+          "state_field": "state",
+          "period_field": "as_of_period",
+          "target_fields": [
+            "signal_id",
+            "display_name",
+            "score",
+            "state",
+            "as_of_period"
+          ]
+        }
+      ]
+    },
+    {
+      "policy_id": "hidden_value_audit_candidate_state",
+      "owner_module_id": "hidden_value_signals",
+      "owned_style_ids": [
+        "hidden_value_audit_state_style"
+      ],
+      "state_overlays": {
+        "triggered": "hidden_value_triggered",
+        "near_miss": "hidden_value_near_miss",
+        "invalid_input": "hidden_value_invalid",
+        "unavailable": "hidden_value_unavailable",
+        "insufficient_evidence": "hidden_value_unavailable"
+      },
+      "no_style_states": [
+        "not_triggered"
+      ],
+      "target_selectors": [
+        {
+          "selector_type": "binding_state",
+          "target_id": "hidden_value_audit_rows",
+          "state_field": "expected_state",
+          "period_field": "as_of_period",
+          "target_fields": [
+            "expected_state"
+          ]
+        }
+      ]
+    },
+    {
+      "policy_id": "hidden_value_flags_triggered_state",
+      "owner_module_id": "hidden_value_signals",
+      "owned_style_ids": [
+        "hidden_value_flags_state_style"
+      ],
+      "state_overlays": {
+        "triggered": "hidden_value_triggered"
+      },
+      "no_style_states": [
+        "not_triggered"
+      ],
+      "target_selectors": [
+        {
+          "selector_type": "binding_state",
+          "target_id": "hidden_value_flags_rows",
+          "state_field": "state",
+          "period_field": "as_of_period",
+          "target_fields": [
+            "state"
+          ]
+        }
+      ]
+    }
+  ],
   "style_disabled": [
+    {
+      "formula_id": "hidden_value_valuation_state_count_formulas",
+      "sheet": "Valuation",
+      "target": "R139:R143",
+      "owner_module_id": "hidden_value_signals",
+      "economic_reason": "Typed state counts summarize audit outcomes and carry no independent performance signal.",
+      "expected_empty_behavior": "no_style"
+    },
     {
       "formula_id": "acquisitions_ttm",
       "sheet": "Valuation",

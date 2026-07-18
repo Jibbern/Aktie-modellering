@@ -94,7 +94,7 @@ def test_public_filler_applies_exact_reproduced_style_plan_after_values(
     artifacts = filled_anf_style_workbook
     result = artifacts["result"]
     assert result.written_cell_count == 22_824
-    assert result.styled_cell_count == 824
+    assert result.styled_cell_count == 830
 
     shell = load_workbook(SHELL, data_only=False, read_only=False)
     filled = load_workbook(artifacts["output"], data_only=False, read_only=False)
@@ -127,7 +127,36 @@ def test_strict_post_fill_accepts_only_the_reproduced_style_plan(
     )
 
     assert report["status"] == "PASS", report["issues"][:10]
-    assert report["reproduced_style_action_count"] == 824
+    assert report["reproduced_style_action_count"] == 830
+
+
+def test_strict_post_fill_rejects_fabricated_hidden_value_state_fill(
+    filled_anf_style_workbook: dict[str, Any], tmp_path: Path
+) -> None:
+    artifacts = filled_anf_style_workbook
+    drifted = tmp_path / "fabricated-hidden-value-state-fill.xlsx"
+    shutil.copyfile(artifacts["output"], drifted)
+    workbook = load_workbook(drifted, data_only=False, read_only=False)
+    try:
+        workbook["Hidden_Value_Audit"]["F2"].fill = PatternFill(fill_type="solid", fgColor="FFFFFF")
+        workbook.save(drifted)
+    finally:
+        workbook.close()
+
+    report = verify_post_fill_structural_identity(
+        drifted,
+        approved_shell_path=SHELL,
+        manifest=artifacts["manifest"],
+        binding_payload=artifacts["binding"],
+        approved_plan=artifacts["value_plan"],
+        normalized_package=artifacts["package"],
+        module_payload=artifacts["modules"],
+        style_contract=artifacts["styles"],
+        approved_style_plan=artifacts["style_plan"],
+    )
+
+    assert report["status"] == "FAIL"
+    assert "post_fill_protected_cell_drift" in {row["rule_id"] for row in report["issues"]}
 
 
 def test_strict_post_fill_rejects_one_unplanned_style_mutation(

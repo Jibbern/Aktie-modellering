@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-18T00:58:31+00:00",
+  "generated_at": "2026-07-18T07:49:21+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "lab_source_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\lab\\ANF_template_lab.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
@@ -659,7 +659,13 @@
       "defined_name_references": [
         "hidden_value_audit_rows: 'Hidden_Value_Audit'!$A$2"
       ],
-      "visible_formula_references": [],
+      "visible_formula_references": [
+        "Valuation!R139==IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"triggered\"))",
+        "Valuation!R140==IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"near_miss\"))",
+        "Valuation!R141==IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"not_triggered\"))",
+        "Valuation!R142==IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"insufficient_evidence\"))",
+        "Valuation!R143==IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"unavailable\")+COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"invalid_input\"))"
+      ],
       "hidden_formula_references": [
         "Hidden_Value_Recompute!AF2==IF('Hidden_Value_Audit'!A2=\"\",\"\",'Hidden_Value_Audit'!A2)",
         "Hidden_Value_Recompute!AM2==IF($AF2=\"\",\"\",'Hidden_Value_Audit'!F2)",

@@ -43,6 +43,7 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | valuation_operating_driver_values | Valuation | O39:AA47 | operating_drivers.items.0.driver | source-backed | standard |
 | valuation_thesis_bridge_values | Valuation | O51:AA62 | investment_case.key_debate | manual | standard |
 | valuation_guidance_status_values_lower | Valuation | X29:AA36 | normalized_guidance.items.0.horizon | source-backed | standard |
+| module_hidden_value_signals_valuation_rows | Valuation | A139:M143 | _derived_workbook.hidden_value.flags_rows | derived | standard |
 | valuation_input_values | Valuation | D194:D217 | valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, +12 more | source-backed | standard |
 | valuation_period_headers | Valuation | B6:M6 | quarterly_financials.rows.period | source-backed | standard |
 | valuation_raw_revenue | Valuation | B9:M9 | quarterly_financials.rows.revenue | source-backed | standard |
@@ -287,6 +288,14 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
   - Missing data: blank lower guidance status rows until realized/status evidence exists
   - Validation: boilerplate_guidance
+
+- `module_hidden_value_signals_valuation_rows` `A139:M143`
+  - Normalized fields: _derived_workbook.hidden_value.flags_rows
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: retain the neutral no-trigger empty state
+  - Validation: hidden_value_triggered_only_visible_projection
 
 - `valuation_input_values` `D194:D217`
   - Normalized fields: valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, valuation_inputs.book_value_per_share, valuation_inputs.capex_ttm, valuation_inputs.diluted_shares, valuation_inputs.eps_ttm, +8 more

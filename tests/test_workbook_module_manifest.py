@@ -342,9 +342,10 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
             assert name not in wb.defined_names
         assert not any(
             isinstance(cell.value, str) and cell.value.startswith("=")
-            for sheet_name in ("Hidden_Value_Audit", "Hidden_Value_Recompute")
+            for sheet_name in ("Hidden_Value_Audit", "Hidden_Value_Recompute", "Valuation")
             for row in wb[sheet_name].iter_rows(min_row=2)
             for cell in row
+            if sheet_name != "Valuation" or 137 <= cell.row <= 143
         )
         assert all(
             wb[sheet_name].protection.sheet
@@ -360,6 +361,7 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
             "hidden_value_audit_rows",
             "hidden_value_recompute_rows",
             "hidden_value_flags_rows",
+            "hidden_value_valuation_rows",
         }
         assert all(
             row.get("planning_state") != "active"
@@ -368,6 +370,34 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
         )
     finally:
         wb.close()
+
+
+def test_hidden_value_visible_ownership_is_bounded_and_support_styles_are_owner_controlled() -> None:
+    payload = _payload()
+    module = next(row for row in payload["modules"] if row["module_id"] == "hidden_value_signals")
+
+    assert module["visible_blocks"] == [
+        {
+            "block_id": "valuation_hidden_value",
+            "sheet": "Valuation",
+            "target": "A137:R143",
+            "empty_state": "No triggered rows; typed state counts retain the audit disposition.",
+        }
+    ]
+    assert {(row["sheet"], row["target"]) for row in module["style_ownership"]} == {
+        ("Valuation", "A137:R143"),
+        ("Hidden_Value_Audit", "F2:F8"),
+        ("Hidden_Value_Flags", "G2:G8"),
+    }
+    assert "hidden_value_valuation_rows" in module["binding_ids"]
+    assert "hidden_value_valuation_state_count_formulas" in module["formula_ids"]
+    assert validate_workbook_module_manifest(payload) == []
+
+    invalid = deepcopy(payload)
+    invalid_module = next(row for row in invalid["modules"] if row["module_id"] == "hidden_value_signals")
+    invalid_module["style_ownership"][1]["sheet"] = "SUMMARY"
+    issues = validate_workbook_module_manifest(invalid)
+    assert any("neither an owned visible/profile block nor" in issue for issue in issues)
 
 
 def test_profile_resolution_is_invalidated_by_profile_mutation() -> None:

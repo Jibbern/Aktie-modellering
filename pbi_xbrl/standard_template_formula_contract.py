@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Collection
 
 from openpyxl.cell.cell import MergedCell
-from openpyxl.styles import Protection
+from openpyxl.styles import Alignment, Protection
 from openpyxl.utils import get_column_letter, quote_sheetname
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.workbook.defined_name import DefinedName
@@ -31,7 +31,7 @@ from pbi_xbrl.valuation_scenario_economics import (
 )
 
 
-FORMULA_CONTRACT_VERSION = "1.7.0"
+FORMULA_CONTRACT_VERSION = "1.8.0"
 ROOT = Path(__file__).resolve().parents[1]
 HIDDEN_VALUE_SIGNAL_CONTRACT = ROOT / "docs" / "hidden_value_signal_contract.json"
 HIDDEN_VALUE_DETAIL_FIRST_ROW = 2
@@ -339,6 +339,11 @@ def formula_target_contracts() -> tuple[FormulaTargetContract, ...]:
                 "Hidden_Value_Audit",
                 ("R2:V8",),
             ),
+            FormulaTargetContract(
+                "hidden_value_valuation_state_count_formulas",
+                "Valuation",
+                ("R139:R143",),
+            ),
         )
     )
     return tuple(contracts)
@@ -364,6 +369,7 @@ def apply_standard_formula_contracts(
     _extend_balance_sheet_quarterly_axis(bs)
     _prepare_raw_targets(valuation, bs)
     _apply_visible_labels(valuation)
+    _apply_hidden_value_visible_layout(valuation)
     _apply_balance_sheet_labels(bs)
     _apply_hidden_helpers(valuation)
     _apply_hidden_formula_helpers(valuation)
@@ -542,6 +548,46 @@ def _apply_visible_labels(ws: Any) -> None:
     }
     for row, label in labels.items():
         ws.cell(row, 1).value = label
+
+
+def _apply_hidden_value_visible_layout(ws: Any) -> None:
+    """Install the neutral five-row Hidden Value display and typed count panel."""
+
+    headers = {
+        "A137": "Hidden value flags",
+        "A138": "Triggered signal",
+        "B138": "Summary",
+        "F138": "Score",
+        "G138": "State",
+        "H138": "As of period",
+        "N137": "Signal state counts",
+        "N138": "State",
+        "R138": "Count",
+    }
+    for coordinate, value in headers.items():
+        ws[coordinate].value = value
+
+    for row in range(139, 144):
+        for column in (1, 2, 6, 7, 8):
+            ws.cell(row, column).value = None
+        ws.row_dimensions[row].height = 28.0
+        ws.cell(row, 2).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        ws.cell(row, 6).alignment = Alignment(horizontal="right", vertical="center", wrap_text=False)
+        ws.cell(row, 7).alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+        ws.cell(row, 8).alignment = Alignment(horizontal="left", vertical="center", wrap_text=False)
+
+    for row, label in enumerate(
+        (
+            "Triggered",
+            "Near miss",
+            "Not triggered",
+            "Insufficient evidence",
+            "Unavailable / invalid",
+        ),
+        start=139,
+    ):
+        ws.cell(row, 14).value = label
+        ws.cell(row, 18).value = None
 
 
 def _apply_balance_sheet_labels(ws: Any) -> None:
@@ -1507,6 +1553,7 @@ def _apply_hidden_value_support_formulas(workbook: Any, enabled_formula_ids: set
         "hidden_value_recompute_detail_formulas",
         "hidden_value_recompute_candidate_formulas",
         "hidden_value_audit_parity_formulas",
+        "hidden_value_valuation_state_count_formulas",
     }
     if "Valuation" in workbook.sheetnames:
         workbook["Valuation"]["AI139"].value = None
@@ -1540,6 +1587,24 @@ def _apply_hidden_value_support_formulas(workbook: Any, enabled_formula_ids: set
     for row in range(2, 9):
         _apply_hidden_value_audit_row(audit, row)
     _apply_hidden_value_defined_names(workbook)
+    _apply_hidden_value_valuation_state_counts(workbook["Valuation"])
+
+
+def _apply_hidden_value_valuation_state_counts(ws: Any) -> None:
+    audit_states = "'Hidden_Value_Audit'!$R$2:$R$8"
+    audit_keys = "'Hidden_Value_Audit'!$A$2:$A$8"
+    formulas = {
+        "R139": f'=IF(COUNTA({audit_keys})=0,"",COUNTIF({audit_states},"triggered"))',
+        "R140": f'=IF(COUNTA({audit_keys})=0,"",COUNTIF({audit_states},"near_miss"))',
+        "R141": f'=IF(COUNTA({audit_keys})=0,"",COUNTIF({audit_states},"not_triggered"))',
+        "R142": f'=IF(COUNTA({audit_keys})=0,"",COUNTIF({audit_states},"insufficient_evidence"))',
+        "R143": (
+            f'=IF(COUNTA({audit_keys})=0,"",COUNTIF({audit_states},"unavailable")+'
+            f'COUNTIF({audit_states},"invalid_input"))'
+        ),
+    }
+    for coordinate, formula in formulas.items():
+        _set_formula(ws[coordinate], formula, "0")
 
 
 def _hidden_value_detail_specs(signals: list[dict[str, Any]]) -> list[dict[str, Any]]:

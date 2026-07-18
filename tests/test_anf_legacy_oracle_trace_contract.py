@@ -395,6 +395,7 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "hidden_value_audit_rows",
         "hidden_value_recompute_rows",
         "hidden_value_flags_rows",
+        "hidden_value_valuation_rows",
     }
     accepted_business_writes = [
         write for write in business_writes if write.binding_id not in hidden_value_binding_ids
@@ -433,6 +434,7 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "hidden_value_audit_rows": 107,
         "hidden_value_recompute_rows": 1_176,
         "hidden_value_flags_rows": 0,
+        "hidden_value_valuation_rows": 0,
     }
     payload = plan.to_dict()
     scenario_binding_ids = {

@@ -10,7 +10,7 @@ from openpyxl import load_workbook
 import pytest
 
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
-from pbi_xbrl.new_ticker_binding_planner import BindingPlan
+from pbi_xbrl.new_ticker_binding_planner import BindingPlan, PlannedWrite
 from pbi_xbrl.new_ticker_style_planner import (
     DEFAULT_MODULE_MANIFEST,
     DEFAULT_STYLE_POLICY,
@@ -20,6 +20,7 @@ from pbi_xbrl.new_ticker_style_planner import (
     STYLE_POLICY_SCHEMA,
     StylePlanningError,
     _FormulaEvaluator,
+    _plan_binding_state_styles,
     _point_from_mapping,
     _style_decision,
     classify_signal_band,
@@ -49,6 +50,12 @@ LEGACY_COLORS = {
     "neutral": "DDDDDD",
     "positive": "9BD3F5",
     "strong_positive": "2F80ED",
+}
+HIDDEN_VALUE_COLORS = {
+    "hidden_value_triggered": "C6EFCE",
+    "hidden_value_near_miss": "FFEB9C",
+    "hidden_value_invalid": "FFC7CE",
+    "hidden_value_unavailable": "E7E6E6",
 }
 
 
@@ -126,9 +133,70 @@ def test_style_contract_schema_palette_and_authoritative_ownership() -> None:
 
     assert validate_json_schema(contract, load_json_strict(STYLE_POLICY_SCHEMA)) == []
     assert validate_style_policy_contract(contract, module_payload=modules, binding_payload=bindings) == []
-    assert {key: row["fill"]["fg_color"] for key, row in contract["palette_tokens"].items()} == LEGACY_COLORS
+    colors = {key: row["fill"]["fg_color"] for key, row in contract["palette_tokens"].items()}
+    assert {key: colors[key] for key in LEGACY_COLORS} == LEGACY_COLORS
+    assert {key: colors[key] for key in HIDDEN_VALUE_COLORS} == HIDDEN_VALUE_COLORS
     assert len(contract["policies"]) == 51
-    assert len(contract["style_disabled"]) == 26
+    assert len(contract["state_policies"]) == 3
+    assert len(contract["style_disabled"]) == 27
+
+
+@pytest.mark.parametrize(
+    ("state", "expected_color", "applied"),
+    [
+        ("triggered", "C6EFCE", True),
+        ("near_miss", "FFEB9C", True),
+        ("invalid_input", "FFC7CE", True),
+        ("unavailable", "E7E6E6", True),
+        ("insufficient_evidence", "E7E6E6", True),
+        ("not_triggered", None, False),
+    ],
+)
+def test_hidden_value_state_styles_use_exact_existing_style_plan_overlays(
+    state: str,
+    expected_color: str | None,
+    applied: bool,
+) -> None:
+    contract = load_style_policy_contract()
+    policy = next(row for row in contract["state_policies"] if row["policy_id"] == "hidden_value_audit_candidate_state")
+    binding = next(row for row in _json(BINDING_MAP)["bindings"] if row["binding_id"] == "hidden_value_audit_rows")
+    values = {
+        "candidate_key": "fixture|A|2025-Q4",
+        "as_of_period": "2025-Q4",
+        "expected_state": state,
+    }
+    columns = {row["source_field"]: row for row in binding["target_columns"]}
+    writes = [
+        PlannedWrite(
+            binding_id=binding["binding_id"],
+            normalized_path=f"fixture.{field}",
+            row_key="fixture|A|2025-Q4",
+            target_sheet=binding["sheet"],
+            target_cell=f"{columns[field]['target_column']}2",
+            target_type=columns[field]["target_type"],
+            target_role=columns[field]["target_role"],
+            value=value,
+            value_type="text",
+            source_ref="fixture:source",
+            capacity_used=1,
+        )
+        for field, value in values.items()
+    ]
+
+    actions, decisions = _plan_binding_state_styles(
+        policy,
+        policy["target_selectors"][0],
+        binding,
+        writes,
+        contract["palette_tokens"],
+    )
+
+    assert len(decisions) == 1 and decisions[0].applied is applied
+    if expected_color is None:
+        assert actions == []
+    else:
+        assert len(actions) == 1
+        assert actions[0].overlay["fill"]["fg_color"] == expected_color
 
 
 def test_unknown_and_incompatible_period_axes_fail_closed_with_target_context() -> None:
@@ -359,6 +427,9 @@ def test_profiles_activate_only_style_policies_owned_by_enabled_modules() -> Non
     assert "bs_debt_raw_lower_yoy" not in core
     assert "valuation_debt_formula_lower" in anf
     assert "valuation_adjusted_raw_yoy" in anf
+    assert "hidden_value_valuation_triggered_state" in anf
+    assert "hidden_value_audit_candidate_state" in anf
+    assert not any(policy_id.startswith("hidden_value_") for policy_id in core)
     assert all(ticker not in " ".join(core).lower() for ticker in ("anf", "pbi", "gpre", "gtx"))
 
 
@@ -402,6 +473,7 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
             "hidden_value_audit_rows",
             "hidden_value_recompute_rows",
             "hidden_value_flags_rows",
+            "hidden_value_valuation_rows",
         )
     }
     assert hidden_value_binding_counts == {
@@ -409,15 +481,18 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         "hidden_value_audit_rows": 107,
         "hidden_value_recompute_rows": 1_176,
         "hidden_value_flags_rows": 0,
+        "hidden_value_valuation_rows": 0,
     }
     hidden_value_additions = sum(hidden_value_binding_counts.values())
     assert len(value_plan.planned_writes) - hidden_value_additions - sum(additive_binding_counts.values()) == 20_518
     assert len(value_plan.planned_writes) - hidden_value_additions == 20_841
     assert len(value_plan.planned_writes) == 22_824
-    assert len(style_plan.actions) == 824
-    assert len(style_plan.decisions) == 1_372
+    assert len(style_plan.actions) == 830
+    assert len(style_plan.decisions) == 1_379
     assert validate_json_schema(style_plan.to_dict(), load_json_strict(STYLE_PLAN_SCHEMA)) == []
-    assert {action.sheet for action in style_plan.actions} == {"Valuation", "BS_Segments"}
+    assert {action.sheet for action in style_plan.actions} == {"Valuation", "BS_Segments", "Hidden_Value_Audit"}
+    assert sum(action.policy_id == "hidden_value_audit_candidate_state" for action in style_plan.actions) == 6
+    assert sum(row.policy_id == "hidden_value_audit_candidate_state" for row in style_plan.decisions) == 7
     assert not any(action.cell in {"B70", "C70", "D70", "E70", "F70", "G70", "H70", "I70", "J70", "K70", "L70", "M70"} and action.sheet == "Valuation" for action in style_plan.actions)
 
 

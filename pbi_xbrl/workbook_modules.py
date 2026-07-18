@@ -89,6 +89,7 @@ def validate_workbook_module_manifest(payload: Mapping[str, Any]) -> list[str]:
     issues.extend(_dependency_cycle_issues(modules))
 
     sheet_contracts: dict[str, str] = {}
+    sheet_definitions: dict[str, Mapping[str, Any]] = {}
     binding_owners: dict[str, str] = {}
     for module in modules:
         module_id = str(module.get("module_id") or "")
@@ -100,6 +101,7 @@ def validate_workbook_module_manifest(payload: Mapping[str, Any]) -> list[str]:
                 )
             else:
                 sheet_contracts[sheet_name] = module_id
+                sheet_definitions[sheet_name] = sheet
             if str(sheet.get("role") or "") != "visible_product" and not list(sheet.get("headers") or []):
                 issues.append(f"Hidden/module-capacity sheet {sheet_name!r} requires neutral headers.")
             if str(sheet.get("data_surface") or "binding_rows") == "formula_output":
@@ -158,10 +160,35 @@ def validate_workbook_module_manifest(payload: Mapping[str, Any]) -> list[str]:
     issues.extend(_duplicate_issues(style_ids, "style_id"))
     style_keys = {(row.owner_id, row.sheet, row.target) for row in styles}
     block_keys = {(row.owner_id, row.sheet, row.target) for row in blocks}
-    if style_keys != block_keys:
-        missing = sorted(block_keys - style_keys)
-        unknown = sorted(style_keys - block_keys)
-        issues.append(f"Style-range ownership mismatch; missing={missing!r} unknown={unknown!r}.")
+    missing = sorted(block_keys - style_keys)
+    if missing:
+        issues.append(f"Style-range ownership lacks visible/profile blocks: {missing!r}.")
+    for style in styles:
+        key = (style.owner_id, style.sheet, style.target)
+        if key in block_keys:
+            continue
+        sheet_definition = sheet_definitions.get(style.sheet)
+        if (
+            sheet_contracts.get(style.sheet) != style.owner_id
+            or not isinstance(sheet_definition, Mapping)
+            or str(sheet_definition.get("role") or "") != "hidden_support"
+        ):
+            issues.append(
+                f"Style range {style.contract_id!r} is neither an owned visible/profile block nor "
+                f"an exact range on an owner-controlled hidden support sheet."
+            )
+            continue
+        try:
+            _left, _top, right, bottom = range_boundaries(style.target)
+        except ValueError:
+            issues.append(f"Style range {style.contract_id!r} has invalid target {style.target!r}.")
+            continue
+        if right > int(sheet_definition.get("capacity_columns") or 0) or bottom > int(
+            sheet_definition.get("capacity_rows") or 0
+        ):
+            issues.append(
+                f"Style range {style.contract_id!r} exceeds hidden support capacity on {style.sheet!r}."
+            )
 
     declared_formula_ids = [
         str(formula_id)

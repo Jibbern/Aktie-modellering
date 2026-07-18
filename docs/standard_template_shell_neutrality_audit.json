@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-18T00:57:46+00:00",
+  "generated_at": "2026-07-18T07:48:49+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "visible_sheets": [
@@ -54,10 +54,10 @@
     "OCR_Text_Log"
   ],
   "classification_counts": {
-    "formula_static": 2200,
-    "generic_block_label": 613,
-    "row_label_generic": 585,
-    "universal_template_label": 464
+    "formula_static": 2205,
+    "generic_block_label": 612,
+    "row_label_generic": 584,
+    "universal_template_label": 466
   },
   "post_neutrality_summary": {
     "company_specific_value_count": 0,
@@ -7354,7 +7354,7 @@
     {
       "sheet": "Valuation",
       "cell": "N137",
-      "value": "Hidden Value Panel",
+      "value": "Signal state counts",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
@@ -7362,7 +7362,7 @@
     {
       "sheet": "Valuation",
       "cell": "A138",
-      "value": "Flag",
+      "value": "Triggered signal",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -7386,7 +7386,7 @@
     {
       "sheet": "Valuation",
       "cell": "G138",
-      "value": "Severity",
+      "value": "State",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
@@ -7394,7 +7394,7 @@
     {
       "sheet": "Valuation",
       "cell": "H138",
-      "value": "Result / support",
+      "value": "As of period",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
@@ -7402,57 +7402,97 @@
     {
       "sheet": "Valuation",
       "cell": "N138",
-      "value": "Hidden value score (0-100)",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "value": "State",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
-      "cell": "A139",
-      "value": "No triggered flags",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "cell": "R138",
+      "value": "Count",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
       "cell": "N139",
-      "value": "Profitability inflection",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "value": "Triggered",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "R139",
+      "value": "=IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"triggered\"))",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
       "cell": "N140",
-      "value": "Cash engine",
+      "value": "Near miss",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "R140",
+      "value": "=IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"near_miss\"))",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
       "cell": "N141",
-      "value": "Deleveraging/risk down",
+      "value": "Not triggered",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "R141",
+      "value": "=IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"not_triggered\"))",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
       "cell": "N142",
-      "value": "Quality of earnings",
+      "value": "Insufficient evidence",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
+      "cell": "R142",
+      "value": "=IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"insufficient_evidence\"))",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
       "cell": "N143",
-      "value": "Narrative confirmation",
+      "value": "Unavailable / invalid",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "R143",
+      "value": "=IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"unavailable\")+COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"invalid_input\"))",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "visible"
     },
     {

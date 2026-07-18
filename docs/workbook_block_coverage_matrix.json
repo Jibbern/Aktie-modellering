@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-18T00:58:13+00:00",
+  "generated_at": "2026-07-18T07:49:09+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -992,6 +992,66 @@
       "row_height_similarity": "same",
       "populated_field_families": [
         "normalized_guidance"
+      ],
+      "support_sheet_dependencies": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "ticker_specific_differences": [],
+      "include_in_standard_template": true,
+      "exclusion_reason": ""
+    },
+    {
+      "block_id": "module_hidden_value_signals_valuation_rows",
+      "sheet": "Valuation",
+      "ANF": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "A139:M143",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 2,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "PBI": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "A139:M143",
+        "nonempty_cells": 5,
+        "formula_cells": 0,
+        "merge_count": 2,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "GPRE": {
+        "block_exists": true,
+        "resolved_sheet": "Valuation",
+        "range": "A139:M143",
+        "nonempty_cells": 4,
+        "formula_cells": 0,
+        "merge_count": 2,
+        "freeze_panes": "B7",
+        "max_row": 261,
+        "max_column": 35,
+        "average_row_height": 19.5
+      },
+      "range_similarity": "same",
+      "style_similarity": "similar",
+      "merge_similarity": "same",
+      "freeze_pane_similarity": "same",
+      "row_height_similarity": "same",
+      "populated_field_families": [
+        "_derived_workbook"
       ],
       "support_sheet_dependencies": [
         "Debt_Profile",

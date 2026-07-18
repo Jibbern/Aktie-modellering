@@ -154,10 +154,28 @@ def test_hidden_value_support_contract_has_exact_headers_formulas_and_protection
         detail = _formula_cells(workbook, "Hidden_Value_Recompute", ("X2:AD92",))
         candidates = _formula_cells(workbook, "Hidden_Value_Recompute", ("AF2:AX8",))
         audit = _formula_cells(workbook, "Hidden_Value_Audit", ("R2:V8",))
-        assert (len(detail), len(candidates), len(audit)) == (637, 133, 35)
-        assert all(isinstance(cell.value, str) and cell.value.startswith("=") for cell in detail + candidates + audit)
-        assert all(cell.protection.locked for cell in detail + candidates + audit)
+        visible_counts = _formula_cells(workbook, "Valuation", ("R139:R143",))
+        assert (len(detail), len(candidates), len(audit), len(visible_counts)) == (637, 133, 35, 5)
+        assert all(
+            isinstance(cell.value, str) and cell.value.startswith("=")
+            for cell in detail + candidates + audit + visible_counts
+        )
+        assert all(cell.protection.locked for cell in detail + candidates + audit + visible_counts)
         assert workbook["Valuation"]["AI139"].value is None
+        valuation = workbook["Valuation"]
+        assert [valuation[cell].value for cell in ("A138", "B138", "F138", "G138", "H138")] == [
+            "Triggered signal", "Summary", "Score", "State", "As of period",
+        ]
+        assert [valuation[f"N{row}"].value for row in range(139, 144)] == [
+            "Triggered", "Near miss", "Not triggered", "Insufficient evidence", "Unavailable / invalid",
+        ]
+        assert valuation["A139"].value is None
+        assert valuation["B139"].value is None
+        assert '"triggered"' in str(valuation["R139"].value)
+        assert valuation["A145"].value == "Operating signals"
+        assert "Hidden value score" not in {
+            str(valuation[f"N{row}"].value or "") for row in range(137, 144)
+        }
         assert all(workbook[name].sheet_state != "visible" for name in (
             "Hidden_Value_Base", "Hidden_Value_Audit", "Hidden_Value_Recompute", "Hidden_Value_Flags",
         ))
@@ -251,7 +269,10 @@ def test_excel_native_recompute_matches_independent_a_to_g_oracle_and_blocks_mut
     base = None
     pythoncom.CoInitialize()
     try:
-        excel = win32com.DispatchEx("Excel.Application")
+        try:
+            excel = win32com.DispatchEx("Excel.Application")
+        except Exception as exc:
+            pytest.skip(f"Desktop Excel automation could not start in this session: {exc}")
         excel.Visible = False
         excel.DisplayAlerts = False
         try:

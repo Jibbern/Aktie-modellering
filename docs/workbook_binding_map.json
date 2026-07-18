@@ -5202,6 +5202,109 @@
       "module_id": "hidden_value_signals"
     },
     {
+      "binding_id": "hidden_value_valuation_rows",
+      "sheet": "Valuation",
+      "section": "Triggered Hidden Value display",
+      "target": "A139:M143",
+      "shell_zone": "module_hidden_value_signals_valuation_rows",
+      "anchor_label": "Hidden value flags",
+      "row_family": "hidden_value_valuation_rows",
+      "normalized_field": "_derived_workbook.hidden_value.flags_rows",
+      "value_shape": "table_rows",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "retain the neutral no-trigger empty state",
+      "promotion_requirement": "optional",
+      "validation_rule": "hidden_value_triggered_only_visible_projection",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A139:M143",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "_derived_workbook.hidden_value.flags_rows",
+        "pick": "all",
+        "filters": [
+          {
+            "field": "display_rank",
+            "in": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ]
+          }
+        ]
+      },
+      "row_key": [
+        "candidate_key"
+      ],
+      "row_key_only_columns": [
+        "display_rank",
+        "candidate_key",
+        "triggered",
+        "audit_id"
+      ],
+      "sort_order": [
+        "display_rank:asc"
+      ],
+      "capacity": 5,
+      "overflow_behavior": "manual_review",
+      "allow_empty": true,
+      "required_columns": [
+        "display_rank",
+        "candidate_key",
+        "signal_id",
+        "display_name",
+        "score",
+        "triggered",
+        "state",
+        "as_of_period",
+        "audit_id"
+      ],
+      "target_columns": [
+        {
+          "column_id": "signal_id",
+          "source_field": "signal_id",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "hidden_value_valuation_rows.signal_id"
+        },
+        {
+          "column_id": "display_name",
+          "source_field": "display_name",
+          "target_column": "B",
+          "target_type": "text",
+          "target_role": "hidden_value_valuation_rows.display_name"
+        },
+        {
+          "column_id": "score",
+          "source_field": "score",
+          "target_column": "F",
+          "target_type": "integer",
+          "target_role": "hidden_value_valuation_rows.score"
+        },
+        {
+          "column_id": "state",
+          "source_field": "state",
+          "target_column": "G",
+          "target_type": "text",
+          "target_role": "hidden_value_valuation_rows.state"
+        },
+        {
+          "column_id": "as_of_period",
+          "source_field": "as_of_period",
+          "target_column": "H",
+          "target_type": "text",
+          "target_role": "hidden_value_valuation_rows.as_of_period"
+        }
+      ],
+      "source_ref_field": "source_ref",
+      "source_ref_required": false,
+      "planning_state": "active",
+      "module_id": "hidden_value_signals"
+    },
+    {
       "binding_id": "qa_log_validation_rows",
       "sheet": "QA_Log",
       "section": "Canonical issue summaries",
@@ -9272,6 +9375,6 @@
       ]
     }
   ],
-  "module_manifest_signature": "8823b77ffa7deb84f6b4f7814708c1533d1a3a5e0c4974bb8f498f2f497a0c44",
+  "module_manifest_signature": "4b907ad08bd766b3ca4654119c84d9224ebbcc8667fac84019923ea5c54965e8",
   "module_profile_signature": "e792faf8030f6035e44d1ba547cb5e44a7f269f5b4beb088814196bf01567f8b"
 }

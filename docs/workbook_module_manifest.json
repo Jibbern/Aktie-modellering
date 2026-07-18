@@ -387,14 +387,16 @@
         {"sheet": "Hidden_Value_Base", "role": "hidden_support", "legacy_class": "C", "default_state": "hidden", "active_state": "hidden", "inactive_state": "hidden", "capacity_rows": 5001, "capacity_columns": 13, "headers": ["metric_key", "metric_id", "value", "unit", "period", "period_role", "dimension_id", "member", "status", "reason", "evidence_ids", "source_refs", "formula_ids"], "empty_state": "No rows when the module is disabled; unavailable metrics retain typed blank values.", "worksheet_protection": true, "style_owner": "frozen_shell", "formula_owner": "none"}
       ],
       "visible_blocks": [
-        {"block_id": "valuation_hidden_value", "sheet": "Valuation", "target": "A137:AI188", "empty_state": "No signal color or status without a validated rule result."}
+        {"block_id": "valuation_hidden_value", "sheet": "Valuation", "target": "A137:R143", "empty_state": "No triggered rows; typed state counts retain the audit disposition."}
       ],
       "normalized_contracts": ["quarterly_financials", "debt_liquidity", "capital_returns", "valuation_inputs"],
-      "binding_ids": ["hidden_value_base_rows", "hidden_value_audit_rows", "hidden_value_recompute_rows", "hidden_value_flags_rows"],
-      "formula_ids": ["hidden_value_recompute_detail_formulas", "hidden_value_recompute_candidate_formulas", "hidden_value_audit_parity_formulas"],
+      "binding_ids": ["hidden_value_base_rows", "hidden_value_audit_rows", "hidden_value_recompute_rows", "hidden_value_flags_rows", "hidden_value_valuation_rows"],
+      "formula_ids": ["hidden_value_recompute_detail_formulas", "hidden_value_recompute_candidate_formulas", "hidden_value_audit_parity_formulas", "hidden_value_valuation_state_count_formulas"],
       "defined_name_ids": ["HV_Base_MetricKey", "HV_Base_Value", "HV_Base_Status", "HV_Recompute_CandidateKey", "HV_Recompute_RowParity", "HV_Recompute_CandidateParity", "HV_Flags_CandidateKey", "HV_Flags_Score", "HV_Flags_State"],
       "style_ownership": [
-        {"style_id": "valuation_hidden_value_style", "sheet": "Valuation", "target": "A137:AI188"}
+        {"style_id": "valuation_hidden_value_style", "sheet": "Valuation", "target": "A137:R143"},
+        {"style_id": "hidden_value_audit_state_style", "sheet": "Hidden_Value_Audit", "target": "F2:F8"},
+        {"style_id": "hidden_value_flags_state_style", "sheet": "Hidden_Value_Flags", "target": "G2:G8"}
       ],
       "activation_criteria": {"mode": "explicit_profile"},
       "empty_state_behavior": "Signals remain blank when periods, units, or source coverage are insufficient.",

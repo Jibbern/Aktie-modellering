@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-18T00:58:13+00:00",
+  "generated_at": "2026-07-18T07:49:09+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -2671,6 +2671,179 @@
           "source_policy": "source-backed",
           "missing_source_behavior": "blank lower guidance status rows until realized/status evidence exists",
           "validation_rule": "boilerplate_guidance"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "module_hidden_value_signals_valuation_rows",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "A139:M143",
+      "title_header_cells": [
+        {
+          "cell": "A137",
+          "value": "Hidden value flags"
+        },
+        {
+          "cell": "A138",
+          "value": "Flag"
+        },
+        {
+          "cell": "B138",
+          "value": "Summary"
+        },
+        {
+          "cell": "F138",
+          "value": "Score"
+        },
+        {
+          "cell": "G138",
+          "value": "Severity"
+        },
+        {
+          "cell": "H138",
+          "value": "Result / support"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A137",
+          "value": "Hidden value flags"
+        },
+        {
+          "cell": "A138",
+          "value": "Flag"
+        },
+        {
+          "cell": "B138",
+          "value": "Summary"
+        },
+        {
+          "cell": "F138",
+          "value": "Score"
+        },
+        {
+          "cell": "G138",
+          "value": "Severity"
+        },
+        {
+          "cell": "H138",
+          "value": "Result / support"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "A137",
+          "value": "Hidden value flags"
+        },
+        {
+          "cell": "A138",
+          "value": "Flag"
+        },
+        {
+          "cell": "B138",
+          "value": "Summary"
+        },
+        {
+          "cell": "F138",
+          "value": "Score"
+        },
+        {
+          "cell": "G138",
+          "value": "Severity"
+        },
+        {
+          "cell": "H138",
+          "value": "Result / support"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "hidden_value_valuation_rows",
+          "target": "A139:M143",
+          "value_shape": "table_rows"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "hidden_value_valuation_rows",
+          "target": "A139:M143",
+          "value_shape": "table_rows",
+          "nonempty_count": 4,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 4,
+          "sample_cells": [
+            {
+              "cell": "A139",
+              "value": "No triggered flags"
+            },
+            {
+              "cell": "B139",
+              "value": "No scored hidden-value flags currently triggered"
+            },
+            {
+              "cell": "G139",
+              "value": "Info"
+            },
+            {
+              "cell": "H139",
+              "value": "Audit candidates remain in Hidden_Value_Flags / Hidden_Value_Audit."
+            }
+          ]
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "_derived_workbook.hidden_value.flags_rows"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "_derived_workbook.hidden_value.flags_rows"
+      ],
+      "source_policy": "derived",
+      "missing_data_behavior": "retain the neutral no-trigger empty state",
+      "validation_rules": [
+        "hidden_value_triggered_only_visible_projection"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "hidden_value_valuation_rows",
+          "target": "A139:M143",
+          "normalized_field": "_derived_workbook.hidden_value.flags_rows",
+          "required": false,
+          "value_shape": "table_rows",
+          "source_policy": "derived",
+          "missing_source_behavior": "retain the neutral no-trigger empty state",
+          "validation_rule": "hidden_value_triggered_only_visible_projection"
         }
       ],
       "notes": [

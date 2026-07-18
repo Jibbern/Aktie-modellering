@@ -293,8 +293,13 @@ def validate_style_policy_contract(
     palettes = dict(payload.get("palette_tokens") or {})
     threshold_sets = {str(row.get("threshold_set_id") or ""): row for row in payload.get("threshold_sets") or []}
     policies = [row for row in payload.get("policies") or [] if isinstance(row, Mapping)]
+    state_policies = [row for row in payload.get("state_policies") or [] if isinstance(row, Mapping)]
     disabled_targets = [row for row in payload.get("style_disabled") or [] if isinstance(row, Mapping)]
-    _add_duplicate_issues(issues, [str(row.get("policy_id") or "") for row in policies], "policy_id")
+    _add_duplicate_issues(
+        issues,
+        [str(row.get("policy_id") or "") for row in [*policies, *state_policies]],
+        "policy_id",
+    )
     _add_duplicate_issues(issues, list(threshold_sets), "threshold_set_id")
 
     style_ranges = {row.contract_id: row for row in style_range_contracts(module_payload)}
@@ -387,6 +392,60 @@ def validate_style_policy_contract(
             for sheet, target in target_ranges:
                 if target and not any(row.sheet == sheet and _range_contains(row.target, target) for row in ranges):
                     issues.append(f"Style policy {policy_id!r} target {sheet}!{target} is outside its owned style ranges.")
+
+    for policy in state_policies:
+        policy_id = str(policy.get("policy_id") or "")
+        owner = str(policy.get("owner_module_id") or "")
+        policy_is_active = owner in payload_enabled_modules
+        if owner not in module_ids:
+            issues.append(f"State style policy {policy_id!r} references unknown module {owner!r}.")
+        ranges = []
+        for style_id in policy.get("owned_style_ids") or []:
+            contract = style_ranges.get(str(style_id))
+            if contract is None:
+                issues.append(f"State style policy {policy_id!r} references unknown style ownership {style_id!r}.")
+                continue
+            if contract.owner_id != owner:
+                issues.append(
+                    f"State style policy {policy_id!r} uses style range {style_id!r} owned by {contract.owner_id!r}."
+                )
+            ranges.append(contract)
+        overlays = {str(key): str(value) for key, value in (policy.get("state_overlays") or {}).items()}
+        no_style_states = set(map(str, policy.get("no_style_states") or []))
+        overlap = sorted(set(overlays) & no_style_states)
+        if overlap:
+            issues.append(f"State style policy {policy_id!r} both styles and suppresses states {overlap!r}.")
+        for state, palette_id in overlays.items():
+            if palette_id not in palettes:
+                issues.append(
+                    f"State style policy {policy_id!r} state {state!r} references unknown palette token {palette_id!r}."
+                )
+        for selector in policy.get("target_selectors") or []:
+            target_id = str(selector.get("target_id") or "")
+            selector_keys.append(f"binding_state:{target_id}")
+            target_owner = declared_binding_owners.get(target_id, "")
+            binding = binding_rows.get(target_id)
+            if not target_owner:
+                issues.append(f"State style policy {policy_id!r} references unknown binding {target_id!r}.")
+                continue
+            if binding is None:
+                if policy_is_active:
+                    issues.append(
+                        f"State style policy {policy_id!r} target binding {target_id!r} is absent from the resolved profile."
+                    )
+                continue
+            if target_owner != owner and not _modules_related(owner, target_owner, module_by_id):
+                issues.append(
+                    f"State style policy {policy_id!r} owner {owner!r} and target owner {target_owner!r} "
+                    "have no declared dependency relationship."
+                )
+            target_ranges, selector_issues = _state_selector_target_ranges(policy, selector, binding)
+            issues.extend(selector_issues)
+            for sheet, target in target_ranges:
+                if not any(row.sheet == sheet and _range_contains(row.target, target) for row in ranges):
+                    issues.append(
+                        f"State style policy {policy_id!r} target {sheet}!{target} is outside its owned style ranges."
+                    )
     _add_duplicate_issues(issues, selector_keys, "style target selector")
 
     disabled_keys: list[str] = []
@@ -456,6 +515,7 @@ def validate_active_style_contract(
     declared_binding_owners = binding_owners(module_payload)
     declared_formula_owners = formula_owners(module_payload)
     active_policies = _active_policies_for_profile(style_contract, module_payload, enabled)
+    active_state_policies = _active_state_policies_for_profile(style_contract, module_payload, enabled)
 
     for policy in active_policies:
         axis_id = str(policy.get("period_axis_id") or "")
@@ -543,6 +603,20 @@ def validate_active_style_contract(
                     )
                 )
 
+    for policy in active_state_policies:
+        for selector in policy.get("target_selectors") or []:
+            target_id = str(selector.get("target_id") or "")
+            target_owner = declared_binding_owners.get(target_id, "")
+            binding = binding_rows.get(target_id)
+            if binding is None or not target_owner or target_owner not in enabled:
+                issues.append(
+                    f"State style policy {policy.get('policy_id')!r} target binding {target_id!r} "
+                    "is not active in the resolved profile."
+                )
+                continue
+            _ranges, selector_issues = _state_selector_target_ranges(policy, selector, binding)
+            issues.extend(selector_issues)
+
     issues.extend(
         _validate_active_formula_style_completeness(
             style_contract,
@@ -566,8 +640,13 @@ def style_policy_ids_for_profile(
     enabled = set(resolved.enabled_modules)
     return tuple(
         sorted(
-            str(policy.get("policy_id") or "")
-            for policy in _active_policies_for_profile(style_contract, module_payload, enabled)
+            {
+                str(policy.get("policy_id") or "")
+                for policy in [
+                    *_active_policies_for_profile(style_contract, module_payload, enabled),
+                    *_active_state_policies_for_profile(style_contract, module_payload, enabled),
+                ]
+            }
         )
     )
 
@@ -632,6 +711,10 @@ def plan_style_actions(
     active_policy_ids = {
         str(policy.get("policy_id") or "")
         for policy in _active_policies_for_profile(style_contract, module_payload, enabled)
+    }
+    active_state_policy_ids = {
+        str(policy.get("policy_id") or "")
+        for policy in _active_state_policies_for_profile(style_contract, module_payload, enabled)
     }
     for policy in style_contract.get("policies") or []:
         if str(policy.get("policy_id") or "") not in active_policy_ids:
@@ -720,6 +803,27 @@ def plan_style_actions(
                             decisions.append(decision)
                             if action is not None:
                                 actions.append(action)
+
+    for policy in style_contract.get("state_policies") or []:
+        if str(policy.get("policy_id") or "") not in active_state_policy_ids:
+            continue
+        for selector in policy.get("target_selectors") or []:
+            target_id = str(selector.get("target_id") or "")
+            target_owner = declared_binding_owners.get(target_id, "")
+            if target_owner and target_owner not in enabled:
+                continue
+            binding = binding_rows.get(target_id)
+            if binding is None:
+                continue
+            state_actions, state_decisions = _plan_binding_state_styles(
+                policy,
+                selector,
+                binding,
+                writes_by_binding.get(target_id, []),
+                palettes,
+            )
+            actions.extend(state_actions)
+            decisions.extend(state_decisions)
 
     actions.sort(key=lambda row: (row.sheet, _cell_sort_key(row.cell), row.policy_id, row.style_key))
     decisions.sort(key=lambda row: (row.sheet, _cell_sort_key(row.cell), row.policy_id, row.style_key))
@@ -864,6 +968,108 @@ def _decision(
     reason: str,
 ) -> StyleDecision:
     return StyleDecision(sheet, cell, style_key, str(policy.get("policy_id") or ""), period, applied, reason)
+
+
+def _plan_binding_state_styles(
+    policy: Mapping[str, Any],
+    selector: Mapping[str, Any],
+    binding: Mapping[str, Any],
+    writes: Sequence[Any],
+    palettes: Mapping[str, Any],
+) -> tuple[list[PlannedStyleAction], list[StyleDecision]]:
+    """Plan categorical state overlays from exact writes in one owned row binding."""
+
+    target_id = str(selector.get("target_id") or "")
+    state_field = str(selector.get("state_field") or "")
+    period_field = str(selector.get("period_field") or "")
+    target_fields = tuple(map(str, selector.get("target_fields") or []))
+    column_fields = {
+        str(column.get("target_column") or "").upper(): str(column.get("source_field") or column.get("column_id") or "")
+        for column in binding.get("target_columns") or []
+        if isinstance(column, Mapping)
+    }
+    grouped: dict[str, dict[str, Any]] = {}
+    for write in writes:
+        column = re.match(r"^[A-Z]+", str(write.target_cell or ""))
+        source_field = column_fields.get(column.group(0) if column else "", "")
+        if not source_field:
+            continue
+        row = grouped.setdefault(str(write.row_key), {})
+        if source_field in row:
+            raise StylePlanningError(
+                f"State style binding {target_id!r} has duplicate planned field {source_field!r} for row {write.row_key!r}."
+            )
+        row[source_field] = write
+
+    overlays = {str(key): str(value) for key, value in (policy.get("state_overlays") or {}).items()}
+    no_style_states = set(map(str, policy.get("no_style_states") or []))
+    actions: list[PlannedStyleAction] = []
+    decisions: list[StyleDecision] = []
+    for row_key in sorted(grouped):
+        row = grouped[row_key]
+        state_write = row.get(state_field)
+        period_write = row.get(period_field)
+        if state_write is None or period_write is None:
+            raise StylePlanningError(
+                f"State style binding {target_id!r} row {row_key!r} lacks {state_field!r} or {period_field!r}."
+            )
+        state = str(state_write.value or "")
+        period = str(period_write.value or "")
+        if state not in overlays and state not in no_style_states:
+            raise StylePlanningError(
+                f"State style policy {policy.get('policy_id')!r} does not classify state {state!r} "
+                f"for binding {target_id!r} row {row_key!r}."
+            )
+        lineage = tuple(sorted({str(write.source_ref) for write in row.values() if str(write.source_ref or "")}))
+        for target_field in target_fields:
+            target_write = row.get(target_field)
+            if target_write is None:
+                raise StylePlanningError(
+                    f"State style binding {target_id!r} row {row_key!r} lacks styled field {target_field!r}."
+                )
+            style_key = f"{target_id}|{row_key}|{state}|{target_field}"
+            if state in no_style_states:
+                decisions.append(
+                    _decision(
+                        target_write.target_sheet,
+                        target_write.target_cell,
+                        style_key,
+                        policy,
+                        period,
+                        False,
+                        "state_no_style",
+                    )
+                )
+                continue
+            overlay = palettes[overlays[state]]
+            actions.append(
+                PlannedStyleAction(
+                    sheet=target_write.target_sheet,
+                    cell=target_write.target_cell,
+                    style_key=style_key,
+                    policy_id=str(policy.get("policy_id") or ""),
+                    period=period,
+                    current_value=1.0,
+                    comparison_period=None,
+                    comparison_value=None,
+                    signal_value=1.0,
+                    signal_band=state,
+                    overlay=dict(overlay),
+                    lineage=lineage,
+                )
+            )
+            decisions.append(
+                _decision(
+                    target_write.target_sheet,
+                    target_write.target_cell,
+                    style_key,
+                    policy,
+                    period,
+                    True,
+                    "categorical_state_applied",
+                )
+            )
+    return actions, decisions
 
 
 class _FormulaEvaluator:
@@ -1380,6 +1586,66 @@ def _active_policies_for_profile(
         if any(owner in enabled for owner in selector_owners if owner):
             active.append(policy)
     return active
+
+
+def _active_state_policies_for_profile(
+    style_contract: Mapping[str, Any],
+    module_payload: Mapping[str, Any],
+    enabled: set[str],
+) -> list[Mapping[str, Any]]:
+    binding_owner_by_id = binding_owners(module_payload)
+    active: list[Mapping[str, Any]] = []
+    for policy in style_contract.get("state_policies") or []:
+        if str(policy.get("owner_module_id") or "") not in enabled:
+            continue
+        selector_owners = {
+            binding_owner_by_id.get(str(selector.get("target_id") or ""), "")
+            for selector in policy.get("target_selectors") or []
+        }
+        if any(owner in enabled for owner in selector_owners if owner):
+            active.append(policy)
+    return active
+
+
+def _state_selector_target_ranges(
+    policy: Mapping[str, Any],
+    selector: Mapping[str, Any],
+    binding: Mapping[str, Any],
+) -> tuple[list[tuple[str, str]], list[str]]:
+    policy_id = str(policy.get("policy_id") or "")
+    target_id = str(selector.get("target_id") or "")
+    target_fields = tuple(map(str, selector.get("target_fields") or []))
+    state_field = str(selector.get("state_field") or "")
+    period_field = str(selector.get("period_field") or "")
+    field_columns = {
+        str(column.get("source_field") or column.get("column_id") or ""): str(column.get("target_column") or "").upper()
+        for column in binding.get("target_columns") or []
+        if isinstance(column, Mapping)
+    }
+    issues: list[str] = []
+    required_fields = [state_field, period_field, *target_fields]
+    missing = sorted({field for field in required_fields if not field or field not in field_columns})
+    if missing:
+        issues.append(
+            f"State style policy {policy_id!r} selector {target_id!r} references unmapped binding fields {missing!r}."
+        )
+    if len(target_fields) != len(set(target_fields)):
+        issues.append(f"State style policy {policy_id!r} selector {target_id!r} repeats target_fields.")
+    planner_target = str(binding.get("planner_target") or binding.get("target") or "")
+    try:
+        _left, top, _right, bottom = range_boundaries(planner_target)
+    except ValueError:
+        return [], [
+            *issues,
+            f"State style policy {policy_id!r} selector {target_id!r} has invalid binding target {planner_target!r}.",
+        ]
+    sheet = str(binding.get("sheet") or "")
+    ranges = [
+        (sheet, f"{field_columns[field]}{top}:{field_columns[field]}{bottom}")
+        for field in target_fields
+        if field in field_columns
+    ]
+    return ranges, issues
 
 
 def _validate_period_policy(policy: Mapping[str, Any]) -> list[str]:

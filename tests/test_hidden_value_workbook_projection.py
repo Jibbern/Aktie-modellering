@@ -17,7 +17,7 @@ from pbi_xbrl.hidden_value_workbook_projection import (
     build_hidden_value_workbook_projection,
 )
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
-from pbi_xbrl.new_ticker_binding_planner import reproduce_binding_plan
+from pbi_xbrl.new_ticker_binding_planner import inspect_binding_eligibility, reproduce_binding_plan
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -146,6 +146,48 @@ def test_disabled_profile_has_no_hidden_value_workbook_projection_rows() -> None
     assert payload["flags_rows"] == []
 
 
+def test_visible_projection_selects_exact_top_five_and_keeps_overflow_in_audit() -> None:
+    payload = _projection()
+    binding = next(
+        row
+        for row in json.loads((ROOT / "docs" / "workbook_binding_map.json").read_text(encoding="utf-8"))["bindings"]
+        if row["binding_id"] == "hidden_value_valuation_rows"
+    )
+    package = {"_derived_workbook": {"hidden_value": {"flags_rows": payload["flags_rows"]}}}
+
+    eligibility = inspect_binding_eligibility(package, binding)
+
+    assert [row["signal_id"] for row in eligibility["selected_rows"]] == ["C", "B", "D", "G", "E"]
+    assert [row["display_rank"] for row in eligibility["selected_rows"]] == [1, 2, 3, 4, 5]
+    assert len(eligibility["structured_exclusions"]) == 2
+    assert {row["signal_id"] for row in payload["audit_rows"]} == set("ABCDEFG")
+
+
+def test_pbi_signal_f_100_projects_through_the_same_visible_binding() -> None:
+    package = _economic_package()
+    latest = next(
+        row
+        for row in package["calculation_history"]["quarterly_items"]
+        if row["metric"] == "shares_outstanding" and row["period"] == "2025-Q4"
+    )
+    latest["value"] = 85.0
+    payload = _projection(package, profile_id="pbi")
+    binding = next(
+        row
+        for row in json.loads((ROOT / "docs" / "workbook_binding_map.json").read_text(encoding="utf-8"))["bindings"]
+        if row["binding_id"] == "hidden_value_valuation_rows"
+    )
+    eligibility = inspect_binding_eligibility(
+        {"_derived_workbook": {"hidden_value": {"flags_rows": payload["flags_rows"]}}},
+        binding,
+    )
+
+    signal_f = next(row for row in eligibility["selected_rows"] if row["signal_id"] == "F")
+    assert signal_f["score"] == 100
+    assert signal_f["triggered"] is True
+    assert signal_f["state"] == "triggered"
+
+
 def test_workbook_projection_is_a_thin_non_economic_mapper() -> None:
     source = (ROOT / "pbi_xbrl" / "hidden_value_workbook_projection.py").read_text(encoding="utf-8")
 
@@ -205,6 +247,7 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
         "hidden_value_audit_rows",
         "hidden_value_recompute_rows",
         "hidden_value_flags_rows",
+        "hidden_value_valuation_rows",
     }
     hidden_writes = [row for row in plan["planned_writes"] if row["binding_id"] in hidden_bindings]
     accepted_writes = [row for row in plan["planned_writes"] if row["binding_id"] not in hidden_bindings]

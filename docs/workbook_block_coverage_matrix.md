@@ -23,6 +23,7 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | valuation_operating_driver_values | Valuation | yes | same | similar | similar | same | - |
 | valuation_thesis_bridge_values | Valuation | yes | same | similar | different | same | - |
 | valuation_guidance_status_values_lower | Valuation | yes | same | similar | different | same | - |
+| module_hidden_value_signals_valuation_rows | Valuation | yes | same | similar | same | same | - |
 | valuation_input_values | Valuation | yes | same | similar | same | same | - |
 | valuation_period_headers | Valuation | yes | same | similar | same | same | - |
 | valuation_raw_revenue | Valuation | yes | same | similar | same | same | - |

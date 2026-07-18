@@ -174,7 +174,7 @@ def test_anf_shadow_fill_uses_reproduced_plan_and_strict_post_fill_validation(
     assert postfill["status"] == "PASS"
     assert postfill["strict_post_fill_validation"]["status"] == "PASS"
     assert postfill["strict_post_fill_validation"]["issue_count"] == 0
-    assert shell_report["shell_identity"]["reproduced_style_action_count"] == 824
+    assert shell_report["shell_identity"]["reproduced_style_action_count"] == 830
     assert postfill["approved_plan_status"] == "PASS"
     assert postfill["approved_plan_write_count"] == plan["planned_write_count"]
     assert postfill["layout_signature_unchanged"] is True
@@ -402,6 +402,40 @@ def test_anf_strict_post_fill_rejects_hidden_value_formula_mutation(
     report = _strict_post_fill_report(drifted, anf_shadow_artifacts["plan_json"])
     assert report["status"] == "FAIL"
     assert "post_fill_protected_cell_drift" in {issue["rule_id"] for issue in report["issues"]}
+
+
+def test_anf_strict_post_fill_rejects_hidden_value_visible_count_formula_mutation(
+    anf_shadow_artifacts: dict[str, Path], tmp_path: Path
+) -> None:
+    drifted = tmp_path / "hidden-value-visible-count-formula-drift.xlsx"
+    shutil.copyfile(anf_shadow_artifacts["workbook"], drifted)
+    workbook = load_workbook(drifted, data_only=False, read_only=False)
+    try:
+        workbook["Valuation"]["R139"] = "=0"
+        workbook.save(drifted)
+    finally:
+        workbook.close()
+
+    report = _strict_post_fill_report(drifted, anf_shadow_artifacts["plan_json"])
+    assert report["status"] == "FAIL"
+    assert "post_fill_protected_cell_drift" in {issue["rule_id"] for issue in report["issues"]}
+
+
+def test_anf_strict_post_fill_rejects_unplanned_hidden_value_visible_row(
+    anf_shadow_artifacts: dict[str, Path], tmp_path: Path
+) -> None:
+    drifted = tmp_path / "hidden-value-unplanned-visible-row.xlsx"
+    shutil.copyfile(anf_shadow_artifacts["workbook"], drifted)
+    workbook = load_workbook(drifted, data_only=False, read_only=False)
+    try:
+        workbook["Valuation"]["A140"] = "FABRICATED SIGNAL"
+        workbook.save(drifted)
+    finally:
+        workbook.close()
+
+    report = _strict_post_fill_report(drifted, anf_shadow_artifacts["plan_json"])
+    assert report["status"] == "FAIL"
+    assert "post_fill_unplanned_value_change" in {issue["rule_id"] for issue in report["issues"]}
 
 
 def test_anf_strict_post_fill_rejects_unplanned_writable_value(

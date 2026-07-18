@@ -1,9 +1,9 @@
 {
   "version": "0.3.0",
   "generator_version": "anf_legacy_adapter_audits/0.3.0",
-  "source_package_content_sha256": "14470e47944a136c3f1118b1296bedf1e294bc422cf2d21fdbe6e1d570c21929",
-  "binding_contract_content_sha256": "e1c1e63a607ad0c35e80f6a7d0cdce95be34a75e520a4e0c8b7b1d821a3d8cc7",
-  "generated_at_utc": "2026-07-18T00:57:07+00:00",
+  "source_package_content_sha256": "2ae1725653536e5d218c5d17da303c2355f009929483e13608715d580b78a6a1",
+  "binding_contract_content_sha256": "d0772aa4307b64b356e351de5484f0079f9a172607aacc8f02ca86910905cdb4",
+  "generated_at_utc": "2026-07-18T07:45:50+00:00",
   "ticker": "ANF",
   "planner_status": "PASS",
   "planner_total_write_count": 22824,
@@ -5772,6 +5772,34 @@
       "selection_issue_count": 1
     },
     {
+      "binding_id": "hidden_value_valuation_rows",
+      "sheet": "Valuation",
+      "section": "Triggered Hidden Value display",
+      "target": "A139:M143",
+      "normalized_field": "_derived_workbook.hidden_value.flags_rows",
+      "value_shape": "table_rows",
+      "required": false,
+      "row_schema_columns": [],
+      "has_populated_data": false,
+      "number_of_values_available": 0,
+      "number_of_rows_available": 0,
+      "number_of_rows_planner_eligible": 0,
+      "number_of_values_planner_eligible": 0,
+      "planner_planned_write_count": 0,
+      "planner_capacity_used": 0,
+      "planner_overflow_count": 0,
+      "planner_structured_exclusion_count": 0,
+      "number_of_rows_expected": 5,
+      "number_of_cells_expected": 65,
+      "source_ref_coverage": [],
+      "would_write_useful_output": false,
+      "blank_reason": "normalized field is absent or not populated",
+      "planning_state": "active",
+      "structured_exclusion_count": 0,
+      "structured_exclusion_reasons": [],
+      "selection_issue_count": 1
+    },
+    {
       "binding_id": "qa_log_validation_rows",
       "sheet": "QA_Log",
       "section": "Canonical issue summaries",
@@ -8123,7 +8151,7 @@
     }
   ],
   "summary": {
-    "binding_count": 165,
+    "binding_count": 166,
     "bindings_with_populated_data": 76,
     "bindings_that_would_write_useful_output": 109
   }

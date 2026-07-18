@@ -3,19 +3,21 @@
 Status: **PASS**
 
 - Authoritative contract: `docs/standard_template_style_policy.json`
-- Contract digest: `b16a7cb43dc84b35ad6f5443490f1a56e138bf5e423c550db31e0daa58697fd6`
-- Policies: 51
-- Exact target selectors: 134
-- Explicit no-style formula targets: 26
+- Contract digest: `2e8ba55cca546fc768f20d8921413cdb448bd9531b0c091b393423c32677a0ad`
+- Numerical policies: 51
+- Categorical state policies: 3
+- Total policies: 54
+- Exact target selectors: 137
+- Explicit no-style formula targets: 27
 
 ## Profiles
 
 | Profile | Active policies |
 |---|---:|
-| full_union | 51 |
-| anf | 51 |
-| pbi | 51 |
-| gpre | 51 |
+| full_union | 54 |
+| anf | 54 |
+| pbi | 54 |
+| gpre | 54 |
 | core_only | 31 |
 
 ## Intentional Corrections

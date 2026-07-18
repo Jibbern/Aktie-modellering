@@ -1,13 +1,17 @@
 {
-  "audit_version": "1.0.0",
+  "audit_version": "1.1.0",
   "status": "PASS",
   "authoritative_contract": "docs/standard_template_style_policy.json",
-  "authoritative_contract_digest": "b16a7cb43dc84b35ad6f5443490f1a56e138bf5e423c550db31e0daa58697fd6",
-  "module_manifest_digest": "8823b77ffa7deb84f6b4f7814708c1533d1a3a5e0c4974bb8f498f2f497a0c44",
-  "binding_contract_digest": "e1c1e63a607ad0c35e80f6a7d0cdce95be34a75e520a4e0c8b7b1d821a3d8cc7",
+  "authoritative_contract_digest": "2e8ba55cca546fc768f20d8921413cdb448bd9531b0c091b393423c32677a0ad",
+  "module_manifest_digest": "4b907ad08bd766b3ca4654119c84d9224ebbcc8667fac84019923ea5c54965e8",
+  "binding_contract_digest": "d0772aa4307b64b356e351de5484f0079f9a172607aacc8f02ca86910905cdb4",
   "policy_count": 51,
-  "selector_count": 134,
-  "style_disabled_count": 26,
+  "state_policy_count": 3,
+  "total_policy_count": 54,
+  "numerical_selector_count": 134,
+  "state_selector_count": 3,
+  "selector_count": 137,
+  "style_disabled_count": 27,
   "palette_tokens": {
     "strong_negative": {
       "fill": {
@@ -38,6 +42,34 @@
         "fill_type": "solid",
         "fg_color": "2F80ED"
       }
+    },
+    "hidden_value_triggered": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "C6EFCE"
+      },
+      "font_color": "006100"
+    },
+    "hidden_value_near_miss": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "FFEB9C"
+      },
+      "font_color": "9C6500"
+    },
+    "hidden_value_invalid": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "FFC7CE"
+      },
+      "font_color": "9C0006"
+    },
+    "hidden_value_unavailable": {
+      "fill": {
+        "fill_type": "solid",
+        "fg_color": "E7E6E6"
+      },
+      "font_color": "666666"
     }
   },
   "threshold_sets": [
@@ -87,6 +119,7 @@
     "balance_cash_flow": 25,
     "core_financial_history": 7,
     "debt_liquidity": 9,
+    "hidden_value_signals": 3,
     "non_gaap_adjustments": 8,
     "segments_dimensions": 2
   },
@@ -107,9 +140,17 @@
     "higher_is_better": 31,
     "lower_is_better": 16
   },
+  "state_counts_by_overlay": {
+    "insufficient_evidence": 1,
+    "invalid_input": 1,
+    "near_miss": 1,
+    "triggered": 3,
+    "unavailable": 1
+  },
   "style_disabled_by_module": {
     "balance_cash_flow": 3,
     "debt_liquidity": 2,
+    "hidden_value_signals": 1,
     "investment_case_market_implied": 8,
     "valuation_scenarios": 13
   },
@@ -270,11 +311,20 @@
     ],
     "annual_debt_formula_lower": [
       "BS_Segments"
+    ],
+    "hidden_value_valuation_triggered_state": [
+      "Valuation"
+    ],
+    "hidden_value_audit_candidate_state": [
+      "Hidden_Value_Audit"
+    ],
+    "hidden_value_flags_triggered_state": [
+      "Hidden_Value_Flags"
     ]
   },
   "profiles": {
     "full_union": {
-      "policy_count": 51,
+      "policy_count": 54,
       "policy_ids": [
         "annual_adjusted_formula_higher",
         "annual_adjusted_raw_higher",
@@ -295,6 +345,9 @@
         "bs_raw_neutral_disabled",
         "debt_raw_lower_yoy",
         "debt_revolver_raw_higher",
+        "hidden_value_audit_candidate_state",
+        "hidden_value_flags_triggered_state",
+        "hidden_value_valuation_triggered_state",
         "segment_annual_revenue",
         "segment_quarterly_revenue",
         "valuation_adjusted_delta_disabled",
@@ -330,7 +383,7 @@
       ]
     },
     "anf": {
-      "policy_count": 51,
+      "policy_count": 54,
       "policy_ids": [
         "annual_adjusted_formula_higher",
         "annual_adjusted_raw_higher",
@@ -351,6 +404,9 @@
         "bs_raw_neutral_disabled",
         "debt_raw_lower_yoy",
         "debt_revolver_raw_higher",
+        "hidden_value_audit_candidate_state",
+        "hidden_value_flags_triggered_state",
+        "hidden_value_valuation_triggered_state",
         "segment_annual_revenue",
         "segment_quarterly_revenue",
         "valuation_adjusted_delta_disabled",
@@ -386,7 +442,7 @@
       ]
     },
     "pbi": {
-      "policy_count": 51,
+      "policy_count": 54,
       "policy_ids": [
         "annual_adjusted_formula_higher",
         "annual_adjusted_raw_higher",
@@ -407,6 +463,9 @@
         "bs_raw_neutral_disabled",
         "debt_raw_lower_yoy",
         "debt_revolver_raw_higher",
+        "hidden_value_audit_candidate_state",
+        "hidden_value_flags_triggered_state",
+        "hidden_value_valuation_triggered_state",
         "segment_annual_revenue",
         "segment_quarterly_revenue",
         "valuation_adjusted_delta_disabled",
@@ -442,7 +501,7 @@
       ]
     },
     "gpre": {
-      "policy_count": 51,
+      "policy_count": 54,
       "policy_ids": [
         "annual_adjusted_formula_higher",
         "annual_adjusted_raw_higher",
@@ -463,6 +522,9 @@
         "bs_raw_neutral_disabled",
         "debt_raw_lower_yoy",
         "debt_revolver_raw_higher",
+        "hidden_value_audit_candidate_state",
+        "hidden_value_flags_triggered_state",
+        "hidden_value_valuation_triggered_state",
         "segment_annual_revenue",
         "segment_quarterly_revenue",
         "valuation_adjusted_delta_disabled",

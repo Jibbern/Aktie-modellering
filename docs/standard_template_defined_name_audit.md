@@ -1,6 +1,6 @@
 # Standard Template Defined-Name Audit
 
-- Retained names: `252`
+- Retained names: `253`
 - Target mismatches: `0`
 - Company-specific names/constants: `0`
 - Removed constant: `ThesisBaseAdjEBITDA_FY=815.59`
@@ -156,6 +156,7 @@
 | `hidden_value_base_rows` | `active_binding_anchor` | `'Hidden_Value_Base'!$A$2` | True |
 | `hidden_value_flags_rows` | `active_binding_anchor` | `'Hidden_Value_Flags'!$A$2` | True |
 | `hidden_value_recompute_rows` | `active_binding_anchor` | `'Hidden_Value_Recompute'!$A$2` | True |
+| `hidden_value_valuation_rows` | `active_binding_anchor` | `'Valuation'!$A$139` | True |
 | `ic_bull_base_bear_rows` | `active_binding_anchor` | `'Scenario_Driver_Assumptions'!$A$2` | True |
 | `ic_current_stance` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$11` | True |
 | `ic_downside_factors` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$9` | True |

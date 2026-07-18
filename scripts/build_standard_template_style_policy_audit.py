@@ -26,7 +26,7 @@ from pbi_xbrl.workbook_modules import canonical_json_sha256, style_range_contrac
 
 DEFAULT_JSON_OUTPUT = ROOT / "docs" / "standard_template_style_policy_audit.json"
 DEFAULT_MARKDOWN_OUTPUT = ROOT / "docs" / "standard_template_style_policy_audit.md"
-AUDIT_VERSION = "1.0.0"
+AUDIT_VERSION = "1.1.0"
 
 
 def build_audit(
@@ -39,11 +39,13 @@ def build_audit(
     bindings = load_json_strict(binding_path)
     contract = load_style_policy_contract(style_path, module_payload=modules, binding_payload=bindings)
     policies = list(contract["policies"])
+    state_policies = list(contract["state_policies"])
+    all_policies = [*policies, *state_policies]
     disabled_targets = list(contract["style_disabled"])
     ranges = {row.contract_id: row for row in style_range_contracts(modules)}
     sheets_by_policy = {
         str(policy["policy_id"]): sorted({ranges[str(style_id)].sheet for style_id in policy["owned_style_ids"]})
-        for policy in policies
+        for policy in all_policies
     }
     profiles = {
         profile_id: {
@@ -60,14 +62,27 @@ def build_audit(
         "module_manifest_digest": canonical_json_sha256(modules),
         "binding_contract_digest": canonical_json_sha256(bindings),
         "policy_count": len(policies),
-        "selector_count": sum(len(policy["target_selectors"]) for policy in policies),
+        "state_policy_count": len(state_policies),
+        "total_policy_count": len(all_policies),
+        "numerical_selector_count": sum(len(policy["target_selectors"]) for policy in policies),
+        "state_selector_count": sum(len(policy["target_selectors"]) for policy in state_policies),
+        "selector_count": sum(len(policy["target_selectors"]) for policy in all_policies),
         "style_disabled_count": len(disabled_targets),
         "palette_tokens": contract["palette_tokens"],
         "threshold_sets": contract["threshold_sets"],
-        "counts_by_module": dict(sorted(Counter(str(row["owner_module_id"]) for row in policies).items())),
+        "counts_by_module": dict(sorted(Counter(str(row["owner_module_id"]) for row in all_policies).items())),
         "counts_by_period_type": dict(sorted(Counter(str(row["period_type"]) for row in policies).items())),
         "counts_by_comparison_basis": dict(sorted(Counter(str(row["comparison_basis"]) for row in policies).items())),
         "counts_by_polarity": dict(sorted(Counter(str(row["polarity"]) for row in policies).items())),
+        "state_counts_by_overlay": dict(
+            sorted(
+                Counter(
+                    str(state)
+                    for policy in state_policies
+                    for state in policy["state_overlays"]
+                ).items()
+            )
+        ),
         "style_disabled_by_module": dict(
             sorted(Counter(str(row["owner_module_id"]) for row in disabled_targets).items())
         ),
@@ -114,7 +129,9 @@ def render_markdown(audit: dict[str, Any]) -> str:
         "",
         f"- Authoritative contract: `{audit['authoritative_contract']}`",
         f"- Contract digest: `{audit['authoritative_contract_digest']}`",
-        f"- Policies: {audit['policy_count']}",
+        f"- Numerical policies: {audit['policy_count']}",
+        f"- Categorical state policies: {audit['state_policy_count']}",
+        f"- Total policies: {audit['total_policy_count']}",
         f"- Exact target selectors: {audit['selector_count']}",
         f"- Explicit no-style formula targets: {audit['style_disabled_count']}",
         "",
@@ -146,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     args.markdown_output.parent.mkdir(parents=True, exist_ok=True)
     args.json_output.write_text(json.dumps(audit, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     args.markdown_output.write_text(render_markdown(audit), encoding="utf-8")
-    print(f"PASS: {audit['policy_count']} style policies")
+    print(f"PASS: {audit['total_policy_count']} style policies")
     return 0
 
 
