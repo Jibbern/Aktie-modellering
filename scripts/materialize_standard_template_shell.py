@@ -550,6 +550,41 @@ def _configure_investment_case_ownership_zones(manifest: dict[str, Any]) -> None
     sheet["non_writable_zones"] = non_writable
 
 
+def _retire_bs_segments_manifest_surface(manifest: dict[str, Any]) -> None:
+    """Remove shell/planner ownership below the accepted BS_Segments product."""
+
+    sheet = next(
+        (row for row in manifest.get("sheets") or [] if row.get("sheet") == "BS_Segments"),
+        None,
+    )
+    if isinstance(sheet, dict):
+        for zone_type in ("writable_zones", "non_writable_zones"):
+            retained: list[dict[str, Any]] = []
+            for zone in sheet.get(zone_type) or []:
+                _min_col, min_row, _max_col, max_row = range_boundaries(str(zone["target"]))
+                if min_row <= 78 < max_row:
+                    raise ValueError(
+                        f"BS_Segments {zone_type} zone {zone.get('zone_id')!r} crosses the row-78 product boundary."
+                    )
+                if min_row <= 78:
+                    retained.append(zone)
+            sheet[zone_type] = retained
+
+    retained_contracts: list[dict[str, Any]] = []
+    for contract in manifest.get("planner_cell_contracts") or []:
+        if contract.get("sheet") != "BS_Segments":
+            retained_contracts.append(contract)
+            continue
+        _min_col, min_row, _max_col, max_row = range_boundaries(str(contract["target"]))
+        if min_row <= 78 < max_row:
+            raise ValueError(
+                f"BS_Segments planner contract {contract.get('contract_id')!r} crosses the row-78 product boundary."
+            )
+        if min_row <= 78:
+            retained_contracts.append(contract)
+    manifest["planner_cell_contracts"] = retained_contracts
+
+
 def _ranges_for(sheet_def: dict[str, Any], zone_type: str) -> list[str]:
     return [str(zone["target"]) for zone in sheet_def.get(zone_type, [])]
 
@@ -1541,6 +1576,17 @@ def _clear_profile_owned_range(wb: Workbook, sheet_name: str, target: str) -> No
             cell.protection = Protection(locked=True)
 
 
+def _retire_bs_segments_annual_financial_surface(wb: Workbook) -> None:
+    """Keep the visible BS/segment product surface bounded at row 78."""
+
+    _clear_profile_owned_range(wb, "BS_Segments", "A79:M104")
+    if "BS_Segments" not in wb.sheetnames:
+        return
+    ws = wb["BS_Segments"]
+    for row in range(79, 105):
+        ws.row_dimensions[row].hidden = True
+
+
 def _apply_module_profile_boundaries(
     wb: Workbook,
     module_payload: dict[str, Any],
@@ -1764,6 +1810,7 @@ def _materialize_rich_shell(
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
     )
     _apply_module_profile_boundaries(wb, module_payload, resolved_profile)
+    _retire_bs_segments_annual_financial_surface(wb)
     _remove_company_specific_defined_names(wb)
     _neutralize_hidden_support_sheets(wb, manifest)
     apply_standard_support_formula_contracts(
@@ -1820,6 +1867,7 @@ def materialize_shell(
     module_payload = load_workbook_module_manifest(module_manifest_path)
     resolved_profile = resolve_module_profile(module_payload, module_profile_id)
     manifest = build_profile_shell_manifest(base_manifest, module_payload, resolved_profile)
+    _retire_bs_segments_manifest_surface(manifest)
     _configure_investment_case_ownership_zones(manifest)
     binding_payload = build_profile_binding_payload(base_binding_payload, module_payload, resolved_profile)
     _ensure_hidden_support_planner_contracts(manifest, binding_payload)
@@ -1893,6 +1941,7 @@ def materialize_shell(
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
     )
     _apply_module_profile_boundaries(wb, module_payload, resolved_profile)
+    _retire_bs_segments_annual_financial_surface(wb)
     apply_standard_support_formula_contracts(
         wb,
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import hashlib
 import json
 import math
 from pathlib import Path
+import re
 from typing import Any
 
 from openpyxl import load_workbook
@@ -61,6 +63,11 @@ HIDDEN_VALUE_COLORS = {
 
 def _json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _canonical_digest(value: object) -> str:
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _data_root() -> Path:
@@ -136,7 +143,7 @@ def test_style_contract_schema_palette_and_authoritative_ownership() -> None:
     colors = {key: row["fill"]["fg_color"] for key, row in contract["palette_tokens"].items()}
     assert {key: colors[key] for key in LEGACY_COLORS} == LEGACY_COLORS
     assert {key: colors[key] for key in HIDDEN_VALUE_COLORS} == HIDDEN_VALUE_COLORS
-    assert len(contract["policies"]) == 51
+    assert len(contract["policies"]) == 44
     assert len(contract["state_policies"]) == 3
     assert len(contract["style_disabled"]) == 27
 
@@ -211,8 +218,8 @@ def test_unknown_and_incompatible_period_axes_fail_closed_with_target_context() 
 
     swapped = deepcopy(contract)
     quarterly = next(row for row in swapped["policies"] if row["policy_id"] == "valuation_core_formula_ttm")
-    quarterly["period_axis_id"] = "bs_annual_financial_periods"
-    annual = next(row for row in swapped["policies"] if row["policy_id"] == "annual_formula_higher")
+    quarterly["period_axis_id"] = "bs_annual_periods"
+    annual = next(row for row in swapped["policies"] if row["policy_id"] == "segment_annual_revenue")
     annual["period_axis_id"] = "valuation_quarterly_periods"
     swapped_issues = validate_style_policy_contract(swapped, module_payload=modules, binding_payload=bindings)
 
@@ -224,7 +231,7 @@ def test_unknown_and_incompatible_period_axes_fail_closed_with_target_context() 
         and "Valuation!B10:M10" in issue
         for issue in missing_issues
     )
-    assert any("bs_annual_financial_periods" in issue and "fiscal_year" in issue for issue in swapped_issues)
+    assert any("bs_annual_periods" in issue and "fiscal_year" in issue for issue in swapped_issues)
     assert any("valuation_quarterly_periods" in issue and "quarter" in issue for issue in swapped_issues)
 
 
@@ -484,11 +491,25 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         "hidden_value_valuation_rows": 0,
     }
     hidden_value_additions = sum(hidden_value_binding_counts.values())
-    assert len(value_plan.planned_writes) - hidden_value_additions - sum(additive_binding_counts.values()) == 20_518
-    assert len(value_plan.planned_writes) - hidden_value_additions == 20_841
-    assert len(value_plan.planned_writes) == 22_824
-    assert len(style_plan.actions) == 830
-    assert len(style_plan.decisions) == 1_379
+    assert len(value_plan.planned_writes) - hidden_value_additions - sum(additive_binding_counts.values()) == 19_746
+    assert len(value_plan.planned_writes) - hidden_value_additions == 20_069
+    assert len(value_plan.planned_writes) == 22_052
+    assert len(style_plan.actions) == 714
+    assert len(style_plan.decisions) == 1_233
+    style_payload = style_plan.to_dict()
+
+    def outside_retired_segment_surface(row: dict[str, Any]) -> bool:
+        if row.get("sheet") != "BS_Segments":
+            return True
+        match = re.fullmatch(r"[A-Z]+(\d+)", str(row.get("cell") or ""))
+        return match is None or not 61 <= int(match.group(1)) <= 104
+
+    stable_actions = [row for row in style_payload["actions"] if outside_retired_segment_surface(row)]
+    stable_decisions = [row for row in style_payload["decisions"] if outside_retired_segment_surface(row)]
+    assert len(stable_actions) == 651
+    assert _canonical_digest(stable_actions) == "31ef27704d765b69bb158626b097cadb37ad3858f6357c49d475c36e8a2ac419"
+    assert len(stable_decisions) == 1_145
+    assert _canonical_digest(stable_decisions) == "3520d546878b0a682a433976007f6259e5b8244dde6562d8eb099213b5bfd245"
     assert validate_json_schema(style_plan.to_dict(), load_json_strict(STYLE_PLAN_SCHEMA)) == []
     assert {action.sheet for action in style_plan.actions} == {"Valuation", "BS_Segments", "Hidden_Value_Audit"}
     assert sum(action.policy_id == "hidden_value_audit_candidate_state" for action in style_plan.actions) == 6
@@ -810,7 +831,6 @@ def test_runtime_style_planning_uses_only_each_resolved_profile_modules() -> Non
                 "valuation_quarterly_periods": {"period_to_column": {"2025-Q4": "B"}},
                 "bs_quarterly_periods": {"period_to_column": {"2025-Q4": "B"}},
                 "bs_annual_periods": {"period_to_column": {"2025-FY": "B"}},
-                "bs_annual_financial_periods": {"period_to_column": {"2025-FY": "B"}},
             },
         )
         style_plan = plan_style_actions(

@@ -24,6 +24,15 @@ from pbi_xbrl.valuation_scenario_economics import (
     canonicalize_scenario_contract,
     validate_scenario_contract,
 )
+from pbi_xbrl.segment_normalization import (
+    SEGMENT_SOURCE_SCALES,
+    SegmentNormalizationError,
+    canonical_segment_business_identity,
+    canonical_segment_dimension_member,
+    canonical_segment_period_type,
+    canonical_segment_source_scope,
+    segment_aggregation_role,
+)
 
 
 FIELD_STATUSES = {
@@ -390,6 +399,7 @@ def validate_normalized_company_data(
         issues.extend(validate_normalized_company_data_schema(package))
     issues.extend(_validate_field_statuses_and_core_fields(package))
     issues.extend(_validate_financial_row_domains(package))
+    issues.extend(_validate_segment_semantics(package))
     issues.extend(_validate_calculation_history(package))
     issues.extend(_validate_collection_business_keys(package))
     issues.extend(_validate_company_profile_semantics(package))
@@ -535,24 +545,189 @@ def _validate_financial_row_domains(package: Mapping[str, Any]) -> List[Normaliz
                             suggested_action="Use a normalized unit such as $m, %, x, $/share, or m shares.",
                         )
                     )
-    segments = _path_get(package, "segments.items")
-    if isinstance(segments, list):
-        for idx, item in enumerate(segments):
-            if not isinstance(item, Mapping):
-                continue
-            has_dimension = "dimension" in item
-            has_member = "member" in item
-            dimension = str(item.get("dimension") or "").strip()
-            if has_dimension != has_member or (has_dimension and (not dimension or not str(item.get("member") or "").strip())) or (dimension and dimension not in _SUPPORTED_SEGMENT_DIMENSIONS):
+    return issues
+
+
+def _validate_segment_semantics(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    rows = _path_get(package, "segments.items")
+    if not isinstance(rows, list):
+        return []
+    issues: List[NormalizedDataIssue] = []
+    seen: dict[tuple[str, str, str, str, str], tuple[int, tuple[str, str], str, str]] = {}
+    for idx, item in enumerate(rows):
+        if not isinstance(item, Mapping):
+            continue
+        path = f"segments.items.{idx}"
+        dimension = str(item.get("dimension") or "").strip()
+        member = str(item.get("member") or "").strip()
+        raw_pair = (dimension, member)
+        source_row_ref = str(item.get("source_row_ref") or "").strip()
+        source_ref = str(item.get("source_ref") or "").strip()
+        if not dimension or not member:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="invalid_dimension",
+                    field=path,
+                    message=(
+                        "Segment rows require a non-empty dimension/member pair; "
+                        f"raw_pair={raw_pair!r}, source_row_ref={source_row_ref!r}."
+                    ),
+                    source_ref=source_ref,
+                    suggested_action="Normalize segment taxonomy before a dimension/member binding is planned.",
+                )
+            )
+            continue
+        for field_name in (
+            "unit",
+            "source_unit",
+            "source_scale",
+            "source_table_scope",
+            "source_table_id",
+            "source_row_ref",
+            "source_ref",
+            "aggregation_role",
+        ):
+            if not str(item.get(field_name) or "").strip():
                 issues.append(
                     NormalizedDataIssue(
                         severity="P1",
-                        rule_id="invalid_dimension",
-                        field=f"segments.items.{idx}",
-                        message="Segment rows require a supported dimension and a non-empty member.",
-                        suggested_action="Normalize segment taxonomy before a dimension/member binding is planned.",
+                        rule_id="segment_source_semantics_missing",
+                        field=f"{path}.{field_name}",
+                        message=f"Segment fact requires explicit {field_name} before planning.",
+                        source_ref=source_ref,
+                        suggested_action="Attach exact source-table scale, scope, identity, and lineage at normalization.",
                     )
                 )
+        try:
+            canonical_pair = canonical_segment_dimension_member(dimension, member)
+            period_type = canonical_segment_period_type(item.get("period_type"))
+            source_scope = canonical_segment_source_scope(item.get("source_table_scope"))
+            identity = canonical_segment_business_identity(item)
+            expected_role = segment_aggregation_role(dimension, member)
+        except SegmentNormalizationError as exc:
+            canonical_pair = exc.canonical_pair
+            business_key = "|".join(
+                (
+                    str(item.get("period_type") or ""),
+                    str(item.get("period") or ""),
+                    *(canonical_pair or raw_pair),
+                    str(item.get("metric") or ""),
+                )
+            )
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="invalid_segment_source_semantics",
+                    field=path,
+                    message=(
+                        f"{exc} raw_pair={raw_pair!r}, canonical_pair={canonical_pair!r}, "
+                        f"source_row_ref={source_row_ref!r}, business_key={business_key!r}."
+                    ),
+                    source_ref=source_ref,
+                    normalized_path=path,
+                    business_row_key=business_key,
+                    suggested_action="Correct the typed segment source contract before planning.",
+                )
+            )
+            continue
+        business_key = "|".join(identity)
+        if canonical_pair[0] not in _SUPPORTED_SEGMENT_DIMENSIONS:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="invalid_dimension",
+                    field=path,
+                    message=(
+                        f"Unsupported canonical segment dimension; raw_pair={raw_pair!r}, "
+                        f"canonical_pair={canonical_pair!r}, source_row_ref={source_row_ref!r}, "
+                        f"business_key={business_key!r}."
+                    ),
+                    source_ref=source_ref,
+                    normalized_path=path,
+                    business_row_key=business_key,
+                    suggested_action="Normalize segment taxonomy before a dimension/member binding is planned.",
+                )
+            )
+            continue
+        period = str(item.get("period") or "").strip()
+        expected_period_re = _QUARTERLY_PERIOD_RE if period_type == "quarterly" else _ANNUAL_PERIOD_RE
+        if not expected_period_re.fullmatch(period) or source_scope != period_type:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="segment_period_scope_mismatch",
+                    field=path,
+                    message=(
+                        f"Segment period {period!r}, period_type {period_type!r}, and source-table scope "
+                        f"{source_scope!r} are incompatible."
+                    ),
+                    source_ref=source_ref,
+                    suggested_action="Keep fiscal-quarter and full-year source-table identities separate.",
+                )
+            )
+        source_scale = str(item.get("source_scale") or "").strip()
+        if source_scale not in SEGMENT_SOURCE_SCALES:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="invalid_segment_source_scale",
+                    field=f"{path}.source_scale",
+                    message=f"Unsupported segment source scale {source_scale!r}.",
+                    source_ref=source_ref,
+                    suggested_action="Use an explicit source-table scale; never infer it from magnitude.",
+                )
+            )
+        if str(item.get("aggregation_role") or "") != expected_role:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="invalid_segment_aggregation_role",
+                    field=f"{path}.aggregation_role",
+                    message=(
+                        f"Dimension {dimension!r} requires aggregation_role {expected_role!r}; geography, brand, "
+                        "and Total Company are not additive peers."
+                    ),
+                    source_ref=source_ref,
+                    suggested_action="Retain each declared dimension as an independent presentation scope.",
+                )
+            )
+        if str(item.get("metric") or "") == "revenue":
+            value_field = item.get("annual_revenue") if period_type == "annual" else item.get("revenue")
+            value_unit = str(value_field.get("unit") or "") if isinstance(value_field, Mapping) else ""
+            if str(item.get("unit") or "") != "$m" or value_unit != "$m":
+                issues.append(
+                    NormalizedDataIssue(
+                        severity="P1",
+                        rule_id="segment_revenue_unit_mismatch",
+                        field=path,
+                        message="Normalized segment revenue must use $m at both row and value-field level.",
+                        source_ref=source_ref,
+                        suggested_action="Apply the declared source scale exactly once before planning.",
+                    )
+                )
+        prior = seen.get(identity)
+        if prior is not None:
+            issues.append(
+                NormalizedDataIssue(
+                    severity="P1",
+                    rule_id="duplicate_segment_business_identity",
+                    field=path,
+                    message=(
+                        f"Duplicate canonical segment identity {identity!r}; first_raw_pair={prior[1]!r}, "
+                        f"duplicate_raw_pair={raw_pair!r}, canonical_pair={canonical_pair!r}, "
+                        f"first_source_row_ref={prior[2]!r}, duplicate_source_row_ref={source_row_ref!r}, "
+                        f"first_source={prior[3]!r}, duplicate_source={source_ref!r}, "
+                        f"business_key={business_key!r}."
+                    ),
+                    source_ref=source_ref,
+                    normalized_path=path,
+                    business_row_key=business_key,
+                    suggested_action="Resolve duplicate source rows before planning; do not select by row order.",
+                )
+            )
+        else:
+            seen[identity] = (idx, raw_pair, source_row_ref, source_ref)
     return issues
 
 
@@ -685,7 +860,6 @@ def _validate_collection_business_keys(package: Mapping[str, Any]) -> List[Norma
         ("calculation_history.quarterly_items", ("period", "metric")),
         ("annual_financials.rows", ("period",)),
         ("normalized_guidance.items", ("metric", "horizon", "source_date", "evidence_key")),
-        ("segments.items", ("dimension", "member", "period", "metric")),
         ("operating_drivers.items", ("topic", "period", "driver_type", "driver", "evidence_key")),
         ("quarter_notes.items", ("quarter", "theme", "metric", "evidence_key")),
         ("valuation_outputs.items", ("metric", "as_of")),

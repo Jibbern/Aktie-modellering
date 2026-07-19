@@ -102,21 +102,17 @@
       ],
       "visible_blocks": [
         {"block_id": "balance_history", "sheet": "BS_Segments", "target": "A1:M58", "empty_state": "Unsupported facts remain blank with explicit QA disposition."},
-        {"block_id": "annual_financial_header", "sheet": "BS_Segments", "target": "A81:I89", "empty_state": "Visible periods are selected from complete annual candidates; missing evidence stays blank."},
-        {"block_id": "annual_cash_flow_balance", "sheet": "BS_Segments", "target": "A92:I102", "empty_state": "Annual cash-flow and balance facts remain blank without complete evidence."},
         {"block_id": "valuation_cash_flow", "sheet": "Valuation", "target": "A41:M58", "empty_state": "Cash-flow history and formulas remain blank without complete evidence."},
         {"block_id": "valuation_capital_returns", "sheet": "Valuation", "target": "A60:M68", "empty_state": "Capital-return history remains blank without source evidence."},
         {"block_id": "valuation_per_share", "sheet": "Valuation", "target": "A112:M115", "empty_state": "Per-share outputs remain blank without compatible denominators."},
         {"block_id": "valuation_formula_helpers", "sheet": "Valuation", "target": "A263:M271", "empty_state": "Hidden formula inputs remain blank without validated facts."}
       ],
       "normalized_contracts": ["quarterly_financials", "annual_financials", "capital_returns"],
-      "binding_ids": ["bs_annual_financial_period_headers", "bs_annual_financial_revenue_series", "bs_annual_financial_gross_profit_series", "bs_annual_financial_operating_income_series", "bs_annual_financial_base_ebitda_series", "bs_annual_financial_net_income_series", "bs_annual_financial_operating_cash_flow_series", "bs_annual_financial_capital_expenditures_series", "bs_annual_financial_shares_outstanding_series", "bs_annual_financial_eps_series", "bs_annual_financial_total_equity_series", "bs_annual_financial_cash_series", "bs_quarterly_period_headers", "bs_cash_series", "bs_restricted_cash_series", "bs_marketable_securities_series", "bs_accounts_receivable_series", "bs_inventory_series", "bs_current_assets_series", "bs_property_plant_equipment_net_series", "bs_goodwill_series", "bs_intangibles_series", "bs_other_assets_noncurrent_series", "bs_total_assets_series", "bs_accounts_payable_series", "bs_accrued_liabilities_series", "bs_current_liabilities_series", "bs_other_liabilities_noncurrent_series", "bs_total_liabilities_series", "bs_total_equity_series", "bs_shares_outstanding_series", "bs_diluted_shares_series", "bs_annual_period_headers", "bs_annual_revenue_series", "valuation_operating_cash_flow_series", "valuation_capital_expenditures_series", "valuation_cash_series", "valuation_marketable_securities_series", "valuation_interest_expense_series", "valuation_dividends_cash_series", "valuation_acquisitions_cash_series", "valuation_buybacks_cash_series", "valuation_debt_repayment_series", "valuation_debt_issuance_series", "valuation_total_equity_series", "valuation_goodwill_series", "valuation_intangibles_series"],
-      "formula_ids": ["capex_margin", "capex_margin_ttm", "free_cash_flow", "free_cash_flow_yoy_delta", "free_cash_flow_ttm", "free_cash_flow_ttm_yoy_delta", "free_cash_flow_margin", "free_cash_flow_margin_ttm", "buybacks_ttm", "dividends_ttm", "acquisitions_ttm", "debt_repayment_ttm", "debt_issuance_ttm", "book_value_per_share", "tangible_book_value_per_share", "free_cash_flow_per_share", "operating_cash_flow_ttm", "bs_cash_including_restricted", "bs_cash_qoq", "bs_goodwill_assets_ratio", "bs_working_capital", "bs_working_capital_qoq", "bs_current_ratio", "bs_quick_ratio", "bs_debt_qoq", "bs_inventory_yoy", "bs_revenue_yoy", "bs_inventory_vs_revenue_growth", "bs_core_net_cash", "bs_total_lease_liabilities", "bs_diluted_shares_yoy", "annual_gross_margin", "annual_operating_margin", "annual_ebitda_margin", "annual_net_margin", "annual_free_cash_flow", "annual_free_cash_flow_margin", "annual_book_value_per_share"],
+      "binding_ids": ["bs_quarterly_period_headers", "bs_cash_series", "bs_restricted_cash_series", "bs_marketable_securities_series", "bs_accounts_receivable_series", "bs_inventory_series", "bs_current_assets_series", "bs_property_plant_equipment_net_series", "bs_goodwill_series", "bs_intangibles_series", "bs_other_assets_noncurrent_series", "bs_total_assets_series", "bs_accounts_payable_series", "bs_accrued_liabilities_series", "bs_current_liabilities_series", "bs_other_liabilities_noncurrent_series", "bs_total_liabilities_series", "bs_total_equity_series", "bs_shares_outstanding_series", "bs_diluted_shares_series", "valuation_operating_cash_flow_series", "valuation_capital_expenditures_series", "valuation_cash_series", "valuation_marketable_securities_series", "valuation_interest_expense_series", "valuation_dividends_cash_series", "valuation_acquisitions_cash_series", "valuation_buybacks_cash_series", "valuation_debt_repayment_series", "valuation_debt_issuance_series", "valuation_total_equity_series", "valuation_goodwill_series", "valuation_intangibles_series"],
+      "formula_ids": ["capex_margin", "capex_margin_ttm", "free_cash_flow", "free_cash_flow_yoy_delta", "free_cash_flow_ttm", "free_cash_flow_ttm_yoy_delta", "free_cash_flow_margin", "free_cash_flow_margin_ttm", "buybacks_ttm", "dividends_ttm", "acquisitions_ttm", "debt_repayment_ttm", "debt_issuance_ttm", "book_value_per_share", "tangible_book_value_per_share", "free_cash_flow_per_share", "operating_cash_flow_ttm", "bs_cash_including_restricted", "bs_cash_qoq", "bs_goodwill_assets_ratio", "bs_working_capital", "bs_working_capital_qoq", "bs_current_ratio", "bs_quick_ratio", "bs_debt_qoq", "bs_inventory_yoy", "bs_revenue_yoy", "bs_inventory_vs_revenue_growth", "bs_core_net_cash", "bs_total_lease_liabilities", "bs_diluted_shares_yoy"],
       "defined_name_ids": ["bs_liquidity_anchor"],
       "style_ownership": [
         {"style_id": "balance_history_style", "sheet": "BS_Segments", "target": "A1:M58"},
-        {"style_id": "annual_financial_header_style", "sheet": "BS_Segments", "target": "A81:I89"},
-        {"style_id": "annual_cash_flow_balance_style", "sheet": "BS_Segments", "target": "A92:I102"},
         {"style_id": "valuation_cash_flow_style", "sheet": "Valuation", "target": "A41:M58"},
         {"style_id": "valuation_capital_returns_style", "sheet": "Valuation", "target": "A60:M68"},
         {"style_id": "valuation_per_share_style", "sheet": "Valuation", "target": "A112:M115"},
@@ -134,15 +130,15 @@
       "sheets": [],
       "visible_blocks": [
         {"block_id": "summary_dimensions", "sheet": "SUMMARY", "target": "A8:L15", "empty_state": "Hide dimension rows without validated members."},
-        {"block_id": "segment_history", "sheet": "BS_Segments", "target": "A59:M80", "empty_state": "Hide member rows without validated quarterly or annual dimension data."}
+        {"block_id": "segment_history", "sheet": "BS_Segments", "target": "A59:M78", "empty_state": "Hide member rows without validated quarterly or annual dimension data."}
       ],
       "normalized_contracts": ["segments", "company_profile.revenue_streams"],
-      "binding_ids": ["summary_revenue_stream_rows", "summary_revenue_mix_label", "summary_segment_model", "bs_segment_quarterly_rows", "bs_segment_annual_rows"],
+      "binding_ids": ["summary_revenue_stream_rows", "summary_revenue_mix_label", "summary_segment_model", "bs_annual_period_headers", "bs_annual_revenue_series", "bs_segment_quarterly_rows", "bs_segment_annual_rows"],
       "formula_ids": [],
       "defined_name_ids": [],
       "style_ownership": [
         {"style_id": "summary_dimensions_style", "sheet": "SUMMARY", "target": "A8:L15"},
-        {"style_id": "segment_history_style", "sheet": "BS_Segments", "target": "A59:M80"}
+        {"style_id": "segment_history_style", "sheet": "BS_Segments", "target": "A59:M78"}
       ],
       "activation_criteria": {"mode": "enabled_profile_with_declared_dimensions"},
       "empty_state_behavior": "Dimension blocks collapse when no normalized members are available; dimensions are never mixed under one unlabeled block.",
@@ -170,12 +166,11 @@
         {"block_id": "valuation_debt_input", "sheet": "Valuation", "target": "D198", "empty_state": "Net debt remains blank without compatible source-backed evidence."},
         {"block_id": "valuation_interest_input", "sheet": "Valuation", "target": "D212", "empty_state": "Cash interest remains blank without compatible source-backed evidence."},
         {"block_id": "valuation_debt_detail", "sheet": "Valuation", "target": "A122:M136", "empty_state": "Debt detail stays blank without instrument evidence."},
-        {"block_id": "summary_liquidity", "sheet": "SUMMARY", "target": "A41:L45", "empty_state": "Display only source-backed, temporally honest liquidity with a visible as-of date."},
-        {"block_id": "annual_debt", "sheet": "BS_Segments", "target": "A103:I104", "empty_state": "Annual debt and net debt remain blank without compatible evidence."}
+        {"block_id": "summary_liquidity", "sheet": "SUMMARY", "target": "A41:L45", "empty_state": "Display only source-backed, temporally honest liquidity with a visible as-of date."}
       ],
       "normalized_contracts": ["debt_liquidity", "quarterly_financials.rows.debt_core", "quarterly_financials.rows.lease_liabilities", "quarterly_financials.rows.revolver_availability"],
-      "binding_ids": ["summary_net_leverage", "summary_liquidity", "summary_liquidity_as_of", "valuation_interest_paid_series", "valuation_debt_core_series", "valuation_lease_liabilities_series", "valuation_pension_obligation_net_series", "valuation_revolver_availability_series", "valuation_input_net_debt", "valuation_input_interest_paid_ttm", "bs_annual_financial_debt_core_series", "bs_short_term_borrowings_series", "bs_debt_current_series", "bs_lease_liabilities_current_series", "bs_debt_core_series", "bs_lease_liabilities_noncurrent_series", "bs_pension_obligation_net_series"],
-      "formula_ids": ["net_debt", "net_debt_qoq", "net_debt_yoy", "core_net_cash", "net_cash_with_securities", "lease_adjusted_net_debt", "lease_adjusted_net_debt_with_securities", "ebitda_ttm_copy", "adjusted_ebitda_ttm_copy", "net_leverage", "adjusted_net_leverage", "interest_coverage", "cash_interest_coverage", "fcf_conversion", "annual_net_debt"],
+      "binding_ids": ["summary_net_leverage", "summary_liquidity", "summary_liquidity_as_of", "valuation_interest_paid_series", "valuation_debt_core_series", "valuation_lease_liabilities_series", "valuation_pension_obligation_net_series", "valuation_revolver_availability_series", "valuation_input_net_debt", "valuation_input_interest_paid_ttm", "bs_short_term_borrowings_series", "bs_debt_current_series", "bs_lease_liabilities_current_series", "bs_debt_core_series", "bs_lease_liabilities_noncurrent_series", "bs_pension_obligation_net_series"],
+      "formula_ids": ["net_debt", "net_debt_qoq", "net_debt_yoy", "core_net_cash", "net_cash_with_securities", "lease_adjusted_net_debt", "lease_adjusted_net_debt_with_securities", "ebitda_ttm_copy", "adjusted_ebitda_ttm_copy", "net_leverage", "adjusted_net_leverage", "interest_coverage", "cash_interest_coverage", "fcf_conversion"],
       "defined_name_ids": ["summary_leverage_liquidity_anchor", "valuation_debt_anchor"],
       "style_ownership": [
         {"style_id": "valuation_cash_interest_style", "sheet": "Valuation", "target": "A59:M59"},
@@ -183,8 +178,7 @@
         {"style_id": "valuation_debt_input_style", "sheet": "Valuation", "target": "D198"},
         {"style_id": "valuation_interest_input_style", "sheet": "Valuation", "target": "D212"},
         {"style_id": "valuation_debt_detail_style", "sheet": "Valuation", "target": "A122:M136"},
-        {"style_id": "summary_liquidity_style", "sheet": "SUMMARY", "target": "A41:L45"},
-        {"style_id": "annual_debt_style", "sheet": "BS_Segments", "target": "A103:I104"}
+        {"style_id": "summary_liquidity_style", "sheet": "SUMMARY", "target": "A41:L45"}
       ],
       "activation_criteria": {"mode": "explicit_profile", "minimum_contract": "cash or debt/liquidity evidence"},
       "empty_state_behavior": "Cash-rich profiles may show compact liquidity; full debt sections remain hidden and formulas blank without debt evidence.",
@@ -206,19 +200,17 @@
         {"block_id": "adjusted_ebitda", "sheet": "Valuation", "target": "A23:M29", "empty_state": "Adjusted metrics remain blank when the bridge is not source-backed."},
         {"block_id": "adjusted_eps", "sheet": "Valuation", "target": "A110:M111", "empty_state": "Adjusted EPS remains blank without compatible disclosures."},
         {"block_id": "adjusted_ebitda_input", "sheet": "Valuation", "target": "D200", "empty_state": "Adjusted EBITDA input remains blank without compatible disclosures."},
-        {"block_id": "adjusted_eps_input", "sheet": "Valuation", "target": "D205", "empty_state": "Adjusted EPS input remains blank without compatible disclosures."},
-        {"block_id": "annual_adjusted_ebitda", "sheet": "BS_Segments", "target": "A90:I91", "empty_state": "Annual adjusted EBITDA remains blank without compatible disclosures."}
+        {"block_id": "adjusted_eps_input", "sheet": "Valuation", "target": "D205", "empty_state": "Adjusted EPS input remains blank without compatible disclosures."}
       ],
       "normalized_contracts": ["quarterly_financials.rows.adjusted_ebitda", "quarterly_financials.rows.adjusted_eps", "adjustments"],
-      "binding_ids": ["valuation_adjusted_ebitda_series", "valuation_adjusted_eps_series", "valuation_input_adjusted_ebitda_ttm", "valuation_input_adjusted_eps_ttm", "bs_annual_financial_adjusted_ebitda_series"],
-      "formula_ids": ["adjusted_ebitda_ttm", "adjusted_ebitda_delta", "adjusted_ebitda_margin", "adjusted_ebitda_yoy", "adjusted_ebitda_margin_ttm", "adjusted_eps_ttm", "annual_adjusted_ebitda_margin"],
+      "binding_ids": ["valuation_adjusted_ebitda_series", "valuation_adjusted_eps_series", "valuation_input_adjusted_ebitda_ttm", "valuation_input_adjusted_eps_ttm"],
+      "formula_ids": ["adjusted_ebitda_ttm", "adjusted_ebitda_delta", "adjusted_ebitda_margin", "adjusted_ebitda_yoy", "adjusted_ebitda_margin_ttm", "adjusted_eps_ttm"],
       "defined_name_ids": [],
       "style_ownership": [
         {"style_id": "adjusted_ebitda_style", "sheet": "Valuation", "target": "A23:M29"},
         {"style_id": "adjusted_eps_style", "sheet": "Valuation", "target": "A110:M111"},
         {"style_id": "adjusted_ebitda_input_style", "sheet": "Valuation", "target": "D200"},
-        {"style_id": "adjusted_eps_input_style", "sheet": "Valuation", "target": "D205"},
-        {"style_id": "annual_adjusted_ebitda_style", "sheet": "BS_Segments", "target": "A90:I91"}
+        {"style_id": "adjusted_eps_input_style", "sheet": "Valuation", "target": "D205"}
       ],
       "activation_criteria": {"mode": "explicit_profile", "minimum_contract": "source-backed adjusted disclosure"},
       "empty_state_behavior": "No adjusted metric or credibility conclusion appears without an exact GAAP base and evidence-backed adjustment bridge.",

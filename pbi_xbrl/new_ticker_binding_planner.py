@@ -26,6 +26,10 @@ from pbi_xbrl.new_ticker_guidance_scope import (
     current_guidance_indexes,
     guidance_scope_label,
 )
+from pbi_xbrl.segment_normalization import (
+    canonical_segment_dimension_member,
+    canonical_segment_display_member,
+)
 from pbi_xbrl.standard_template_shell_identity import (
     VerifiedShellIdentity,
     compute_binding_contract_signature,
@@ -1264,35 +1268,43 @@ def _plan_pivot_binding(
     member_rows: dict[tuple[str, str], int] = {}
     occupied_rows: dict[int, tuple[str, str]] = {}
     written_cells: set[str] = set()
-    block_members: dict[str, list[str]] = {}
+    block_members: dict[str, list[tuple[str, str]]] = {}
+    member_labels: dict[tuple[str, str], str] = {}
     for row in rows:
         period = str(_read_row_field(row, period_field)[0] or "")
         if period not in period_to_column:
             continue
-        dimension = str(_read_row_field(row, dimension_field)[0] or "")
-        member = str(_read_row_field(row, member_field)[0] or "")
-        if dimension and member and member not in block_members.setdefault(dimension, []):
-            block_members[dimension].append(member)
+        raw_dimension = str(_read_row_field(row, dimension_field)[0] or "")
+        raw_member = str(_read_row_field(row, member_field)[0] or "")
+        canonical_pair = canonical_segment_dimension_member(raw_dimension, raw_member)
+        members = block_members.setdefault(canonical_pair[0], [])
+        if canonical_pair not in members:
+            members.append(canonical_pair)
+        member_labels.setdefault(
+            canonical_pair,
+            canonical_segment_display_member(raw_dimension, raw_member),
+        )
 
     for dimension, members in block_members.items():
         declared_rows = [int(row) for row in row_blocks.get(dimension) or []]
-        for member_index, member in enumerate(members):
+        for member_index, canonical_pair in enumerate(members):
             if member_index >= len(declared_rows):
                 continue
             target_row = declared_rows[member_index]
             owner = occupied_rows.get(target_row)
-            if owner and owner != (dimension, member):
-                issues.append(_planner_issue("P1", "binding_pivot_row_collision", str(binding.get("binding_id") or ""), f"Pivot row {target_row} is claimed by both {owner} and {(dimension, member)}."))
+            if owner and owner != canonical_pair:
+                issues.append(_planner_issue("P1", "binding_pivot_row_collision", str(binding.get("binding_id") or ""), f"Pivot row {target_row} is claimed by both {owner} and {canonical_pair}."))
                 continue
-            occupied_rows[target_row] = (dimension, member)
-            member_rows[(dimension, member)] = target_row
+            occupied_rows[target_row] = canonical_pair
+            member_rows[canonical_pair] = target_row
 
     for source_position, row in enumerate(rows):
         row_key = _row_key(row, binding)
         source_ref = _row_source_ref(row, binding)
         normalized_path = _row_normalized_path(binding, row, source_position, value_field)
-        dimension = str(_read_row_field(row, dimension_field)[0] or "")
-        member = str(_read_row_field(row, member_field)[0] or "")
+        raw_dimension = str(_read_row_field(row, dimension_field)[0] or "")
+        raw_member = str(_read_row_field(row, member_field)[0] or "")
+        canonical_pair = canonical_segment_dimension_member(raw_dimension, raw_member)
         period = str(_read_row_field(row, period_field)[0] or "")
         if period not in period_to_column:
             report["skipped_rows"].append(
@@ -1306,7 +1318,7 @@ def _plan_pivot_binding(
                 )
             )
             continue
-        if (dimension, member) not in member_rows:
+        if canonical_pair not in member_rows:
             reason = "pivot_member_has_no_declared_block_capacity"
             record = _structured_skip(binding, normalized_path=normalized_path, row_key=row_key, reason=reason, severity="P1", source_ref=source_ref)
             report["overflow_rows"].append(record)
@@ -1319,11 +1331,15 @@ def _plan_pivot_binding(
             gaps.append(_gap(binding, reason=reason, severity="P1", normalized_path=normalized_path, row_key=row_key, source_ref=source_ref))
             issues.append(_planner_issue("P1", "required_row_value_missing", f"{binding['binding_id']}:{row_key}:{value_field}", reason))
             continue
-        target_row = member_rows[(dimension, member)]
+        target_row = member_rows[canonical_pair]
         label_cell = f"{label_column}{target_row}"
         if label_cell not in written_cells:
-            label_value = _pivot_member_label(binding, dimension=dimension, member=member)
-            writes.append(_planned_write(binding, ticker=ticker, target_cell=label_cell, normalized_path=_row_normalized_path(binding, row, source_position, member_field), row_key=f"{dimension}|{member}", value=label_value, source_ref=source_ref, capacity_used=len(member_rows), target_type="text", target_role=f"{binding['binding_id']}.member"))
+            label_value = _pivot_member_label(
+                binding,
+                dimension=canonical_pair[0],
+                member=member_labels[canonical_pair],
+            )
+            writes.append(_planned_write(binding, ticker=ticker, target_cell=label_cell, normalized_path=_row_normalized_path(binding, row, source_position, member_field), row_key="|".join(canonical_pair), value=label_value, source_ref=source_ref, capacity_used=len(member_rows), target_type="text", target_role=f"{binding['binding_id']}.member"))
             written_cells.add(label_cell)
         target_cell = f"{period_to_column[period]}{target_row}"
         if target_cell in written_cells:
@@ -1637,7 +1653,7 @@ def _selected_rows(
                 )
             )
         rows = [selected_row]
-    keys: set[str] = set()
+    keyed_rows: dict[str, Mapping[str, Any]] = {}
     unique_rows: list[Mapping[str, Any]] = []
     for row in rows:
         key = _row_key(row, binding)
@@ -1649,13 +1665,17 @@ def _selected_rows(
             )
             issues.append(_planner_issue("P1", "binding_row_key_missing", str(binding.get("binding_id") or ""), "Selected row does not provide every row_key field."))
             continue
-        if key in keys:
+        prior_row = keyed_rows.get(key)
+        if prior_row is not None:
             skipped.append(
                 _structured_skip(binding, normalized_path=normalized_path, row_key=key, reason="duplicate_row_key", severity="P1", source_ref=_row_source_ref(row, binding))
             )
-            issues.append(_planner_issue("P1", "binding_row_key_duplicate", str(binding.get("binding_id") or ""), f"Duplicate row_key {key!r}."))
+            message = f"Duplicate row_key {key!r}."
+            if _is_segment_binding(binding):
+                message = _segment_duplicate_row_message(prior_row, row, binding, key)
+            issues.append(_planner_issue("P1", "binding_row_key_duplicate", str(binding.get("binding_id") or ""), message))
             continue
-        keys.add(key)
+        keyed_rows[key] = row
         unique_rows.append(row)
     return unique_rows, skipped, issues
 
@@ -2509,13 +2529,59 @@ def _sort_fields(sort_order: Sequence[Any]) -> list[str]:
 
 
 def _row_key(row: Mapping[str, Any], binding: Mapping[str, Any]) -> str:
+    canonical_pair: tuple[str, str] | None = None
+    dimension_field = str(binding.get("dimension_field") or "dimension")
+    member_field = str(binding.get("member_field") or "member")
+    if _is_segment_binding(binding):
+        raw_dimension, _source_ref, dimension_populated = _read_row_field(row, dimension_field)
+        raw_member, _member_source_ref, member_populated = _read_row_field(row, member_field)
+        if dimension_populated and member_populated:
+            canonical_pair = canonical_segment_dimension_member(raw_dimension, raw_member)
     parts: list[str] = []
     for field in binding.get("row_key") or []:
         value, _source_ref, populated = _read_row_field(row, str(field))
         if not populated:
             return ""
+        if canonical_pair is not None and str(field) == dimension_field:
+            value = canonical_pair[0]
+        elif canonical_pair is not None and str(field) == member_field:
+            value = canonical_pair[1]
         parts.append(str(value))
     return "|".join(parts)
+
+
+def _is_segment_binding(binding: Mapping[str, Any]) -> bool:
+    selector = binding.get("row_selector")
+    return isinstance(selector, Mapping) and str(selector.get("source_path") or "") == "segments.items"
+
+
+def _segment_duplicate_row_message(
+    first_row: Mapping[str, Any],
+    duplicate_row: Mapping[str, Any],
+    binding: Mapping[str, Any],
+    business_key: str,
+) -> str:
+    dimension_field = str(binding.get("dimension_field") or "dimension")
+    member_field = str(binding.get("member_field") or "member")
+
+    def context(row: Mapping[str, Any]) -> tuple[tuple[str, str], tuple[str, str], str]:
+        raw_pair = (
+            str(_read_row_field(row, dimension_field)[0] or ""),
+            str(_read_row_field(row, member_field)[0] or ""),
+        )
+        canonical_pair = canonical_segment_dimension_member(*raw_pair)
+        source_row_ref = str(_read_row_field(row, "source_row_ref")[0] or "")
+        return raw_pair, canonical_pair, source_row_ref
+
+    first_raw, first_canonical, first_source_row_ref = context(first_row)
+    duplicate_raw, duplicate_canonical, duplicate_source_row_ref = context(duplicate_row)
+    return (
+        f"Duplicate canonical segment row_key {business_key!r}; "
+        f"first_raw_pair={first_raw!r}, duplicate_raw_pair={duplicate_raw!r}, "
+        f"first_canonical_pair={first_canonical!r}, duplicate_canonical_pair={duplicate_canonical!r}, "
+        f"first_source_row_ref={first_source_row_ref!r}, "
+        f"duplicate_source_row_ref={duplicate_source_row_ref!r}, business_key={business_key!r}."
+    )
 
 
 def _read_field(package: Mapping[str, Any], path: str) -> tuple[Any, str, bool]:

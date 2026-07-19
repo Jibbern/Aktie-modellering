@@ -135,7 +135,7 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert annuals["2025-FY"]["operating_cash_flow"]["value"] == 619.142
         assert annuals["2018-FY"]["cash"]["value"] == 723.135
         assert annuals["2018-FY"]["inventory"]["value"] == 437.879
-        assert writes[("BS_Segments", "B102")].value == 723.135
+        assert ("BS_Segments", "B102") not in writes
         assert bindings["summary_as_of_quarter"]["source_field"] == "period"
         assert bindings["summary_latest_revenue"]["source_field"] == "revenue"
         assert bindings["summary_latest_net_income"]["source_field"] == "net_income"
@@ -222,7 +222,7 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
             "2026-Q1",
         ]
         assert writes[("BS_Segments", "L66")].value == pytest.approx(863.3)
-        assert writes[("BS_Segments", "L66")].row_key == "2025-Q4|brand|Hollister|revenue"
+        assert writes[("BS_Segments", "L66")].row_key == "2025-Q4|brand|hollister|revenue"
         assert writes[("BS_Segments", "L61")].value == pytest.approx(segments["H61"].value)
         assert [writes[("BS_Segments", f"{column}70")].value for column in "BCDEFGHI"] == [
             "2018-FY",
@@ -443,7 +443,7 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "valuation_input_net_income_ttm",
     }
     additive_binding_ids = scenario_binding_ids | hidden_value_binding_ids
-    assert len(payload["planned_writes"]) == 22_824
+    assert len(payload["planned_writes"]) == 22_052
     non_scenario_writes = [
         write
         for write in payload["planned_writes"]
@@ -454,21 +454,52 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         for report in payload["bindings"]
         if report.get("binding_id") not in additive_binding_ids
     ]
-    assert len(non_scenario_writes) == 20_518
-    assert _canonical_digest(non_scenario_writes) == "a12bfba291dd696763854ad7901cd00303d0ffde18d3bd3b7ae51ab24bf15368"
-    assert len(non_scenario_binding_reports) == 157
-    assert _canonical_digest(non_scenario_binding_reports) == "ac8c9c68c05cf1312a9b1641807c0467926425afc3339ecbb2a740ce2407d91e"
-    assert _canonical_digest(payload["period_axes"]) == "53112b2358281b91062347f86582cd489237d6e8aaf48506d2b2ef395f4a1b79"
-    assert _canonical_digest(payload["issue_ledger"]) == "0d0b35dbe5e912088590bece30aa60196ac26933492de5adb420dd9b6e67c9aa"
-    assert _canonical_digest(payload["issue_ledger"]["issues"]) == "b8751170197c8c0decbb91f55c2049ba78d9ece122d9ae3e24c6f2695cb83e4d"
-    assert _canonical_digest(payload["issue_ledger"]["occurrences"]) == "ffb3ad0d017f335d04bb125ff498f3f7d2d5c2ab2e4a616e89a5eca65116103d"
-    assert _canonical_digest(payload["mapping_gaps"]) == "d1bdc4ec12dde8e5bf66e0279fa6e7d2e326035ea6bec4f883eed4be6ce8a9f9"
+    # The accepted 20,518-write nonadditive baseline loses 82 retired
+    # BS_Segments writes and 690 QA cells generated solely from their 30 issues
+    # and 60 occurrences. No obsolete issue is retained to preserve a count.
+    assert len(non_scenario_writes) == 20_518 - 82 - 690 == 19_746
+    assert _canonical_digest(non_scenario_writes) == "b3a86d9e3121ba65fd4ff66cc47e82df65acf715af287c051d8ac4676ced7ffd"
+    assert len(non_scenario_binding_reports) == 157 - 14 == 143
+    assert _canonical_digest(non_scenario_binding_reports) == "dca37ce8a3646fa12eda4664b19dfc8f655072682dd9fe489585f88af29058f4"
+
+    segment_writes = [
+        write
+        for write in payload["planned_writes"]
+        if write.get("binding_id") in {"bs_segment_quarterly_rows", "bs_segment_annual_rows"}
+    ]
+    assert len(segment_writes) == 100
+    assert _canonical_digest(segment_writes) == "8d776a3c96daa72e2e68ba7926f9f82a152ea34f9d59f74bdf7f06cb73eae3d8"
+    assert all("Total Company" not in str(write.get("row_key") or "") for write in segment_writes)
+    assert any(write.get("row_key") == "total_company|total_company" for write in segment_writes)
+    assert any(
+        write.get("row_key") == "2023-Q4|total_company|total_company|revenue"
+        for write in segment_writes
+    )
+
+    def outside_segment_product_surface(write: dict) -> bool:
+        if write.get("target_sheet") in {"QA_Log", "Needs_Review", "QA_Checks"}:
+            return False
+        if write.get("target_sheet") != "BS_Segments":
+            return True
+        match = re.fullmatch(r"[A-Z]+(\d+)", str(write.get("target_cell") or ""))
+        return match is None or not 61 <= int(match.group(1)) <= 104
+
+    stable_business_writes = [
+        write for write in payload["planned_writes"] if outside_segment_product_surface(write)
+    ]
+    assert len(stable_business_writes) == 7_449
+    assert _canonical_digest(stable_business_writes) == "304420d25b3f1a173347bdac7dd19b964a8d164065d39e254536d2a732c8fc8f"
+    assert _canonical_digest(payload["period_axes"]) == "88b9f00e07414ea100180a8f574e4ca3ab14088885107d888f75e1b143ec8818"
+    assert _canonical_digest(payload["issue_ledger"]) == "03fe569eb95366121fa47bbfbebad8b7dcd607cc2186317b9851611139697731"
+    assert _canonical_digest(payload["issue_ledger"]["issues"]) == "3565d920cbbef7dcc0d3c48c4ed40b737a9143b46449cfcf6287810dbaff74fb"
+    assert _canonical_digest(payload["issue_ledger"]["occurrences"]) == "58818b751a3b5c699a4ee3b47e406398b8c2df2ba29807efc84605d2e4cd4d37"
+    assert _canonical_digest(payload["mapping_gaps"]) == "88c370246f99e979935679ff28ef15a5ee2b9a3ee6092cc0e1ccc16a9162ca04"
     assert _canonical_digest(payload["manual_review_flags"]) == "be52e1510ee9fd6a64388dd66f80f192b4c0c8a03879015e97df9babbab4cf9b"
     assert by_binding["valuation_period_headers"] == 12
     assert by_binding["valuation_revenue_series"] == 12
     assert by_binding["valuation_net_income_series"] == 12
     assert by_binding["valuation_operating_cash_flow_series"] == 12
-    assert by_binding["bs_annual_financial_period_headers"] == 8
+    assert "bs_annual_financial_period_headers" not in by_binding
     assert by_binding["bs_annual_revenue_series"] == 8
     assert summary["detailed_occurrence_count"] == len(plan.issue_ledger["occurrences"])
     assert summary["detailed_occurrence_count"] == len(plan.manual_review_flags) + len(plan.mapping_gaps) + len(plan.issues)

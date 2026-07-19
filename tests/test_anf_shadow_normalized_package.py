@@ -911,8 +911,11 @@ def test_all_legacy_annual_candidates_are_retained_before_visible_capacity_selec
         assert row["cost_of_goods_sold"]["status"] == "populated"
 
     plan = json.loads(ANF_PLAN.read_text(encoding="utf-8"))
-    axis = plan["period_axes"]["bs_annual_financial_periods"]
-    assert list(axis["period_to_column"]) == [f"{year}-FY" for year in range(2018, 2026)]
+    assert "bs_annual_financial_periods" not in plan["period_axes"]
+    assert not any(
+        row["binding_id"].startswith("bs_annual_financial_")
+        for row in plan["bindings"]
+    )
     report = next(row for row in plan["bindings"] if row["binding_id"] == "financial_fact_disposition_audit")
     older = [
         row
@@ -921,7 +924,7 @@ def test_all_legacy_annual_candidates_are_retained_before_visible_capacity_selec
         and row["normalized_path"].split(".")[2] in {"0", "1", "2", "3"}
     ]
     assert older
-    assert all(row["disposition"] in {"audit_only", "formula_owned"} for row in older)
+    assert all(row["disposition"] == "audit_only" for row in older)
     assert all(row["reason"] for row in older)
 
 
@@ -958,16 +961,15 @@ def test_every_populated_anf_financial_fact_has_an_explicit_disposition() -> Non
 
     for row in report["skipped_rows"]:
         if row["field"] == "free_cash_flow":
-            assert row["disposition"] == "formula_owned"
+            expected = "audit_only" if row["section"] == "annual_financials" else "formula_owned"
+            assert row["disposition"] == expected
             assert "row_selector" not in row["reason"]
         if row["field"] == "total_debt":
             assert row["disposition"] == "audit_only"
             assert "row_selector" not in row["reason"]
 
-    # Preserve the reviewed pre-expansion reconciliation after removing the 20
-    # quarterly/annual debt and cash-interest placeholders. The final package
-    # additionally contains older annual candidates and newly classified
-    # COGS/tax/D&A/operating-margin evidence.
+    # Annual financial facts remain normalized audit inputs after their
+    # duplicate visible BS_Segments projection is retired.
     added_quarterly_fields = {
         "cost_of_goods_sold",
         "income_taxes_paid",
@@ -1007,7 +1009,7 @@ def test_every_populated_anf_financial_fact_has_an_explicit_disposition() -> Non
     )
     assert len(baseline_paths) == 523
     assert baseline_reconciliation == Counter(
-        {"planned": 397, "formula_owned": 18, "audit_only": 108}
+        {"planned": 343, "formula_owned": 12, "audit_only": 168}
     )
 
     writes = plan["planned_writes"]

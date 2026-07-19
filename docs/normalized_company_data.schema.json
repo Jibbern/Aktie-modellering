@@ -1266,6 +1266,14 @@
               "metric",
               "period",
               "period_type",
+              "unit",
+              "source_unit",
+              "source_scale",
+              "source_table_scope",
+              "source_table_id",
+              "source_row_ref",
+              "source_ref",
+              "aggregation_role",
               "display_order"
             ],
             "properties": {
@@ -1299,6 +1307,49 @@
                 "enum": [
                   "quarterly",
                   "annual"
+                ]
+              },
+              "unit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_unit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_scale": {
+                "type": "string",
+                "enum": [
+                  "ones",
+                  "thousands",
+                  "millions",
+                  "not_applicable"
+                ]
+              },
+              "source_table_scope": {
+                "type": "string",
+                "enum": [
+                  "quarterly",
+                  "annual"
+                ]
+              },
+              "source_table_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_row_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_ref": {
+                "type": "string",
+                "minLength": 1
+              },
+              "aggregation_role": {
+                "type": "string",
+                "enum": [
+                  "dimension_member",
+                  "reported_total"
                 ]
               },
               "display_order": {

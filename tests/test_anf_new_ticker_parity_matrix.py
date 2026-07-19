@@ -359,8 +359,7 @@ def test_missing_fail_zero_placeholders_are_unavailable_and_make_formulas_blank(
             assert by_id[f"formula:net_debt:{period}"]["economic_calculability"] == "blank_due_to_missing_evidence"
     for period in ("2024-Q3", "2024-Q4", "2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"):
         assert by_id[f"formula:cash_interest_coverage:{period}"]["economic_calculability"] == "blank_due_to_missing_evidence"
-    for period in ("2024-FY", "2025-FY"):
-        assert by_id[f"formula:annual_net_debt:{period}"]["economic_calculability"] == "blank_due_to_missing_evidence"
+    assert not any(parity_id.startswith("formula:annual_net_debt:") for parity_id in by_id)
 
 
 def test_segment_plan_preserves_dimension_identity() -> None:

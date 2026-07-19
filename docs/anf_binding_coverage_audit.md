@@ -2,9 +2,9 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-18T07:45:50+00:00`
-- Bindings with populated data: `76` / `166`
-- Bindings that would write useful output: `109`
+- Generated: `2026-07-18T20:54:22+00:00`
+- Bindings with populated data: `76` / `152`
+- Bindings that would write useful output: `97`
 
 | Binding | Sheet | Field | Values | Rows | Would write | Reason if blank |
 | --- | --- | --- | ---: | ---: | --- | --- |
@@ -26,20 +26,6 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `valuation_output_rows` | `Valuation` | `valuation_outputs.items.value` | 0 | 0/107 | False | binding planning_state is formula_owned |
 | `valuation_guidance_status_rows` | `Valuation` | `normalized_guidance.items.progress_status` | 0 | 0/19 | True |  |
 | `valuation_guidance_status_rows_lower` | `Valuation` | `normalized_guidance.items.0.horizon` | 196 | 196/8 | False | binding planning_state is inactive_legacy_contract |
-| `bs_annual_financial_period_headers` | `BS_Segments` | `annual_financials.rows.period` | 0 | 0/1 | True |  |
-| `bs_annual_financial_revenue_series` | `BS_Segments` | `annual_financials.rows.revenue` | 0 | 0/1 | True |  |
-| `bs_annual_financial_gross_profit_series` | `BS_Segments` | `annual_financials.rows.gross_profit` | 0 | 0/1 | True |  |
-| `bs_annual_financial_operating_income_series` | `BS_Segments` | `annual_financials.rows.operating_income` | 0 | 0/1 | True |  |
-| `bs_annual_financial_base_ebitda_series` | `BS_Segments` | `annual_financials.rows.base_ebitda` | 0 | 0/1 | True |  |
-| `bs_annual_financial_adjusted_ebitda_series` | `BS_Segments` | `annual_financials.rows.adjusted_ebitda` | 0 | 0/1 | True |  |
-| `bs_annual_financial_net_income_series` | `BS_Segments` | `annual_financials.rows.net_income` | 0 | 0/1 | True |  |
-| `bs_annual_financial_operating_cash_flow_series` | `BS_Segments` | `annual_financials.rows.operating_cash_flow` | 0 | 0/1 | True |  |
-| `bs_annual_financial_capital_expenditures_series` | `BS_Segments` | `annual_financials.rows.capital_expenditures` | 0 | 0/1 | True |  |
-| `bs_annual_financial_shares_outstanding_series` | `BS_Segments` | `annual_financials.rows.shares_outstanding` | 0 | 0/1 | False | normalized field is absent or not populated |
-| `bs_annual_financial_eps_series` | `BS_Segments` | `annual_financials.rows.eps` | 0 | 0/1 | False | normalized field is absent or not populated |
-| `bs_annual_financial_total_equity_series` | `BS_Segments` | `annual_financials.rows.total_equity` | 0 | 0/1 | True |  |
-| `bs_annual_financial_cash_series` | `BS_Segments` | `annual_financials.rows.cash` | 0 | 0/1 | True |  |
-| `bs_annual_financial_debt_core_series` | `BS_Segments` | `annual_financials.rows.debt_core` | 0 | 0/1 | True |  |
 | `bs_segment_quarterly_rows` | `BS_Segments` | `segments.items.revenue` | 105 | 105/7 | True |  |
 | `bs_segment_annual_rows` | `BS_Segments` | `segments.items.annual_revenue` | 21 | 21/7 | True |  |
 | `od_watchlist_rows` | `Operating_Drivers` | `operating_drivers.items.current_read` | 136 | 34/4 | True |  |

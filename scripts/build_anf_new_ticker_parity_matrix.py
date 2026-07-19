@@ -26,7 +26,6 @@ if str(ROOT) not in sys.path:
 from pbi_xbrl.json_schema_validation import load_json_strict
 from pbi_xbrl.new_ticker_guidance_scope import guidance_scope_key, normalize_guidance_scope
 from pbi_xbrl.standard_template_formula_contract import (
-    ANNUAL_FORMULA_ROWS,
     FORMULA_CONTRACT_VERSION,
     FORMULA_ROWS,
     VALUATION_OUTPUT_FORMULA_CELLS,
@@ -590,34 +589,6 @@ def _quarter_formula_calculability(
     else:
         return False, f"No economic dependency contract is defined for formula {formula_id}."
     return ok, "All source-backed formula dependencies are available." if ok else "One or more source-backed formula dependencies are unavailable."
-
-
-def _annual_formula_calculability(formula_id: str, period: str, annual_rows: Mapping[str, tuple[int, Mapping[str, Any]]]) -> tuple[bool, str]:
-    row_info = annual_rows.get(period)
-    if row_info is None:
-        return False, f"No normalized annual row exists for {period}."
-    row = row_info[1]
-
-    def field(name: str, *, nonzero: bool = False) -> bool:
-        value, status, source_ref = _field_state(row.get(name))
-        return status == "populated" and bool(source_ref) and isinstance(value, (int, float)) and not isinstance(value, bool) and (not nonzero or value != 0)
-
-    requirements = {
-        "annual_gross_margin": (("gross_profit", False), ("revenue", True)),
-        "annual_operating_margin": (("operating_income", False), ("revenue", True)),
-        "annual_ebitda_margin": (("base_ebitda", False), ("revenue", True)),
-        "annual_adjusted_ebitda_margin": (("adjusted_ebitda", False), ("revenue", True)),
-        "annual_net_margin": (("net_income", False), ("revenue", True)),
-        "annual_free_cash_flow": (("operating_cash_flow", False), ("capital_expenditures", False)),
-        "annual_free_cash_flow_margin": (("operating_cash_flow", False), ("capital_expenditures", False), ("revenue", True)),
-        "annual_book_value_per_share": (("total_equity", False), ("shares_outstanding", True)),
-        "annual_net_debt": (("debt_core", False), ("cash", False)),
-    }
-    required = requirements.get(formula_id)
-    if required is None:
-        return False, f"No annual dependency contract is defined for formula {formula_id}."
-    ok = all(field(name, nonzero=nonzero) for name, nonzero in required)
-    return ok, "All source-backed annual formula dependencies are available." if ok else "One or more annual formula dependencies are unavailable."
 
 
 VALUATION_OUTPUT_DEPENDENCIES: dict[str, tuple[str, ...]] = {
@@ -1731,7 +1702,7 @@ def build_parity_matrix(
     legacy = load_workbook(legacy_path, read_only=False, data_only=False)
     try:
         axes = plan.get("period_axes") or {}
-        for contracts, axis_id in ((FORMULA_ROWS, "valuation_quarterly_periods"), (ANNUAL_FORMULA_ROWS, "bs_annual_financial_periods")):
+        for contracts, axis_id in ((FORMULA_ROWS, "valuation_quarterly_periods"),):
             axis = axes.get(axis_id) if isinstance(axes, Mapping) else {}
             period_to_column = axis.get("period_to_column") if isinstance(axis, Mapping) else {}
             for contract in contracts:
@@ -1742,19 +1713,12 @@ def build_parity_matrix(
                     legacy_range = f"{contract.sheet}!{column}{contract.row}"
                     formula_present = isinstance(formula, str) and formula.startswith("=")
                     formula_protected = bool(cell.protection.locked)
-                    if axis_id == "valuation_quarterly_periods":
-                        calculable, calculation_reason = _quarter_formula_calculability(
-                            contract.formula_id,
-                            str(period),
-                            period_ordinals=history_period_ordinals,
-                            history_values=history_values,
-                        )
-                    else:
-                        calculable, calculation_reason = _annual_formula_calculability(
-                            contract.formula_id,
-                            str(period),
-                            annual_package_rows,
-                        )
+                    calculable, calculation_reason = _quarter_formula_calculability(
+                        contract.formula_id,
+                        str(period),
+                        period_ordinals=history_period_ordinals,
+                        history_values=history_values,
+                    )
                     entries.append(
                         _entry(
                             parity_id=f"formula:{contract.formula_id}:{period}",

@@ -2,13 +2,13 @@
   "version": "3.0.0",
   "status": "stale",
   "source_identity": {
-    "shell_sha256": "aa077767454e311406a1e70ea88852287ca6b810636731b827106e405ee783b7",
-    "manifest_contract_signature": "9255ff15f73c9a6f692c83eed4a61a4e900cecf5987be0d82fb4e8aff688dc68",
-    "binding_contract_signature": "878120038514a0bc622128693d05d01fb76f3e2761ab59f9588c588debc447bd",
+    "shell_sha256": "891eb549be24740e9bebf620b138f67f2c93a8c59b64d5d23f9b5b2c1149a405",
+    "manifest_contract_signature": "f386d64dcd4fac729f34ea38d77107af5769a82f095a4261e75a1f556990c62c",
+    "binding_contract_signature": "5bd474831404bb60367437697390ae8857126cde1f2600a67567ee29bd867529",
     "receipt_schema_sha256": "48d476a3feeda195940413bd8c133647ddcc5c93401cbf7262e1870085fa7f78",
     "receipt_engine_sha256": "7a235734fe4851f27b7b5daf946b874f716d2a8e24eab75ab66c6069e39e3336",
     "generator_contract_signature": "39e0b19b5e9a6ac7b640e3ba74b8c88e63a935c6dc9bb07aad04638d08b73b5a",
-    "receipt_set_signature": "db3f840b3dfb863b5bc5e0c5ec3303126ef417cd79aa71e97ce46e1c361a46e5",
+    "receipt_set_signature": "a061ec77fb662fb5715d07451eb19b2eee6a44e25f84e60b052c20ca557128c9",
     "freshness_basis": "isolated_deterministic_replay-v1"
   },
   "artifacts": [
@@ -17,7 +17,7 @@
       "generator": "scripts/build_standard_template_defined_name_audit.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/standard_template_defined_name_audit.json.receipt.json",
-      "receipt_sha256": "b8d462e17926af4b928569bd26a18f1cc467e0dbc4bcf4a2507767ae1696862b",
+      "receipt_sha256": "2672c22941df54605bb73d8aa07a77f78ea4b6843aa835ff929daace010f450b",
       "status": "current",
       "reason": "",
       "receipt_issues": [
@@ -29,8 +29,8 @@
         "path": "docs/standard_template_defined_name_audit.json",
         "current_exists": true,
         "canonical_content_matches": true,
-        "current_canonical_content_sha256": "2c162c364798075418dc00425a04d07546ef9f8a97a997a632a5389ae72d7041",
-        "replayed_canonical_content_sha256": "2c162c364798075418dc00425a04d07546ef9f8a97a997a632a5389ae72d7041"
+        "current_canonical_content_sha256": "5d0b91542f318a0480f85e343fe656be8b39e6070aa12507e7ba819602bdf4d5",
+        "replayed_canonical_content_sha256": "5d0b91542f318a0480f85e343fe656be8b39e6070aa12507e7ba819602bdf4d5"
       }
     },
     {
@@ -38,7 +38,7 @@
       "generator": "scripts/build_standard_template_defined_name_audit.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/standard_template_defined_name_audit.md.receipt.json",
-      "receipt_sha256": "c580a2726dd236baceb0714d095f7753e3d467291991ddf1390e465d37f5f709",
+      "receipt_sha256": "3048f0d1162108627b316c3e92d53a7a06d4acbd6f657576f8007110d988d176",
       "status": "current",
       "reason": "",
       "receipt_issues": [
@@ -50,8 +50,8 @@
         "path": "docs/standard_template_defined_name_audit.md",
         "current_exists": true,
         "canonical_content_matches": true,
-        "current_canonical_content_sha256": "729ddf3f39f6abba0e9bfcf6e352bf950868ba97f2e2b65eafbb53e0d35399a4",
-        "replayed_canonical_content_sha256": "729ddf3f39f6abba0e9bfcf6e352bf950868ba97f2e2b65eafbb53e0d35399a4"
+        "current_canonical_content_sha256": "115f165812300a6d7304e73e5455707a6e00e5aacf11155dfaeef3afe544ad42",
+        "replayed_canonical_content_sha256": "115f165812300a6d7304e73e5455707a6e00e5aacf11155dfaeef3afe544ad42"
       }
     },
     {
@@ -59,12 +59,11 @@
       "generator": "scripts/build_standard_template_sheet_inventory.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/standard_template_sheet_inventory.json.receipt.json",
-      "receipt_sha256": "37c7a1f51afce3b40c52fafbfafba49136f556e6b0292eeee26b1f4e25a88cb4",
+      "receipt_sha256": "dd28dce10664c3427da35fa5241147436b44696e6bbeb81a377779fa99cca3a2",
       "status": "current",
       "reason": "",
       "receipt_issues": [
-        "receipt authoritative input declaration or digest drifted",
-        "receipt dependency declaration or digest drifted"
+        "receipt authoritative input declaration or digest drifted"
       ],
       "freshness_basis": "deterministic_replay",
       "replay_status": "PASS",
@@ -81,12 +80,11 @@
       "generator": "scripts/build_standard_template_sheet_inventory.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/standard_template_sheet_inventory.md.receipt.json",
-      "receipt_sha256": "7739a371e32e7a90b6f90a9f2adaeaf3b092a45d101dd4f212ee0e8ad74f22dc",
+      "receipt_sha256": "208f86f05006f1b08c8950d8634aa29cc27e11c462cdd8d074d7fbf06df2eb11",
       "status": "current",
       "reason": "",
       "receipt_issues": [
-        "receipt authoritative input declaration or digest drifted",
-        "receipt dependency declaration or digest drifted"
+        "receipt authoritative input declaration or digest drifted"
       ],
       "freshness_basis": "deterministic_replay",
       "replay_status": "PASS",
@@ -103,12 +101,11 @@
       "generator": "scripts/build_standard_template_sheet_inventory.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/support_sheet_lifecycle_contract.json.receipt.json",
-      "receipt_sha256": "923f2121e6e2683e7733dd5801b41456550fda5d3c02b758afbdd7788e2072a8",
+      "receipt_sha256": "561558dad5971b103793c971d2c3b5db62976ee77e23d404bb32f73753cb0980",
       "status": "current",
       "reason": "",
       "receipt_issues": [
-        "receipt authoritative input declaration or digest drifted",
-        "receipt dependency declaration or digest drifted"
+        "receipt authoritative input declaration or digest drifted"
       ],
       "freshness_basis": "deterministic_replay",
       "replay_status": "PASS",
@@ -125,12 +122,11 @@
       "generator": "scripts/build_standard_template_sheet_inventory.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/support_sheet_lifecycle_contract.md.receipt.json",
-      "receipt_sha256": "fd321e6ca31b97f1dcb28c75e174fe95d70d0f1ba4bb23ed0bca647f8bb51d87",
+      "receipt_sha256": "449f4c33e17cdc83db4a2aafb4c97c701c627bd947352281c762a3962bcd30c8",
       "status": "current",
       "reason": "",
       "receipt_issues": [
-        "receipt authoritative input declaration or digest drifted",
-        "receipt dependency declaration or digest drifted"
+        "receipt authoritative input declaration or digest drifted"
       ],
       "freshness_basis": "deterministic_replay",
       "replay_status": "PASS",
@@ -147,18 +143,20 @@
       "generator": "scripts/build_standard_template_shell_neutrality_audit.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/standard_template_shell_neutrality_audit.json.receipt.json",
-      "receipt_sha256": "60bf979322461af29d23f674c661ba530409bc47a62c722850deca7f7706e885",
+      "receipt_sha256": "334b6dbe4221d302a4ffce84a66f1c5fd8562d38760775f044b651cacba770b3",
       "status": "current",
       "reason": "",
-      "receipt_issues": [],
+      "receipt_issues": [
+        "receipt authoritative input declaration or digest drifted"
+      ],
       "freshness_basis": "deterministic_replay",
       "replay_status": "PASS",
       "replay_artifact": {
         "path": "docs/standard_template_shell_neutrality_audit.json",
         "current_exists": true,
         "canonical_content_matches": true,
-        "current_canonical_content_sha256": "75c2e0af82658d886b7d5ab1409b856c13280014fd156d071110448ec5308cae",
-        "replayed_canonical_content_sha256": "75c2e0af82658d886b7d5ab1409b856c13280014fd156d071110448ec5308cae"
+        "current_canonical_content_sha256": "0af6ad4140184b11eded80ec9a27e7ed09e29a793ce50d4895e44703ac9c8a9f",
+        "replayed_canonical_content_sha256": "0af6ad4140184b11eded80ec9a27e7ed09e29a793ce50d4895e44703ac9c8a9f"
       }
     },
     {
@@ -166,18 +164,20 @@
       "generator": "scripts/build_standard_template_shell_neutrality_audit.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/standard_template_shell_neutrality_audit.md.receipt.json",
-      "receipt_sha256": "d7a86db43e7c6b0302d90ce9fb53bdea82da7d3b64e071e4b3e5b8bc7163d1ad",
+      "receipt_sha256": "4b26c16bb71b289bdf430eff3c2050fa6ad747341835d4a1ae81809e18400b98",
       "status": "current",
       "reason": "",
-      "receipt_issues": [],
+      "receipt_issues": [
+        "receipt authoritative input declaration or digest drifted"
+      ],
       "freshness_basis": "deterministic_replay",
       "replay_status": "PASS",
       "replay_artifact": {
         "path": "docs/standard_template_shell_neutrality_audit.md",
         "current_exists": true,
         "canonical_content_matches": true,
-        "current_canonical_content_sha256": "93411ca0835286d32bd1cfcb56a60b5dfbf280411c908ae5ce70a181c7cebeb7",
-        "replayed_canonical_content_sha256": "93411ca0835286d32bd1cfcb56a60b5dfbf280411c908ae5ce70a181c7cebeb7"
+        "current_canonical_content_sha256": "f436a9242aa848fed010d7ad2a336917eec277d07ed6121a9e69b54849658401",
+        "replayed_canonical_content_sha256": "f436a9242aa848fed010d7ad2a336917eec277d07ed6121a9e69b54849658401"
       }
     },
     {
@@ -185,7 +185,7 @@
       "generator": "scripts/build_workbook_block_architecture.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/workbook_block_architecture.json.receipt.json",
-      "receipt_sha256": "cfe132ac5a5aa11f1db90cf40f68ae816b71c15baac1a0559b580af008edeafb",
+      "receipt_sha256": "4852b58c56ae14bdb1d12e9b195d1ad48a2d9b32de7930aeb9e9db61303efc44",
       "status": "current",
       "reason": "",
       "receipt_issues": [
@@ -197,8 +197,8 @@
         "path": "docs/workbook_block_architecture.json",
         "current_exists": true,
         "canonical_content_matches": true,
-        "current_canonical_content_sha256": "2889cb4854a20035af57771f2ac8fa2e005d5eac5f8994f1e519dd583eb7d087",
-        "replayed_canonical_content_sha256": "2889cb4854a20035af57771f2ac8fa2e005d5eac5f8994f1e519dd583eb7d087"
+        "current_canonical_content_sha256": "134c309240023860795a13445447ea61a0783fa0695e9445e556099fa62ad8e9",
+        "replayed_canonical_content_sha256": "134c309240023860795a13445447ea61a0783fa0695e9445e556099fa62ad8e9"
       }
     },
     {
@@ -206,7 +206,7 @@
       "generator": "scripts/build_workbook_block_architecture.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/workbook_block_architecture.md.receipt.json",
-      "receipt_sha256": "531c53cb1ca9f744aa57c35a0700e8a796e3b690fab04e67b1d966fb15d14b0b",
+      "receipt_sha256": "429c75148065725fd4f4d0340f22904088db86d957bab22141a4bf6947e834be",
       "status": "current",
       "reason": "",
       "receipt_issues": [
@@ -218,8 +218,8 @@
         "path": "docs/workbook_block_architecture.md",
         "current_exists": true,
         "canonical_content_matches": true,
-        "current_canonical_content_sha256": "1234fa0630155149bc99c01ce48cfc92e236fc71d884dc6938bee31c2e0170c5",
-        "replayed_canonical_content_sha256": "1234fa0630155149bc99c01ce48cfc92e236fc71d884dc6938bee31c2e0170c5"
+        "current_canonical_content_sha256": "96515dd7f930c91527570402051d934f0608332e0a5fafa32eb85b7a51daf4fe",
+        "replayed_canonical_content_sha256": "96515dd7f930c91527570402051d934f0608332e0a5fafa32eb85b7a51daf4fe"
       }
     },
     {
@@ -227,7 +227,7 @@
       "generator": "scripts/build_workbook_block_architecture.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/workbook_block_coverage_matrix.json.receipt.json",
-      "receipt_sha256": "045e69c75500e0f420de4951693dbcada8403f9ca7d7fdcce3964a39c0445ca0",
+      "receipt_sha256": "435e7f443248ec56354de6011e4f3784c18a1d811617b2b01ed2b190e42d9600",
       "status": "current",
       "reason": "",
       "receipt_issues": [
@@ -239,8 +239,8 @@
         "path": "docs/workbook_block_coverage_matrix.json",
         "current_exists": true,
         "canonical_content_matches": true,
-        "current_canonical_content_sha256": "9c80f14fca646e7fc2eda625d302b869bd12b7785710e97af5745cf24326f526",
-        "replayed_canonical_content_sha256": "9c80f14fca646e7fc2eda625d302b869bd12b7785710e97af5745cf24326f526"
+        "current_canonical_content_sha256": "cf553dc7d0ac65d8d989c8b32e3e0ff29a0ec99f767b8521dca3bd730b59c06d",
+        "replayed_canonical_content_sha256": "cf553dc7d0ac65d8d989c8b32e3e0ff29a0ec99f767b8521dca3bd730b59c06d"
       }
     },
     {
@@ -248,7 +248,7 @@
       "generator": "scripts/build_workbook_block_architecture.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/workbook_block_coverage_matrix.md.receipt.json",
-      "receipt_sha256": "b6e8cd7ae6131e94b4faab6d424324bd3142461ae64e40ecee30349ed4f9687c",
+      "receipt_sha256": "f8b0da149c205fd9033061a11aa1b41e2773a855f04d8bfc2f1b8f69739f99de",
       "status": "current",
       "reason": "",
       "receipt_issues": [
@@ -260,8 +260,8 @@
         "path": "docs/workbook_block_coverage_matrix.md",
         "current_exists": true,
         "canonical_content_matches": true,
-        "current_canonical_content_sha256": "afeceff2e95feb69e7d2c1883be1b27ba6e1c2fc5c4c0dc8c20ec5fd657c7923",
-        "replayed_canonical_content_sha256": "afeceff2e95feb69e7d2c1883be1b27ba6e1c2fc5c4c0dc8c20ec5fd657c7923"
+        "current_canonical_content_sha256": "9ed99cd32aa91962ca730e2150e20d895f958e07bed08455365485ea1b46bfa3",
+        "replayed_canonical_content_sha256": "9ed99cd32aa91962ca730e2150e20d895f958e07bed08455365485ea1b46bfa3"
       }
     },
     {
@@ -269,7 +269,7 @@
       "generator": "scripts/build_standard_template_hidden_support_audit.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/standard_template_hidden_support_audit.json.receipt.json",
-      "receipt_sha256": "dbd11463cfaff0ecf4201c0df074b8febe813f50fc24b8bfb9d013b763da9f50",
+      "receipt_sha256": "229a0eeb68367c46c3e5816e9edffdedbc24953dca819857a4d81c4c27481098",
       "status": "current",
       "reason": "",
       "receipt_issues": [
@@ -290,7 +290,7 @@
       "generator": "scripts/build_standard_template_hidden_support_audit.py",
       "generator_contract_version": "1.0.0",
       "receipt_path": "docs/audit_receipts/standard_template_hidden_support_audit.md.receipt.json",
-      "receipt_sha256": "fc22b4ffe30bef85e3bff3833151f7c58b07760eb925ddaa0dfe6ce4b45a7596",
+      "receipt_sha256": "1d01e67e0fe8350e8069d8a9dad577575a1fea172096b7c8edd8e490bef1e90c",
       "status": "current",
       "reason": "",
       "receipt_issues": [

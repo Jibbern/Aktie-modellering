@@ -1,8 +1,8 @@
 {
   "version": "0.2.0",
   "generator_version": "anf_legacy_adapter_audits/0.2.0",
-  "source_package_content_sha256": "2ae1725653536e5d218c5d17da303c2355f009929483e13608715d580b78a6a1",
-  "generated_at_utc": "2026-07-18T07:45:46+00:00",
+  "source_package_content_sha256": "fd59272c70dec7dd9e7885802e2a64adc065c2c2907de1dada7951d666669935",
+  "generated_at_utc": "2026-07-18T20:54:17+00:00",
   "ticker": "ANF",
   "data_root": "C:\\Users\\Jibbe\\Aktier\\StockModelData",
   "legacy_workbook": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",

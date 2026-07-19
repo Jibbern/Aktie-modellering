@@ -83,20 +83,6 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | bs_raw_total_equity | BS_Segments | yes | same | similar | same | same | - |
 | bs_raw_shares_outstanding | BS_Segments | yes | same | similar | same | same | - |
 | bs_raw_diluted_shares | BS_Segments | yes | same | similar | same | same | - |
-| bs_annual_financial_period_headers | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_revenue | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_gross_profit | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_operating_income | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_base_ebitda | BS_Segments | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_adjusted_ebitda | BS_Segments | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_net_income | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_operating_cash_flow | BS_Segments | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_capital_expenditures | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_shares_outstanding | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_eps | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_total_equity | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_cash | BS_Segments | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| bs_annual_financial_raw_debt_core | BS_Segments | yes | missing | similar | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
 | od_watchlist_values | Operating_Drivers | yes | same | similar | same | same | GPRE has separate sector overlays that are excluded from standard blocks |
 | od_topic_current_read_values | Operating_Drivers | yes | same | similar | similar | same | GPRE has separate sector overlays that are excluded from standard blocks |
 | od_horizon_commentary_values | Operating_Drivers | yes | same | similar | same | same | GPRE has separate sector overlays that are excluded from standard blocks |

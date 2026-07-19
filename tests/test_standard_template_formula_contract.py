@@ -6,8 +6,6 @@ from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 
 from pbi_xbrl.standard_template_formula_contract import (
-    ANNUAL_FORMULA_ROWS,
-    ANNUAL_RAW_ROWS,
     BS_RAW_ROWS,
     FORMULA_CONTRACT_VERSION,
     FORMULA_ROWS,
@@ -65,32 +63,20 @@ def test_source_backed_targets_are_blank_and_locked() -> None:
             for column in range(2, 14):
                 assert bs.cell(row, column).value is None
                 assert bs.cell(row, column).protection.locked is True
-        for row in ANNUAL_RAW_ROWS.values():
-            for column in range(2, 10):
-                assert bs.cell(row, column).value is None
-                assert bs.cell(row, column).protection.locked is True
     finally:
         wb.close()
 
 
-def test_annual_formula_contract_is_generic_and_exact() -> None:
+def test_retired_annual_financial_surface_is_blank_locked_and_hidden() -> None:
     wb = load_workbook(SHELL, data_only=False, read_only=False)
     try:
         ws = wb["BS_Segments"]
-        assert ws["A81"].value == "Annual financial history"
-        assert ws["A82"].value == "Fiscal year"
-        for contract in ANNUAL_FORMULA_ROWS:
-            for column in range(2, 10):
-                cell = ws.cell(contract.row, column)
-                assert isinstance(cell.value, str) and cell.value.startswith("="), contract.formula_id
+        for row in range(79, 105):
+            assert ws.row_dimensions[row].hidden is True
+            for column in range(1, 14):
+                cell = ws.cell(row, column)
+                assert cell.value is None
                 assert cell.protection.locked is True
-        assert ws["B96"].value == '=IF(OR(B94="",B95=""),"",B94-B95)'
-        assert ws["B98"].value is None
-        assert ws["B98"].protection.locked is True
-        assert ws["B99"].value is None
-        assert ws["B99"].protection.locked is True
-        assert ws["B101"].value == '=IF(OR(B100="",B98="",B98=0),"",B100/B98)'
-        assert ws["B104"].value == '=IF(OR(B103="",B102=""),"",B103-B102)'
     finally:
         wb.close()
 
@@ -152,7 +138,7 @@ def test_visible_metric_labels_are_concise_without_losing_definition() -> None:
 
 def test_formula_contract_contains_no_ticker_specific_content() -> None:
     source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
-    assert FORMULA_CONTRACT_VERSION == "1.9.1"
+    assert FORMULA_CONTRACT_VERSION == "2.0.0"
     for forbidden in ("Abercrombie", "Hollister", "ANF_model", "A&F"):
         assert forbidden not in source
 

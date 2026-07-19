@@ -2,9 +2,9 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 253,
+    "retained_count": 239,
     "classification_counts": {
-      "active_binding_anchor": 140,
+      "active_binding_anchor": 126,
       "formula_dependency": 76,
       "generic_named_range": 21,
       "required_shell_anchor": 16
@@ -818,118 +818,6 @@
       "attr_text": "'BS_Segments'!$B$29",
       "classification": "active_binding_anchor",
       "expected_target": "'BS_Segments'!$B$29",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_adjusted_ebitda_series",
-      "attr_text": "'BS_Segments'!$B$90",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$90",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_base_ebitda_series",
-      "attr_text": "'BS_Segments'!$B$88",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$88",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_capital_expenditures_series",
-      "attr_text": "'BS_Segments'!$B$95",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$95",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_cash_series",
-      "attr_text": "'BS_Segments'!$B$102",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$102",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_debt_core_series",
-      "attr_text": "'BS_Segments'!$B$103",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$103",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_eps_series",
-      "attr_text": "'BS_Segments'!$B$99",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$99",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_gross_profit_series",
-      "attr_text": "'BS_Segments'!$B$84",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$84",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_net_income_series",
-      "attr_text": "'BS_Segments'!$B$92",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$92",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_operating_cash_flow_series",
-      "attr_text": "'BS_Segments'!$B$94",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$94",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_operating_income_series",
-      "attr_text": "'BS_Segments'!$B$86",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$86",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_period_headers",
-      "attr_text": "'BS_Segments'!$B$82",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$82",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_revenue_series",
-      "attr_text": "'BS_Segments'!$B$83",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$83",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_shares_outstanding_series",
-      "attr_text": "'BS_Segments'!$B$98",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$98",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "bs_annual_financial_total_equity_series",
-      "attr_text": "'BS_Segments'!$B$100",
-      "classification": "active_binding_anchor",
-      "expected_target": "'BS_Segments'!$B$100",
       "target_matches": true,
       "company_specific": false
     },

@@ -399,7 +399,7 @@ def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
     assert writes[("BS_Segments", "A66")].value == "Brand: Workflow software"
     assert writes[("BS_Segments", "C66")].value == 92.0
     assert writes[("BS_Segments", "B72")].value == 360.0
-    assert writes[("BS_Segments", "C66")].row_key == "2026-Q1|brand|Workflow software|revenue"
+    assert writes[("BS_Segments", "C66")].row_key == "2026-Q1|brand|workflow software|revenue"
     assert plan.period_axes["bs_quarterly_periods"]["period_to_column"] == {
         "2025-Q4": "B",
         "2026-Q1": "C",

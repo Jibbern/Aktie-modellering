@@ -256,8 +256,8 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
     assert package == original_package
     assert "_derived_workbook" not in package
     assert plan["status"] == "PASS"
-    assert plan["planned_write_count"] == 22_824
-    assert plan["structured_skip_count"] == 2_413
+    assert plan["planned_write_count"] == 22_052
+    assert plan["structured_skip_count"] == 2_393
     assert plan["overflow_count"] == 0
     assert Counter(row["binding_id"] for row in hidden_writes) == {
         "hidden_value_base_rows": 700,
@@ -265,9 +265,9 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
         "hidden_value_recompute_rows": 1_176,
     }
     assert len(hidden_writes) == 1_983
-    assert len(accepted_writes) == 20_841
-    assert _digest(accepted_writes) == "11ad44f774f1d2ec2e40cfcaa694f0cba264389cb81bd586f83228d809d14a46"
-    assert _digest(plan["issue_ledger"]) == "0d0b35dbe5e912088590bece30aa60196ac26933492de5adb420dd9b6e67c9aa"
+    assert len(accepted_writes) == 20_069
+    assert _digest(accepted_writes) == "a9804edc1766e765630af03eed7c70c02b7e1e06de94ac96594a6014c92b80a0"
+    assert _digest(plan["issue_ledger"]) == "03fe569eb95366121fa47bbfbebad8b7dcd607cc2186317b9851611139697731"
 
     recompute_writes = [row for row in hidden_writes if row["binding_id"] == "hidden_value_recompute_rows"]
     recompute_by_cell = {row["target_cell"]: row["value"] for row in recompute_writes}

@@ -919,638 +919,6 @@
       "module_id": "guidance_promises"
     },
     {
-      "binding_id": "bs_annual_financial_period_headers",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B82:I82",
-      "shell_zone": "bs_annual_financial_period_headers",
-      "block_id": "bs_annual",
-      "anchor_label": "Fiscal year",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.period",
-      "value_shape": "annual_series",
-      "required": true,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave annual headers blank and block render",
-      "promotion_requirement": "blocked_if_missing",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B82:I82",
-      "target_axis": "columns",
-      "target_type": "period",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "header",
-      "period_axis_continuity": "consecutive_fiscal_years",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "fail",
-      "required_columns": [
-        "period"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "period",
-      "source_ref_field": "revenue",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_revenue_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B83:I83",
-      "shell_zone": "bs_annual_financial_raw_revenue",
-      "block_id": "bs_annual",
-      "anchor_label": "Revenue",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.revenue",
-      "value_shape": "annual_series",
-      "required": true,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave annual revenue blank and block render",
-      "promotion_requirement": "required",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B83:I83",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "revenue"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "revenue",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_gross_profit_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B84:I84",
-      "shell_zone": "bs_annual_financial_raw_gross_profit",
-      "block_id": "bs_annual",
-      "anchor_label": "Gross Profit",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.gross_profit",
-      "value_shape": "annual_series",
-      "required": true,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave annual revenue blank and block render",
-      "promotion_requirement": "required",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B84:I84",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "gross_profit"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "gross_profit",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_operating_income_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B86:I86",
-      "shell_zone": "bs_annual_financial_raw_operating_income",
-      "block_id": "bs_annual",
-      "anchor_label": "Operating Income",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.operating_income",
-      "value_shape": "annual_series",
-      "required": true,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave annual revenue blank and block render",
-      "promotion_requirement": "required",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B86:I86",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "operating_income"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "operating_income",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_base_ebitda_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B88:I88",
-      "shell_zone": "bs_annual_financial_raw_base_ebitda",
-      "block_id": "bs_annual",
-      "anchor_label": "EBITDA (base)",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.base_ebitda",
-      "value_shape": "annual_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave missing annual EBITDA blank and create manual review",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B88:I88",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "base_ebitda"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "base_ebitda",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_adjusted_ebitda_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B90:I90",
-      "shell_zone": "bs_annual_financial_raw_adjusted_ebitda",
-      "block_id": "bs_annual",
-      "anchor_label": "Adjusted EBITDA",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.adjusted_ebitda",
-      "value_shape": "annual_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave annual revenue blank and block render",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B90:I90",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "adjusted_ebitda"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "adjusted_ebitda",
-      "planning_state": "active",
-      "module_id": "non_gaap_adjustments"
-    },
-    {
-      "binding_id": "bs_annual_financial_net_income_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B92:I92",
-      "shell_zone": "bs_annual_financial_raw_net_income",
-      "block_id": "bs_annual",
-      "anchor_label": "Net Income",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.net_income",
-      "value_shape": "annual_series",
-      "required": true,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave annual revenue blank and block render",
-      "promotion_requirement": "required",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B92:I92",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "net_income"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "net_income",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_operating_cash_flow_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B94:I94",
-      "shell_zone": "bs_annual_financial_raw_operating_cash_flow",
-      "block_id": "bs_annual",
-      "anchor_label": "CFO",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.operating_cash_flow",
-      "value_shape": "annual_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave missing annual CFO blank and create manual review",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B94:I94",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "operating_cash_flow"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "operating_cash_flow",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_capital_expenditures_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B95:I95",
-      "shell_zone": "bs_annual_financial_raw_capital_expenditures",
-      "block_id": "bs_annual",
-      "anchor_label": "Capex",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.capital_expenditures",
-      "value_shape": "annual_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave missing annual Capex blank and create manual review",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B95:I95",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "capital_expenditures"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "capital_expenditures",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_shares_outstanding_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B98:I98",
-      "shell_zone": "bs_annual_financial_raw_shares_outstanding",
-      "block_id": "bs_annual",
-      "anchor_label": "Shares outstanding (year-end, m)",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.shares_outstanding",
-      "value_shape": "annual_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave blank and report missing point-in-time shares; do not substitute fiscal-Q4 weighted-average diluted shares",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B98:I98",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "shares_outstanding"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "shares_outstanding",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_eps_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B99:I99",
-      "shell_zone": "bs_annual_financial_raw_eps",
-      "block_id": "bs_annual",
-      "anchor_label": "Diluted EPS (GAAP)",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.eps",
-      "value_shape": "annual_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave blank unless annual GAAP diluted EPS or a source-backed annual weighted-average-share contract exists",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B99:I99",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "eps"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "eps",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_total_equity_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B100:I100",
-      "shell_zone": "bs_annual_financial_raw_total_equity",
-      "block_id": "bs_annual",
-      "anchor_label": "Total equity",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.total_equity",
-      "value_shape": "annual_series",
-      "required": true,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave annual revenue blank and block render",
-      "promotion_requirement": "required",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B100:I100",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "total_equity"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "total_equity",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_cash_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B102:I102",
-      "shell_zone": "bs_annual_financial_raw_cash",
-      "block_id": "bs_annual",
-      "anchor_label": "Cash",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.cash",
-      "value_shape": "annual_series",
-      "required": true,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave annual revenue blank and block render",
-      "promotion_requirement": "required",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B102:I102",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "cash"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "cash",
-      "planning_state": "active",
-      "module_id": "balance_cash_flow"
-    },
-    {
-      "binding_id": "bs_annual_financial_debt_core_series",
-      "sheet": "BS_Segments",
-      "section": "Annual financial history",
-      "target": "B103:I103",
-      "shell_zone": "bs_annual_financial_raw_debt_core",
-      "block_id": "bs_annual",
-      "anchor_label": "Debt (core borrowings)",
-      "row_family": "annual_financial_history",
-      "normalized_field": "annual_financials.rows.debt_core",
-      "value_shape": "annual_series",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "leave missing annual debt blank and create manual review",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "financial_history_mapping_gap",
-      "writable": true,
-      "planning_mode": "series",
-      "planner_target": "B103:I103",
-      "target_axis": "columns",
-      "target_type": "number",
-      "period_axis_id": "bs_annual_financial_periods",
-      "period_axis_role": "dependent",
-      "period_field": "period",
-      "row_selector": {
-        "source_path": "annual_financials.rows",
-        "window": "latest_capacity"
-      },
-      "row_key": [
-        "period"
-      ],
-      "sort_order": [
-        "period:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "debt_core"
-      ],
-      "target_columns": [],
-      "source_ref_required": true,
-      "source_field": "debt_core",
-      "planning_state": "active",
-      "module_id": "debt_liquidity"
-    },
-    {
       "binding_id": "bs_segment_quarterly_rows",
       "sheet": "BS_Segments",
       "section": "Quarterly segments",
@@ -1609,7 +977,15 @@
         "display_order",
         "period",
         "metric",
-        "revenue"
+        "revenue",
+        "unit",
+        "source_unit",
+        "source_scale",
+        "source_table_scope",
+        "source_table_id",
+        "source_row_ref",
+        "source_ref",
+        "aggregation_role"
       ],
       "target_columns": [],
       "dimension_field": "dimension",
@@ -1701,7 +1077,15 @@
         "display_order",
         "period",
         "metric",
-        "annual_revenue"
+        "annual_revenue",
+        "unit",
+        "source_unit",
+        "source_scale",
+        "source_table_scope",
+        "source_table_id",
+        "source_row_ref",
+        "source_ref",
+        "aggregation_role"
       ],
       "target_columns": [],
       "dimension_field": "dimension",
@@ -8580,7 +7964,7 @@
     {
       "binding_id": "bs_annual_period_headers",
       "sheet": "BS_Segments",
-      "section": "Annual financial history",
+      "section": "Annual segments",
       "target": "B70:I70",
       "shell_zone": "bs_annual_period_values",
       "block_id": "bs_annual",
@@ -8622,12 +8006,12 @@
       "source_field": "period",
       "source_ref_field": "revenue",
       "planning_state": "active",
-      "module_id": "balance_cash_flow"
+      "module_id": "segments_dimensions"
     },
     {
       "binding_id": "bs_annual_revenue_series",
       "sheet": "BS_Segments",
-      "section": "Annual financial history",
+      "section": "Annual segments",
       "target": "B71:I71",
       "shell_zone": "bs_annual_period_values",
       "block_id": "bs_annual",
@@ -8667,7 +8051,7 @@
       "source_ref_required": true,
       "source_field": "revenue",
       "planning_state": "active",
-      "module_id": "balance_cash_flow"
+      "module_id": "segments_dimensions"
     },
     {
       "binding_id": "valuation_input_as_of",
@@ -9108,11 +8492,68 @@
     {
       "section": "annual_financials",
       "field": "free_cash_flow",
-      "disposition": "formula_owned",
-      "reason": "Annual FCF is calculated generically as source-backed annual CFO less source-backed annual capex.",
-      "formula_ids": [
-        "annual_free_cash_flow"
-      ]
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual audit evidence after the duplicate visible annual-financial block was retired from BS_Segments."
+    },
+    {
+      "section": "annual_financials",
+      "field": "gross_profit",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual audit evidence; annual financial presentation remains in Valuation and external parity detail."
+    },
+    {
+      "section": "annual_financials",
+      "field": "operating_income",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual audit evidence; the duplicate BS_Segments annual-financial presentation was retired."
+    },
+    {
+      "section": "annual_financials",
+      "field": "base_ebitda",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual audit evidence; no replacement workbook support surface is introduced in this pass."
+    },
+    {
+      "section": "annual_financials",
+      "field": "adjusted_ebitda",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual audit evidence without substituting base EBITDA or recreating the retired visible block."
+    },
+    {
+      "section": "annual_financials",
+      "field": "net_income",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual audit evidence; annual financial presentation remains outside BS_Segments."
+    },
+    {
+      "section": "annual_financials",
+      "field": "operating_cash_flow",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual audit evidence; cash-flow history is not duplicated on the segment product surface."
+    },
+    {
+      "section": "annual_financials",
+      "field": "capital_expenditures",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual audit evidence; capex history is not duplicated on the segment product surface."
+    },
+    {
+      "section": "annual_financials",
+      "field": "total_equity",
+      "disposition": "audit_only",
+      "reason": "Retained as a source-backed fiscal-year endpoint; quarterly balance-sheet history remains the visible product presentation."
+    },
+    {
+      "section": "annual_financials",
+      "field": "cash",
+      "disposition": "audit_only",
+      "reason": "Retained as a source-backed fiscal-year endpoint; quarterly balance-sheet and Valuation history remain the visible presentation."
+    },
+    {
+      "section": "annual_financials",
+      "field": "debt_core",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual audit evidence without restoring unsupported debt zeros or a duplicate visible annual row."
     },
     {
       "section": "annual_financials",
@@ -9137,6 +8578,18 @@
       "field": "q4_diluted_shares",
       "disposition": "audit_only",
       "reason": "Fiscal-Q4 weighted-average diluted shares are not a valid annual EPS or book-value denominator."
+    },
+    {
+      "section": "annual_financials",
+      "field": "shares_outstanding",
+      "disposition": "audit_only",
+      "reason": "Retained as a source-backed fiscal-year endpoint; no duplicate annual share-count row remains on BS_Segments."
+    },
+    {
+      "section": "annual_financials",
+      "field": "eps",
+      "disposition": "audit_only",
+      "reason": "Retained as source-backed annual per-share audit evidence; annual financial presentation remains outside BS_Segments."
     },
     {
       "section": "annual_financials",
@@ -9375,6 +8828,6 @@
       ]
     }
   ],
-  "module_manifest_signature": "c70d0e759188247e610418f7af832382ca9365f89db74924b0bea2d70197c9c9",
+  "module_manifest_signature": "4546285ef17cd5a0b2a5913cbee01549227e6e57339eca458c5c64616d181537",
   "module_profile_signature": "e792faf8030f6035e44d1ba547cb5e44a7f269f5b4beb088814196bf01567f8b"
 }

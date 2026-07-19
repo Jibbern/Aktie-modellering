@@ -17,6 +17,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Optional, Sequence
 
+import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter, range_boundaries
 
@@ -44,6 +45,15 @@ from pbi_xbrl.new_ticker_binding_planner import (  # noqa: E402
     reproduce_binding_plan,
 )
 from pbi_xbrl.valuation_scenario_economics import canonicalize_scenario_contract  # noqa: E402
+from pbi_xbrl.segment_normalization import (  # noqa: E402
+    SegmentNormalizationError,
+    SegmentSourceFact,
+    canonicalize_segment_source_facts,
+    canonical_segment_business_identity,
+    canonical_segment_period_type,
+    normalize_segment_currency_to_millions,
+    segment_aggregation_role,
+)
 
 
 REQUIRED_SECTIONS = [
@@ -2757,6 +2767,14 @@ def _legacy_bs_segment_items(workbook_path: Path) -> list[dict[str, Any]]:
                             "metric": "revenue",
                             "period": period,
                             "period_type": period_type,
+                            "unit": "$m",
+                            "source_unit": "$m",
+                            "source_scale": "millions",
+                            "source_table_scope": period_type,
+                            "source_table_id": f"{workbook_path.name}:BS_Segments:{period_type}",
+                            "source_row_ref": f"BS_Segments!{ws.cell(row_number, column).coordinate}",
+                            "source_ref": source_ref,
+                            "aggregation_role": segment_aggregation_role(dimension, member),
                             "source": "legacy_visible_segment_oracle",
                             "note": _missing(
                                 "The legacy visible segment matrix contains a numeric fact without a separate narrative note.",
@@ -2779,9 +2797,212 @@ def _legacy_bs_segment_items(workbook_path: Path) -> list[dict[str, Any]]:
         wb.close()
 
 
+def _table_text(value: Any) -> str:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    return re.sub(r"\s+", " ", str(value)).strip()
+
+
+def _find_anf_segment_table(path: Path, *, scope_label: str, scale_label: str) -> tuple[int, Any]:
+    for table_index, table in enumerate(pd.read_html(path)):
+        text = " ".join(_table_text(value) for value in table.to_numpy().ravel())
+        if scope_label in text and scale_label in text and "Net sales by" in text:
+            return table_index, table
+    raise SegmentNormalizationError(
+        f"Could not locate {scope_label!r} {scale_label!r} segment table in {path}."
+    )
+
+
+def _table_scope_start(table: Any, scope_label: str) -> int:
+    columns = [
+        column
+        for row in range(table.shape[0])
+        for column in range(table.shape[1])
+        if _table_text(table.iat[row, column]) == scope_label
+    ]
+    if not columns:
+        raise SegmentNormalizationError(f"Table has no {scope_label!r} scope columns.")
+    return min(columns)
+
+
+def _table_section_rows(table: Any, section_label: str, stop_label: str | None = None) -> list[int]:
+    section_row = next(
+        (
+            row
+            for row in range(table.shape[0])
+            if _table_text(table.iat[row, 0]).lower().startswith(section_label.lower())
+        ),
+        None,
+    )
+    if section_row is None:
+        raise SegmentNormalizationError(f"Table has no {section_label!r} section.")
+    stop_row = table.shape[0]
+    if stop_label:
+        stop_row = next(
+            (
+                row
+                for row in range(section_row + 1, table.shape[0])
+                if _table_text(table.iat[row, 0]).lower().startswith(stop_label.lower())
+            ),
+            table.shape[0],
+        )
+    return list(range(section_row + 1, stop_row))
+
+
+def _table_member_row(table: Any, rows: Sequence[int], member_label: str) -> int:
+    matches = [
+        row
+        for row in rows
+        if _table_text(table.iat[row, 0]).lower().startswith(member_label.lower())
+    ]
+    if len(matches) != 1:
+        raise SegmentNormalizationError(
+            f"Expected one {member_label!r} row in source table, found {len(matches)}."
+        )
+    return matches[0]
+
+
+def _table_numeric_value(table: Any, row: int, first_column: int) -> float:
+    values: list[float] = []
+    for value in table.iloc[row, first_column:].tolist():
+        if isinstance(value, bool) or pd.isna(value):
+            continue
+        try:
+            values.append(float(value))
+        except (TypeError, ValueError):
+            continue
+    if not values:
+        raise SegmentNormalizationError(f"Source table row {row} has no numeric value from column {first_column}.")
+    return values[0]
+
+
+def _anf_authoritative_segment_source_facts(data_root: Path) -> list[SegmentSourceFact]:
+    source_root = data_root / "tickers" / "ANF" / "earnings_release"
+    q4_path = source_root / "8-K_2024-03-07_earnings_release.htm"
+    fy_path = source_root / "8-K_2019-03-07_earnings_release.htm"
+    if not q4_path.exists() or not fy_path.exists():
+        missing = [str(path) for path in (q4_path, fy_path) if not path.exists()]
+        raise SegmentNormalizationError(f"Missing authoritative ANF segment source table(s): {missing!r}.")
+
+    facts: list[SegmentSourceFact] = []
+    q4_table_index, q4_table = _find_anf_segment_table(
+        q4_path,
+        scope_label="Fourth Quarter",
+        scale_label="(in thousands)",
+    )
+    q4_start = _table_scope_start(q4_table, "Fourth Quarter")
+    q4_sections = (
+        (
+            "Net sales by segment",
+            "Net sales by brand",
+            (
+                ("Americas", "Americas", "geography"),
+                ("EMEA", "EMEA", "geography"),
+                ("APAC", "APAC", "geography"),
+                ("Total company", "Total Company", "total_company"),
+            ),
+        ),
+        (
+            "Net sales by brand",
+            None,
+            (
+                ("Hollister", "Hollister", "brand"),
+                ("Abercrombie", "Abercrombie", "brand"),
+            ),
+        ),
+    )
+    for section_label, stop_label, members in q4_sections:
+        section_rows = _table_section_rows(q4_table, section_label, stop_label)
+        for source_label, member, dimension in members:
+            row = _table_member_row(q4_table, section_rows, source_label)
+            row_ref = f"table[{q4_table_index}]!row[{row}]"
+            facts.append(
+                SegmentSourceFact(
+                    metric="revenue",
+                    value=_table_numeric_value(q4_table, row, q4_start),
+                    source_unit="USD",
+                    source_scale="thousands",
+                    period_type="quarterly",
+                    period="2023-Q4",
+                    dimension=dimension,
+                    member=member,
+                    source_table_scope="quarterly",
+                    source_table_id=f"{q4_path.name}:table[{q4_table_index}]:fourth_quarter",
+                    source_row_ref=row_ref,
+                    source_ref=f"{q4_path}!{row_ref}",
+                )
+            )
+
+    fy_table_index, fy_table = _find_anf_segment_table(
+        fy_path,
+        scope_label="Full Year",
+        scale_label="(in millions)",
+    )
+    fy_start = _table_scope_start(fy_table, "Full Year")
+    fy_rows = _table_section_rows(fy_table, "Net sales by brand", "Net sales by region")
+    for source_label, member, dimension in (
+        ("Total company", "Total Company", "total_company"),
+        ("Hollister", "Hollister", "brand"),
+        ("Abercrombie", "Abercrombie", "brand"),
+    ):
+        row = _table_member_row(fy_table, fy_rows, source_label)
+        row_ref = f"table[{fy_table_index}]!row[{row}]"
+        facts.append(
+            SegmentSourceFact(
+                metric="revenue",
+                value=_table_numeric_value(fy_table, row, fy_start),
+                source_unit="USD",
+                source_scale="millions",
+                period_type="annual",
+                period="2018-FY",
+                dimension=dimension,
+                member=member,
+                source_table_scope="annual",
+                source_table_id=f"{fy_path.name}:table[{fy_table_index}]:full_year",
+                source_row_ref=row_ref,
+                source_ref=f"{fy_path}!{row_ref}",
+            )
+        )
+    return list(canonicalize_segment_source_facts(facts))
+
+
+def _normalized_segment_revenue_item(
+    fact: SegmentSourceFact,
+    *,
+    display_order: int,
+) -> dict[str, Any]:
+    value = fact.normalized_value
+    item: dict[str, Any] = {
+        "dimension": fact.dimension,
+        "member": fact.member,
+        "display_order": display_order,
+        "segment": _field(fact.member, source_ref=fact.source_ref, core=True),
+        "metric": fact.metric,
+        "period": fact.period,
+        **fact.metadata(),
+        "source": "authoritative_source_table",
+        "note": _missing(
+            "The source table provides a numeric segment fact without a separate narrative note.",
+            source_ref=fact.source_ref,
+        ),
+        "revenue": _field(
+            value,
+            source_ref=fact.source_ref,
+            core=True,
+            unit="$m",
+            period=fact.period,
+            definition="Revenue for the stated segment dimension, member, and fiscal period.",
+        ),
+    }
+    if canonical_segment_period_type(fact.period_type) == "annual":
+        item["annual_revenue"] = dict(item["revenue"])
+    return item
+
+
 def _build_segments(
     segment_rows: Sequence[Mapping[str, Any]],
     history_rows: Sequence[Mapping[str, Any]],
+    data_root: Path,
     workbook_path: Path,
     demotions: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -2800,16 +3021,44 @@ def _build_segments(
         for row in segment_rows
         if _is_present(row.get("segment")) and _is_present(row.get("metric")) and _is_present(row.get("value"))
     ]
-    rows.sort(key=lambda row: (_to_iso(row.get("quarter")), str(row.get("period_type")), str(row.get("segment")), str(row.get("metric"))))
+    rows.sort(
+        key=lambda row: (
+            _to_iso(row.get("quarter")),
+            str(row.get("period_type")),
+            str(row.get("segment")),
+            str(row.get("metric")),
+            str(row.get("source_doc") or row.get("doc") or row.get("source") or ""),
+            str(row.get("value") or ""),
+        )
+    )
     items: list[dict[str, Any]] = list(legacy_items)
+    fixed_display_order = {
+        ("geography", "Americas"): 1,
+        ("geography", "EMEA"): 2,
+        ("geography", "APAC"): 3,
+        ("total_company", "Total Company"): 1,
+        ("brand", "Hollister"): 1,
+        ("brand", "Abercrombie"): 2,
+    }
     seen_business_keys = {
-        (str(item["dimension"]), str(item["member"]), str(item["period"]), str(item["metric"]))
+        canonical_segment_business_identity(item)
         for item in items
     }
+    raw_revenue_keys: set[tuple[str, str, str, str, str]] = set()
     for row in rows:
         metric = str(row.get("metric") or "")
         source_ref = str(row.get("source_doc") or row.get("doc") or _source_ref("Slides_Segments", row, workbook_path=workbook_path))
-        value = _to_millions(row.get("value")) if str(row.get("unit") or "").lower() in {"usd", "$", "$m"} else row.get("value")
+        source_unit = str(row.get("unit") or "").strip()
+        source_scale = "millions" if source_unit.lower() in {"$m", "usdm"} else "ones" if source_unit.lower() in {"usd", "$"} else "not_applicable"
+        value = (
+            normalize_segment_currency_to_millions(
+                row.get("value"),
+                source_unit=source_unit,
+                source_scale=source_scale,
+            )
+            if metric == "revenue"
+            else row.get("value")
+        )
         note = _visible_text_or_blank(
             _clean_text(row.get("note") or row.get("commentary"), limit=220),
             field=f"segments.items.{len(items)}.note",
@@ -2818,16 +3067,29 @@ def _build_segments(
             demotions=demotions,
         )
         member = str(row.get("segment") or "").strip()
-        period_type = str(row.get("period_type") or "quarterly").strip().lower()
-        if period_type not in {"quarterly", "annual"}:
-            period_type = "quarterly"
+        period_type = canonical_segment_period_type(row.get("period_type") or "quarterly")
         source_period_end = _to_iso(row.get("quarter"))
         fiscal_label, fiscal_year = fiscal_periods.get(source_period_end, ("", None))
         normalized_period = f"{fiscal_year}-FY" if period_type == "annual" and fiscal_year not in (None, "") else fiscal_label
         if not normalized_period:
             normalized_period = _normalize_period(row.get("quarter"), period_type=period_type)
         dimension = _segment_dimension(member)
-        business_key = (dimension, member, normalized_period, metric)
+        source_row_ref = _source_ref("Slides_Segments", row, workbook_path=workbook_path)
+        business_key = canonical_segment_business_identity(
+            {
+                "dimension": dimension,
+                "member": member,
+                "period": normalized_period,
+                "period_type": period_type,
+                "metric": metric,
+            }
+        )
+        if metric == "revenue" and business_key in raw_revenue_keys:
+            raise SegmentNormalizationError(
+                f"Duplicate canonical segment revenue identity {business_key!r}; source row {source_row_ref}."
+            )
+        if metric == "revenue":
+            raw_revenue_keys.add(business_key)
         if business_key in seen_business_keys:
             continue
         item = {
@@ -2838,10 +3100,18 @@ def _build_segments(
             "metric": metric,
             "period": normalized_period,
             "period_type": period_type,
+            "unit": "$m" if metric == "revenue" else source_unit,
+            "source_unit": source_unit,
+            "source_scale": source_scale,
+            "source_table_scope": period_type,
+            "source_table_id": f"{Path(source_ref).name}:{str(row.get('source_type') or row.get('source') or 'legacy_adapter')}",
+            "source_row_ref": source_row_ref,
+            "source_ref": source_ref,
+            "aggregation_role": segment_aggregation_role(dimension, member),
             "source": str(row.get("source") or row.get("source_type") or ""),
             "note": _field(note, source_ref=source_ref) if note else _missing("No concise source-backed segment note survived visible-text quality filtering.", source_ref=source_ref),
         }
-        if metric == "revenue" and str(row.get("period_type")) == "annual":
+        if metric == "revenue" and period_type == "annual":
             item["annual_revenue"] = _field(value, source_ref=source_ref, core=True, unit="$m", period=normalized_period)
             item["revenue"] = _field(value, source_ref=source_ref, unit="$m", period=normalized_period)
         elif metric == "revenue":
@@ -2854,6 +3124,23 @@ def _build_segments(
             item["metric_value"] = _field(value, source_ref=source_ref, unit=str(row.get("unit") or ""))
         items.append(item)
         seen_business_keys.add(business_key)
+
+    item_positions = {
+        canonical_segment_business_identity(item): index
+        for index, item in enumerate(items)
+    }
+    for fact in _anf_authoritative_segment_source_facts(data_root):
+        item = _normalized_segment_revenue_item(
+            fact,
+            display_order=fixed_display_order[(fact.dimension, fact.member)],
+        )
+        position = item_positions.get(fact.business_identity)
+        if position is None:
+            position = len(items)
+            item_positions[fact.business_identity] = position
+            items.append(item)
+        else:
+            items[position] = item
     items.sort(key=lambda item: (str(item.get("period_type")), str(item.get("period")), int(item.get("display_order") or 999), str(item.get("dimension")), str(item.get("member"))))
     return {"items": items}
 
@@ -3808,6 +4095,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
     segment_items = _build_segments(
         segment_rows,
         history_rows,
+        data_root,
         workbook_path,
         text_quality_demotions,
     )["items"]

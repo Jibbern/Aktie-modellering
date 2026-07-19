@@ -32,7 +32,7 @@ from pbi_xbrl.valuation_scenario_economics import (
 )
 
 
-FORMULA_CONTRACT_VERSION = "1.9.1"
+FORMULA_CONTRACT_VERSION = "2.0.0"
 ROOT = Path(__file__).resolve().parents[1]
 HIDDEN_VALUE_SIGNAL_CONTRACT = ROOT / "docs" / "hidden_value_signal_contract.json"
 HIDDEN_VALUE_DETAIL_FIRST_ROW = 2
@@ -44,8 +44,6 @@ INVESTMENT_CASE_SCENARIO_OWNED_RANGES = (
 )
 FIRST_QUARTER_COLUMN = 2
 LAST_QUARTER_COLUMN = 13
-FIRST_ANNUAL_COLUMN = 2
-LAST_ANNUAL_COLUMN = 9
 CALCULATION_HISTORY_FIRST_ROW = 2
 CALCULATION_HISTORY_LAST_ROW = 1000
 CALCULATION_HISTORY_COLUMNS = {
@@ -210,34 +208,6 @@ BS_RAW_ROWS = {
     "diluted_shares": 49,
 }
 
-ANNUAL_RAW_ROWS = {
-    "revenue": 83,
-    "gross_profit": 84,
-    "operating_income": 86,
-    "base_ebitda": 88,
-    "adjusted_ebitda": 90,
-    "net_income": 92,
-    "operating_cash_flow": 94,
-    "capital_expenditures": 95,
-    "shares_outstanding": 98,
-    "eps": 99,
-    "total_equity": 100,
-    "cash": 102,
-    "debt_core": 103,
-}
-
-ANNUAL_FORMULA_ROWS = (
-    FormulaRow("annual_gross_margin", "BS_Segments", 85, "0.0%;[Red]-0.0%", "Annual gross margin."),
-    FormulaRow("annual_operating_margin", "BS_Segments", 87, "0.0%;[Red]-0.0%", "Annual operating margin."),
-    FormulaRow("annual_ebitda_margin", "BS_Segments", 89, "0.0%;[Red]-0.0%", "Annual base EBITDA margin."),
-    FormulaRow("annual_adjusted_ebitda_margin", "BS_Segments", 91, "0.0%;[Red]-0.0%", "Annual adjusted EBITDA margin."),
-    FormulaRow("annual_net_margin", "BS_Segments", 93, "0.0%;[Red]-0.0%", "Annual net margin."),
-    FormulaRow("annual_free_cash_flow", "BS_Segments", 96, "#,##0.0;[Red]-#,##0.0", "Annual CFO less capex."),
-    FormulaRow("annual_free_cash_flow_margin", "BS_Segments", 97, "0.0%;[Red]-0.0%", "Annual free-cash-flow margin."),
-    FormulaRow("annual_book_value_per_share", "BS_Segments", 101, "$0.00;[Red]-$0.00", "Annual total equity divided by point-in-time year-end shares outstanding."),
-    FormulaRow("annual_net_debt", "BS_Segments", 104, "#,##0.0;[Red]-#,##0.0", "Annual core debt less cash."),
-)
-
 BS_QUARTERLY_FORMULA_ROWS = (
     FormulaRow("bs_cash_including_restricted", "BS_Segments", 11, "#,##0.0;[Red]-#,##0.0", "Cash plus restricted cash."),
     FormulaRow("bs_cash_qoq", "BS_Segments", 12, "#,##0.0;[Red]-#,##0.0", "Quarter-over-quarter cash change."),
@@ -330,10 +300,6 @@ def formula_target_contracts() -> tuple[FormulaTargetContract, ...]:
     contracts.extend(
         FormulaTargetContract(row.formula_id, row.sheet, (f"B{row.row}:M{row.row}",))
         for row in BS_QUARTERLY_FORMULA_ROWS
-    )
-    contracts.extend(
-        FormulaTargetContract(row.formula_id, row.sheet, (f"B{row.row}:I{row.row}",))
-        for row in ANNUAL_FORMULA_ROWS
     )
     contracts.extend(
         (
@@ -719,7 +685,6 @@ def apply_standard_formula_contracts(
     _apply_hidden_formula_helpers(valuation)
     _apply_valuation_quarterly_formulas(valuation, enabled)
     _apply_balance_sheet_formulas(bs, enabled)
-    _apply_annual_financial_block(bs, enabled)
     _apply_valuation_input_outputs(valuation, enabled)
     _apply_valuation_sidecar_outputs(valuation, enabled)
     if "{ticker}_Investment_Case" in workbook.sheetnames:
@@ -1086,73 +1051,6 @@ def _apply_balance_sheet_formulas(ws: Any, enabled_formula_ids: set[str]) -> Non
                 continue
             number_format = "0.0%;[Red]-0.0%" if row in {26, 38, 39, 51, 52, 53, 56} else "#,##0.0;[Red]-#,##0.0"
             _set_formula(ws.cell(row, column), formula, number_format)
-
-
-def _apply_annual_financial_block(ws: Any, enabled_formula_ids: set[str]) -> None:
-    """Create a ticker-neutral annual history block below annual segments."""
-
-    if "A81:I81" not in {str(item) for item in ws.merged_cells.ranges}:
-        ws.merge_cells("A81:I81")
-    for column in range(1, LAST_ANNUAL_COLUMN + 1):
-        ws.cell(81, column)._style = copy(ws.cell(69, min(column, 9))._style)
-        ws.cell(82, column)._style = copy(ws.cell(70, min(column, 9))._style)
-        for row in range(83, 105):
-            ws.cell(row, column)._style = copy(ws.cell(71, min(column, 9))._style)
-    ws["A81"] = "Annual financial history"
-    ws["A82"] = "Fiscal year"
-    labels = {
-        83: "Revenue",
-        84: "Gross profit",
-        85: "Gross margin %",
-        86: "Operating income",
-        87: "Operating margin %",
-        88: "EBITDA (base)",
-        89: "EBITDA margin %",
-        90: "Adjusted EBITDA",
-        91: "Adjusted EBITDA margin %",
-        92: "Net income",
-        93: "Net margin %",
-        94: "CFO",
-        95: "Capex",
-        96: "FCF (CFO - Capex)",
-        97: "FCF margin %",
-        98: "Shares outstanding (year-end, m)",
-        99: "Diluted EPS (GAAP)",
-        100: "Total equity",
-        101: "Book value/share",
-        102: "Cash",
-        103: "Debt (core borrowings)",
-        104: "Net debt",
-    }
-    for row, label in labels.items():
-        ws.cell(row, 1).value = label
-
-    for column in range(FIRST_ANNUAL_COLUMN, LAST_ANNUAL_COLUMN + 1):
-        col = get_column_letter(column)
-        header = ws.cell(82, column)
-        header.value = None
-        header.protection = Protection(locked=True)
-        for row in ANNUAL_RAW_ROWS.values():
-            cell = ws.cell(row, column)
-            cell.value = None
-            cell.protection = Protection(locked=True)
-            cell.number_format = "$0.00;[Red]-$0.00" if row == 99 else "#,##0.0;[Red]-#,##0.0"
-        formulas = {
-            85: _ratio(f"{col}84", f"{col}83"),
-            87: _ratio(f"{col}86", f"{col}83"),
-            89: _ratio(f"{col}88", f"{col}83"),
-            91: _ratio(f"{col}90", f"{col}83"),
-            93: _ratio(f"{col}92", f"{col}83"),
-            96: _difference(f"{col}94", f"{col}95"),
-            97: _ratio(f"{col}96", f"{col}83"),
-            101: _ratio(f"{col}100", f"{col}98"),
-            104: _difference(f"{col}103", f"{col}102"),
-        }
-        formats = {contract.row: contract.number_format for contract in ANNUAL_FORMULA_ROWS}
-        formula_ids_by_row = {contract.row: contract.formula_id for contract in ANNUAL_FORMULA_ROWS}
-        for row, formula in formulas.items():
-            if formula_ids_by_row[row] in enabled_formula_ids:
-                _set_formula(ws.cell(row, column), formula, formats[row])
 
 
 def _apply_valuation_input_outputs(ws: Any, enabled_formula_ids: set[str]) -> None:

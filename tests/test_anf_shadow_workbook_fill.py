@@ -174,7 +174,7 @@ def test_anf_shadow_fill_uses_reproduced_plan_and_strict_post_fill_validation(
     assert postfill["status"] == "PASS"
     assert postfill["strict_post_fill_validation"]["status"] == "PASS"
     assert postfill["strict_post_fill_validation"]["issue_count"] == 0
-    assert shell_report["shell_identity"]["reproduced_style_action_count"] == 830
+    assert shell_report["shell_identity"]["reproduced_style_action_count"] == 714
     assert postfill["approved_plan_status"] == "PASS"
     assert postfill["approved_plan_write_count"] == plan["planned_write_count"]
     assert postfill["layout_signature_unchanged"] is True
@@ -192,7 +192,7 @@ def test_anf_shadow_fill_uses_reproduced_plan_and_strict_post_fill_validation(
     assert business_bindings.count("valuation_period_headers") == 12
     assert business_bindings.count("valuation_revenue_series") == 12
     assert business_bindings.count("valuation_net_income_series") == 12
-    assert business_bindings.count("bs_annual_financial_period_headers") == 8
+    assert "bs_annual_financial_period_headers" not in business_bindings
     assert business_bindings.count("bs_annual_revenue_series") == 8
     by_target = {
         f"{write['target_sheet']}!{write['target_cell']}": write["value"]

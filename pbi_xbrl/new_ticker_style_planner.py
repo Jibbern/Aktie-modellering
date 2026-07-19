@@ -20,6 +20,7 @@ from openpyxl.utils.cell import range_boundaries
 
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 from pbi_xbrl.new_ticker_binding_planner import BindingPlan, reproduce_binding_plan
+from pbi_xbrl.segment_normalization import canonical_segment_dimension_member
 from pbi_xbrl.standard_template_formula_contract import formula_target_contracts
 from pbi_xbrl.workbook_modules import (
     binding_owners,
@@ -235,15 +236,6 @@ FORMULA_ECONOMIC_SPECS: dict[str, FormulaEconomicSpec] = {
     "bs_core_net_cash": _spec("linear", ["source:cash", "source:marketable_securities", "source:debt_core"], "$m", signs=[1, 1, -1]),
     "bs_total_lease_liabilities": _spec("sum", ["source:lease_liabilities_current", "source:lease_liabilities_noncurrent"], "$m"),
     "bs_diluted_shares_yoy": _spec("period_ratio", ["source:diluted_shares"], "%", lag=4),
-    "annual_gross_margin": _spec("ratio", ["source:gross_profit", "source:revenue"], "%", period_type="fiscal_year"),
-    "annual_operating_margin": _spec("ratio", ["source:operating_income", "source:revenue"], "%", period_type="fiscal_year"),
-    "annual_ebitda_margin": _spec("ratio", ["source:base_ebitda", "source:revenue"], "%", period_type="fiscal_year"),
-    "annual_adjusted_ebitda_margin": _spec("ratio", ["source:adjusted_ebitda", "source:revenue"], "%", period_type="fiscal_year"),
-    "annual_net_margin": _spec("ratio", ["source:net_income", "source:revenue"], "%", period_type="fiscal_year"),
-    "annual_free_cash_flow": _spec("linear", ["source:operating_cash_flow", "source:capital_expenditures"], "$m", period_type="fiscal_year", signs=[1, -1]),
-    "annual_free_cash_flow_margin": _spec("ratio", ["formula:annual_free_cash_flow", "source:revenue"], "%", period_type="fiscal_year"),
-    "annual_book_value_per_share": _spec("ratio", ["source:total_equity", "source:shares_outstanding"], "$/share", period_type="fiscal_year"),
-    "annual_net_debt": _spec("linear", ["source:debt_core", "source:cash"], "$m", period_type="fiscal_year", signs=[1, -1]),
 }
 
 
@@ -1264,8 +1256,9 @@ def _build_histories(
         period_type = "quarter" if _period_matches(period, "quarter") else "fiscal_year" if _period_matches(period, "fiscal_year") else ""
         if not period_type:
             continue
-        dimension = str(row.get("dimension") or "")
-        member = str(row.get("member") or ((row.get("segment") or {}).get("value") if isinstance(row.get("segment"), Mapping) else "") or "")
+        raw_dimension = str(row.get("dimension") or "")
+        raw_member = str(row.get("member") or ((row.get("segment") or {}).get("value") if isinstance(row.get("segment"), Mapping) else "") or "")
+        dimension, member = canonical_segment_dimension_member(raw_dimension, raw_member)
         metric = str(row.get("metric") or "revenue")
         series_key = f"{dimension}|{member}|{metric}"
         for field_name in ("revenue", "annual_revenue", "metric_value"):

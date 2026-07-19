@@ -129,17 +129,24 @@ def test_profiles_are_explicit_dependency_closed_and_pack_declarative() -> None:
     assert any("without dependencies" in issue for issue in validate_workbook_module_manifest(broken))
 
 
-def test_non_gaap_shared_block_requires_balance_sheet_owner_dependency() -> None:
+def test_generic_shared_block_requires_sheet_owner_dependency() -> None:
     broken = deepcopy(_payload())
     non_gaap = next(row for row in broken["modules"] if row["module_id"] == "non_gaap_adjustments")
     non_gaap["dependencies"].remove("balance_cash_flow")
+    non_gaap["visible_blocks"].append(
+        {
+            "block_id": "synthetic_shared_balance_sheet_block",
+            "sheet": "BS_Segments",
+            "target": "A79:I80",
+        }
+    )
     core_only = next(row for row in broken["profiles"] if row["profile_id"] == "core_only")
     core_only["enabled_modules"] = ["core_financial_history", "non_gaap_adjustments", "qa_lineage"]
 
     issues = validate_workbook_module_manifest(broken)
 
     assert any(
-        "Module 'non_gaap_adjustments' owns visible block 'annual_adjusted_ebitda' on sheet "
+        "Module 'non_gaap_adjustments' owns visible block 'synthetic_shared_balance_sheet_block' on sheet "
         "'BS_Segments', owned by 'balance_cash_flow', without a direct or transitive dependency."
         in issue
         for issue in issues

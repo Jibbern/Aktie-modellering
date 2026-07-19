@@ -1,6 +1,6 @@
 # Standard Template Defined-Name Audit
 
-- Retained names: `253`
+- Retained names: `239`
 - Target mismatches: `0`
 - Company-specific names/constants: `0`
 - Removed constant: `ThesisBaseAdjEBITDA_FY=815.59`
@@ -109,20 +109,6 @@
 | `bs_accounts_payable_series` | `active_binding_anchor` | `'BS_Segments'!$B$28` | True |
 | `bs_accounts_receivable_series` | `active_binding_anchor` | `'BS_Segments'!$B$14` | True |
 | `bs_accrued_liabilities_series` | `active_binding_anchor` | `'BS_Segments'!$B$29` | True |
-| `bs_annual_financial_adjusted_ebitda_series` | `active_binding_anchor` | `'BS_Segments'!$B$90` | True |
-| `bs_annual_financial_base_ebitda_series` | `active_binding_anchor` | `'BS_Segments'!$B$88` | True |
-| `bs_annual_financial_capital_expenditures_series` | `active_binding_anchor` | `'BS_Segments'!$B$95` | True |
-| `bs_annual_financial_cash_series` | `active_binding_anchor` | `'BS_Segments'!$B$102` | True |
-| `bs_annual_financial_debt_core_series` | `active_binding_anchor` | `'BS_Segments'!$B$103` | True |
-| `bs_annual_financial_eps_series` | `active_binding_anchor` | `'BS_Segments'!$B$99` | True |
-| `bs_annual_financial_gross_profit_series` | `active_binding_anchor` | `'BS_Segments'!$B$84` | True |
-| `bs_annual_financial_net_income_series` | `active_binding_anchor` | `'BS_Segments'!$B$92` | True |
-| `bs_annual_financial_operating_cash_flow_series` | `active_binding_anchor` | `'BS_Segments'!$B$94` | True |
-| `bs_annual_financial_operating_income_series` | `active_binding_anchor` | `'BS_Segments'!$B$86` | True |
-| `bs_annual_financial_period_headers` | `active_binding_anchor` | `'BS_Segments'!$B$82` | True |
-| `bs_annual_financial_revenue_series` | `active_binding_anchor` | `'BS_Segments'!$B$83` | True |
-| `bs_annual_financial_shares_outstanding_series` | `active_binding_anchor` | `'BS_Segments'!$B$98` | True |
-| `bs_annual_financial_total_equity_series` | `active_binding_anchor` | `'BS_Segments'!$B$100` | True |
 | `bs_annual_period_headers` | `active_binding_anchor` | `'BS_Segments'!$B$70` | True |
 | `bs_annual_revenue_series` | `active_binding_anchor` | `'BS_Segments'!$B$71` | True |
 | `bs_cash_series` | `active_binding_anchor` | `'BS_Segments'!$B$9` | True |

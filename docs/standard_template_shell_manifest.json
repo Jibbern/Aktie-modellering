@@ -2711,188 +2711,6 @@
       ]
     },
     {
-      "contract_id": "bs_annual_financial_period_headers",
-      "sheet": "BS_Segments",
-      "target": "B82:I82",
-      "writable": true,
-      "target_role": "bs_annual_financial_period_headers",
-      "allowed_binding_ids": [
-        "bs_annual_financial_period_headers"
-      ],
-      "allowed_target_types": [
-        "period"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_revenue",
-      "sheet": "BS_Segments",
-      "target": "B83:I83",
-      "writable": true,
-      "target_role": "bs_annual_financial_revenue_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_revenue_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_gross_profit",
-      "sheet": "BS_Segments",
-      "target": "B84:I84",
-      "writable": true,
-      "target_role": "bs_annual_financial_gross_profit_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_gross_profit_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_operating_income",
-      "sheet": "BS_Segments",
-      "target": "B86:I86",
-      "writable": true,
-      "target_role": "bs_annual_financial_operating_income_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_operating_income_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_base_ebitda",
-      "sheet": "BS_Segments",
-      "target": "B88:I88",
-      "writable": true,
-      "target_role": "bs_annual_financial_base_ebitda_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_base_ebitda_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_adjusted_ebitda",
-      "sheet": "BS_Segments",
-      "target": "B90:I90",
-      "writable": true,
-      "target_role": "bs_annual_financial_adjusted_ebitda_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_adjusted_ebitda_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_net_income",
-      "sheet": "BS_Segments",
-      "target": "B92:I92",
-      "writable": true,
-      "target_role": "bs_annual_financial_net_income_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_net_income_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_operating_cash_flow",
-      "sheet": "BS_Segments",
-      "target": "B94:I94",
-      "writable": true,
-      "target_role": "bs_annual_financial_operating_cash_flow_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_operating_cash_flow_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_capital_expenditures",
-      "sheet": "BS_Segments",
-      "target": "B95:I95",
-      "writable": true,
-      "target_role": "bs_annual_financial_capital_expenditures_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_capital_expenditures_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_shares_outstanding",
-      "sheet": "BS_Segments",
-      "target": "B98:I98",
-      "writable": true,
-      "target_role": "bs_annual_financial_shares_outstanding_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_shares_outstanding_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_eps",
-      "sheet": "BS_Segments",
-      "target": "B99:I99",
-      "writable": true,
-      "target_role": "bs_annual_financial_eps_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_eps_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_total_equity",
-      "sheet": "BS_Segments",
-      "target": "B100:I100",
-      "writable": true,
-      "target_role": "bs_annual_financial_total_equity_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_total_equity_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_cash",
-      "sheet": "BS_Segments",
-      "target": "B102:I102",
-      "writable": true,
-      "target_role": "bs_annual_financial_cash_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_cash_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "bs_annual_financial_raw_debt_core",
-      "sheet": "BS_Segments",
-      "target": "B103:I103",
-      "writable": true,
-      "target_role": "bs_annual_financial_debt_core_series",
-      "allowed_binding_ids": [
-        "bs_annual_financial_debt_core_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
       "contract_id": "calculation_history_period",
       "sheet": "History_Q",
       "target": "A2:A1000",
@@ -5824,118 +5642,6 @@
           "value_shapes": [
             "quarterly_series"
           ]
-        },
-        {
-          "zone_id": "bs_annual_financial_period_headers",
-          "target": "B82:I82",
-          "anchor_label": "Fiscal year",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_revenue",
-          "target": "B83:I83",
-          "anchor_label": "Revenue",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_gross_profit",
-          "target": "B84:I84",
-          "anchor_label": "Gross Profit",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_operating_income",
-          "target": "B86:I86",
-          "anchor_label": "Operating Income",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_base_ebitda",
-          "target": "B88:I88",
-          "anchor_label": "EBITDA (base)",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_adjusted_ebitda",
-          "target": "B90:I90",
-          "anchor_label": "Adjusted EBITDA",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_net_income",
-          "target": "B92:I92",
-          "anchor_label": "Net Income",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_operating_cash_flow",
-          "target": "B94:I94",
-          "anchor_label": "CFO",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_capital_expenditures",
-          "target": "B95:I95",
-          "anchor_label": "Capex",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_shares_outstanding",
-          "target": "B98:I98",
-          "anchor_label": "Shares outstanding (year-end, m)",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_eps",
-          "target": "B99:I99",
-          "anchor_label": "Diluted EPS (GAAP)",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_total_equity",
-          "target": "B100:I100",
-          "anchor_label": "Total equity",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_cash",
-          "target": "B102:I102",
-          "anchor_label": "Cash",
-          "value_shapes": [
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "bs_annual_financial_raw_debt_core",
-          "target": "B103:I103",
-          "anchor_label": "Debt (core borrowings)",
-          "value_shapes": [
-            "annual_series"
-          ]
         }
       ],
       "non_writable_zones": [
@@ -5953,11 +5659,6 @@
           "zone_id": "bs_static_annual_headers",
           "target": "A68:A71",
           "reason": "Static annual segment section and metric labels."
-        },
-        {
-          "zone_id": "bs_static_labels_after_segments",
-          "target": "A79:A120",
-          "reason": "Static labels below the standard segment matrices."
         },
         {
           "zone_id": "bs_formula_row_11",
@@ -6028,60 +5729,6 @@
           "zone_id": "bs_formula_row_56",
           "target": "B56:I56",
           "reason": "Ticker-neutral protected formula row."
-        },
-        {
-          "zone_id": "bs_annual_formula_annual_gross_margin",
-          "target": "B85:I85",
-          "role": "formula_static",
-          "formula_owned": true
-        },
-        {
-          "zone_id": "bs_annual_formula_annual_operating_margin",
-          "target": "B87:I87",
-          "role": "formula_static",
-          "formula_owned": true
-        },
-        {
-          "zone_id": "bs_annual_formula_annual_ebitda_margin",
-          "target": "B89:I89",
-          "role": "formula_static",
-          "formula_owned": true
-        },
-        {
-          "zone_id": "bs_annual_formula_annual_adjusted_ebitda_margin",
-          "target": "B91:I91",
-          "role": "formula_static",
-          "formula_owned": true
-        },
-        {
-          "zone_id": "bs_annual_formula_annual_net_margin",
-          "target": "B93:I93",
-          "role": "formula_static",
-          "formula_owned": true
-        },
-        {
-          "zone_id": "bs_annual_formula_annual_free_cash_flow",
-          "target": "B96:I96",
-          "role": "formula_static",
-          "formula_owned": true
-        },
-        {
-          "zone_id": "bs_annual_formula_annual_free_cash_flow_margin",
-          "target": "B97:I97",
-          "role": "formula_static",
-          "formula_owned": true
-        },
-        {
-          "zone_id": "bs_annual_formula_annual_book_value_per_share",
-          "target": "B101:I101",
-          "role": "formula_static",
-          "formula_owned": true
-        },
-        {
-          "zone_id": "bs_annual_formula_annual_net_debt",
-          "target": "B104:I104",
-          "role": "formula_static",
-          "formula_owned": true
         }
       ],
       "formulas_static_labels": [
@@ -8293,31 +7940,31 @@
   "semantic_contract_version": "1.8.0",
   "shell_identity": {
     "semantic_contract_version": "1.8.0",
-    "workbook_sha256": "aa077767454e311406a1e70ea88852287ca6b810636731b827106e405ee783b7",
-    "manifest_contract_signature": "9255ff15f73c9a6f692c83eed4a61a4e900cecf5987be0d82fb4e8aff688dc68",
+    "workbook_sha256": "891eb549be24740e9bebf620b138f67f2c93a8c59b64d5d23f9b5b2c1149a405",
+    "manifest_contract_signature": "f386d64dcd4fac729f34ea38d77107af5769a82f095a4261e75a1f556990c62c",
     "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
     "sheet_view_signature": "05ae7b3677f3e327032c0dbbd0953f8c059c7d333d84c0fb7ed8662a9d00fd6c",
-    "merge_signature": "4ac1bc41152d136823fd8d1f6bdeda8970f8dd04181262b4ce44a468a2319f2c",
-    "defined_name_signature": "adf860a13bda06380e2996c7ad72c69e639c96c529f2ed64f749dace870ae449",
-    "writable_target_signature": "55b257e9ad6b3e29b5116a31a9f351727652edcfedb02ab27acfd7251ecab6a5",
-    "binding_contract_signature": "878120038514a0bc622128693d05d01fb76f3e2761ab59f9588c588debc447bd",
-    "formula_static_zone_signature": "003d1aa2d3624774a920b2d4d6f4990505bcd1ffae543a145d016a96f0d81776",
+    "merge_signature": "55553b34988e535fd3a9f0335d109993a378e5a8cdb2ef27b046deb91cc628ef",
+    "defined_name_signature": "efa881fbceb98ddbcc05630734bb3a3d7a7ea33171e58c109834ba202d36ad7d",
+    "writable_target_signature": "607d4cf3078fd20244a5e0308a73da11834c968424d9901ac0fe42977edc70ce",
+    "binding_contract_signature": "5bd474831404bb60367437697390ae8857126cde1f2600a67567ee29bd867529",
+    "formula_static_zone_signature": "d87e15940fb36628abf35b733f730cd9cffa8bcf7603341e28aa0db29d1f80f5",
     "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
     "editable_surface_signature": "29b6308c01ee5961305a12fac0b20ab202f4edae22390e5a07cf27be48d94732",
     "counts": {
       "sheets": 46,
       "sheet_views": 46,
-      "merges": 1830,
-      "defined_names": 253,
-      "writable_targets": 463,
-      "binding_contracts": 166,
-      "formula_cells": 2205,
-      "static_cells": 1662,
+      "merges": 1829,
+      "defined_names": 239,
+      "writable_targets": 435,
+      "binding_contracts": 152,
+      "formula_cells": 2133,
+      "static_cells": 1638,
       "protected_worksheets": 46,
       "editable_cells": 122
     }
   },
-  "formula_contract_version": "1.9.1",
+  "formula_contract_version": "2.0.0",
   "union_sheet_order": [
     "SUMMARY",
     "Valuation",
@@ -8370,7 +8017,7 @@
     "path": "docs/workbook_module_manifest.json",
     "version": "1.0.0",
     "module_contract_version": "1.1.0",
-    "signature": "c70d0e759188247e610418f7af832382ca9365f89db74924b0bea2d70197c9c9"
+    "signature": "4546285ef17cd5a0b2a5913cbee01549227e6e57339eca458c5c64616d181537"
   },
   "module_profile": {
     "profile_id": "full_union",
@@ -8472,15 +8119,6 @@
       "adjusted_ebitda_yoy",
       "adjusted_eps_ttm",
       "adjusted_net_leverage",
-      "annual_adjusted_ebitda_margin",
-      "annual_book_value_per_share",
-      "annual_ebitda_margin",
-      "annual_free_cash_flow",
-      "annual_free_cash_flow_margin",
-      "annual_gross_margin",
-      "annual_net_debt",
-      "annual_net_margin",
-      "annual_operating_margin",
       "book_value_per_share",
       "bs_cash_including_restricted",
       "bs_cash_qoq",
