@@ -219,6 +219,21 @@ def test_profile_contracts_filter_bindings_without_mutating_exact_cells() -> Non
         assert row["module_id"] in full["enabled_modules"]
     assert all(row["module_id"] in core["enabled_modules"] for row in core["bindings"])
 
+    product_pass_2a_debt_bindings = {
+        row["binding_id"]
+        for row in bindings["bindings"]
+        if row["binding_id"].startswith("summary_revolver_availability")
+        or row["binding_id"].startswith("valuation_debt_snapshot")
+    }
+    assert len(product_pass_2a_debt_bindings) == 30
+    for profile_id in ("full_union", "anf", "pbi", "gpre"):
+        resolved = resolve_module_profile(payload, profile_id)
+        projected = build_profile_binding_payload(bindings, payload, resolved)
+        projected_ids = {row["binding_id"] for row in projected["bindings"]}
+        assert product_pass_2a_debt_bindings <= projected_ids
+    core_ids = {row["binding_id"] for row in core["bindings"]}
+    assert product_pass_2a_debt_bindings.isdisjoint(core_ids)
+
 
 def test_module_manifest_and_profile_digests_are_contract_inputs() -> None:
     payload = _payload()

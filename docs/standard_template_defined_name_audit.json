@@ -2,9 +2,9 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 239,
+    "retained_count": 269,
     "classification_counts": {
-      "active_binding_anchor": 126,
+      "active_binding_anchor": 156,
       "formula_dependency": 76,
       "generic_named_range": 21,
       "required_shell_anchor": 16
@@ -1510,6 +1510,22 @@
       "company_specific": false
     },
     {
+      "name": "summary_revolver_availability",
+      "attr_text": "'SUMMARY'!$B$44",
+      "classification": "active_binding_anchor",
+      "expected_target": "'SUMMARY'!$B$44",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "summary_revolver_availability_as_of",
+      "attr_text": "'SUMMARY'!$D$44",
+      "classification": "active_binding_anchor",
+      "expected_target": "'SUMMARY'!$D$44",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "summary_segment_model",
       "attr_text": "'SUMMARY'!$A$13",
       "classification": "active_binding_anchor",
@@ -1618,6 +1634,230 @@
       "attr_text": "'Valuation'!$B$266",
       "classification": "active_binding_anchor",
       "expected_target": "'Valuation'!$B$266",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_cash_as_of",
+      "attr_text": "'Valuation'!$D$124",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$124",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_cash_evidence",
+      "attr_text": "'Valuation'!$F$124",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$F$124",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_cash_status",
+      "attr_text": "'Valuation'!$E$124",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$E$124",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_cash_value",
+      "attr_text": "'Valuation'!$B$124",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$124",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_core_debt_as_of",
+      "attr_text": "'Valuation'!$D$128",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$128",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_core_debt_evidence",
+      "attr_text": "'Valuation'!$F$128",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$F$128",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_core_debt_status",
+      "attr_text": "'Valuation'!$E$128",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$E$128",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_core_debt_value",
+      "attr_text": "'Valuation'!$B$128",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$128",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_leases_as_of",
+      "attr_text": "'Valuation'!$D$127",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$127",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_leases_evidence",
+      "attr_text": "'Valuation'!$F$127",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$F$127",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_leases_status",
+      "attr_text": "'Valuation'!$E$127",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$E$127",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_leases_value",
+      "attr_text": "'Valuation'!$B$127",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$127",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_liquidity_as_of",
+      "attr_text": "'Valuation'!$D$126",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$126",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_liquidity_evidence",
+      "attr_text": "'Valuation'!$F$126",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$F$126",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_liquidity_status",
+      "attr_text": "'Valuation'!$E$126",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$E$126",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_liquidity_value",
+      "attr_text": "'Valuation'!$B$126",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$126",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_net_debt_as_of",
+      "attr_text": "'Valuation'!$D$129",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$129",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_net_debt_evidence",
+      "attr_text": "'Valuation'!$F$129",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$F$129",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_net_debt_status",
+      "attr_text": "'Valuation'!$E$129",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$E$129",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_net_debt_value",
+      "attr_text": "'Valuation'!$B$129",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$129",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_net_leverage_as_of",
+      "attr_text": "'Valuation'!$D$130",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$130",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_net_leverage_evidence",
+      "attr_text": "'Valuation'!$F$130",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$F$130",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_net_leverage_status",
+      "attr_text": "'Valuation'!$E$130",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$E$130",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_net_leverage_value",
+      "attr_text": "'Valuation'!$B$130",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$130",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_revolver_as_of",
+      "attr_text": "'Valuation'!$D$125",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$125",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_revolver_evidence",
+      "attr_text": "'Valuation'!$F$125",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$F$125",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_revolver_status",
+      "attr_text": "'Valuation'!$E$125",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$E$125",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_debt_snapshot_revolver_value",
+      "attr_text": "'Valuation'!$B$125",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$125",
       "target_matches": true,
       "company_specific": false
     },

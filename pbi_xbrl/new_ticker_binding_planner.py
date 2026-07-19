@@ -10,11 +10,13 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 from pbi_xbrl.normalized_company_data_validation import (
+    FIELD_STATUSES,
     NormalizedDataIssue,
     canonicalize_normalized_scenario_tokens,
     validate_normalized_company_data,
@@ -48,6 +50,7 @@ BINDING_PLAN_SCHEMA = ROOT / "docs" / "new_ticker_binding_plan.schema.json"
 BINDING_PLAN_VERSION = "1.0.0"
 BINDING_PLAN_SNAPSHOT_VERSION = "1.0.0"
 _RANGE_RE = re.compile(r"^([A-Z]+)([1-9]\d*)(?::([A-Z]+)([1-9]\d*))?$")
+_QUARTER_PERIOD_RE = re.compile(r"^(?P<year>[0-9]{4})-Q(?P<quarter>[1-4])$")
 _BLOCKING_SEVERITIES = {"P0", "P1"}
 _TABLE_MODES = {"table_rows", "validation_rows"}
 _PIVOT_MODES = {"pivot_rows"}
@@ -63,6 +66,7 @@ _ROW_CONTRACT_KEYS = {
     "source_ref_required",
 }
 _QA_SHEETS = {"QA_Log", "Needs_Review", "QA_Checks"}
+_SCALAR_DISPOSITION_FIELDS = {"value", "unit", "period", "period_display", "status", "reason", "evidence"}
 
 
 class BindingPlanningError(RuntimeError):
@@ -105,6 +109,42 @@ class PlannedWrite:
             "source_ref": self.source_ref,
             "capacity_used": self.capacity_used,
         }
+
+
+@dataclass(frozen=True)
+class _ScalarDispositionContract:
+    disposition_id: str
+    record_path: str
+    metric_id: str
+    expected_unit: str
+    period_required: bool
+    source_ref_required: bool
+    period_display_reference_path: str
+    period_display_source_path: str
+
+
+@dataclass(frozen=True)
+class ResolvedScalarDisposition:
+    disposition_id: str
+    business_key: str
+    metric_id: str
+    record_path: str
+    value: int | float | None
+    unit: str | None
+    period: str | None
+    period_display: str | None
+    status: str
+    reason: str
+    source_status: str
+    evidence_ids: tuple[str, ...]
+    source_refs: tuple[str, ...]
+    period_display_source_refs: tuple[str, ...]
+    formula_ids: tuple[str, ...]
+    validity_code: str
+
+    @property
+    def source_ref(self) -> str:
+        return self.source_refs[0] if self.source_refs else ""
 
 
 @dataclass
@@ -238,6 +278,7 @@ def plan_standard_template_writes(
     """
 
     bindings = _bindings_from_payload(binding_payload)
+    scalar_disposition_contracts, scalar_contract_issues = _scalar_disposition_contracts(bindings)
     binding_contract = binding_payload if isinstance(binding_payload, Mapping) else {}
     raw_scenario_profiles = binding_contract.get("scenario_profile_packs")
     scenario_driver_map = (
@@ -289,6 +330,7 @@ def plan_standard_template_writes(
         )
     )
     plan.planner_issues.extend(_validate_manifest_and_binding_contracts(manifest, bindings))
+    plan.planner_issues.extend(scalar_contract_issues)
     plan.planner_issues.extend(
         _validate_shell_identity_contract(
             manifest,
@@ -357,12 +399,17 @@ def plan_standard_template_writes(
         *[binding for binding in business_bindings if str(binding.get("period_axis_role") or "") == "header"],
         *[binding for binding in business_bindings if str(binding.get("period_axis_role") or "") != "header"],
     ]
+    scalar_dispositions = {
+        disposition_id: _resolve_scalar_disposition(planning_package, contract)
+        for disposition_id, contract in scalar_disposition_contracts.items()
+    }
     for binding in ordered_bindings:
         report, writes, gaps, issues = _plan_binding(
             planning_package,
             binding,
             ticker=ticker,
             period_axes=plan.period_axes,
+            scalar_dispositions=scalar_dispositions,
         )
         plan.binding_reports.append(report)
         plan.planned_writes.extend(writes)
@@ -874,6 +921,7 @@ def _plan_binding(
     *,
     ticker: str,
     period_axes: Mapping[str, Mapping[str, Any]],
+    scalar_dispositions: Mapping[str, ResolvedScalarDisposition],
 ) -> tuple[dict[str, Any], list[PlannedWrite], list[dict[str, Any]], list[NormalizedDataIssue]]:
     binding_id = str(binding.get("binding_id") or "")
     mode = _planning_mode(binding)
@@ -925,9 +973,362 @@ def _plan_binding(
             period_axes=period_axes,
         )
     if mode in {"scalar", "text_block"}:
-        return _plan_scalar_binding(package, binding, ticker=ticker, report=report)
+        return _plan_scalar_binding(
+            package,
+            binding,
+            ticker=ticker,
+            report=report,
+            scalar_dispositions=scalar_dispositions,
+        )
     issue = _planner_issue("P1", "unsupported_binding_planning_mode", binding_id, f"Unsupported planning mode {mode!r}.")
     return report, [], [_gap(binding, reason=issue.message)], [issue]
+
+
+def _scalar_disposition_contracts(
+    bindings: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, _ScalarDispositionContract], list[NormalizedDataIssue]]:
+    grouped: dict[str, list[Mapping[str, Any]]] = {}
+    issues: list[NormalizedDataIssue] = []
+    for binding in bindings:
+        disposition_id = str(binding.get("scalar_disposition_id") or "")
+        disposition_field = str(binding.get("scalar_disposition_field") or "")
+        record_path = str(binding.get("scalar_disposition_path") or "")
+        if not disposition_id:
+            if disposition_field or record_path:
+                issues.append(
+                    _planner_issue(
+                        "P1",
+                        "binding_scalar_disposition_id_missing",
+                        str(binding.get("binding_id") or ""),
+                        "Scalar disposition fields require a non-empty scalar_disposition_id.",
+                    )
+                )
+            continue
+        grouped.setdefault(disposition_id, []).append(binding)
+
+    contracts: dict[str, _ScalarDispositionContract] = {}
+    record_owners: dict[str, str] = {}
+    for disposition_id, rows in sorted(grouped.items()):
+        binding_ids = sorted(str(row.get("binding_id") or "") for row in rows)
+        fields = {str(row.get("scalar_disposition_field") or "") for row in rows}
+        invalid_fields = sorted(field for field in fields if field not in _SCALAR_DISPOSITION_FIELDS)
+        if invalid_fields:
+            issues.append(
+                _planner_issue(
+                    "P1",
+                    "binding_scalar_disposition_field_invalid",
+                    disposition_id,
+                    f"Scalar disposition fields are invalid: {invalid_fields!r}; bindings={binding_ids!r}.",
+                )
+            )
+            continue
+        record_paths = {
+            str(row.get("scalar_disposition_path") or "")
+            for row in rows
+            if str(row.get("scalar_disposition_path") or "")
+        }
+        if len(record_paths) != 1:
+            issues.append(
+                _planner_issue(
+                    "P1",
+                    "binding_scalar_disposition_path_invalid",
+                    disposition_id,
+                    f"Scalar disposition requires exactly one record path; paths={sorted(record_paths)!r}, bindings={binding_ids!r}.",
+                )
+            )
+            continue
+        record_path = next(iter(record_paths))
+        prior_owner = record_owners.get(record_path)
+        if prior_owner is not None and prior_owner != disposition_id:
+            issues.append(
+                _planner_issue(
+                    "P1",
+                    "binding_scalar_disposition_duplicate_identity",
+                    disposition_id,
+                    (
+                        f"Scalar record path {record_path!r} is owned by both {prior_owner!r} and "
+                        f"{disposition_id!r}; bindings={binding_ids!r}."
+                    ),
+                )
+            )
+            continue
+        record_owners[record_path] = disposition_id
+        expected_units = {
+            str(row.get("expected_unit") or "")
+            for row in rows
+            if str(row.get("expected_unit") or "")
+        }
+        if len(expected_units) > 1:
+            issues.append(
+                _planner_issue(
+                    "P1",
+                    "binding_scalar_disposition_unit_conflict",
+                    disposition_id,
+                    f"Scalar disposition has conflicting expected units: {sorted(expected_units)!r}.",
+                )
+            )
+            continue
+        display_reference_paths = {
+            str(row.get("scalar_period_display_reference_path") or "")
+            for row in rows
+            if str(row.get("scalar_period_display_reference_path") or "")
+        }
+        if len(display_reference_paths) > 1:
+            issues.append(
+                _planner_issue(
+                    "P1",
+                    "binding_scalar_disposition_period_reference_conflict",
+                    disposition_id,
+                    f"Scalar disposition has conflicting period-display references: {sorted(display_reference_paths)!r}.",
+                )
+            )
+            continue
+        display_source_paths = {
+            str(row.get("scalar_period_display_source_path") or "")
+            for row in rows
+            if str(row.get("scalar_period_display_source_path") or "")
+        }
+        if len(display_source_paths) > 1:
+            issues.append(
+                _planner_issue(
+                    "P1",
+                    "binding_scalar_disposition_period_source_conflict",
+                    disposition_id,
+                    f"Scalar disposition has conflicting period-display source paths: {sorted(display_source_paths)!r}.",
+                )
+            )
+            continue
+        period_required = any(
+            str(path) == f"{record_path}.period"
+            for row in rows
+            for path in row.get("required_companion_paths") or []
+        ) or bool(fields & {"period", "period_display"})
+        contracts[disposition_id] = _ScalarDispositionContract(
+            disposition_id=disposition_id,
+            record_path=record_path,
+            metric_id=record_path.rsplit(".", 1)[-1],
+            expected_unit=next(iter(expected_units), ""),
+            period_required=period_required,
+            source_ref_required=any(_requires_source_ref(row) for row in rows),
+            period_display_reference_path=next(iter(display_reference_paths), ""),
+            period_display_source_path=next(iter(display_source_paths), ""),
+        )
+    return contracts, issues
+
+
+def _resolve_scalar_disposition(
+    package: Mapping[str, Any],
+    contract: _ScalarDispositionContract,
+) -> ResolvedScalarDisposition:
+    raw = _path_get(package, contract.record_path)
+    if not isinstance(raw, Mapping):
+        return ResolvedScalarDisposition(
+            disposition_id=contract.disposition_id,
+            business_key=contract.record_path,
+            metric_id=contract.metric_id,
+            record_path=contract.record_path,
+            value=None,
+            unit=None,
+            period=None,
+            period_display=None,
+            status="missing_mapping",
+            reason=f"Scalar record {contract.record_path!r} is absent or is not an object.",
+            source_status="",
+            evidence_ids=(),
+            source_refs=(),
+            period_display_source_refs=(),
+            formula_ids=(),
+            validity_code="scalar_record_missing",
+        )
+
+    source_status = str(raw.get("status") or "").strip()
+    source_refs = _ordered_scalar_strings(raw.get("source_ref"), raw.get("source_refs"))
+    evidence_ids = _ordered_scalar_strings(raw.get("evidence_id"), raw.get("evidence_ids"))
+    formula_ids = _ordered_scalar_strings(raw.get("formula_id"), raw.get("formula_ids"))
+    raw_value = raw.get("value")
+    raw_unit = str(raw.get("unit") or "").strip()
+    raw_period = str(raw.get("period") or "").strip()
+    raw_reason = str(raw.get("reason") or raw.get("missing_reason") or "").strip()
+
+    if source_status != "populated":
+        if source_status not in FIELD_STATUSES:
+            status = "parser_conflict"
+            reason = f"Scalar source status {source_status!r} is outside the normalized status vocabulary."
+            validity_code = "scalar_status_invalid"
+        elif raw_value not in (None, ""):
+            status = "manual_review_required"
+            reason = f"Scalar status {source_status!r} conflicts with a populated value."
+            validity_code = "scalar_status_value_conflict"
+        else:
+            status = source_status
+            reason = raw_reason or f"Scalar source status is {source_status}."
+            validity_code = source_status
+        return ResolvedScalarDisposition(
+            disposition_id=contract.disposition_id,
+            business_key=contract.record_path,
+            metric_id=contract.metric_id,
+            record_path=contract.record_path,
+            value=None,
+            unit=None,
+            period=None,
+            period_display=None,
+            status=status,
+            reason=reason,
+            source_status=source_status,
+            evidence_ids=evidence_ids,
+            source_refs=source_refs,
+            period_display_source_refs=(),
+            formula_ids=formula_ids,
+            validity_code=validity_code,
+        )
+
+    validity_code = "populated"
+    reason = raw_reason
+    if not isinstance(raw_value, (int, float)) or isinstance(raw_value, bool):
+        validity_code = "scalar_value_invalid"
+        reason = "Populated scalar value must be numeric."
+    elif contract.expected_unit and raw_unit != contract.expected_unit:
+        validity_code = "scalar_unit_mismatch"
+        reason = f"Scalar unit {raw_unit!r} is incompatible with expected unit {contract.expected_unit!r}."
+    elif contract.period_required and not raw_period:
+        validity_code = "scalar_companion_missing"
+        reason = f"Scalar value requires populated companion path(s): {contract.record_path}.period."
+    elif contract.period_required and not _is_iso_calendar_date(raw_period):
+        validity_code = "scalar_period_invalid"
+        reason = f"Scalar period {raw_period!r} is not an exact ISO calendar date."
+    elif contract.source_ref_required and not source_refs:
+        validity_code = "missing_source_ref"
+        reason = "Source-backed scalar/text value has no source_ref."
+
+    if validity_code != "populated":
+        return ResolvedScalarDisposition(
+            disposition_id=contract.disposition_id,
+            business_key=contract.record_path,
+            metric_id=contract.metric_id,
+            record_path=contract.record_path,
+            value=None,
+            unit=None,
+            period=None,
+            period_display=None,
+            status="manual_review_required",
+            reason=reason,
+            source_status=source_status,
+            evidence_ids=evidence_ids,
+            source_refs=source_refs,
+            period_display_source_refs=(),
+            formula_ids=formula_ids,
+            validity_code=validity_code,
+        )
+
+    period_display = f"As of {raw_period}" if raw_period else None
+    if period_display and contract.period_display_reference_path:
+        reference_value, _reference_source_ref, reference_populated = _read_field(
+            package,
+            contract.period_display_reference_path,
+        )
+        reference_period = str(reference_value or "").strip() if reference_populated else ""
+        if _is_iso_calendar_date(reference_period) and reference_period > raw_period:
+            period_display = f"{period_display} (stale)"
+    period_display_source_refs: tuple[str, ...] = ()
+    if contract.period_display_source_path:
+        display_source = _path_get(package, contract.period_display_source_path)
+        if isinstance(display_source, Mapping):
+            display_period = str(display_source.get("period") or "").strip()
+            display_status = str(display_source.get("status") or "").strip()
+            if display_status == "populated" and display_period == raw_period:
+                period_display_source_refs = _ordered_scalar_strings(
+                    display_source.get("source_ref"),
+                    display_source.get("source_refs"),
+                )
+    return ResolvedScalarDisposition(
+        disposition_id=contract.disposition_id,
+        business_key=contract.record_path,
+        metric_id=contract.metric_id,
+        record_path=contract.record_path,
+        value=raw_value,
+        unit=raw_unit or None,
+        period=raw_period or None,
+        period_display=period_display,
+        status="populated",
+        reason=reason,
+        source_status=source_status,
+        evidence_ids=evidence_ids,
+        source_refs=source_refs,
+        period_display_source_refs=period_display_source_refs,
+        formula_ids=formula_ids,
+        validity_code=validity_code,
+    )
+
+
+def _ordered_scalar_strings(*values: Any) -> tuple[str, ...]:
+    result: list[str] = []
+    for value in values:
+        candidates = value if isinstance(value, (list, tuple)) else [value]
+        for candidate in candidates:
+            text = str(candidate or "").strip()
+            if text and text not in result:
+                result.append(text)
+    return tuple(result)
+
+
+def _is_iso_calendar_date(value: str) -> bool:
+    try:
+        return date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
+def _scalar_disposition_field_value(disposition: ResolvedScalarDisposition, field_name: str) -> Any:
+    if field_name == "value":
+        return disposition.value
+    if field_name == "unit":
+        return disposition.unit
+    if field_name == "period":
+        return disposition.period
+    if field_name == "period_display":
+        return disposition.period_display
+    if field_name == "status":
+        return disposition.status
+    if field_name == "reason":
+        return disposition.reason
+    if field_name == "evidence":
+        return disposition.source_ref or None
+    return None
+
+
+def _scalar_disposition_field_source_ref(disposition: ResolvedScalarDisposition, field_name: str) -> str:
+    if field_name == "period" and disposition.period is None:
+        return ""
+    if field_name == "period_display" and disposition.period_display is None:
+        return ""
+    if field_name == "period_display" and disposition.period_display_source_refs:
+        return disposition.period_display_source_refs[0]
+    return disposition.source_ref
+
+
+def _scalar_disposition_binding_failure(
+    disposition: ResolvedScalarDisposition | None,
+    field_name: str,
+    binding: Mapping[str, Any],
+) -> tuple[str, str, str] | None:
+    if disposition is None or field_name != "value":
+        return None
+    failures = {
+        "scalar_companion_missing": (
+            _missing_binding_severity(binding),
+            "binding_scalar_companion_missing",
+        ),
+        "scalar_unit_mismatch": ("P1", "binding_scalar_unit_mismatch"),
+        "scalar_value_invalid": ("P1", "binding_scalar_value_invalid"),
+        "scalar_period_invalid": ("P1", "binding_scalar_period_invalid"),
+        "missing_source_ref": ("P1", "missing_source_ref"),
+        "scalar_status_invalid": ("P1", "binding_scalar_status_invalid"),
+        "scalar_status_value_conflict": ("P1", "binding_scalar_status_value_conflict"),
+    }
+    failure = failures.get(disposition.validity_code)
+    if failure is None:
+        return None
+    return failure[0], failure[1], disposition.reason
 
 
 def _plan_scalar_binding(
@@ -936,12 +1337,79 @@ def _plan_scalar_binding(
     *,
     ticker: str,
     report: dict[str, Any],
+    scalar_dispositions: Mapping[str, ResolvedScalarDisposition],
 ) -> tuple[dict[str, Any], list[PlannedWrite], list[dict[str, Any]], list[NormalizedDataIssue]]:
     binding_id = str(binding["binding_id"])
     source_path = str(binding.get("source_path") or binding.get("normalized_field") or "")
     target = _first_cell(_planner_target(binding))
-    value, source_ref, populated = _read_field(package, source_path)
+    raw_source = _path_get(package, source_path)
+    disposition_id = str(binding.get("scalar_disposition_id") or "")
+    disposition_field = str(binding.get("scalar_disposition_field") or "")
+    disposition = scalar_dispositions.get(disposition_id) if disposition_id else None
+    if disposition_id and disposition is None:
+        issue = _planner_issue(
+            "P1",
+            "binding_scalar_disposition_unresolved",
+            binding_id,
+            f"Scalar disposition {disposition_id!r} is not resolved for binding {binding_id!r}.",
+        )
+        return report, [], [_gap(binding, reason=issue.message)], [issue]
+    if disposition is not None:
+        value = _scalar_disposition_field_value(disposition, disposition_field)
+        source_ref = _scalar_disposition_field_source_ref(disposition, disposition_field)
+        populated = value not in (None, "")
+        raw_source = _path_get(package, disposition.record_path)
+    else:
+        value, source_ref, populated = _read_field(package, source_path)
+    source_ref_path = str(binding.get("source_ref_path") or "")
+    if populated and not source_ref and source_ref_path:
+        source_ref_value, source_ref_lineage, source_ref_populated = _read_field(package, source_ref_path)
+        if source_ref_lineage:
+            source_ref = source_ref_lineage
+        elif source_ref_populated:
+            source_ref = str(source_ref_value or "")
     if not populated:
+        disposition_failure = _scalar_disposition_binding_failure(disposition, disposition_field, binding)
+        if disposition_failure is not None:
+            severity, rule_id, reason = disposition_failure
+            event_key = _planner_event_key(binding, normalized_path=source_path, row_key="scalar", event_type=rule_id)
+            report["skipped_rows"].append(
+                _structured_skip(
+                    binding,
+                    normalized_path=source_path,
+                    row_key="scalar",
+                    reason=reason,
+                    severity=severity,
+                    source_ref=source_ref,
+                    expected_target=target,
+                )
+            )
+            issue = _planner_issue(
+                severity,
+                rule_id,
+                f"{binding_id}:{source_path}",
+                reason,
+                normalized_path=source_path,
+                business_row_key=disposition.business_key if disposition is not None else "scalar",
+                binding_id=binding_id,
+                source_ref=source_ref,
+                root_cause=disposition.validity_code if disposition is not None else rule_id,
+                issue_type="planner_mapping_gap",
+                canonical_issue_key=event_key,
+            )
+            return report, [], [
+                _gap(
+                    binding,
+                    reason=reason,
+                    severity=severity,
+                    normalized_path=source_path,
+                    row_key="scalar",
+                    source_ref=source_ref,
+                    expected_target=target,
+                    canonical_issue_key=event_key,
+                    root_cause=disposition.validity_code if disposition is not None else rule_id,
+                )
+            ], [issue]
         severity = _missing_binding_severity(binding)
         reason = "Scalar/text value is not populated."
         event_key = _planner_event_key(binding, normalized_path=source_path, row_key="scalar", event_type="missing_value")
@@ -970,7 +1438,55 @@ def _plan_scalar_binding(
             canonical_issue_key=event_key,
         )
         return report, [], [_gap(binding, reason=reason, severity=severity, normalized_path=source_path, row_key="scalar", source_ref=source_ref, expected_target=target, canonical_issue_key=event_key, root_cause="missing_value")], [issue]
-    if _requires_source_ref(binding) and not source_ref:
+    missing_companions = [
+        str(path)
+        for path in binding.get("required_companion_paths") or []
+        if not _read_field(package, str(path))[2]
+    ] if disposition is None else []
+    if missing_companions:
+        severity = _missing_binding_severity(binding)
+        reason = f"Scalar value requires populated companion path(s): {', '.join(missing_companions)}."
+        report["skipped_rows"].append(
+            _structured_skip(
+                binding,
+                normalized_path=source_path,
+                row_key="scalar",
+                reason="scalar_companion_missing",
+                severity=severity,
+                source_ref=source_ref,
+                expected_target=target,
+            )
+        )
+        issue = _planner_issue(
+            severity,
+            "binding_scalar_companion_missing",
+            f"{binding_id}:{source_path}",
+            reason,
+            normalized_path=source_path,
+            business_row_key="scalar",
+            binding_id=binding_id,
+            source_ref=source_ref,
+        )
+        return report, [], [_gap(binding, reason=reason, severity=severity, normalized_path=source_path, row_key="scalar", source_ref=source_ref, expected_target=target)], [issue]
+    expected_unit = str(binding.get("expected_unit") or "")
+    source_unit = str(raw_source.get("unit") or "") if isinstance(raw_source, Mapping) else ""
+    if disposition is None and expected_unit and source_unit != expected_unit:
+        reason = f"Scalar unit {source_unit!r} is incompatible with expected unit {expected_unit!r}."
+        report["skipped_rows"].append(
+            _structured_skip(binding, normalized_path=source_path, row_key="scalar", reason="scalar_unit_mismatch", severity="P1", source_ref=source_ref, expected_target=target)
+        )
+        issue = _planner_issue(
+            "P1",
+            "binding_scalar_unit_mismatch",
+            f"{binding_id}:{source_path}",
+            reason,
+            normalized_path=source_path,
+            business_row_key="scalar",
+            binding_id=binding_id,
+            source_ref=source_ref,
+        )
+        return report, [], [_gap(binding, reason=reason, severity="P1", normalized_path=source_path, row_key="scalar", source_ref=source_ref, expected_target=target)], [issue]
+    if disposition is None and _requires_source_ref(binding) and not source_ref:
         reason = "Source-backed scalar/text value has no source_ref."
         event_key = _planner_event_key(binding, normalized_path=source_path, row_key="scalar", event_type="missing_source_ref")
         issue = _planner_issue(
@@ -1607,7 +2123,42 @@ def _selected_rows(
         )
         issues.append(_planner_issue("P1", "binding_sort_key_missing", f"{binding.get('binding_id')}:{source_index}", reason))
     rows = valid_sort_rows
+    period_identity = selector.get("period_identity")
+    if isinstance(period_identity, Mapping):
+        rows, period_skips, period_issues = _validate_quarterly_period_identities(
+            rows,
+            binding,
+            selector,
+            source_path=source_path,
+        )
+        skipped.extend(period_skips)
+        issues.extend(period_issues)
     rows = _sort_rows(rows, binding.get("sort_order") or [])
+    keyed_rows: dict[str, Mapping[str, Any]] = {}
+    unique_rows: list[Mapping[str, Any]] = []
+    for row in rows:
+        key = _row_key(row, binding)
+        source_index = int(row.get("__planner_source_index") or 0)
+        normalized_path = f"{source_path}.{source_index}"
+        if not key:
+            skipped.append(
+                _structured_skip(binding, normalized_path=normalized_path, row_key=f"source_index:{source_index}", reason="row_key_missing", severity="P1", source_ref=_row_source_ref(row, binding))
+            )
+            issues.append(_planner_issue("P1", "binding_row_key_missing", str(binding.get("binding_id") or ""), "Selected row does not provide every row_key field."))
+            continue
+        prior_row = keyed_rows.get(key)
+        if prior_row is not None:
+            skipped.append(
+                _structured_skip(binding, normalized_path=normalized_path, row_key=key, reason="duplicate_row_key", severity="P1", source_ref=_row_source_ref(row, binding))
+            )
+            message = f"Duplicate row_key {key!r}."
+            if _is_segment_binding(binding):
+                message = _segment_duplicate_row_message(prior_row, row, binding, key)
+            issues.append(_planner_issue("P1", "binding_row_key_duplicate", str(binding.get("binding_id") or ""), message))
+            continue
+        keyed_rows[key] = row
+        unique_rows.append(row)
+    rows = unique_rows
     window = str(selector.get("window") or "all")
     if window == "latest_capacity" and rows:
         capacity = int(binding.get("capacity") or 0)
@@ -1653,31 +2204,145 @@ def _selected_rows(
                 )
             )
         rows = [selected_row]
-    keyed_rows: dict[str, Mapping[str, Any]] = {}
-    unique_rows: list[Mapping[str, Any]] = []
+    if isinstance(period_identity, Mapping) and rows:
+        metric_skips, metric_issues = _validate_selected_quarterly_metric(
+            rows[0],
+            binding,
+            period_identity,
+            source_path=source_path,
+        )
+        skipped.extend(metric_skips)
+        issues.extend(metric_issues)
+        if metric_issues:
+            rows = []
+    return rows, skipped, issues
+
+
+def _validate_quarterly_period_identities(
+    rows: Sequence[Mapping[str, Any]],
+    binding: Mapping[str, Any],
+    selector: Mapping[str, Any],
+    *,
+    source_path: str,
+) -> tuple[list[Mapping[str, Any]], list[dict[str, Any]], list[NormalizedDataIssue]]:
+    contract = selector.get("period_identity")
+    if not isinstance(contract, Mapping):
+        return list(rows), [], []
+    binding_id = str(binding.get("binding_id") or "")
+    if (
+        str(contract.get("period_type") or "") != "quarterly"
+        or str(contract.get("entity_scope") or "") != "total_company"
+        or source_path != "quarterly_financials.rows"
+    ):
+        message = (
+            "The typed latest-period selector must resolve quarterly total-company rows "
+            "from quarterly_financials.rows."
+        )
+        return [], [], [_planner_issue("P1", "binding_period_identity_contract_invalid", binding_id, message)]
+
+    period_field = str(contract.get("period_field") or "period")
+    fiscal_year_field = str(contract.get("fiscal_year_field") or "fiscal_year")
+    fiscal_quarter_field = str(contract.get("fiscal_quarter_field") or "fiscal_quarter")
+    valid: list[Mapping[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    issues: list[NormalizedDataIssue] = []
     for row in rows:
-        key = _row_key(row, binding)
         source_index = int(row.get("__planner_source_index") or 0)
         normalized_path = f"{source_path}.{source_index}"
-        if not key:
-            skipped.append(
-                _structured_skip(binding, normalized_path=normalized_path, row_key=f"source_index:{source_index}", reason="row_key_missing", severity="P1", source_ref=_row_source_ref(row, binding))
+        raw_period, _period_ref, period_populated = _read_row_field(row, period_field)
+        raw_year, _year_ref, year_populated = _read_row_field(row, fiscal_year_field)
+        raw_quarter, _quarter_ref, quarter_populated = _read_row_field(row, fiscal_quarter_field)
+        match = _QUARTER_PERIOD_RE.fullmatch(str(raw_period or "")) if period_populated else None
+        valid_year = isinstance(raw_year, int) and not isinstance(raw_year, bool)
+        valid_quarter = isinstance(raw_quarter, int) and not isinstance(raw_quarter, bool)
+        if (
+            match is None
+            or not year_populated
+            or not quarter_populated
+            or not valid_year
+            or not valid_quarter
+            or int(match.group("year")) != int(raw_year)
+            or int(match.group("quarter")) != int(raw_quarter)
+        ):
+            source_ref = _row_source_ref(row, binding)
+            message = (
+                f"Invalid quarterly identity for {binding_id!r}: period={raw_period!r}, "
+                f"fiscal_year={raw_year!r}, fiscal_quarter={raw_quarter!r}, "
+                f"source_row={normalized_path!r}, source_ref={source_ref!r}."
             )
-            issues.append(_planner_issue("P1", "binding_row_key_missing", str(binding.get("binding_id") or ""), "Selected row does not provide every row_key field."))
-            continue
-        prior_row = keyed_rows.get(key)
-        if prior_row is not None:
             skipped.append(
-                _structured_skip(binding, normalized_path=normalized_path, row_key=key, reason="duplicate_row_key", severity="P1", source_ref=_row_source_ref(row, binding))
+                _structured_skip(
+                    binding,
+                    normalized_path=normalized_path,
+                    row_key=str(raw_period or f"source_index:{source_index}"),
+                    reason="invalid_quarterly_period_identity",
+                    severity="P1",
+                    source_ref=source_ref,
+                )
             )
-            message = f"Duplicate row_key {key!r}."
-            if _is_segment_binding(binding):
-                message = _segment_duplicate_row_message(prior_row, row, binding, key)
-            issues.append(_planner_issue("P1", "binding_row_key_duplicate", str(binding.get("binding_id") or ""), message))
+            issues.append(
+                _planner_issue(
+                    "P1",
+                    "binding_quarterly_period_identity_invalid",
+                    f"{binding_id}:{source_index}",
+                    message,
+                    normalized_path=normalized_path,
+                    business_row_key=str(raw_period or ""),
+                    binding_id=binding_id,
+                    source_ref=source_ref,
+                )
+            )
             continue
-        keyed_rows[key] = row
-        unique_rows.append(row)
-    return unique_rows, skipped, issues
+        valid.append(row)
+    return valid, skipped, issues
+
+
+def _validate_selected_quarterly_metric(
+    row: Mapping[str, Any],
+    binding: Mapping[str, Any],
+    contract: Mapping[str, Any],
+    *,
+    source_path: str,
+) -> tuple[list[dict[str, Any]], list[NormalizedDataIssue]]:
+    binding_id = str(binding.get("binding_id") or "")
+    source_index = int(row.get("__planner_source_index") or 0)
+    normalized_path = f"{source_path}.{source_index}"
+    metric_field = str(contract.get("metric_field") or "")
+    expected_unit = str(contract.get("unit") or "")
+    period_field = str(contract.get("period_field") or "period")
+    period = str(_read_row_field(row, period_field)[0] or "")
+    metric = _path_get(row, metric_field)
+    metric_value, metric_source_ref, populated = _unwrap_field(metric)
+    metric_unit = str(metric.get("unit") or "") if isinstance(metric, Mapping) else ""
+    metric_period = str(metric.get("period") or "") if isinstance(metric, Mapping) else ""
+    if populated and metric_unit == expected_unit and metric_period == period:
+        return [], []
+    source_ref = metric_source_ref or _row_source_ref(row, binding)
+    message = (
+        f"Latest quarterly metric is incompatible for {binding_id!r}: metric={metric_field!r}, "
+        f"value={metric_value!r}, unit={metric_unit!r}, expected_unit={expected_unit!r}, "
+        f"metric_period={metric_period!r}, selected_period={period!r}, "
+        f"source_row={normalized_path!r}, source_ref={source_ref!r}."
+    )
+    skip = _structured_skip(
+        binding,
+        normalized_path=f"{normalized_path}.{metric_field}",
+        row_key=period or f"source_index:{source_index}",
+        reason="latest_quarter_metric_incompatible",
+        severity="P1",
+        source_ref=source_ref,
+    )
+    issue = _planner_issue(
+        "P1",
+        "binding_latest_quarter_metric_incompatible",
+        f"{binding_id}:{metric_field}",
+        message,
+        normalized_path=f"{normalized_path}.{metric_field}",
+        business_row_key=period,
+        binding_id=binding_id,
+        source_ref=source_ref,
+    )
+    return [skip], [issue]
 
 
 def inspect_binding_eligibility(
@@ -1787,6 +2452,8 @@ def _validate_manifest_and_binding_contracts(
             selector = binding.get("row_selector")
             if isinstance(selector, Mapping) and str(selector.get("pick") or "all") not in {"all", "first", "latest"}:
                 issues.append(_planner_issue("P1", "binding_row_pick_invalid", binding_id, "row_selector.pick must be all, first, or latest."))
+            if isinstance(selector, Mapping) and "period_identity" in selector:
+                issues.extend(_validate_period_identity_contract(binding, selector))
             if isinstance(selector, Mapping) and str(selector.get("pick") or "all") in {"first", "latest"}:
                 disposition = str(selector.get("pick_exclusion_disposition") or "")
                 if disposition not in {"expected_supersession", "expected_priority_selection", "possible_ambiguity"}:
@@ -1877,6 +2544,55 @@ def _validate_manifest_and_binding_contracts(
             issues.append(_planner_issue("P1", "valuation_output_mapping_gap_forbidden", binding_id, "Valuation output rows must consume explicit valuation_outputs or be formula-owned; they must never consume mapping_gaps."))
         if normalized_field.startswith(("mapping_gaps", "manual_review_flags")) and str(binding.get("sheet") or "") not in _QA_SHEETS:
             issues.append(_planner_issue("P1", "qa_output_outside_qa_sheet", binding_id, "Mapping gaps and manual-review flags may only bind to QA_Log, Needs_Review, or QA_Checks."))
+    return issues
+
+
+def _validate_period_identity_contract(
+    binding: Mapping[str, Any],
+    selector: Mapping[str, Any],
+) -> list[NormalizedDataIssue]:
+    binding_id = str(binding.get("binding_id") or "")
+    contract = selector.get("period_identity")
+    if not isinstance(contract, Mapping):
+        return [_planner_issue("P1", "binding_period_identity_contract_invalid", binding_id, "period_identity must be an object.")]
+    expected = {
+        "period_type": "quarterly",
+        "entity_scope": "total_company",
+        "period_field": "period",
+        "fiscal_year_field": "fiscal_year",
+        "fiscal_quarter_field": "fiscal_quarter",
+    }
+    invalid = [key for key, value in expected.items() if str(contract.get(key) or "") != value]
+    metric_field = str(contract.get("metric_field") or "")
+    unit = str(contract.get("unit") or "")
+    if invalid or not metric_field or not unit:
+        return [
+            _planner_issue(
+                "P1",
+                "binding_period_identity_contract_invalid",
+                binding_id,
+                f"Invalid typed quarterly selector fields: invalid={invalid!r}, metric_field={metric_field!r}, unit={unit!r}.",
+            )
+        ]
+    issues: list[NormalizedDataIssue] = []
+    if str(selector.get("source_path") or "") != "quarterly_financials.rows":
+        issues.append(_planner_issue("P1", "binding_period_identity_source_invalid", binding_id, "Typed total-company quarterly selection requires quarterly_financials.rows."))
+    if str(selector.get("pick") or "") != "latest":
+        issues.append(_planner_issue("P1", "binding_period_identity_pick_invalid", binding_id, "Typed SUMMARY selection requires pick=latest."))
+    if "period" not in {str(value) for value in binding.get("row_key") or []}:
+        issues.append(_planner_issue("P1", "binding_period_identity_row_key_invalid", binding_id, "Typed SUMMARY selection requires period in row_key."))
+    if "period" not in _sort_fields(binding.get("sort_order") or []):
+        issues.append(_planner_issue("P1", "binding_period_identity_sort_invalid", binding_id, "Typed SUMMARY selection requires deterministic period sorting."))
+    source_field = str(binding.get("source_field") or "")
+    if source_field not in {"period", metric_field}:
+        issues.append(
+            _planner_issue(
+                "P1",
+                "binding_period_identity_metric_invalid",
+                binding_id,
+                f"source_field {source_field!r} must be period or the declared metric_field {metric_field!r}.",
+            )
+        )
     return issues
 
 

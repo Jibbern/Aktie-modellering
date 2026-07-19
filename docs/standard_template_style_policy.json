@@ -2185,6 +2185,70 @@
   ],
   "style_disabled": [
     {
+      "formula_id": "summary_revenue_ttm",
+      "sheet": "SUMMARY",
+      "target": "B27",
+      "owner_module_id": "core_financial_history",
+      "economic_reason": "SUMMARY mirrors the canonical Valuation result and must not add a second signal overlay.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "summary_revenue_yoy",
+      "sheet": "SUMMARY",
+      "target": "B29",
+      "owner_module_id": "core_financial_history",
+      "economic_reason": "SUMMARY mirrors the canonical Valuation result and must not add a second signal overlay.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "summary_net_income_yoy",
+      "sheet": "SUMMARY",
+      "target": "B31",
+      "owner_module_id": "core_financial_history",
+      "economic_reason": "SUMMARY mirrors the canonical Valuation result and must not add a second signal overlay.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "summary_gaap_eps",
+      "sheet": "SUMMARY",
+      "target": "B32",
+      "owner_module_id": "core_financial_history",
+      "economic_reason": "A point-in-time SUMMARY value has no independent comparison policy.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "summary_gaap_eps_yoy",
+      "sheet": "SUMMARY",
+      "target": "B33",
+      "owner_module_id": "core_financial_history",
+      "economic_reason": "SUMMARY mirrors the canonical Valuation result and must not add a second signal overlay.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "summary_free_cash_flow_ttm",
+      "sheet": "SUMMARY",
+      "target": "B36",
+      "owner_module_id": "balance_cash_flow",
+      "economic_reason": "SUMMARY mirrors the canonical Valuation result and must not add a second signal overlay.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "summary_free_cash_flow_yoy",
+      "sheet": "SUMMARY",
+      "target": "B37",
+      "owner_module_id": "balance_cash_flow",
+      "economic_reason": "SUMMARY shows a normalized improvement ratio without owning a separate signal overlay.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "summary_interest_coverage",
+      "sheet": "SUMMARY",
+      "target": "B42",
+      "owner_module_id": "debt_liquidity",
+      "economic_reason": "SUMMARY mirrors the canonical P&L coverage result and must not add a second signal overlay.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
       "formula_id": "hidden_value_valuation_state_count_formulas",
       "sheet": "Valuation",
       "target": "R139:R143",

@@ -321,10 +321,10 @@ def test_mixed_period_total_company_aliases_reproduce_exact_plan_and_style(
     assert mutated_style_plan.actions == canonical_style_plan.actions
     assert mutated_style_plan.decisions == canonical_style_plan.decisions
 
-    assert len(mutated_value_plan.planned_writes) == 22_052
-    assert sum(len(report.get("skipped_rows") or []) for report in mutated_value_plan.binding_reports) == 2_393
-    assert len(mutated_value_plan.issue_ledger["issues"]) == 755
-    assert len(mutated_value_plan.issue_ledger["occurrences"]) == 2_311
+    assert len(mutated_value_plan.planned_writes) == 22_214
+    assert sum(len(report.get("skipped_rows") or []) for report in mutated_value_plan.binding_reports) == 2_399
+    assert len(mutated_value_plan.issue_ledger["issues"]) == 761
+    assert len(mutated_value_plan.issue_ledger["occurrences"]) == 2_323
     assert len(mutated_style_plan.actions) == 714
     assert len(mutated_style_plan.decisions) == 1_233
 

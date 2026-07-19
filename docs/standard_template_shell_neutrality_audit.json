@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-18T22:18:32+00:00",
+  "generated_at": "2026-07-19T11:27:31+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "visible_sheets": [
@@ -54,10 +54,10 @@
     "OCR_Text_Log"
   ],
   "classification_counts": {
-    "formula_static": 2133,
-    "generic_block_label": 612,
-    "row_label_generic": 560,
-    "universal_template_label": 466
+    "formula_static": 2141,
+    "generic_block_label": 622,
+    "row_label_generic": 567,
+    "universal_template_label": 469
   },
   "post_neutrality_summary": {
     "company_specific_value_count": 0,
@@ -161,6 +161,14 @@
     },
     {
       "sheet": "SUMMARY",
+      "cell": "B27",
+      "value": "=IFERROR(IF(OR($B$26=\"\",COUNTIF('Valuation'!$B$6:$M$6,$B$26)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$10:$M$10,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$10:$M$10,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
       "cell": "C27",
       "value": "$m",
       "classification": "generic_block_label",
@@ -189,6 +197,14 @@
       "value": "Revenue YoY (latest vs LY quarter)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
+      "cell": "B29",
+      "value": "=IFERROR(IF(OR($B$26=\"\",COUNTIF('Valuation'!$B$6:$M$6,$B$26)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$11:$M$11,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$11:$M$11,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "visible"
     },
     {
@@ -225,6 +241,14 @@
     },
     {
       "sheet": "SUMMARY",
+      "cell": "B31",
+      "value": "=IFERROR(IF(OR($B$26=\"\",COUNTIF('Valuation'!$B$6:$M$6,$B$26)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$38:$M$38,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$38:$M$38,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
       "cell": "C31",
       "value": "%",
       "classification": "generic_block_label",
@@ -241,6 +265,14 @@
     },
     {
       "sheet": "SUMMARY",
+      "cell": "B32",
+      "value": "=IFERROR(IF(OR($B$26=\"\",COUNTIF('Valuation'!$B$6:$M$6,$B$26)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$107:$M$107,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$107:$M$107,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
       "cell": "C32",
       "value": "$/share",
       "classification": "generic_block_label",
@@ -250,15 +282,23 @@
     {
       "sheet": "SUMMARY",
       "cell": "A33",
-      "value": "EPS YoY Δ (latest vs LY quarter)",
+      "value": "GAAP EPS YoY % (latest vs LY quarter)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {
       "sheet": "SUMMARY",
+      "cell": "B33",
+      "value": "=IFERROR(IF(OR($B$26=\"\",COUNTIF('Valuation'!$B$6:$M$6,$B$26)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$108:$M$108,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$108:$M$108,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
       "cell": "C33",
-      "value": "$/share",
+      "value": "%",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
@@ -269,6 +309,14 @@
       "value": "Total debt (latest quarter)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
+      "cell": "B34",
+      "value": "N/A",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
@@ -289,10 +337,26 @@
     },
     {
       "sheet": "SUMMARY",
+      "cell": "B35",
+      "value": "N/A",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
       "cell": "A36",
       "value": "Free cash flow (TTM)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
+      "cell": "B36",
+      "value": "=IFERROR(IF(OR($B$26=\"\",COUNTIF('Valuation'!$B$6:$M$6,$B$26)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$49:$M$49,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$49:$M$49,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "visible"
     },
     {
@@ -313,6 +377,14 @@
     },
     {
       "sheet": "SUMMARY",
+      "cell": "B37",
+      "value": "=IFERROR(IF(OR($B$26=\"\",COUNTIF('Valuation'!$B$6:$M$6,$B$26)<>1,MATCH($B$26,'Valuation'!$B$6:$M$6,0)<=4,NOT(ISNUMBER(INDEX('Valuation'!$B$48:$M$48,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0)))),NOT(ISNUMBER(INDEX('Valuation'!$B$47:$M$47,1,MATCH(",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
       "cell": "C37",
       "value": "%",
       "classification": "generic_block_label",
@@ -329,10 +401,26 @@
     },
     {
       "sheet": "SUMMARY",
+      "cell": "B38",
+      "value": "N/A",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
       "cell": "A39",
       "value": "P/S (price-linked)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
+      "cell": "B39",
+      "value": "N/A",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
@@ -369,6 +457,14 @@
     },
     {
       "sheet": "SUMMARY",
+      "cell": "B42",
+      "value": "=IFERROR(IF(OR($B$26=\"\",COUNTIF('Valuation'!$B$6:$M$6,$B$26)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($B$26,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
       "cell": "C42",
       "value": "x",
       "classification": "generic_block_label",
@@ -381,6 +477,14 @@
       "value": "Interest coverage (cash)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "SUMMARY",
+      "cell": "B43",
+      "value": "N/A",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
@@ -7274,7 +7378,7 @@
     {
       "sheet": "Valuation",
       "cell": "A122",
-      "value": "Debt Detail (latest)",
+      "value": "Debt & liquidity snapshot",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -7282,63 +7386,183 @@
     {
       "sheet": "Valuation",
       "cell": "A123",
-      "value": "Year/Label",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "B123",
-      "value": "Principal due ($m)",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "C123",
-      "value": "Rate type",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "D123",
-      "value": "Coupon/Spread %",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "F123",
-      "value": "Maturity",
+      "value": "Metric",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
-      "cell": "G123",
-      "value": "Conversion price",
+      "cell": "B123",
+      "value": "Value",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "C123",
+      "value": "Unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "D123",
+      "value": "As of",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
-      "cell": "I123",
-      "value": "Added shares on full conversion (m)",
+      "cell": "E123",
+      "value": "Status",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "F123",
+      "value": "Evidence / lineage",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
-      "cell": "L123",
-      "value": "Concurrent repurchased shares (m)",
+      "cell": "A124",
+      "value": "Cash",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "C124",
+      "value": "$m",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "A125",
+      "value": "Revolver availability",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "C125",
+      "value": "$m",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "A126",
+      "value": "Total liquidity",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "C126",
+      "value": "$m",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "A127",
+      "value": "Operating lease liabilities",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "C127",
+      "value": "$m",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "A128",
+      "value": "Core debt",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "C128",
+      "value": "$m",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "A129",
+      "value": "Net debt",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "C129",
+      "value": "$m",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "A130",
+      "value": "Net leverage",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "C130",
+      "value": "x",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "A131",
+      "value": "Maturity detail",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "E131",
+      "value": "unavailable",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "F131",
+      "value": "No maturity schedule available.",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"

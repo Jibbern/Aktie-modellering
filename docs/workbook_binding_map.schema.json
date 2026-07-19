@@ -20,7 +20,7 @@
     "$schema": {"type": "string", "format": "uri"},
     "version": {"type": "string", "const": "0.3.0"},
     "description": {"type": "string"},
-    "binding_planner_contract_version": {"type": "string", "const": "1.3.0"},
+    "binding_planner_contract_version": {"type": "string", "const": "1.4.0"},
     "module_manifest_version": {"type": "string", "const": "1.0.0"},
     "module_contract_version": {"type": "string", "const": "1.1.0"},
     "module_profile_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
@@ -85,9 +85,24 @@
         "pick": {"enum": ["all", "latest", "first"]},
         "pick_exclusion_disposition": {"enum": ["expected_supersession", "expected_priority_selection", "possible_ambiguity"]},
         "window": {"enum": ["all", "latest_capacity"]},
-        "filters": {"type": "array", "items": {"type": "object"}}
+        "filters": {"type": "array", "items": {"type": "object"}},
+        "period_identity": {"$ref": "#/$defs/periodIdentity"}
       },
       "additionalProperties": true
+    },
+    "periodIdentity": {
+      "type": "object",
+      "required": ["period_type", "entity_scope", "period_field", "fiscal_year_field", "fiscal_quarter_field", "metric_field", "unit"],
+      "properties": {
+        "period_type": {"const": "quarterly"},
+        "entity_scope": {"const": "total_company"},
+        "period_field": {"const": "period"},
+        "fiscal_year_field": {"const": "fiscal_year"},
+        "fiscal_quarter_field": {"const": "fiscal_quarter"},
+        "metric_field": {"type": "string", "minLength": 1},
+        "unit": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
     },
     "targetColumn": {
       "type": "object",
@@ -126,6 +141,14 @@
         "target": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*(?::[A-Z]+[1-9][0-9]*)?$"},
         "planner_target": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*(?::[A-Z]+[1-9][0-9]*)?$"},
         "normalized_field": {"type": "string", "minLength": 1},
+        "source_ref_path": {"type": "string", "minLength": 1},
+        "required_companion_paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "expected_unit": {"type": "string", "minLength": 1},
+        "scalar_disposition_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "scalar_disposition_path": {"type": "string", "minLength": 1},
+        "scalar_disposition_field": {"enum": ["value", "unit", "period", "period_display", "status", "reason", "evidence"]},
+        "scalar_period_display_reference_path": {"type": "string", "minLength": 1},
+        "scalar_period_display_source_path": {"type": "string", "minLength": 1},
         "value_shape": {"enum": ["scalar", "quarterly_series", "annual_series", "pivot_matrix", "table_rows", "text_block", "validation_rows"]},
         "required": {"type": "boolean"},
         "source_policy": {"type": "string", "minLength": 1},

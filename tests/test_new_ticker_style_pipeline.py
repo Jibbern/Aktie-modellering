@@ -151,7 +151,7 @@ def test_public_filler_applies_exact_reproduced_style_plan_after_values(
 ) -> None:
     artifacts = filled_anf_style_workbook
     result = artifacts["result"]
-    assert result.written_cell_count == 22_052
+    assert result.written_cell_count == 22_214
     assert result.styled_cell_count == 714
 
     shell = load_workbook(SHELL, data_only=False, read_only=False)
@@ -400,7 +400,7 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             _wait_for_owned_process_exit(process_id)
 
     inventory = inventory_xlsx_formula_xml(path)
-    assert inventory["cell_formula_count"] == 2133
+    assert inventory["cell_formula_count"] == 2141
     assert inventory["function_counts"]["MAXIFS"] == 324
     assert inventory["function_counts"]["MINIFS"] == 324
     assert inventory["function_counts"]["LET"] == 4

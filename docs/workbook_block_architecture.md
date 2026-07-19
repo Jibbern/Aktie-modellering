@@ -33,9 +33,14 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | summary_segment_model_values | SUMMARY | A13:F15 | company_profile.operating_model_rows | source-backed | standard |
 | summary_key_dependencies_values | SUMMARY | A17:F21 | company_profile.key_dependencies | source-backed | standard |
 | summary_wrong_if_values | SUMMARY | A23:F24 | investment_case.invalidators | source-backed | standard |
-| summary_key_financials_values | SUMMARY | B26:B39 | quarterly_financials.rows.0.net_income, quarterly_financials.rows.0.period, quarterly_financials.rows.0.revenue | source-backed | standard |
-| summary_leverage_liquidity_values | SUMMARY | B41:B45 | debt_liquidity.net_leverage, debt_liquidity.summary_liquidity_display | source-backed | standard |
+| summary_latest_period_value | SUMMARY | B26:B26 | quarterly_financials.rows.period | source-backed | standard |
+| summary_latest_revenue_value | SUMMARY | B28:B28 | quarterly_financials.rows.revenue | source-backed | standard |
+| summary_latest_net_income_value | SUMMARY | B30:B30 | quarterly_financials.rows.net_income | source-backed | standard |
+| summary_net_leverage_value | SUMMARY | B41:B41 | debt_liquidity.net_leverage | source-backed | standard |
+| summary_revolver_availability_value | SUMMARY | B44:B44 | debt_liquidity.revolver_availability | source-backed | standard |
+| summary_liquidity_value | SUMMARY | B45:B45 | debt_liquidity.summary_liquidity_display | source-backed | standard |
 | summary_revenue_mix_label | SUMMARY | A8:F8 | company_profile.revenue_mix_label | profile-backed | standard |
+| summary_revolver_availability_as_of_value | SUMMARY | D44:F44 | debt_liquidity.summary_liquidity_as_of_display | source-backed | standard |
 | summary_liquidity_as_of_value | SUMMARY | D45:F45 | debt_liquidity.summary_liquidity_as_of_display | source-backed | standard |
 | valuation_guidance_values | Valuation | O9:T27 | normalized_guidance.items.value | source-backed | standard |
 | valuation_guidance_status_values | Valuation | AA9:AA27 | normalized_guidance.items.progress_status | source-backed | standard |
@@ -43,6 +48,10 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | valuation_operating_driver_values | Valuation | O39:AA47 | operating_drivers.items.0.driver | source-backed | standard |
 | valuation_thesis_bridge_values | Valuation | O51:AA62 | investment_case.key_debate | manual | standard |
 | valuation_guidance_status_values_lower | Valuation | X29:AA36 | normalized_guidance.items.0.horizon | source-backed | standard |
+| valuation_debt_snapshot_values | Valuation | B124:B130 | debt_liquidity.cash, debt_liquidity.lease_liabilities, debt_liquidity.net_debt, debt_liquidity.net_leverage, +3 more | source-backed | standard |
+| valuation_debt_snapshot_periods | Valuation | D124:D130 | debt_liquidity.cash.period, debt_liquidity.lease_liabilities.period, debt_liquidity.net_debt.period, debt_liquidity.net_leverage.period, +3 more | source-backed | standard |
+| valuation_debt_snapshot_statuses | Valuation | E124:E130 | debt_liquidity.cash.status, debt_liquidity.lease_liabilities.status, debt_liquidity.net_debt.status, debt_liquidity.net_leverage.status, +3 more | source-backed | standard |
+| valuation_debt_snapshot_evidence | Valuation | F124:M130 | debt_liquidity.cash.source_ref, debt_liquidity.lease_liabilities.source_ref, debt_liquidity.net_debt.source_ref, debt_liquidity.net_leverage.source_ref, +3 more | source-backed | standard |
 | module_hidden_value_signals_valuation_rows | Valuation | A139:M143 | _derived_workbook.hidden_value.flags_rows | derived | standard |
 | valuation_input_values | Valuation | D194:D217 | valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, +12 more | source-backed | standard |
 | valuation_period_headers | Valuation | B6:M6 | quarterly_financials.rows.period | source-backed | standard |
@@ -193,24 +202,64 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Missing data: optional blank with manual_review flag only if promotion asks for full thesis
   - Validation: placeholder_investment_case
 
-- `summary_key_financials_values` `B26:B39`
-  - Normalized fields: quarterly_financials.rows.0.net_income, quarterly_financials.rows.0.period, quarterly_financials.rows.0.revenue
+- `summary_latest_period_value` `B26:B26`
+  - Normalized fields: quarterly_financials.rows.period
   - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
   - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
   - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
   - Missing data: blank values; emit mapping gap
   - Validation: unexplained_empty_core_field
 
-- `summary_leverage_liquidity_values` `B41:B45`
-  - Normalized fields: debt_liquidity.net_leverage, debt_liquidity.summary_liquidity_display
+- `summary_latest_revenue_value` `B28:B28`
+  - Normalized fields: quarterly_financials.rows.revenue
   - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
   - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
   - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank values; emit mapping gap | leave blank and emit a structured mapping gap
+  - Missing data: blank values; emit mapping gap
+  - Validation: unexplained_empty_core_field
+
+- `summary_latest_net_income_value` `B30:B30`
+  - Normalized fields: quarterly_financials.rows.net_income
+  - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
+  - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
+  - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: blank values; emit mapping gap
+  - Validation: unexplained_empty_core_field
+
+- `summary_net_leverage_value` `B41:B41`
+  - Normalized fields: debt_liquidity.net_leverage
+  - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
+  - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
+  - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: blank values; emit mapping gap
+  - Validation: unexplained_empty_core_field
+
+- `summary_revolver_availability_value` `B44:B44`
+  - Normalized fields: debt_liquidity.revolver_availability
+  - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
+  - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
+  - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave blank and emit a structured mapping gap
+  - Validation: unexplained_empty_core_field
+
+- `summary_liquidity_value` `B45:B45`
+  - Normalized fields: debt_liquidity.summary_liquidity_display
+  - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
+  - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
+  - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave blank and emit a structured mapping gap
   - Validation: unexplained_empty_core_field
 
 - `summary_revenue_mix_label` `A8:F8`
   - Normalized fields: company_profile.revenue_mix_label
+  - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
+  - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
+  - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave blank and emit a structured mapping gap
+  - Validation: unexplained_empty_core_field
+
+- `summary_revolver_availability_as_of_value` `D44:F44`
+  - Normalized fields: debt_liquidity.summary_liquidity_as_of_display
   - Support sheets: Debt_Tranches_Q, History_Q, Leverage_Liquidity, SEC_Audit_Log
   - Current owner: pbi_xbrl/excel_writer_summary_builder.py, pbi_xbrl/excel_writer_summary_sheet.py, pbi_xbrl/summary_overview.py
   - Future owner: future normalized_company_data_builder, docs/workbook_binding_map.json, future value-only filler
@@ -274,6 +323,38 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
   - Missing data: blank lower guidance status rows until realized/status evidence exists
   - Validation: boilerplate_guidance
+
+- `valuation_debt_snapshot_values` `B124:B130`
+  - Normalized fields: debt_liquidity.cash, debt_liquidity.lease_liabilities, debt_liquidity.net_debt, debt_liquidity.net_leverage, debt_liquidity.revolver_availability, debt_liquidity.total_debt, debt_liquidity.total_liquidity
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave unsupported debt blank and emit a structured mapping gap | leave unsupported leverage blank and emit a structured mapping gap | leave unsupported net debt blank and emit a structured mapping gap | leave value blank and emit a structured mapping gap
+  - Validation: unexplained_empty_core_field
+
+- `valuation_debt_snapshot_periods` `D124:D130`
+  - Normalized fields: debt_liquidity.cash.period, debt_liquidity.lease_liabilities.period, debt_liquidity.net_debt.period, debt_liquidity.net_leverage.period, debt_liquidity.revolver_availability.period, debt_liquidity.total_debt.period, debt_liquidity.total_liquidity.period
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave date blank and emit a structured mapping gap | leave date blank when debt is unavailable | leave date blank when leverage is unavailable | leave date blank when net debt is unavailable
+  - Validation: unexplained_empty_core_field
+
+- `valuation_debt_snapshot_statuses` `E124:E130`
+  - Normalized fields: debt_liquidity.cash.status, debt_liquidity.lease_liabilities.status, debt_liquidity.net_debt.status, debt_liquidity.net_leverage.status, debt_liquidity.revolver_availability.status, debt_liquidity.total_debt.status, debt_liquidity.total_liquidity.status
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave status blank only when the scalar contract is absent
+  - Validation: unexplained_empty_core_field
+
+- `valuation_debt_snapshot_evidence` `F124:M130`
+  - Normalized fields: debt_liquidity.cash.source_ref, debt_liquidity.lease_liabilities.source_ref, debt_liquidity.net_debt.source_ref, debt_liquidity.net_leverage.source_ref, debt_liquidity.revolver_availability.source_ref, debt_liquidity.total_debt.source_ref, debt_liquidity.total_liquidity.source_ref
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: leave evidence blank only when the scalar contract is absent
+  - Validation: unexplained_empty_core_field
 
 - `module_hidden_value_signals_valuation_rows` `A139:M143`
   - Normalized fields: _derived_workbook.hidden_value.flags_rows

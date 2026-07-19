@@ -3,12 +3,12 @@
 Status: **PASS**
 
 - Authoritative contract: `docs/standard_template_style_policy.json`
-- Contract digest: `dc0b734c0cd4aab6871ccb31a27104374ed1b076967eb44c4261861f763d48a7`
+- Contract digest: `215647144515489826cf174701a08bbc050e0b637724b9b7fcc56f0a9478202b`
 - Numerical policies: 44
 - Categorical state policies: 3
 - Total policies: 47
 - Exact target selectors: 115
-- Explicit no-style formula targets: 27
+- Explicit no-style formula targets: 35
 
 ## Profiles
 

@@ -2,9 +2,9 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-18T20:54:22+00:00`
-- Bindings with populated data: `76` / `152`
-- Bindings that would write useful output: `97`
+- Generated: `2026-07-19T10:51:07+00:00`
+- Bindings with populated data: `80` / `182`
+- Bindings that would write useful output: `121`
 
 | Binding | Sheet | Field | Values | Rows | Would write | Reason if blank |
 | --- | --- | --- | ---: | ---: | --- | --- |
@@ -16,8 +16,8 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `summary_segment_model` | `SUMMARY` | `company_profile.operating_model_rows` | 3 | 3/3 | True |  |
 | `summary_key_risks` | `SUMMARY` | `company_profile.key_dependencies` | 5 | 5/5 | True |  |
 | `summary_wrong_if` | `SUMMARY` | `investment_case.invalidators` | 2 | 2/2 | True |  |
-| `summary_as_of_quarter` | `SUMMARY` | `quarterly_financials.rows.0.period` | 0 | 0/4 | True |  |
-| `summary_latest_net_income` | `SUMMARY` | `quarterly_financials.rows.0.net_income` | 12 | 12/10 | True |  |
+| `summary_as_of_quarter` | `SUMMARY` | `quarterly_financials.rows.period` | 0 | 0/1 | True |  |
+| `summary_latest_net_income` | `SUMMARY` | `quarterly_financials.rows.net_income` | 0 | 0/1 | True |  |
 | `summary_net_leverage` | `SUMMARY` | `debt_liquidity.net_leverage` | 0 | 0/1 | False | normalized field is absent or not populated |
 | `valuation_guidance_rows` | `Valuation` | `normalized_guidance.items.value` | 0 | 0/19 | True |  |
 | `valuation_guidance_rows_lower` | `Valuation` | `normalized_guidance.items.0.value` | 196 | 196/8 | False | binding planning_state is inactive_legacy_contract |
@@ -82,10 +82,40 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `qa_log_validation_rows` | `QA_Log` | `issue_ledger.qa_presentation.qa_log_rows` | 0 | 0/4999 | False | validation output binding |
 | `needs_review_validation_rows` | `Needs_Review` | `issue_ledger.qa_presentation.needs_review_rows` | 0 | 0/4999 | False | validation output binding |
 | `qa_checks_mapping_gap_rows` | `QA_Checks` | `issue_ledger.qa_presentation.qa_check_rows` | 0 | 0/4999 | False | validation output binding |
-| `summary_latest_revenue` | `SUMMARY` | `quarterly_financials.rows.0.revenue` | 12 | 12/14 | True |  |
+| `summary_latest_revenue` | `SUMMARY` | `quarterly_financials.rows.revenue` | 0 | 0/1 | True |  |
 | `summary_revenue_mix_label` | `SUMMARY` | `company_profile.revenue_mix_label` | 1 | 1/1 | True |  |
 | `summary_liquidity` | `SUMMARY` | `debt_liquidity.summary_liquidity_display` | 1 | 1/1 | True |  |
 | `summary_liquidity_as_of` | `SUMMARY` | `debt_liquidity.summary_liquidity_as_of_display` | 1 | 1/1 | True |  |
+| `summary_revolver_availability` | `SUMMARY` | `debt_liquidity.revolver_availability` | 1 | 1/1 | True |  |
+| `summary_revolver_availability_as_of` | `SUMMARY` | `debt_liquidity.summary_liquidity_as_of_display` | 1 | 1/1 | True |  |
+| `valuation_debt_snapshot_cash_value` | `Valuation` | `debt_liquidity.cash` | 1 | 1/1 | True |  |
+| `valuation_debt_snapshot_cash_as_of` | `Valuation` | `debt_liquidity.cash.period` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_cash_evidence` | `Valuation` | `debt_liquidity.cash.source_ref` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_cash_status` | `Valuation` | `debt_liquidity.cash.status` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_revolver_value` | `Valuation` | `debt_liquidity.revolver_availability` | 1 | 1/1 | True |  |
+| `valuation_debt_snapshot_revolver_as_of` | `Valuation` | `debt_liquidity.revolver_availability.period` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_revolver_evidence` | `Valuation` | `debt_liquidity.revolver_availability.source_ref` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_revolver_status` | `Valuation` | `debt_liquidity.revolver_availability.status` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_liquidity_value` | `Valuation` | `debt_liquidity.total_liquidity` | 1 | 1/1 | True |  |
+| `valuation_debt_snapshot_liquidity_as_of` | `Valuation` | `debt_liquidity.total_liquidity.period` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_liquidity_evidence` | `Valuation` | `debt_liquidity.total_liquidity.source_ref` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_liquidity_status` | `Valuation` | `debt_liquidity.total_liquidity.status` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_leases_value` | `Valuation` | `debt_liquidity.lease_liabilities` | 1 | 1/1 | True |  |
+| `valuation_debt_snapshot_leases_as_of` | `Valuation` | `debt_liquidity.lease_liabilities.period` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_leases_evidence` | `Valuation` | `debt_liquidity.lease_liabilities.source_ref` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_leases_status` | `Valuation` | `debt_liquidity.lease_liabilities.status` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_core_debt_value` | `Valuation` | `debt_liquidity.total_debt` | 0 | 0/1 | False | normalized field is absent or not populated |
+| `valuation_debt_snapshot_core_debt_as_of` | `Valuation` | `debt_liquidity.total_debt.period` | 0 | 0/1 | False | normalized field is absent or not populated |
+| `valuation_debt_snapshot_core_debt_evidence` | `Valuation` | `debt_liquidity.total_debt.source_ref` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_core_debt_status` | `Valuation` | `debt_liquidity.total_debt.status` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_net_debt_value` | `Valuation` | `debt_liquidity.net_debt` | 0 | 0/1 | False | normalized field is absent or not populated |
+| `valuation_debt_snapshot_net_debt_as_of` | `Valuation` | `debt_liquidity.net_debt.period` | 0 | 0/1 | False | normalized field is absent or not populated |
+| `valuation_debt_snapshot_net_debt_evidence` | `Valuation` | `debt_liquidity.net_debt.source_ref` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_net_debt_status` | `Valuation` | `debt_liquidity.net_debt.status` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_net_leverage_value` | `Valuation` | `debt_liquidity.net_leverage` | 0 | 0/1 | False | normalized field is absent or not populated |
+| `valuation_debt_snapshot_net_leverage_as_of` | `Valuation` | `debt_liquidity.net_leverage.period` | 0 | 0/1 | False | normalized field is absent or not populated |
+| `valuation_debt_snapshot_net_leverage_evidence` | `Valuation` | `debt_liquidity.net_leverage.source_ref` | 0 | 0/1 | True |  |
+| `valuation_debt_snapshot_net_leverage_status` | `Valuation` | `debt_liquidity.net_leverage.status` | 0 | 0/1 | True |  |
 | `ic_investment_case_title` | `{ticker}_Investment_Case` | `ticker_metadata.investment_case_title` | 1 | 1/1 | True |  |
 | `valuation_period_headers` | `Valuation` | `quarterly_financials.rows.period` | 0 | 0/1 | True |  |
 | `valuation_revenue_series` | `Valuation` | `quarterly_financials.rows.revenue` | 0 | 0/1 | True |  |

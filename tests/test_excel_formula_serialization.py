@@ -101,7 +101,7 @@ def test_checked_in_shell_has_exact_future_function_xml_inventory() -> None:
         for column in "BCDEFGHIJKLM"
     }
 
-    assert inventory["cell_formula_count"] == 2133
+    assert inventory["cell_formula_count"] == 2141
     assert inventory["function_counts"]["MAXIFS"] == 324
     assert inventory["function_counts"]["MINIFS"] == 324
     assert inventory["function_counts"]["LET"] == 4

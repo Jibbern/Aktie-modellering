@@ -4,13 +4,13 @@
   "contract_name": "ANF legacy-oracle parity matrix",
   "architectural_scope": "legacy_adapter_fixture_only; generic engine remains ticker-neutral",
   "inventory_method": "legacy workbook business keys are inventoried first; normalized package and plan are comparison targets only",
-  "formula_contract_version": "2.0.0",
+  "formula_contract_version": "2.1.0",
   "source_digests": {
     "legacy_workbook_sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
-    "normalized_package_sha256": "5e43a664dfedb1a12928de3ba67f60af238f30a514e2197588f3c446cae74939",
-    "binding_plan_sha256": "f76ee57d76c182bd486aab652fd35c3f1aef5abbd849f342cefdca1602bf2f86",
-    "shell_sha256": "891eb549be24740e9bebf620b138f67f2c93a8c59b64d5d23f9b5b2c1149a405",
-    "binding_map_sha256": "3669e2d9bbbf0f34f6474efdd13e5ff738e09e33e8e29b2689bfee5df6eb4e09"
+    "normalized_package_sha256": "8a9bf153ca47dc46b36625cf1c1088ede348c1b2f30ab6c2256234b171b5a40d",
+    "binding_plan_sha256": "b293a2d78b1dd319d85e13b5308519b54dbc5b37413e08823ef264d30584138e",
+    "shell_sha256": "f3d458e0536670635d704a804961956888123e04cb420d75fd8ff6261c471c74",
+    "binding_map_sha256": "3f2c6b99c3fce1b83f8a384504634d4f533caf269d4c3efe529c10a5dca0f8eb"
   },
   "summary": {
     "entry_count": 1772,

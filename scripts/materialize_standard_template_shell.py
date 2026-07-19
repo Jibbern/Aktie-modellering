@@ -199,13 +199,6 @@ VALUATION_GUIDANCE_SIDECAR_HEADERS = {
     "X63": "Interpretation",
 }
 VALUATION_STRUCTURAL_HEADERS = {
-    "B123": "Principal due ($m)",
-    "C123": "Rate type",
-    "D123": "Coupon/Spread %",
-    "F123": "Maturity",
-    "G123": "Conversion price",
-    "I123": "Added shares on full conversion (m)",
-    "L123": "Concurrent repurchased shares (m)",
     "B138": "Summary",
     "F138": "Score",
     "G138": "Severity",
@@ -221,7 +214,7 @@ VALUATION_BLUE_SECTION_HEADERS = {
     "O7": "Guidance",
     "O37": "Operating Drivers",
     "O48": "Thesis Bridge",
-    "A122": "Debt Detail (latest)",
+    "A122": "Debt & liquidity snapshot",
     "A137": "Hidden value flags",
     "N137": "Hidden Value Panel",
     "A145": "Operating signals",
@@ -1275,7 +1268,7 @@ def _ensure_valuation_guidance_sidecar_headers(wb: Workbook) -> None:
     left_center = Alignment(horizontal="left", vertical="center", wrap_text=True)
     center_center = Alignment(horizontal="center", vertical="center")
 
-    for range_ref in ("D123:E123", "H138:I138"):
+    for range_ref in ("H138:I138",):
         _ensure_merged_range(ws, range_ref)
 
     for coord, value in {**VALUATION_GUIDANCE_SIDECAR_HEADERS, **VALUATION_STRUCTURAL_HEADERS}.items():
@@ -1294,8 +1287,6 @@ def _ensure_valuation_guidance_sidecar_headers(wb: Workbook) -> None:
             cell.font = section_font
             cell.alignment = left_center
 
-    _style_cells(ws, "A122:N122", fill=section_fill)
-    _style_cells(ws, "B123:N123", fill=column_header_fill, font=header_font, alignment=left_center)
     _style_cells(ws, "B138:I138", fill=column_header_fill, font=header_font, alignment=left_center)
     _style_cells(ws, "A145:M145", fill=section_fill)
     _style_cells(ws, "A151:M151", fill=section_fill)
@@ -1510,14 +1501,73 @@ def _configure_summary_liquidity_layout(wb: Workbook) -> None:
     if "SUMMARY" not in wb.sheetnames:
         return
     ws = wb["SUMMARY"]
-    if "D45:F45" not in {str(item) for item in ws.merged_cells.ranges}:
-        ws.merge_cells("D45:F45")
-    ws["D45"] = None
-    ws["D45"].alignment = copy(ws["B45"].alignment)
-    ws["D45"].font = copy(ws["B45"].font)
-    ws["D45"].fill = copy(ws["B45"].fill)
-    ws["D45"].border = copy(ws["B45"].border)
-    ws["D45"].number_format = "General"
+    existing = {str(item) for item in ws.merged_cells.ranges}
+    for range_ref in ("D44:F44", "D45:F45"):
+        if range_ref not in existing:
+            ws.merge_cells(range_ref)
+        anchor = range_ref.split(":", 1)[0]
+        ws[anchor] = None
+        ws[anchor].alignment = copy(ws["B45"].alignment)
+        ws[anchor].font = copy(ws["B45"].font)
+        ws[anchor].fill = copy(ws["B45"].fill)
+        ws[anchor].border = copy(ws["B45"].border)
+        ws[anchor].number_format = "General"
+
+
+def _configure_scalar_debt_liquidity_snapshot(wb: Workbook) -> None:
+    if "Valuation" not in wb.sheetnames:
+        return
+    ws = wb["Valuation"]
+    for merged_range in list(ws.merged_cells.ranges):
+        if merged_range.min_row in {122, 123} and merged_range.max_row == merged_range.min_row:
+            ws.unmerge_cells(str(merged_range))
+    _ensure_merged_range(ws, "A122:M122")
+    _ensure_merged_range(ws, "F123:M123")
+    for row in range(124, 132):
+        _ensure_merged_range(ws, f"F{row}:M{row}")
+
+    section_fill = PatternFill("solid", fgColor="6FA8DC")
+    header_fill = PatternFill("solid", fgColor="EAF3FB")
+    section_font = Font(bold=True, color="FFFFFF", size=12)
+    header_font = Font(bold=True, color="000000", size=11)
+    left = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    _style_cells(ws, "A122:M122", fill=section_fill, font=section_font, alignment=left)
+    _style_cells(ws, "A123:M123", fill=header_fill, font=header_font, alignment=left)
+
+    ws["A122"] = "Debt & liquidity snapshot"
+    headers = ("Metric", "Value", "Unit", "As of", "Status", "Evidence / lineage")
+    for column, value in enumerate(headers, start=1):
+        ws.cell(123, column).value = value
+
+    rows = {
+        124: ("Cash", "$m", None),
+        125: ("Revolver availability", "$m", None),
+        126: ("Total liquidity", "$m", None),
+        127: ("Operating lease liabilities", "$m", None),
+        128: ("Core debt", "$m", None),
+        129: ("Net debt", "$m", None),
+        130: ("Net leverage", "x", None),
+        131: ("Maturity detail", "", "No maturity schedule available."),
+    }
+    for row, (label, unit, definition) in rows.items():
+        ws.cell(row, 1).value = label
+        ws.cell(row, 2).value = None
+        ws.cell(row, 3).value = unit
+        ws.cell(row, 4).value = None
+        ws.cell(row, 5).value = "unavailable" if row == 131 else None
+        ws.cell(row, 6).value = definition
+        ws.cell(row, 2).number_format = "0.00x;[Red]-0.00x" if row == 130 else "#,##0.0;[Red]-#,##0.0"
+        for column in range(1, 14):
+            cell = ws.cell(row, column)
+            if not isinstance(cell, MergedCell):
+                cell.alignment = copy(left)
+                cell.protection = Protection(locked=True)
+    for row in range(132, 137):
+        for column in range(1, 14):
+            cell = ws.cell(row, column)
+            if not isinstance(cell, MergedCell):
+                cell.value = None
+                cell.protection = Protection(locked=True)
 
 
 def _remove_company_specific_defined_names(wb: Workbook) -> None:
@@ -1805,6 +1855,7 @@ def _materialize_rich_shell(
     _clear_visible_placeholder_labels(wb)
     _neutralize_blank_bs_signal_fills(wb)
     _configure_summary_liquidity_layout(wb)
+    _configure_scalar_debt_liquidity_snapshot(wb)
     apply_standard_formula_contracts(
         wb,
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
@@ -1935,6 +1986,7 @@ def materialize_shell(
         ws.sheet_state = str(sheet_def["state"])
 
     _configure_summary_liquidity_layout(wb)
+    _configure_scalar_debt_liquidity_snapshot(wb)
     _configure_narrative_text_layout(wb)
     apply_standard_formula_contracts(
         wb,

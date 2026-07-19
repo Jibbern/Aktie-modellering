@@ -385,21 +385,24 @@
       "status": "populated",
       "source_ref": "synthetic_fixture:debt_liquidity",
       "core": true,
-      "unit": "$m"
+      "unit": "$m",
+      "period": "2026-03-31"
     },
     "total_debt": {
       "value": 150.0,
       "status": "populated",
       "source_ref": "synthetic_fixture:debt_liquidity",
       "core": true,
-      "unit": "$m"
+      "unit": "$m",
+      "period": "2026-03-31"
     },
     "net_debt": {
       "value": 70.0,
       "status": "populated",
       "source_ref": "synthetic_fixture:debt_liquidity",
       "core": true,
-      "unit": "$m"
+      "unit": "$m",
+      "period": "2026-03-31"
     },
     "net_leverage": {
       "value": 0.7,
@@ -491,6 +494,14 @@
       "source_ref": "synthetic_fixture:debt_liquidity",
       "core": true,
       "unit": "$m"
+    },
+    "lease_liabilities": {
+      "value": 30.0,
+      "status": "populated",
+      "source_ref": "synthetic_fixture:debt_liquidity",
+      "core": false,
+      "unit": "$m",
+      "period": "2026-03-31"
     }
   },
   "capital_returns": {

@@ -337,6 +337,15 @@ def _rule_ids(plan: BindingPlan) -> set[str]:
     return {issue.rule_id for issue in plan.issues}
 
 
+def _resolved_scalar_dispositions(package: dict) -> dict[str, object]:
+    contracts, issues = planner_module._scalar_disposition_contracts(_bindings()["bindings"])
+    assert issues == []
+    return {
+        disposition_id: planner_module._resolve_scalar_disposition(package, contract)
+        for disposition_id, contract in contracts.items()
+    }
+
+
 def test_planner_is_json_only_and_does_not_import_excel_io() -> None:
     source = (ROOT / "pbi_xbrl" / "new_ticker_binding_planner.py").read_text(encoding="utf-8")
     module = ast.parse(source)
@@ -443,6 +452,23 @@ def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
     assert writes[("SUMMARY", "B45")].value == 180.0
     assert writes[("SUMMARY", "B45")].normalized_path == "debt_liquidity.summary_liquidity_display"
     assert writes[("SUMMARY", "D45")].value == "As of 2026-03-31"
+    assert writes[("SUMMARY", "B44")].value == 100.0
+    assert writes[("SUMMARY", "D44")].value == "As of 2026-03-31"
+    snapshot = {
+        124: (80.0, "2026-03-31", "populated"),
+        125: (100.0, "2026-03-31", "populated"),
+        126: (180.0, "2026-03-31", "populated"),
+        127: (30.0, "2026-03-31", "populated"),
+        128: (150.0, "2026-03-31", "populated"),
+        129: (70.0, "2026-03-31", "populated"),
+        130: (0.7, "2026-03-31", "populated"),
+    }
+    for row, (value, period, status) in snapshot.items():
+        assert writes[("Valuation", f"B{row}")].value == value
+        assert writes[("Valuation", f"D{row}")].value == period
+        assert writes[("Valuation", f"E{row}")].value == status
+        assert writes[("Valuation", f"F{row}")].value == "synthetic_fixture:debt_liquidity"
+        assert writes[("Valuation", f"F{row}")].source_ref == "synthetic_fixture:debt_liquidity"
     assert writes[("Valuation", "D202")].value == 76.2
     assert writes[("Valuation", "D202")].normalized_path == "valuation_inputs.operating_cash_flow_ttm"
     assert writes[("Valuation", "D195")].value == "2026-03-31"
@@ -669,6 +695,341 @@ def test_pick_selector_reconciles_eligible_selected_and_structured_exclusions() 
         assert all(row["selector_rule"] in {"pick=first", "pick=latest"} for row in pick_exclusions)
         assert all(isinstance(row["period"], str) and not row["period"].startswith("{") for row in pick_exclusions)
         assert report["overflow_rows"] == []
+
+
+def test_latest_summary_selector_is_typed_and_source_row_order_independent() -> None:
+    original = _package()
+    reordered = _package()
+    reordered["quarterly_financials"]["rows"].reverse()
+    bindings = _bindings()
+
+    for binding_id in ("summary_as_of_quarter", "summary_latest_revenue", "summary_latest_net_income"):
+        binding = _binding(bindings, binding_id)
+        assert binding["row_selector"]["source_path"] == "quarterly_financials.rows"
+        assert binding["row_selector"]["pick"] == "latest"
+        assert ".rows.0" not in binding["normalized_field"]
+    for binding in bindings["bindings"]:
+        if binding["binding_id"].startswith(("summary_revolver_availability", "valuation_debt_snapshot")):
+            serialized = json.dumps(binding, sort_keys=True)
+            assert ".items.0" not in serialized
+            assert ".rows.0" not in serialized
+
+    first = _plan(original)
+    second = _plan(reordered)
+
+    assert first.status == second.status == "PASS"
+    first_writes = _writes(first)
+    second_writes = _writes(second)
+    expected = {
+        ("SUMMARY", "B26"): "2026-Q1",
+        ("SUMMARY", "B28"): 120.5,
+        ("SUMMARY", "B30"): 13.1,
+    }
+    for key, value in expected.items():
+        assert first_writes[key].value == value
+        assert second_writes[key].value == value
+        assert first_writes[key].row_key == second_writes[key].row_key == "2026-Q1"
+
+    planner_source = Path(planner_module.__file__).read_text(encoding="utf-8")
+    for ticker in ("ANF", "PBI", "GPRE"):
+        assert f'ticker == "{ticker}"' not in planner_source
+        assert f"ticker == '{ticker}'" not in planner_source
+
+
+def test_duplicate_or_incompatible_latest_quarter_fails_closed() -> None:
+    duplicate = _package()
+    repeated = deepcopy(
+        next(
+            row
+            for row in duplicate["quarterly_financials"]["rows"]
+            if row["period"] == "2026-Q1"
+        )
+    )
+    repeated["revenue"]["source_ref"] = "synthetic_fixture:duplicate-latest"
+    duplicate["quarterly_financials"]["rows"].append(repeated)
+    duplicate_plan = _plan(duplicate)
+
+    assert duplicate_plan.status == "FAIL"
+    assert duplicate_plan.planned_writes == []
+    assert "duplicate_business_row_key" in _rule_ids(duplicate_plan)
+
+    invalid_period = _package()
+    latest_row = next(
+        row
+        for row in invalid_period["quarterly_financials"]["rows"]
+        if row["period"] == "2026-Q1"
+    )
+    latest_row["fiscal_quarter"] = 4
+    invalid_period_plan = _plan(invalid_period)
+
+    assert invalid_period_plan.status == "FAIL"
+    assert invalid_period_plan.planned_writes == []
+    assert "invalid_fiscal_quarter" in _rule_ids(invalid_period_plan)
+
+    mismatched_unit_bindings = _bindings()
+    _binding(mismatched_unit_bindings, "summary_latest_revenue")["row_selector"]["period_identity"]["unit"] = "m shares"
+    mismatch_plan = _plan(bindings=mismatched_unit_bindings)
+
+    assert mismatch_plan.status == "FAIL"
+    assert ("SUMMARY", "B28") not in _writes(mismatch_plan)
+    assert "binding_latest_quarter_metric_incompatible" in _rule_ids(mismatch_plan)
+
+
+def test_scalar_snapshot_requires_exact_period_and_unit_without_reconstruction() -> None:
+    missing_period = _package()
+    missing_period["debt_liquidity"]["lease_liabilities"].pop("period")
+    missing_period_plan = _plan(missing_period)
+    missing_writes = _writes(missing_period_plan)
+
+    assert missing_period_plan.status == "PASS"
+    assert ("Valuation", "B127") not in missing_writes
+    assert ("Valuation", "D127") not in missing_writes
+    assert missing_writes[("Valuation", "E127")].value == "manual_review_required"
+    assert missing_writes[("Valuation", "F127")].value == "synthetic_fixture:debt_liquidity"
+    assert any(
+        row.get("binding_id") == "valuation_debt_snapshot_leases_value"
+        and row.get("reason") == "Scalar value requires populated companion path(s): debt_liquidity.lease_liabilities.period."
+        for row in missing_period_plan.mapping_gaps
+    )
+
+    wrong_unit = _package()
+    wrong_unit["debt_liquidity"]["cash"]["unit"] = "m shares"
+    wrong_unit_plan = _plan(wrong_unit)
+
+    assert wrong_unit_plan.status == "FAIL"
+    assert ("Valuation", "B124") not in _writes(wrong_unit_plan)
+    assert "binding_scalar_unit_mismatch" in _rule_ids(wrong_unit_plan)
+
+    unsupported = _package()
+    for metric in ("total_debt", "net_debt", "net_leverage"):
+        field = unsupported["debt_liquidity"][metric]
+        field.update(value=None, status="missing_source", reason=f"{metric} intentionally unavailable")
+        field.pop("period", None)
+    unsupported_plan = _plan(unsupported)
+    unsupported_writes = _writes(unsupported_plan)
+
+    assert unsupported_plan.status == "PASS"
+    for row in range(128, 131):
+        assert ("Valuation", f"B{row}") not in unsupported_writes
+        assert ("Valuation", f"D{row}") not in unsupported_writes
+        assert unsupported_writes[("Valuation", f"E{row}")].value == "missing_source"
+
+
+def test_product_pass2a_scalar_columns_declare_one_shared_disposition() -> None:
+    bindings = _bindings()["bindings"]
+    expected_groups = {
+        "debt_liquidity_cash": {
+            "record_path": "debt_liquidity.cash",
+            "binding_ids": {
+                "valuation_debt_snapshot_cash_value",
+                "valuation_debt_snapshot_cash_as_of",
+                "valuation_debt_snapshot_cash_status",
+                "valuation_debt_snapshot_cash_evidence",
+            },
+        },
+        "debt_liquidity_revolver_availability": {
+            "record_path": "debt_liquidity.revolver_availability",
+            "binding_ids": {
+                "summary_revolver_availability",
+                "summary_revolver_availability_as_of",
+                "valuation_debt_snapshot_revolver_value",
+                "valuation_debt_snapshot_revolver_as_of",
+                "valuation_debt_snapshot_revolver_status",
+                "valuation_debt_snapshot_revolver_evidence",
+            },
+        },
+        "debt_liquidity_total_liquidity": {
+            "record_path": "debt_liquidity.total_liquidity",
+            "binding_ids": {
+                "summary_liquidity",
+                "summary_liquidity_as_of",
+                "valuation_debt_snapshot_liquidity_value",
+                "valuation_debt_snapshot_liquidity_as_of",
+                "valuation_debt_snapshot_liquidity_status",
+                "valuation_debt_snapshot_liquidity_evidence",
+            },
+        },
+        "debt_liquidity_lease_liabilities": {
+            "record_path": "debt_liquidity.lease_liabilities",
+            "binding_ids": {
+                "valuation_debt_snapshot_leases_value",
+                "valuation_debt_snapshot_leases_as_of",
+                "valuation_debt_snapshot_leases_status",
+                "valuation_debt_snapshot_leases_evidence",
+            },
+        },
+        "debt_liquidity_total_debt": {
+            "record_path": "debt_liquidity.total_debt",
+            "binding_ids": {
+                "valuation_debt_snapshot_core_debt_value",
+                "valuation_debt_snapshot_core_debt_as_of",
+                "valuation_debt_snapshot_core_debt_status",
+                "valuation_debt_snapshot_core_debt_evidence",
+            },
+        },
+        "debt_liquidity_net_debt": {
+            "record_path": "debt_liquidity.net_debt",
+            "binding_ids": {
+                "valuation_debt_snapshot_net_debt_value",
+                "valuation_debt_snapshot_net_debt_as_of",
+                "valuation_debt_snapshot_net_debt_status",
+                "valuation_debt_snapshot_net_debt_evidence",
+            },
+        },
+        "debt_liquidity_net_leverage": {
+            "record_path": "debt_liquidity.net_leverage",
+            "binding_ids": {
+                "valuation_debt_snapshot_net_leverage_value",
+                "valuation_debt_snapshot_net_leverage_as_of",
+                "valuation_debt_snapshot_net_leverage_status",
+                "valuation_debt_snapshot_net_leverage_evidence",
+            },
+        },
+    }
+
+    grouped: dict[str, list[dict]] = {}
+    for binding in bindings:
+        disposition_id = str(binding.get("scalar_disposition_id") or "")
+        if disposition_id:
+            grouped.setdefault(disposition_id, []).append(binding)
+
+    assert set(grouped) == set(expected_groups)
+    for disposition_id, expected in expected_groups.items():
+        rows = grouped[disposition_id]
+        assert {row["binding_id"] for row in rows} == expected["binding_ids"]
+        assert {row["scalar_disposition_field"] for row in rows} >= {"value", "status"}
+        assert {
+            str(row.get("scalar_disposition_path") or "")
+            for row in rows
+            if row.get("scalar_disposition_path")
+        } == {expected["record_path"]}
+
+
+@pytest.mark.parametrize(
+    ("disposition_id", "field_name", "value", "unit", "period"),
+    [
+        ("debt_liquidity_cash", "cash", 80.0, "$m", "2026-03-31"),
+        ("debt_liquidity_revolver_availability", "revolver_availability", 100.0, "$m", "2026-03-31"),
+        ("debt_liquidity_total_liquidity", "total_liquidity", 180.0, "$m", "2026-03-31"),
+        ("debt_liquidity_lease_liabilities", "lease_liabilities", 30.0, "$m", "2026-03-31"),
+    ],
+)
+def test_scalar_disposition_resolves_complete_record_as_one_candidate(
+    disposition_id: str,
+    field_name: str,
+    value: float,
+    unit: str,
+    period: str,
+) -> None:
+    disposition = _resolved_scalar_dispositions(_package())[disposition_id]
+
+    assert disposition.metric_id == field_name
+    assert disposition.value == value
+    assert disposition.unit == unit
+    assert disposition.period == period
+    assert disposition.status == "populated"
+    assert disposition.validity_code == "populated"
+    assert disposition.source_ref == "synthetic_fixture:debt_liquidity"
+
+
+@pytest.mark.parametrize(
+    ("disposition_id", "field_name"),
+    [
+        ("debt_liquidity_cash", "cash"),
+        ("debt_liquidity_revolver_availability", "revolver_availability"),
+        ("debt_liquidity_total_liquidity", "total_liquidity"),
+        ("debt_liquidity_lease_liabilities", "lease_liabilities"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("mutation", "expected_code"),
+    [
+        ("missing_value", "scalar_value_invalid"),
+        ("missing_period", "scalar_companion_missing"),
+        ("missing_unit", "scalar_unit_mismatch"),
+        ("incompatible_unit", "scalar_unit_mismatch"),
+        ("rejected_status", "scalar_status_value_conflict"),
+        ("missing_lineage", "missing_source_ref"),
+    ],
+)
+def test_scalar_disposition_invalid_companion_fails_closed_across_columns(
+    disposition_id: str,
+    field_name: str,
+    mutation: str,
+    expected_code: str,
+) -> None:
+    package = _package()
+    record = package["debt_liquidity"][field_name]
+    if mutation == "missing_value":
+        record.pop("value")
+    elif mutation == "missing_period":
+        record.pop("period")
+    elif mutation == "missing_unit":
+        record.pop("unit")
+    elif mutation == "incompatible_unit":
+        record["unit"] = "m shares"
+    elif mutation == "rejected_status":
+        record["status"] = "manual_review_required"
+    elif mutation == "missing_lineage":
+        record.pop("source_ref")
+
+    disposition = _resolved_scalar_dispositions(package)[disposition_id]
+
+    assert disposition.value is None
+    assert disposition.unit is None
+    assert disposition.period is None
+    assert disposition.period_display is None
+    assert disposition.status == "manual_review_required"
+    assert disposition.validity_code == expected_code
+    assert disposition.reason
+
+
+def test_scalar_disposition_duplicate_identity_blocks_before_writes() -> None:
+    bindings = _bindings()
+    duplicate_rows = [
+        deepcopy(row)
+        for row in bindings["bindings"]
+        if row.get("scalar_disposition_id") == "debt_liquidity_cash"
+    ]
+    for row in duplicate_rows:
+        row["binding_id"] = f"duplicate_{row['binding_id']}"
+        row["scalar_disposition_id"] = "duplicate_debt_liquidity_cash"
+    bindings["bindings"].extend(duplicate_rows)
+
+    plan = _plan(bindings=bindings)
+
+    assert plan.status == "FAIL"
+    assert plan.planned_writes == []
+    assert "binding_scalar_disposition_duplicate_identity" in _rule_ids(plan)
+
+
+def test_scalar_disposition_is_binding_order_independent() -> None:
+    original_bindings = _bindings()
+    reversed_bindings = _bindings()
+    reversed_bindings["bindings"].reverse()
+
+    original = _plan(bindings=original_bindings)
+    reordered = _plan(bindings=reversed_bindings)
+
+    assert original.status == reordered.status == "PASS"
+    scalar_targets = {
+        ("SUMMARY", "B44"),
+        ("SUMMARY", "D44"),
+        ("SUMMARY", "B45"),
+        ("SUMMARY", "D45"),
+        *(("Valuation", f"{column}{row}") for row in range(124, 131) for column in "BDEF"),
+    }
+    original_writes = _writes(original)
+    reordered_writes = _writes(reordered)
+    assert {
+        key: original_writes[key].to_dict()
+        for key in scalar_targets
+        if key in original_writes
+    } == {
+        key: reordered_writes[key].to_dict()
+        for key in scalar_targets
+        if key in reordered_writes
+    }
 
 
 def test_stale_guidance_marked_current_fails_before_visible_planning() -> None:

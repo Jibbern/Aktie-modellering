@@ -2,16 +2,16 @@
   "audit_version": "1.1.0",
   "status": "PASS",
   "authoritative_contract": "docs/standard_template_style_policy.json",
-  "authoritative_contract_digest": "dc0b734c0cd4aab6871ccb31a27104374ed1b076967eb44c4261861f763d48a7",
-  "module_manifest_digest": "4546285ef17cd5a0b2a5913cbee01549227e6e57339eca458c5c64616d181537",
-  "binding_contract_digest": "5bd474831404bb60367437697390ae8857126cde1f2600a67567ee29bd867529",
+  "authoritative_contract_digest": "215647144515489826cf174701a08bbc050e0b637724b9b7fcc56f0a9478202b",
+  "module_manifest_digest": "00e62a4de2bfcc4e52b018c45f65fc7924252ebb9aba36f3ded79b71fe68babd",
+  "binding_contract_digest": "d1a1fc8b70bd1a62ae2f9e1a8f84f9a36c838c8811cfaa411d5af02d3681240b",
   "policy_count": 44,
   "state_policy_count": 3,
   "total_policy_count": 47,
   "numerical_selector_count": 112,
   "state_selector_count": 3,
   "selector_count": 115,
-  "style_disabled_count": 27,
+  "style_disabled_count": 35,
   "palette_tokens": {
     "strong_negative": {
       "fill": {
@@ -148,8 +148,9 @@
     "unavailable": 1
   },
   "style_disabled_by_module": {
-    "balance_cash_flow": 3,
-    "debt_liquidity": 2,
+    "balance_cash_flow": 5,
+    "core_financial_history": 5,
+    "debt_liquidity": 3,
     "hidden_value_signals": 1,
     "investment_case_market_implied": 8,
     "valuation_scenarios": 13

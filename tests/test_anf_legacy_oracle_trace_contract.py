@@ -140,6 +140,39 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert bindings["summary_latest_revenue"]["source_field"] == "revenue"
         assert bindings["summary_latest_net_income"]["source_field"] == "net_income"
         assert bindings["valuation_period_headers"]["source_field"] == "period"
+        quarterly = {row["period"]: row for row in package["quarterly_financials"]["rows"]}
+        latest = quarterly["2026-Q1"]
+        prior_year = quarterly["2025-Q1"]
+        trailing_periods = ("2025-Q2", "2025-Q3", "2025-Q4", "2026-Q1")
+
+        def free_cash_flow(row: dict) -> float:
+            return row["operating_cash_flow"]["value"] - row["capital_expenditures"]["value"]
+
+        revenue_ttm = sum(quarterly[period]["revenue"]["value"] for period in trailing_periods)
+        fcf_ttm = sum(free_cash_flow(quarterly[period]) for period in trailing_periods)
+        latest_eps = latest["eps"]["value"]
+        prior_eps = prior_year["eps"]["value"]
+        operating_income_ttm = sum(
+            quarterly[period]["operating_income"]["value"] for period in trailing_periods
+        )
+        interest_expense_ttm = sum(
+            quarterly[period]["interest_expense"]["value"] for period in trailing_periods
+        )
+
+        assert writes[("SUMMARY", "B26")].value == "2026-Q1"
+        assert writes[("SUMMARY", "B28")].value == pytest.approx(1113.821)
+        assert writes[("SUMMARY", "B30")].value == pytest.approx(67.134)
+        assert revenue_ttm == pytest.approx(5282.802)
+        assert (latest["revenue"]["value"] - prior_year["revenue"]["value"]) / prior_year["revenue"]["value"] == pytest.approx(0.015045871225204177)
+        assert (latest["net_income"]["value"] - prior_year["net_income"]["value"]) / prior_year["net_income"]["value"] == pytest.approx(-0.1651349906109708)
+        assert latest_eps == pytest.approx(1.4697550189373207)
+        assert latest_eps == pytest.approx(
+            latest["net_income"]["value"] / latest["diluted_shares"]["value"]
+        )
+        assert (latest_eps - prior_eps) / abs(prior_eps) == pytest.approx(-0.07562577425325745)
+        assert fcf_ttm == pytest.approx(416.047)
+        assert (free_cash_flow(latest) - free_cash_flow(prior_year)) / abs(free_cash_flow(prior_year)) == pytest.approx(0.688024979913812)
+        assert operating_income_ttm / abs(interest_expense_ttm) == pytest.approx(34.09362737793672)
         assert writes[("SUMMARY", "A3")].value == package["company_profile"]["business_description"]["value"]
         assert writes[("SUMMARY", "A5")].value == package["company_profile"]["strategic_context"]["value"]
         assert writes[("SUMMARY", "A3")].source_ref in package["company_profile"]["business_description"]["evidence_refs"]
@@ -323,6 +356,24 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
         assert writes[("SUMMARY", "B45")].value == pytest.approx(1209.086)
         assert writes[("SUMMARY", "B45")].normalized_path == "debt_liquidity.summary_liquidity_display"
         assert writes[("SUMMARY", "D45")].value == "As of 2026-01-31 (stale)"
+        assert writes[("SUMMARY", "B44")].value == pytest.approx(449.546)
+        assert writes[("SUMMARY", "D44")].value == "As of 2026-01-31 (stale)"
+        snapshot = {
+            124: (594.08, "2026-05-02", "populated"),
+            125: (449.546, "2026-01-31", "populated"),
+            126: (1209.086, "2026-01-31", "populated"),
+            127: (1292.477, "2026-05-02", "populated"),
+        }
+        for row_number, (value, period, status) in snapshot.items():
+            assert writes[("Valuation", f"B{row_number}")].value == pytest.approx(value)
+            assert writes[("Valuation", f"D{row_number}")].value == period
+            assert writes[("Valuation", f"E{row_number}")].value == status
+            assert writes[("Valuation", f"F{row_number}")].source_ref
+        for row_number in range(128, 131):
+            assert ("Valuation", f"B{row_number}") not in writes
+            assert ("Valuation", f"D{row_number}") not in writes
+            assert writes[("Valuation", f"E{row_number}")].value == "missing_source"
+            assert writes[("Valuation", f"F{row_number}")].source_ref
         assert bindings["ic_investment_summary"]["planner_target"] == "B5"
         investment_summary = package["investment_case"]["summary"]
         assert investment_summary["source_ref"] in investment_summary["evidence_refs"]
@@ -397,6 +448,38 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "hidden_value_flags_rows",
         "hidden_value_valuation_rows",
     }
+    product_pass_2a_binding_ids = {
+        "summary_revolver_availability",
+        "summary_revolver_availability_as_of",
+        "valuation_debt_snapshot_cash_value",
+        "valuation_debt_snapshot_cash_as_of",
+        "valuation_debt_snapshot_cash_evidence",
+        "valuation_debt_snapshot_cash_status",
+        "valuation_debt_snapshot_revolver_value",
+        "valuation_debt_snapshot_revolver_as_of",
+        "valuation_debt_snapshot_revolver_evidence",
+        "valuation_debt_snapshot_revolver_status",
+        "valuation_debt_snapshot_liquidity_value",
+        "valuation_debt_snapshot_liquidity_as_of",
+        "valuation_debt_snapshot_liquidity_evidence",
+        "valuation_debt_snapshot_liquidity_status",
+        "valuation_debt_snapshot_leases_value",
+        "valuation_debt_snapshot_leases_as_of",
+        "valuation_debt_snapshot_leases_evidence",
+        "valuation_debt_snapshot_leases_status",
+        "valuation_debt_snapshot_core_debt_value",
+        "valuation_debt_snapshot_core_debt_as_of",
+        "valuation_debt_snapshot_core_debt_evidence",
+        "valuation_debt_snapshot_core_debt_status",
+        "valuation_debt_snapshot_net_debt_value",
+        "valuation_debt_snapshot_net_debt_as_of",
+        "valuation_debt_snapshot_net_debt_evidence",
+        "valuation_debt_snapshot_net_debt_status",
+        "valuation_debt_snapshot_net_leverage_value",
+        "valuation_debt_snapshot_net_leverage_as_of",
+        "valuation_debt_snapshot_net_leverage_evidence",
+        "valuation_debt_snapshot_net_leverage_status",
+    }
     accepted_business_writes = [
         write for write in business_writes if write.binding_id not in hidden_value_binding_ids
     ]
@@ -436,14 +519,36 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "hidden_value_flags_rows": 0,
         "hidden_value_valuation_rows": 0,
     }
+    populated_snapshot_bindings = {
+        binding_id: 1
+        for binding_id in product_pass_2a_binding_ids
+        if not binding_id.endswith(("core_debt_value", "core_debt_as_of", "net_debt_value", "net_debt_as_of", "net_leverage_value", "net_leverage_as_of"))
+    }
+    unavailable_snapshot_bindings = product_pass_2a_binding_ids - populated_snapshot_bindings.keys()
+    assert {
+        binding_id: by_binding[binding_id]
+        for binding_id in product_pass_2a_binding_ids
+    } == {
+        **populated_snapshot_bindings,
+        **{binding_id: 0 for binding_id in unavailable_snapshot_bindings},
+    }
     payload = plan.to_dict()
     scenario_binding_ids = {
         "ic_bull_base_bear_rows",
         "ic_scenario_bridge_rows",
         "valuation_input_net_income_ttm",
     }
-    additive_binding_ids = scenario_binding_ids | hidden_value_binding_ids
-    assert len(payload["planned_writes"]) == 22_052
+    additive_binding_ids = scenario_binding_ids | hidden_value_binding_ids | product_pass_2a_binding_ids
+    assert len(payload["planned_writes"]) == 22_214
+    assert payload["structured_skip_count"] == 2_399
+    assert payload["overflow_count"] == 0
+    product_pass_2a_writes = [
+        write
+        for write in payload["planned_writes"]
+        if write.get("binding_id") in product_pass_2a_binding_ids
+    ]
+    assert len(product_pass_2a_writes) == 24
+    assert _canonical_digest(product_pass_2a_writes) == "00246549f99ec0985bbe45a1ac3925e7dc4979527412448cb886fb09226a61af"
     non_scenario_writes = [
         write
         for write in payload["planned_writes"]
@@ -455,12 +560,12 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         if report.get("binding_id") not in additive_binding_ids
     ]
     # The accepted 20,518-write nonadditive baseline loses 82 retired
-    # BS_Segments writes and 690 QA cells generated solely from their 30 issues
-    # and 60 occurrences. No obsolete issue is retained to preserve a count.
-    assert len(non_scenario_writes) == 20_518 - 82 - 690 == 19_746
-    assert _canonical_digest(non_scenario_writes) == "b3a86d9e3121ba65fd4ff66cc47e82df65acf715af287c051d8ac4676ced7ffd"
+    # BS_Segments writes and 690 obsolete QA cells. Product Pass 2A then adds
+    # 138 QA cells for six explicit unavailable scalar/date dispositions.
+    assert len(non_scenario_writes) == 20_518 - 82 - 690 + 138 == 19_884
+    assert _canonical_digest(non_scenario_writes) == "7380f071a21683fea5ba3b571d5724273e4d10bf34ab70d92d2999df208f51e0"
     assert len(non_scenario_binding_reports) == 157 - 14 == 143
-    assert _canonical_digest(non_scenario_binding_reports) == "dca37ce8a3646fa12eda4664b19dfc8f655072682dd9fe489585f88af29058f4"
+    assert _canonical_digest(non_scenario_binding_reports) == "02f37dc9d15ad631affca7920627f73a113e9dd89246221145a139879175f17e"
 
     segment_writes = [
         write
@@ -485,16 +590,33 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         return match is None or not 61 <= int(match.group(1)) <= 104
 
     stable_business_writes = [
-        write for write in payload["planned_writes"] if outside_segment_product_surface(write)
+        write
+        for write in payload["planned_writes"]
+        if outside_segment_product_surface(write)
+        and write.get("binding_id") not in product_pass_2a_binding_ids
     ]
     assert len(stable_business_writes) == 7_449
     assert _canonical_digest(stable_business_writes) == "304420d25b3f1a173347bdac7dd19b964a8d164065d39e254536d2a732c8fc8f"
+    all_stable_business_writes = [
+        write for write in payload["planned_writes"] if outside_segment_product_surface(write)
+    ]
+    assert len(all_stable_business_writes) == 7_473
+    assert _canonical_digest(all_stable_business_writes) == "c21ce9f53127ca4c2f0802a1b519e03fb60a019d17e8f57f8b04b8aeb1a2b7ab"
     assert _canonical_digest(payload["period_axes"]) == "88b9f00e07414ea100180a8f574e4ca3ab14088885107d888f75e1b143ec8818"
-    assert _canonical_digest(payload["issue_ledger"]) == "03fe569eb95366121fa47bbfbebad8b7dcd607cc2186317b9851611139697731"
-    assert _canonical_digest(payload["issue_ledger"]["issues"]) == "3565d920cbbef7dcc0d3c48c4ed40b737a9143b46449cfcf6287810dbaff74fb"
-    assert _canonical_digest(payload["issue_ledger"]["occurrences"]) == "58818b751a3b5c699a4ee3b47e406398b8c2df2ba29807efc84605d2e4cd4d37"
-    assert _canonical_digest(payload["mapping_gaps"]) == "88c370246f99e979935679ff28ef15a5ee2b9a3ee6092cc0e1ccc16a9162ca04"
+    assert _canonical_digest(payload["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
+    assert _canonical_digest(payload["issue_ledger"]["issues"]) == "ce17b225eee5b78725b568fd0b147b14bc797d96a995900b619fa3459a3d2d7c"
+    assert _canonical_digest(payload["issue_ledger"]["occurrences"]) == "4745093d029eb73c7cbd21bbf425ed9794ad951cb5e61913d706f40c0e604469"
+    assert _canonical_digest(payload["mapping_gaps"]) == "1d44ae3ef88320fac03d09e770ce9ce77ae53689f457037823ad3dcbcd1c452e"
     assert _canonical_digest(payload["manual_review_flags"]) == "be52e1510ee9fd6a64388dd66f80f192b4c0c8a03879015e97df9babbab4cf9b"
+    product_pass_2a_issues = [
+        issue
+        for issue in payload["issue_ledger"]["issues"]
+        if issue.get("binding_id") in product_pass_2a_binding_ids
+    ]
+    assert len(product_pass_2a_issues) == 6
+    assert {issue["occurrence_count"] for issue in product_pass_2a_issues} == {2}
+    assert summary["canonical_unique_issue_count"] == 761
+    assert summary["detailed_occurrence_count"] == 2_323
     assert by_binding["valuation_period_headers"] == 12
     assert by_binding["valuation_revenue_series"] == 12
     assert by_binding["valuation_net_income_series"] == 12

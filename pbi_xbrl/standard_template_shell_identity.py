@@ -32,7 +32,7 @@ from pbi_xbrl.standard_template_formula_contract import (
 
 SHELL_SEMANTIC_CONTRACT_VERSION = "1.8.0"
 SHEET_VIEW_IDENTITY_CONTRACT_VERSION = "1.0.0"
-BINDING_PLANNER_CONTRACT_VERSION = "1.3.0"
+BINDING_PLANNER_CONTRACT_VERSION = "1.4.0"
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_SCHEMA_PATH = ROOT / "docs" / "standard_template_shell_manifest.schema.json"
 BINDING_SCHEMA_PATH = ROOT / "docs" / "workbook_binding_map.schema.json"

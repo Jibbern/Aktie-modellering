@@ -1749,6 +1749,396 @@
       ]
     },
     {
+      "contract_id": "summary_revolver_availability",
+      "sheet": "SUMMARY",
+      "target": "B44",
+      "writable": true,
+      "target_role": "summary_revolver_availability",
+      "allowed_binding_ids": [
+        "summary_revolver_availability"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "summary_revolver_availability_as_of",
+      "sheet": "SUMMARY",
+      "target": "D44",
+      "writable": true,
+      "target_role": "summary_revolver_availability_as_of",
+      "allowed_binding_ids": [
+        "summary_revolver_availability_as_of"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_cash_value",
+      "sheet": "Valuation",
+      "target": "B124",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_cash_value",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_cash_value"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_cash_as_of",
+      "sheet": "Valuation",
+      "target": "D124",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_cash_as_of",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_cash_as_of"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_cash_status",
+      "sheet": "Valuation",
+      "target": "E124",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_cash_status",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_cash_status"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_revolver_value",
+      "sheet": "Valuation",
+      "target": "B125",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_revolver_value",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_revolver_value"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_revolver_as_of",
+      "sheet": "Valuation",
+      "target": "D125",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_revolver_as_of",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_revolver_as_of"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_revolver_status",
+      "sheet": "Valuation",
+      "target": "E125",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_revolver_status",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_revolver_status"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_liquidity_value",
+      "sheet": "Valuation",
+      "target": "B126",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_liquidity_value",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_liquidity_value"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_liquidity_as_of",
+      "sheet": "Valuation",
+      "target": "D126",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_liquidity_as_of",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_liquidity_as_of"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_liquidity_status",
+      "sheet": "Valuation",
+      "target": "E126",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_liquidity_status",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_liquidity_status"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_leases_value",
+      "sheet": "Valuation",
+      "target": "B127",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_leases_value",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_leases_value"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_leases_as_of",
+      "sheet": "Valuation",
+      "target": "D127",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_leases_as_of",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_leases_as_of"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_leases_status",
+      "sheet": "Valuation",
+      "target": "E127",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_leases_status",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_leases_status"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_core_debt_value",
+      "sheet": "Valuation",
+      "target": "B128",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_core_debt_value",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_core_debt_value"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_core_debt_as_of",
+      "sheet": "Valuation",
+      "target": "D128",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_core_debt_as_of",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_core_debt_as_of"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_core_debt_status",
+      "sheet": "Valuation",
+      "target": "E128",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_core_debt_status",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_core_debt_status"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_net_debt_value",
+      "sheet": "Valuation",
+      "target": "B129",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_net_debt_value",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_net_debt_value"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_net_debt_as_of",
+      "sheet": "Valuation",
+      "target": "D129",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_net_debt_as_of",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_net_debt_as_of"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_net_debt_status",
+      "sheet": "Valuation",
+      "target": "E129",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_net_debt_status",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_net_debt_status"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_net_leverage_value",
+      "sheet": "Valuation",
+      "target": "B130",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_net_leverage_value",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_net_leverage_value"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_net_leverage_as_of",
+      "sheet": "Valuation",
+      "target": "D130",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_net_leverage_as_of",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_net_leverage_as_of"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_net_leverage_status",
+      "sheet": "Valuation",
+      "target": "E130",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_net_leverage_status",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_net_leverage_status"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_cash_evidence",
+      "sheet": "Valuation",
+      "target": "F124",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_cash_evidence",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_cash_evidence"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_revolver_evidence",
+      "sheet": "Valuation",
+      "target": "F125",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_revolver_evidence",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_revolver_evidence"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_liquidity_evidence",
+      "sheet": "Valuation",
+      "target": "F126",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_liquidity_evidence",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_liquidity_evidence"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_leases_evidence",
+      "sheet": "Valuation",
+      "target": "F127",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_leases_evidence",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_leases_evidence"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_core_debt_evidence",
+      "sheet": "Valuation",
+      "target": "F128",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_core_debt_evidence",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_core_debt_evidence"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_net_debt_evidence",
+      "sheet": "Valuation",
+      "target": "F129",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_net_debt_evidence",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_net_debt_evidence"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_debt_snapshot_net_leverage_evidence",
+      "sheet": "Valuation",
+      "target": "F130",
+      "writable": true,
+      "target_role": "valuation_debt_snapshot_net_leverage_evidence",
+      "allowed_binding_ids": [
+        "valuation_debt_snapshot_net_leverage_evidence"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
       "contract_id": "investment_case_title",
       "sheet": "{ticker}_Investment_Case",
       "target": "A1",
@@ -4318,6 +4708,15 @@
       ]
     },
     {
+      "merge_id": "summary_revolver_availability_as_of_merge",
+      "sheet": "SUMMARY",
+      "target": "D44:F44",
+      "anchor_column": "D",
+      "allowed_binding_ids": [
+        "summary_revolver_availability_as_of"
+      ]
+    },
+    {
       "merge_id": "summary_liquidity_as_of_merge",
       "sheet": "SUMMARY",
       "target": "D45:F45",
@@ -4347,14 +4746,14 @@
     {
       "anchor_id": "summary_key_financials_anchor",
       "sheet": "SUMMARY",
-      "zone_id": "summary_key_financials_values",
+      "zone_id": "summary_latest_period_value",
       "anchor_label": "Key Financials",
       "binding_required": true
     },
     {
       "anchor_id": "summary_leverage_liquidity_anchor",
       "sheet": "SUMMARY",
-      "zone_id": "summary_leverage_liquidity_values",
+      "zone_id": "summary_net_leverage_value",
       "anchor_label": "Leverage / Liquidity",
       "binding_required": true
     },
@@ -4376,7 +4775,7 @@
     {
       "anchor_id": "valuation_debt_anchor",
       "sheet": "Valuation",
-      "zone_id": "valuation_debt_liquidity_values",
+      "zone_id": "valuation_debt_snapshot_values",
       "anchor_label": "Leverage & Liquidity",
       "binding_required": false
     },
@@ -4518,21 +4917,51 @@
           ]
         },
         {
-          "zone_id": "summary_key_financials_values",
-          "target": "B26:B39",
-          "anchor_label": "Key Financials",
+          "zone_id": "summary_latest_period_value",
+          "target": "B26:B26",
+          "anchor_label": "Latest fiscal period",
           "value_shapes": [
-            "quarterly_series",
-            "annual_series"
+            "quarterly_series"
           ]
         },
         {
-          "zone_id": "summary_leverage_liquidity_values",
-          "target": "B41:B45",
-          "anchor_label": "Leverage / Liquidity",
+          "zone_id": "summary_latest_revenue_value",
+          "target": "B28:B28",
+          "anchor_label": "Latest revenue",
           "value_shapes": [
-            "scalar",
-            "table_rows"
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "summary_latest_net_income_value",
+          "target": "B30:B30",
+          "anchor_label": "Latest net income",
+          "value_shapes": [
+            "quarterly_series"
+          ]
+        },
+        {
+          "zone_id": "summary_net_leverage_value",
+          "target": "B41:B41",
+          "anchor_label": "Net leverage",
+          "value_shapes": [
+            "scalar"
+          ]
+        },
+        {
+          "zone_id": "summary_revolver_availability_value",
+          "target": "B44:B44",
+          "anchor_label": "Revolver availability",
+          "value_shapes": [
+            "scalar"
+          ]
+        },
+        {
+          "zone_id": "summary_liquidity_value",
+          "target": "B45:B45",
+          "anchor_label": "Total liquidity",
+          "value_shapes": [
+            "scalar"
           ]
         },
         {
@@ -4541,6 +4970,14 @@
           "anchor_label": "Revenue mix",
           "value_shapes": [
             "text_block"
+          ]
+        },
+        {
+          "zone_id": "summary_revolver_availability_as_of_value",
+          "target": "D44:F44",
+          "anchor_label": "Revolver availability",
+          "value_shapes": [
+            "scalar"
           ]
         },
         {
@@ -4663,20 +5100,34 @@
           ]
         },
         {
-          "zone_id": "valuation_debt_liquidity_values",
-          "target": "B124:M132",
-          "anchor_label": "Leverage & Liquidity",
+          "zone_id": "valuation_debt_snapshot_values",
+          "target": "B124:B130",
+          "anchor_label": "Debt and liquidity values",
           "value_shapes": [
-            "quarterly_series",
             "scalar"
           ]
         },
         {
-          "zone_id": "valuation_cash_values",
-          "target": "B133:M137",
-          "anchor_label": "Cash / liquidity",
+          "zone_id": "valuation_debt_snapshot_periods",
+          "target": "D124:D130",
+          "anchor_label": "Debt and liquidity periods",
           "value_shapes": [
-            "quarterly_series",
+            "scalar"
+          ]
+        },
+        {
+          "zone_id": "valuation_debt_snapshot_statuses",
+          "target": "E124:E130",
+          "anchor_label": "Debt and liquidity statuses",
+          "value_shapes": [
+            "scalar"
+          ]
+        },
+        {
+          "zone_id": "valuation_debt_snapshot_evidence",
+          "target": "F124:M130",
+          "anchor_label": "Debt and liquidity evidence",
+          "value_shapes": [
             "scalar"
           ]
         },
@@ -5009,13 +5460,28 @@
         },
         {
           "zone_id": "valuation_debt_detail_title_row",
-          "target": "A122:N122",
+          "target": "A122:M122",
           "reason": "Debt detail section header band; values start below the title/header rows."
         },
         {
           "zone_id": "valuation_debt_detail_header_rows",
-          "target": "B123:M123",
-          "reason": "Debt detail reusable column headers; debt values start below the header row."
+          "target": "A123:M123",
+          "reason": "Scalar debt and liquidity snapshot headers are protected."
+        },
+        {
+          "zone_id": "valuation_debt_snapshot_units",
+          "target": "C124:C130",
+          "reason": "Reusable scalar units are protected frozen-shell labels."
+        },
+        {
+          "zone_id": "valuation_debt_detail_static_maturity",
+          "target": "A131:M131",
+          "reason": "Maturity detail remains a protected explicit unavailable state until a source-backed debt collection exists."
+        },
+        {
+          "zone_id": "valuation_debt_detail_inactive_capacity",
+          "target": "A132:M136",
+          "reason": "Unused debt-detail capacity is blank, locked, and inactive in Product Pass 2A."
         },
         {
           "zone_id": "valuation_hidden_value_flag_header_rows",
@@ -7940,31 +8406,31 @@
   "semantic_contract_version": "1.8.0",
   "shell_identity": {
     "semantic_contract_version": "1.8.0",
-    "workbook_sha256": "891eb549be24740e9bebf620b138f67f2c93a8c59b64d5d23f9b5b2c1149a405",
-    "manifest_contract_signature": "f386d64dcd4fac729f34ea38d77107af5769a82f095a4261e75a1f556990c62c",
+    "workbook_sha256": "f3d458e0536670635d704a804961956888123e04cb420d75fd8ff6261c471c74",
+    "manifest_contract_signature": "c74da47e696cc5971f88777cdf15e6bcb7d7439c8f422d6cdaa80e34ab4efffb",
     "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
     "sheet_view_signature": "05ae7b3677f3e327032c0dbbd0953f8c059c7d333d84c0fb7ed8662a9d00fd6c",
-    "merge_signature": "55553b34988e535fd3a9f0335d109993a378e5a8cdb2ef27b046deb91cc628ef",
-    "defined_name_signature": "efa881fbceb98ddbcc05630734bb3a3d7a7ea33171e58c109834ba202d36ad7d",
-    "writable_target_signature": "607d4cf3078fd20244a5e0308a73da11834c968424d9901ac0fe42977edc70ce",
-    "binding_contract_signature": "5bd474831404bb60367437697390ae8857126cde1f2600a67567ee29bd867529",
-    "formula_static_zone_signature": "d87e15940fb36628abf35b733f730cd9cffa8bcf7603341e28aa0db29d1f80f5",
+    "merge_signature": "1001744c308056850167fde5c074fcd2f8054363eab9d461cc2bc580a966d2b3",
+    "defined_name_signature": "74ef76f58500d3cbac7417da8724945d9963894508fc4ab0b08ac22fcbe62566",
+    "writable_target_signature": "49dd35bb459153a4f5dafa5860fce193c87777a3fdbc7e1d7a2281efd9a4b818",
+    "binding_contract_signature": "d1a1fc8b70bd1a62ae2f9e1a8f84f9a36c838c8811cfaa411d5af02d3681240b",
+    "formula_static_zone_signature": "243e988e5bf540bc9ef4aa2fa80a7fd3646b9c297dac53674fbb275571b11e8e",
     "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
     "editable_surface_signature": "29b6308c01ee5961305a12fac0b20ab202f4edae22390e5a07cf27be48d94732",
     "counts": {
       "sheets": 46,
       "sheet_views": 46,
-      "merges": 1829,
-      "defined_names": 239,
-      "writable_targets": 435,
-      "binding_contracts": 152,
-      "formula_cells": 2133,
-      "static_cells": 1638,
+      "merges": 1836,
+      "defined_names": 269,
+      "writable_targets": 495,
+      "binding_contracts": 182,
+      "formula_cells": 2141,
+      "static_cells": 1658,
       "protected_worksheets": 46,
       "editable_cells": 122
     }
   },
-  "formula_contract_version": "2.0.0",
+  "formula_contract_version": "2.1.0",
   "union_sheet_order": [
     "SUMMARY",
     "Valuation",
@@ -8017,7 +8483,7 @@
     "path": "docs/workbook_module_manifest.json",
     "version": "1.0.0",
     "module_contract_version": "1.1.0",
-    "signature": "4546285ef17cd5a0b2a5913cbee01549227e6e57339eca458c5c64616d181537"
+    "signature": "00e62a4de2bfcc4e52b018c45f65fc7924252ebb9aba36f3ded79b71fe68babd"
   },
   "module_profile": {
     "profile_id": "full_union",
@@ -8187,6 +8653,14 @@
       "revenue_ttm",
       "revenue_yoy",
       "scenario_revenue_route_formulas",
+      "summary_free_cash_flow_ttm",
+      "summary_free_cash_flow_yoy",
+      "summary_gaap_eps",
+      "summary_gaap_eps_yoy",
+      "summary_interest_coverage",
+      "summary_net_income_yoy",
+      "summary_revenue_ttm",
+      "summary_revenue_yoy",
       "tangible_book_value_per_share",
       "valuation_grid_formulas",
       "valuation_output_formulas",

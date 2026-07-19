@@ -32,7 +32,7 @@ from pbi_xbrl.valuation_scenario_economics import (
 )
 
 
-FORMULA_CONTRACT_VERSION = "2.0.0"
+FORMULA_CONTRACT_VERSION = "2.1.0"
 ROOT = Path(__file__).resolve().parents[1]
 HIDDEN_VALUE_SIGNAL_CONTRACT = ROOT / "docs" / "hidden_value_signal_contract.json"
 HIDDEN_VALUE_DETAIL_FIRST_ROW = 2
@@ -303,6 +303,14 @@ def formula_target_contracts() -> tuple[FormulaTargetContract, ...]:
     )
     contracts.extend(
         (
+            FormulaTargetContract("summary_revenue_ttm", "SUMMARY", ("B27",)),
+            FormulaTargetContract("summary_revenue_yoy", "SUMMARY", ("B29",)),
+            FormulaTargetContract("summary_net_income_yoy", "SUMMARY", ("B31",)),
+            FormulaTargetContract("summary_gaap_eps", "SUMMARY", ("B32",)),
+            FormulaTargetContract("summary_gaap_eps_yoy", "SUMMARY", ("B33",)),
+            FormulaTargetContract("summary_free_cash_flow_ttm", "SUMMARY", ("B36",)),
+            FormulaTargetContract("summary_free_cash_flow_yoy", "SUMMARY", ("B37",)),
+            FormulaTargetContract("summary_interest_coverage", "SUMMARY", ("B42",)),
             FormulaTargetContract("valuation_output_formulas", "Valuation", ("N194:N210",)),
             FormulaTargetContract("valuation_sidecar_formulas", "Valuation", ("U64:U70", "U72:U75")),
             FormulaTargetContract(
@@ -684,6 +692,8 @@ def apply_standard_formula_contracts(
     _apply_hidden_helpers(valuation)
     _apply_hidden_formula_helpers(valuation)
     _apply_valuation_quarterly_formulas(valuation, enabled)
+    if "SUMMARY" in workbook.sheetnames:
+        _apply_summary_formulas(workbook["SUMMARY"], enabled)
     _apply_balance_sheet_formulas(bs, enabled)
     _apply_valuation_input_outputs(valuation, enabled)
     _apply_valuation_sidecar_outputs(valuation, enabled)
@@ -950,6 +960,49 @@ def _apply_hidden_formula_helpers(ws: Any) -> None:
             cell.value = None
             cell.number_format = "#,##0.0;[Red]-#,##0.0"
             cell.protection = Protection(locked=True)
+
+
+def _summary_valuation_value_formula(source_row: int) -> str:
+    headers = "'Valuation'!$B$6:$M$6"
+    values = f"'Valuation'!$B${source_row}:$M${source_row}"
+    match = f"MATCH($B$26,{headers},0)"
+    resolved = f"INDEX({values},1,{match})"
+    return (
+        f'=IFERROR(IF(OR($B$26="",COUNTIF({headers},$B$26)<>1,'
+        f'NOT(ISNUMBER({resolved}))),"",{resolved}),"")'
+    )
+
+
+def _summary_free_cash_flow_yoy_formula() -> str:
+    headers = "'Valuation'!$B$6:$M$6"
+    delta_values = "'Valuation'!$B$48:$M$48"
+    fcf_values = "'Valuation'!$B$47:$M$47"
+    match = f"MATCH($B$26,{headers},0)"
+    delta = f"INDEX({delta_values},1,{match})"
+    comparator = f"INDEX({fcf_values},1,{match}-4)"
+    return (
+        f'=IFERROR(IF(OR($B$26="",COUNTIF({headers},$B$26)<>1,{match}<=4,'
+        f'NOT(ISNUMBER({delta})),NOT(ISNUMBER({comparator})),{comparator}=0),"",'
+        f'{delta}/ABS({comparator})),"")'
+    )
+
+
+def _apply_summary_formulas(ws: Any, enabled_formula_ids: set[str]) -> None:
+    ws["A33"] = "GAAP EPS YoY % (latest vs LY quarter)"
+    ws["C33"] = "%"
+    formulas = {
+        "summary_revenue_ttm": ("B27", _summary_valuation_value_formula(10), "#,##0.0;[Red]-#,##0.0"),
+        "summary_revenue_yoy": ("B29", _summary_valuation_value_formula(11), "0.0%;[Red]-0.0%"),
+        "summary_net_income_yoy": ("B31", _summary_valuation_value_formula(38), "0.0%;[Red]-0.0%"),
+        "summary_gaap_eps": ("B32", _summary_valuation_value_formula(107), "$0.00;[Red]-$0.00"),
+        "summary_gaap_eps_yoy": ("B33", _summary_valuation_value_formula(108), "0.0%;[Red]-0.0%"),
+        "summary_free_cash_flow_ttm": ("B36", _summary_valuation_value_formula(49), "#,##0.0;[Red]-#,##0.0"),
+        "summary_free_cash_flow_yoy": ("B37", _summary_free_cash_flow_yoy_formula(), "0.0%;[Red]-0.0%"),
+        "summary_interest_coverage": ("B42", _summary_valuation_value_formula(88), "0.00x;[Red]-0.00x"),
+    }
+    for formula_id, (coordinate, formula, number_format) in formulas.items():
+        if formula_id in enabled_formula_ids:
+            _set_formula(ws[coordinate], formula, number_format)
 
 
 def _apply_valuation_quarterly_formulas(ws: Any, enabled_formula_ids: set[str]) -> None:

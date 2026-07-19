@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-18T22:18:58+00:00",
+  "generated_at": "2026-07-19T17:09:04+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -854,10 +854,10 @@
       ]
     },
     {
-      "block_id": "summary_key_financials_values",
+      "block_id": "summary_latest_period_value",
       "sheet": "SUMMARY",
       "resolved_lab_sheet": "SUMMARY",
-      "range": "B26:B39",
+      "range": "B26:B26",
       "title_header_cells": [
         {
           "cell": "A25",
@@ -866,18 +866,6 @@
         {
           "cell": "A26",
           "value": "As of quarter"
-        },
-        {
-          "cell": "A27",
-          "value": "Revenue (TTM)"
-        },
-        {
-          "cell": "A28",
-          "value": "Revenue (latest quarter)"
-        },
-        {
-          "cell": "A29",
-          "value": "Revenue YoY (latest vs LY quarter)"
         }
       ],
       "template_label_cells": [
@@ -888,76 +876,12 @@
         {
           "cell": "A26",
           "value": "As of quarter"
-        },
-        {
-          "cell": "A27",
-          "value": "Revenue (TTM)"
-        },
-        {
-          "cell": "A28",
-          "value": "Revenue (latest quarter)"
-        },
-        {
-          "cell": "A29",
-          "value": "Revenue YoY (latest vs LY quarter)"
         }
       ],
       "row_label_cells": [
         {
           "cell": "A26",
           "value": "As of quarter"
-        },
-        {
-          "cell": "A27",
-          "value": "Revenue (TTM)"
-        },
-        {
-          "cell": "A28",
-          "value": "Revenue (latest quarter)"
-        },
-        {
-          "cell": "A29",
-          "value": "Revenue YoY (latest vs LY quarter)"
-        },
-        {
-          "cell": "A30",
-          "value": "Net income (latest quarter)"
-        },
-        {
-          "cell": "A31",
-          "value": "Net income YoY (latest vs LY quarter)"
-        },
-        {
-          "cell": "A32",
-          "value": "EPS (latest quarter, GAAP diluted)"
-        },
-        {
-          "cell": "A33",
-          "value": "EPS YoY Δ (latest vs LY quarter)"
-        },
-        {
-          "cell": "A34",
-          "value": "Total debt (latest quarter)"
-        },
-        {
-          "cell": "A35",
-          "value": "Debt-to-equity (latest quarter)"
-        },
-        {
-          "cell": "A36",
-          "value": "Free cash flow (TTM)"
-        },
-        {
-          "cell": "A37",
-          "value": "FCF YoY (latest quarter vs LY quarter)"
-        },
-        {
-          "cell": "A38",
-          "value": "P/E (price-linked)"
-        },
-        {
-          "cell": "A39",
-          "value": "P/S (price-linked)"
         }
       ],
       "static_label_cells": [
@@ -970,202 +894,30 @@
           "value": "As of quarter"
         },
         {
-          "cell": "A27",
-          "value": "Revenue (TTM)"
-        },
-        {
-          "cell": "A28",
-          "value": "Revenue (latest quarter)"
-        },
-        {
-          "cell": "A29",
-          "value": "Revenue YoY (latest vs LY quarter)"
-        },
-        {
           "cell": "A26",
           "value": "As of quarter"
-        },
-        {
-          "cell": "A27",
-          "value": "Revenue (TTM)"
-        },
-        {
-          "cell": "A28",
-          "value": "Revenue (latest quarter)"
-        },
-        {
-          "cell": "A29",
-          "value": "Revenue YoY (latest vs LY quarter)"
-        },
-        {
-          "cell": "A30",
-          "value": "Net income (latest quarter)"
-        },
-        {
-          "cell": "A31",
-          "value": "Net income YoY (latest vs LY quarter)"
-        },
-        {
-          "cell": "A32",
-          "value": "EPS (latest quarter, GAAP diluted)"
-        },
-        {
-          "cell": "A33",
-          "value": "EPS YoY Δ (latest vs LY quarter)"
-        },
-        {
-          "cell": "A34",
-          "value": "Total debt (latest quarter)"
-        },
-        {
-          "cell": "A35",
-          "value": "Debt-to-equity (latest quarter)"
-        },
-        {
-          "cell": "A36",
-          "value": "Free cash flow (TTM)"
-        },
-        {
-          "cell": "A37",
-          "value": "FCF YoY (latest quarter vs LY quarter)"
-        },
-        {
-          "cell": "A38",
-          "value": "P/E (price-linked)"
-        },
-        {
-          "cell": "A39",
-          "value": "P/S (price-linked)"
         }
       ],
       "writable_value_cells": [
         {
           "binding_id": "summary_as_of_quarter",
-          "target": "B26:B29",
-          "value_shape": "quarterly_series"
-        },
-        {
-          "binding_id": "summary_latest_net_income",
-          "target": "B30:B39",
-          "value_shape": "quarterly_series"
-        },
-        {
-          "binding_id": "summary_latest_revenue",
-          "target": "B26:B39",
+          "target": "B26",
           "value_shape": "quarterly_series"
         }
       ],
       "writable_example_cells": [
         {
           "binding_id": "summary_as_of_quarter",
-          "target": "B26:B29",
+          "target": "B26",
           "value_shape": "quarterly_series",
-          "nonempty_count": 4,
+          "nonempty_count": 1,
           "formula_count": 0,
-          "numeric_count": 3,
+          "numeric_count": 0,
           "text_count": 1,
           "sample_cells": [
             {
               "cell": "B26",
               "value": "2026-05-02 00:00:00"
-            },
-            {
-              "cell": "B27",
-              "value": "5282.802"
-            },
-            {
-              "cell": "B28",
-              "value": "1113.821"
-            },
-            {
-              "cell": "B29",
-              "value": "0.01504587122520416"
-            }
-          ]
-        },
-        {
-          "binding_id": "summary_latest_net_income",
-          "target": "B30:B39",
-          "value_shape": "quarterly_series",
-          "nonempty_count": 10,
-          "formula_count": 0,
-          "numeric_count": 6,
-          "text_count": 4,
-          "sample_cells": [
-            {
-              "cell": "B30",
-              "value": "67.134"
-            },
-            {
-              "cell": "B31",
-              "value": "-0.1651349906109709"
-            },
-            {
-              "cell": "B32",
-              "value": "1.469755018937321"
-            },
-            {
-              "cell": "B33",
-              "value": "-0.118367586426664"
-            },
-            {
-              "cell": "B34",
-              "value": "N/A"
-            },
-            {
-              "cell": "B35",
-              "value": "N/A"
-            },
-            {
-              "cell": "B36",
-              "value": "416.047"
-            },
-            {
-              "cell": "B37",
-              "value": "0.688024979913812"
-            }
-          ]
-        },
-        {
-          "binding_id": "summary_latest_revenue",
-          "target": "B26:B39",
-          "value_shape": "quarterly_series",
-          "nonempty_count": 14,
-          "formula_count": 0,
-          "numeric_count": 9,
-          "text_count": 5,
-          "sample_cells": [
-            {
-              "cell": "B26",
-              "value": "2026-05-02 00:00:00"
-            },
-            {
-              "cell": "B27",
-              "value": "5282.802"
-            },
-            {
-              "cell": "B28",
-              "value": "1113.821"
-            },
-            {
-              "cell": "B29",
-              "value": "0.01504587122520416"
-            },
-            {
-              "cell": "B30",
-              "value": "67.134"
-            },
-            {
-              "cell": "B31",
-              "value": "-0.1651349906109709"
-            },
-            {
-              "cell": "B32",
-              "value": "1.469755018937321"
-            },
-            {
-              "cell": "B33",
-              "value": "-0.118367586426664"
             }
           ]
         }
@@ -1175,9 +927,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "quarterly_financials.rows.0.net_income",
-        "quarterly_financials.rows.0.period",
-        "quarterly_financials.rows.0.revenue"
+        "quarterly_financials.rows.period"
       ],
       "support_sheets_used": [
         "Debt_Tranches_Q",
@@ -1196,9 +946,7 @@
         "future value-only filler"
       ],
       "required_fields": [
-        "quarterly_financials.rows.0.net_income",
-        "quarterly_financials.rows.0.period",
-        "quarterly_financials.rows.0.revenue"
+        "quarterly_financials.rows.period"
       ],
       "optional_fields": [],
       "source_policy": "source-backed",
@@ -1210,28 +958,8 @@
       "bindings": [
         {
           "binding_id": "summary_as_of_quarter",
-          "target": "B26:B29",
-          "normalized_field": "quarterly_financials.rows.0.period",
-          "required": true,
-          "value_shape": "quarterly_series",
-          "source_policy": "source-backed",
-          "missing_source_behavior": "blank values; emit mapping gap",
-          "validation_rule": "unexplained_empty_core_field"
-        },
-        {
-          "binding_id": "summary_latest_net_income",
-          "target": "B30:B39",
-          "normalized_field": "quarterly_financials.rows.0.net_income",
-          "required": true,
-          "value_shape": "quarterly_series",
-          "source_policy": "source-backed",
-          "missing_source_behavior": "blank values; emit mapping gap",
-          "validation_rule": "unexplained_empty_core_field"
-        },
-        {
-          "binding_id": "summary_latest_revenue",
-          "target": "B26:B39",
-          "normalized_field": "quarterly_financials.rows.0.revenue",
+          "target": "B26",
+          "normalized_field": "quarterly_financials.rows.period",
           "required": true,
           "value_shape": "quarterly_series",
           "source_policy": "source-backed",
@@ -1245,14 +973,280 @@
       ]
     },
     {
-      "block_id": "summary_leverage_liquidity_values",
+      "block_id": "summary_latest_revenue_value",
       "sheet": "SUMMARY",
       "resolved_lab_sheet": "SUMMARY",
-      "range": "B41:B45",
+      "range": "B28:B28",
+      "title_header_cells": [
+        {
+          "cell": "A26",
+          "value": "As of quarter"
+        },
+        {
+          "cell": "A27",
+          "value": "Revenue (TTM)"
+        },
+        {
+          "cell": "A28",
+          "value": "Revenue (latest quarter)"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A26",
+          "value": "As of quarter"
+        },
+        {
+          "cell": "A27",
+          "value": "Revenue (TTM)"
+        },
+        {
+          "cell": "A28",
+          "value": "Revenue (latest quarter)"
+        }
+      ],
+      "row_label_cells": [
+        {
+          "cell": "A28",
+          "value": "Revenue (latest quarter)"
+        }
+      ],
+      "static_label_cells": [
+        {
+          "cell": "A26",
+          "value": "As of quarter"
+        },
+        {
+          "cell": "A27",
+          "value": "Revenue (TTM)"
+        },
+        {
+          "cell": "A28",
+          "value": "Revenue (latest quarter)"
+        },
+        {
+          "cell": "A28",
+          "value": "Revenue (latest quarter)"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "summary_latest_revenue",
+          "target": "B28",
+          "value_shape": "quarterly_series"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "summary_latest_revenue",
+          "target": "B28",
+          "value_shape": "quarterly_series",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 1,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "B28",
+              "value": "1113.821"
+            }
+          ]
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "quarterly_financials.rows.revenue"
+      ],
+      "support_sheets_used": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_summary_builder.py",
+        "pbi_xbrl/excel_writer_summary_sheet.py",
+        "pbi_xbrl/summary_overview.py"
+      ],
+      "future_intended_owner": [
+        "future normalized_company_data_builder",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [
+        "quarterly_financials.rows.revenue"
+      ],
+      "optional_fields": [],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "blank values; emit mapping gap",
+      "validation_rules": [
+        "unexplained_empty_core_field"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "summary_latest_revenue",
+          "target": "B28",
+          "normalized_field": "quarterly_financials.rows.revenue",
+          "required": true,
+          "value_shape": "quarterly_series",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "blank values; emit mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "summary_latest_net_income_value",
+      "sheet": "SUMMARY",
+      "resolved_lab_sheet": "SUMMARY",
+      "range": "B30:B30",
+      "title_header_cells": [
+        {
+          "cell": "A28",
+          "value": "Revenue (latest quarter)"
+        },
+        {
+          "cell": "A29",
+          "value": "Revenue YoY (latest vs LY quarter)"
+        },
+        {
+          "cell": "A30",
+          "value": "Net income (latest quarter)"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A28",
+          "value": "Revenue (latest quarter)"
+        },
+        {
+          "cell": "A29",
+          "value": "Revenue YoY (latest vs LY quarter)"
+        },
+        {
+          "cell": "A30",
+          "value": "Net income (latest quarter)"
+        }
+      ],
+      "row_label_cells": [
+        {
+          "cell": "A30",
+          "value": "Net income (latest quarter)"
+        }
+      ],
+      "static_label_cells": [
+        {
+          "cell": "A28",
+          "value": "Revenue (latest quarter)"
+        },
+        {
+          "cell": "A29",
+          "value": "Revenue YoY (latest vs LY quarter)"
+        },
+        {
+          "cell": "A30",
+          "value": "Net income (latest quarter)"
+        },
+        {
+          "cell": "A30",
+          "value": "Net income (latest quarter)"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "summary_latest_net_income",
+          "target": "B30",
+          "value_shape": "quarterly_series"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "summary_latest_net_income",
+          "target": "B30",
+          "value_shape": "quarterly_series",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 1,
+          "text_count": 0,
+          "sample_cells": [
+            {
+              "cell": "B30",
+              "value": "67.134"
+            }
+          ]
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "quarterly_financials.rows.net_income"
+      ],
+      "support_sheets_used": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_summary_builder.py",
+        "pbi_xbrl/excel_writer_summary_sheet.py",
+        "pbi_xbrl/summary_overview.py"
+      ],
+      "future_intended_owner": [
+        "future normalized_company_data_builder",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [
+        "quarterly_financials.rows.net_income"
+      ],
+      "optional_fields": [],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "blank values; emit mapping gap",
+      "validation_rules": [
+        "unexplained_empty_core_field"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "summary_latest_net_income",
+          "target": "B30",
+          "normalized_field": "quarterly_financials.rows.net_income",
+          "required": true,
+          "value_shape": "quarterly_series",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "blank values; emit mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "summary_net_leverage_value",
+      "sheet": "SUMMARY",
+      "resolved_lab_sheet": "SUMMARY",
+      "range": "B41:B41",
       "title_header_cells": [
         {
           "cell": "A39",
           "value": "P/S (price-linked)"
+        },
+        {
+          "cell": "B39",
+          "value": "N/A"
         },
         {
           "cell": "A40",
@@ -1261,18 +1255,6 @@
         {
           "cell": "A41",
           "value": "Net leverage"
-        },
-        {
-          "cell": "A42",
-          "value": "Interest coverage (P&L)"
-        },
-        {
-          "cell": "A43",
-          "value": "Interest coverage (cash)"
-        },
-        {
-          "cell": "A44",
-          "value": "Revolver availability"
         }
       ],
       "template_label_cells": [
@@ -1281,46 +1263,22 @@
           "value": "P/S (price-linked)"
         },
         {
+          "cell": "B39",
+          "value": "N/A"
+        },
+        {
           "cell": "A40",
           "value": "Leverage / Liquidity"
         },
         {
           "cell": "A41",
           "value": "Net leverage"
-        },
-        {
-          "cell": "A42",
-          "value": "Interest coverage (P&L)"
-        },
-        {
-          "cell": "A43",
-          "value": "Interest coverage (cash)"
-        },
-        {
-          "cell": "A44",
-          "value": "Revolver availability"
         }
       ],
       "row_label_cells": [
         {
           "cell": "A41",
           "value": "Net leverage"
-        },
-        {
-          "cell": "A42",
-          "value": "Interest coverage (P&L)"
-        },
-        {
-          "cell": "A43",
-          "value": "Interest coverage (cash)"
-        },
-        {
-          "cell": "A44",
-          "value": "Revolver availability"
-        },
-        {
-          "cell": "A45",
-          "value": "Liquidity (cash + revolver)"
         }
       ],
       "static_label_cells": [
@@ -1329,6 +1287,10 @@
           "value": "P/S (price-linked)"
         },
         {
+          "cell": "B39",
+          "value": "N/A"
+        },
+        {
           "cell": "A40",
           "value": "Leverage / Liquidity"
         },
@@ -1337,47 +1299,14 @@
           "value": "Net leverage"
         },
         {
-          "cell": "A42",
-          "value": "Interest coverage (P&L)"
-        },
-        {
-          "cell": "A43",
-          "value": "Interest coverage (cash)"
-        },
-        {
-          "cell": "A44",
-          "value": "Revolver availability"
-        },
-        {
           "cell": "A41",
           "value": "Net leverage"
-        },
-        {
-          "cell": "A42",
-          "value": "Interest coverage (P&L)"
-        },
-        {
-          "cell": "A43",
-          "value": "Interest coverage (cash)"
-        },
-        {
-          "cell": "A44",
-          "value": "Revolver availability"
-        },
-        {
-          "cell": "A45",
-          "value": "Liquidity (cash + revolver)"
         }
       ],
       "writable_value_cells": [
         {
           "binding_id": "summary_net_leverage",
           "target": "B41:B41",
-          "value_shape": "scalar"
-        },
-        {
-          "binding_id": "summary_liquidity",
-          "target": "B45",
           "value_shape": "scalar"
         }
       ],
@@ -1396,7 +1325,278 @@
               "value": "N/A"
             }
           ]
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "debt_liquidity.net_leverage"
+      ],
+      "support_sheets_used": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_summary_builder.py",
+        "pbi_xbrl/excel_writer_summary_sheet.py",
+        "pbi_xbrl/summary_overview.py"
+      ],
+      "future_intended_owner": [
+        "future normalized_company_data_builder",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "debt_liquidity.net_leverage"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "blank values; emit mapping gap",
+      "validation_rules": [
+        "unexplained_empty_core_field"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "summary_net_leverage",
+          "target": "B41:B41",
+          "normalized_field": "debt_liquidity.net_leverage",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "blank values; emit mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "summary_revolver_availability_value",
+      "sheet": "SUMMARY",
+      "resolved_lab_sheet": "SUMMARY",
+      "range": "B44:B44",
+      "title_header_cells": [
+        {
+          "cell": "A42",
+          "value": "Interest coverage (P&L)"
         },
+        {
+          "cell": "A43",
+          "value": "Interest coverage (cash)"
+        },
+        {
+          "cell": "B43",
+          "value": "N/A"
+        },
+        {
+          "cell": "A44",
+          "value": "Revolver availability"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A42",
+          "value": "Interest coverage (P&L)"
+        },
+        {
+          "cell": "A43",
+          "value": "Interest coverage (cash)"
+        },
+        {
+          "cell": "B43",
+          "value": "N/A"
+        },
+        {
+          "cell": "A44",
+          "value": "Revolver availability"
+        }
+      ],
+      "row_label_cells": [
+        {
+          "cell": "A44",
+          "value": "Revolver availability"
+        }
+      ],
+      "static_label_cells": [
+        {
+          "cell": "A42",
+          "value": "Interest coverage (P&L)"
+        },
+        {
+          "cell": "A43",
+          "value": "Interest coverage (cash)"
+        },
+        {
+          "cell": "B43",
+          "value": "N/A"
+        },
+        {
+          "cell": "A44",
+          "value": "Revolver availability"
+        },
+        {
+          "cell": "A44",
+          "value": "Revolver availability"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "summary_revolver_availability",
+          "target": "B44",
+          "value_shape": "scalar"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "summary_revolver_availability",
+          "target": "B44",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 1,
+          "sample_cells": [
+            {
+              "cell": "B44",
+              "value": "N/A"
+            }
+          ]
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "debt_liquidity.revolver_availability"
+      ],
+      "support_sheets_used": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_summary_builder.py",
+        "pbi_xbrl/excel_writer_summary_sheet.py",
+        "pbi_xbrl/summary_overview.py"
+      ],
+      "future_intended_owner": [
+        "future normalized_company_data_builder",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "debt_liquidity.revolver_availability"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "leave blank and emit a structured mapping gap",
+      "validation_rules": [
+        "unexplained_empty_core_field"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "summary_revolver_availability",
+          "target": "B44",
+          "normalized_field": "debt_liquidity.revolver_availability",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "summary_liquidity_value",
+      "sheet": "SUMMARY",
+      "resolved_lab_sheet": "SUMMARY",
+      "range": "B45:B45",
+      "title_header_cells": [
+        {
+          "cell": "A43",
+          "value": "Interest coverage (cash)"
+        },
+        {
+          "cell": "B43",
+          "value": "N/A"
+        },
+        {
+          "cell": "A44",
+          "value": "Revolver availability"
+        },
+        {
+          "cell": "A45",
+          "value": "Liquidity (cash + revolver)"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A43",
+          "value": "Interest coverage (cash)"
+        },
+        {
+          "cell": "B43",
+          "value": "N/A"
+        },
+        {
+          "cell": "A44",
+          "value": "Revolver availability"
+        },
+        {
+          "cell": "A45",
+          "value": "Liquidity (cash + revolver)"
+        }
+      ],
+      "row_label_cells": [
+        {
+          "cell": "A45",
+          "value": "Liquidity (cash + revolver)"
+        }
+      ],
+      "static_label_cells": [
+        {
+          "cell": "A43",
+          "value": "Interest coverage (cash)"
+        },
+        {
+          "cell": "B43",
+          "value": "N/A"
+        },
+        {
+          "cell": "A44",
+          "value": "Revolver availability"
+        },
+        {
+          "cell": "A45",
+          "value": "Liquidity (cash + revolver)"
+        },
+        {
+          "cell": "A45",
+          "value": "Liquidity (cash + revolver)"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "summary_liquidity",
+          "target": "B45",
+          "value_shape": "scalar"
+        }
+      ],
+      "writable_example_cells": [
         {
           "binding_id": "summary_liquidity",
           "target": "B45",
@@ -1418,7 +1618,6 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "debt_liquidity.net_leverage",
         "debt_liquidity.summary_liquidity_display"
       ],
       "support_sheets_used": [
@@ -1440,26 +1639,14 @@
       "required_fields": [
         "debt_liquidity.summary_liquidity_display"
       ],
-      "optional_fields": [
-        "debt_liquidity.net_leverage"
-      ],
+      "optional_fields": [],
       "source_policy": "source-backed",
-      "missing_data_behavior": "blank values; emit mapping gap | leave blank and emit a structured mapping gap",
+      "missing_data_behavior": "leave blank and emit a structured mapping gap",
       "validation_rules": [
         "unexplained_empty_core_field"
       ],
       "standardization_status": "standard",
       "bindings": [
-        {
-          "binding_id": "summary_net_leverage",
-          "target": "B41:B41",
-          "normalized_field": "debt_liquidity.net_leverage",
-          "required": false,
-          "value_shape": "scalar",
-          "source_policy": "source-backed",
-          "missing_source_behavior": "blank values; emit mapping gap",
-          "validation_rule": "unexplained_empty_core_field"
-        },
         {
           "binding_id": "summary_liquidity",
           "target": "B45",
@@ -1565,6 +1752,120 @@
           "required": true,
           "value_shape": "scalar",
           "source_policy": "profile-backed",
+          "missing_source_behavior": "leave blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "summary_revolver_availability_as_of_value",
+      "sheet": "SUMMARY",
+      "resolved_lab_sheet": "SUMMARY",
+      "range": "D44:F44",
+      "title_header_cells": [
+        {
+          "cell": "C42",
+          "value": "x"
+        },
+        {
+          "cell": "C44",
+          "value": "$m"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "C42",
+          "value": "x"
+        },
+        {
+          "cell": "C44",
+          "value": "$m"
+        }
+      ],
+      "row_label_cells": [
+        {
+          "cell": "C44",
+          "value": "$m"
+        }
+      ],
+      "static_label_cells": [
+        {
+          "cell": "C42",
+          "value": "x"
+        },
+        {
+          "cell": "C44",
+          "value": "$m"
+        },
+        {
+          "cell": "C44",
+          "value": "$m"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "summary_revolver_availability_as_of",
+          "target": "D44:F44",
+          "value_shape": "scalar"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "summary_revolver_availability_as_of",
+          "target": "D44:F44",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "debt_liquidity.summary_liquidity_as_of_display"
+      ],
+      "support_sheets_used": [
+        "Debt_Tranches_Q",
+        "History_Q",
+        "Leverage_Liquidity",
+        "SEC_Audit_Log"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_summary_builder.py",
+        "pbi_xbrl/excel_writer_summary_sheet.py",
+        "pbi_xbrl/summary_overview.py"
+      ],
+      "future_intended_owner": [
+        "future normalized_company_data_builder",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "debt_liquidity.summary_liquidity_as_of_display"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "leave blank and emit a structured mapping gap",
+      "validation_rules": [
+        "unexplained_empty_core_field"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "summary_revolver_availability_as_of",
+          "target": "D44:F44",
+          "normalized_field": "debt_liquidity.summary_liquidity_as_of_display",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
           "missing_source_behavior": "leave blank and emit a structured mapping gap",
           "validation_rule": "unexplained_empty_core_field"
         }
@@ -2671,6 +2972,1098 @@
           "source_policy": "source-backed",
           "missing_source_behavior": "blank lower guidance status rows until realized/status evidence exists",
           "validation_rule": "boilerplate_guidance"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "valuation_debt_snapshot_values",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "B124:B130",
+      "title_header_cells": [
+        {
+          "cell": "A122",
+          "value": "Debt Detail (latest)"
+        },
+        {
+          "cell": "A123",
+          "value": "Year/Label"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A122",
+          "value": "Debt Detail (latest)"
+        },
+        {
+          "cell": "A123",
+          "value": "Year/Label"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "A122",
+          "value": "Debt Detail (latest)"
+        },
+        {
+          "cell": "A123",
+          "value": "Year/Label"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_value",
+          "target": "B124",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_value",
+          "target": "B125",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_value",
+          "target": "B126",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_value",
+          "target": "B127",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_value",
+          "target": "B128",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_value",
+          "target": "B129",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_value",
+          "target": "B130",
+          "value_shape": "scalar"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_value",
+          "target": "B124",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_value",
+          "target": "B125",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_value",
+          "target": "B126",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_value",
+          "target": "B127",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_value",
+          "target": "B128",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_value",
+          "target": "B129",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_value",
+          "target": "B130",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "debt_liquidity.cash",
+        "debt_liquidity.lease_liabilities",
+        "debt_liquidity.net_debt",
+        "debt_liquidity.net_leverage",
+        "debt_liquidity.revolver_availability",
+        "debt_liquidity.total_debt",
+        "debt_liquidity.total_liquidity"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "debt_liquidity.cash",
+        "debt_liquidity.lease_liabilities",
+        "debt_liquidity.net_debt",
+        "debt_liquidity.net_leverage",
+        "debt_liquidity.revolver_availability",
+        "debt_liquidity.total_debt",
+        "debt_liquidity.total_liquidity"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "leave unsupported debt blank and emit a structured mapping gap | leave unsupported leverage blank and emit a structured mapping gap | leave unsupported net debt blank and emit a structured mapping gap | leave value blank and emit a structured mapping gap",
+      "validation_rules": [
+        "unexplained_empty_core_field"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_value",
+          "target": "B124",
+          "normalized_field": "debt_liquidity.cash",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave value blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_value",
+          "target": "B125",
+          "normalized_field": "debt_liquidity.revolver_availability",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave value blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_value",
+          "target": "B126",
+          "normalized_field": "debt_liquidity.total_liquidity",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave value blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_value",
+          "target": "B127",
+          "normalized_field": "debt_liquidity.lease_liabilities",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave value blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_value",
+          "target": "B128",
+          "normalized_field": "debt_liquidity.total_debt",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave unsupported debt blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_value",
+          "target": "B129",
+          "normalized_field": "debt_liquidity.net_debt",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave unsupported net debt blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_value",
+          "target": "B130",
+          "normalized_field": "debt_liquidity.net_leverage",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave unsupported leverage blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "valuation_debt_snapshot_periods",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "D124:D130",
+      "title_header_cells": [
+        {
+          "cell": "C123",
+          "value": "Rate type"
+        },
+        {
+          "cell": "D123",
+          "value": "Coupon/Spread %"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "C123",
+          "value": "Rate type"
+        },
+        {
+          "cell": "D123",
+          "value": "Coupon/Spread %"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "C123",
+          "value": "Rate type"
+        },
+        {
+          "cell": "D123",
+          "value": "Coupon/Spread %"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_as_of",
+          "target": "D124",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_as_of",
+          "target": "D125",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_as_of",
+          "target": "D126",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_as_of",
+          "target": "D127",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_as_of",
+          "target": "D128",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_as_of",
+          "target": "D129",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_as_of",
+          "target": "D130",
+          "value_shape": "scalar"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_as_of",
+          "target": "D124",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_as_of",
+          "target": "D125",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_as_of",
+          "target": "D126",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_as_of",
+          "target": "D127",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_as_of",
+          "target": "D128",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_as_of",
+          "target": "D129",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_as_of",
+          "target": "D130",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "debt_liquidity.cash.period",
+        "debt_liquidity.lease_liabilities.period",
+        "debt_liquidity.net_debt.period",
+        "debt_liquidity.net_leverage.period",
+        "debt_liquidity.revolver_availability.period",
+        "debt_liquidity.total_debt.period",
+        "debt_liquidity.total_liquidity.period"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "debt_liquidity.cash.period",
+        "debt_liquidity.lease_liabilities.period",
+        "debt_liquidity.net_debt.period",
+        "debt_liquidity.net_leverage.period",
+        "debt_liquidity.revolver_availability.period",
+        "debt_liquidity.total_debt.period",
+        "debt_liquidity.total_liquidity.period"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "leave date blank and emit a structured mapping gap | leave date blank when debt is unavailable | leave date blank when leverage is unavailable | leave date blank when net debt is unavailable",
+      "validation_rules": [
+        "unexplained_empty_core_field"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_as_of",
+          "target": "D124",
+          "normalized_field": "debt_liquidity.cash.period",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave date blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_as_of",
+          "target": "D125",
+          "normalized_field": "debt_liquidity.revolver_availability.period",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave date blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_as_of",
+          "target": "D126",
+          "normalized_field": "debt_liquidity.total_liquidity.period",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave date blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_as_of",
+          "target": "D127",
+          "normalized_field": "debt_liquidity.lease_liabilities.period",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave date blank and emit a structured mapping gap",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_as_of",
+          "target": "D128",
+          "normalized_field": "debt_liquidity.total_debt.period",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave date blank when debt is unavailable",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_as_of",
+          "target": "D129",
+          "normalized_field": "debt_liquidity.net_debt.period",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave date blank when net debt is unavailable",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_as_of",
+          "target": "D130",
+          "normalized_field": "debt_liquidity.net_leverage.period",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave date blank when leverage is unavailable",
+          "validation_rule": "unexplained_empty_core_field"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "valuation_debt_snapshot_statuses",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "E124:E130",
+      "title_header_cells": [
+        {
+          "cell": "D123",
+          "value": "Coupon/Spread %"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "D123",
+          "value": "Coupon/Spread %"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "D123",
+          "value": "Coupon/Spread %"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_status",
+          "target": "E124",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_status",
+          "target": "E125",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_status",
+          "target": "E126",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_status",
+          "target": "E127",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_status",
+          "target": "E128",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_status",
+          "target": "E129",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_status",
+          "target": "E130",
+          "value_shape": "scalar"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_status",
+          "target": "E124",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_status",
+          "target": "E125",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_status",
+          "target": "E126",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_status",
+          "target": "E127",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_status",
+          "target": "E128",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_status",
+          "target": "E129",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_status",
+          "target": "E130",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "debt_liquidity.cash.status",
+        "debt_liquidity.lease_liabilities.status",
+        "debt_liquidity.net_debt.status",
+        "debt_liquidity.net_leverage.status",
+        "debt_liquidity.revolver_availability.status",
+        "debt_liquidity.total_debt.status",
+        "debt_liquidity.total_liquidity.status"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "debt_liquidity.cash.status",
+        "debt_liquidity.lease_liabilities.status",
+        "debt_liquidity.net_debt.status",
+        "debt_liquidity.net_leverage.status",
+        "debt_liquidity.revolver_availability.status",
+        "debt_liquidity.total_debt.status",
+        "debt_liquidity.total_liquidity.status"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "leave status blank only when the scalar contract is absent",
+      "validation_rules": [
+        "unexplained_empty_core_field"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_status",
+          "target": "E124",
+          "normalized_field": "debt_liquidity.cash.status",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave status blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_status",
+          "target": "E125",
+          "normalized_field": "debt_liquidity.revolver_availability.status",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave status blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_status",
+          "target": "E126",
+          "normalized_field": "debt_liquidity.total_liquidity.status",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave status blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_status",
+          "target": "E127",
+          "normalized_field": "debt_liquidity.lease_liabilities.status",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave status blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_status",
+          "target": "E128",
+          "normalized_field": "debt_liquidity.total_debt.status",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave status blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_status",
+          "target": "E129",
+          "normalized_field": "debt_liquidity.net_debt.status",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave status blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_status",
+          "target": "E130",
+          "normalized_field": "debt_liquidity.net_leverage.status",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave status blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "valuation_debt_snapshot_evidence",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "F124:M130",
+      "title_header_cells": [
+        {
+          "cell": "F123",
+          "value": "Maturity"
+        },
+        {
+          "cell": "G123",
+          "value": "Conversion price"
+        },
+        {
+          "cell": "I123",
+          "value": "Added shares on full conversion (m)"
+        },
+        {
+          "cell": "L123",
+          "value": "Concurrent repurchased shares (m)"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "F123",
+          "value": "Maturity"
+        },
+        {
+          "cell": "G123",
+          "value": "Conversion price"
+        },
+        {
+          "cell": "I123",
+          "value": "Added shares on full conversion (m)"
+        },
+        {
+          "cell": "L123",
+          "value": "Concurrent repurchased shares (m)"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "F123",
+          "value": "Maturity"
+        },
+        {
+          "cell": "G123",
+          "value": "Conversion price"
+        },
+        {
+          "cell": "I123",
+          "value": "Added shares on full conversion (m)"
+        },
+        {
+          "cell": "L123",
+          "value": "Concurrent repurchased shares (m)"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_evidence",
+          "target": "F124:M124",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_evidence",
+          "target": "F125:M125",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_evidence",
+          "target": "F126:M126",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_evidence",
+          "target": "F127:M127",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_evidence",
+          "target": "F128:M128",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_evidence",
+          "target": "F129:M129",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_evidence",
+          "target": "F130:M130",
+          "value_shape": "scalar"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_evidence",
+          "target": "F124:M124",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_evidence",
+          "target": "F125:M125",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_evidence",
+          "target": "F126:M126",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_evidence",
+          "target": "F127:M127",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_evidence",
+          "target": "F128:M128",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_evidence",
+          "target": "F129:M129",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_evidence",
+          "target": "F130:M130",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "debt_liquidity.cash.source_ref",
+        "debt_liquidity.lease_liabilities.source_ref",
+        "debt_liquidity.net_debt.source_ref",
+        "debt_liquidity.net_leverage.source_ref",
+        "debt_liquidity.revolver_availability.source_ref",
+        "debt_liquidity.total_debt.source_ref",
+        "debt_liquidity.total_liquidity.source_ref"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "debt_liquidity.cash.source_ref",
+        "debt_liquidity.lease_liabilities.source_ref",
+        "debt_liquidity.net_debt.source_ref",
+        "debt_liquidity.net_leverage.source_ref",
+        "debt_liquidity.revolver_availability.source_ref",
+        "debt_liquidity.total_debt.source_ref",
+        "debt_liquidity.total_liquidity.source_ref"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "leave evidence blank only when the scalar contract is absent",
+      "validation_rules": [
+        "unexplained_empty_core_field"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "valuation_debt_snapshot_cash_evidence",
+          "target": "F124:M124",
+          "normalized_field": "debt_liquidity.cash.source_ref",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave evidence blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_revolver_evidence",
+          "target": "F125:M125",
+          "normalized_field": "debt_liquidity.revolver_availability.source_ref",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave evidence blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_liquidity_evidence",
+          "target": "F126:M126",
+          "normalized_field": "debt_liquidity.total_liquidity.source_ref",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave evidence blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_leases_evidence",
+          "target": "F127:M127",
+          "normalized_field": "debt_liquidity.lease_liabilities.source_ref",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave evidence blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_core_debt_evidence",
+          "target": "F128:M128",
+          "normalized_field": "debt_liquidity.total_debt.source_ref",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave evidence blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_debt_evidence",
+          "target": "F129:M129",
+          "normalized_field": "debt_liquidity.net_debt.source_ref",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave evidence blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
+        },
+        {
+          "binding_id": "valuation_debt_snapshot_net_leverage_evidence",
+          "target": "F130:M130",
+          "normalized_field": "debt_liquidity.net_leverage.source_ref",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave evidence blank only when the scalar contract is absent",
+          "validation_rule": "unexplained_empty_core_field"
         }
       ],
       "notes": [

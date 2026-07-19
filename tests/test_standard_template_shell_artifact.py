@@ -137,13 +137,6 @@ VALUATION_GUIDANCE_SIDECAR_HEADERS = {
     "X63": "Interpretation",
 }
 VALUATION_STRUCTURAL_HEADERS = {
-    "B123": "Principal due ($m)",
-    "C123": "Rate type",
-    "D123": "Coupon/Spread %",
-    "F123": "Maturity",
-    "G123": "Conversion price",
-    "I123": "Added shares on full conversion (m)",
-    "L123": "Concurrent repurchased shares (m)",
     "B138": "Summary",
     "F138": "Score",
     "G138": "Severity",
@@ -381,7 +374,7 @@ def test_standard_template_shell_clears_representative_source_value_leaks() -> N
     wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
     try:
         representative_source_cells = {
-            "SUMMARY": ["A3", "A5", "A7", "B27", "B28", "B29"],
+            "SUMMARY": ["A3", "A5", "A7", "B28"],
             "Valuation": ["B6", "B9", "M18", "S10", "AA14"],
             "BS_Segments": ["B7", "B47", "I49", "A50"],
             "Operating_Drivers": ["B6", "H6"],
@@ -583,17 +576,45 @@ def test_valuation_lower_blocks_preserve_template_bands_merges_and_font_sizes() 
         ws = wb["Valuation"]
         merged_ranges = {str(range_ref) for range_ref in ws.merged_cells.ranges}
 
-        for col_idx in range(1, 15):
-            cell = ws.cell(122, col_idx)
-            assert cell.fill.fgColor.rgb == SECTION_BLUE
+        assert "A122:M122" in merged_ranges
+        assert ws["A122"].fill.fgColor.rgb == SECTION_BLUE
         assert ws["A122"].font.sz == 12
 
-        assert "D123:E123" in merged_ranges
+        assert "F123:M123" in merged_ranges
         assert "H138:I138" in merged_ranges
-        for coord in ("B123", "C123", "D123", "F123", "G123", "I123", "L123"):
+        assert [ws.cell(123, column).value for column in range(1, 7)] == [
+            "Metric",
+            "Value",
+            "Unit",
+            "As of",
+            "Status",
+            "Evidence / lineage",
+        ]
+        for coord in ("A123", "B123", "C123", "D123", "E123", "F123"):
             assert ws[coord].fill.fgColor.rgb == HEADER_BLUE
-            assert ws[coord].font.sz == 12
-        assert ws["E123"].fill.fgColor.rgb in {HEADER_BLUE, "00000000"}
+            assert ws[coord].font.bold is True
+
+        assert [ws.cell(row, 1).value for row in range(124, 132)] == [
+            "Cash",
+            "Revolver availability",
+            "Total liquidity",
+            "Operating lease liabilities",
+            "Core debt",
+            "Net debt",
+            "Net leverage",
+            "Maturity detail",
+        ]
+        assert ws["E131"].value == "unavailable"
+        assert ws["F131"].value == "No maturity schedule available."
+        for row in range(124, 131):
+            assert ws[f"B{row}"].value is None
+            assert ws[f"D{row}"].value is None
+            assert ws[f"E{row}"].value is None
+            assert ws[f"F{row}"].value is None
+        for row in range(132, 137):
+            for column in range(1, 14):
+                assert ws.cell(row, column).value is None
+                assert ws.cell(row, column).protection.locked is True
 
         for coord in ("B138", "F138", "G138", "H138"):
             assert ws[coord].font.sz == 12

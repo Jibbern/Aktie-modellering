@@ -2027,7 +2027,7 @@ def _build_debt_liquidity(
             "source_ref": liquidity_source_ref,
         },
         "liquidity": _field(total_liquidity, source_ref=liquidity_source_ref, unit="$m", period=revolver_period) if total_liquidity is not None else _missing("Deprecated liquidity alias remains missing because total liquidity is unavailable.", source_ref=liquidity_source_ref),
-        "lease_liabilities": _populated_number(history.get("lease_liabilities"), _source_ref("History_Q", history, workbook_path=workbook_path), "$m", "latest"),
+        "lease_liabilities": _populated_number(history.get("lease_liabilities"), _source_ref("History_Q", history, workbook_path=workbook_path), "$m", history_period),
         "interest_expense": _populated_number(leverage.get("interest_expense_net_ttm"), source_ref, "$m", "ttm"),
         "maturity_schedule": [],
     }

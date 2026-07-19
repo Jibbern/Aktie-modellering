@@ -1,6 +1,6 @@
 # Standard Template Defined-Name Audit
 
-- Retained names: `239`
+- Retained names: `269`
 - Target mismatches: `0`
 - Company-specific names/constants: `0`
 - Removed constant: `ThesisBaseAdjEBITDA_FY=815.59`
@@ -195,6 +195,8 @@
 | `summary_net_leverage` | `active_binding_anchor` | `'SUMMARY'!$B$41` | True |
 | `summary_revenue_mix_label` | `active_binding_anchor` | `'SUMMARY'!$A$8` | True |
 | `summary_revenue_stream_rows` | `active_binding_anchor` | `'SUMMARY'!$A$9` | True |
+| `summary_revolver_availability` | `active_binding_anchor` | `'SUMMARY'!$B$44` | True |
+| `summary_revolver_availability_as_of` | `active_binding_anchor` | `'SUMMARY'!$D$44` | True |
 | `summary_segment_model` | `active_binding_anchor` | `'SUMMARY'!$A$13` | True |
 | `summary_strategic_context` | `active_binding_anchor` | `'SUMMARY'!$A$5` | True |
 | `summary_wrong_if` | `active_binding_anchor` | `'SUMMARY'!$A$23` | True |
@@ -209,6 +211,34 @@
 | `valuation_debt_core_series` | `active_binding_anchor` | `'Valuation'!$B$72` | True |
 | `valuation_debt_issuance_series` | `active_binding_anchor` | `'Valuation'!$B$267` | True |
 | `valuation_debt_repayment_series` | `active_binding_anchor` | `'Valuation'!$B$266` | True |
+| `valuation_debt_snapshot_cash_as_of` | `active_binding_anchor` | `'Valuation'!$D$124` | True |
+| `valuation_debt_snapshot_cash_evidence` | `active_binding_anchor` | `'Valuation'!$F$124` | True |
+| `valuation_debt_snapshot_cash_status` | `active_binding_anchor` | `'Valuation'!$E$124` | True |
+| `valuation_debt_snapshot_cash_value` | `active_binding_anchor` | `'Valuation'!$B$124` | True |
+| `valuation_debt_snapshot_core_debt_as_of` | `active_binding_anchor` | `'Valuation'!$D$128` | True |
+| `valuation_debt_snapshot_core_debt_evidence` | `active_binding_anchor` | `'Valuation'!$F$128` | True |
+| `valuation_debt_snapshot_core_debt_status` | `active_binding_anchor` | `'Valuation'!$E$128` | True |
+| `valuation_debt_snapshot_core_debt_value` | `active_binding_anchor` | `'Valuation'!$B$128` | True |
+| `valuation_debt_snapshot_leases_as_of` | `active_binding_anchor` | `'Valuation'!$D$127` | True |
+| `valuation_debt_snapshot_leases_evidence` | `active_binding_anchor` | `'Valuation'!$F$127` | True |
+| `valuation_debt_snapshot_leases_status` | `active_binding_anchor` | `'Valuation'!$E$127` | True |
+| `valuation_debt_snapshot_leases_value` | `active_binding_anchor` | `'Valuation'!$B$127` | True |
+| `valuation_debt_snapshot_liquidity_as_of` | `active_binding_anchor` | `'Valuation'!$D$126` | True |
+| `valuation_debt_snapshot_liquidity_evidence` | `active_binding_anchor` | `'Valuation'!$F$126` | True |
+| `valuation_debt_snapshot_liquidity_status` | `active_binding_anchor` | `'Valuation'!$E$126` | True |
+| `valuation_debt_snapshot_liquidity_value` | `active_binding_anchor` | `'Valuation'!$B$126` | True |
+| `valuation_debt_snapshot_net_debt_as_of` | `active_binding_anchor` | `'Valuation'!$D$129` | True |
+| `valuation_debt_snapshot_net_debt_evidence` | `active_binding_anchor` | `'Valuation'!$F$129` | True |
+| `valuation_debt_snapshot_net_debt_status` | `active_binding_anchor` | `'Valuation'!$E$129` | True |
+| `valuation_debt_snapshot_net_debt_value` | `active_binding_anchor` | `'Valuation'!$B$129` | True |
+| `valuation_debt_snapshot_net_leverage_as_of` | `active_binding_anchor` | `'Valuation'!$D$130` | True |
+| `valuation_debt_snapshot_net_leverage_evidence` | `active_binding_anchor` | `'Valuation'!$F$130` | True |
+| `valuation_debt_snapshot_net_leverage_status` | `active_binding_anchor` | `'Valuation'!$E$130` | True |
+| `valuation_debt_snapshot_net_leverage_value` | `active_binding_anchor` | `'Valuation'!$B$130` | True |
+| `valuation_debt_snapshot_revolver_as_of` | `active_binding_anchor` | `'Valuation'!$D$125` | True |
+| `valuation_debt_snapshot_revolver_evidence` | `active_binding_anchor` | `'Valuation'!$F$125` | True |
+| `valuation_debt_snapshot_revolver_status` | `active_binding_anchor` | `'Valuation'!$E$125` | True |
+| `valuation_debt_snapshot_revolver_value` | `active_binding_anchor` | `'Valuation'!$B$125` | True |
 | `valuation_diluted_shares_series` | `active_binding_anchor` | `'Valuation'!$B$102` | True |
 | `valuation_dividends_cash_series` | `active_binding_anchor` | `'Valuation'!$B$264` | True |
 | `valuation_ebitda_series` | `active_binding_anchor` | `'Valuation'!$B$18` | True |

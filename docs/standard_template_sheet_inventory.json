@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-18T22:18:20+00:00",
+  "generated_at": "2026-07-19T17:08:37+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "module_manifest_version": "1.0.0",
@@ -44,6 +44,14 @@
       "reason": "Visible product sheet owned by the selected frozen-shell module profile.",
       "visible_formula_or_binding_dependency": true,
       "visible_formula_references": [
+        "SUMMARY!B27",
+        "SUMMARY!B29",
+        "SUMMARY!B31",
+        "SUMMARY!B32",
+        "SUMMARY!B33",
+        "SUMMARY!B36",
+        "SUMMARY!B37",
+        "SUMMARY!B42",
         "BS_Segments!B52",
         "BS_Segments!C52",
         "BS_Segments!D52",

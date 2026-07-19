@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 
@@ -138,9 +139,59 @@ def test_visible_metric_labels_are_concise_without_losing_definition() -> None:
 
 def test_formula_contract_contains_no_ticker_specific_content() -> None:
     source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
-    assert FORMULA_CONTRACT_VERSION == "2.0.0"
+    assert FORMULA_CONTRACT_VERSION == "2.1.0"
     for forbidden in ("Abercrombie", "Hollister", "ANF_model", "A&F"):
         assert forbidden not in source
+
+
+def test_summary_formula_contract_is_exact_period_linked_and_fail_closed() -> None:
+    wb = load_workbook(SHELL, data_only=False, read_only=False)
+    try:
+        summary = wb["SUMMARY"]
+        expected_rows = {
+            "B27": 10,
+            "B29": 11,
+            "B31": 38,
+            "B32": 107,
+            "B33": 108,
+            "B36": 49,
+            "B42": 88,
+        }
+        for coordinate, source_row in expected_rows.items():
+            formula = str(summary[coordinate].value)
+            assert formula.startswith("=IFERROR(IF(OR(")
+            assert "$B$26" in formula
+            assert "COUNTIF('Valuation'!$B$6:$M$6,$B$26)<>1" in formula
+            assert f"'Valuation'!$B${source_row}:$M${source_row}" in formula
+            assert "MATCH($B$26,'Valuation'!$B$6:$M$6,0)" in formula
+            assert summary[coordinate].protection.locked is True
+
+        fcf_yoy = str(summary["B37"].value)
+        assert "'Valuation'!$B$48:$M$48" in fcf_yoy
+        assert "'Valuation'!$B$47:$M$47" in fcf_yoy
+        assert "MATCH($B$26,'Valuation'!$B$6:$M$6,0)<=4" in fcf_yoy
+        assert "/ABS(" in fcf_yoy
+        assert "=0" in fcf_yoy
+        assert summary["A33"].value == "GAAP EPS YoY % (latest vs LY quarter)"
+        assert summary["C33"].value == "%"
+    finally:
+        wb.close()
+
+
+def test_summary_business_oracles_use_signed_fcf_improvement() -> None:
+    current_revenue = 1_113.821
+    prior_revenue = current_revenue / (1.0 + 0.015045871225204177)
+    current_net_income = 67.134
+    prior_net_income = current_net_income / (1.0 - 0.1651349906109708)
+    current_eps = 1.4697550189373207
+    prior_eps = current_eps / (1.0 - 0.07562577425325745)
+    current_fcf = 44.256 - 61.341
+    prior_fcf = -4.0 - 50.764
+
+    assert (current_revenue / prior_revenue) - 1 == pytest.approx(0.015045871225204177)
+    assert (current_net_income / prior_net_income) - 1 == pytest.approx(-0.1651349906109708)
+    assert (current_eps / prior_eps) - 1 == pytest.approx(-0.07562577425325745)
+    assert (current_fcf - prior_fcf) / abs(prior_fcf) == pytest.approx(0.688024979913812)
 
 
 def test_typed_scenario_formulas_have_exact_ownership_and_no_unsafe_defaults() -> None:

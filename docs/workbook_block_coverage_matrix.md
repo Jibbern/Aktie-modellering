@@ -13,9 +13,14 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | summary_segment_model_values | SUMMARY | yes | same | similar | same | same | - |
 | summary_key_dependencies_values | SUMMARY | yes | same | similar | same | same | - |
 | summary_wrong_if_values | SUMMARY | yes | same | similar | same | same | - |
-| summary_key_financials_values | SUMMARY | yes | same | similar | similar | same | - |
-| summary_leverage_liquidity_values | SUMMARY | yes | same | similar | similar | same | - |
+| summary_latest_period_value | SUMMARY | yes | same | similar | similar | same | - |
+| summary_latest_revenue_value | SUMMARY | yes | same | similar | same | same | - |
+| summary_latest_net_income_value | SUMMARY | yes | same | similar | same | same | - |
+| summary_net_leverage_value | SUMMARY | yes | same | similar | similar | same | - |
+| summary_revolver_availability_value | SUMMARY | yes | same | similar | same | same | - |
+| summary_liquidity_value | SUMMARY | yes | same | similar | same | same | - |
 | summary_revenue_mix_label | SUMMARY | yes | same | similar | same | same | - |
+| summary_revolver_availability_as_of_value | SUMMARY | yes | same | same | same | same | - |
 | summary_liquidity_as_of_value | SUMMARY | yes | same | same | same | same | - |
 | valuation_guidance_values | Valuation | yes | same | similar | similar | same | - |
 | valuation_guidance_status_values | Valuation | yes | same | similar | similar | same | - |
@@ -23,6 +28,10 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | valuation_operating_driver_values | Valuation | yes | same | similar | similar | same | - |
 | valuation_thesis_bridge_values | Valuation | yes | same | similar | different | same | - |
 | valuation_guidance_status_values_lower | Valuation | yes | same | similar | different | same | - |
+| valuation_debt_snapshot_values | Valuation | yes | same | similar | same | same | - |
+| valuation_debt_snapshot_periods | Valuation | yes | same | same | same | same | - |
+| valuation_debt_snapshot_statuses | Valuation | yes | same | same | same | same | - |
+| valuation_debt_snapshot_evidence | Valuation | yes | same | similar | same | same | - |
 | module_hidden_value_signals_valuation_rows | Valuation | yes | same | similar | same | same | - |
 | valuation_input_values | Valuation | yes | same | similar | same | same | - |
 | valuation_period_headers | Valuation | yes | same | similar | same | same | - |
