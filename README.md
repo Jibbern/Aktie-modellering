@@ -27,6 +27,7 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
 7. [`docs/PERFORMANCE_NOTES.md`](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md)
 8. [`docs/WORKBOOK_ACCEPTANCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/WORKBOOK_ACCEPTANCE.md)
 9. [`docs/CURRENT_PASS.md`](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md) (active legacy-production status log; not the current new-engine migration authority)
+10. [`docs/new_engine_operator_workflow.md`](/c:/Users/Jibbe/Aktier/Code/docs/new_engine_operator_workflow.md) (supported new-engine plan, shadow-render, and immutable-validation CLI)
 
 ## Runtime Model
 - The saved workbook is the product truth.

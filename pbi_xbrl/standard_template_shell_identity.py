@@ -16,7 +16,7 @@ from typing import Any, Mapping, Sequence
 
 from openpyxl import load_workbook
 from openpyxl.formula import Tokenizer
-from openpyxl.utils import range_boundaries
+from openpyxl.utils import column_index_from_string, range_boundaries
 
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 from pbi_xbrl.excel_formula_serialization import (
@@ -554,6 +554,40 @@ def verify_shell_identity(
     )
 
 
+def _excel_native_layout_state(layout: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Keep layout state that Excel dimension serialization must not change."""
+
+    state: list[dict[str, Any]] = []
+    for sheet in layout:
+        columns: dict[int, dict[str, Any]] = {}
+        for column in sheet.get("columns") or ():
+            hidden = bool(column.get("hidden"))
+            outline = int(column.get("outline") or 0)
+            if not hidden and not outline:
+                continue
+            key = str(column.get("key") or "")
+            start = int(column.get("min") or column_index_from_string(key))
+            end = int(column.get("max") or start)
+            for index in range(start, end + 1):
+                columns[index] = {"index": index, "hidden": hidden, "outline": outline}
+        state.append(
+            {
+                "sheet": str(sheet.get("sheet") or ""),
+                "rows": [
+                    {
+                        "index": int(row.get("index") or 0),
+                        "hidden": bool(row.get("hidden")),
+                        "outline": int(row.get("outline") or 0),
+                    }
+                    for row in sheet.get("rows") or ()
+                    if bool(row.get("hidden")) or int(row.get("outline") or 0)
+                ],
+                "columns": [columns[index] for index in sorted(columns)],
+            }
+        )
+    return state
+
+
 def verify_post_fill_structural_identity(
     filled_workbook: Any,
     *,
@@ -700,12 +734,16 @@ def verify_post_fill_structural_identity(
     accepted_excel_normalizations: list[str] = []
     for section, source_signature in source_signatures.items():
         if target_signatures.get(section) != source_signature:
-            if excel_native_roundtrip and section == "layout":
+            if (
+                excel_native_roundtrip
+                and section == "layout"
+                and _excel_native_layout_state(source_payload[section])
+                == _excel_native_layout_state(target_payload[section])
+            ):
                 # Desktop Excel rewrites row/column span records and computes
-                # font-dependent default heights during a save. Layout remains
-                # an exact blocking check in every production pre/post-fill
-                # path; only the isolated native round-trip test classifies
-                # this serialization-only section separately.
+                # font-dependent widths and heights during a save. Dimension
+                # sizes may normalize, while hidden and outline state remains
+                # an exact blocking contract.
                 accepted_excel_normalizations.append(section)
                 continue
             issues.append(
@@ -1042,6 +1080,8 @@ def _post_fill_structural_payload(wb: Any, *, allowed_cells: Mapping[str, set[st
                 "columns": [
                     {
                         "key": str(key),
+                        "min": int(dimension.min or column_index_from_string(str(key))),
+                        "max": int(dimension.max or dimension.min or column_index_from_string(str(key))),
                         "width": _quantize_dimension(dimension.width, step="0.00390625"),
                         "hidden": bool(dimension.hidden),
                         "outline": int(dimension.outlineLevel or 0),

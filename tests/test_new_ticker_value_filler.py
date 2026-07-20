@@ -22,6 +22,7 @@ from pbi_xbrl.new_ticker_value_filler import (
     _resolve_ticker_sheet,
     fill_standard_template_from_package,
 )
+from pbi_xbrl.new_ticker_style_planner import reproduce_style_plan
 from pbi_xbrl.standard_template_shell_identity import verify_shell_identity
 
 
@@ -34,6 +35,21 @@ PACKAGE = ROOT / "tests" / "fixtures" / "normalized_packages" / "TEST_minimal_va
 
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _anf_package_path() -> Path:
+    for parent in (ROOT, *ROOT.parents):
+        candidate = (
+            parent
+            / "StockModelData"
+            / "outputs"
+            / "stress_tests"
+            / "ANF_new_ticker_engine"
+            / "ANF_normalized_data_package.json"
+        )
+        if candidate.exists():
+            return candidate
+    pytest.skip("ANF normalized style fixture is unavailable.")
 
 
 def _approved_plan(package: dict[str, Any] | None = None) -> BindingPlan:
@@ -243,6 +259,36 @@ def test_filler_rejects_stale_expected_plan_before_copy(tmp_path: Path) -> None:
             PACKAGE,
             output_path=output_path,
             expected_plan=stale,
+        )
+
+    assert not output_path.exists()
+
+
+def test_filler_rejects_stale_expected_style_plan_before_copy(tmp_path: Path) -> None:
+    package_path = _anf_package_path()
+    package = _load_json(package_path)
+    manifest = _load_json(MANIFEST)
+    bindings = _load_json(BINDING_MAP)
+    modules = _load_json(ROOT / "docs" / "workbook_module_manifest.json")
+    styles = _load_json(ROOT / "docs" / "standard_template_style_policy.json")
+    plan, style_plan = reproduce_style_plan(
+        package,
+        binding_payload=bindings,
+        manifest=manifest,
+        shell_path=TEMPLATE,
+        module_payload=modules,
+        style_contract=styles,
+    )
+    stale = style_plan.to_dict()
+    stale["decisions"][0]["reason"] = "stale expected style decision"
+    output_path = tmp_path / "must-not-be-copied.xlsx"
+
+    with pytest.raises(BindingContractError, match="style plan differs"):
+        fill_standard_template_from_package(
+            package_path,
+            output_path=output_path,
+            expected_plan=plan,
+            expected_style_plan=stale,
         )
 
     assert not output_path.exists()

@@ -255,6 +255,28 @@ def test_post_fill_structural_identity_allows_only_approved_value_changes_in_mem
         wb.close()
 
 
+def test_excel_native_layout_normalization_rejects_hidden_row_drift() -> None:
+    manifest, bindings = _contracts()
+    wb = load_workbook(SHELL, read_only=False, data_only=False)
+    try:
+        valuation = wb["Valuation"]
+        assert valuation.row_dimensions[145].hidden is True
+        valuation.row_dimensions[145].hidden = False
+
+        report = verify_post_fill_structural_identity(
+            wb,
+            approved_shell_path=SHELL,
+            manifest=manifest,
+            binding_payload=bindings,
+            excel_native_roundtrip=True,
+        )
+
+        assert report["status"] == "FAIL"
+        assert "post_fill_layout_drift" in {row["rule_id"] for row in report["issues"]}
+    finally:
+        wb.close()
+
+
 def test_post_fill_structural_identity_requires_plan_for_changed_values() -> None:
     manifest, bindings = _contracts()
     wb = load_workbook(SHELL, read_only=False, data_only=False)

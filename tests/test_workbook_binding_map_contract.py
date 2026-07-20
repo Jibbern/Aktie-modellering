@@ -442,13 +442,13 @@ def test_p0_period_value_and_qa_contracts_are_explicit() -> None:
     valuation_headers = entries["valuation_period_headers"]
     valuation_outputs = entries["valuation_output_rows"]
 
-    assert as_of["planner_target"] == "B26:B26"
+    assert as_of["planner_target"] == "B26"
     assert as_of["source_field"] == "period"
     assert as_of["normalized_field"].endswith(".period")
-    assert revenue["planner_target"] == "B28:B28"
+    assert revenue["planner_target"] == "B28"
     assert revenue["source_field"] == "revenue"
     assert revenue["row_selector"]["pick"] == "latest"
-    assert net_income["planner_target"] == "B30:B30"
+    assert net_income["planner_target"] == "B30"
     assert net_income["source_field"] == "net_income"
     assert valuation_headers["planner_target"] == "B6:M6"
     assert valuation_headers["source_field"] == "period"

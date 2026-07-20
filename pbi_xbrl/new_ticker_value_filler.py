@@ -25,6 +25,7 @@ from pbi_xbrl.new_ticker_style_application import StyleApplicationError, apply_s
 from pbi_xbrl.new_ticker_style_planner import (
     DEFAULT_MODULE_MANIFEST,
     DEFAULT_STYLE_POLICY,
+    StylePlan,
     StylePlanningError,
     reproduce_style_plan,
 )
@@ -82,6 +83,7 @@ def fill_standard_template_from_package(
     style_policy_path: Path | str = DEFAULT_STYLE_POLICY,
     promotion_requested: bool = False,
     expected_plan: Mapping[str, Any] | BindingPlan | None = None,
+    expected_style_plan: Mapping[str, Any] | StylePlan | None = None,
 ) -> FillResult:
     """Copy the frozen shell and apply an already-safe, exact-cell binding plan.
 
@@ -89,6 +91,7 @@ def fill_standard_template_from_package(
     Schema validation finish before the template is copied or opened, so a P0/P1
     package problem cannot produce a partial workbook. When ``expected_plan`` is
     supplied, it is comparison-only and must exactly match independent reproduction.
+    The same rule applies independently to ``expected_style_plan``.
     """
 
     package = _load_json(Path(package_path))
@@ -109,6 +112,7 @@ def fill_standard_template_from_package(
             ticker_override=ticker,
             promotion_requested=promotion_requested,
             expected_binding_plan=expected_plan,
+            expected_style_plan=expected_style_plan,
         )
     except BindingPlanReproductionError as exc:
         if exc.plan is not None and exc.plan.has_blockers:

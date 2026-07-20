@@ -364,7 +364,7 @@ def test_planner_is_json_only_and_does_not_import_excel_io() -> None:
     assert "load_workbook(" not in source
 
 
-def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
+def test_real_contract_plans_cross_module_business_flows_to_exact_cells() -> None:
     plan = _plan()
 
     assert plan.status == "PASS", [issue.to_dict() for issue in plan.issues]
