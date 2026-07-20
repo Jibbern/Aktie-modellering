@@ -172,7 +172,6 @@ def test_hidden_value_support_contract_has_exact_headers_formulas_and_protection
         assert valuation["A139"].value is None
         assert valuation["B139"].value is None
         assert '"triggered"' in str(valuation["R139"].value)
-        assert valuation["A145"].value == "Operating signals"
         assert "Hidden value score" not in {
             str(valuation[f"N{row}"].value or "") for row in range(137, 144)
         }

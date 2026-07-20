@@ -1,3 +1,5 @@
+> Historical migration/target-state artifact; not the current operator authority.
+
 # New-Ticker Data Lineage Audit
 
 This is a read-only audit of the current workbook data path before any

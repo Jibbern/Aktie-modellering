@@ -1,3 +1,5 @@
+> Historical migration/target-state artifact; not the current operator authority.
+
 # New-Ticker Engine Flow
 
 This document shows where the reusable new-ticker engine should fit after the architecture and frozen-shell passes. It is intentionally a target-state map, not a runtime implementation plan. The value-only filler is shown as a future component and is not implemented in this pass.

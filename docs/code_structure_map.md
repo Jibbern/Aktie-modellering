@@ -1,3 +1,5 @@
+> Historical migration/target-state artifact; not the current operator authority.
+
 # Code Structure Map
 
 This document is a visual, source-grounded map of the current stock-model architecture and the intended ownership boundaries for the new-ticker engine. It is documentation only: no production writer, runtime, workbook, or ticker output behavior is changed by this map.

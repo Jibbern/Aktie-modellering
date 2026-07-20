@@ -1,11 +1,12 @@
 # Standard Template Shell Manifest
 
 This pass defines and materializes the frozen standard workbook shell at
-`templates/standard_stock_model_template.xlsx`. The future filler writes values
-only into the writable zones declared here and in
-`docs/workbook_binding_map.json`. Module ownership, profile activation, and the
-46-sheet full-feature union are declared in
-`docs/workbook_module_manifest.json`.
+`templates/standard_stock_model_template.xlsx`. The exact-cell new-engine filler
+independently reproduces the accepted binding and style plans, writes only their
+authorized targets, and does not select or reinterpret company data. Writable
+zones are declared here and in `docs/workbook_binding_map.json`. Module
+ownership, profile activation, and the 46-sheet full-feature union are declared
+in `docs/workbook_module_manifest.json`.
 
 ## Shell Identity
 
@@ -23,9 +24,11 @@ only into the writable zones declared here and in
 
 ## Ownership
 
-The shell owns layout: sheet order, static labels, merged cells, formulas,
-styles, row heights, column widths, freeze panes, print/view settings, formulas,
-and protected/static areas.
+The shell owns layout: sheet order, static labels, merged cells, installed
+formula families, baseline styles, row heights, column widths, freeze panes,
+print/view settings, and protected/static areas. The binding planner owns exact
+value and formula targets. The style planner owns deterministic style actions.
+The filler may apply only independently reproduced plans from those authorities.
 
 Logical invariant-English formulas remain authoritative in the formula contract.
 Immediately before each new-engine XLSX save, the bounded serializer converts
@@ -63,8 +66,9 @@ value.
 The normalized package owns values/status/sources. Every core value carries a
 status and source/reference policy before the workbook is opened.
 
-The validator blocks bad content before render. A future filler must refuse
-promotion when P1 normalized-data issues remain.
+The validator blocks bad content before render. The exact-cell filler must refuse
+output when P1 normalized-data issues remain or independent plan reproduction
+does not match the reviewed expectation.
 
 The shell validator also blocks non-neutral template content before runtime:
 visible company values, source/thesis text, fixed sector labels, fixed dimension
@@ -77,8 +81,8 @@ Writable zones are value-only destinations. They may receive scalars, text
 blocks, series, table rows, pivot-matrix values, or validation rows according
 to the binding map.
 Writable zones and non-writable zones must be disjoint by A1 range on the same
-sheet. This lets a future filler reject unsafe writes before opening the
-workbook.
+sheet. This lets the planner and exact-cell filler reject unsafe writes before
+opening the workbook.
 
 Non-writable zones include title rows, section headers, static row labels,
 formula-only bands, hidden support formulas, style-only spacer rows, and any
@@ -88,7 +92,7 @@ never be overwritten by the filler.
 
 Reusable helper formulas outside writable zones are shell-owned and retained.
 ANF formulas that lived inside source-backed writable value zones are treated as
-company/source-specific evidence and cleared with the values, so the future
+company/source-specific evidence and cleared with the values, so the exact-cell
 filler does not have to distinguish formula subcells inside broad write targets.
 
 ## Block Architecture Link
@@ -102,7 +106,7 @@ standardization status.
 The manifest remains the source of truth for writable and non-writable zone
 safety. The block architecture adds the visual/workbook context used to keep the
 rich shell aligned with the binding map without making layout decisions inside
-the future filler.
+the exact-cell filler.
 
 For the rich shell:
 
@@ -143,8 +147,8 @@ business logic.
 `Promise_Progress_UI` has repeated annual-guidance and guidance-revision blocks.
 The repeated column header rows are non-writable shell-owned structure, while
 the rows beneath each header are separate writable zones. This preserves the
-full standard workbook column contract on every block without allowing a future
-filler to overwrite headers.
+full standard workbook column contract on every block without allowing the
+exact-cell filler to overwrite headers.
 
 ## Valuation And Operating Driver Sidecars
 
@@ -161,23 +165,18 @@ their exact visible columns and start rows; row 9 on `Quarter_Notes_UI` remains
 header-only. Declaring a broad visual shell zone never authorizes sequential
 row dumping.
 
-The Valuation right-side guidance/driver sidecar also uses repeated protected
-header rows. Lower guidance, operating-driver, thesis-bridge, and output headers
-are non-writable shell structure; the corresponding value rows beneath them are
-separate writable zones. `Operating_Drivers` follows the same pattern for its
-topic/current-read and horizon/commentary subheaders.
+The Valuation right side contains the active guidance projection at `O7:AC35`
+and the typed thesis/debate projection at `O48:AA62`. Their protected headers and
+exact row targets are separate shell and binding responsibilities. The former
+Operating Drivers sidecar at `O37:AC47` is retired: it is blank, locked, and has
+no binding, formula, style, name, or module ownership. The separate
+`Operating_Drivers` worksheet retains its own declared shell structure.
 
-Valuation's lower reusable blocks are also split around protected headers:
-`Debt Detail (latest)`, hidden-value flag headers, `Trend/Δ (last 4Q)`, and
-`Red/Green Flags` are shell-owned. Their value/status areas remain blank and
-neutral in the frozen shell; the future filler must write only the declared
-value zones and must not replace the standard flag-rule labels.
-
-The lower Valuation header bands keep the ANF-led visual contract: Debt Detail
-uses `A122:N122`, Operating Signals and Capital Return use `A:M`, Trend uses
-`A:D`, and the secondary Valuation title at row 192 is protected. Header text in
-these bands is styled as template UI, while all ticker-specific values beneath
-the bands remain blank until the normalized package is bound.
+Valuation's lower active product surface contains the scalar debt/liquidity
+snapshot at `A122:M136` and Hidden Value at `A137:R143`. `A145:M188` is retired,
+blank, locked, hidden, and unowned. No Operating Signals, Capital Return, Trend,
+or Red/Green panel may reclaim that range. The secondary Valuation title and
+scenario product beginning at row 192 remain protected and unchanged.
 
 `Operating_Drivers` uses its title on row 1 and freezes only row 1 (`A2` freeze
 pane). The former row-2 title band is intentionally blank in the frozen shell.
@@ -239,9 +238,11 @@ Intentional spacer rows are not writable by implication. Bindings use explicit
 `target_rows` when a visual table is non-contiguous; for example, Valuation
 outputs use rows 64-70 and 72-75 while row 71 remains shell-owned.
 
-Future filler writes values only. It must not create ticker-specific visible UI,
-run post-render scaffold/repair, create `.xlsm`, or overwrite static shell
-labels/formulas. It must fail if a binding target overlaps a non-writable zone.
+The exact-cell filler applies only independently reproduced binding, formula,
+and style plans. It must not create ticker-specific visible UI, run post-render
+scaffold/repair, create `.xlsm`, overwrite static shell labels/formulas, or
+evaluate business economics. It must fail if a planned target overlaps a
+non-writable zone.
 
 ## Cryptographic Shell Identity
 

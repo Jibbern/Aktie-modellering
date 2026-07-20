@@ -1,3 +1,5 @@
+> Historical migration/target-state artifact; not the current operator authority.
+
 # New-Ticker Engine Architecture Audit
 
 This audit is based on the current `main` workbook generation flow plus a

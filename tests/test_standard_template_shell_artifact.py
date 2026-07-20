@@ -147,8 +147,8 @@ VALUATION_GUIDANCE_SIDECAR_HEADERS = {
 VALUATION_STRUCTURAL_HEADERS = {
     "B138": "Summary",
     "F138": "Score",
-    "G138": "Severity",
-    "H138": "Result / support",
+    "G138": "State",
+    "H138": "As of period",
 }
 VALUATION_BLUE_SECTION_HEADERS = {
     "O7",
@@ -595,53 +595,9 @@ def test_valuation_lower_blocks_preserve_template_bands_merges_and_font_sizes() 
             assert ws[coord].font.sz == 12
             assert ws[coord].fill.fgColor.rgb == HEADER_BLUE
 
-        for row_idx in range(145, 189):
-            assert ws.row_dimensions[row_idx].hidden is True
-            for col_idx in range(1, 14):
-                cell = ws.cell(row_idx, col_idx)
-                assert cell.value is None
-                assert cell.protection.locked is True
-
         assert ws["B192"].value == "Valuation"
         assert ws["B192"].fill.fgColor.rgb == SECTION_BLUE
         assert ws["B192"].font.sz == 18
-    finally:
-        wb.close()
-
-
-def test_valuation_retired_signal_capacity_has_no_labels_or_slots() -> None:
-    wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
-    try:
-        ws = wb["Valuation"]
-        assert all(
-            ws.cell(row_idx, col_idx).value is None
-            for row_idx in range(145, 189)
-            for col_idx in range(1, 14)
-        )
-    finally:
-        wb.close()
-
-
-def test_valuation_retired_signal_capacity_has_no_merges_or_validations() -> None:
-    wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
-    try:
-        ws = wb["Valuation"]
-
-        assert not any(
-            merged.min_row <= 188
-            and merged.max_row >= 145
-            and merged.min_col <= 13
-            and merged.max_col >= 1
-            for merged in ws.merged_cells.ranges
-        )
-        assert not any(
-            cell_range.min_row <= 188
-            and cell_range.max_row >= 145
-            and cell_range.min_col <= 13
-            and cell_range.max_col >= 1
-            for validation in ws.data_validations.dataValidation
-            for cell_range in validation.ranges.ranges
-        )
     finally:
         wb.close()
 

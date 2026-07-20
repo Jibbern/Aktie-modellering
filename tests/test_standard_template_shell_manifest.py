@@ -132,11 +132,3 @@ def test_standard_template_shell_manifest_writable_and_non_writable_zones_do_not
                     failures.append(f"{sheet['sheet']}: {writable_id} overlaps {non_writable_id}")
 
     assert failures == []
-
-
-def test_standard_template_shell_manifest_docs_state_materialized_shell_artifact() -> None:
-    doc = (ROOT / "docs" / "standard_template_shell_manifest.md").read_text(encoding="utf-8").lower()
-
-    assert "templates/standard_stock_model_template.xlsx" in doc
-    assert ".xlsx" in doc
-    assert "future filler writes values only" in doc

@@ -1,5 +1,7 @@
 ﻿# Current Pass
 
+> This is the active legacy-production status log. It is not the current new-engine migration authority.
+
 ## Focus
 - Harden workbook dataflow so fixes reach the saved workbook reliably.
 - Reduce late-stage leakage between source resolution, visible note rendering, and `Valuation`.

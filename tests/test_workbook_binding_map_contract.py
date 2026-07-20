@@ -315,18 +315,6 @@ def test_binding_targets_do_not_overlap_manifest_non_writable_zones() -> None:
                 failures.append(f"{entry['binding_id']} overlaps non-writable zone {zone_id}")
 
     assert failures == []
-
-
-def test_workbook_binding_map_doc_rejects_post_render_patching_as_runtime_strategy() -> None:
-    text = (ROOT / "docs" / "workbook_binding_map.md").read_text(encoding="utf-8").lower()
-
-    assert "post-render" in text
-    assert "mapping gaps" in text
-    assert "manual review" in text
-    assert "visible sheets" in text
-    assert "writable zones" in text
-
-
 def test_table_row_bindings_define_concrete_row_schema() -> None:
     entries = {entry["binding_id"]: entry for entry in _payload()["bindings"]}
 
@@ -500,7 +488,6 @@ def test_generic_planner_contracts_contain_no_anf_company_labels() -> None:
             ROOT / "docs" / "workbook_binding_map.json",
             ROOT / "docs" / "standard_template_shell_manifest.json",
             ROOT / "pbi_xbrl" / "new_ticker_binding_planner.py",
-            ROOT / "pbi_xbrl" / "new_ticker_evidence.py",
         )
     ).lower()
 

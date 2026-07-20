@@ -209,8 +209,8 @@ VALUATION_GUIDANCE_SIDECAR_HEADERS = {
 VALUATION_STRUCTURAL_HEADERS = {
     "B138": "Summary",
     "F138": "Score",
-    "G138": "Severity",
-    "H138": "Result / support",
+    "G138": "State",
+    "H138": "As of period",
 }
 VALUATION_BLUE_SECTION_HEADERS = {
     "O7": "Current guidance",
